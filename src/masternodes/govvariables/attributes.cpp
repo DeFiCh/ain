@@ -1820,7 +1820,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             evmQueueId &&
                             !evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token->name, token->symbol,
                                                        tokenID.v)) {
-                            evm_try_create_dst20(result, evmQueueId, token->creationTx.GetByteArray(),
+                            evm_try_create_dst20(result, evmQueueId, token->creationTx.GetHex(),
                                                  token->name,
                                                  token->symbol,
                                                  tokenID.v);

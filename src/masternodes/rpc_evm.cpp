@@ -54,7 +54,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
                           {"gasPrice", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas Price in Gwei"},
                           {"gasLimit", RPCArg::Type::NUM, RPCArg::Optional::NO, "Gas limit"},
                           {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "To address. Can be empty"},
-                          {"value", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount to send"},
+                          {"value", RPCArg::Type::NUM, RPCArg::Optional::NO, "Amount to send in DFI"},
                           {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Hex encoded data. Can be blank."},
                           },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
@@ -90,18 +90,16 @@ UniValue evmtx(const JSONRPCRequest &request) {
     // TODO Get chain ID from Params when defined
     const uint64_t chainID{1};
 
-    const arith_uint256 nonceParam = request.params[1].get_int64();
-    const auto nonce               = ArithToUint256(nonceParam);
-
-    arith_uint256 gasPriceArith = request.params[2].get_int64();  // Price as GWei
-    gasPriceArith *= WEI_IN_GWEI;                                 // Convert to Wei
-    const uint256 gasPrice = ArithToUint256(gasPriceArith);
-
-    arith_uint256 gasLimitArith = request.params[3].get_int64();
-    const uint256 gasLimit      = ArithToUint256(gasLimitArith);
+    if (request.params[1].get_int64() < 0 || request.params[2].get_int64() < 0 || request.params[3].get_int64() < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Input params cannot be negative");
+    }
+    const auto nonce = static_cast<uint64_t>(request.params[1].get_int64());
+    const auto gasPrice = static_cast<uint64_t>(request.params[2].get_int64());  // Price as GWei
+    const auto gasLimit = static_cast<uint64_t>(request.params[3].get_int64());
+    const uint64_t value = AmountFromValue(request.params[5]);   // Amount in CAmount
 
     const auto toStr = request.params[4].get_str();
-    EvmAddressData to{};
+    std::string to = "";
     if (!toStr.empty()) {
         const auto toDest = DecodeDestination(toStr);
         if (toDest.index() != WitV16KeyEthHashType) {
@@ -109,11 +107,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        std::copy(toEth.begin(), toEth.end(), to.begin());
+        to = toEth.ToHexString();
     }
-
-    const arith_uint256 valueParam = AmountFromValue(request.params[5]);
-    const auto value               = ArithToUint256(valueParam * CAMOUNT_TO_GWEI * WEI_IN_GWEI);
 
     rust::Vec<uint8_t> input{};
     if (!request.params[6].isNull()) {
@@ -133,11 +128,11 @@ UniValue evmtx(const JSONRPCRequest &request) {
     CrossBoundaryResult result;
     const auto signedTx = evm_try_create_and_sign_tx(result,
                                                      CreateTransactionContext{chainID,
-                                                                              nonce.GetByteArray(),
-                                                                              gasPrice.GetByteArray(),
-                                                                              gasLimit.GetByteArray(),
+                                                                              nonce,
+                                                                              gasPrice,
+                                                                              gasLimit,
                                                                               to,
-                                                                              value.GetByteArray(),
+                                                                              value,
                                                                               input,
                                                                               privKey});
     if (!result.ok) {
@@ -205,14 +200,22 @@ UniValue vmmap(const JSONRPCRequest &request) {
         return str;
     };
 
-    const std::string input = request.params[0].get_str();
+    auto ensureEVMHashStripped = [](const std::string &str) {
+        if (str.length() > 2 && str.substr(0, 2) == "0x") {
+            return str.substr(2);
+        }
+        return str;
+    };
+
+    const auto inputStr = request.params[0].get_str();
+    const auto input = ensureEVMHashStripped(inputStr);
 
     int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
         throwInvalidParam();
     }
 
-    auto tryResolveMapBlockOrTxResult = [](ResVal<uint256> &res, const uint256 input) {
+    auto tryResolveMapBlockOrTxResult = [](ResVal<std::string> &res, const std::string input) {
         res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
         if (res)
             return VMDomainRPCMapType::TxHashDVMToEVM;
@@ -263,7 +266,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         };
 */
     auto type  = static_cast<VMDomainRPCMapType>(typeInt);
-    ResVal res = ResVal<uint256>(uint256{}, Res::Ok());
+    ResVal res = ResVal<std::string>(std::string{}, Res::Ok());
 
     auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
         // auto mapType = tryResolveBlockNumberType(input);
@@ -272,7 +275,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         auto inLength = input.length();
         if (inLength == 64 || inLength == 66) {
-            auto mapType = tryResolveMapBlockOrTxResult(res, uint256S(input));
+            auto mapType = tryResolveMapBlockOrTxResult(res, input);
             // We don't pass this type back on purpose
             if (mapType != VMDomainRPCMapType::Unknown) {
                 return {mapType, true};
@@ -282,14 +285,14 @@ UniValue vmmap(const JSONRPCRequest &request) {
         return {VMDomainRPCMapType::Unknown, false};
     };
 
-    auto finalizeResult = [&](ResVal<uint256> &res, const VMDomainRPCMapType type, const std::string input) {
+    auto finalizeResult = [&](ResVal<std::string> &res, const VMDomainRPCMapType type, const std::string input) {
         if (!res) {
             throw JSONRPCError(RPC_INVALID_REQUEST, res.msg);
         } else {
             UniValue ret(UniValue::VOBJ);
-            ret.pushKV("input", input);
+            ret.pushKV("input", inputStr);
             ret.pushKV("type", GetVMDomainRPCMapType(type));
-            ret.pushKV("output", ensureEVMHashPrefixed(res.val->ToString(), type));
+            ret.pushKV("output", ensureEVMHashPrefixed(*res.val, type));
             return ret;
         }
     };
@@ -312,10 +315,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
         CrossBoundaryResult result;
         auto evmHash = evm_try_get_block_hash_by_number(result, height);
+        auto evmBlockHash = std::string(evmHash.data(), evmHash.length());
         crossBoundaryOkOrThrow(result);
-        auto evmBlockHash = std::vector<uint8_t>(evmHash.begin(), evmHash.end());
-        std::reverse(evmBlockHash.begin(), evmBlockHash.end());
-        ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256(evmBlockHash));
+        ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
         if (!dvm_block) {
             throwInvalidParam(dvm_block.msg);
         }
@@ -335,12 +337,12 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
         CBlockIndex *pindex = ::ChainActive()[height];
         auto evmBlockHash =
-            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(pindex->GetBlockHash().GetHex()));
+            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
         if (!evmBlockHash.val.has_value()) {
             throwInvalidParam(evmBlockHash.msg);
         }
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.val.value().GetByteArray());
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, *evmBlockHash.val);
         crossBoundaryOkOrThrow(result);
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };
@@ -357,19 +359,19 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     switch (type) {
         case VMDomainRPCMapType::TxHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
             break;
         }
         case VMDomainRPCMapType::TxHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockHashDVMToEVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
             break;
         }
         case VMDomainRPCMapType::BlockHashEVMToDVM: {
-            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256S(input));
+            res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
         // TODO(canonbrother): disable for release, more investigation needed
@@ -417,50 +419,50 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     switch (type) {
         case VMDomainIndexType::BlockHashDVMToEVM: {
             pcustomcsview->ForEachVMDomainBlockEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &blockHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &blockHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
-                        indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                        indexesJson.pushKV(index.second, blockHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::DVMToEVM, uint256{}));
+                std::make_pair(VMDomainEdge::DVMToEVM, std::string{}));
             break;
         }
         case VMDomainIndexType::BlockHashEVMToDVM: {
             pcustomcsview->ForEachVMDomainBlockEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &blockHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &blockHash) {
                     if (index.first == VMDomainEdge::EVMToDVM) {
-                        indexesJson.pushKV(index.second.GetHex(), blockHash.GetHex());
+                        indexesJson.pushKV(index.second, blockHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::EVMToDVM, uint256{}));
+                std::make_pair(VMDomainEdge::EVMToDVM, std::string{}));
             break;
         }
         case VMDomainIndexType::TxHashDVMToEVM: {
             pcustomcsview->ForEachVMDomainTxEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &txHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &txHash) {
                     if (index.first == VMDomainEdge::DVMToEVM) {
-                        indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                        indexesJson.pushKV(index.second, txHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::DVMToEVM, uint256{}));
+                std::make_pair(VMDomainEdge::DVMToEVM, std::string{}));
             break;
         }
         case VMDomainIndexType::TxHashEVMToDVM: {
             pcustomcsview->ForEachVMDomainTxEdges(
-                [&](const std::pair<VMDomainEdge, uint256> &index, const uint256 &txHash) {
+                [&](const std::pair<VMDomainEdge, std::string> &index, const std::string &txHash) {
                     if (index.first == VMDomainEdge::EVMToDVM) {
-                        indexesJson.pushKV(index.second.GetHex(), txHash.GetHex());
+                        indexesJson.pushKV(index.second, txHash);
                         ++count;
                     }
                     return true;
                 },
-                std::make_pair(VMDomainEdge::EVMToDVM, uint256{}));
+                std::make_pair(VMDomainEdge::EVMToDVM, std::string{}));
             break;
         }
         default:

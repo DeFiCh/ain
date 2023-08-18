@@ -2,17 +2,17 @@ use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::txqueue::QueueTx;
 use ain_evm::{
-    core::ValidateTxInfo,
+    core::{ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     services::SERVICES,
     storage::traits::Rollback,
     storage::traits::TransactionStorage,
     transaction::{self, SignedTx},
-    weiamount::WeiAmount,
+    weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
-use primitive_types::{H160, H256, U256};
+use primitive_types::U256;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -38,29 +38,36 @@ pub fn evm_try_create_and_sign_tx(
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
     } else {
-        TransactionAction::Call(H160::from_slice(&ctx.to))
+        let Ok(to_address) = ctx.to.parse() else {
+            return cross_boundary_error_return(result, "Invalid address");
+        };
+        TransactionAction::Call(to_address)
     };
-
-    let nonce_u256 = U256::from(ctx.nonce);
-    let gas_price_u256 = U256::from(ctx.gas_price);
-    let gas_limit_u256 = U256::from(ctx.gas_limit);
-    let value_u256 = U256::from(ctx.value);
+    let nonce = U256::from(ctx.nonce);
+    let gas_price = match try_from_gwei(U256::from(ctx.gas_price)) {
+        Ok(price) => price,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+    let gas_limit = U256::from(ctx.gas_limit);
+    let value = match try_from_satoshi(U256::from(ctx.value)) {
+        Ok(wei_value) => wei_value,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
 
     // Create
     let t = LegacyUnsignedTransaction {
-        nonce: nonce_u256,
-        gas_price: gas_price_u256,
-        gas_limit: gas_limit_u256,
+        nonce,
+        gas_price: gas_price.0,
+        gas_limit,
         action: to_action,
-        value: value_u256,
+        value: value.0,
         input: ctx.input,
         // Dummy sig for now. Needs 27, 28 or > 36 for valid v.
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
     };
 
-    // Sign
-    let priv_key_h256 = H256::from(ctx.priv_key);
-    match t.sign(&priv_key_h256, ctx.chain_id) {
+    // Sign with a big endian byte array
+    match t.sign(&ctx.priv_key, ctx.chain_id) {
         Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
@@ -79,14 +86,16 @@ pub fn evm_try_create_and_sign_tx(
 /// # Returns
 ///
 /// Returns the balance of the account as a `u64` on success.
-pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: [u8; 20]) -> u64 {
-    let account = H160::from(address);
+pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: &str) -> u64 {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
     let (_, latest_block_number) = match SERVICES.evm.block.get_latest_block_hash_and_number() {
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
         Ok(data) => data.unwrap_or_default(),
     };
 
-    match SERVICES.evm.core.get_balance(account, latest_block_number) {
+    match SERVICES.evm.core.get_balance(address, latest_block_number) {
         Err(e) => cross_boundary_error_return(result, e.to_string()),
         Ok(balance) => {
             let amount = WeiAmount(balance).to_satoshi().try_into();
@@ -109,9 +118,12 @@ pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: [u8; 
 pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: [u8; 20],
+    address: &str,
 ) -> u64 {
-    let address = H160::from(address);
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
     unsafe {
         match SERVICES
             .evm
@@ -139,9 +151,12 @@ pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
 pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: [u8; 20],
+    address: &str,
 ) {
-    let address = H160::from(address);
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
     unsafe {
         match SERVICES.evm.core.remove_txs_by_sender_in(queue_id, address) {
             Ok(_) => cross_boundary_success_return(result, ()),
@@ -163,18 +178,23 @@ pub fn evm_unsafe_try_add_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
-    amount: [u8; 32],
-    hash: [u8; 32],
+    amount: u64,
+    native_hash: &str,
 ) {
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
+    let amount = match try_from_satoshi(U256::from(amount)) {
+        Ok(wei_amount) => wei_amount,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+    let native_hash = XHash::from(native_hash);
 
     unsafe {
         match SERVICES
             .evm
             .core
-            .add_balance(queue_id, address, amount.into(), hash)
+            .add_balance(queue_id, address, amount.0, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -205,18 +225,23 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
-    amount: [u8; 32],
-    hash: [u8; 32],
+    amount: u64,
+    native_hash: &str,
 ) -> bool {
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
+    let amount = match try_from_satoshi(U256::from(amount)) {
+        Ok(wei_amount) => wei_amount,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+    let native_hash = XHash::from(native_hash);
 
     unsafe {
         match SERVICES
             .evm
             .core
-            .sub_balance(queue_id, address, amount.into(), hash)
+            .sub_balance(queue_id, address, amount.0, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, true),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -249,14 +274,15 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 pub fn evm_unsafe_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
-) -> ffi::PreValidateTxCompletion {
+) -> ffi::ValidateTxCompletion {
     let queue_id = 0;
+
     unsafe {
         match SERVICES.evm.core.validate_raw_tx(tx, queue_id) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                used_gas: _,
+                used_gas,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -268,10 +294,12 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
 
                 cross_boundary_success_return(
                     result,
-                    ffi::PreValidateTxCompletion {
+                    ffi::ValidateTxCompletion {
                         nonce,
-                        sender: signed_tx.sender.to_fixed_bytes(),
+                        sender: format!("{:?}", signed_tx.sender),
+                        tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
+                        gas_used: used_gas,
                     },
                 )
             }
@@ -338,8 +366,8 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                     result,
                     ffi::ValidateTxCompletion {
                         nonce,
-                        sender: signed_tx.sender.to_fixed_bytes(),
-                        tx_hash: signed_tx.hash().to_fixed_bytes(),
+                        sender: format!("{:?}", signed_tx.sender),
+                        tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
                         gas_used: used_gas,
                     },
@@ -396,17 +424,19 @@ pub fn evm_unsafe_try_push_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
-    hash: [u8; 32],
+    native_hash: &str,
     gas_used: u64,
 ) {
+    let native_hash = native_hash.to_string();
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
+
     unsafe {
         match signed_tx {
             Ok(signed_tx) => {
                 match SERVICES.evm.push_tx_in_queue(
                     queue_id,
                     signed_tx.into(),
-                    hash,
+                    native_hash,
                     U256::from(gas_used),
                 ) {
                     Ok(_) => cross_boundary_success(result),
@@ -434,12 +464,15 @@ pub fn evm_unsafe_try_construct_block_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     difficulty: u32,
-    miner_address: [u8; 20],
+    miner_address: &str,
     timestamp: u64,
     dvm_block_number: u64,
     mnview_ptr: usize,
 ) -> ffi::FinalizeBlockCompletion {
-    let eth_address = H160::from(miner_address);
+    let Ok(eth_address) = miner_address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
     unsafe {
         match SERVICES.evm.construct_block_in_queue(
             queue_id,
@@ -519,14 +552,14 @@ pub fn evm_try_set_attribute(
 pub fn evm_try_get_block_hash_by_number(
     result: &mut ffi::CrossBoundaryResult,
     height: u64,
-) -> [u8; 32] {
+) -> XHash {
     match SERVICES
         .evm
         .storage
         .get_block_by_number(&U256::from(height))
     {
         Ok(Some(block)) => {
-            cross_boundary_success_return(result, block.header.hash().to_fixed_bytes())
+            cross_boundary_success_return(result, format!("{:?}", block.header.hash()))
         }
         Ok(None) => cross_boundary_error_return(result, "Invalid block number"),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -542,13 +575,11 @@ pub fn evm_try_get_block_hash_by_number(
 /// # Returns
 ///
 /// Returns the block number associated with the given blockhash.
-pub fn evm_try_get_block_number_by_hash(
-    result: &mut ffi::CrossBoundaryResult,
-    hash: [u8; 32],
-) -> u64 {
-    let Ok(hash) = H256::try_from(hash) else {
+pub fn evm_try_get_block_number_by_hash(result: &mut ffi::CrossBoundaryResult, hash: &str) -> u64 {
+    let Ok(hash) = hash.parse() else {
         return cross_boundary_error_return(result, "Invalid block hash");
     };
+
     match SERVICES.evm.storage.get_block_by_hash(&hash) {
         Ok(Some(block)) => {
             let Ok(block_number) = u64::try_from(block.header.number) else {
@@ -563,9 +594,9 @@ pub fn evm_try_get_block_number_by_hash(
 
 pub fn evm_try_get_block_header_by_hash(
     result: &mut ffi::CrossBoundaryResult,
-    hash: [u8; 32],
+    hash: &str,
 ) -> ffi::EVMBlockHeader {
-    let Ok(hash) = H256::try_from(hash) else {
+    let Ok(hash) = hash.parse() else {
         return cross_boundary_error_return(result, "Invalid block hash");
     };
 
@@ -585,17 +616,17 @@ pub fn evm_try_get_block_header_by_hash(
             };
 
             let out = ffi::EVMBlockHeader {
-                parent_hash: block.header.parent_hash.to_fixed_bytes(),
-                beneficiary: block.header.beneficiary.to_fixed_bytes(),
-                state_root: block.header.state_root.to_fixed_bytes(),
-                receipts_root: block.header.receipts_root.to_fixed_bytes(),
+                parent_hash: format!("{:?}", block.header.parent_hash),
+                beneficiary: format!("{:?}", block.header.beneficiary),
+                state_root: format!("{:?}", block.header.state_root),
+                receipts_root: format!("{:?}", block.header.receipts_root),
                 number,
                 gas_limit,
                 gas_used,
                 timestamp: block.header.timestamp,
                 extra_data: block.header.extra_data.clone(),
-                mix_hash: block.header.mix_hash.to_fixed_bytes(),
-                nonce: block.header.nonce.to_low_u64_ne(),
+                mix_hash: format!("{:?}", block.header.mix_hash),
+                nonce: block.header.nonce.to_low_u64_be(),
                 base_fee,
             };
             cross_boundary_success_return(result, out)
@@ -638,13 +669,13 @@ pub fn evm_try_is_dst20_deployed_or_queued(
 
 pub fn evm_try_get_tx_by_hash(
     result: &mut ffi::CrossBoundaryResult,
-    tx_hash: [u8; 32],
+    tx_hash: &str,
 ) -> ffi::EVMTransaction {
-    match SERVICES
-        .evm
-        .storage
-        .get_transaction_by_hash(&H256::from(tx_hash))
-    {
+    let Ok(tx_hash) = tx_hash.parse() else {
+        return cross_boundary_error_return(result, "Invalid tx hash");
+    };
+
+    match SERVICES.evm.storage.get_transaction_by_hash(&tx_hash) {
         Ok(Some(tx)) => {
             let Ok(tx) = SignedTx::try_from(tx) else {
                 return cross_boundary_error_return(result, "failed to convert tx to SignedTx");
@@ -707,8 +738,8 @@ pub fn evm_try_get_tx_by_hash(
 
             let out = ffi::EVMTransaction {
                 tx_type,
-                hash: tx.hash().to_fixed_bytes(),
-                sender: tx.sender.to_fixed_bytes(),
+                hash: format!("{:?}", tx.hash()),
+                sender: format!("{:?}", tx.sender),
                 nonce,
                 gas_price,
                 gas_limit,
@@ -719,8 +750,8 @@ pub fn evm_try_get_tx_by_hash(
                     TransactionAction::Create => true,
                 },
                 to: match tx.to() {
-                    Some(to) => to.to_fixed_bytes(),
-                    None => H160::zero().to_fixed_bytes(),
+                    Some(to) => format!("{:?}", to),
+                    None => XHash::new(),
                 },
                 value,
                 data: tx.data().to_vec(),
@@ -735,11 +766,12 @@ pub fn evm_try_get_tx_by_hash(
 pub fn evm_try_create_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    native_hash: [u8; 32],
+    native_hash: &str,
     name: &str,
     symbol: &str,
     token_id: u64,
 ) {
+    let native_hash = XHash::from(native_hash);
     let address = match ain_contracts::dst20_address_from_token_id(token_id) {
         Ok(address) => address,
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -768,21 +800,26 @@ pub fn evm_try_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
-    amount: [u8; 32],
-    native_hash: [u8; 32],
+    amount: u64,
+    native_hash: &str,
     token_id: u64,
     out: bool,
 ) {
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
+    let amount = match try_from_satoshi(U256::from(amount)) {
+        Ok(wei_amount) => wei_amount,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+    let native_hash = XHash::from(native_hash);
     let contract = ain_contracts::dst20_address_from_token_id(token_id)
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
     let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         to: address,
         contract,
-        amount: amount.into(),
+        amount: amount.0,
         out,
     }));
 
@@ -815,5 +852,29 @@ pub fn evm_unsafe_try_get_target_block_in_q(
             Ok(target_block) => cross_boundary_success_return(result, target_block.as_u64()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_hash_type_string() {
+        use primitive_types::H160;
+        let num = 0b11010111_11010111_11010111_11010111_11010111_11010111_11010111_11010111;
+        let num_h160 = H160::from_low_u64_be(num);
+        let num_h160_string = format!("{:?}", num_h160);
+        println!("{}", num_h160_string);
+
+        let num_h160_test: H160 = num_h160_string.parse().unwrap();
+        assert_eq!(num_h160_test, num_h160);
+
+        use primitive_types::H256;
+        let num_h256: H256 = "0x3186715414c5fbd73586662d26b83b66b5754036379d56e896a560a90e409351"
+            .parse()
+            .unwrap();
+        let num_h256_string = format!("{:?}", num_h256);
+        println!("{}", num_h256_string);
+        let num_h256_test: H256 = num_h256_string.parse().unwrap();
+        assert_eq!(num_h256_test, num_h256);
     }
 }
