@@ -3911,6 +3911,8 @@ public:
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
+
+                // Safety: Safe since validate checks for < 0 
                 const auto balanceIn = static_cast<uint64_t>(dst.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
                 CrossBoundaryResult result;
@@ -3935,6 +3937,8 @@ public:
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
+
+                // Safety: Safe since validate checks for < 0 
                 const auto balanceIn = static_cast<uint64_t>(src.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
                 if (tokenId == DCT_ID{0}) {
