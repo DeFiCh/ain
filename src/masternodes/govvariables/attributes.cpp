@@ -4,7 +4,6 @@
 
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_rpc.h>
-#include <ain_rs_exports.h>
 
 #include <masternodes/accountshistory.h>  /// CAccountsHistoryWriter
 #include <masternodes/errors.h>           /// DeFiErrors
@@ -16,6 +15,7 @@
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
+#include <ffi/ffihelpers.h>
 
 enum class EVMAttributesTypes : uint32_t {
     Finalized    = 1,
@@ -1810,25 +1810,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
                             return DeFiErrors::GovVarValidateCurrencyPair();
                         }
-
-                        const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature,
-                                                          DFIPKeys::EVMEnabled};
-
-                        CrossBoundaryResult result;
-                        if (view.GetLastHeight() >= Params().GetConsensus().NextNetworkUpgradeHeight &&
-                            GetValue(enabledKey, false) &&
-                            evmQueueId &&
-                            !evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token->name, token->symbol,
-                                                       tokenID.v)) {
-                            evm_try_create_dst20(result, evmQueueId, token->creationTx.GetHex(),
-                                                 token->name,
-                                                 token->symbol,
-                                                 tokenID.v);
-
-                            if (!result.ok) {
-                                return DeFiErrors::GovVarErrorCreatingDST20(result.reason.c_str());
-                            }
-                        }
                         break;
                     }
                     case TokenKeys::FixedIntervalPriceId:
@@ -2313,6 +2294,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                 return DeFiErrors::GovVarUnsupportedValue();
             }
 
+            // TODO: Cut this out.
             CrossBoundaryResult result;
             if (!evm_try_set_attribute(result, evmQueueId, attributeType, *number)) {
                 return DeFiErrors::SettingEVMAttributeFailure();
@@ -2322,6 +2304,9 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
             }
         }
     }
+
+    // TODO: evm_try_handle_attribute_apply here. 
+    // Pass the whole apply chain. On the rust side, pick and choose what needs to be handled 
     return Res::Ok();
 }
 

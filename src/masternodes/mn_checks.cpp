@@ -1057,32 +1057,17 @@ public:
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
-        // check foundation auth
         if (token.IsDAT() && !HasFoundationAuth()) {
             return Res::Err("tx not from foundation member");
         }
 
-        if (static_cast<int>(height) >= consensus.BayfrontHeight) {  // formal compatibility if someone cheat and create
-                                                                     // LPS token on the pre-bayfront node
+        if (static_cast<int>(height) >= consensus.BayfrontHeight) {  
             if (token.IsPoolShare()) {
                 return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
         }
 
-        auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight);
-
-        if (tokenId && token.IsDAT() && isEvmEnabledForBlock) {
-            CrossBoundaryResult result;
-            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetHex(),
-                             rust::string(tokenName.c_str()),
-                             rust::string(tokenSymbol.c_str()),
-                             tokenId->v);
-
-            if (!result.ok) {
-                return Res::Err("Error creating DST20 token: %s", result.reason);
-            }
-        }
-
+        auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight, isEvmEnabledForBlock, evmQueueId);
         return tokenId;
     }
 
@@ -1435,7 +1420,7 @@ public:
         token.creationTx     = tx.GetHash();
         token.creationHeight = height;
 
-        auto tokenId = mnview.CreateToken(token);
+        auto tokenId = mnview.CreateToken(token, false, false, evmQueueId);
         Require(tokenId);
 
         rewards = obj.rewards;
@@ -2651,7 +2636,7 @@ public:
         token.flags |=
             static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-        auto tokenId = mnview.CreateToken(token);
+        auto tokenId = mnview.CreateToken(token, false, isEvmEnabledForBlock, evmQueueId);
         Require(tokenId);
 
         if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
