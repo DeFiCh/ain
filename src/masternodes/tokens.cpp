@@ -249,19 +249,19 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const {
 }
 
 inline Res CTokenImplementation::IsValidSymbol() const {
-    auto invalidTokenSymbol = [](const std::string &symbol) {
-        return Res::Err("Invalid token symbol: '%s'", symbol);
+    auto invalidTokenSymbol = []() {
+        return Res::Err("Invalid token symbol. Valid: Start with an alphabet, non-empty, not contain # or /");
     };
 
     if (symbol.empty() || IsDigit(symbol[0])) {
-        return invalidTokenSymbol(symbol);
+        return invalidTokenSymbol();
     }
     if (symbol.find('#') != std::string::npos) {
-        return invalidTokenSymbol(symbol);
+        return invalidTokenSymbol();
     }
     if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
         if (symbol.find('/') != std::string::npos) { 
-            return invalidTokenSymbol(symbol);
+            return invalidTokenSymbol();
         };
     }
     return Res::Ok();
