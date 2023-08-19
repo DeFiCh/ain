@@ -68,8 +68,8 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
-    if (!token.IsValidSymbol()) {
-        return Res::Err("Token symbol '%s' invalid", token.symbol);
+    if (auto r = token.IsValidSymbol(); !r) {
+        return r;
     }
 
     DCT_ID id{0};
@@ -245,15 +245,24 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const {
     if (Read(LastDctId::prefix(), lastDctId)) {
         return {lastDctId};
     }
-
     return {};
 }
 
 inline Res CTokenImplementation::IsValidSymbol() const {
-    Require(!symbol.empty() && !IsDigit(symbol[0]), []{ return "token symbol should be non-empty and starts with a letter"; });
-    Require(symbol.find('#') == std::string::npos, []{ return "token symbol should not contain '#'"; });
+    auto invalidTokenSymbol = [](const std::string &symbol) {
+        return Res::Err("Invalid token symbol: '%s'", symbol);
+    };
+
+    if (symbol.empty() || IsDigit(symbol[0])) {
+        return invalidTokenSymbol(symbol);
+    }
+    if (symbol.find('#') != std::string::npos) {
+        return invalidTokenSymbol(symbol);
+    }
     if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
-        Require(symbol.find('/') == std::string::npos, []{ return "token symbol should not contain '/'"; });
+        if (symbol.find('/') != std::string::npos) { 
+            return invalidTokenSymbol(symbol);
+        };
     }
     return Res::Ok();
 }
