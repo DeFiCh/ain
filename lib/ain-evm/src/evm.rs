@@ -195,11 +195,8 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut backend);
 
         // Ensure that state root changes by updating counter contract storage
-        if current_block_number == U256::zero() {
-            // reserve DST20 namespace
+        if is_evm_genesis_block {
             self.reserve_dst20_namespace(&mut executor)?;
-
-            // Deploy contract on the first block
             let DeployContractInfo {
                 address,
                 storage,
