@@ -265,7 +265,8 @@ impl BlockService {
         let block = self
             .storage
             .get_latest_block()?
-            .expect("Unable to find latest block");
+            .ok_or(format_err!("Unable to find latest block"))?;
+
         blocks.push(block.clone());
         let mut parent_hash = block.header.parent_hash;
 
