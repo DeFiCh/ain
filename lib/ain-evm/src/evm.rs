@@ -213,7 +213,7 @@ impl EVMServices {
             executor.update_storage(address, storage)?;
         }
 
-        for (_idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
+        for queue_item in queue.transactions.clone() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
