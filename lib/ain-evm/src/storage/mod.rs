@@ -46,23 +46,31 @@ impl Storage {
 
 impl BlockStorage for Storage {
     fn get_block_by_number(&self, number: &U256) -> Result<Option<BlockAny>> {
-        self.cache.get_block_by_number(number).or_else(|_| {
-            let block = self.blockstore.get_block_by_number(number);
-            if let Ok(Some(ref block)) = block {
-                self.cache.put_block(block)?;
+        match self.cache.get_block_by_number(number) {
+            Ok(Some(block)) => Ok(Some(block)),
+            Ok(None) => {
+                let block = self.blockstore.get_block_by_number(number);
+                if let Ok(Some(ref block)) = block {
+                    self.cache.put_block(block)?;
+                }
+                block
             }
-            block
-        })
+            Err(e) => Err(e),
+        }
     }
 
     fn get_block_by_hash(&self, block_hash: &H256) -> Result<Option<BlockAny>> {
-        self.cache.get_block_by_hash(block_hash).or_else(|_| {
-            let block = self.blockstore.get_block_by_hash(block_hash);
-            if let Ok(Some(ref block)) = block {
-                self.cache.put_block(block)?;
+        match self.cache.get_block_by_hash(block_hash) {
+            Ok(Some(block)) => Ok(Some(block)),
+            Ok(None) => {
+                let block = self.blockstore.get_block_by_hash(block_hash);
+                if let Ok(Some(ref block)) = block {
+                    self.cache.put_block(block)?;
+                }
+                block
             }
-            block
-        })
+            Err(e) => Err(e),
+        }
     }
 
     fn put_block(&self, block: &BlockAny) -> Result<()> {
@@ -71,14 +79,17 @@ impl BlockStorage for Storage {
     }
 
     fn get_latest_block(&self) -> Result<Option<BlockAny>> {
-        let block = self.cache.get_latest_block().or_else(|_| {
-            let latest_block = self.blockstore.get_latest_block();
-            if let Ok(Some(ref block)) = latest_block {
-                self.cache.put_latest_block(Some(block))?;
+        match self.cache.get_latest_block() {
+            Ok(Some(block)) => Ok(Some(block)),
+            Ok(None) => {
+                let block = self.blockstore.get_latest_block();
+                if let Ok(Some(ref block)) = block {
+                    self.cache.put_latest_block(Some(block))?;
+                }
+                block
             }
-            latest_block
-        })?;
-        Ok(block)
+            Err(e) => Err(e),
+        }
     }
 
     fn put_latest_block(&self, block: Option<&BlockAny>) -> Result<()> {
@@ -96,14 +107,17 @@ impl TransactionStorage for Storage {
     }
 
     fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
-        let transaction = self.cache.get_transaction_by_hash(hash).or_else(|_| {
-            let transaction = self.blockstore.get_transaction_by_hash(hash);
-            if let Ok(Some(ref transaction)) = transaction {
-                self.cache.put_transaction(transaction)?;
+        match self.cache.get_transaction_by_hash(hash) {
+            Ok(Some(transaction)) => Ok(Some(transaction)),
+            Ok(None) => {
+                let transaction = self.blockstore.get_transaction_by_hash(hash);
+                if let Ok(Some(ref transaction)) = transaction {
+                    self.cache.put_transaction(transaction)?;
+                }
+                transaction
             }
-            transaction
-        })?;
-        Ok(transaction)
+            Err(e) => Err(e),
+        }
     }
 
     fn get_transaction_by_block_hash_and_index(
@@ -111,10 +125,12 @@ impl TransactionStorage for Storage {
         hash: &H256,
         index: usize,
     ) -> Result<Option<TransactionV2>> {
-        let transaction = self
+        match self
             .cache
             .get_transaction_by_block_hash_and_index(hash, index)
-            .or_else(|_| {
+        {
+            Ok(Some(transaction)) => Ok(Some(transaction)),
+            Ok(None) => {
                 let transaction = self
                     .blockstore
                     .get_transaction_by_block_hash_and_index(hash, index);
@@ -122,8 +138,9 @@ impl TransactionStorage for Storage {
                     self.cache.put_transaction(transaction)?;
                 }
                 transaction
-            })?;
-        Ok(transaction)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn get_transaction_by_block_number_and_index(
@@ -131,10 +148,12 @@ impl TransactionStorage for Storage {
         number: &U256,
         index: usize,
     ) -> Result<Option<TransactionV2>> {
-        let transaction = self
+        match self
             .cache
             .get_transaction_by_block_number_and_index(number, index)
-            .or_else(|_| {
+        {
+            Ok(Some(transaction)) => Ok(Some(transaction)),
+            Ok(None) => {
                 let transaction = self
                     .blockstore
                     .get_transaction_by_block_number_and_index(number, index);
@@ -142,8 +161,9 @@ impl TransactionStorage for Storage {
                     self.cache.put_transaction(transaction)?;
                 }
                 transaction
-            })?;
-        Ok(transaction)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
