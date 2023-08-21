@@ -123,7 +123,7 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, bool shouldCreateDst20 = false, uint32_t evmQueueId = 0);
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, bool shouldCreateDst20 = false, uint64_t evmQueueId = 0);
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

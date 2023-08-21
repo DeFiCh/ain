@@ -64,7 +64,7 @@ Res CTokensView::CreateDFIToken() {
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bool isPreBayfront, bool shouldCreateDst20, uint32_t evmQueueId) {
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bool isPreBayfront, bool shouldCreateDst20, uint64_t evmQueueId) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -260,7 +260,7 @@ inline Res CTokenImplementation::IsValidSymbol() const {
         return invalidTokenSymbol();
     }
     if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
-        if (symbol.find('/') != std::string::npos) { 
+        if (symbol.find('/') != std::string::npos) {
             return invalidTokenSymbol();
         };
     }
