@@ -242,36 +242,28 @@ UniValue vmmap(const JSONRPCRequest &request) {
     };
 
     auto tryResolveBlockNumberType =
-        [&throwUnsupportedAuto, &crossBoundaryOkOrThrow](const std::string input) {
+        [](const std::string input) {
             uint64_t height;
             if (!ParseUInt64(input, &height)) {
                 return VMDomainRPCMapType::Unknown;
             }
-            CrossBoundaryResult result;
-            auto evmBlockCount = evm_try_get_block_count(result);
-            crossBoundaryOkOrThrow(result);
 
-            // evm block count always less than dvm block count
-            if (height > evmBlockCount) {
-                return VMDomainRPCMapType::BlockNumberDVMToEVM;
-            } else {
-                // auto evmFirstBlock = evm_try_get_first_block(result);
-                // crossBoundaryOkOrThrow(result);
-                // if (height >= evmFirstBlock && height <= evmBlockCount) {
-                //     return VMDomainRPCMapType::BlockNumberEVMToDVM;
-                // }
-                throwUnsupportedAuto();
-                return VMDomainRPCMapType::Unknown;
+            CrossBoundaryResult evmResult;
+            evm_try_get_block_hash_by_number(evmResult, height);
+            if (evmResult.ok) {
+                return VMDomainRPCMapType::BlockNumberEVMToDVM;
             }
+
+            return VMDomainRPCMapType::BlockNumberDVMToEVM;
         };
 
     auto type  = static_cast<VMDomainRPCMapType>(typeInt);
     ResVal res = ResVal<std::string>(std::string{}, Res::Ok());
 
     auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
-        // auto mapType = tryResolveBlockNumberType(input);
-        // if (mapType != VMDomainRPCMapType::Unknown)
-        //     return {mapType, false};
+        auto mapType = tryResolveBlockNumberType(input);
+        if (mapType != VMDomainRPCMapType::Unknown)
+            return {mapType, false};
 
         auto inLength = input.length();
         if (inLength == 64 || inLength == 66) {
