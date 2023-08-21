@@ -269,54 +269,54 @@ struct RewardInfo {
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
-            UniValue r(UniValue::VOBJ);
-            r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
-            r.pushKV("beneficiary", std::string(header.beneficiary.data(), header.beneficiary.length()));
-            r.pushKV("stateRoot", std::string(header.state_root.data(), header.state_root.length()));
-            r.pushKV("receiptRoot", std::string(header.receipts_root.data(), header.receipts_root.length()));
-            r.pushKV("number", header.number);
-            r.pushKV("gasLimit", header.gas_limit);
-            r.pushKV("gasUsed", header.gas_used);
-            r.pushKV("timestamp", header.timestamp);
-            r.pushKV("nonce", header.nonce);
-            r.pushKV("baseFee", header.base_fee);
-            return r;
+        UniValue r(UniValue::VOBJ);
+        r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
+        r.pushKV("beneficiary", std::string(header.beneficiary.data(), header.beneficiary.length()));
+        r.pushKV("stateRoot", std::string(header.state_root.data(), header.state_root.length()));
+        r.pushKV("receiptRoot", std::string(header.receipts_root.data(), header.receipts_root.length()));
+        r.pushKV("number", header.number);
+        r.pushKV("gasLimit", header.gas_limit);
+        r.pushKV("gasUsed", header.gas_used);
+        r.pushKV("timestamp", header.timestamp);
+        r.pushKV("nonce", header.nonce);
+        r.pushKV("baseFee", header.base_fee);
+        return r;
     };
 
-        CustomTxType guess;
-        UniValue txResults(UniValue::VOBJ);
-        if (tx.IsCoinBase()) {
-            if (tx.vout.size() < 2) {
-                // TODO: Decode vout 0 to dvm
-                return {};
-            }
-            auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
-            if (tx1ScriptPubKey.size() == 0) return {};
-            auto xvm = XVM::TryFrom(tx1ScriptPubKey);
-            if (!xvm) return {};
-            UniValue result(UniValue::VOBJ);
-            result.pushKV("vmtype", "coinbase");
-            result.pushKV("txtype", "coinbase");
-            result.pushKV("msg", xvm->ToUniValue());
-            CrossBoundaryResult res;
-            auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash);
-            if (!res.ok) return {};
-            result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
-            return result;
-        }
-        auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
-        if (guess == CustomTxType::None) {
+    CustomTxType guess;
+    UniValue txResults(UniValue::VOBJ);
+    if (tx.IsCoinBase()) {
+        if (tx.vout.size() < 2) {
+            // TODO: Decode vout 0 to dvm
             return {};
         }
+        auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
+        if (tx1ScriptPubKey.size() == 0) return {};
+        auto xvm = XVM::TryFrom(tx1ScriptPubKey);
+        if (!xvm) return {};
         UniValue result(UniValue::VOBJ);
-        result.pushKV("vmtype", guess == CustomTxType::EvmTx ? "evm" : "dvm");
-        result.pushKV("txtype", ToString(guess));
-        if (!res.ok) {
-            result.pushKV("error", res.msg);
-        } else {
-            result.pushKV("msg", txResults);
-        }
+        result.pushKV("vmtype", "coinbase");
+        result.pushKV("txtype", "coinbase");
+        result.pushKV("msg", xvm->ToUniValue());
+        CrossBoundaryResult res;
+        auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash);
+        if (!res.ok) return {};
+        result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
         return result;
+    }
+    auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
+    if (guess == CustomTxType::None) {
+        return {};
+    }
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("vmtype", guess == CustomTxType::EvmTx ? "evm" : "dvm");
+    result.pushKV("txtype", ToString(guess));
+    if (!res.ok) {
+        result.pushKV("error", res.msg);
+    } else {
+        result.pushKV("msg", txResults);
+    }
+    return result;
 }
 
 UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails) {
