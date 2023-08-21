@@ -242,7 +242,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
     };
 
     auto tryResolveBlockNumberType =
-        [](const std::string input) {
+        [&throwUnsupportedAuto](const std::string input) {
             uint64_t height;
             if (!ParseUInt64(input, &height)) {
                 return VMDomainRPCMapType::Unknown;
@@ -254,7 +254,13 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 return VMDomainRPCMapType::BlockNumberEVMToDVM;
             }
 
-            return VMDomainRPCMapType::BlockNumberDVMToEVM;
+            CBlockIndex* dvmBlock = ::ChainActive()[height];
+            if (dvmBlock != nullptr) {
+                return VMDomainRPCMapType::BlockNumberDVMToEVM;
+            }
+
+            throwUnsupportedAuto();
+            return VMDomainRPCMapType::Unknown;
         };
 
     auto type  = static_cast<VMDomainRPCMapType>(typeInt);
