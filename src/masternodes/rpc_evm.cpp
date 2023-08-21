@@ -334,11 +334,11 @@ UniValue vmmap(const JSONRPCRequest &request) {
         const CBlock block = GetBlockChecked(pindex);
         CScript scriptPubKey = block.vtx[0]->vout[1].scriptPubKey;
         if (scriptPubKey.size() == 0) {
-            throwInvalidParam(DeFiErrors::VmmapScriptPubKeyNotFound());
+            throwInvalidParam(DeFiErrors::VmmapScriptPubKeyNotFound().msg.c_str());
         }
         auto xvm = XVM::TryFrom(scriptPubKey);
         if (!xvm) {
-            throwInvalidParam(DeFiErrors::VmmapScriptPubKeyInvalid());
+            throwInvalidParam(DeFiErrors::VmmapScriptPubKeyInvalid().msg.c_str());
         }
         CrossBoundaryResult result;
         uint64_t blockNumber = evm_try_get_block_number_by_hash(result, xvm->evm.blockHash);
