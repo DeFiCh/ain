@@ -63,7 +63,7 @@ setup_vars() {
     MAKE_DEPS_ARGS=${MAKE_DEPS_ARGS:-}
     TESTS_FAILFAST=${TESTS_FAILFAST:-"0"}
     TESTS_COMBINED_LOGS=${TESTS_COMBINED_LOGS:-"0"}
-    CI_GROUP_LOGS=${CI_GROUP_LOGS:-"1"}
+    CI_GROUP_LOGS=${CI_GROUP_LOGS:-"$(get_default_ci_group_logs)"}
 }
 
 main() {
@@ -948,6 +948,14 @@ get_default_use_clang() {
     fi
     echo 0
     return
+}
+
+get_default_ci_group_logs() {
+    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
+        echo 1
+    else
+        echo 0
+    fi
 }
 
 # Dev tools

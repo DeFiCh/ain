@@ -192,7 +192,7 @@ class LoanSetLoanTokenTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32600,
-            "token symbol should be non-empty and starts with a letter",
+            "Invalid token symbol",
             self.nodes[0].setloantoken,
             {
                 "symbol": "",
