@@ -134,12 +134,6 @@ impl EVMServices {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
 
-        let is_evm_genesis_block = queue.target_block == U256::zero();
-        if is_evm_genesis_block {
-            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
-            queue.transactions.extend(migration_txs.into_iter())
-        }
-
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
         let mut failed_transactions = Vec::with_capacity(queue_txs_len);
@@ -194,9 +188,13 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        // Ensure that state root changes by updating counter contract storage
+        let is_evm_genesis_block = queue.target_block == U256::zero();
         if is_evm_genesis_block {
             self.reserve_dst20_namespace(&mut executor)?;
+
+            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
+            queue.transactions.extend(migration_txs.into_iter());
+
             let DeployContractInfo {
                 address,
                 storage,
@@ -204,6 +202,7 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.deploy_contract(address, bytecode, storage)?;
         } else {
+            // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
