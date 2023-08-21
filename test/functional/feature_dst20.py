@@ -15,7 +15,6 @@ from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
-
 class DST20(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -138,7 +137,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
             ),
-            tx1["input"],
+            self.bytecode,
         )
 
         # check BTC migration
@@ -159,7 +158,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_btc)
             ),
-            tx2["input"],
+            self.bytecode,
         )
 
         # check ETH migration
@@ -180,7 +179,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_eth)
             ),
-            tx3["input"],
+            self.bytecode,
         )
 
         assert_equal(tx1["input"], tx2["input"])
@@ -800,6 +799,15 @@ class DST20(DefiTestFramework):
                 encoding="utf8",
             ).read()
         )["object"]
+
+        self.bytecode = json.loads(
+            open(
+                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/bytecode.json",
+                "r",
+                encoding="utf8",
+            ).read()
+        )["object"]
+
 
         # Generate chain
         self.node.generate(150)
