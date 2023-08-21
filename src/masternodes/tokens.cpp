@@ -95,14 +95,14 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
                       id.ToString().c_str());
         }
 
-            if (shouldCreateDst20) {
-                CrossBoundaryResult result;
-                evm_try_create_dst20(result, evmQueueId, token.creationTx.GetHex(),
-                                    rust::string(token.name.c_str()),
-                                    rust::string(token.symbol.c_str()),
-                                    id.v);
-                if (!result.ok) {
-                    return Res::Err("Error creating DST20 token: %s", result.reason);
+        if (shouldCreateDst20) {
+            CrossBoundaryResult result;
+            evm_try_create_dst20(result, evmQueueId, token.creationTx.GetHex(),
+                                rust::string(token.name.c_str()),
+                                rust::string(token.symbol.c_str()),
+                                id.v);
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
             }
         }
     } else {
