@@ -234,7 +234,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         return VMDomainRPCMapType::Unknown;
     };
-/*
+
     auto crossBoundaryOkOrThrow = [&throwInvalidParam](CrossBoundaryResult &result) {
         if (!result.ok) {
             throwInvalidParam(result.reason.c_str());
@@ -264,7 +264,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 return VMDomainRPCMapType::Unknown;
             }
         };
-*/
+
     auto type  = static_cast<VMDomainRPCMapType>(typeInt);
     ResVal res = ResVal<std::string>(std::string{}, Res::Ok());
 
@@ -296,7 +296,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
             return ret;
         }
     };
-/*
+
     auto finalizeBlockNumberResult = [&](uint64_t &number, const VMDomainRPCMapType type, const uint64_t input) {
         UniValue ret(UniValue::VOBJ);
         ret.pushKV("input", input);
@@ -346,7 +346,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
         crossBoundaryOkOrThrow(result);
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberDVMToEVM, height);
     };
-*/
+
     LOCK(cs_main);
 
     if (type == VMDomainRPCMapType::Auto) {
@@ -374,13 +374,12 @@ UniValue vmmap(const JSONRPCRequest &request) {
             res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
             break;
         }
-        // TODO(canonbrother): disable for release, more investigation needed
-        // case VMDomainRPCMapType::BlockNumberDVMToEVM: {
-        //     return handleMapBlockNumberDVMToEVMRequest(input);
-        // }
-        // case VMDomainRPCMapType::BlockNumberEVMToDVM: {
-        //     return handleMapBlockNumberEVMToDVMRequest(input);
-        // }
+        case VMDomainRPCMapType::BlockNumberDVMToEVM: {
+            return handleMapBlockNumberDVMToEVMRequest(input);
+        }
+        case VMDomainRPCMapType::BlockNumberEVMToDVM: {
+            return handleMapBlockNumberEVMToDVMRequest(input);
+        }
         default: {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Unknown map type");
         }

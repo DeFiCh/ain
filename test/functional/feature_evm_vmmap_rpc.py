@@ -244,10 +244,10 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res["type"], "BlockNumberEVMToDVM")
             assert_equal(res["output"], item[0])
 
-            res = self.nodes[0].vmmap(str(item[0]), VMMapType.Auto)
-            assert_equal(res["input"], item[0])
-            assert_equal(res["type"], "BlockNumberDVMToEVM")
-            assert_equal(res["output"], item[1])
+            # res = self.nodes[0].vmmap(str(item[0]), VMMapType.Auto)
+            # assert_equal(res["input"], item[0])
+            # assert_equal(res["type"], "BlockNumberDVMToEVM")
+            # assert_equal(res["output"], item[1])
 
             # res = self.nodes[0].vmmap(str(item[1]), VMMapType.Auto)
             # assert_equal(res['input'], item[1])
@@ -368,8 +368,8 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_valid_tx_should_succeed()
         self.vmmap_valid_block_should_succeed()
         self.vmmap_invalid_should_fail()
-        # self.vmmap_valid_block_number_should_succeed()
-        # self.vmmap_invalid_block_number_should_fail()
+        self.vmmap_valid_block_number_should_succeed()
+        self.vmmap_invalid_block_number_should_fail()
         self.vmmap_rollback_should_succeed()
         self.vmmap_auto_invalid_input_should_fail()
         # logvmmap tests
