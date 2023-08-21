@@ -212,6 +212,7 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
+
         for (_idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
@@ -633,7 +634,10 @@ impl EVMServices {
             .collect::<Vec<H160>>();
 
         for address in addresses {
-            debug!("Deploying address to {:#?}", address);
+            debug!(
+                "[reserve_dst20_namespace] Deploying address to {:#?}",
+                address
+            );
             executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
         }
 
@@ -668,7 +672,10 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!("Deploying to address {:#?}", address);
+        debug!(
+            "[get_dst20_migration_txs] Deploying to address {:#?}",
+            address
+        );
 
         let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
             name: token.name,
