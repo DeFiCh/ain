@@ -7,9 +7,17 @@ pub mod ffi {
         pub finality_count: u64,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct DST20Token {
+        pub id: u64,
+        pub name: String,
+        pub symbol: String,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
+        type DST20Token;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -22,11 +30,12 @@ pub mod ffi {
         fn getPoolTransactions() -> Vec<String>;
         fn getNativeTxSize(data: Vec<u8>) -> u64;
         fn getMinRelayTxFee() -> u64;
-        fn getEthPrivKey(key_id: [u8; 20]) -> [u8; 32];
+        fn getEthPrivKey(key: String) -> [u8; 32];
         fn getStateInputJSON() -> String;
         fn getHighestBlock() -> i32;
         fn getCurrentHeight() -> i32;
         fn getAttributeDefaults() -> Attributes;
         fn CppLogPrintf(message: String);
+        fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
     }
 }

@@ -74,7 +74,7 @@ public:
 
     void operator()(const CCreateMasterNodeMessage &obj) const {
         rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(FromOrDefaultKeyIDToDestination(obj.operatorAuthAddress, FromOrDefaultDestinationTypeToKeyType(obj.operatorType), KeyType::MNOperatorKeyType)));
+        rpcInfo.pushKV("masternodeoperator", EncodeDestination(FromOrDefaultKeyIDToDestination(obj.operatorAuthAddress, TxDestTypeToKeyType(obj.operatorType), KeyType::MNOperatorKeyType)));
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
     }
 
@@ -85,7 +85,7 @@ public:
         for (const auto &[updateType, addressPair] : obj.updates) {
             const auto &[addressType, rawAddress] = addressPair;
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
-                rpcInfo.pushKV("operatorAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(CKeyID(uint160(rawAddress)), FromOrDefaultDestinationTypeToKeyType(addressType), KeyType::MNOperatorKeyType)));
+                rpcInfo.pushKV("operatorAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(CKeyID(uint160(rawAddress)), TxDestTypeToKeyType(addressType), KeyType::MNOperatorKeyType)));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                 CTxDestination dest;
                 if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
@@ -93,7 +93,7 @@ public:
                 }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
-                rpcInfo.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(CKeyID(uint160(rawAddress)), FromOrDefaultDestinationTypeToKeyType(addressType), KeyType::MNRewardKeyType)));
+                rpcInfo.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(CKeyID(uint160(rawAddress)), TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType)));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 rpcInfo.pushKV("rewardAddress", "");
             }
@@ -576,10 +576,10 @@ public:
     }
 
     void operator()(const CEvmTxMessage &obj) const {
-        auto txHash = tx.GetHash();
+        auto txHash = tx.GetHash().GetHex();
         if (auto evmTxHash =  mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
             CrossBoundaryResult result;
-            auto txInfo = evm_try_get_tx_by_hash(result, evmTxHash->GetByteArray());
+            auto txInfo = evm_try_get_tx_by_hash(result, *evmTxHash);
             if (result.ok) {
                 std::string tx_type;
                 switch (txInfo.tx_type) {
@@ -600,18 +600,15 @@ public:
                     }
                 }
                 rpcInfo.pushKV("type", tx_type);
-                rpcInfo.pushKV("hash", evmTxHash->ToString());
-                rpcInfo.pushKV("sender", EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::FromByteArray(txInfo.sender)))));
+                rpcInfo.pushKV("hash", *evmTxHash);
+                rpcInfo.pushKV("sender", std::string(txInfo.sender.data(), txInfo.sender.length()));
                 rpcInfo.pushKV("nonce", txInfo.nonce);
                 rpcInfo.pushKV("gasPrice", txInfo.gas_price);
                 rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
                 rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
                 rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
                 rpcInfo.pushKV("createTx", txInfo.create_tx);
-                std::string to = "";
-                if (!txInfo.create_tx)
-                    to = EncodeDestination(CTxDestination(WitnessV16EthHash(uint160::FromByteArray(txInfo.to))));
-                rpcInfo.pushKV("to", to);
+                rpcInfo.pushKV("to", std::string(txInfo.to.data(), txInfo.to.length()));
                 rpcInfo.pushKV("value", txInfo.value);
             }
         }

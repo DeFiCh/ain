@@ -72,6 +72,8 @@
 #define MICRO 0.000001
 #define MILLI 0.001
 
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version);
+
 bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIndex *pb) const {
     // First sort by most total work, ...
     if (pa->nChainWork > pb->nChainWork) return false;
@@ -910,7 +912,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                     __func__, hash.ToString(), FormatStateMessage(state));
         }
 
-        std::optional<std::array<::std::uint8_t, 20>> ethSender;
+        std::optional<EvmAddressData> ethSender{};
 
         if (isEvmTx) {
             auto txMessage = customTypeToMessage(txType);
@@ -925,11 +927,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
-            const auto sender = pool.ethTxsBySender.find(txResult.sender);
+            const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
+            const auto sender = pool.ethTxsBySender.find(txResultSender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
             } else {
-                ethSender = txResult.sender;
+                ethSender = txResultSender;
             }
         }
 
@@ -2931,7 +2934,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Finalize items
-
     if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_unsafe_try_commit_queue(result, evmQueueId));
     }
@@ -3408,6 +3410,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     LogPrint(BCLog::BENCH, "  - Connect postprocess: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime5) * MILLI, nTimePostConnect * MICRO, nTimePostConnect * MILLI / nBlocksTotal);
     LogPrint(BCLog::BENCH, "- Connect block: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime6 - nTime1) * MILLI, nTimeTotal * MICRO, nTimeTotal * MILLI / nBlocksTotal);
 
+    if (LogAcceptCategory(BCLog::CONNECT)) {
+        LogPrintf("ConnectTip: %s\n", blockToJSON(*pthisBlock, pindexNew, pindexNew, true, 4).write(2));
+    }
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));
     return true;
 }
@@ -3501,6 +3506,7 @@ static CBlockIndex* GetLastCheckpoint(const CCheckpointData& data) EXCLUSIVE_LOC
     }
     return nullptr;
 }
+
 
 /**
  * Try to make some progress towards making pindexMostWork the active block.
@@ -4219,9 +4225,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
             if (height < consensusParams.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, FromOrDefaultDestinationTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);
             }
 
             if (block.vtx[0]->vout[0].scriptPubKey != GetScriptForDestination(destination)) {

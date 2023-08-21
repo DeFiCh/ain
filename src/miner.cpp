@@ -221,9 +221,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
             CTxDestination destination;
             if (nHeight < consensus.NextNetworkUpgradeHeight) {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
             } else {
-                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
+                destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
             }
 
             if (IsValidDestination(destination)) {
@@ -286,19 +286,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        if (auto res = ProcessDST20Migration(pindexPrev, mnview, chainparams, evmQueueId); !res) {
-            LogPrintf("ThreadStaker: Failed to process DST20 migration: %s\n", res.msg);
-            return nullptr;
-        }
-
-        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight));
+        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) { return nullptr; }
         auto blockResult = *res;
-        
+
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
-        xvm = XVM{0, {0, uint256::FromByteArray(blockResult.block_hash), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
+        xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
         // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;
@@ -398,7 +393,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         }
 
         if (isEvmEnabledForBlock) {
-            if (xvm.evm.blockHash.IsNull()) {
+            if (xvm.evm.blockHash.empty()) {
                 LogPrint(BCLog::STAKING, "%s: EVM block hash is null\n", __func__);
                 return nullptr;
             }
@@ -671,7 +666,8 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& evmFeeMap = pkgCtx.feeMap;
     auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
 
-    const auto addrKey = EvmAddressWithNonce{txResult.sender, txResult.nonce};
+    const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
+    const auto addrKey = EvmAddressWithNonce{txResultSender, txResult.nonce};
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
@@ -704,7 +700,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         }
     }
 
-    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.sender);
+    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResultSender);
     if (!result.ok) {
         return false;
     }
@@ -716,9 +712,9 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    auto addrNonce = EvmAddressWithNonce{txResult.sender, txResult.nonce};
+    auto addrNonce = EvmAddressWithNonce{txResultSender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
-    evmAddressTxsMap[txResult.sender].emplace(txResult.nonce, txIter);
+    evmAddressTxsMap[txResultSender].emplace(txResult.nonce, txIter);
     return true;
 }
 
@@ -1042,9 +1038,9 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         if (args.coinbaseScript.empty()) {
             // this is safe because MN was found
             if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
-                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
+                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, TxDestTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
             } else {
-                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
+                scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, TxDestTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
             }
         } else {
             scriptPubKey = args.coinbaseScript;
@@ -1143,7 +1139,8 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     if (pubKey.IsCompressed()) {
         pubKey.Decompress();
     }
-    const auto evmBeneficiary = pubKey.GetEthID().GetByteArray();
+    // TODO: Use GetHex when eth key is fixed to be stored in LE
+    const auto evmBeneficiary = HexStr(pubKey.GetEthID());
     auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
     if (!pblocktemplate) {
         LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");

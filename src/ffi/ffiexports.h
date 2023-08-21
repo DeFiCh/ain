@@ -23,6 +23,12 @@ struct Attributes {
     }
 };
 
+struct DST20Token {
+    uint64_t id;
+    rust::string name;
+    rust::string symbol;
+};
+
 uint64_t getChainId();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
@@ -34,11 +40,12 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<rust::string> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
-std::array<uint8_t, 32> getEthPrivKey(EvmAddressData keyID);
+std::array<uint8_t, 32> getEthPrivKey(rust::string key);
 rust::string getStateInputJSON();
 int getHighestBlock();
 int getCurrentHeight();
 Attributes getAttributeDefaults();
 void CppLogPrintf(rust::string message);
+rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

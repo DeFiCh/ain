@@ -769,7 +769,7 @@ class CCustomTxApplyVisitor : public CCustomTxVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmQueueId;
-    bool prevalidateEvm;
+    bool evmSanityCheckOnly;
     bool isEvmEnabledForBlock;
 
 public:
@@ -781,14 +781,14 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmQueueId,
-                          const bool prevalidateEvm,
+                          const bool evmSanityCheckOnly,
                           const bool isEvmEnabledForBlock)
 
         : CCustomTxVisitor(tx, height, coins, mnview, consensus),
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          prevalidateEvm(prevalidateEvm),
+          evmSanityCheckOnly(evmSanityCheckOnly),
           isEvmEnabledForBlock(isEvmEnabledForBlock) {}
 
     Res operator()(const CCreateMasterNodeMessage &obj) const {
@@ -1017,7 +1017,7 @@ public:
                 // next hard fork as this is a workaround for the issue fixed in the following PR:
                 // https://github.com/DeFiCh/ain/pull/1766
                 if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(keyID, FromOrDefaultDestinationTypeToKeyType(addressType), KeyType::MNRewardKeyType));
+                    const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(keyID, TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType));
                     addresses->insert(rewardAddress);
                     mnview.SettingsSetRewardAddresses(*addresses);
                 }
@@ -1073,10 +1073,10 @@ public:
 
         if (tokenId && token.IsDAT() && isEvmEnabledForBlock) {
             CrossBoundaryResult result;
-            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetByteArray(),
+            evm_try_create_dst20(result, evmQueueId, tx.GetHash().GetHex(),
                              rust::string(tokenName.c_str()),
                              rust::string(tokenSymbol.c_str()),
-                             tokenId->ToString());
+                             tokenId->v);
 
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
@@ -3864,7 +3864,7 @@ public:
         if (!node)
             return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
 
-        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
+        auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerAuthAddress, TxDestTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
         if (!IsValidDestination(ownerDest))
             return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
 
@@ -3911,22 +3911,20 @@ public:
                 CTxDestination dest;
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
-                arith_uint256 balanceIn = dst.amount.nValue;
+
+                // Safety: Safe since validate checks for < 0 
+                const auto balanceIn = static_cast<uint64_t>(dst.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
-                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                    ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray());
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);
                     }
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, HexStr(toAddress.begin(), toAddress.end()),
-                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), false);
-
+                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -3939,13 +3937,13 @@ public:
                 CTxDestination dest;
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-                arith_uint256 balanceIn = src.amount.nValue;
+
+                // Safety: Safe since validate checks for < 0 
+                const auto balanceIn = static_cast<uint64_t>(src.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
-                balanceIn *= CAMOUNT_TO_GWEI * WEI_IN_GWEI;
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
-                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
-                            ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray())) {
+                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
                     if (!result.ok) {
@@ -3954,9 +3952,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, HexStr(fromAddress.begin(), fromAddress.end()),
-                                     ArithToUint256(balanceIn).GetByteArray(), tx.GetHash().GetByteArray(), tokenId.ToString(), true);
-
+                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -3996,38 +3992,38 @@ public:
 
         CrossBoundaryResult result;
         ValidateTxCompletion validateResults;
-        if (!prevalidateEvm) {
-            validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
-            // Completely remove this fork guard on mainnet upgrade to restore nonce check from EVM activation
-            if (!result.ok) {
-                LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
-                return Res::Err("evm tx failed to validate %s", result.reason);
-            }
 
-            evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetByteArray(), validateResults.gas_used);
-            if (!result.ok) {
-                LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
-                return Res::Err("evm tx failed to queue %s\n", result.reason);
-            }
-        }
-        else {
-            evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+        if (evmSanityCheckOnly) {
+            validateResults = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("evm tx failed to validate %s", result.reason);
             }
+            return Res::Ok();
         }
 
-        auto txHash = tx.GetHash();
-        auto evmTxHashBytes = std::vector<uint8_t>(validateResults.tx_hash.begin(), validateResults.tx_hash.end());
-        auto evmTxHash = uint256S(HexStr(evmTxHashBytes));
+        validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
+        if (!result.ok) {
+            LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to validate %s", result.reason);
+        }
+
+        evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex(), validateResults.gas_used);
+        if (!result.ok) {
+            LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
+            return Res::Err("evm tx failed to queue %s\n", result.reason);
+        }
+
+
+        auto txHash = tx.GetHash().GetHex();
+        auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);
         auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
         if (!res) {
-            LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash.ToString());
+            LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash);
         }
         res = mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
         if (!res) {
-            LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash.ToString());
+            LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash);
         }
         return Res::Ok();
     }
@@ -4132,6 +4128,11 @@ Res ValidateTransferDomainEdge(const CTransaction &tx,
 
     if (src.amount.nTokenId != dst.amount.nTokenId)
         return DeFiErrors::TransferDomainDifferentTokens();
+
+    // We allow 0 here, just if we need to touch something
+    // on either sides or special case later.
+    if (src.amount.nValue < 0)
+        return DeFiErrors::TransferDomainInvalid();
 
     auto tokenId = src.amount.nTokenId;
 
@@ -4281,16 +4282,16 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     auto q = evmQueueId;
-    bool prevalidateEvm = false;
+    bool evmSanityCheckOnly = false;
     if (q == 0) {
-        prevalidateEvm = true;
+        evmSanityCheckOnly = true;
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (r) { q = *r; } else { return r; }
     }
 
     try {
         return std::visit(
-            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, prevalidateEvm, isEvmEnabledForBlock),
+            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, evmSanityCheckOnly, isEvmEnabledForBlock),
             txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
@@ -4536,7 +4537,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -4621,9 +4622,9 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
 
     CTxDestination destination;
     if (height < consensusParams.NextNetworkUpgradeHeight) {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     } else {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, FromOrDefaultDestinationTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
+        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
     }
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
@@ -5271,10 +5272,10 @@ bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const 
 UniValue EVM::ToUniValue() const {
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("version", static_cast<uint64_t>(version));
-    obj.pushKV("blockHash", "0x" + blockHash.GetHex());
+    obj.pushKV("blockHash", "0x" + blockHash);
     obj.pushKV("burntFee", burntFee);
     obj.pushKV("priorityFee", priorityFee);
-    obj.pushKV("beneficiary", "0x" + HexStr(beneficiary));
+    obj.pushKV("beneficiary", "0x" + beneficiary);
     return obj;
 }
 

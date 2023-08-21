@@ -2236,9 +2236,9 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
 
                 CScript scriptPubKey;
                 if (mn->rewardAddressType != 0) {
-                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->rewardAddress, FromOrDefaultDestinationTypeToKeyType(mn->rewardAddressType), KeyType::MNRewardKeyType));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->rewardAddress, TxDestTypeToKeyType(mn->rewardAddressType), KeyType::MNRewardKeyType));
                 } else {
-                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->ownerAuthAddress, FromOrDefaultDestinationTypeToKeyType(mn->ownerType), KeyType::MNOwnerKeyType));
+                    scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(mn->ownerAuthAddress, TxDestTypeToKeyType(mn->ownerType), KeyType::MNOwnerKeyType));
                 }
 
                 CAccountsHistoryWriter subView(cache, pindex->nHeight, GetNextAccPosition(), pindex->GetBlockHash(), uint8_t(CustomTxType::ProposalFeeRedistribution));
@@ -2384,7 +2384,7 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 }
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
-    const auto blockResultBlockHash = uint256::FromByteArray(blockResult.block_hash);
+    const auto blockResultBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2);
 
     if (xvm.evm.blockHash != blockResultBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
@@ -2506,13 +2506,10 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     if (!xvmRes) return std::move(xvmRes);
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight);
+    const auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&cache)));
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
-    auto evmBlockHashData = std::vector<uint8_t>(blockResult.block_hash.rbegin(), blockResult.block_hash.rend());
-    auto evmBlockHash = uint256(evmBlockHashData);
-
     if (block.vtx[0]->vout.size() < 2) {
         return Res::Err("Not enough outputs in coinbase TX");
     }
@@ -2520,10 +2517,11 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
     if (!res) return res;
 
-    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash(), evmBlockHash);
+    auto evmBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2);
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash().GetHex(), evmBlockHash);
     if (!res) return res;
 
-    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash());
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash().GetHex());
     if (!res) return res;
 
     if (!blockResult.failed_transactions.empty()) {
@@ -2572,45 +2570,6 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     return Res::Ok();
 }
 
-Res ProcessDST20Migration(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
-    auto res = XResultValue(evm_unsafe_try_get_target_block_in_q(result, evmQueueId));
-    if (!res.ok) return DeFiErrors::DST20MigrationFailure(res.msg);
-
-    auto evmTargetBlock = *res;
-    if (evmTargetBlock > 0) return Res::Ok();
-
-    auto time = GetTimeMillis();
-    LogPrintf("DST20 migration ...\n");
-
-    std::string errMsg = "";
-    cache.ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
-        if (!token.IsDAT() || token.IsPoolShare())
-            return true;
-
-        CrossBoundaryResult result;
-        auto alreadyExists = evm_try_is_dst20_deployed_or_queued(result, evmQueueId, token.name, token.symbol, id.ToString());
-        if (!result.ok) {
-            errMsg = result.reason.c_str();
-            return false;
-        }
-
-        if (alreadyExists) {
-            return true;
-        }
-
-        evm_try_create_dst20(result, evmQueueId, token.creationTx.GetByteArray(), token.name, token.symbol, id.ToString());
-        if (!result.ok) {
-            errMsg = result.reason.c_str();
-            return false;
-        }
-
-        return true;
-    }, DCT_ID{1});  // start from non-DFI
-
-    LogPrint(BCLog::BENCH, "    - DST20 migration took: %dms\n", GetTimeMillis() - time);
-    return errMsg.empty() ? Res::Ok() : DeFiErrors::DST20MigrationFailure(errMsg);
-}
-
 static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnview, CCustomCSView &cache, const uint256 hash) {
     // construct undo
     auto& flushable = cache.GetStorage();
@@ -2627,15 +2586,12 @@ Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCu
     CCustomCSView cache(mnview);
 
     if (isEvmEnabledForBlock) {
-        auto res = ProcessDST20Migration(pindex, cache, chainparams, evmQueueId);
-        if (!res) return res;
-
         // Process transferdomain events
         res = ProcessTransferDomainEvents(block, pindex, cache, chainparams, oldState);
         if (!res) return res;
-
+        
         // Process EVM block
-        res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
         if (!res) return res;
     }
 

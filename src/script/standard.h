@@ -114,6 +114,7 @@ struct WitnessV16EthHash : public uint160 {
     WitnessV16EthHash() : uint160() {}
     explicit WitnessV16EthHash(const uint160& hash) : uint160(hash) {}
     explicit WitnessV16EthHash(const CPubKey& pubkey);
+    std::string ToHexString() const;
     using uint160::uint160;
 };
 
@@ -176,7 +177,7 @@ enum KeyType {
     AllKeyType = ~0,
 };
 
-inline KeyType FromOrDefaultDestinationTypeToKeyType(const size_t index)
+inline KeyType TxDestTypeToKeyType(const size_t index)
 {
     switch (index) {
     case PKHashType:
@@ -211,10 +212,10 @@ const char* GetTxnOutputType(txnouttype t);
 txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned char>>& vSolutionsRet);
 
 /** Try to get the destination address from the keyID type. */
-std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID& keyId, KeyType keyIdType, KeyType filter = KeyType::UnknownKeyType);
+std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID& keyId, KeyType keyIdType, KeyType filter = KeyType::AllKeyType);
 
 /** Get the destination address (or default) from the keyID type. */
-CTxDestination FromOrDefaultKeyIDToDestination(const CKeyID& keyId, KeyType keyIdType, KeyType filter = KeyType::UnknownKeyType);
+CTxDestination FromOrDefaultKeyIDToDestination(const CKeyID& keyId, KeyType keyIdType, KeyType filter = KeyType::AllKeyType);
 
 /**
  * Parse a standard scriptPubKey for the destination address. Assigns result to

@@ -477,9 +477,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
     CTxDestination dest;
     if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
-        EvmAddressData address{};
-        std::copy(keyID.begin(), keyID.end(), address.begin());
-        auto r = XResultValue(evm_try_get_balance(result, address));
+        auto r = XResultValue(evm_try_get_balance(result, keyID.ToHexString()));
         if (!r) throw JSONRPCError(RPC_MISC_ERROR, r.msg);
         if (const auto balance = *r) {
             balances[DCT_ID{}] = balance;
@@ -606,9 +604,8 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
 
     if (evm_dfi_lookup) {
         for (const auto keyID : pwallet->GetKeys()) {
-            EvmAddressData address{};
-            std::copy(keyID.begin(), keyID.end(), address.begin());
-            auto res = XResultValue(evm_try_get_balance(result, address));
+            // TODO: Use GetHex when eth key is fixed to be stored in LE
+            auto res = XResultValue(evm_try_get_balance(result, HexStr(keyID)));
             if (res) {
                 auto evmAmount = *res;
                 totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});

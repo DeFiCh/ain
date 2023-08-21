@@ -15,7 +15,7 @@
 
 #include <type_traits>
 #include <vector>
-#include <boost/test/output_test_stream.hpp>
+#include <boost/test/tools/output_test_stream.hpp>
 
 // Enable BOOST_CHECK_EQUAL for enum class types
 template <typename T>
@@ -168,6 +168,10 @@ private:
     boost::test_tools::output_test_stream output{};
 };
 
+#ifdef __linux__
+
 void print_backtrace();
+
+#endif
 
 #endif

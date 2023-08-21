@@ -27,7 +27,7 @@ use crate::{
     Result,
 };
 
-pub type NativeTxHash = [u8; 32];
+pub type XHash = String;
 
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
@@ -53,21 +53,16 @@ pub struct ValidateTxInfo {
     pub used_gas: u64,
 }
 
-fn init_vsdb() {
+fn init_vsdb(path: PathBuf) {
     debug!(target: "vsdb", "Initializating VSDB");
-    let datadir = ain_cpp_imports::get_datadir();
-    let path = PathBuf::from(datadir).join("evm");
-    if !path.exists() {
-        std::fs::create_dir(&path).expect("Error creating `evm` dir");
-    }
     let vsdb_dir_path = path.join(".vsdb");
     vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
     debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
 }
 
 impl EVMCoreService {
-    pub fn restore(storage: Arc<Storage>) -> Self {
-        init_vsdb();
+    pub fn restore(storage: Arc<Storage>, path: PathBuf) -> Self {
+        init_vsdb(path);
 
         Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
@@ -76,17 +71,24 @@ impl EVMCoreService {
         }
     }
 
-    pub fn new_from_json(storage: Arc<Storage>, path: PathBuf) -> Result<Self> {
-        debug!("Loading genesis state from {}", path.display());
-        init_vsdb();
+    pub fn new_from_json(
+        storage: Arc<Storage>,
+        genesis_path: PathBuf,
+        evm_datadir: PathBuf,
+    ) -> Result<Self> {
+        debug!("Loading genesis state from {}", genesis_path.display());
+        init_vsdb(evm_datadir);
 
         let handler = Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
         };
-        let (state_root, genesis) =
-            TrieDBStore::genesis_state_root_from_json(&handler.trie_store, &handler.storage, path)?;
+        let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
+            &handler.trie_store,
+            &handler.storage,
+            genesis_path,
+        )?;
 
         let gas_limit = storage.get_attributes_or_default()?.block_gas_limit;
         let block: Block<TransactionV2> = Block::new(
@@ -349,7 +351,7 @@ impl EVMCoreService {
         queue_id: u64,
         address: H160,
         amount: U256,
-        hash: NativeTxHash,
+        hash: XHash,
     ) -> Result<()> {
         let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
@@ -368,7 +370,7 @@ impl EVMCoreService {
         queue_id: u64,
         address: H160,
         amount: U256,
-        hash: NativeTxHash,
+        hash: XHash,
     ) -> Result<()> {
         let block_number = self
             .storage

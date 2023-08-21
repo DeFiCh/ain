@@ -194,9 +194,15 @@ uint64_t getMinRelayTxFee() {
     return ::minRelayTxFee.GetFeePerK() * 10000000;
 }
 
-std::array<uint8_t, 32> getEthPrivKey(EvmAddressData keyID) {
+std::array<uint8_t, 32> getEthPrivKey(rust::string key) {
+    const auto dest = DecodeDestination(std::string(key.begin(), key.length()));
+    if (dest.index() != WitV16KeyEthHashType) {
+        return {};
+    }
+    const auto keyID = std::get<WitnessV16EthHash>(dest);
+    const CKeyID ethKeyID{keyID};
+
     CKey ethPrivKey;
-    const auto ethKeyID = CKeyID{uint160{std::vector<uint8_t>(keyID.begin(), keyID.end())}};
     for (const auto &wallet: GetWallets()) {
         if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
@@ -223,4 +229,19 @@ int getCurrentHeight() {
 
 Attributes getAttributeDefaults() {
     return Attributes::Default();
+}
+
+rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
+    LOCK(cs_main);
+
+    rust::vec<DST20Token> tokens;
+    CCustomCSView* cache = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
+    cache->ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
+        if (!token.IsDAT() || token.IsPoolShare())
+            return true;
+
+        tokens.push_back({id.v, token.name, token.symbol});
+        return true;
+    }, DCT_ID{1});  // start from non-DFI
+    return tokens;
 }

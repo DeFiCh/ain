@@ -50,18 +50,18 @@ impl LegacyUnsignedTransaction {
         H256::from(output)
     }
 
-    pub fn sign(&self, key: &H256, chain_id: u64) -> Result<LegacyTransaction, TransactionError> {
+    pub fn sign(&self, key: &[u8], chain_id: u64) -> Result<LegacyTransaction, TransactionError> {
         self.sign_with_chain_id(key, chain_id)
     }
 
     pub fn sign_with_chain_id(
         &self,
-        key: &H256,
+        key: &[u8],
         chain_id: u64,
     ) -> Result<LegacyTransaction, TransactionError> {
         let hash = self.signing_hash(chain_id);
         let msg = libsecp256k1::Message::parse(hash.as_fixed_bytes());
-        let s = libsecp256k1::sign(&msg, &libsecp256k1::SecretKey::parse_slice(&key[..])?);
+        let s = libsecp256k1::sign(&msg, &libsecp256k1::SecretKey::parse_slice(key)?);
         let sig = s.0.serialize();
 
         let sig = TransactionSignature::new(

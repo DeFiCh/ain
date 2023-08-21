@@ -23,7 +23,7 @@ class CCustomCSView;
 
 struct EVM {
     uint32_t version;
-    uint256 blockHash;
+    std::string blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
     EvmAddressData beneficiary;

@@ -21,7 +21,7 @@ jobs:
     container: defi/ain-builder:latest
     env:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
-      TESTS_FAILFAST: 1
+      TESTS_FAILFAST: 0
       TESTS_COMBINED_LOGS: 500
     steps:
     - name: Checkout base branch and/or merge
