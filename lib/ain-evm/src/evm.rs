@@ -134,12 +134,6 @@ impl EVMServices {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
 
-        let is_evm_genesis_block = queue.target_block == U256::zero();
-        if is_evm_genesis_block {
-            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
-            queue.transactions.extend(migration_txs.into_iter())
-        }
-
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
         let mut failed_transactions = Vec::with_capacity(queue_txs_len);
@@ -199,6 +193,9 @@ impl EVMServices {
             // reserve DST20 namespace
             self.reserve_dst20_namespace(&mut executor)?;
 
+            let migration_txs = get_dst20_migration_txs(mnview_ptr, &queue.transactions)?;
+            queue.transactions.extend(migration_txs.into_iter());
+
             // Deploy contract on the first block
             let DeployContractInfo {
                 address,
@@ -212,6 +209,7 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
+
         for (_idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
@@ -664,11 +662,17 @@ fn create_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx
     Ok((tx, receipt))
 }
 
-fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
+fn get_dst20_migration_txs(
+    mnview_ptr: usize,
+    queued_txs: &[QueueTxItem],
+) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!("Deploying to address {:#?}", address);
+        debug!(
+            "[get_dst20_migration_txs] Deploying to address {:#?}",
+            address
+        );
 
         let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
             name: token.name,
@@ -676,12 +680,15 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
             token_id: token.id,
             address,
         }));
-        txs.push(QueueTxItem {
-            tx,
-            tx_hash: Default::default(),
-            tx_fee: U256::zero(),
-            gas_used: U256::zero(),
-        });
+
+        if !queued_txs.iter().any(|queued| queued.tx == tx) {
+            txs.push(QueueTxItem {
+                tx,
+                tx_hash: Default::default(),
+                tx_fee: U256::zero(),
+                gas_used: U256::zero(),
+            });
+        }
     }
     Ok(txs)
 }
