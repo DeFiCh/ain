@@ -307,6 +307,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam,
                                                 &finalizeBlockNumberResult,
+                                                &ensureEVMHashStripped,
                                                 &crossBoundaryOkOrThrow](const std::string &input) -> UniValue {
         uint64_t height;
         bool success = ParseUInt64(input, &height);
@@ -315,13 +316,13 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
         CrossBoundaryResult result;
         auto evmHash = evm_try_get_block_hash_by_number(result, height);
-        auto evmBlockHash = std::string(evmHash.data(), evmHash.length());
+        auto evmBlockHash = ensureEVMHashStripped(std::string(evmHash.data(), evmHash.length()));
         crossBoundaryOkOrThrow(result);
-        ResVal<uint256> dvm_block = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-        if (!dvm_block) {
-            throwInvalidParam(dvm_block.msg);
+        auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+        if (!dvmBlockHash.val.has_value()) {
+            throwInvalidParam(dvmBlockHash.msg);
         }
-        CBlockIndex *pindex  = LookupBlockIndex(*dvm_block.val);
+        CBlockIndex *pindex  = LookupBlockIndex(uint256S(*dvmBlockHash.val));
         uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
         return finalizeBlockNumberResult(blockNumber, VMDomainRPCMapType::BlockNumberEVMToDVM, height);
     };
