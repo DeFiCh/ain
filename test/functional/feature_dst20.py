@@ -15,6 +15,7 @@ from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+
 class DST20(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -807,7 +808,6 @@ class DST20(DefiTestFramework):
                 encoding="utf8",
             ).read()
         )["object"]
-
 
         # Generate chain
         self.node.generate(150)
