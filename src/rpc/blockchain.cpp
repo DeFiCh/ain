@@ -267,7 +267,7 @@ struct RewardInfo {
 };
 
 
-std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
+std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
         UniValue r(UniValue::VOBJ);
         r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
@@ -291,7 +291,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
             return {};
         }
         auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
-        if (tx1ScriptPubKey.size() == 0) return {};
+        if (!isEvmEnabledForBlock || tx1ScriptPubKey.size() == 0) return {};
         auto xvm = XVM::TryFrom(tx1ScriptPubKey);
         if (!xvm) return {};
         UniValue result(UniValue::VOBJ);
@@ -319,12 +319,12 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx) {
     return result;
 }
 
-UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails) {
+UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock) {
     if (txDetails) {
         UniValue objTx(UniValue::VOBJ);
         TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
         if (version > 2) { 
-            if (auto r = VmInfoUniv(tx); r) {
+            if (auto r = VmInfoUniv(tx, isEvmEnabledForBlock); r) {
                 objTx.pushKV("vm", *r);
             }
         }
@@ -339,11 +339,12 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
+    const auto isEvmEnabledForBlock = IsEVMEnabled(blockindex->nHeight, *pcustomcsview, consensus);
 
-    auto txsToUniValue = [](const CBlock& block, bool txDetails, int version) {
+    auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx) {
-            txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails));
+            txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails, isEvmEnabledForBlock));
         }
         return txs;
     };
