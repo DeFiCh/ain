@@ -8,7 +8,6 @@ use keccak_hash::H256;
 use log::{debug, trace};
 use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
-
 use thiserror::Error;
 
 use crate::storage::{traits::BlockStorage, Storage};

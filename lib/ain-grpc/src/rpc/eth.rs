@@ -3,9 +3,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use ain_cpp_imports::get_eth_priv_key;
+use ain_evm::block::BlockError;
 use ain_evm::bytes::Bytes;
 use ain_evm::core::EthCallArgs;
-use ain_evm::block::BlockError;
 use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
 use ain_evm::filters::Filter;
@@ -294,7 +294,7 @@ impl MetachainRPCModule {
                         .checked_sub(U256::from(finality_count))?;
                     self.handler.storage.get_block_by_number(&safe_block_number)
                 })
-            },
+            }
             // BlockNumber::Pending => todo!(),
             _ => self.handler.storage.get_latest_block(),
         }
