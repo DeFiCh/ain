@@ -174,8 +174,8 @@ UniValue vmmap(const JSONRPCRequest &request) {
           RPCArg::Optional::NO,
           "Map types: \n\
                             0 - Auto \n\
-                            1 - Block Number: DFI -> EVM (Unsupported yet) \n\
-                            2 - Block Number: EVM -> DFI (Unsupported yet) \n\
+                            1 - Block Number: DFI -> EVM \n\
+                            2 - Block Number: EVM -> DFI \n\
                             3 - Block Hash: DFI -> EVM \n\
                             4 - Block Hash: EVM -> DFI \n\
                             5 - Tx Hash: DFI -> EVM \n\
