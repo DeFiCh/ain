@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (file_path, contract_name) in contracts {
         let solc = Solc::new(env::var("SOLC_PATH")?);
-        let output_path = env::var("BUILD_DIR")?;
+        let output_path = env::var("CARGO_TARGET_DIR")?;
         let root = PathBuf::from(file_path);
         if !root.exists() {
             return Err("Project root {root:?} does not exists!".into());

@@ -27,7 +27,6 @@ setup_vars() {
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
-    export BUILD_DIR
     # Was previously ${BUILD_DIR}/$TARGET for host specific
     # But simplifying this since autotools conf ends up in reconf and
     # rebuilds anyway, might as well just point manually if needed

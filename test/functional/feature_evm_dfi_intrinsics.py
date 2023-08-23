@@ -54,7 +54,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ).read()
         else:
             abi = open(
-                f"{os.path.dirname(__file__)}/../../build/ain_contracts/dfi_intrinsics/abi.json",
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_intrinsics/abi.json",
                 "r",
                 encoding="utf8",
             ).read()

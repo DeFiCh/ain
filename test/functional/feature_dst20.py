@@ -811,20 +811,20 @@ class DST20(DefiTestFramework):
         else:
             # fall back to using relative path
             self.abi = open(
-                f"{os.path.dirname(__file__)}/../../build/ain_contracts/dst20/abi.json",
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/abi.json",
                 "r",
                 encoding="utf8",
             ).read()
             self.bytecode = json.loads(
                 open(
-                    f"{os.path.dirname(__file__)}/../../build/ain_contracts/dst20/bytecode.json",
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
             )["object"]
             self.reserved_bytecode = json.loads(
                 open(
-                    f"{os.path.dirname(__file__)}/../../build/ain_contracts/system_reserved/bytecode.json",
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/system_reserved/bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
