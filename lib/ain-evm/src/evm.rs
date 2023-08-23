@@ -249,8 +249,8 @@ impl EVMServices {
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "[construct_block] EvmIn for address {:x?}, amount: {}, queue_id {}",
-                        address, amount, queue_id
+                        "[construct_block] Transfer domain to EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
+                        address, amount, queue_id, queue_item.tx_hash
                     );
                     if let Err(e) = executor.add_balance(address, amount) {
                         debug!("[construct_block] EvmIn failed with {e}");
@@ -259,8 +259,8 @@ impl EVMServices {
                 }
                 QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
                     debug!(
-                        "[construct_block] EvmOut for address {}, amount: {}",
-                        address, amount
+                        "[construct_block] Transfer domain from EVM for address {}, amount: {}, queue_id {}, tx hash {}",
+                        address, amount, queue_id, queue_item.tx_hash
                     );
 
                     if let Err(e) = executor.sub_balance(address, amount) {
