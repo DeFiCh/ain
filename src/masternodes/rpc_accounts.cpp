@@ -2058,7 +2058,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             CTransferDomainItem src, dst;
 
             if (!srcObj["address"].isNull())
-                src.address = DecodeScript(srcObj["address"].getValStr());
+                src.address = GetScriptForDestination(DecodeDestination(srcObj["address"].getValStr()));
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"address\" must not be null");
 
@@ -2089,7 +2089,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
 
             if (!dstObj["address"].isNull())
-                dst.address = DecodeScript(dstObj["address"].getValStr());
+                dst.address = GetScriptForDestination(DecodeDestination(dstObj["address"].getValStr()));
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"address\" must not be null");
 
