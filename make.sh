@@ -475,7 +475,7 @@ test() {
     _exit_dir
 }
 
-test_units() {
+unit_tests() {
     local make_jobs=${MAKE_JOBS}
     local make_args=${MAKE_ARGS:-}
     local build_target_dir=${BUILD_TARGET_DIR}
@@ -489,7 +489,7 @@ test_units() {
 }
 
 # shellcheck disable=SC2120
-test_py() {
+functional_tests() {
     local build_target_dir=${BUILD_TARGET_DIR}
     local src_dir=${_SCRIPT_DIR}
     local tests_fail_fast=${TESTS_FAILFAST}
