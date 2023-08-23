@@ -3,7 +3,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::format_err;
-use ethers_solc::{Project, ProjectPathsConfig, Solc};
+use ethers_solc::artifacts::output_selection::OutputSelection;
+use ethers_solc::artifacts::{Optimizer, Settings};
+use ethers_solc::{Project, ProjectPathsConfig, Solc, SolcConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile solidity project
@@ -26,8 +28,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .sources(&root)
             .build()?;
 
+        let solc_config = SolcConfig::builder()
+            .settings(Settings {
+                stop_after: None,
+                remappings: vec![],
+                optimizer: Optimizer {
+                    enabled: Some(true),
+                    runs: Some(10000),
+                    details: None,
+                },
+                model_checker: None,
+                metadata: None,
+                output_selection: OutputSelection::default_output_selection(),
+                evm_version: None,
+                via_ir: None,
+                debug: None,
+                libraries: Default::default(),
+            })
+            .build();
+
         let project = Project::builder()
             .solc(solc)
+            .solc_config(solc_config)
             .paths(paths)
             .set_auto_detect(true)
             .no_artifacts()
