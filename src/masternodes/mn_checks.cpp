@@ -1061,7 +1061,7 @@ public:
             return Res::Err("tx not from foundation member");
         }
 
-        if (static_cast<int>(height) >= consensus.BayfrontHeight) {  
+        if (static_cast<int>(height) >= consensus.BayfrontHeight) {
             if (token.IsPoolShare()) {
                 return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
@@ -3897,7 +3897,7 @@ public:
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
 
-                // Safety: Safe since validate checks for < 0 
+                // Safety: Safe since validate checks for < 0
                 const auto balanceIn = static_cast<uint64_t>(dst.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
                 CrossBoundaryResult result;
@@ -3908,7 +3908,6 @@ public:
                     }
                 }
                 else {
-                    CrossBoundaryResult result;
                     evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
@@ -3923,7 +3922,7 @@ public:
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
 
-                // Safety: Safe since validate checks for < 0 
+                // Safety: Safe since validate checks for < 0
                 const auto balanceIn = static_cast<uint64_t>(src.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
                 if (tokenId == DCT_ID{0}) {

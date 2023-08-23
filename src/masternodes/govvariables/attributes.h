@@ -315,6 +315,7 @@ struct CEVMInitialState
 {
     CTransferDomainStatsLive transferDomainState;
     std::map<CScript, CStatsTokenBalances> evmBalances;
+    CStatsTokenBalances dst20EvmTotalSupply;
 
     ADD_SERIALIZE_METHODS;
 
@@ -322,6 +323,7 @@ struct CEVMInitialState
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(transferDomainState);
         READWRITE(evmBalances);
+        READWRITE(dst20EvmTotalSupply);
     }
 };
 

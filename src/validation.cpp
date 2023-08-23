@@ -2619,7 +2619,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     if (isEvmEnabledForBlock) {
         evmInitialState.transferDomainState = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
-        ProcessAccountingStateBeforeBlock(block, pindex, chainparams, evmInitialState.evmBalances);
+        ProcessAccountingStateBeforeBlock(block, pindex, mnview, chainparams, evmInitialState);
     }
 
     // Execute TXs

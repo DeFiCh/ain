@@ -19,7 +19,7 @@ using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<
 
 void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId);
 
-void ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* pindex, const CChainParams& chainparams, std::map<CScript, CStatsTokenBalances> &evmBalances);
+void ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* pindex,  CCustomCSView &mnview, const CChainParams& chainparams, CEVMInitialState& evmInitialState);
 
 Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, const bool isEvmEnabledForBlock, CEVMInitialState& evmInitialState);
 
