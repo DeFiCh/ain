@@ -352,7 +352,19 @@ impl<T> From<EnvelopedDecoderError<T>> for TransactionError {
     }
 }
 
+#[cfg(test)]
 mod tests {
+    use std::error::Error;
+    use std::fs;
+    use std::path::Path;
+
+    use ethereum::{AccessListItem, EnvelopedEncodable};
+    use ethereum_types::{H160, U64};
+    use primitive_types::{H256, U256};
+    use serde::Deserialize;
+
+    use crate::bytes::Bytes;
+    use crate::transaction::SignedTx;
 
     #[test]
     fn test_signed_tx_from_raw_tx() {
@@ -380,5 +392,97 @@ mod tests {
             hex::encode(signed_tx.sender.as_fixed_bytes()),
             "f829754bae400b679febefdcfc9944c323e1f94e"
         );
+    }
+
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct ExpectedTx {
+        hash: H256,
+        from: H160,
+        to: Option<H160>,
+        gas: U256,
+        gas_price: U256,
+        value: U256,
+        input: Bytes,
+        nonce: U256,
+        v: U64,
+        r: H256,
+        s: H256,
+        _block_hash: H256,
+        _block_number: U256,
+        _transaction_index: U256,
+        #[serde(rename = "type")]
+        r#type: U64,
+        max_fee_per_gas: Option<U256>,
+        max_priority_fee_per_gas: Option<U256>,
+        #[serde(default)]
+        access_list: Vec<AccessListItem>,
+        chain_id: Option<U64>,
+    }
+
+    #[cfg(test)]
+    fn get_test_data(path: &Path) -> Result<Vec<(String, ExpectedTx)>, Box<dyn Error>> {
+        let content = fs::read_to_string(path)?;
+
+        let r = serde_json::from_str(&content)?;
+        Ok(r)
+    }
+
+    fn assert_raw_hash_matches_expected_tx((raw_hash, tx): (String, ExpectedTx)) {
+        let signed_tx: SignedTx = (&raw_hash[2..]).try_into().unwrap();
+
+        assert_eq!(signed_tx.sender, tx.from);
+        assert_eq!(signed_tx.gas_limit(), tx.gas);
+        assert_eq!(signed_tx.to(), tx.to);
+        assert_eq!(signed_tx.hash(), tx.hash);
+        assert_eq!(signed_tx.data().to_vec(), tx.input.0);
+        assert_eq!(signed_tx.nonce(), tx.nonce);
+        assert_eq!(signed_tx.value(), tx.value);
+        assert_eq!(signed_tx.access_list(), tx.access_list);
+        assert_eq!(signed_tx.max_fee_per_gas(), tx.max_fee_per_gas);
+        assert_eq!(
+            signed_tx.max_priority_fee_per_gas(),
+            tx.max_priority_fee_per_gas
+        );
+        assert_eq!(U64::from(signed_tx.v()), tx.v);
+        assert_eq!(signed_tx.r(), tx.r);
+        assert_eq!(signed_tx.s(), tx.s);
+
+        if let Some(chain_id) = tx.chain_id {
+            assert_eq!(U64::from(signed_tx.chain_id()), chain_id);
+        }
+
+        let r#type =
+            U64::from(EnvelopedEncodable::type_id(&signed_tx.transaction).unwrap_or_default());
+        assert_eq!(r#type, tx.r#type);
+
+        // Can't get gas_price without block base fee
+        if r#type == U64::zero() || r#type == U64::one() {
+            assert_eq!(signed_tx.gas_price(), tx.gas_price);
+        }
+    }
+
+    #[test]
+    fn test_transfer_txs() -> Result<(), Box<dyn Error>> {
+        get_test_data(Path::new("./testdata/transfer_txs.json"))?
+            .into_iter()
+            .for_each(assert_raw_hash_matches_expected_tx);
+        Ok(())
+    }
+
+    #[test]
+    fn test_call_smart_contract_txs() -> Result<(), Box<dyn Error>> {
+        get_test_data(Path::new("./testdata/call_smart_contract_txs.json"))?
+            .into_iter()
+            .for_each(assert_raw_hash_matches_expected_tx);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deploy_smart_contract_txs() -> Result<(), Box<dyn Error>> {
+        get_test_data(Path::new("./testdata/deploy_smart_contract_txs.json"))?
+            .into_iter()
+            .for_each(assert_raw_hash_matches_expected_tx);
+        Ok(())
     }
 }
