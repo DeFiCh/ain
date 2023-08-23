@@ -55,11 +55,15 @@ pub fn get_bytecode(input: &str) -> Result<Vec<u8>> {
 }
 
 pub fn get_counter_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!("../dfi_intrinsics/output/bytecode.json"))
+    get_bytecode(include_str!(
+        "../../../build/ain_contracts/dfi_intrinsics/bytecode.json"
+    ))
 }
 
 pub fn get_dst20_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!("../dst20/output/bytecode.json"))
+    get_bytecode(include_str!(
+        "../../../build/ain_contracts/dst20/bytecode.json"
+    ))
 }
 
 pub fn get_dst20_input() -> Result<Vec<u8>> {
@@ -67,16 +71,22 @@ pub fn get_dst20_input() -> Result<Vec<u8>> {
 }
 
 pub fn get_system_reserved_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!("../system_reserved/output/bytecode.json"))
+    get_bytecode(include_str!(
+        "../../../build/ain_contracts/system_reserved/bytecode.json"
+    ))
 }
 
 pub fn get_system_reserved_codehash() -> Result<H256> {
-    let bytecode = get_bytecode(include_str!("../system_reserved/output/bytecode.json"))?;
+    let bytecode = get_bytecode(include_str!(
+        "../../../build/ain_contracts/system_reserved/bytecode.json"
+    ))?;
     Ok(Blake2Hasher::hash(&bytecode))
 }
 
 pub fn get_dst20_codehash() -> Result<H256> {
-    let bytecode = get_bytecode(include_str!("../dst20/output/bytecode.json"))?;
+    let bytecode = get_bytecode(include_str!(
+        "../../../build/ain_contracts/dst20/bytecode.json"
+    ))?;
     Ok(Blake2Hasher::hash(&bytecode))
 }
 
