@@ -45,6 +45,7 @@ pub struct FinalizedBlockInfo {
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
+    pub state_root: XHash,
 }
 
 pub struct DeployContractInfo {
@@ -377,6 +378,7 @@ impl EVMServices {
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
+            state_root: format!("{:?}", state_root),
         })
     }
 

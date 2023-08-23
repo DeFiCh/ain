@@ -488,6 +488,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 total_burnt_fees,
                 total_priority_fees,
                 block_number,
+                state_root,
             }) => {
                 let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi())
                 else {
@@ -508,6 +509,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                     total_burnt_fees,
                     total_priority_fees,
                     block_number: block_number.as_u64(),
+                    state_root,
                 }
             }
             Err(e) => cross_boundary_error_return(result, e.to_string()),

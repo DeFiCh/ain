@@ -82,6 +82,7 @@ pub mod ffi {
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
         pub block_number: u64,
+        pub state_root: String,
     }
 
     #[derive(Default)]
