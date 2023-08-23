@@ -667,6 +667,13 @@ pub fn evm_try_is_dst20_deployed_or_queued(
     }
 }
 
+pub fn evm_try_get_dst20_total_supply(result: &mut ffi::CrossBoundaryResult, token_id: u64) -> u64 {
+    match SERVICES.evm.get_dst20_total_supply(token_id) {
+        Ok(total_supply) => cross_boundary_success_return(result, total_supply.as_u64()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
 pub fn evm_try_get_tx_by_hash(
     result: &mut ffi::CrossBoundaryResult,
     tx_hash: &str,

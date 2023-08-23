@@ -210,5 +210,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
         ) -> u64;
+
+        fn evm_try_get_dst20_total_supply(result: &mut CrossBoundaryResult, token_id: u64) -> u64;
     }
 }

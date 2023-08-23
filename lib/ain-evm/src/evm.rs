@@ -626,6 +626,16 @@ impl EVMServices {
         Ok(is_queued)
     }
 
+    pub fn get_dst20_total_supply(&self, token_id: u64) -> Result<U256> {
+        let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+        debug!("[get_dst20_total_supply] Fetching address {:#?}", address);
+
+        let backend = self.core.get_latest_block_backend()?;
+
+        let total_supply_index = H256::from_low_u64_be(2);
+        backend.get_contract_storage(address, total_supply_index.as_bytes())
+    }
+
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
         let bytecode = ain_contracts::get_system_reserved_bytecode()?;
         let addresses = (1..=1024)
