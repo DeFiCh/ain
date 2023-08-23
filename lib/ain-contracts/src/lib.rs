@@ -88,14 +88,22 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     Ok(H160::from_str(&final_str)?)
 }
 
+pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
+    let number_str = format!("{:x}", id);
+    let padded_number_str = format!("{number_str:0>38}");
+    let final_str = format!("ff1{padded_number_str}");
+
+    Ok(H160::from_str(&final_str)?)
+}
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Contracts {
-    CounterContract,
+    Intrinsics,
 }
 
 lazy_static! {
     pub static ref CONTRACT_ADDRESSES: HashMap<Contracts, H160> = HashMap::from([(
-        Contracts::CounterContract,
-        H160::from_str("0x0000000000000000000000000000000000000301").unwrap()
+        Contracts::Intrinsics,
+        H160::from_str("0xff10000000000000000000000000000000000000").unwrap()
     ),]);
 }
