@@ -90,7 +90,7 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
 
 pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
     let number_str = format!("{:x}", id);
-    let padded_number_str = format!("{number_str:0>38}");
+    let padded_number_str = format!("{number_str:0>37}");
     let final_str = format!("ff1{padded_number_str}");
 
     Ok(H160::from_str(&final_str)?)

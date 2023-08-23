@@ -53,7 +53,10 @@ class DFIIntrinsicsTest(DefiTestFramework):
             encoding="utf8",
         ).read()
         counter_contract = node.w3.eth.contract(
-            address="0x0000000000000000000000000000000000000301", abi=abi
+            address=node.w3.to_checksum_address(
+                "0xff10000000000000000000000000000000000000"
+            ),
+            abi=abi,
         )
 
         num_blocks = 5
