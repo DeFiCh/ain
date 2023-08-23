@@ -277,6 +277,11 @@ BOOST_AUTO_TEST_CASE(pkh_key_test)
     BOOST_CHECK(DecodeDestination(pkh_addr2)  == CTxDestination(PKHash(pubkey2)));
     BOOST_CHECK(DecodeDestination(pkh_addr1C) == CTxDestination(PKHash(pubkey1C)));
     BOOST_CHECK(DecodeDestination(pkh_addr2C) == CTxDestination(PKHash(pubkey2C)));
+
+    BOOST_CHECK(pkh_addr1 == EncodeDestination(CTxDestination(PKHash(pubkey1))));
+    BOOST_CHECK(pkh_addr2 == EncodeDestination(CTxDestination(PKHash(pubkey2))));
+    BOOST_CHECK(pkh_addr1C == EncodeDestination(CTxDestination(PKHash(pubkey1C))));
+    BOOST_CHECK(pkh_addr2C == EncodeDestination(CTxDestination(PKHash(pubkey2C))));
 }
 
 BOOST_AUTO_TEST_CASE(wpkh_key_test)
@@ -321,6 +326,11 @@ BOOST_AUTO_TEST_CASE(wpkh_key_test)
     BOOST_CHECK(DecodeDestination(wpkh_addr2)  == CTxDestination(WitnessV0KeyHash(pubkey2)));
     BOOST_CHECK(DecodeDestination(wpkh_addr1C) == CTxDestination(WitnessV0KeyHash(pubkey1C)));
     BOOST_CHECK(DecodeDestination(wpkh_addr2C) == CTxDestination(WitnessV0KeyHash(pubkey2C)));
+
+    BOOST_CHECK(wpkh_addr1 == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey1))));
+    BOOST_CHECK(wpkh_addr2 == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey2))));
+    BOOST_CHECK(wpkh_addr1C == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey1C))));
+    BOOST_CHECK(wpkh_addr2C == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey2C))));
 }
 
 BOOST_AUTO_TEST_CASE(erc55_key_test)
@@ -365,6 +375,11 @@ BOOST_AUTO_TEST_CASE(erc55_key_test)
     BOOST_CHECK(DecodeDestination(erc55_addr2)  == CTxDestination(WitnessV16EthHash(pubkey2)));
     BOOST_CHECK(DecodeDestination(erc55_addr1C) == CTxDestination(WitnessV16EthHash(pubkey1C)));
     BOOST_CHECK(DecodeDestination(erc55_addr2C) == CTxDestination(WitnessV16EthHash(pubkey2C)));
+
+    BOOST_CHECK(erc55_addr1 == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey1))));
+    BOOST_CHECK(erc55_addr2 == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey2))));
+    BOOST_CHECK(erc55_addr1C == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey1C))));
+    BOOST_CHECK(erc55_addr2C == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey2C))));
 }
 
 BOOST_AUTO_TEST_SUITE_END()

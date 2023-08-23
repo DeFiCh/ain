@@ -3902,14 +3902,14 @@ public:
                 auto tokenId = dst.amount.nTokenId;
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex());
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, toAddress.GetHex(), balanceIn, tx.GetHash().GetHex());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);
                     }
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
+                    evm_try_bridge_dst20(result, evmQueueId, toAddress.GetHex(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -3928,7 +3928,7 @@ public:
                 auto tokenId = dst.amount.nTokenId;
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
-                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex())) {
+                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, fromAddress.GetHex(), balanceIn, tx.GetHash().GetHex())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
                     if (!result.ok) {
@@ -3937,7 +3937,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
+                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.GetHex(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
