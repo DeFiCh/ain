@@ -370,6 +370,7 @@ impl EVMServices {
             block.header.hash(),
             block.header.number,
         );
+        let new_state_root = format!("{:?}", block.header.state_root);
         queue.block_data = Some(BlockData { block, receipts });
 
         Ok(FinalizedBlockInfo {
@@ -378,7 +379,7 @@ impl EVMServices {
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
-            state_root: format!("{:?}", state_root),
+            state_root: new_state_root,
         })
     }
 

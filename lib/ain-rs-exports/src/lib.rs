@@ -100,6 +100,12 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: &str) -> u64;
+        fn evm_try_get_balance_at_state_root(
+            result: &mut CrossBoundaryResult,
+            address: &str,
+            state_root: &str,
+        ) -> u64;
+
         fn evm_unsafe_try_create_queue(result: &mut CrossBoundaryResult) -> u64;
         fn evm_unsafe_try_remove_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);

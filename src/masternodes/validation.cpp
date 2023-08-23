@@ -2440,7 +2440,7 @@ void ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* p
     }
 }
 
-static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, CEVMInitialState& evmInitialState, const CEvmBlockStatsLive& evmStats) {
+static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, CEVMInitialState& evmInitialState, const CEvmBlockStatsLive& evmStats, const std::string &stateRoot) {
     auto attributes = cache.GetAttributes();
     assert(attributes);
 
@@ -2510,7 +2510,7 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
         newBalance.AddBalances(delta.balances);
         if (ExtractDestination(address, dest) && dest.index() == WitV16KeyEthHashType) {
             const auto keyID = std::get<WitnessV16EthHash>(dest);
-            auto result = XResultValue(evm_try_get_balance(result, keyID.ToHexString()));
+            auto result = XResultValue(evm_try_get_balance_at_state_root(result, keyID.ToHexString(), stateRoot));
             if (result)
                 if (auto balance = *result) {
                     if (newBalance.balances[DFIToken] != balance)
@@ -2622,7 +2622,8 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     }
 
     // Process transferdomain events
-    res = ProcessAccountingConsensusChecks(block, pindex, cache, chainparams, evmInitialState, stats);
+    auto evmStateRoot = std::string(blockResult.state_root.data(), blockResult.state_root.length());
+    res = ProcessAccountingConsensusChecks(block, pindex, cache, chainparams, evmInitialState, stats, evmStateRoot);
     if (!res) return res;
 
     attributes->SetValue(CEvmBlockStatsLive::Key, stats);

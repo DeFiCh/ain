@@ -105,6 +105,46 @@ pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: &str)
     }
 }
 
+/// Retrieves the balance of an EVM account at state root.
+///
+/// # Arguments
+///
+/// * `address` - The EVM address of the account.
+/// * `state_root` - The state root from which to restore temporary trie database.
+///
+/// # Errors
+///
+/// Returns an Error if the address is not a valid EVM address.
+///
+/// # Returns
+///
+/// Returns the balance of the account as a `u64` on success.
+pub fn evm_try_get_balance_at_state_root(
+    result: &mut ffi::CrossBoundaryResult,
+    address: &str,
+    state_root: &str,
+) -> u64 {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+    let Ok(state_root) = state_root.parse() else {
+        return cross_boundary_error_return(result, "Invalid state root");
+    };
+
+    match SERVICES
+        .evm
+        .core
+        .get_balance_at_state_root(address, state_root)
+    {
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+        Ok(balance) => {
+            let amount = WeiAmount(balance).to_satoshi().try_into();
+
+            try_cross_boundary_return(result, amount)
+        }
+    }
+}
+
 /// Retrieves the next valid nonce of an EVM account in a specific queue_id
 ///
 /// # Arguments
