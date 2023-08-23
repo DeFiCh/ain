@@ -518,6 +518,22 @@ public:
         return Res::Err("TransferDomain currently only supports a single transfer per transaction");
     }
 
+    static Res AccountingMoreDVMInThanOut(const std::string &token, const std::string &amount) {
+        return Res::Err("More token #%s moved in DVM from EVM than out. DVM domain balance (should be negative or zero): %s", token, amount);
+    }
+
+    static Res AccountingMoreEVMOurThanIn(const std::string &token, const std::string &amount) {
+        return Res::Err("More token #%s moved in DVM from EVM than out. DVM domain balance (should be negative or zero): %s", token, amount);
+    }
+
+    static Res AccountingMissmatch(const std::string &direction, const std::string &oldBalance, const std::string &newBalance, const std::string &accounting) {
+        return Res::Err("Accounting mistmatch %s - Old: %s New: %s Accounting: %s", direction, oldBalance, newBalance, accounting);
+    }
+
+    static Res AccountingMissmatchEVM(const std::string &token, const std::string &address, const CAmount oldBalance, const CAmount newBalance, const CAmount currentBalance) {
+        return Res::Err("Accounting mistmatch on EVM side for token on %s: Old: %lld New: %lld Current: %lld", address, oldBalance, newBalance, currentBalance);
+    }
+
     static Res SettingEVMAttributeFailure() {
         return Res::Err("Failed to set EVM attribute");
     }

@@ -2610,12 +2610,17 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto attributes = accountsView.GetAttributes();
     assert(attributes);
 
-    auto transferDomainStatsBefore = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
-
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     const auto consensus = chainparams.GetConsensus();
     auto isEvmEnabledForBlock = IsEVMEnabled(pindex->nHeight, mnview, consensus);
+
+    CEVMInitialState evmInitialState;
+
+    if (isEvmEnabledForBlock) {
+        evmInitialState.transferDomainState = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+        ProcessAccountingStateBeforeBlock(block, pindex, chainparams, evmInitialState.evmBalances);
+    }
 
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -2855,7 +2860,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock, transferDomainStatsBefore);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock, evmInitialState);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }

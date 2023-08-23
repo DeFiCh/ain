@@ -311,6 +311,20 @@ struct CTransferDomainStatsLive {
     static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
 };
 
+struct CEVMInitialState
+{
+    CTransferDomainStatsLive transferDomainState;
+    std::map<CScript, CStatsTokenBalances> evmBalances;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(transferDomainState);
+        READWRITE(evmBalances);
+    }
+};
+
 struct CConsortiumMember {
     static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
     static const uint16_t MIN_CONSORTIUM_MEMBERS_STRING_LENGTH = 3;

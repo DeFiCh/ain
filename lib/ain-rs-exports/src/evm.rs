@@ -867,7 +867,7 @@ mod tests {
     #[test]
     fn test_hash_type_string() {
         use primitive_types::H160;
-        let num = 0b11010111_11010111_11010111_11010111_11010111_11010111_11010111_11010111;
+        let num = 0b1101_0111_1101_0111_1101_0111_1101_0111_1101_0111_1101_0111_1101_0111_1101_0111;
         let num_h160 = H160::from_low_u64_be(num);
         let num_h160_string = format!("{:?}", num_h160);
         println!("{}", num_h160_string);
