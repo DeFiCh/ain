@@ -430,7 +430,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // decode owner
-    const auto reqOwner = DecodeScript(request.params[0].get_str());
+    const auto reqOwner = GetScriptForDestination(DecodeDestination(request.params[0].get_str()));
 
     // parse pagination
     size_t limit = 100;
