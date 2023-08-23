@@ -138,7 +138,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_usdt)
             ),
-            tx1["input"],
+            self.bytecode,
         )
 
         # check BTC migration
@@ -159,7 +159,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_btc)
             ),
-            tx2["input"],
+            self.bytecode,
         )
 
         # check ETH migration
@@ -180,7 +180,7 @@ class DST20(DefiTestFramework):
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(self.contract_address_eth)
             ),
-            tx3["input"],
+            self.bytecode,
         )
 
         assert_equal(tx1["input"], tx2["input"])
@@ -796,6 +796,14 @@ class DST20(DefiTestFramework):
         self.reserved_bytecode = json.loads(
             open(
                 f"{os.path.dirname(__file__)}/../../lib/ain-contracts/system_reserved/output/bytecode.json",
+                "r",
+                encoding="utf8",
+            ).read()
+        )["object"]
+
+        self.bytecode = json.loads(
+            open(
+                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/bytecode.json",
                 "r",
                 encoding="utf8",
             ).read()

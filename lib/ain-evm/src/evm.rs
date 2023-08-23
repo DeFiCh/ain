@@ -134,12 +134,6 @@ impl EVMServices {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
         let mut queue = tx_queue.data.lock().unwrap();
 
-        let is_evm_genesis_block = queue.target_block == U256::zero();
-        if is_evm_genesis_block {
-            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
-            queue.transactions.extend(migration_txs.into_iter())
-        }
-
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
         let mut failed_transactions = Vec::with_capacity(queue_txs_len);
@@ -194,12 +188,15 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut backend);
 
-        // Ensure that state root changes by updating counter contract storage
-        if current_block_number == U256::zero() {
+        let is_evm_genesis_block = queue.target_block == U256::zero();
+        if is_evm_genesis_block {
             // reserve DST20 namespace
             self.reserve_dst20_namespace(&mut executor)?;
 
-            // Deploy contract on the first block
+            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
+            queue.transactions.extend(migration_txs.into_iter());
+
+            // Deploy counter contract on the first block
             let DeployContractInfo {
                 address,
                 storage,
@@ -207,12 +204,14 @@ impl EVMServices {
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.deploy_contract(address, bytecode, storage)?;
         } else {
+            // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
             } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
-        for (_idx, queue_item) in queue.transactions.clone().into_iter().enumerate() {
+
+        for queue_item in queue.transactions.clone() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
@@ -505,7 +504,7 @@ impl EVMServices {
             None => {}
             Some(account) => {
                 if account.code_hash != ain_contracts::get_system_reserved_codehash()? {
-                    debug!("Token address is already in use for {name} {symbol}");
+                    return Err(format_err!("Token address is already in use").into());
                 }
             }
         }
@@ -643,7 +642,10 @@ impl EVMServices {
             .collect::<Vec<H160>>();
 
         for address in addresses {
-            debug!("Deploying address to {:#?}", address);
+            debug!(
+                "[reserve_dst20_namespace] Deploying address to {:#?}",
+                address
+            );
             executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
         }
 
@@ -678,7 +680,10 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!("Deploying to address {:#?}", address);
+        debug!(
+            "[get_dst20_migration_txs] Deploying to address {:#?}",
+            address
+        );
 
         let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
             name: token.name,

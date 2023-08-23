@@ -9,6 +9,9 @@
 #include <core_io.h>
 #include <primitives/transaction.h>
 #include <util/strencodings.h>
+#include <ffi/cxx.h>
+#include <ain_rs_exports.h>
+#include <ffi/ffihelpers.h>
 
 #include <univalue.h>
 
@@ -61,17 +64,19 @@ Res CTokensView::CreateDFIToken() {
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bool isPreBayfront) {
-    // this should not happen, but for sure
-    Require(!GetTokenByCreationTx(token.creationTx),
-            [=]{ return strprintf("token with creation tx %s already exists!",
-                                  token.creationTx.ToString()); });
-
-    Require(token.IsValidSymbol());
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bool isPreBayfront, bool shouldCreateDst20, uint64_t evmQueueId) {
+    if (GetTokenByCreationTx(token.creationTx)) {
+        return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
+    }
+    if (auto r = token.IsValidSymbol(); !r) {
+        return r;
+    }
 
     DCT_ID id{0};
     if (token.IsDAT()) {
-        Require(!GetToken(token.symbol), [=]{ return strprintf("token '%s' already exists!", token.symbol); });
+        if (GetToken(token.symbol)) {
+            return Res::Err("token '%s' already exists!", token.symbol);
+        }
 
         ForEachToken(
             [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
@@ -81,21 +86,30 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
             },
             id);
         if (id == DCT_ID_START) {
-            // asserted before BayfrontHeight, keep it for strict sameness
-            Require(
-                !isPreBayfront,
-                []{ return "Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n"; });
+            if (isPreBayfront) {
+                return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
+            }
 
             id = IncrementLastDctId();
             LogPrintf("Warning! Range <DCT_ID_START already filled. Using \"common\" id=%s for new token\n",
                       id.ToString().c_str());
         }
+
+        if (shouldCreateDst20) {
+            CrossBoundaryResult result;
+            evm_try_create_dst20(result, evmQueueId, token.creationTx.GetHex(),
+                                rust::string(token.name.c_str()),
+                                rust::string(token.symbol.c_str()),
+                                id.v);
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
+            }
+        }
     } else {
         id = IncrementLastDctId();
     }
 
-    std::string symbolKey = token.CreateSymbolKey(id);
-
+    const auto symbolKey = token.CreateSymbolKey(id);
     WriteBy<ID>(id, token);
     WriteBy<Symbol>(symbolKey, id);
     WriteBy<CreationTx>(token.creationTx, id);
@@ -231,15 +245,24 @@ std::optional<DCT_ID> CTokensView::ReadLastDctId() const {
     if (Read(LastDctId::prefix(), lastDctId)) {
         return {lastDctId};
     }
-
     return {};
 }
 
 inline Res CTokenImplementation::IsValidSymbol() const {
-    Require(!symbol.empty() && !IsDigit(symbol[0]), []{ return "token symbol should be non-empty and starts with a letter"; });
-    Require(symbol.find('#') == std::string::npos, []{ return "token symbol should not contain '#'"; });
+    auto invalidTokenSymbol = []() {
+        return Res::Err("Invalid token symbol. Valid: Start with an alphabet, non-empty, not contain # or /");
+    };
+
+    if (symbol.empty() || IsDigit(symbol[0])) {
+        return invalidTokenSymbol();
+    }
+    if (symbol.find('#') != std::string::npos) {
+        return invalidTokenSymbol();
+    }
     if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
-        Require(symbol.find('/') == std::string::npos, []{ return "token symbol should not contain '/'"; });
+        if (symbol.find('/') != std::string::npos) {
+            return invalidTokenSymbol();
+        };
     }
     return Res::Ok();
 }

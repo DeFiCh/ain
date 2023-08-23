@@ -630,7 +630,7 @@ class TokenSplitTest(DefiTestFramework):
         # Make sure we cannot make a token with '/' in its symbol
         assert_raises_rpc_error(
             -32600,
-            "token symbol should not contain '/'",
+            "Invalid token symbol",
             self.nodes[0].createtoken,
             {"symbol": "bad/v1", "collateralAddress": self.address},
         )

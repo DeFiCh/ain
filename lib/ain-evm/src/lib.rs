@@ -34,7 +34,7 @@ pub type MaybeTransactionV2 = Option<ethereum::TransactionV2>;
 pub enum EVMError {
     #[error("EVM: Backend error: {0:?}")]
     TrieCreationFailed(#[from] BackendError),
-    #[error("EVM: Queue error")]
+    #[error("EVM: Queue error {0:?}")]
     QueueError(#[from] QueueError),
     #[error("EVM: Queue invalid nonce error {0:?}")]
     QueueInvalidNonce((Box<transaction::SignedTx>, ethereum_types::U256)),
