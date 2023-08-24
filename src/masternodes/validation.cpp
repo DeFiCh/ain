@@ -2501,9 +2501,9 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
                     deltaEvmBalances[dst.address].Add(dst.amount);
             } else {
                 if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                    deltaDST20EvmTotalSupply.Sub(src.amount);
+                    deltaDST20EvmTotalSupply.Sub({src.amount.nTokenId, src.amount.nValue * CAMOUNT_TO_GWEI * WEI_IN_GWEI});
                 } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                    deltaDST20EvmTotalSupply.Add(dst.amount);
+                    deltaDST20EvmTotalSupply.Add({dst.amount.nTokenId, dst.amount.nValue * CAMOUNT_TO_GWEI * WEI_IN_GWEI});
                 }
             }
         }
@@ -2564,7 +2564,7 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
     deltaDST20EvmTotalSupply.AddBalances(evmInitialState.dst20EvmTotalSupply.balances);
     auto res = Res::Ok();
     cache.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        auto supply = GetEvmDST20TotalSupply(id, stateRoot);
+        auto supply = GetEvmDST20TotalSupply(id);
         if (supply != -1)
             if (deltaDST20EvmTotalSupply.balances[id] != supply || deltaDST20EvmTotalSupply.balances[id] < 0) {
                 res = DeFiErrors::AccountingMissmatchEVMDST20(id.ToString(), evmInitialState.dst20EvmTotalSupply.balances[id], deltaDST20EvmTotalSupply.balances[id], supply);
