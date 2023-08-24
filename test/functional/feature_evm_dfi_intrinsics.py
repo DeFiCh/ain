@@ -6,7 +6,6 @@
 """Test DFI intrinsics contract"""
 
 import os
-import json
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal
@@ -44,32 +43,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         # Activate EVM
         node.setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
-        node.generate(2)
-
-        # check reserved address space
-        reserved_bytecode = json.loads(
-            open(
-                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/system_reserved/output/bytecode.json",
-                "r",
-                encoding="utf8",
-            ).read()
-        )["object"]
-
-        for i in range(1, 128):
-            address = node.w3.to_checksum_address(generate_formatted_string(i))
-            assert (
-                self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
-                == reserved_bytecode
-            )
-
-        assert (
-            self.nodes[0].w3.to_hex(
-                self.nodes[0].w3.eth.get_code(
-                    node.w3.to_checksum_address(generate_formatted_string(129))
-                )
-            )
-            != reserved_bytecode
-        )
+        node.generate(1)
 
         # check counter contract
         # Temp. workaround
@@ -79,10 +53,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             encoding="utf8",
         ).read()
         counter_contract = node.w3.eth.contract(
-            address=node.w3.to_checksum_address(
-                "0xff10000000000000000000000000000000000000"
-            ),
-            abi=abi,
+            address="0x0000000000000000000000000000000000000301", abi=abi
         )
 
         num_blocks = 5
@@ -107,18 +78,6 @@ class DFIIntrinsicsTest(DefiTestFramework):
             )
 
         assert_equal(len(state_roots), num_blocks)
-
-
-def generate_formatted_string(input_number):
-    hex_representation = hex(input_number)[2:]  # Convert to hex and remove '0x' prefix
-
-    if len(hex_representation) > 32:
-        hex_representation = hex_representation[:32]  # Truncate if too long
-
-    padding = "0" * (37 - len(hex_representation))
-    formatted_string = f"0xff1{padding}{hex_representation}"
-
-    return formatted_string
 
 
 if __name__ == "__main__":
