@@ -471,8 +471,6 @@ test() {
     # shellcheck disable=SC2119
     test_py
     _fold_end
-
-    _exit_dir
 }
 
 test_unit() {
