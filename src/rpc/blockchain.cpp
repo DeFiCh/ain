@@ -131,7 +131,7 @@ struct MinterInfo {
         CKeyID minter;
         block.ExtractMinterKey(minter);
         auto id = view.GetMasternodeIdByOperator(minter);
-        if (!id && block.deprecatedHeight != 0) return {};
+        if (!id && blockindex->deprecatedHeight != 0) return {};
         result.Id = id->ToString();
         auto mn = view.GetMasternode(*id);
         if (mn) {
