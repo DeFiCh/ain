@@ -132,6 +132,7 @@ struct MinterInfo {
         block.ExtractMinterKey(minter);
         auto id = view.GetMasternodeIdByOperator(minter);
         if (!id && blockindex->nHeight != 0) return {};
+        // note: understand block0(!id) will cause panic here but since block0 never have minter
         result.Id = id->ToString();
         auto mn = view.GetMasternode(*id);
         if (mn) {
