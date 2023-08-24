@@ -5,7 +5,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM contract"""
 
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_greater_than
 from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
@@ -60,7 +60,7 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-    def should_create_contract(self):
+    def should_deploy_contract_less_than_1KB(self):
         node = self.nodes[0]
         self.evm_key_pair = EvmKeyPair.from_node(node)
 
@@ -99,6 +99,9 @@ class EVMTest(DefiTestFramework):
         self.contract = node.w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
+        size_of_runtime_bytecode = len(node.w3.eth.get_code(self.contract.address))
+        assert_greater_than(size_of_runtime_bytecode, 0)
+        assert_greater_than(1_000, size_of_runtime_bytecode)
 
     def should_contract_get_set(self):
         # set variable
@@ -181,14 +184,151 @@ class EVMTest(DefiTestFramework):
 
         assert_equal(before_tx_count + 1, after_tx_count)
 
+    def should_deploy_contract_1KB_To_10KB(self): 
+        node = self.nodes[0]
+
+        abi, bytecode = EVMContract.from_file("ContractSize1KBTo10KB.sol", "ContractWithSize1KBTo10KB").compile()
+        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        assert_equal(receipt["status"], 1)
+        assert_greater_than(size_of_runtime_bytecode, 1_000)
+        assert_greater_than(10_000, size_of_runtime_bytecode)
+
+    def should_deploy_contract_10KB_To_19KB(self): 
+        node = self.nodes[0]
+
+        abi, bytecode = EVMContract.from_file("ContractSize10KBTo19KB.sol", "ContractWithSize10KBTo19KB").compile()
+        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        assert_equal(receipt["status"], 1)
+        assert_greater_than(size_of_runtime_bytecode, 10_000)
+        assert_greater_than(19_000, size_of_runtime_bytecode)
+
+    def should_deploy_contract_20KB_To_29KB(self): 
+        node = self.nodes[0]
+
+        abi, bytecode = EVMContract.from_file("ContractSize20KBTo29KB.sol", "ContractWithSize20KBTo29KB").compile()
+        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        assert_equal(receipt["status"], 1)
+        assert_greater_than(size_of_runtime_bytecode, 20_000)
+        assert_greater_than(29_000, size_of_runtime_bytecode)
+
+    # EIP 170, contract size is limited to 24576 bytes
+    # this test deploys a smart contract with an estimated size larger than this number
+    def fail_deploy_contract_extremely_large_runtime_code(self): 
+        node = self.nodes[0]
+
+        abi, bytecode = EVMContract.from_file("ContractLargeRunTimeCode.sol", "ContractLargeRunTimeCode").compile()
+        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        node.generate(1)
+
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        assert_equal(receipt["status"], 0)
+        assert_equal(size_of_runtime_bytecode, 0)
+
+    # EIP 3860, contract initcode is limited up till 49152 bytes
+    # This test takes in a contract with init code of 247646 bytes
+    # However, because the current implementation of DMC limits the size of EVM transaction to 32768 bytes
+    # the error returned is evm tx size too large
+    def fail_deploy_contract_extremely_large_init_code(self): 
+        node = self.nodes[0]
+
+        abi, bytecode = EVMContract.from_file("ContractLargeInitCode.sol", "ContractLargeInitCode").compile()
+        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+
+        try: 
+            node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        except Exception as e:
+            error_code = e.args[0]["code"]
+            error_message = e.args[0]["message"]
+            assert_equal(error_code, -32001)
+            assert_equal("Custom error: Could not publish raw transaction:" in error_message, True)
+            assert_equal("reason: Test EvmTxTx execution failed:\nevm tx size too large" in error_message, True)
+
     def run_test(self):
         self.setup()
 
-        self.should_create_contract()
+        self.should_deploy_contract_less_than_1KB()
 
         self.should_contract_get_set()
 
         self.failed_tx_should_increment_nonce()
+
+        self.should_deploy_contract_1KB_To_10KB()
+
+        self.should_deploy_contract_10KB_To_19KB()
+
+        self.should_deploy_contract_20KB_To_29KB()
+
+        self.fail_deploy_contract_extremely_large_runtime_code()
+
+        self.fail_deploy_contract_extremely_large_init_code()
 
 
 if __name__ == "__main__":
