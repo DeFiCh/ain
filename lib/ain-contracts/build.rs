@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 remappings: vec![],
                 optimizer: Optimizer {
                     enabled: Some(true),
-                    runs: Some(10000),
+                    runs: Some(usize::MAX),
                     details: None,
                 },
                 model_checker: None,
