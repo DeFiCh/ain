@@ -709,8 +709,16 @@ pub fn evm_try_is_dst20_deployed_or_queued(
     }
 }
 
-pub fn evm_try_get_dst20_total_supply(result: &mut ffi::CrossBoundaryResult, token_id: u64) -> u64 {
-    match SERVICES.evm.get_dst20_total_supply(token_id) {
+pub fn evm_try_get_dst20_total_supply(
+    result: &mut ffi::CrossBoundaryResult,
+    token_id: u64,
+    state_root: &str,
+) -> u64 {
+    let Ok(state_root) = state_root.parse() else {
+        return cross_boundary_error_return(result, "Invalid state root");
+    };
+
+    match SERVICES.evm.get_dst20_total_supply(token_id, state_root) {
         Ok(total_supply) => cross_boundary_success_return(result, total_supply.as_u64()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }

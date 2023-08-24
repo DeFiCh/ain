@@ -2413,8 +2413,8 @@ CTransferDomainMessage DecodeTransferDomainMessage(const CTransactionRef& tx, co
     return CTransferDomainMessage{};
 }
 
-CAmount GetEvmDST20TotalSupply(const DCT_ID& id) {
-    auto result = XResultValue(evm_try_get_dst20_total_supply(result, id.v));
+CAmount GetEvmDST20TotalSupply(const DCT_ID& id, const std::string &stateRoot = std::string()) {
+    auto result = XResultValue(evm_try_get_dst20_total_supply(result, id.v, stateRoot));
         if (result)
             if (auto balance = *result)
                 return static_cast<CAmount>(balance);
@@ -2564,7 +2564,7 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
     deltaDST20EvmTotalSupply.AddBalances(evmInitialState.dst20EvmTotalSupply.balances);
     auto res = Res::Ok();
     cache.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
-        auto supply = GetEvmDST20TotalSupply(id);
+        auto supply = GetEvmDST20TotalSupply(id, stateRoot);
         if (supply != -1)
             if (deltaDST20EvmTotalSupply.balances[id] != supply || deltaDST20EvmTotalSupply.balances[id] < 0) {
                 res = DeFiErrors::AccountingMissmatchEVMDST20(id.ToString(), evmInitialState.dst20EvmTotalSupply.balances[id], deltaDST20EvmTotalSupply.balances[id], supply);
