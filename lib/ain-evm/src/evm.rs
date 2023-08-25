@@ -438,16 +438,9 @@ impl EVMServices {
         hash: XHash,
         gas_used: U256,
     ) -> Result<()> {
-        let parent_data = self.block.get_latest_block_hash_and_number()?;
-        let parent_hash = match parent_data {
-            Some((hash, _)) => hash,
-            None => H256::zero(),
-        };
-        let base_fee = self.block.calculate_base_fee(parent_hash)?;
-
         self.core
             .tx_queues
-            .push_in(queue_id, tx.clone(), hash, gas_used, base_fee)?;
+            .push_in(queue_id, tx.clone(), hash, gas_used)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash());
@@ -680,7 +673,6 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
         txs.push(QueueTxItem {
             tx,
             tx_hash: Default::default(),
-            tx_fee: U256::zero(),
             gas_used: U256::zero(),
         });
     }
