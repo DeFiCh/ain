@@ -184,10 +184,12 @@ class EVMTest(DefiTestFramework):
 
         assert_equal(before_tx_count + 1, after_tx_count)
 
-    def should_deploy_contract_1KB_To_10KB(self): 
+    def should_deploy_contract_1KB_To_10KB(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file("ContractSize1KBTo10KB.sol", "ContractWithSize1KBTo10KB").compile()
+        abi, bytecode = EVMContract.from_file(
+            "ContractSize1KBTo10KB.sol", "ContractWithSize1KBTo10KB"
+        ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -208,10 +210,12 @@ class EVMTest(DefiTestFramework):
         assert_greater_than(size_of_runtime_bytecode, 1_000)
         assert_greater_than(10_000, size_of_runtime_bytecode)
 
-    def should_deploy_contract_10KB_To_19KB(self): 
+    def should_deploy_contract_10KB_To_19KB(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file("ContractSize10KBTo19KB.sol", "ContractWithSize10KBTo19KB").compile()
+        abi, bytecode = EVMContract.from_file(
+            "ContractSize10KBTo19KB.sol", "ContractWithSize10KBTo19KB"
+        ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -232,10 +236,12 @@ class EVMTest(DefiTestFramework):
         assert_greater_than(size_of_runtime_bytecode, 10_000)
         assert_greater_than(19_000, size_of_runtime_bytecode)
 
-    def should_deploy_contract_20KB_To_29KB(self): 
+    def should_deploy_contract_20KB_To_29KB(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file("ContractSize20KBTo29KB.sol", "ContractWithSize20KBTo29KB").compile()
+        abi, bytecode = EVMContract.from_file(
+            "ContractSize20KBTo29KB.sol", "ContractWithSize20KBTo29KB"
+        ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -258,10 +264,12 @@ class EVMTest(DefiTestFramework):
 
     # EIP 170, contract size is limited to 24576 bytes
     # this test deploys a smart contract with an estimated size larger than this number
-    def fail_deploy_contract_extremely_large_runtime_code(self): 
+    def fail_deploy_contract_extremely_large_runtime_code(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file("ContractLargeRunTimeCode.sol", "ContractLargeRunTimeCode").compile()
+        abi, bytecode = EVMContract.from_file(
+            "ContractLargeRunTimeCode.sol", "ContractLargeRunTimeCode"
+        ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -286,10 +294,12 @@ class EVMTest(DefiTestFramework):
     # This test takes in a contract with init code of 247646 bytes
     # However, because the current implementation of DMC limits the size of EVM transaction to 32768 bytes
     # the error returned is evm tx size too large
-    def fail_deploy_contract_extremely_large_init_code(self): 
+    def fail_deploy_contract_extremely_large_init_code(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file("ContractLargeInitCode.sol", "ContractLargeInitCode").compile()
+        abi, bytecode = EVMContract.from_file(
+            "ContractLargeInitCode.sol", "ContractLargeInitCode"
+        ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -302,14 +312,21 @@ class EVMTest(DefiTestFramework):
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
 
-        try: 
+        try:
             node.w3.eth.send_raw_transaction(signed.rawTransaction)
         except Exception as e:
             error_code = e.args[0]["code"]
             error_message = e.args[0]["message"]
             assert_equal(error_code, -32001)
-            assert_equal("Custom error: Could not publish raw transaction:" in error_message, True)
-            assert_equal("reason: Test EvmTxTx execution failed:\nevm tx size too large" in error_message, True)
+            assert_equal(
+                "Custom error: Could not publish raw transaction:" in error_message,
+                True,
+            )
+            assert_equal(
+                "reason: Test EvmTxTx execution failed:\nevm tx size too large"
+                in error_message,
+                True,
+            )
 
     def run_test(self):
         self.setup()
