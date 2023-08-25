@@ -464,20 +464,18 @@ fmt_lib() {
 test() {
     _fold_start "unit-tests"
     # shellcheck disable=SC2086
-    test_unit
+    test_unit "$@"
     _fold_end
 
     _fold_start "functional-tests"
     # shellcheck disable=SC2119
     test_py
     _fold_end
-
-    _exit_dir
 }
 
 test_unit() {
-    test_cpp
-    test_rs
+    test_cpp "$@"
+    test_rs "$@"
 }
 
 test_cpp() {
