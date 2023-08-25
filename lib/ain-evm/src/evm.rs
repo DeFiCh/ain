@@ -333,10 +333,6 @@ impl EVMServices {
             total_priority_fees
         );
 
-        if (total_burnt_fees + total_priority_fees) != queue.total_fees {
-            return Err(format_err!("EVM block rejected because block total fees != (burnt fees + priority fees). Burnt fees: {}, priority fees: {}, total fees: {}", total_burnt_fees, total_priority_fees, queue.total_fees).into());
-        }
-
         let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
         let gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
         let block = Block::new(
