@@ -63,7 +63,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def generate_contract(self, node: TestNode, num_functions: int, contract_name: str):
-        # noqa: W293
         contract_start = """
 pragma solidity ^0.8.0;
 
@@ -71,7 +70,7 @@ contract {} {{
     
     """.format(
             contract_name
-        )
+        )  # noqa: W293
 
         function_template = lambda index: """
     function func{}() public pure returns(uint256) {{
