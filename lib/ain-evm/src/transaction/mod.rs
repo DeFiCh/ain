@@ -300,6 +300,14 @@ impl SignedTx {
             TransactionV2::EIP1559(tx) => tx.hash(),
         }
     }
+
+    pub fn get_tx_type(&self) -> U256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => U256::from(0),
+            TransactionV2::EIP2930(tx) => U256::from(1),
+            TransactionV2::EIP1559(tx) => U256::from(2),
+        }
+    }
 }
 
 use std::convert::{TryFrom, TryInto};
