@@ -332,7 +332,7 @@ contract {} {{
         assert_equal(size_of_runtime_bytecode, 0)
 
     # EIP 3860, contract initcode is limited up till 49152 bytes
-    # This test takes in a contract with init code of 247646 bytes
+    # This test takes in a contract with init code of 243542 bytes
     # However, because the current implementation of DMC limits the size of EVM transaction to 32768 bytes
     # the error returned is evm tx size too large
     def fail_deploy_contract_extremely_large_init_code(self):
@@ -350,6 +350,8 @@ contract {} {{
                 "maxPriorityFeePerGas": 1_500_000_000,
             }
         )
+        # to check the init code is larger than 49152
+        assert_greater_than((len(tx["data"]) - 2) / 2, 49152)
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
 
         try:
