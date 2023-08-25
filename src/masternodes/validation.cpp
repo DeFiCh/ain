@@ -2501,9 +2501,9 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
                     deltaEvmBalances[dst.address].Add(dst.amount);
             } else {
                 if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                    deltaDST20EvmTotalSupply.Sub({src.amount.nTokenId, src.amount.nValue * CAMOUNT_TO_GWEI * WEI_IN_GWEI});
+                    deltaDST20EvmTotalSupply.Sub({src.amount.nTokenId, src.amount.nValue});
                 } else if (dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                    deltaDST20EvmTotalSupply.Add({dst.amount.nTokenId, dst.amount.nValue * CAMOUNT_TO_GWEI * WEI_IN_GWEI});
+                    deltaDST20EvmTotalSupply.Add({dst.amount.nTokenId, dst.amount.nValue});
                 }
             }
         }
