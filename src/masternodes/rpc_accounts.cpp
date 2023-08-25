@@ -2057,8 +2057,12 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
             CTransferDomainItem src, dst;
 
-            if (!srcObj["address"].isNull())
-                src.address = GetScriptForDestination(DecodeDestination(srcObj["address"].getValStr()));
+            if (!srcObj["address"].isNull()) {
+                const auto dest = DecodeDestination(srcObj["address"].getValStr());
+                if (!IsValidDestination(dest))
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid src address provided");
+                src.address = GetScriptForDestination(dest);
+            }
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"address\" must not be null");
 
@@ -2088,8 +2092,12 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             if (!srcObj["data"].isNull())
                 src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
 
-            if (!dstObj["address"].isNull())
-                dst.address = GetScriptForDestination(DecodeDestination(dstObj["address"].getValStr()));
+            if (!dstObj["address"].isNull()) {
+                const auto dest = DecodeDestination(dstObj["address"].getValStr());
+                if (!IsValidDestination(dest))
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
+                dst.address = GetScriptForDestination(dest);
+            }
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"address\" must not be null");
 
