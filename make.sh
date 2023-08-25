@@ -462,23 +462,35 @@ fmt_lib() {
 # ---
 
 test() {
-    local make_jobs=${MAKE_JOBS}
-    local make_args=${MAKE_ARGS:-}
-    local build_target_dir=${BUILD_TARGET_DIR}
-
-    _ensure_enter_dir "${build_target_dir}"
-
     _fold_start "unit-tests"
     # shellcheck disable=SC2086
-    make -j$make_jobs check
+    test_unit "$@"
     _fold_end
 
     _fold_start "functional-tests"
     # shellcheck disable=SC2119
     test_py
     _fold_end
+}
 
+test_unit() {
+    test_cpp "$@"
+    test_rs "$@"
+}
+
+test_cpp() {
+    local make_jobs=${MAKE_JOBS}
+    local make_args=${MAKE_ARGS:-}
+    local build_target_dir=${BUILD_TARGET_DIR}
+
+    _ensure_enter_dir "${build_target_dir}"
+    # shellcheck disable=SC2086
+    make -j$make_jobs check "$@"
     _exit_dir
+}
+
+test_rs() {
+    lib test "$@"
 }
 
 # shellcheck disable=SC2120
