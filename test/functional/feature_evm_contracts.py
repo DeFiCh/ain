@@ -64,13 +64,11 @@ class EVMTest(DefiTestFramework):
 
     def generate_contract(self, node: TestNode, num_functions: int, contract_name: str):
         contract_start = """
-pragma solidity ^0.8.0;
-
-contract {} {{
-    
+pragma solidity ^0.8.0;\n
+contract {} {{ \n
     """.format(
             contract_name
-        )  # noqa: W293
+        )
 
         function_template = lambda index: """
     function func{}() public pure returns(uint256) {{
