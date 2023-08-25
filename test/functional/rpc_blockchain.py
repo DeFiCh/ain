@@ -55,8 +55,29 @@ class BlockchainTest(DefiTestFramework):
         self.restart_node(
             0, extra_args=["-stopatheight=207", "-prune=1"]
         )  # Set extra args with pruning after rescan is complete
+        self.extra_args = [
+            [
+                "-dummypos=0",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=51",
+                "-eunosheight=80",
+                "-fortcanningheight=82",
+                "-fortcanninghillheight=84",
+                "-fortcanningroadheight=86",
+                "-fortcanningcrunchheight=88",
+                "-fortcanningspringheight=90",
+                "-fortcanninggreatworldheight=94",
+                "-fortcanningepilogueheight=96",
+                "-grandcentralheight=101",
+                "-nextnetworkupgradeheight=105",
+                "-subsidytest=1",
+                "-txindex=1",
+            ],
+        ]
 
         self._test_getblockchaininfo()
+        self._test_getgenesisblock()
         self._test_getchaintxstats()
         self._test_gettxoutsetinfo()
         self._test_getblockheader()
@@ -400,6 +421,29 @@ class BlockchainTest(DefiTestFramework):
         assert isinstance(header["version"], int)
         assert isinstance(int(header["versionHex"], 16), int)
         assert isinstance(header["difficulty"], Decimal)
+
+    def _test_getgenesisblock(self):
+        node = self.nodes[0]
+        genesis = node.getblock(node.getblockhash(0))
+        assert genesis["hash"]
+        assert_equal(genesis["confirmations"], 201)
+        assert_equal(genesis["strippedsize"], 1288)
+        assert_equal(genesis["weight"], 5152)
+        assert_equal(genesis["height"], 0)
+        assert genesis["masternode"]
+        assert_equal(genesis["mintedBlocks"], 0)
+        assert_equal(genesis["stakeModifier"], "0000000000000000000000000000000000000000000000000000000000000000")
+        assert_equal(genesis["version"], 1)
+        assert_equal(genesis["versionHex"], "00000001")
+        assert genesis["merkleroot"]
+        assert genesis["tx"]
+        assert genesis["time"]
+        assert genesis["mediantime"]
+        assert genesis["bits"]
+        assert genesis["difficulty"]
+        assert genesis["chainwork"]
+        assert genesis["nTx"]
+        assert genesis["nextblockhash"]
 
     def _test_getdifficulty(self):
         difficulty = self.nodes[0].getdifficulty()

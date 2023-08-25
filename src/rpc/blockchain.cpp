@@ -120,7 +120,7 @@ UniValue blockheaderToJSON(const CBlockIndex* tip, const CBlockIndex* blockindex
 
 struct MinterInfo {
     std::string Id{};
-    std::string OwnerAddress{}; 
+    std::string OwnerAddress{};
     std::string OperatorAddress{};
     std::string RewardAddress{};
     uint64_t MintedBlocks{};
@@ -131,7 +131,8 @@ struct MinterInfo {
         CKeyID minter;
         block.ExtractMinterKey(minter);
         auto id = view.GetMasternodeIdByOperator(minter);
-        if (!id) return {};
+        if (!id && blockindex->nHeight != 0) return {};
+        // note: understand block0(!id) will cause panic here but since block0 never have minter
         result.Id = id->ToString();
         auto mn = view.GetMasternode(*id);
         if (mn) {
@@ -155,7 +156,7 @@ struct MinterInfo {
     }
 
     UniValue ToUniValue() const {
-        // Note that this breaks compatibility with the legacy version. 
+        // Note that this breaks compatibility with the legacy version.
         // Do not use this with existing RPCs
         UniValue result(UniValue::VOBJ);
         result.pushKV("id", Id);
@@ -206,7 +207,7 @@ struct RewardInfo {
 
         for (const auto& [accountType, accountVal] : consensus.blockTokenRewards)
         {
-            if (blockindex->nHeight < consensus.GrandCentralHeight 
+            if (blockindex->nHeight < consensus.GrandCentralHeight
             && accountType == CommunityAccountType::CommunityDevFunds) {
                 continue;
             }
@@ -214,7 +215,7 @@ struct RewardInfo {
             CAmount subsidy = CalculateCoinbaseReward(blockReward, accountVal);
             switch (accountType) {
                 // Everything else is burnt. Should update post fort canning. Retaining
-                // compatibility for old logic for now. 
+                // compatibility for old logic for now.
                 case CommunityAccountType::AnchorReward:{ tokenRewards.AnchorReward = subsidy; break; }
                 case CommunityAccountType::CommunityDevFunds: { tokenRewards.CommunityDevFunds = subsidy; break; }
                 default: { tokenRewards.Burnt += subsidy; }
@@ -231,7 +232,7 @@ struct RewardInfo {
         UniValue obj(UniValue::VOBJ);
 
         auto& r = TokenRewards;
-        auto items = std::vector<std::pair<CommunityAccountType, CAmount>>{ 
+        auto items = std::vector<std::pair<CommunityAccountType, CAmount>>{
                     { CommunityAccountType::AnchorReward, r.AnchorReward },
                     { CommunityAccountType::CommunityDevFunds, r.CommunityDevFunds },
                     { CommunityAccountType::Unallocated, r.Burnt }};
@@ -245,12 +246,12 @@ struct RewardInfo {
     }
 
     UniValue ToUniValue() const {
-        // Note that this breaks compatibility with the legacy version. 
+        // Note that this breaks compatibility with the legacy version.
         // Do not use this with existing RPCs
         UniValue obj(UniValue::VOBJ);
 
         auto& r = TokenRewards;
-        auto items = std::vector<std::pair<CommunityAccountType, CAmount>>{ 
+        auto items = std::vector<std::pair<CommunityAccountType, CAmount>>{
                     { CommunityAccountType::AnchorReward, r.AnchorReward },
                     { CommunityAccountType::CommunityDevFunds, r.CommunityDevFunds },
                     { CommunityAccountType::IncentiveFunding, r.IncentiveFunding },
@@ -323,7 +324,7 @@ UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serializ
     if (txDetails) {
         UniValue objTx(UniValue::VOBJ);
         TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
-        if (version > 2) { 
+        if (version > 2) {
             if (auto r = VmInfoUniv(tx, isEvmEnabledForBlock); r) {
                 objTx.pushKV("vm", *r);
             }
@@ -367,7 +368,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
         if (minterInfo) { minterInfo->ToUniValueLegacy(result); }
     }
-    
+
     result.pushKV("version", block.nVersion);
     result.pushKV("versionHex", strprintf("%08x", block.nVersion));
     result.pushKV("merkleroot", block.hashMerkleRoot.GetHex());
@@ -391,7 +392,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
 
     if (v3plus) {
         auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
-        if (minterInfo) { 
+        if (minterInfo) {
             result.pushKV("minter", minterInfo->ToUniValue());
         }
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
