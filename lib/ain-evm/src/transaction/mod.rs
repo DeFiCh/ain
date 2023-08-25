@@ -303,9 +303,9 @@ impl SignedTx {
 
     pub fn get_tx_type(&self) -> U256 {
         match &self.transaction {
-            TransactionV2::Legacy(tx) => U256::from(0),
-            TransactionV2::EIP2930(tx) => U256::from(1),
-            TransactionV2::EIP1559(tx) => U256::from(2),
+            TransactionV2::Legacy(_) => U256::from(0),
+            TransactionV2::EIP2930(_) => U256::from(1),
+            TransactionV2::EIP1559(_) => U256::from(2),
         }
     }
 }
