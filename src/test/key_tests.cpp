@@ -39,7 +39,6 @@ static const std::string erc55_addr2 = "0x43162a466BD5891dfBf7c438b0c35F0144690D
 static const std::string erc55_addr1C = "0x2D586e4Dec0798F728b626a4f134a3728772a8E5";
 static const std::string erc55_addr2C = "0x83bB997178Cd7F6876620096EFADB18a712eDdca";
 
-
 static const std::string strAddressBad = "1HV9Lc3sNHZxwj4Zk6fB38tEmBryq2cBiF";
 
 
@@ -282,6 +281,26 @@ BOOST_AUTO_TEST_CASE(pkh_key_test)
     BOOST_CHECK(pkh_addr2 == EncodeDestination(CTxDestination(PKHash(pubkey2))));
     BOOST_CHECK(pkh_addr1C == EncodeDestination(CTxDestination(PKHash(pubkey1C))));
     BOOST_CHECK(pkh_addr2C == EncodeDestination(CTxDestination(PKHash(pubkey2C))));
+
+    // Test script to destination conversions
+    CScript pkh_addr1_script = GetScriptForDestination(DecodeDestination(pkh_addr1));
+    CScript pkh_addr2_script = GetScriptForDestination(DecodeDestination(pkh_addr2));
+    CScript pkh_addr1C_script = GetScriptForDestination(DecodeDestination(pkh_addr1C));
+    CScript pkh_addr2C_script = GetScriptForDestination(DecodeDestination(pkh_addr2C));
+
+    CTxDestination pkh_addr1_script_dest;
+    CTxDestination pkh_addr2_script_dest;
+    CTxDestination pkh_addr1C_script_dest;
+    CTxDestination pkh_addr2C_script_dest;
+    ExtractDestination(pkh_addr1_script, pkh_addr1_script_dest);
+    ExtractDestination(pkh_addr2_script, pkh_addr2_script_dest);
+    ExtractDestination(pkh_addr1C_script, pkh_addr1C_script_dest);
+    ExtractDestination(pkh_addr2C_script, pkh_addr2C_script_dest);
+
+    BOOST_CHECK(pkh_addr1 == EncodeDestination(pkh_addr1_script_dest));
+    BOOST_CHECK(pkh_addr2 == EncodeDestination(pkh_addr2_script_dest));
+    BOOST_CHECK(pkh_addr1C == EncodeDestination(pkh_addr1C_script_dest));
+    BOOST_CHECK(pkh_addr2C == EncodeDestination(pkh_addr2C_script_dest));
 }
 
 BOOST_AUTO_TEST_CASE(wpkh_key_test)
@@ -331,6 +350,26 @@ BOOST_AUTO_TEST_CASE(wpkh_key_test)
     BOOST_CHECK(wpkh_addr2 == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey2))));
     BOOST_CHECK(wpkh_addr1C == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey1C))));
     BOOST_CHECK(wpkh_addr2C == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey2C))));
+
+    // Test script to destination conversions
+    CScript wpkh_addr1_script = GetScriptForDestination(DecodeDestination(wpkh_addr1));
+    CScript wpkh_addr2_script = GetScriptForDestination(DecodeDestination(wpkh_addr2));
+    CScript wpkh_addr1C_script = GetScriptForDestination(DecodeDestination(wpkh_addr1C));
+    CScript wpkh_addr2C_script = GetScriptForDestination(DecodeDestination(wpkh_addr2C));
+
+    CTxDestination wpkh_addr1_script_dest;
+    CTxDestination wpkh_addr2_script_dest;
+    CTxDestination wpkh_addr1C_script_dest;
+    CTxDestination wpkh_addr2C_script_dest;
+    ExtractDestination(wpkh_addr1_script, wpkh_addr1_script_dest);
+    ExtractDestination(wpkh_addr2_script, wpkh_addr2_script_dest);
+    ExtractDestination(wpkh_addr1C_script, wpkh_addr1C_script_dest);
+    ExtractDestination(wpkh_addr2C_script, wpkh_addr2C_script_dest);
+
+    BOOST_CHECK(wpkh_addr1 == EncodeDestination(wpkh_addr1_script_dest));
+    BOOST_CHECK(wpkh_addr2 == EncodeDestination(wpkh_addr2_script_dest));
+    BOOST_CHECK(wpkh_addr1C == EncodeDestination(wpkh_addr1C_script_dest));
+    BOOST_CHECK(wpkh_addr2C == EncodeDestination(wpkh_addr2C_script_dest));
 }
 
 BOOST_AUTO_TEST_CASE(erc55_key_test)
@@ -380,6 +419,26 @@ BOOST_AUTO_TEST_CASE(erc55_key_test)
     BOOST_CHECK(erc55_addr2 == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey2))));
     BOOST_CHECK(erc55_addr1C == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey1C))));
     BOOST_CHECK(erc55_addr2C == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey2C))));
+
+    // Test script to destination conversions
+    CScript erc55_addr1_script = GetScriptForDestination(DecodeDestination(erc55_addr1));
+    CScript erc55_addr2_script = GetScriptForDestination(DecodeDestination(erc55_addr2));
+    CScript erc55_addr1C_script = GetScriptForDestination(DecodeDestination(erc55_addr1C));
+    CScript erc55_addr2C_script = GetScriptForDestination(DecodeDestination(erc55_addr2C));
+
+    CTxDestination erc55_addr1_script_dest;
+    CTxDestination erc55_addr2_script_dest;
+    CTxDestination erc55_addr1C_script_dest;
+    CTxDestination erc55_addr2C_script_dest;
+    ExtractDestination(erc55_addr1_script, erc55_addr1_script_dest);
+    ExtractDestination(erc55_addr2_script, erc55_addr2_script_dest);
+    ExtractDestination(erc55_addr1C_script, erc55_addr1C_script_dest);
+    ExtractDestination(erc55_addr2C_script, erc55_addr2C_script_dest);
+
+    BOOST_CHECK(erc55_addr1 == EncodeDestination(erc55_addr1_script_dest));
+    BOOST_CHECK(erc55_addr2 == EncodeDestination(erc55_addr2_script_dest));
+    BOOST_CHECK(erc55_addr1C == EncodeDestination(erc55_addr1C_script_dest));
+    BOOST_CHECK(erc55_addr2C == EncodeDestination(erc55_addr2C_script_dest));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
