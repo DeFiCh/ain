@@ -9,6 +9,8 @@ from test_framework.util import assert_equal, assert_greater_than
 from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
+from test_framework.test_node import TestNode
+from solcx import compile_source
 
 
 class EVMTest(DefiTestFramework):
@@ -59,6 +61,51 @@ class EVMTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
+
+    def generate_contract(self, node: TestNode, num_functions: int, contract_name: str):
+        contract_start = """
+pragma solidity ^0.8.0;
+
+contract {} {{
+    
+    """.format(
+            contract_name
+        )
+
+        function_template = lambda index: """
+    function func{}() public pure returns(uint256) {{
+        return {};
+    }}""".format(
+            index, index
+        )
+
+        contract_end = """
+}"""
+
+        list_sig = []
+        contract_body = ""
+
+        for i in range(0, num_functions):
+            func_sig = "func${}()".format(i)
+            sig_hash = node.w3.keccak(text=func_sig)[:4]
+            if sig_hash in list_sig:
+                continue
+            list_sig.append(sig_hash)
+            contract_body += function_template(i)
+
+        utf8SourceCode = contract_start + contract_body + contract_end
+
+        compiled_output = compile_source(
+            source=utf8SourceCode,
+            output_values=["abi", "bin"],
+            solc_version="0.8.20",
+        )
+
+        abi = compiled_output["<stdin>:{}".format(contract_name)]["abi"]
+        bytecode = compiled_output["<stdin>:{}".format(contract_name)]["bin"]
+        compiled_contract = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        return compiled_contract
 
     def should_deploy_contract_less_than_1KB(self):
         node = self.nodes[0]
@@ -187,12 +234,11 @@ class EVMTest(DefiTestFramework):
     def should_deploy_contract_1KB_To_10KB(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file(
-            "ContractSize1KBTo10KB.sol", "ContractWithSize1KBTo10KB"
-        ).compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled_contract = self.generate_contract(
+            node, 2**7, "ContractSize1KBTo10KB"
+        )
 
-        tx = compiled.constructor().build_transaction(
+        tx = compiled_contract.constructor().build_transaction(
             {
                 "chainId": node.w3.eth.chain_id,
                 "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
@@ -213,12 +259,11 @@ class EVMTest(DefiTestFramework):
     def should_deploy_contract_10KB_To_19KB(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file(
-            "ContractSize10KBTo19KB.sol", "ContractWithSize10KBTo19KB"
-        ).compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled_contract = self.generate_contract(
+            node, 2**8, "ContractSize10KBTo19KB"
+        )
 
-        tx = compiled.constructor().build_transaction(
+        tx = compiled_contract.constructor().build_transaction(
             {
                 "chainId": node.w3.eth.chain_id,
                 "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
@@ -239,12 +284,9 @@ class EVMTest(DefiTestFramework):
     def should_deploy_contract_20KB_To_29KB(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file(
-            "ContractSize20KBTo29KB.sol", "ContractWithSize20KBTo29KB"
-        ).compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled_contract = self.generate_contract(node, 400, "ContractSize20KBTo29KB")
 
-        tx = compiled.constructor().build_transaction(
+        tx = compiled_contract.constructor().build_transaction(
             {
                 "chainId": node.w3.eth.chain_id,
                 "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
@@ -267,12 +309,11 @@ class EVMTest(DefiTestFramework):
     def fail_deploy_contract_extremely_large_runtime_code(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file(
-            "ContractLargeRunTimeCode.sol", "ContractLargeRunTimeCode"
-        ).compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled_contract = self.generate_contract(
+            node, 2**9 - 1, "ContractLargeRunTimeCode"
+        )
 
-        tx = compiled.constructor().build_transaction(
+        tx = compiled_contract.constructor().build_transaction(
             {
                 "chainId": node.w3.eth.chain_id,
                 "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
@@ -297,12 +338,11 @@ class EVMTest(DefiTestFramework):
     def fail_deploy_contract_extremely_large_init_code(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file(
-            "ContractLargeInitCode.sol", "ContractLargeInitCode"
-        ).compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled_contract = self.generate_contract(
+            node, 2**12 - 1, "ContractLargeInitCode"
+        )
 
-        tx = compiled.constructor().build_transaction(
+        tx = compiled_contract.constructor().build_transaction(
             {
                 "chainId": node.w3.eth.chain_id,
                 "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
