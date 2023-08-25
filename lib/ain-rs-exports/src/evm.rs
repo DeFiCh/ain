@@ -714,10 +714,18 @@ pub fn evm_try_get_dst20_total_supply(
     token_id: u64,
     state_root: &str,
 ) -> u64 {
-    let Ok(state_root) = state_root.parse() else {
-        return cross_boundary_error_return(result, "Invalid state root");
+    let state_root = match state_root {
+        "" => None,
+        _ => match state_root.parse() {
+            Ok(state_root) => Some(state_root),
+            Err(_) => return cross_boundary_error_return(result, "Invalid state root"),
+        },
     };
 
+    debug!(
+        "[evm_try_get_dst20_total_supply] State root {:#?}",
+        state_root
+    );
     match SERVICES.evm.get_dst20_total_supply(token_id, state_root) {
         Ok(total_supply) => cross_boundary_success_return(result, total_supply.as_u64()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
