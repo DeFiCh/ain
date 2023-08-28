@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use anyhow::format_err;
+use ethers::abi::ethabi::{encode, Token};
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
@@ -86,6 +87,17 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     let final_str = format!("ff{padded_number_str}");
 
     Ok(H160::from_str(&final_str)?)
+}
+
+pub fn dst20_transfer_function_call(to: H160, amount: U256) -> Vec<u8> {
+    let storage_index = ain_contracts::get_address_storage_index(to);
+    let function_call = Vec::new();
+    function_call.push(Token::String(String::from("Transfer")));
+    let params = Vec::new();
+    params.push(Token::Address(to));
+    params.push(Token::Uint(amount));
+    function_call.push(Token::String(String::from("Transfer")));
+    encode(&function_call)
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
