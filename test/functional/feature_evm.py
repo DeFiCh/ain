@@ -1234,7 +1234,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
                     "nonce": count + i,
-                    "gasPrice": 10_000_000_000,
+                    "gasPrice": 20_000_000_000,
                     "gas": 30_000_000,
                 }
             )
@@ -1248,7 +1248,7 @@ class EVMTest(DefiTestFramework):
 
         # check that remaining 13 evm txs will be minted in the next block
         self.nodes[0].generate(1)
-        # assert_equal(len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 13)
+        assert_equal(len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 13)
 
     def toggle_evm_enablement(self):
         # Deactivate EVM
