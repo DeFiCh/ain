@@ -1231,14 +1231,14 @@ class EVMTest(DefiTestFramework):
         )
 
         count = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
-        for i in range(30):
+        for i in range(40):
             # tx call actual used gas - 1_761_626.
             # tx should always pass evm tx validation, but may return early in construct block.
             tx = contract.functions.loop(10_000).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
-                    "nonce": count + i,
-                    "gasPrice": 20_000_000_000,
+                    "nonce": count,
+                    "gasPrice": 25_000_000_000,
                     "gas": 30_000_000,
                 }
             )
@@ -1246,18 +1246,28 @@ class EVMTest(DefiTestFramework):
                 tx, self.eth_address_privkey
             )
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            count = count + 1
 
-        # check that 17 of the 30 evm txs should have been minted in the current block for
-        # block size limit = 30_000_000
+        tx = self.nodes[0].evmtx(self.eth_address, count, 21, 21001, self.to_address, 1)
+        count = count + 1
+        self.nodes[0].evmtx(self.eth_address, count, 21, 21001, self.to_address, 1)
+
+        # check that 17 of the 30 evm contract call txs should have been minted in the current block
         self.nodes[0].generate(1)
         assert_equal(
             len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 17
         )
 
-        # check that remaining 13 evm txs will be minted in the next block
+        # check that 17 of the evm contract call txs will be minted in the next block
         self.nodes[0].generate(1)
         assert_equal(
-            len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 13
+            len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 17
+        )
+
+        # check that the remaining evm txs should be minted into this block
+        self.nodes[0].generate(1)
+        assert_equal(
+            len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 8
         )
 
     def toggle_evm_enablement(self):
