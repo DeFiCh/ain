@@ -212,7 +212,10 @@ impl EVMServices {
             executor.update_storage(address, storage)?;
         }
 
-        debug!("[construct_block] Processing {:?} transactions in queue", queue.transactions.len());
+        debug!(
+            "[construct_block] Processing {:?} transactions in queue",
+            queue.transactions.len()
+        );
         for queue_item in queue.transactions.clone() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
