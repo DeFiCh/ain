@@ -722,11 +722,6 @@ pub fn evm_try_get_dst20_total_supply(
         },
     };
 
-    debug!(
-        "[evm_try_get_dst20_total_supply] State root {:#?}",
-        state_root
-    );
-
     match SERVICES.evm.get_dst20_total_supply(token_id, state_root) {
         Ok(total_supply) => {
             let Ok(total_supply) = u64::try_from(WeiAmount(total_supply).to_satoshi()) else {

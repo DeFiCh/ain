@@ -538,6 +538,10 @@ public:
         return Res::Err("Accounting mistmatch on EVM side for DST20 token #%s: Old: %lld New: %lld Current: %lld", token, oldBalance, newBalance, currentBalance);
     }
 
+    static Res InvalidEVMAddressBalance() {
+        return Res::Err("Unable to read EVM address balance");
+    }
+
     static Res SettingEVMAttributeFailure() {
         return Res::Err("Failed to set EVM attribute");
     }

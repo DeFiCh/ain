@@ -2413,29 +2413,44 @@ CTransferDomainMessage DecodeTransferDomainMessage(const CTransactionRef& tx, co
     return CTransferDomainMessage{};
 }
 
-CAmount GetEvmDST20TotalSupply(const DCT_ID& id, const std::string &stateRoot = std::string()) {
-    auto result = XResultValue(evm_try_get_dst20_total_supply(result, id.v, stateRoot));
-        if (result)
-            if (auto balance = *result)
-                return static_cast<CAmount>(balance);
+ResVal<uint64_t> GetEVMBlockCount() {
+    auto result = XResultValue(evm_try_get_block_count(result));
+    if (!result) {
+        return result;
+    }
 
-    return -1;
+    return {static_cast<uint64_t>(*result), Res::Ok()};
 }
 
-CAmount GetEvmDFIBalance(const CScript& address, const std::string &stateRoot = std::string()) {
+ResVal<CAmount> GetEvmDST20TotalSupply(const DCT_ID& id, const std::string &stateRoot = std::string()) {
+    auto result = XResultValue(evm_try_get_dst20_total_supply(result, id.v, stateRoot));
+    if (!result) {
+        return result;
+    }
+
+    return {static_cast<CAmount>(*result), Res::Ok()};
+}
+
+ResVal<CAmount> GetEvmDFIBalance(const CScript& address, const std::string &stateRoot = std::string()) {
     CTxDestination dest;
     if (ExtractDestination(address, dest) && dest.index() == WitV16KeyEthHashType) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
         auto result = XResultValue(stateRoot.empty() ? evm_try_get_balance(result, keyID.ToHexString()) : evm_try_get_balance_at_state_root(result, keyID.ToHexString(), stateRoot));
-        if (result)
-            if (auto balance = *result)
-                return static_cast<CAmount>(balance);
+        if (!result) {
+            return result;
+        }
+
+        return {static_cast<CAmount>(*result), Res::Ok()};
     }
 
-    return -1;
+    return DeFiErrors::InvalidEVMAddressBalance();
 }
 
-void ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* pindex,  CCustomCSView &mnview, const CChainParams& chainparams, CEVMInitialState& evmInitialState) {
+Res ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* pindex,  CCustomCSView &mnview, const CChainParams& chainparams, CEVMInitialState& evmInitialState) {
+    auto evmBlockCount = GetEVMBlockCount();
+    if (!evmBlockCount || !*evmBlockCount)
+        return Res::Ok();
+
     std::map<CScript, CStatsTokenBalances> &evmBalances = evmInitialState.evmBalances;
     CStatsTokenBalances& dst20EvmTotalSupply = evmInitialState.dst20EvmTotalSupply;
 
@@ -2444,33 +2459,40 @@ void ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* p
         auto txMessage = DecodeTransferDomainMessage(tx, pindex, chainparams);
         for (auto const &[src, dst]: txMessage.transfers){
             if (src.amount.nTokenId == DCT_ID{0}) {
-                std::vector<std::tuple<const uint8_t, VMDomain, const CScript&, const CTokenAmount&, bool>> balanceList{
-                    { src.domain, VMDomain::EVM, src.address, src.amount, evmBalances.find(src.address) == evmBalances.end() },
-                    { dst.domain, VMDomain::EVM, dst.address, src.amount, evmBalances.find(dst.address) == evmBalances.end() },
-                };
-                for (auto [domain, domainTarget, address, amount, condition]: balanceList) {
-                    if (domain == static_cast<uint8_t>(domainTarget) && condition) {
-                        if (amount.nTokenId == DCT_ID{0}) {
-                            auto balance = GetEvmDFIBalance(address);
-                            if (balance > -1) evmBalances[address].Add({amount.nTokenId, balance});
-                        }
-                    }
+                auto condition = evmBalances.find(src.address) == evmBalances.end();
+                if ((src.domain == static_cast<uint8_t>(VMDomain::EVM) || dst.domain == static_cast<uint8_t>(VMDomain::EVM)) && condition) {
+                    auto address = src.domain == static_cast<uint8_t>(VMDomain::EVM) ? src.address : dst.address;
+                    auto balance = GetEvmDFIBalance(address);
+                    if (!balance)
+                        return balance;
+
+                    evmBalances[address].Add({DCT_ID{0}, *balance});
                 }
             }
         }
     }
 
+    auto res = Res::Ok();
     // Storing inital EVM DST20 total supply
     mnview.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
         auto supply = GetEvmDST20TotalSupply(id);
-         if (supply != -1)
-            dst20EvmTotalSupply.Add({id, supply});
+        if (!supply) {
+            res = supply;
+            return false;
+        }
+        dst20EvmTotalSupply.Add({id, *supply});
 
         return true;
     });
+
+    return res;
 }
 
 static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, CEVMInitialState& evmInitialState, const CEvmBlockStatsLive& evmStats, const std::string &stateRoot) {
+    auto evmBlockCount = GetEVMBlockCount();
+    if (!evmBlockCount || !*evmBlockCount)
+        return Res::Ok();
+
     auto attributes = cache.GetAttributes();
     assert(attributes);
 
@@ -2554,10 +2576,12 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
         auto oldBalance = (evmInitialState.evmBalances.find(address) != evmInitialState.evmBalances.end()) ? evmInitialState.evmBalances[address] : CStatsTokenBalances{};
         auto newBalance = oldBalance;
         auto balance = GetEvmDFIBalance(address,stateRoot);
+        if (!balance)
+            return balance;
 
         newBalance.AddBalances(delta.balances);
-        if (balance > -1 && newBalance.balances[DFIToken] != balance)
-            return DeFiErrors::AccountingMissmatchEVM(ScriptToString(address), oldBalance.balances[DFIToken], newBalance.balances[DFIToken], balance);
+        if (newBalance.balances[DFIToken] != *balance)
+            return DeFiErrors::AccountingMissmatchEVM(ScriptToString(address), oldBalance.balances[DFIToken], newBalance.balances[DFIToken], *balance);
     }
 
     // DST20 token EVM totaly supply tally
@@ -2565,11 +2589,15 @@ static Res ProcessAccountingConsensusChecks(const CBlock &block, const CBlockInd
     auto res = Res::Ok();
     cache.ForEachToken([&](DCT_ID const& id, CTokenImplementation token) {
         auto supply = GetEvmDST20TotalSupply(id, stateRoot);
-        if (supply != -1)
-            if (deltaDST20EvmTotalSupply.balances[id] != supply || deltaDST20EvmTotalSupply.balances[id] < 0) {
-                res = DeFiErrors::AccountingMissmatchEVMDST20(id.ToString(), evmInitialState.dst20EvmTotalSupply.balances[id], deltaDST20EvmTotalSupply.balances[id], supply);
-                return false;
-            }
+        if (!supply) {
+            res = supply;
+            return false;
+        }
+
+        if (deltaDST20EvmTotalSupply.balances[id] != *supply || deltaDST20EvmTotalSupply.balances[id] < 0) {
+            res = DeFiErrors::AccountingMissmatchEVMDST20(id.ToString(), evmInitialState.dst20EvmTotalSupply.balances[id], deltaDST20EvmTotalSupply.balances[id], *supply);
+            return false;
+        }
 
         return true;
     });

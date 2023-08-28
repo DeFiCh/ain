@@ -2619,7 +2619,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     if (isEvmEnabledForBlock) {
         evmInitialState.transferDomainState = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
-        ProcessAccountingStateBeforeBlock(block, pindex, mnview, chainparams, evmInitialState);
+        auto res = ProcessAccountingStateBeforeBlock(block, pindex, mnview, chainparams, evmInitialState);
+        if (!res.ok)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
 
     // Execute TXs
