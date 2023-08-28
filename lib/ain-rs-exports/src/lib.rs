@@ -166,6 +166,15 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
+        fn evm_try_create_and_sign_transfer_domain_dst20_tx(
+            result: &mut CrossBoundaryResult,
+            to: &str,
+            amount: u64,
+            nonce: u64,
+            token_id: u64,
+            chain_id: u64,
+            priv_key: [u8; 32],
+        ) -> Vec<u8>;
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,

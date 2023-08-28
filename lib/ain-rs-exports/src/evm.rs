@@ -1,4 +1,3 @@
-use ain_contracts::{dst20_address_from_token_id, dst20_transfer_function_call};
 use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::txqueue::QueueTx;
@@ -77,7 +76,7 @@ pub fn evm_try_create_and_sign_tx(
 pub fn evm_try_create_and_sign_transfer_domain_dst20_tx(
     result: &mut ffi::CrossBoundaryResult,
     to: &str,
-    value: u64,
+    amount: u64,
     nonce: u64,
     token_id: u64,
     chain_id: u64,
@@ -93,7 +92,7 @@ pub fn evm_try_create_and_sign_transfer_domain_dst20_tx(
     let value = U256::zero();
     let gas_price = U256::zero();
     let gas_limit = U256::from(u64::MAX);
-    let input = ain_contracts::dst20_transfer_function_call(to_address, U256::from(value));
+    let input = ain_contracts::dst20_transfer_function_call(to_address, U256::from(amount));
 
     // Create
     let t = LegacyUnsignedTransaction {

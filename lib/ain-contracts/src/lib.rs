@@ -90,13 +90,12 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
 }
 
 pub fn dst20_transfer_function_call(to: H160, amount: U256) -> Vec<u8> {
-    let storage_index = ain_contracts::get_address_storage_index(to);
-    let function_call = Vec::new();
-    function_call.push(Token::String(String::from("Transfer")));
-    let params = Vec::new();
-    params.push(Token::Address(to));
-    params.push(Token::Uint(amount));
-    function_call.push(Token::String(String::from("Transfer")));
+    let storage_index = U256::from_big_endian(get_address_storage_index(to).as_bytes());
+    let function_call = vec![
+        Token::String(String::from("Transfer")),
+        Token::Uint(storage_index),
+        Token::Uint(amount),
+    ];
     encode(&function_call)
 }
 
