@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict
 
-from solcx import compile_standard
+from solcx import compile_standard, compile_source
 
 
 class EVMContract:
@@ -30,6 +30,10 @@ class EVMContract:
         ) as file:
             return EVMContract(file.read(), file_name, contract_name)
 
+    @staticmethod
+    def from_str(sourceCode: str, contract_name: str):
+        return EVMContract(sourceCode, "", contract_name)
+
     def compile(self) -> (List[Dict], str):
         compiled_sol = compile_standard(
             {
@@ -54,3 +58,17 @@ class EVMContract:
         bytecode = data["evm"]["bytecode"]["object"]
 
         return abi, bytecode
+
+    def compile_from_str(self) -> (List[Dict], str, str):
+        compiled_output = compile_source(
+            source=self.code,
+            output_values=["abi", "bin", "bin-runtime"],
+            solc_version="0.8.20",
+        )
+        abi = compiled_output[f"<stdin>:{self.contract_name}"]["abi"]
+        bytecode = compiled_output[f"<stdin>:{self.contract_name}"]["bin"]
+        runtimebytecode = compiled_output[f"<stdin>:{self.contract_name}"][
+            "bin-runtime"
+        ]
+
+        return (abi, bytecode, runtimebytecode)
