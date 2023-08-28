@@ -4,6 +4,7 @@
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
+from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
@@ -87,6 +88,9 @@ class EVMTest(DefiTestFramework):
         # Multiple mempool fee replacement
         self.multiple_eth_rbf()
 
+        # Multiple mempool fee replacement
+        self.mempool_block_limit()
+
         # Test that node should not crash without chainId param
         self.test_tx_without_chainid()
 
@@ -134,11 +138,11 @@ class EVMTest(DefiTestFramework):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.eth_address = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.eth_address_bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8"
-        eth_address_privkey = (
+        self.eth_address_privkey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
         self.to_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        to_address_privkey = (
+        self.to_address_privkey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )
 
@@ -242,8 +246,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(addr_info["witness_version"], 16)
 
         # Import addresses
-        self.nodes[0].importprivkey(eth_address_privkey)  # eth_address
-        self.nodes[0].importprivkey(to_address_privkey)  # self.to_address
+        self.nodes[0].importprivkey(self.eth_address_privkey)  # eth_address
+        self.nodes[0].importprivkey(self.to_address_privkey)  # self.to_address
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -1203,6 +1207,48 @@ class EVMTest(DefiTestFramework):
         )["tx"]
         assert_equal(block_txs[1], tx0)
         assert_equal(block_txs[2], tx1)
+
+    def mempool_block_limit(self):
+        abi, bytecode = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.eth_address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.eth_address_privkey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(address=receipt["contractAddress"], abi=abi)
+
+        count = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        for i in range(30):
+            # tx call actual used gas - 1_761_626.
+            # tx should always pass evm tx validation, but may return early in construct block.
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": count + i,
+                    "gasPrice": 10_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.eth_address_privkey)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        # check that 17 of the 30 evm txs should have been minted in the current block for
+        # block size limit = 30_000_000
+        self.nodes[0].generate(1)
+        assert_equal(len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 17)
+
+        # check that remaining 13 evm txs will be minted in the next block
+        self.nodes[0].generate(1)
+        # assert_equal(len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 13)
 
     def toggle_evm_enablement(self):
         # Deactivate EVM
