@@ -1220,11 +1220,15 @@ class EVMTest(DefiTestFramework):
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.eth_address_privkey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.eth_address_privkey
+        )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        contract = self.nodes[0].w3.eth.contract(address=receipt["contractAddress"], abi=abi)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
 
         count = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
         for i in range(30):
@@ -1238,17 +1242,23 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.eth_address_privkey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(
+                tx, self.eth_address_privkey
+            )
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
 
         # check that 17 of the 30 evm txs should have been minted in the current block for
         # block size limit = 30_000_000
         self.nodes[0].generate(1)
-        assert_equal(len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 17)
+        assert_equal(
+            len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 17
+        )
 
         # check that remaining 13 evm txs will be minted in the next block
         self.nodes[0].generate(1)
-        assert_equal(len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 13)
+        assert_equal(
+            len(self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"]) - 1, 13
+        )
 
     def toggle_evm_enablement(self):
         # Deactivate EVM
