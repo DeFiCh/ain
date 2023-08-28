@@ -1298,8 +1298,12 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "EvmTx")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.eth_address)
-            assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx)
-            assert_equal(tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + idx])
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + idx]
+            )
             assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
 
         # check that the remaining evm txs is minted into this block
@@ -1312,15 +1316,29 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
             assert_equal(tx_infos[idx]["vm"]["txtype"], "EvmTx")
             assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.eth_address)
-            assert_equal(tx_infos[idx]["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + second_block_total_txs + idx)
-            assert_equal(tx_infos[idx]["vm"]["msg"]["hash"], hashes[first_block_total_txs + second_block_total_txs + idx])
-            assert_equal(tx_infos[idx]["vm"]["msg"]["to"], receipt["contractAddress"].lower())
+            assert_equal(
+                tx_infos[idx]["vm"]["msg"]["nonce"],
+                start_nonce + first_block_total_txs + second_block_total_txs + idx,
+            )
+            assert_equal(
+                tx_infos[idx]["vm"]["msg"]["hash"],
+                hashes[first_block_total_txs + second_block_total_txs + idx],
+            )
+            assert_equal(
+                tx_infos[idx]["vm"]["msg"]["to"], receipt["contractAddress"].lower()
+            )
         for idx in range(6, third_block_total_txs):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
             assert_equal(tx_infos[idx]["vm"]["txtype"], "EvmTx")
             assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.eth_address)
-            assert_equal(tx_infos[idx]["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + second_block_total_txs + idx)
-            assert_equal(tx_infos[idx]["vm"]["msg"]["hash"], hashes[first_block_total_txs + second_block_total_txs + idx])
+            assert_equal(
+                tx_infos[idx]["vm"]["msg"]["nonce"],
+                start_nonce + first_block_total_txs + second_block_total_txs + idx,
+            )
+            assert_equal(
+                tx_infos[idx]["vm"]["msg"]["hash"],
+                hashes[first_block_total_txs + second_block_total_txs + idx],
+            )
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.to_address)
 
     def toggle_evm_enablement(self):
