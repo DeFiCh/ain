@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict
 
-from solcx import compile_standard, compile_source
+from solcx import compile_standard
 
 
 class EVMContract:
