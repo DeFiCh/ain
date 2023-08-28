@@ -89,7 +89,7 @@ class EVMTest(DefiTestFramework):
 
         abi, bytecode, runtime_bytecode = EVMContract.from_str(
             utf8SourceCode, contract_name
-        ).compile_from_str()
+        ).compile()
         compiled_contract = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         return compiled_contract, runtime_bytecode
@@ -112,7 +112,7 @@ class EVMTest(DefiTestFramework):
         )
         node.generate(1)
 
-        abi, bytecode = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
+        abi, bytecode, _ = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -159,7 +159,7 @@ class EVMTest(DefiTestFramework):
     def failed_tx_should_increment_nonce(self):
         node = self.nodes[0]
 
-        abi, bytecode = EVMContract.from_file("Reverter.sol", "Reverter").compile()
+        abi, bytecode, _ = EVMContract.from_file("Reverter.sol", "Reverter").compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(

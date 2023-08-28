@@ -32,7 +32,7 @@ class EVMContract:
 
     @staticmethod
     def from_str(sourceCode: str, contract_name: str):
-        return EVMContract(sourceCode, "", contract_name)
+        return EVMContract(sourceCode, f"{contract_name}.sol", contract_name)
 
     def compile(self) -> (List[Dict], str):
         compiled_sol = compile_standard(
@@ -41,12 +41,7 @@ class EVMContract:
                 "sources": {self.file_name: {"content": self.code}},
                 "settings": {
                     "outputSelection": {
-                        "*": {
-                            "*": [
-                                "abi",
-                                "evm.bytecode",
-                            ]
-                        }
+                        "*": {"*": ["abi", "evm.bytecode", "evm.deployedBytecode"]}
                     }
                 },
             },
@@ -56,19 +51,6 @@ class EVMContract:
         data = compiled_sol["contracts"][self.file_name][self.contract_name]
         abi = data["abi"]
         bytecode = data["evm"]["bytecode"]["object"]
+        deployedBytecode = data["evm"]["deployedBytecode"]["object"]
 
-        return abi, bytecode
-
-    def compile_from_str(self) -> (List[Dict], str, str):
-        compiled_output = compile_source(
-            source=self.code,
-            output_values=["abi", "bin", "bin-runtime"],
-            solc_version="0.8.20",
-        )
-        abi = compiled_output[f"<stdin>:{self.contract_name}"]["abi"]
-        bytecode = compiled_output[f"<stdin>:{self.contract_name}"]["bin"]
-        runtimebytecode = compiled_output[f"<stdin>:{self.contract_name}"][
-            "bin-runtime"
-        ]
-
-        return (abi, bytecode, runtimebytecode)
+        return abi, bytecode, deployedBytecode
