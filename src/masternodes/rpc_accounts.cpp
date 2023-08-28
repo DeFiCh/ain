@@ -2071,13 +2071,14 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 src.domain = srcObj["domain"].get_int();
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must not be null");
+            auto isEVMIn = src.domain == static_cast<uint8_t>(VMDomain::DVM);
 
-            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            auto srcKey = AddrToPubKey(pwallet, ScriptToString(src.address));
+            if (isEVMIn) {
                 auths.insert(src.address);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                auto key = AddrToPubKey(pwallet, ScriptToString(src.address));
-                if (key.Compress()) {
-                    const auto auth = GetScriptForDestination(WitnessV0KeyHash(key.GetID()));
+                if (srcKey.Compress()) {
+                    const auto auth = GetScriptForDestination(WitnessV0KeyHash(srcKey.GetID()));
                     auths.insert(auth);
                 } else {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Failed to get compressed address for Bech32 equivilent of ERC55 address"));
@@ -2106,8 +2107,34 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             if (!dstObj["data"].isNull())
                 dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
 
-            msg.transfers.push_back({src, dst});
+            // Create signed EVM TX
+            CKey key;
+            if (!pwallet->GetKey(srcKey.GetID(), key)) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
+            }
+            std::array<uint8_t, 32> privKey{};
+            std::copy(key.begin(), key.end(), privKey.begin());
 
+            std::string to = "";
+            if (isEVMIn) {
+                to = ScriptToString(dst.address);
+            }
+
+            CrossBoundaryResult result;
+            const auto signedTx = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{std::move(to),
+                                                                                                                 isEVMIn,
+                                                                                                                 static_cast<uint64_t>(dst.amount.nValue),
+                                                                                                                 Params().GetConsensus().evmChainId,
+                                                                                                                 privKey});
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+            }
+
+            std::vector<uint8_t> evmTx(signedTx.size());
+            std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
+            src.evmTx = evmTx;
+
+            msg.transfers.push_back({src, dst});
         }
     } catch(std::runtime_error& e) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());

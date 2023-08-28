@@ -232,6 +232,8 @@ struct CTransferDomainItem
     // Currently, unused.
     std::vector<uint8_t> data;
 
+    std::vector<uint8_t> evmTx;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -240,6 +242,7 @@ struct CTransferDomainItem
         READWRITE(amount);
         READWRITE(domain);
         READWRITE(data);
+        READWRITE(evmTx);
     }
 };
 

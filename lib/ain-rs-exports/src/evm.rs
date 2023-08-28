@@ -12,7 +12,7 @@ use ain_evm::{
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
-use primitive_types::U256;
+use primitive_types::{H160, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -63,6 +63,58 @@ pub fn evm_try_create_and_sign_tx(
         value: value.0,
         input: ctx.input,
         // Dummy sig for now. Needs 27, 28 or > 36 for valid v.
+        sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
+    };
+
+    // Sign with a big endian byte array
+    match t.sign(&ctx.priv_key, ctx.chain_id) {
+        Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
+/// Creates and signs a transfer domain transaction.
+///
+/// # Arguments
+///
+/// * `to` - The address to transfer funds to.
+/// * `direction` - True if sending to EVM. False if sending from EVM
+/// * `value` - Amount to send
+/// * `priv_key` - Key used to sign the TX
+///
+/// # Errors
+///
+/// Returns a `TransactionError` if signing fails.
+///
+/// # Returns
+///
+/// Returns the signed transaction encoded as a byte vector on success.
+pub fn evm_try_create_and_sign_transfer_domain_tx(
+    result: &mut ffi::CrossBoundaryResult,
+    ctx: ffi::CreateTransferDomainContext,
+) -> Vec<u8> {
+    let action = TransactionAction::Call(if ctx.direction {
+        let Ok(to_address) = ctx.to.parse() else {
+            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.to));
+        };
+        to_address
+    } else {
+        // Send EvmOut to burn address
+        H160::zero()
+    });
+
+    let value = match try_from_satoshi(U256::from(ctx.value)) {
+        Ok(wei_value) => wei_value,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+
+    let t = LegacyUnsignedTransaction {
+        nonce: U256::zero(),
+        gas_price: U256::zero(),
+        gas_limit: U256::from(21000),
+        action,
+        value: value.0,
+        input: Vec::new(),
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
     };
 
@@ -177,16 +229,12 @@ pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
 pub fn evm_unsafe_try_add_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: &str,
-    amount: u64,
+    raw_tx: &str,
     native_hash: &str,
 ) {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-    let amount = match try_from_satoshi(U256::from(amount)) {
-        Ok(wei_amount) => wei_amount,
-        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    debug!("raw_Tx {raw_tx}");
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
     };
     let native_hash = XHash::from(native_hash);
 
@@ -194,7 +242,7 @@ pub fn evm_unsafe_try_add_balance_in_q(
         match SERVICES
             .evm
             .core
-            .add_balance(queue_id, address, amount.0, native_hash)
+            .add_balance(queue_id, signed_tx, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -224,16 +272,11 @@ pub fn evm_unsafe_try_add_balance_in_q(
 pub fn evm_unsafe_try_sub_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: &str,
-    amount: u64,
+    raw_tx: &str,
     native_hash: &str,
 ) -> bool {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-    let amount = match try_from_satoshi(U256::from(amount)) {
-        Ok(wei_amount) => wei_amount,
-        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
     };
     let native_hash = XHash::from(native_hash);
 
@@ -241,7 +284,7 @@ pub fn evm_unsafe_try_sub_balance_in_q(
         match SERVICES
             .evm
             .core
-            .sub_balance(queue_id, address, amount.0, native_hash)
+            .sub_balance(queue_id, signed_tx, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, true),
             Err(e) => cross_boundary_error_return(result, e.to_string()),

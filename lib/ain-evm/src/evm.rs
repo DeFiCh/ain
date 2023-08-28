@@ -24,7 +24,7 @@ use crate::services::SERVICES;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use crate::transaction::system::{BalanceUpdate, DST20Data, DeployContractData, SystemTx};
+use crate::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use crate::transaction::{SignedTx, LOWER_H256};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::{BlockData, QueueTx, QueueTxItem};
@@ -247,26 +247,40 @@ impl EVMServices {
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push((receipt, None));
                 }
-                QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount })) => {
+                QueueTx::SystemTx(SystemTx::EvmIn(signed_tx)) => {
+                    let Some(to) = signed_tx.to() else {
+                        debug!("[construct_block] EvmOut fails to get destination address");
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    };
+
                     debug!(
                         "[construct_block] Transfer domain to EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
-                        address, amount, queue_id, queue_item.tx_hash
+                        to, signed_tx.value(), queue_id, queue_item.tx_hash
                     );
-                    if let Err(e) = executor.add_balance(address, amount) {
+                    if let Err(e) = executor.add_balance(to, signed_tx.value()) {
                         debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
+                        continue;
                     }
+
+                    all_transactions.push(Box::new(signed_tx));
+                    receipts_v3.push((get_default_successful_receipt(), None));
                 }
-                QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount })) => {
+                QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
                     debug!(
-                        "[construct_block] Transfer domain from EVM for address {}, amount: {}, queue_id {}, tx hash {}",
-                        address, amount, queue_id, queue_item.tx_hash
+                        "[construct_block] Transfer domain from EVM address {}, amount: {}, queue_id {}, tx hash {}",
+                        signed_tx.sender, signed_tx.value(), queue_id, queue_item.tx_hash
                     );
 
-                    if let Err(e) = executor.sub_balance(address, amount) {
+                    if let Err(e) = executor.sub_balance(signed_tx.sender, signed_tx.value()) {
                         debug!("[construct_block] EvmOut failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
+                        continue;
                     }
+
+                    all_transactions.push(Box::new(signed_tx));
+                    receipts_v3.push((get_default_successful_receipt(), None));
                 }
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                     name,
@@ -656,14 +670,18 @@ fn create_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx
     })
     .try_into()?;
 
-    let receipt = ReceiptV3::Legacy(EIP1559ReceiptData {
+    let receipt = get_default_successful_receipt();
+
+    Ok((tx, receipt))
+}
+
+fn get_default_successful_receipt() -> ReceiptV3 {
+    ReceiptV3::Legacy(EIP1559ReceiptData {
         status_code: 1u8,
         used_gas: U256::zero(),
         logs_bloom: Bloom::default(),
         logs: Vec::new(),
-    });
-
-    Ok((tx, receipt))
+    })
 }
 
 fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {

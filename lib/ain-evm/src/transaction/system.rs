@@ -1,5 +1,7 @@
 use primitive_types::{H160, U256};
 
+use super::SignedTx;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeployContractData {
     pub name: String,
@@ -17,24 +19,17 @@ pub struct DST20Data {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BalanceUpdate {
-    pub address: H160,
-    pub amount: U256,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SystemTx {
     DeployContract(DeployContractData),
     DST20Bridge(DST20Data),
-    EvmIn(BalanceUpdate),
-    EvmOut(BalanceUpdate),
+    EvmIn(SignedTx),
+    EvmOut(SignedTx),
 }
 
 impl SystemTx {
     pub fn sender(&self) -> Option<H160> {
         match self {
-            SystemTx::EvmIn(tx) => Some(tx.address),
-            SystemTx::EvmOut(tx) => Some(tx.address),
+            SystemTx::EvmIn(tx) | SystemTx::EvmOut(tx) => Some(tx.sender),
             _ => None,
         }
     }

@@ -1061,7 +1061,7 @@ public:
             return Res::Err("tx not from foundation member");
         }
 
-        if (static_cast<int>(height) >= consensus.BayfrontHeight) {  
+        if (static_cast<int>(height) >= consensus.BayfrontHeight) {
             if (token.IsPoolShare()) {
                 return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
             }
@@ -3897,12 +3897,12 @@ public:
                 ExtractDestination(dst.address, dest);
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
 
-                // Safety: Safe since validate checks for < 0 
+                // Safety: Safe since validate checks for < 0
                 const auto balanceIn = static_cast<uint64_t>(dst.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
                 CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex());
+                    evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(src.evmTx), tx.GetHash().GetHex());
                     if (!result.ok) {
                         return Res::Err("Error bridging DFI: %s", result.reason);
                     }
@@ -3923,12 +3923,12 @@ public:
                 ExtractDestination(src.address, dest);
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
 
-                // Safety: Safe since validate checks for < 0 
+                // Safety: Safe since validate checks for < 0
                 const auto balanceIn = static_cast<uint64_t>(src.amount.nValue);
                 auto tokenId = dst.amount.nTokenId;
                 if (tokenId == DCT_ID{0}) {
                     CrossBoundaryResult result;
-                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex())) {
+                    if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(src.evmTx), tx.GetHash().GetHex())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
                     if (!result.ok) {
@@ -3998,7 +3998,6 @@ public:
             LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to queue %s\n", result.reason);
         }
-
 
         auto txHash = tx.GetHash().GetHex();
         auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);
