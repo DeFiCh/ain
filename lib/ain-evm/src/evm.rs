@@ -192,6 +192,7 @@ impl EVMServices {
         if is_evm_genesis_block {
             // reserve DST20 namespace
             self.reserve_dst20_namespace(&mut executor)?;
+            self.reserve_intrinsics_namespace(&mut executor)?;
 
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs.into_iter());
@@ -201,13 +202,13 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
+            } = EVMServices::intrinsics_contract(dvm_block_number, current_block_number)?;
             executor.deploy_contract(address, bytecode, storage)?;
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = EVMServices::counter_contract(dvm_block_number, current_block_number)?;
+            } = EVMServices::intrinsics_contract(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
         }
 
@@ -450,11 +451,11 @@ impl EVMServices {
     }
 
     /// Returns address, bytecode and storage with incremented count for the counter contract
-    pub fn counter_contract(
+    pub fn intrinsics_contract(
         dvm_block_number: u64,
         evm_block_number: U256,
     ) -> Result<DeployContractInfo> {
-        let address = *CONTRACT_ADDRESSES.get(&Contracts::CounterContract).unwrap();
+        let address = *CONTRACT_ADDRESSES.get(&Contracts::Intrinsics).unwrap();
         let bytecode = ain_contracts::get_counter_bytecode()?;
         let count = SERVICES
             .evm
@@ -623,6 +624,23 @@ impl EVMServices {
         for address in addresses {
             debug!(
                 "[reserve_dst20_namespace] Deploying address to {:#?}",
+                address
+            );
+            executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn reserve_intrinsics_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
+        let bytecode = ain_contracts::get_system_reserved_bytecode()?;
+        let addresses = (1..=127)
+            .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
+            .collect::<Vec<H160>>();
+
+        for address in addresses {
+            debug!(
+                "[reserve_intrinsics_namespace] Deploying address to {:#?}",
                 address
             );
             executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
