@@ -80,8 +80,8 @@ pub mod ffi {
         pub nonce: u64,
         pub to: &'a str,
         pub amount: u64,
-        pub priv_key: [u8; 32],
         pub token_id: u64,
+        pub priv_key: [u8; 32],
     }
 
     #[derive(Default)]

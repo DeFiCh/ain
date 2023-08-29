@@ -104,7 +104,7 @@ pub fn evm_try_create_and_sign_dst20_tx(
         Ok(wei_amount) => wei_amount,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
-    let input = ain_contracts::get_dst20_transfer_function_call(to_address, U256::from(amount))
+    let input = ain_contracts::get_dst20_transfer_function_call(to_address, amount.0)
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
     // Create
