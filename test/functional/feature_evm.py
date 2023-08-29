@@ -1232,7 +1232,6 @@ class EVMTest(DefiTestFramework):
         )
 
     def multiple_transferdomain(self):
-
         # Get block count
         block_count = self.nodes[0].getblockcount()
 

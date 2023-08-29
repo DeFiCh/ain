@@ -2459,14 +2459,18 @@ Res ProcessAccountingStateBeforeBlock(const CBlock &block, const CBlockIndex* pi
         auto txMessage = DecodeTransferDomainMessage(tx, pindex, chainparams);
         for (auto const &[src, dst]: txMessage.transfers){
             if (src.amount.nTokenId == DCT_ID{0}) {
-                auto condition = evmBalances.find(src.address) == evmBalances.end();
-                if ((src.domain == static_cast<uint8_t>(VMDomain::EVM) || dst.domain == static_cast<uint8_t>(VMDomain::EVM)) && condition) {
-                    auto address = src.domain == static_cast<uint8_t>(VMDomain::EVM) ? src.address : dst.address;
-                    auto balance = GetEvmDFIBalance(address);
-                    if (!balance)
-                        return balance;
+                std::vector<std::tuple<const uint8_t, VMDomain, const CScript&, const CTokenAmount&, bool>> balanceList{
+                    { src.domain, VMDomain::EVM, src.address, src.amount, evmBalances.find(src.address) == evmBalances.end() },
+                    { dst.domain, VMDomain::EVM, dst.address, src.amount, evmBalances.find(dst.address) == evmBalances.end() },
+                };
+                for (auto [domain, domainTarget, address, amount, condition]: balanceList) {
+                    if (domain == static_cast<uint8_t>(domainTarget) && condition) {
+                        auto balance = GetEvmDFIBalance(address);
+                        if (!balance)
+                            return balance;
 
-                    evmBalances[address].Add({DCT_ID{0}, *balance});
+                        evmBalances[address].Add({amount.nTokenId, *balance});
+                    }
                 }
             }
         }

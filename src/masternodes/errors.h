@@ -531,11 +531,11 @@ public:
     }
 
     static Res AccountingMissmatchEVM(const std::string &address, const CAmount oldBalance, const CAmount newBalance, const CAmount currentBalance) {
-        return Res::Err("Accounting mistmatch on EVM side for DFI token #%s: Old: %lld New: %lld Current: %lld", address, oldBalance, newBalance, currentBalance);
+        return Res::Err("Accounting mistmatch on EVM side for DFI token on address %s: Old: %lld New: %lld Current: %lld", address, oldBalance, newBalance, currentBalance);
     }
 
     static Res AccountingMissmatchEVMDST20(const std::string &token, const CAmount oldBalance, const CAmount newBalance, const CAmount currentBalance) {
-        return Res::Err("Accounting mistmatch on EVM side for DST20 token #%s: Old: %lld New: %lld Current: %lld", token, oldBalance, newBalance, currentBalance);
+        return Res::Err("Accounting mistmatch on EVM side for DST20 total supply on token #%s: Old: %lld New: %lld Current: %lld", token, oldBalance, newBalance, currentBalance);
     }
 
     static Res InvalidEVMAddressBalance() {
