@@ -15,6 +15,7 @@ from test_framework.util import (
 )
 from decimal import Decimal
 
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -43,10 +44,14 @@ class EVMTest(DefiTestFramework):
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.ethPrivKey = "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
+        self.ethPrivKey = (
+            "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
+        )
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.toPrivKey = "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
-        self.nodes[0].importprivkey(self.ethPrivKey) # ethAddress
+        self.toPrivKey = (
+            "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
+        )
+        self.nodes[0].importprivkey(self.ethPrivKey)  # ethAddress
         self.nodes[0].importprivkey(self.toPrivKey)  # toAddress
 
         # Generate chain
@@ -119,9 +124,7 @@ class EVMTest(DefiTestFramework):
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.ethPrivKey
-        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -142,9 +145,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(
-                tx, self.ethPrivKey
-            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append(signed.hash.hex().lower()[2:])
 
@@ -241,7 +242,9 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
 
     def invalid_evm_tx_in_block_creation(self):
-        before_balance = Decimal(self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0])
+        before_balance = Decimal(
+            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+        )
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         for idx in range(20):
             self.nodes[0].eth_sendTransaction(
@@ -249,7 +252,7 @@ class EVMTest(DefiTestFramework):
                     "nonce": hex(start_nonce + idx),
                     "from": self.ethAddress,
                     "to": self.toAddress,
-                    "value": "0x8AC7230489E80000", # 10 DFI
+                    "value": "0x8AC7230489E80000",  # 10 DFI
                     "gas": "0x5209",
                     "gasPrice": "0x5D21DBA00",  # 25_000_000_000
                 }
@@ -267,12 +270,15 @@ class EVMTest(DefiTestFramework):
         # Miner gets paid the gas fees for all txs executed, even if they fail
         correct_gas_fees = gas_fee * Decimal("20")
         correct_balance = correct_transfer + correct_gas_fees
-        deducted_balance = before_balance - Decimal(self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0])
+        deducted_balance = before_balance - Decimal(
+            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+        )
         assert_equal(deducted_balance, correct_balance)
 
         # Check to ensure both custom evm txs were minted on DVM side
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         assert_equal(len(block_info["tx"]) - 1, 20)
+
 
 if __name__ == "__main__":
     EVMTest().main()
