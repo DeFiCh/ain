@@ -113,11 +113,10 @@ pub fn get_dst20_transfer_function_call(to: H160, amount: U256) -> Result<Vec<u8
         constant: None,
         state_mutability: StateMutability::NonPayable,
     };
-    let inputs = vec![
-        Token::Address(to),
-        Token::Uint(amount),
-    ];
-    function.encode_input(&inputs).map_err(|e| format_err!(e.to_string()))
+    let inputs = vec![Token::Address(to), Token::Uint(amount)];
+    function
+        .encode_input(&inputs)
+        .map_err(|e| format_err!(e.to_string()))
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
