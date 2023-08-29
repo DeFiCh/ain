@@ -74,9 +74,9 @@ pub fn evm_try_create_and_sign_tx(
 }
 
 /// Creates a dst20 transfer function call transaction and signs the transaction.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `ctx` - The transfer transaction context.
 ///
 /// # Errors
@@ -100,7 +100,11 @@ pub fn evm_try_create_and_sign_dst20_tx(
     let value = U256::zero();
     let gas_price = U256::zero();
     let gas_limit = U256::from(u64::MAX);
-    let input = ain_contracts::get_dst20_transfer_function_call(to_address, U256::from(ctx.amount))
+    let amount = match try_from_satoshi(U256::from(ctx.amount)) {
+        Ok(wei_amount) => wei_amount,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+    let input = ain_contracts::get_dst20_transfer_function_call(to_address, U256::from(amount))
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
     // Create
