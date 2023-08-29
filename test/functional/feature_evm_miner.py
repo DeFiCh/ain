@@ -103,15 +103,6 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-    def run_test(self):
-        self.setup()
-
-        # Multiple mempool fee replacement
-        self.mempool_block_limit()
-
-        # Test invalid tx in block creation
-        self.invalid_evm_tx_in_block_creation()
-
     def mempool_block_limit(self):
         abi, bytecode = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
@@ -279,6 +270,14 @@ class EVMTest(DefiTestFramework):
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         assert_equal(len(block_info["tx"]) - 1, 20)
 
+    def run_test(self):
+        self.setup()
+
+        # Multiple mempool fee replacement
+        self.mempool_block_limit()
+
+        # Test invalid tx in block creation
+        self.invalid_evm_tx_in_block_creation()
 
 if __name__ == "__main__":
     EVMTest().main()
