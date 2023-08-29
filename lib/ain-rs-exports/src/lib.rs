@@ -75,6 +75,15 @@ pub mod ffi {
         pub priv_key: [u8; 32],
     }
 
+    pub struct CreateTransferDomainContext<'a> {
+        pub chain_id: u64,
+        pub nonce: u64,
+        pub to: &'a str,
+        pub amount: u64,
+        pub priv_key: [u8; 32],
+        pub token_id: u64,
+    }
+
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
         pub block_hash: String,
@@ -166,14 +175,9 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
-        fn evm_try_create_and_sign_transfer_domain_dst20_tx(
+        fn evm_try_create_and_sign_dst20_tx(
             result: &mut CrossBoundaryResult,
-            to: &str,
-            amount: u64,
-            nonce: u64,
-            token_id: u64,
-            chain_id: u64,
-            priv_key: [u8; 32],
+            ctx: &mut CreateTransferDomainContext,
         ) -> Vec<u8>;
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,

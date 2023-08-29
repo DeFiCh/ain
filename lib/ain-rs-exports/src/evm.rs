@@ -73,26 +73,22 @@ pub fn evm_try_create_and_sign_tx(
     }
 }
 
-pub fn evm_try_create_and_sign_transfer_domain_dst20_tx(
+pub fn evm_try_create_and_sign_dst20_tx(
     result: &mut ffi::CrossBoundaryResult,
-    to: &str,
-    amount: u64,
-    nonce: u64,
-    token_id: u64,
-    chain_id: u64,
-    priv_key: [u8; 32],
+    ctx: &mut ffi::CreateTransferDomainContext,
 ) -> Vec<u8> {
-    let Ok(to_address) = to.parse() else {
+    let Ok(to_address) = ctx.to.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
-    let contract = ain_contracts::dst20_address_from_token_id(token_id)
+    let contract = ain_contracts::dst20_address_from_token_id(ctx.token_id)
         .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
     let action = TransactionAction::Call(contract);
-    let nonce = U256::from(nonce);
+    let nonce = U256::from(ctx.nonce);
     let value = U256::zero();
     let gas_price = U256::zero();
     let gas_limit = U256::from(u64::MAX);
-    let input = ain_contracts::dst20_transfer_function_call(to_address, U256::from(amount));
+    let input = ain_contracts::get_dst20_transfer_function_call(to_address, U256::from(ctx.amount))
+        .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
 
     // Create
     let t = LegacyUnsignedTransaction {
@@ -107,7 +103,7 @@ pub fn evm_try_create_and_sign_transfer_domain_dst20_tx(
     };
 
     // Sign with a big endian byte array
-    match t.sign(&priv_key, chain_id) {
+    match t.sign(&ctx.priv_key, ctx.chain_id) {
         Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }

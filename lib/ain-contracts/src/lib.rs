@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 
 use anyhow::format_err;
-use ethers::abi::ethabi::{encode, Token};
+use ethers::abi::ethabi::{Function, Param, ParamType, StateMutability, Token};
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
@@ -89,14 +89,35 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     Ok(H160::from_str(&final_str)?)
 }
 
-pub fn dst20_transfer_function_call(to: H160, amount: U256) -> Vec<u8> {
-    let storage_index = U256::from_big_endian(get_address_storage_index(to).as_bytes());
-    let function_call = vec![
-        Token::String(String::from("Transfer")),
-        Token::Uint(storage_index),
+pub fn get_dst20_transfer_function_call(to: H160, amount: U256) -> Result<Vec<u8>> {
+    let to_param = Param {
+        name: String::from("to"),
+        kind: ParamType::Address,
+        internal_type: Some(String::from("address")),
+    };
+    let amount_param = Param {
+        name: String::from("amount"),
+        kind: ParamType::Uint(256),
+        internal_type: Some(String::from("uint256")),
+    };
+    let output_param = Param {
+        name: String::from(""),
+        kind: ParamType::Bool,
+        internal_type: Some(String::from("bool")),
+    };
+    #[allow(deprecated)]
+    let function = Function {
+        name: String::from("transfer"),
+        inputs: vec![to_param, amount_param],
+        outputs: vec![output_param],
+        constant: None,
+        state_mutability: StateMutability::NonPayable,
+    };
+    let inputs = vec![
+        Token::Address(to),
         Token::Uint(amount),
     ];
-    encode(&function_call)
+    function.encode_input(&inputs).map_err(|e| format_err!(e.to_string()))
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
