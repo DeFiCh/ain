@@ -8,7 +8,6 @@ use ethereum_types::{H160, U256};
 use rand::Rng;
 
 use crate::core::XHash;
-use crate::fee::calculate_gas_fee;
 use crate::receipt::Receipt;
 use crate::transaction::{system::SystemTx, SignedTx};
 
@@ -108,7 +107,6 @@ impl TransactionQueueMap {
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
     /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
     /// previous nonce of transactions from the same sender in the queue.
-    /// Returns `QueueError::InvalidFee` if the fee calculation overflows.
     ///
     /// # Safety
     ///
@@ -121,12 +119,9 @@ impl TransactionQueueMap {
         tx: QueueTx,
         hash: XHash,
         gas_used: U256,
-        base_fee: U256,
     ) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| {
-            queue.queue_tx(tx, hash, gas_used, base_fee)
-        })
-        .and_then(|res| res)
+        self.with_transaction_queue(queue_id, |queue| queue.queue_tx(tx, hash, gas_used))
+            .and_then(|res| res)
     }
 
     /// Removes all transactions in the queue whose sender matches the provided sender address.
@@ -220,7 +215,6 @@ pub enum QueueTx {
 pub struct QueueTxItem {
     pub tx: QueueTx,
     pub tx_hash: XHash,
-    pub tx_fee: U256,
     pub gas_used: U256,
 }
 
@@ -234,8 +228,7 @@ pub struct BlockData {
 /// 1. Queue of validated transactions
 /// 2. Map of the account nonces
 /// 3. Block data
-/// 4. Total gas fees of all queued transactions
-/// 5. Total gas used by all queued transactions
+/// 4. Total gas used by all queued transactions
 ///
 /// It's used to manage and process transactions for different accounts.
 ///
@@ -244,7 +237,6 @@ pub struct TransactionQueueData {
     pub transactions: Vec<QueueTxItem>,
     pub account_nonces: HashMap<H160, U256>,
     pub block_data: Option<BlockData>,
-    pub total_fees: U256,
     pub total_gas_used: U256,
     pub target_block: U256,
 }
@@ -254,7 +246,6 @@ impl TransactionQueueData {
         Self {
             transactions: Vec::new(),
             account_nonces: HashMap::new(),
-            total_fees: U256::zero(),
             total_gas_used: U256::zero(),
             block_data: None,
             target_block,
@@ -274,14 +265,7 @@ impl TransactionQueue {
         }
     }
 
-    pub fn queue_tx(
-        &self,
-        tx: QueueTx,
-        tx_hash: XHash,
-        gas_used: U256,
-        base_fee: U256,
-    ) -> Result<()> {
-        let mut gas_fee = U256::zero();
+    pub fn queue_tx(&self, tx: QueueTx, tx_hash: XHash, gas_used: U256) -> Result<()> {
         let mut data = self.data.lock().unwrap();
         if let QueueTx::SignedTx(signed_tx) = &tx {
             if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
@@ -291,18 +275,11 @@ impl TransactionQueue {
             }
             data.account_nonces
                 .insert(signed_tx.sender, signed_tx.nonce());
-
-            gas_fee = match calculate_gas_fee(signed_tx, gas_used, base_fee) {
-                Ok(fee) => fee,
-                Err(_) => return Err(QueueError::InvalidFee),
-            };
-            data.total_fees += gas_fee;
             data.total_gas_used += gas_used;
         }
         data.transactions.push(QueueTxItem {
             tx,
             tx_hash,
-            tx_fee: gas_fee,
             gas_used,
         });
         Ok(())
@@ -310,7 +287,6 @@ impl TransactionQueue {
 
     pub fn remove_txs_by_sender(&self, sender: H160) {
         let mut data = self.data.lock().unwrap();
-        let mut fees_to_remove = U256::zero();
         let mut gas_used_to_remove = U256::zero();
         data.transactions.retain(|item| {
             let tx_sender = match &item.tx {
@@ -318,13 +294,11 @@ impl TransactionQueue {
                 QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
             };
             if tx_sender == sender {
-                fees_to_remove += item.tx_fee;
                 gas_used_to_remove += item.gas_used;
                 return false;
             }
             true
         });
-        data.total_fees -= fees_to_remove;
         data.total_gas_used -= gas_used_to_remove;
         data.account_nonces.remove(&sender);
     }
@@ -371,7 +345,6 @@ impl From<SignedTx> for QueueTx {
 pub enum QueueError {
     NoSuchQueue,
     InvalidNonce((Box<SignedTx>, U256)),
-    InvalidFee,
 }
 
 impl std::fmt::Display for QueueError {
@@ -379,7 +352,6 @@ impl std::fmt::Display for QueueError {
         match self {
             QueueError::NoSuchQueue => write!(f, "No transaction queue for this queue"),
             QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
-            QueueError::InvalidFee => write!(f, "Invalid transaction fee from value overflow"),
         }
     }
 }
