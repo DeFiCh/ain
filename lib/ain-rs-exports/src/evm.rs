@@ -73,9 +73,22 @@ pub fn evm_try_create_and_sign_tx(
     }
 }
 
+/// Creates a dst20 transfer function call transaction and signs the transaction.
+/// 
+/// # Arguments
+/// 
+/// * `ctx` - The transfer transaction context.
+///
+/// # Errors
+///
+/// Returns a `TransactionError` if signing fails.
+///
+/// # Returns
+///
+/// Returns the signed transaction encoded as a byte vector on success.
 pub fn evm_try_create_and_sign_dst20_tx(
     result: &mut ffi::CrossBoundaryResult,
-    ctx: &mut ffi::CreateTransferDomainContext,
+    ctx: &ffi::CreateTransferTransactionContext,
 ) -> Vec<u8> {
     let Ok(to_address) = ctx.to.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
