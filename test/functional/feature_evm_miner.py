@@ -279,5 +279,6 @@ class EVMTest(DefiTestFramework):
         # Test invalid tx in block creation
         self.invalid_evm_tx_in_block_creation()
 
+
 if __name__ == "__main__":
     EVMTest().main()
