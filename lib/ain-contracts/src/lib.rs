@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use anyhow::format_err;
-use lazy_static::lazy_static;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
 use sp_core::{Blake2Hasher, Hasher};
@@ -54,30 +52,8 @@ pub fn get_bytecode(input: &str) -> Result<Vec<u8>> {
     hex::decode(&bytecode_raw[2..]).map_err(|e| format_err!(e.to_string()))
 }
 
-pub fn get_counter_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!("../dfi_intrinsics/output/bytecode.json"))
-}
-
-pub fn get_dst20_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!("../dst20/output/bytecode.json"))
-}
-
 pub fn get_dst20_input() -> Result<Vec<u8>> {
     get_bytecode(include_str!("../dst20/input.json"))
-}
-
-pub fn get_system_reserved_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!("../system_reserved/output/bytecode.json"))
-}
-
-pub fn get_system_reserved_codehash() -> Result<H256> {
-    let bytecode = get_bytecode(include_str!("../system_reserved/output/bytecode.json"))?;
-    Ok(Blake2Hasher::hash(&bytecode))
-}
-
-pub fn get_dst20_codehash() -> Result<H256> {
-    let bytecode = get_bytecode(include_str!("../dst20/output/bytecode.json"))?;
-    Ok(Blake2Hasher::hash(&bytecode))
 }
 
 pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
@@ -88,14 +64,57 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     Ok(H160::from_str(&final_str)?)
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum Contracts {
-    CounterContract,
+pub struct IntrinsicContract;
+pub struct TransferDomainContract;
+pub struct DST20Contract;
+pub struct ReservedContract;
+
+pub trait Contract {
+    fn bytecode() -> Result<Vec<u8>>;
+    fn codehash() -> Result<H256> {
+        let bytecode = Self::bytecode()?;
+        Ok(Blake2Hasher::hash(&bytecode))
+    }
 }
 
-lazy_static! {
-    pub static ref CONTRACT_ADDRESSES: HashMap<Contracts, H160> = HashMap::from([(
-        Contracts::CounterContract,
-        H160::from_str("0x0000000000000000000000000000000000000301").unwrap()
-    ),]);
+impl Contract for IntrinsicContract {
+    fn bytecode() -> Result<Vec<u8>> {
+        get_bytecode(include_str!("../dfi_intrinsics/output/bytecode.json"))
+    }
+}
+
+impl Contract for TransferDomainContract {
+    fn bytecode() -> Result<Vec<u8>> {
+        get_bytecode(include_str!("../transfer_domain/output/bytecode.json"))
+    }
+}
+
+impl Contract for DST20Contract {
+    fn bytecode() -> Result<Vec<u8>> {
+        get_bytecode(include_str!("../dst20/output/bytecode.json"))
+    }
+}
+
+impl Contract for ReservedContract {
+    fn bytecode() -> Result<Vec<u8>> {
+        get_bytecode(include_str!("../system_reserved/output/bytecode.json"))
+    }
+}
+
+pub trait FixedContract {
+    const ADDRESS: H160;
+}
+
+impl FixedContract for IntrinsicContract {
+    const ADDRESS: H160 = H160([
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x1, 0x2d,
+    ]);
+}
+
+impl FixedContract for TransferDomainContract {
+    const ADDRESS: H160 = H160([
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x1, 0x2e,
+    ]);
 }

@@ -1,6 +1,7 @@
 mod backend;
 pub mod block;
 pub mod bytes;
+mod contract;
 pub mod core;
 mod ecrecover;
 pub mod evm;

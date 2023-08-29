@@ -88,7 +88,6 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "hex",
- "lazy_static",
  "primitive-types",
  "serde_json",
  "sha3",

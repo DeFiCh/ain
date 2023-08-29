@@ -12,6 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("dfi_intrinsics", "DFIIntrinsics"),
         ("dst20", "DST20"),
         ("system_reserved", "SystemReservedContract"),
+        ("transfer_domain", "TransferDomain"),
     ];
 
     for (file_path, contract_name) in contracts {
