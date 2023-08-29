@@ -152,6 +152,7 @@ impl EVMServices {
                 block.header.state_root
             });
 
+        debug!("[construct_block] queue_id: {:?}", queue_id);
         debug!("[construct_block] beneficiary: {:?}", beneficiary);
         let (vicinity, parent_hash, current_block_number) = match parent_data {
             None => (
@@ -212,6 +213,10 @@ impl EVMServices {
             executor.update_storage(address, storage)?;
         }
 
+        debug!(
+            "[construct_block] Processing {:?} transactions in queue",
+            queue.transactions.len()
+        );
         for queue_item in queue.transactions.clone() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
@@ -464,7 +469,7 @@ impl EVMServices {
             .core
             .get_latest_contract_storage(address, ain_contracts::u256_to_h256(U256::one()))?;
 
-        debug!("Count: {:#x}", count + U256::one());
+        debug!("[counter_contract] count: {:#x}", count + U256::one());
 
         Ok(DeployContractInfo {
             address,
