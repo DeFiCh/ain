@@ -393,8 +393,8 @@ class EVMTest(DefiTestFramework):
 
     def invalid_values_dvm_evm(self):
         assert_raises_rpc_error(
-            -32600,
-            'Dst address must be an ERC55 address in case of "EVM" domain',
+            -1,
+            'Invalid address',
             lambda: transfer_domain(
                 self.nodes[0], self.address, self.address, "100@DFI", 2, 3
             ),
@@ -737,7 +737,7 @@ class EVMTest(DefiTestFramework):
     def invalid_transfer_no_auth(self):
         assert_raises_rpc_error(
             -5,
-            "Incorrect authorization for " + self.address1,
+            "no full public key for address " + self.address1,
             self.nodes[0].transferdomain,
             [
                 {
