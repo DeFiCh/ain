@@ -1209,7 +1209,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[2], tx1)
 
     def mempool_block_limit(self):
-        abi, bytecode = EVMContract.from_file("Loop.sol", "Loop").compile()
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
             {
