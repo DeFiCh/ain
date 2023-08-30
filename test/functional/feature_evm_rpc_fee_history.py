@@ -8,9 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_is_hex_string,
     int_to_eth_u256,
-    hex_to_decimal,
 )
 
 # pragma solidity ^0.8.2;
@@ -110,7 +108,6 @@ class EVMTest(DefiTestFramework):
                     "maxFeePerGas": "0x22ecb25c00",  # 150_000_000_000
                     "type": "0x2",
                 }
-                hash = node.eth_sendTransaction(tx)
             node.generate(1)
 
     def test_fee_history(self):
