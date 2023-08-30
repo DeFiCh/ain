@@ -232,27 +232,32 @@ class VMMapTests(DefiTestFramework):
             self.nodes[0].generate(1)
             dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-            block_maps.append([dfi_block["height"], int(eth_block["number"], 16)])
+            block_maps.append(
+                [str(dfi_block["height"]), str(int(eth_block["number"], 16))]
+            )
         for item in block_maps:
-            res = self.nodes[0].vmmap(str(item[0]), VMMapType.BlockNumberDVMToEVM)
+            res = self.nodes[0].vmmap(item[0], VMMapType.BlockNumberDVMToEVM)
             assert_equal(res["input"], item[0])
             assert_equal(res["type"], "BlockNumberDVMToEVM")
             assert_equal(res["output"], item[1])
 
-            res = self.nodes[0].vmmap(str(item[1]), VMMapType.BlockNumberEVMToDVM)
+            res = self.nodes[0].vmmap(item[1], VMMapType.BlockNumberEVMToDVM)
             assert_equal(res["input"], item[1])
             assert_equal(res["type"], "BlockNumberEVMToDVM")
             assert_equal(res["output"], item[0])
 
-            res = self.nodes[0].vmmap(str(item[0]), VMMapType.Auto)
+            res = self.nodes[0].vmmap(item[0], VMMapType.Auto)
             assert_equal(res["input"], item[0])
             assert_equal(res["type"], "BlockNumberDVMToEVM")
             assert_equal(res["output"], item[1])
 
-            res = self.nodes[0].vmmap(str(item[1]), VMMapType.Auto)
-            assert_equal(res["input"], item[1])
-            assert_equal(res["type"], "BlockNumberEVMToDVM")
-            assert_equal(res["output"], item[0])
+            assert_raises_rpc_error(
+                -8,
+                "Automatic detection not viable for input",
+                self.nodes[0].vmmap,
+                item[1],
+                VMMapType.Auto,
+            )
 
     def vmmap_invalid_block_number_should_fail(self):
         assert_invalid = lambda *args: assert_raises_rpc_error(

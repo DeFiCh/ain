@@ -79,25 +79,37 @@ pub trait Contract {
 
 impl Contract for IntrinsicContract {
     fn bytecode() -> Result<Vec<u8>> {
-        get_bytecode(include_str!("../dfi_intrinsics/output/bytecode.json"))
+        get_bytecode(include_str!(concat!(
+            env!("CARGO_TARGET_DIR"),
+            "/ain_contracts/dfi_intrinsics/bytecode.json"
+        )))
     }
 }
 
 impl Contract for TransferDomainContract {
     fn bytecode() -> Result<Vec<u8>> {
-        get_bytecode(include_str!("../transfer_domain/output/bytecode.json"))
+        get_bytecode(include_str!(concat!(
+            env!("CARGO_TARGET_DIR"),
+            "/ain_contracts/transfer_domain/bytecode.json"
+        )))
     }
 }
 
 impl Contract for DST20Contract {
     fn bytecode() -> Result<Vec<u8>> {
-        get_bytecode(include_str!("../dst20/output/bytecode.json"))
+        get_bytecode(include_str!(concat!(
+            env!("CARGO_TARGET_DIR"),
+            "/ain_contracts/dst20/bytecode.json"
+        )))
     }
 }
 
 impl Contract for ReservedContract {
     fn bytecode() -> Result<Vec<u8>> {
-        get_bytecode(include_str!("../system_reserved/output/bytecode.json"))
+        get_bytecode(include_str!(concat!(
+            env!("CARGO_TARGET_DIR"),
+            "/ain_contracts/system_reserved/bytecode.json"
+        )))
     }
 }
 

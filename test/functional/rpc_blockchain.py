@@ -432,7 +432,10 @@ class BlockchainTest(DefiTestFramework):
         assert_equal(genesis["height"], 0)
         assert genesis["masternode"]
         assert_equal(genesis["mintedBlocks"], 0)
-        assert_equal(genesis["stakeModifier"], "0000000000000000000000000000000000000000000000000000000000000000")
+        assert_equal(
+            genesis["stakeModifier"],
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        )
         assert_equal(genesis["version"], 1)
         assert_equal(genesis["versionHex"], "00000001")
         assert genesis["merkleroot"]

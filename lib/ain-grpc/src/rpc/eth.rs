@@ -216,7 +216,7 @@ pub trait MetachainRPC {
     fn fee_history(
         &self,
         block_count: U256,
-        first_block: U256,
+        first_block: BlockNumber,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
 
@@ -804,13 +804,18 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn fee_history(
         &self,
         block_count: U256,
-        first_block: U256,
+        first_block: BlockNumber,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
+        let first_block_number = self.block_number_to_u256(Some(first_block))?;
         let fee_history = self
             .handler
             .block
-            .fee_history(block_count.as_usize(), first_block, priority_fee_percentile)
+            .fee_history(
+                block_count.as_usize(),
+                first_block_number,
+                priority_fee_percentile,
+            )
             .map_err(|e| Error::Custom(format!("{e:?}")))?;
 
         Ok(RpcFeeHistory::from(fee_history))
