@@ -86,10 +86,10 @@ class EVMTest(DefiTestFramework):
             list_sig.append(sig_hash)
             contract_body += function_template(i)
 
-        utf8SourceCode = contract_start + contract_body + contract_end
+        utf8_source_code = contract_start + contract_body + contract_end
 
         abi, bytecode, runtime_bytecode = EVMContract.from_str(
-            utf8SourceCode, contract_name
+            utf8_source_code, contract_name
         ).compile()
         compiled_contract = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
