@@ -174,6 +174,7 @@ impl BlockService {
             block_number -= U256::one();
         }
 
+        // TODO(): b.hash -> b.number
         let oldest_block = blocks.last().unwrap().header.hash();
 
         let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
