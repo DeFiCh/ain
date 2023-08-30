@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (file_path, contract_name) in contracts {
         let solc = Solc::new(env::var("SOLC_PATH")?);
+        let output_path = env::var("CARGO_TARGET_DIR")?;
         let root = PathBuf::from(file_path);
         if !root.exists() {
             return Err("Project root {root:?} does not exists!".into());
@@ -40,13 +41,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let abi = artifact.abi.ok_or_else(|| format_err!("ABI not found"))?;
                 let bytecode = artifact.deployed_bytecode.expect("No bytecode found");
 
-                fs::create_dir_all(format!("{file_path}/output/"))?;
+                fs::create_dir_all(format!("{output_path}/ain_contracts/{file_path}"))?;
                 fs::write(
-                    PathBuf::from(format!("{file_path}/output/bytecode.json")),
+                    PathBuf::from(format!(
+                        "{output_path}/ain_contracts/{file_path}/bytecode.json"
+                    )),
                     serde_json::to_string(&bytecode).unwrap().as_bytes(),
                 )?;
                 fs::write(
-                    PathBuf::from(format!("{file_path}/output/abi.json")),
+                    PathBuf::from(format!("{output_path}/ain_contracts/{file_path}/abi.json")),
                     serde_json::to_string(&abi).unwrap().as_bytes(),
                 )?;
             }

@@ -25,7 +25,7 @@ use std::{net::SocketAddr, path::PathBuf};
 use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
 use anyhow::{format_err, Result};
 use jsonrpsee::core::server::rpc_module::Methods;
-use jsonrpsee::http_server::HttpServerBuilder;
+use jsonrpsee_server::ServerBuilder as HttpServerBuilder;
 use log::info;
 use logging::CppLogTarget;
 
