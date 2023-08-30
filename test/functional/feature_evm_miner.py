@@ -5,13 +5,10 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 from test_framework.evm_contract import EVMContract
-from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    int_to_eth_u256,
-    hex_to_decimal,
 )
 from decimal import Decimal
 
