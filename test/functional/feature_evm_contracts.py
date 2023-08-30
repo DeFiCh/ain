@@ -79,7 +79,7 @@ class EVMTest(DefiTestFramework):
 
         for i in range(0, num_functions):
             func_sig = f"func${i}()"
-            sig_hash = node.w3.keccak(text=func_sig)[:4]
+            sig_hash = self.node.w3.keccak(text=func_sig)[:4]
             if sig_hash in list_sig:
                 continue
             list_sig.append(sig_hash)
@@ -90,15 +90,14 @@ class EVMTest(DefiTestFramework):
         abi, bytecode, runtime_bytecode = EVMContract.from_str(
             utf8SourceCode, contract_name
         ).compile()
-        compiled_contract = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled_contract = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         return compiled_contract, runtime_bytecode
 
     def should_deploy_contract_less_than_1KB(self):
-        node = self.nodes[0]
-        self.evm_key_pair = EvmKeyPair.from_node(node)
+        self.evm_key_pair = EvmKeyPair.from_node(self.node)
 
-        node.transferdomain(
+        self.node.transferdomain(
             [
                 {
                     "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
@@ -110,182 +109,219 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        node.generate(1)
+        self.node.generate(1)
 
         abi, bytecode, _ = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
+        self.node.generate(1)
 
-        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
-        self.contract = node.w3.eth.contract(
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        self.contract = self.node.w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
-        size_of_runtime_bytecode = len(node.w3.eth.get_code(self.contract.address))
+        size_of_runtime_bytecode = len(self.node.w3.eth.get_code(self.contract.address))
         assert_equal(size_of_runtime_bytecode, 323)
 
     def should_contract_get_set(self):
         # set variable
-        node = self.nodes[0]
         tx = self.contract.functions.store(10).build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "gasPrice": 10_000_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
+        self.node.generate(1)
 
-        node.w3.eth.wait_for_transaction_receipt(hash)
+        self.node.w3.eth.wait_for_transaction_receipt(hash)
 
         # get variable
         assert_equal(self.contract.functions.retrieve().call(), 10)
 
     def failed_tx_should_increment_nonce(self):
-        node = self.nodes[0]
-
         abi, bytecode, _ = EVMContract.from_file("Reverter.sol", "Reverter").compile()
-        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
+        self.node.generate(1)
 
-        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
-        contract = node.w3.eth.contract(address=receipt["contractAddress"], abi=abi)
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.node.w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
 
         # for successful TX
-        before_tx_count = node.w3.eth.get_transaction_count(self.evm_key_pair.address)
+        before_tx_count = self.node.w3.eth.get_transaction_count(
+            self.evm_key_pair.address
+        )
 
         tx = contract.functions.trySuccess().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "gasPrice": 10_000_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        node.generate(1)
-        node.w3.eth.wait_for_transaction_receipt(hash)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.node.generate(1)
+        self.node.w3.eth.wait_for_transaction_receipt(hash)
 
-        after_tx_count = node.w3.eth.get_transaction_count(self.evm_key_pair.address)
+        after_tx_count = self.node.w3.eth.get_transaction_count(
+            self.evm_key_pair.address
+        )
 
         assert_equal(before_tx_count + 1, after_tx_count)
 
         # for failed TX
-        before_tx_count = node.w3.eth.get_transaction_count(self.evm_key_pair.address)
+        before_tx_count = self.node.w3.eth.get_transaction_count(
+            self.evm_key_pair.address
+        )
 
         tx = contract.functions.tryRevert().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "gasPrice": 10_000_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        node.generate(1)
-        node.w3.eth.wait_for_transaction_receipt(hash)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.node.generate(1)
+        self.node.w3.eth.wait_for_transaction_receipt(hash)
 
-        after_tx_count = node.w3.eth.get_transaction_count(self.evm_key_pair.address)
+        after_tx_count = self.node.w3.eth.get_transaction_count(
+            self.evm_key_pair.address
+        )
 
         assert_equal(before_tx_count + 1, after_tx_count)
 
     def should_deploy_contract_1KB_To_10KB(self):
-        node = self.nodes[0]
-
         compiled_contract, _ = self.generate_contract(
-            node, 2**7, "ContractSize1KBTo10KB"
+            self.node, 2**7, "ContractSize1KBTo10KB"
         )
 
         tx = compiled_contract.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
-        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
-        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        self.node.generate(1)
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(
+            self.node.w3.eth.get_code(receipt["contractAddress"])
+        )
         assert_equal(receipt["status"], 1)
         assert_equal(size_of_runtime_bytecode, 6901)
 
     def should_deploy_contract_10KB_To_19KB(self):
-        node = self.nodes[0]
-
         compiled_contract, _ = self.generate_contract(
-            node, 2**8, "ContractSize10KBTo19KB"
+            self.node, 2**8, "ContractSize10KBTo19KB"
         )
 
         tx = compiled_contract.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
-        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
-        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        self.node.generate(1)
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(
+            self.node.w3.eth.get_code(receipt["contractAddress"])
+        )
         assert_equal(receipt["status"], 1)
         assert_equal(size_of_runtime_bytecode, 13685)
 
     def should_deploy_contract_20KB_To_29KB(self):
-        node = self.nodes[0]
-
         compiled_contract, compiler_runtime_bytecode = self.generate_contract(
-            node, 400, "ContractSize20KBTo29KB"
+            self.node, 400, "ContractSize20KBTo29KB"
         )
 
         tx = compiled_contract.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
-        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
-        runtime_bytecode = node.w3.eth.get_code(receipt["contractAddress"])
+        self.node.generate(1)
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        runtime_bytecode = self.node.w3.eth.get_code(receipt["contractAddress"])
         size_of_runtime_bytecode = len(runtime_bytecode)
         assert_equal(receipt["status"], 1)
         assert_equal(size_of_runtime_bytecode, 21140)
@@ -296,28 +332,32 @@ class EVMTest(DefiTestFramework):
     # EIP 170, contract size is limited to 24576 bytes
     # this test deploys a smart contract with an estimated size larger than this number
     def fail_deploy_contract_extremely_large_runtime_code(self):
-        node = self.nodes[0]
-
         compiled_contract, compiler_runtime_bytecode = self.generate_contract(
-            node, 2**9 - 1, "ContractLargeRunTimeCode"
+            self.node, 2**9 - 1, "ContractLargeRunTimeCode"
         )
         assert_equal(len(compiler_runtime_bytecode) / 2, 27458)
 
         tx = compiled_contract.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
             }
         )
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        node.generate(1)
+        self.node.generate(1)
 
-        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
-        size_of_runtime_bytecode = len(node.w3.eth.get_code(receipt["contractAddress"]))
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        size_of_runtime_bytecode = len(
+            self.node.w3.eth.get_code(receipt["contractAddress"])
+        )
         assert_equal(receipt["status"], 0)
         assert_equal(size_of_runtime_bytecode, 0)
 
@@ -326,26 +366,28 @@ class EVMTest(DefiTestFramework):
     # However, because the current implementation of DMC limits the size of EVM transaction to 32768 bytes
     # the error returned is evm tx size too large
     def fail_deploy_contract_extremely_large_init_code(self):
-        node = self.nodes[0]
-
         compiled_contract, _ = self.generate_contract(
-            node, 2**12 - 1, "ContractLargeInitCode"
+            self.node, 2**12 - 1, "ContractLargeInitCode"
         )
 
         tx = compiled_contract.constructor().build_transaction(
             {
-                "chainId": node.w3.eth.chain_id,
-                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
             }
         )
         # to check the init code is larger than 49152
         assert_equal((len(tx["data"]) - 2) / 2, 243542)
-        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
 
         try:
-            node.w3.eth.send_raw_transaction(signed.rawTransaction)
+            self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
         except Exception as e:
             error_code = e.args[0]["code"]
             error_message = e.args[0]["message"]
@@ -362,6 +404,8 @@ class EVMTest(DefiTestFramework):
 
     def run_test(self):
         self.setup()
+
+        self.node = self.nodes[0]
 
         self.should_deploy_contract_less_than_1KB()
 
