@@ -1,5 +1,6 @@
 use ain_contracts::{
-    Contract, DST20Contract, FixedContract, IntrinsicContract, TransferDomainContract,
+    Contract, DST20Contract, FixedContract, IntrinsicContract, ReservedContract,
+    TransferDomainContract,
 };
 use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
@@ -72,8 +73,8 @@ pub fn dst20_contract(
     match backend.get_account(&address) {
         None => {}
         Some(account) => {
-            if account.code_hash != DST20Contract::codehash()? {
-                return Err(format_err!("Token address is already in use").into());
+            if account.code_hash != ReservedContract::codehash()? {
+                return Err(format_err!("Token {symbol} address is already in use").into());
             }
         }
     }

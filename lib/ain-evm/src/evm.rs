@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use ain_contracts::{Contract, DST20Contract, ReservedContract};
+use ain_contracts::{
+    Contract, DST20Contract, FixedContract, ReservedContract, TransferDomainContract,
+};
 use anyhow::format_err;
 use ethereum::{
     Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
@@ -195,7 +197,10 @@ impl EVMServices {
                 dvm_block_number,
                 current_block_number,
             )?;
+
+            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
 
             // Deploy transfer domain contract on the first block
             let DeployContractInfo {
@@ -203,7 +208,10 @@ impl EVMServices {
                 storage,
                 bytecode,
             } = contract::transfer_domain_contract()?;
+
+            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
@@ -213,14 +221,15 @@ impl EVMServices {
                 dvm_block_number,
                 current_block_number,
             )?;
-            debug!("address.as_fixed_bytes() : {:#?}", address.as_fixed_bytes());
             executor.update_storage(address, storage)?;
+            executor.commit();
         }
 
         debug!(
             "[construct_block] Processing {:?} transactions in queue",
             queue.transactions.len()
         );
+
         for queue_item in queue.transactions.clone() {
             match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
@@ -258,39 +267,96 @@ impl EVMServices {
                     receipts_v3.push((receipt, None));
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(signed_tx)) => {
-                    let Some(to) = signed_tx.to() else {
-                        debug!("[construct_block] EvmOut fails to get destination address");
-                        failed_transactions.push(queue_item.tx_hash);
-                        continue;
-                    };
+                    let to = signed_tx.to().unwrap();
+                    let input = signed_tx.data();
+                    let amount = U256::from_big_endian(&input[input.len() - 32..]);
 
                     debug!(
                         "[construct_block] Transfer domain to EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
-                        to, signed_tx.value(), queue_id, queue_item.tx_hash
+                        to, amount, queue_id, queue_item.tx_hash
                     );
 
-                    if let Err(e) = executor.add_balance(to, signed_tx.value()) {
+                    if let Err(e) = executor.add_balance(
+                        TransferDomainContract::ADDRESS,
+                        amount.saturating_mul(U256::from(10)),
+                    ) {
                         debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
                         continue;
                     }
+                    executor.commit();
+                    let account = executor
+                        .backend
+                        .get_account(&TransferDomainContract::ADDRESS);
 
-                    all_transactions.push(Box::new(signed_tx));
-                    receipts_v3.push((get_default_successful_receipt(), None));
-                }
-                QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
+                    let (
+                        TxResponse {
+                            exit_reason, logs, ..
+                        },
+                        receipt,
+                    ) = executor.exec(&signed_tx, U256::zero());
+
+                    executor.commit();
+                    let account = executor
+                        .backend
+                        .get_account(&TransferDomainContract::ADDRESS);
+
                     debug!(
-                        "[construct_block] Transfer domain from EVM address {}, amount: {}, queue_id {}, tx hash {}",
-                        signed_tx.sender, signed_tx.value(), queue_id, queue_item.tx_hash
+                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                        receipt,
+                        exit_reason,
+                        signed_tx.transaction.hash(),
+                        logs
                     );
-
-                    if let Err(e) = executor.sub_balance(signed_tx.sender, signed_tx.value()) {
-                        debug!("[construct_block] EvmOut failed with {e}");
+                    if !exit_reason.is_succeed() {
                         failed_transactions.push(queue_item.tx_hash);
-                        continue;
                     }
 
                     all_transactions.push(Box::new(signed_tx));
+                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
+                    receipts_v3.push((get_default_successful_receipt(), None));
+                }
+                QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
+                    debug!("signed_tx : {:#?}", signed_tx);
+                    let to = signed_tx.to().unwrap();
+                    let input = signed_tx.data();
+                    let amount = U256::from_big_endian(&input[input.len() - 32..]);
+
+                    debug!(
+                        "[construct_block] Transfer domain from EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
+                        to, amount, queue_id, queue_item.tx_hash
+                    );
+
+                    let (
+                        TxResponse {
+                            exit_reason, logs, ..
+                        },
+                        receipt,
+                    ) = executor.exec(&signed_tx, U256::zero());
+
+                    executor.commit();
+                    debug!(
+                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                        receipt,
+                        exit_reason,
+                        signed_tx.transaction.hash(),
+                        logs
+                    );
+                    if !exit_reason.is_succeed() {
+                        failed_transactions.push(queue_item.tx_hash);
+                    }
+
+                    let account = executor
+                        .backend
+                        .get_account(&TransferDomainContract::ADDRESS);
+                    if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
+                        debug!("[construct_block] EvmIn failed with {e}");
+                        // failed_transactions.push(queue_item.tx_hash);
+                    }
+                    executor.commit();
+
+                    all_transactions.push(Box::new(signed_tx));
+                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push((get_default_successful_receipt(), None));
                 }
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
@@ -300,7 +366,7 @@ impl EVMServices {
                     token_id,
                 })) => {
                     debug!(
-                        "[construct_block] DeployContract for address {}, name {}, symbol {}",
+                        "[construct_block] DeployContract for address {:x?}, name {}, symbol {}",
                         address, name, symbol
                     );
 

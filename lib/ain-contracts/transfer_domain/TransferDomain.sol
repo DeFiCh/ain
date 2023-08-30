@@ -9,15 +9,13 @@ contract TransferDomain {
     event Transfer(address indexed to, uint256 amount);
 
     function transfer(address payable to, uint256 amount) external {
-        require(
-            address(this).balance >= amount,
-            "Insufficient contract balance"
-        );
-        to.transfer(amount);
-        require(
-            address(this).balance != 0,
-            "Contract balance should always be 0 after transfer"
-        );
+        if (to != address(this)) {
+            require(
+                address(this).balance >= amount,
+                "Insufficient contract balance"
+            );
+            to.transfer(amount);
+        }
 
         emit Transfer(to, amount);
     }
