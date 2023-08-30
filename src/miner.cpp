@@ -59,6 +59,10 @@ struct EvmPackageContext {
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
     std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
+    // Variable to tally total gas used in the block
+    uint64_t totalGas{};
+    // Used to track gas fees of EVM TXs
+    std::map<uint256, uint64_t> evmGasFees;
 };
 
 struct EvmTxPreApplyContext {
@@ -650,6 +654,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& failedTxSet = ctx.failedTxEntries;
     auto& failedNonces = ctx.pkgCtx.failedNonces;
     auto& replaceByFee = ctx.pkgCtx.replaceByFee;
+    auto& totalGas = ctx.pkgCtx.totalGas;
 
     if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
         return false;
@@ -678,6 +683,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                 RemoveFromBlock(entry);
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
                 replaceByFee.emplace(nonce, entry);
+                totalGas -= entry->GetFee();
             }
             replaceByFee[addrKey.nonce] = txIter;
             // Remove all fee entries relating to the address
@@ -918,13 +924,22 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
+                uint64_t gasUsed{};
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
+
+                evmPackageContext.evmGasFees.emplace(tx.GetHash(), gasUsed);
+
+                if (evmPackageContext.totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
+                    customTxPassed = false;
+                    break;
+                }
+                evmPackageContext.totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedDfTxHashSet.insert(tx.GetHash());
