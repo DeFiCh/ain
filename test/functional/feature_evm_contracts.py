@@ -10,6 +10,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_node import TestNode
+import pytest
 
 
 class EVMTest(DefiTestFramework):
@@ -386,21 +387,22 @@ class EVMTest(DefiTestFramework):
             tx, self.evm_key_pair.privkey
         )
 
-        try:
+        with pytest.raises(Exception) as e:
             self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        except Exception as e:
-            error_code = e.args[0]["code"]
-            error_message = e.args[0]["message"]
-            assert_equal(error_code, -32001)
-            assert_equal(
-                "Custom error: Could not publish raw transaction:" in error_message,
-                True,
-            )
-            assert_equal(
-                "reason: Test EvmTxTx execution failed:\nevm tx size too large"
-                in error_message,
-                True,
-            )
+
+        error_code = e.value.args[0]["code"]
+        error_message = e.value.args[0]["message"]
+
+        assert_equal(error_code, -32001)
+        assert_equal(
+            "Custom error: Could not publish raw transaction:" in error_message,
+            True,
+        )
+        assert_equal(
+            "reason: Test EvmTxTx execution failed:\nevm tx size too large"
+            in error_message,
+            True,
+        )
 
     def run_test(self):
         self.setup()
