@@ -17,7 +17,7 @@ pub struct BlockService {
 }
 
 pub struct FeeHistoryData {
-    pub oldest_block: H256,
+    pub oldest_block: U256,
     pub base_fee_per_gas: Vec<U256>,
     pub gas_used_ratio: Vec<f64>,
     pub reward: Option<Vec<Vec<U256>>>,
@@ -174,8 +174,7 @@ impl BlockService {
             block_number -= U256::one();
         }
 
-        // TODO(): b.hash -> b.number
-        let oldest_block = blocks.last().unwrap().header.hash();
+        let oldest_block = blocks.last().unwrap().header.number;
 
         let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
             .iter()
