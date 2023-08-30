@@ -298,9 +298,9 @@ impl EVMCoreService {
                 gas_limit: signed_tx.gas_limit().as_u64(),
                 access_list: signed_tx.access_list(),
                 block_number,
-                gas_price: None,
-                max_fee_per_gas: None,
-                transaction_type: None,
+                gas_price: Some(tx_gas_price),
+                max_fee_per_gas: signed_tx.max_fee_per_gas(),
+                transaction_type: Some(signed_tx.get_tx_type()),
             })?;
             used_gas
         } else {
@@ -355,7 +355,7 @@ impl EVMCoreService {
     ) -> Result<()> {
         let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
         self.tx_queues
-            .push_in(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
+            .push_in(queue_id, queue_tx, hash, U256::zero())?;
         Ok(())
     }
 
@@ -387,7 +387,7 @@ impl EVMCoreService {
         } else {
             let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
             self.tx_queues
-                .push_in(queue_id, queue_tx, hash, U256::zero(), U256::zero())?;
+                .push_in(queue_id, queue_tx, hash, U256::zero())?;
             Ok(())
         }
     }
