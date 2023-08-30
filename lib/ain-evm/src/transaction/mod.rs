@@ -428,7 +428,7 @@ mod tests {
     fn get_test_data(path: &Path) -> Result<Vec<(String, ExpectedTx)>, Box<dyn Error>> {
         let content = fs::read_to_string(path)?;
 
-        let r: Vec<(String, ExpectedTx)> = serde_json::from_str(&content)?;
+        let r = serde_json::from_str(&content)?;
         Ok(r)
     }
 
