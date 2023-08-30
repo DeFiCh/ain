@@ -21,6 +21,7 @@ from test_framework.util import (
 # }
 CONTRACT_BYTECODE = "0x608060405234801561001057600080fd5b5060df8061001f6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063165c4a1614602d575b600080fd5b603c6038366004605f565b604e565b60405190815260200160405180910390f35b600060588284607f565b9392505050565b600080604083850312156070578182fd5b50508035926020909101359150565b600081600019048311821515161560a457634e487b7160e01b81526011600452602481fd5b50029056fea2646970667358221220223df7833fd08eb1cd3ce363a9c4cb4619c1068a5f5517ea8bb862ed45d994f764736f6c63430008020033"
 
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -96,8 +97,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance, int_to_eth_u256(50))
 
     def create_block(self, count, priority_fees):
-       node = self.nodes[0]
-       for x in range(count):
+        node = self.nodes[0]
+        for x in range(count):
             for y in priority_fees:
                 tx = {
                     "from": self.ethAddress,
@@ -119,8 +120,8 @@ class EVMTest(DefiTestFramework):
 
         count = 2
         reward_percentiles = [20, 50, 70]
-        history = node.eth_feeHistory(hex(count), 'latest', reward_percentiles)
-        print('history: ', history)
+        history = node.eth_feeHistory(hex(count), "latest", reward_percentiles)
+        print("history: ", history)
 
         # assert oldest_block
         assert_equal(len(history["baseFeePerGas"]), count + 1)
@@ -129,12 +130,10 @@ class EVMTest(DefiTestFramework):
         for x in history["reward"]:
             assert_equal(len(x), len(reward_percentiles))
 
-
     def run_test(self):
         self.setup()
 
         self.test_fee_history()
-
 
 
 if __name__ == "__main__":
