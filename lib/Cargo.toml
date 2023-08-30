@@ -50,8 +50,10 @@ num-traits = "0.2"
 hex = "0.4"
 hex-literal = "0.4"
 bincode = "1.3"
-cxx = "1.0"
 serde_with = "3.0"
+
+cxx = "1.0"
+cxx-build = "1.0"
 tonic = "0.9"
 tonic-build = "0.9"
 prost = "0.11"
@@ -84,7 +86,6 @@ vsdb_trie_db = { version = "0.7", git = "https://github.com/defich/vsdb.git", fe
 vsdb_core = { version = "0.55", git = "https://github.com/defich/vsdb.git", features = ["rocks_engine", "compress"] }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 
-
 #### Cache dependencies
 lru = "0.11"
 
@@ -93,15 +94,10 @@ sp-io = "24.0"
 substrate-bn = "0.6"
 
 #### Database dependencies
-rocksdb = { version = "0.20", default-features = false }
+rocksdb = { version = "0.21", default-features = false }
 
 ## build-deps
 
-### common
-
-### ain-cpp-imports
-
-cxx-build = "1.0"
 
 ### ain-rs-exports
 
