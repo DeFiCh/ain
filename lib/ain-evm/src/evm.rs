@@ -196,7 +196,7 @@ impl EVMServices {
             self.reserve_dst20_namespace(&mut executor)?;
 
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
-            queue.transactions.extend(migration_txs.into_iter());
+            queue.transactions.extend(migration_txs);
 
             // Deploy counter contract on the first block
             let DeployContractInfo {
