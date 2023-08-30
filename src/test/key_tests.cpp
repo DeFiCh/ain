@@ -4,6 +4,7 @@
 
 #include <key.h>
 
+#include <bech32.h>
 #include <key_io.h>
 #include <uint256.h>
 #include <util/system.h>
@@ -301,6 +302,43 @@ BOOST_AUTO_TEST_CASE(pkh_key_test)
     BOOST_CHECK(pkh_addr2 == EncodeDestination(pkh_addr2_script_dest));
     BOOST_CHECK(pkh_addr1C == EncodeDestination(pkh_addr1C_script_dest));
     BOOST_CHECK(pkh_addr2C == EncodeDestination(pkh_addr2C_script_dest));
+}
+
+BOOST_AUTO_TEST_CASE(serialised_address_from_block_test)
+{
+    // Addresses
+    auto bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8";
+    auto eth = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89";
+
+    // CKeyIDs taken from serialised block
+    auto bech32Hex = "5f4fbcf30273f770702297e8e0fc55f1bb213db3";
+    auto ethHex = "897e03dda17125f022a853c1a4d84021f44a8a9b";
+
+    // Encode Bech32
+    auto bech32Vec = ParseHex(bech32Hex);
+    std::vector<unsigned char> data = {0};
+    data.reserve(33);
+    ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bech32Vec.begin(), bech32Vec.end());
+    auto bech32Encoded = bech32::Encode("bcrt", data);
+
+    // Encode Eth
+    auto ethVec = ParseHex(ethHex);
+    auto ethID = HexStr(ethVec.rbegin(), ethVec.rend());
+    std::vector<uint8_t> ethOutput, ethInput(ethID.begin(), ethID.end());
+    sha3_256_safe(ethInput, ethOutput);
+    auto hashedAddress = HexStr(ethOutput);
+    std::string ethEncoded = "0x";
+    for (size_t i{}; i < ethID.size(); ++i) {
+        if (std::isdigit(ethID[i]) || hashedAddress[i] < '8') {
+            ethEncoded += ethID[i];
+        } else {
+            ethEncoded += std::toupper(ethID[i]);
+        }
+    }
+
+    // Check results match
+    BOOST_CHECK_EQUAL(bech32, bech32Encoded);
+    BOOST_CHECK_EQUAL(eth, ethEncoded);
 }
 
 BOOST_AUTO_TEST_CASE(wpkh_key_test)
