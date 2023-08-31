@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use ain_contracts::{
-    Contract, DST20Contract, FixedContract, ReservedContract, TransferDomainContract,
-};
+use ain_contracts::{Contract, get_dst20_contract, get_transferdomain_contract, get_reserved_contract};
 use anyhow::format_err;
 use ethereum::{
     Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
@@ -276,8 +274,20 @@ impl EVMServices {
                         to, amount, queue_id, queue_item.tx_hash
                     );
 
+                    let Contract{fixed_address, codehash, ..} = get_transferdomain_contract();
+                    let address = fixed_address.unwrap();
+                    let mismatch = match executor.backend.get_account(&address) {
+                        None => true,
+                        Some(account) => account.code_hash != codehash
+                    };
+                    if mismatch {
+                        debug!("[construct_block] EvmIn failed with as transferdomain account codehash mismatch");
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    }
+
                     if let Err(e) = executor.add_balance(
-                        TransferDomainContract::ADDRESS,
+                        address,
                         amount.saturating_mul(U256::from(10)),
                     ) {
                         debug!("[construct_block] EvmIn failed with {e}");
@@ -285,9 +295,6 @@ impl EVMServices {
                         continue;
                     }
                     executor.commit();
-                    let account = executor
-                        .backend
-                        .get_account(&TransferDomainContract::ADDRESS);
 
                     let (
                         TxResponse {
@@ -297,9 +304,6 @@ impl EVMServices {
                     ) = executor.exec(&signed_tx, U256::zero());
 
                     executor.commit();
-                    let account = executor
-                        .backend
-                        .get_account(&TransferDomainContract::ADDRESS);
 
                     debug!(
                         "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
@@ -327,6 +331,18 @@ impl EVMServices {
                         to, amount, queue_id, queue_item.tx_hash
                     );
 
+                    let Contract{fixed_address, codehash, ..} = get_transferdomain_contract();
+                    let address = fixed_address.unwrap();
+                    let mismatch = match executor.backend.get_account(&address) {
+                        None => true,
+                        Some(account) => account.code_hash != codehash
+                    };
+                    if mismatch {
+                        debug!("[construct_block] EvmOut failed with as transferdomain account codehash mismatch");
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    }
+
                     let (
                         TxResponse {
                             exit_reason, logs, ..
@@ -346,9 +362,6 @@ impl EVMServices {
                         failed_transactions.push(queue_item.tx_hash);
                     }
 
-                    let account = executor
-                        .backend
-                        .get_account(&TransferDomainContract::ADDRESS);
                     if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
                         debug!("[construct_block] EvmIn failed with {e}");
                         // failed_transactions.push(queue_item.tx_hash);
@@ -564,7 +577,8 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                if account.code_hash == DST20Contract::codehash()? {
+                let Contract{codehash, ..} = get_dst20_contract();
+                if account.code_hash == codehash {
                     return Ok(true);
                 }
             }
@@ -583,7 +597,7 @@ impl EVMServices {
     }
 
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
-        let bytecode = ReservedContract::bytecode()?;
+        let Contract{bytecode, ..} = get_reserved_contract();
         let addresses = (1..=1024)
             .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
             .collect::<Vec<H160>>();
@@ -607,7 +621,7 @@ fn create_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: ain_contracts::get_dst20_input()?,
+        input: ain_contracts::get_dst20_input(),
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
