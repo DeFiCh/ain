@@ -1,4 +1,4 @@
-use ain_contracts::{get_transferdomain_contract, Contract};
+use ain_contracts::{get_transferdomain_contract, FixedContract};
 use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::txqueue::QueueTx;
@@ -94,9 +94,8 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     result: &mut ffi::CrossBoundaryResult,
     ctx: ffi::CreateTransferDomainContext,
 ) -> Vec<u8> {
-    let Contract { fixed_address, .. } = get_transferdomain_contract();
-    let contract_address = fixed_address.unwrap();
-    let action = TransactionAction::Call(contract_address);
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+    let action = TransactionAction::Call(fixed_address);
 
     let to_address = if ctx.direction {
         let Ok(to_address) = ctx.to.parse() else {
@@ -105,7 +104,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         to_address
     } else {
         // Send EvmOut to contract address
-        contract_address
+        fixed_address
     };
 
     let value = match try_from_satoshi(U256::from(ctx.value)) {

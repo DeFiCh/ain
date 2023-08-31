@@ -1,6 +1,6 @@
 use ain_contracts::{
     get_dst20_contract, get_intrinsic_contract, get_reserved_contract, get_transferdomain_contract,
-    Contract,
+    Contract, FixedContract,
 };
 use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
@@ -62,19 +62,19 @@ pub fn counter_contract(
     dvm_block_number: u64,
     evm_block_number: U256,
 ) -> Result<DeployContractInfo> {
-    let Contract {
-        bytecode,
+    let FixedContract {
+        contract,
         fixed_address,
         ..
     } = get_intrinsic_contract();
-    let count = backend
-        .get_contract_storage(fixed_address.unwrap(), u256_to_h256(U256::one()).as_bytes())?;
+    let count =
+        backend.get_contract_storage(fixed_address, u256_to_h256(U256::one()).as_bytes())?;
 
     debug!("Count: {:#x}", count + U256::one());
 
     Ok(DeployContractInfo {
-        address: fixed_address.unwrap(),
-        bytecode: Bytes::from(bytecode),
+        address: fixed_address,
+        bytecode: Bytes::from(contract.bytecode),
         storage: vec![
             (H256::from_low_u64_be(0), u256_to_h256(U256::one())),
             (H256::from_low_u64_be(1), u256_to_h256(evm_block_number)),
@@ -88,15 +88,14 @@ pub fn counter_contract(
 
 /// Returns transfer domain address, bytecode and null storage
 pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
-    let Contract {
-        bytecode,
+    let FixedContract {
+        contract,
         fixed_address,
-        ..
     } = get_transferdomain_contract();
 
     Ok(DeployContractInfo {
-        address: fixed_address.unwrap(),
-        bytecode: Bytes::from(bytecode),
+        address: fixed_address,
+        bytecode: Bytes::from(contract.bytecode),
         storage: Vec::new(),
     })
 }

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use ain_contracts::{
-    get_dst20_contract, get_reserved_contract, get_transferdomain_contract, Contract,
+    get_dst20_contract, get_reserved_contract, get_transferdomain_contract, Contract, FixedContract,
 };
 use anyhow::format_err;
 use ethereum::{
@@ -275,15 +275,14 @@ impl EVMServices {
                         to, amount, queue_id, queue_item.tx_hash
                     );
 
-                    let Contract {
+                    let FixedContract {
+                        contract,
                         fixed_address,
-                        codehash,
                         ..
                     } = get_transferdomain_contract();
-                    let address = fixed_address.unwrap();
-                    let mismatch = match executor.backend.get_account(&address) {
+                    let mismatch = match executor.backend.get_account(&fixed_address) {
                         None => true,
-                        Some(account) => account.code_hash != codehash,
+                        Some(account) => account.code_hash != contract.codehash,
                     };
                     if mismatch {
                         debug!("[construct_block] EvmIn failed with as transferdomain account codehash mismatch");
@@ -292,7 +291,7 @@ impl EVMServices {
                     }
 
                     if let Err(e) =
-                        executor.add_balance(address, amount.saturating_mul(U256::from(10)))
+                        executor.add_balance(fixed_address, amount.saturating_mul(U256::from(10)))
                     {
                         debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
@@ -334,15 +333,14 @@ impl EVMServices {
                         to, amount, queue_id, queue_item.tx_hash
                     );
 
-                    let Contract {
+                    let FixedContract {
+                        contract,
                         fixed_address,
-                        codehash,
                         ..
                     } = get_transferdomain_contract();
-                    let address = fixed_address.unwrap();
-                    let mismatch = match executor.backend.get_account(&address) {
+                    let mismatch = match executor.backend.get_account(&fixed_address) {
                         None => true,
-                        Some(account) => account.code_hash != codehash,
+                        Some(account) => account.code_hash != contract.codehash,
                     };
                     if mismatch {
                         debug!("[construct_block] EvmOut failed with as transferdomain account codehash mismatch");
@@ -646,7 +644,7 @@ fn transfer_domain_deploy_contract_tx(base_fee: &U256) -> Result<(SignedTx, Rece
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_transferdomain_contract().bytecode,
+        input: get_transferdomain_contract().contract.bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })

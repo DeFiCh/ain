@@ -27,39 +27,48 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
 pub struct Contract {
     pub codehash: H256,
     pub bytecode: Vec<u8>,
-    pub fixed_address: Option<H160>,
+}
+
+#[derive(Clone)]
+pub struct FixedContract {
+    pub contract: Contract,
+    pub fixed_address: H160,
 }
 
 lazy_static::lazy_static! {
-    pub static ref INTRINSIC_CONTRACT: Contract = {
+    pub static ref INTRINSIC_CONTRACT: FixedContract = {
         let bytecode = get_bytecode(include_str!(concat!(
                 env!("CARGO_TARGET_DIR"),
                 "/ain_contracts/dfi_intrinsics/bytecode.json"
         ))).unwrap();
 
-        Contract {
-            codehash: Blake2Hasher::hash(&bytecode),
-            bytecode,
-            fixed_address: Some(H160([
+        FixedContract {
+            contract: Contract {
+                codehash: Blake2Hasher::hash(&bytecode),
+                bytecode,
+            },
+            fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                 0x3, 0x1,
-            ])),
+            ]),
         }
     };
 
-    pub static ref TRANSFERDOMAIN_CONTRACT: Contract = {
+    pub static ref TRANSFERDOMAIN_CONTRACT: FixedContract = {
         let bytecode = get_bytecode(include_str!(concat!(
             env!("CARGO_TARGET_DIR"),
             "/ain_contracts/transfer_domain/bytecode.json"
         ))).unwrap();
 
-        Contract {
-            codehash: Blake2Hasher::hash(&bytecode),
-            bytecode,
-            fixed_address: Some(H160([
+        FixedContract {
+            contract: Contract {
+                codehash: Blake2Hasher::hash(&bytecode),
+                bytecode,
+            },
+            fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                 0x3, 0x2,
-            ])),
+            ]),
         }
     };
 
@@ -72,7 +81,6 @@ lazy_static::lazy_static! {
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
             bytecode,
-            fixed_address: None,
         }
     };
 
@@ -85,16 +93,15 @@ lazy_static::lazy_static! {
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
             bytecode,
-            fixed_address: None,
         }
     };
 }
 
-pub fn get_intrinsic_contract() -> Contract {
+pub fn get_intrinsic_contract() -> FixedContract {
     INTRINSIC_CONTRACT.clone()
 }
 
-pub fn get_transferdomain_contract() -> Contract {
+pub fn get_transferdomain_contract() -> FixedContract {
     TRANSFERDOMAIN_CONTRACT.clone()
 }
 
