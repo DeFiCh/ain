@@ -2,8 +2,45 @@ use ain_contracts::{Contract, get_dst20_contract, get_intrinsic_contract, get_re
 use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
 use log::debug;
+use sha3::{Digest, Keccak256};
 
 use crate::{backend::EVMBackend, bytes::Bytes, Result};
+
+pub fn u256_to_h256(input: U256) -> H256 {
+    let mut bytes = [0_u8; 32];
+    input.to_big_endian(&mut bytes);
+
+    H256::from(bytes)
+}
+
+pub fn get_abi_encoded_string(input: &str) -> H256 {
+    let length = input.len();
+
+    let mut storage_value = H256::default();
+    storage_value.0[31] = (length * 2) as u8;
+    storage_value.0[..length].copy_from_slice(input.as_bytes());
+
+    storage_value
+}
+
+pub fn get_address_storage_index(address: H160) -> H256 {
+    // padded slot, slot for our contract is 0
+    let slot = H256::zero();
+
+    // padded key
+    let key = H256::from(address);
+
+    // keccak256(padded key + padded slot)
+    let mut hasher = Keccak256::new();
+    hasher.update(key.as_fixed_bytes());
+    hasher.update(slot.as_fixed_bytes());
+    let hash_result = hasher.finalize();
+
+    let mut index_bytes = [0u8; 32];
+    index_bytes.copy_from_slice(&hash_result);
+
+    H256::from(index_bytes)
+}
 
 pub struct DeployContractInfo {
     pub address: H160,
@@ -35,17 +72,11 @@ pub fn counter_contract(
         address: fixed_address.unwrap(),
         bytecode: Bytes::from(bytecode),
         storage: vec![
-            (
-                H256::from_low_u64_be(0),
-                ain_contracts::u256_to_h256(U256::one()),
-            ),
-            (
-                H256::from_low_u64_be(1),
-                ain_contracts::u256_to_h256(evm_block_number),
-            ),
+            (H256::from_low_u64_be(0), u256_to_h256(U256::one())),
+            (H256::from_low_u64_be(1), u256_to_h256(evm_block_number)),
             (
                 H256::from_low_u64_be(2),
-                ain_contracts::u256_to_h256(U256::from(dvm_block_number)),
+                u256_to_h256(U256::from(dvm_block_number)),
             ),
         ],
     })
@@ -85,11 +116,11 @@ pub fn dst20_contract(
     let storage = vec![
         (
             H256::from_low_u64_be(3),
-            ain_contracts::get_abi_encoded_string(name.as_str()),
+            get_abi_encoded_string(name.as_str()),
         ),
         (
             H256::from_low_u64_be(4),
-            ain_contracts::get_abi_encoded_string(symbol.as_str()),
+            get_abi_encoded_string(symbol.as_str()),
         ),
     ];
 
@@ -117,7 +148,7 @@ pub fn bridge_dst20(
         return Err(format_err!("DST20 token code is not valid").into());
     }
 
-    let storage_index = ain_contracts::get_address_storage_index(to);
+    let storage_index = get_address_storage_index(to);
     let balance = backend.get_contract_storage(contract, storage_index.as_bytes())?;
 
     let total_supply_index = H256::from_low_u64_be(2);
@@ -142,11 +173,8 @@ pub fn bridge_dst20(
     Ok(DST20BridgeInfo {
         address: contract,
         storage: vec![
-            (storage_index, ain_contracts::u256_to_h256(new_balance)),
-            (
-                total_supply_index,
-                ain_contracts::u256_to_h256(new_total_supply),
-            ),
+            (storage_index, u256_to_h256(new_balance)),
+            (total_supply_index, u256_to_h256(new_total_supply)),
         ],
     })
 }

@@ -210,6 +210,10 @@ impl EVMServices {
             debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
+            let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
+
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
@@ -295,7 +299,6 @@ impl EVMServices {
                         continue;
                     }
                     executor.commit();
-
                     let (
                         TxResponse {
                             exit_reason, logs, ..
@@ -318,7 +321,7 @@ impl EVMServices {
 
                     all_transactions.push(Box::new(signed_tx));
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push((get_default_successful_receipt(), None));
+                    receipts_v3.push((receipt, None));
                 }
                 QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
                     debug!("signed_tx : {:#?}", signed_tx);
@@ -370,7 +373,7 @@ impl EVMServices {
 
                     all_transactions.push(Box::new(signed_tx));
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push((get_default_successful_receipt(), None));
+                    receipts_v3.push((receipt, None));
                 }
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                     name,
@@ -392,7 +395,7 @@ impl EVMServices {
                     if let Err(e) = executor.deploy_contract(address, bytecode.clone(), storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
-                    let (tx, receipt) = create_deploy_contract_tx(token_id, &base_fee)?;
+                    let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
 
                     all_transactions.push(Box::new(tx));
                     receipts_v3.push((receipt, Some(address)));
@@ -614,14 +617,32 @@ impl EVMServices {
     }
 }
 
-fn create_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx, ReceiptV3)> {
+fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx, ReceiptV3)> {
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(token_id),
         gas_price: *base_fee,
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: ain_contracts::get_dst20_input(),
+        input: get_dst20_contract().bytecode,
+        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+            .ok_or(format_err!("Invalid transaction signature format"))?,
+    })
+    .try_into()?;
+
+    let receipt = get_default_successful_receipt();
+
+    Ok((tx, receipt))
+}
+
+fn transfer_domain_deploy_contract_tx(base_fee: &U256) -> Result<(SignedTx, ReceiptV3)> {
+    let tx = TransactionV2::Legacy(LegacyTransaction {
+        nonce: U256::zero(),
+        gas_price: *base_fee,
+        gas_limit: U256::from(u64::MAX),
+        action: TransactionAction::Create,
+        value: U256::zero(),
+        input: get_transferdomain_contract().bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
