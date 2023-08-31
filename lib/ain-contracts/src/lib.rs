@@ -102,6 +102,9 @@ impl InputContract for DST20Contract {
 
 impl InputContract for TransferDomainContract {
     fn input() -> Result<Vec<u8>> {
-        get_bytecode(include_str!("../transfer_domain/output/bytecode.json"))
+        get_bytecode(include_str!(concat!(
+            env!("CARGO_TARGET_DIR"),
+            "/ain_contracts/transfer_domain/bytecode.json"
+        )))
     }
 }
