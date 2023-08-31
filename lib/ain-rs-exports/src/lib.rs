@@ -42,6 +42,15 @@ pub mod ffi {
         pub data: Vec<u8>,
     }
 
+    // ========== Governance Variable ==========
+    #[derive(Default)]
+    pub struct GovVarKeyDataStructure {
+        pub category: u8,
+        pub category_id: u32,
+        pub key: u32,
+        pub key_id: u32,
+    }
+
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
@@ -156,11 +165,11 @@ pub mod ffi {
             mnview_ptr: usize,
         ) -> FinalizeBlockCompletion;
         fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
-        fn evm_try_set_attribute(
+        fn evm_try_handle_attribute_apply(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            attribute_type: u32,
-            value: u64,
+            attribute_type: GovVarKeyDataStructure,
+            value: Vec<u8>,
         ) -> bool;
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
