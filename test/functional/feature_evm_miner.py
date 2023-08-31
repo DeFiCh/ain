@@ -102,9 +102,12 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
 
-    def mempool_block_limit(self):
+    def rollback_and_clear_mempool(self):
         self.rollback_to(self.start_height)
         self.nodes[0].clearmempool()
+
+    def mempool_block_limit(self):
+        self.rollback_and_clear_mempool()
         abi, bytecode = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
@@ -234,8 +237,7 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
 
     def invalid_evm_tx_in_block_creation(self):
-        self.rollback_to(self.start_height)
-        self.nodes[0].clearmempool()
+        self.rollback_and_clear_mempool()
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -274,8 +276,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_info["tx"]) - 1, 20)
 
     def test_for_fee_mismatch_between_block_and_queue(self):
-        self.rollback_to(self.start_height)
-        assert_equal(self.nodes[0].getmempoolinfo(), True)
+        self.rollback_and_clear_mempool()
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -440,10 +441,13 @@ class EVMTest(DefiTestFramework):
             assert_equal(block["transactions"][11 + idx], hashes[11 + idx])
             assert_equal(gas_used, gas_used_when_false)
 
-        correct_gas_used = gas_used_when_true * 10 + gas_used_when_false * 8 + gas_used_when_change_state
         # TODO: Verified with debug logs that this assertion is correct, but eth_getBlockByNumber RPC is
         # returning incorrect gas used. Disabling this check for now.
+        # correct_gas_used = gas_used_when_true * 10 + gas_used_when_false * 8 + gas_used_when_change_state
         # assert_equal(block["gasUsed"], int_to_eth_u256(int(correct_gas_used)))
+
+        # Check that the remaining 7 evm txs are still in mempool
+        assert_equal(Decimal(self.nodes[0].getmempoolinfo()["size"]), Decimal("7"))
 
         # TODO: Thereotical block size calculated in txqueue would be:
         # gas_used_when_true * 18 + gas_used_when_change_state = 28639540
