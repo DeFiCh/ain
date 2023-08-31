@@ -27,6 +27,7 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
 pub struct Contract {
     pub codehash: H256,
     pub bytecode: Vec<u8>,
+    pub input: Vec<u8>,
 }
 
 #[derive(Clone)]
@@ -46,6 +47,7 @@ lazy_static::lazy_static! {
             contract: Contract {
                 codehash: Blake2Hasher::hash(&bytecode),
                 bytecode,
+                input: Vec::new(),
             },
             fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -59,11 +61,15 @@ lazy_static::lazy_static! {
             env!("CARGO_TARGET_DIR"),
             "/ain_contracts/transfer_domain/bytecode.json"
         ))).unwrap();
+        let input = get_bytecode(include_str!(
+            "../transfer_domain/input.json"
+        )).unwrap();
 
         FixedContract {
             contract: Contract {
                 codehash: Blake2Hasher::hash(&bytecode),
                 bytecode,
+                input,
             },
             fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -77,10 +83,14 @@ lazy_static::lazy_static! {
             env!("CARGO_TARGET_DIR"),
             "/ain_contracts/dst20/bytecode.json"
         ))).unwrap();
+        let input = get_bytecode(include_str!(
+            "../dst20/input.json"
+        )).unwrap();
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
             bytecode,
+            input,
         }
     };
 
@@ -93,6 +103,7 @@ lazy_static::lazy_static! {
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
             bytecode,
+            input: Vec::new(),
         }
     };
 }

@@ -626,7 +626,7 @@ fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx,
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_dst20_contract().bytecode,
+        input: get_dst20_contract().input,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
@@ -644,7 +644,7 @@ fn transfer_domain_deploy_contract_tx(base_fee: &U256) -> Result<(SignedTx, Rece
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_transferdomain_contract().contract.bytecode,
+        input: get_transferdomain_contract().contract.input,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
