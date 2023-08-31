@@ -282,7 +282,9 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(before_balance, Decimal("100"))
 
-        abi, bytecode = EVMContract.from_file("StateChange.sol", "StateChange").compile()
+        abi, bytecode = EVMContract.from_file(
+            "StateChange.sol", "StateChange"
+        ).compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
             {
@@ -296,10 +298,10 @@ class EVMTest(DefiTestFramework):
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-        contract_address = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["contractAddress"]
-        contract = self.nodes[0].w3.eth.contract(
-            address=contract_address, abi=abi
-        )
+        contract_address = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)[
+            "contractAddress"
+        ]
+        contract = self.nodes[0].w3.eth.contract(address=contract_address, abi=abi)
 
         # gas used values
         gas_used_when_true = Decimal("1589866")
@@ -330,7 +332,9 @@ class EVMTest(DefiTestFramework):
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-        gas_used = Decimal(self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["gasUsed"])
+        gas_used = Decimal(
+            self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["gasUsed"]
+        )
         assert_equal(gas_used, gas_used_when_true)
 
         # Set state to false
@@ -345,9 +349,11 @@ class EVMTest(DefiTestFramework):
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-        gas_used = Decimal(self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["gasUsed"])
+        gas_used = Decimal(
+            self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["gasUsed"]
+        )
         assert_equal(gas_used, gas_used_when_change_state)
-        
+
         tx = contract.functions.loop(9_000).build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
@@ -359,7 +365,9 @@ class EVMTest(DefiTestFramework):
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-        gas_used = Decimal(self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["gasUsed"])
+        gas_used = Decimal(
+            self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)["gasUsed"]
+        )
         assert_equal(gas_used, gas_used_when_false)
 
         # Set state back to true
@@ -390,7 +398,7 @@ class EVMTest(DefiTestFramework):
             signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append((signed.hash.hex()))
-        
+
         # Send change of state
         tx = contract.functions.changeState(False).build_transaction(
             {
@@ -428,16 +436,26 @@ class EVMTest(DefiTestFramework):
 
         # Check first 10 txs should have gas used when true
         for idx in range(10):
-            gas_used = Decimal(self.nodes[0].w3.eth.wait_for_transaction_receipt(hashes[idx])["gasUsed"])
+            gas_used = Decimal(
+                self.nodes[0].w3.eth.wait_for_transaction_receipt(hashes[idx])[
+                    "gasUsed"
+                ]
+            )
             assert_equal(block["transactions"][idx], hashes[idx])
             assert_equal(gas_used, gas_used_when_true)
-        
-        gas_used = Decimal(self.nodes[0].w3.eth.wait_for_transaction_receipt(hashes[10])["gasUsed"])
+
+        gas_used = Decimal(
+            self.nodes[0].w3.eth.wait_for_transaction_receipt(hashes[10])["gasUsed"]
+        )
         assert_equal(gas_used, gas_used_when_change_state)
 
         # Check last 5 txs should have gas used when false
         for idx in range(8):
-            gas_used = Decimal(self.nodes[0].w3.eth.wait_for_transaction_receipt(hashes[11 + idx])["gasUsed"])
+            gas_used = Decimal(
+                self.nodes[0].w3.eth.wait_for_transaction_receipt(hashes[11 + idx])[
+                    "gasUsed"
+                ]
+            )
             assert_equal(block["transactions"][11 + idx], hashes[11 + idx])
             assert_equal(gas_used, gas_used_when_false)
 
