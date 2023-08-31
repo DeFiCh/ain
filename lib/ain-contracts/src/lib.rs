@@ -61,9 +61,7 @@ lazy_static::lazy_static! {
             env!("CARGO_TARGET_DIR"),
             "/ain_contracts/transfer_domain/bytecode.json"
         ))).unwrap();
-        let input = get_bytecode(include_str!(
-            "../transfer_domain/input.json"
-        )).unwrap();
+        let input = bytecode.clone();
 
         FixedContract {
             contract: Contract {
