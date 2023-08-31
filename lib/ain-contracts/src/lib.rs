@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::format_err;
-use primitive_types::{H160, H256, U256};
+use primitive_types::{H160, H256};
 use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;

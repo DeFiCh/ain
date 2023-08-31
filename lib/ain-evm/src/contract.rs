@@ -64,7 +64,7 @@ pub fn counter_contract(
         fixed_address, ..
     } = get_intrinsic_contract();
     let count = backend
-        .get_contract_storage(fixed_address.unwrap(), ain_contracts::u256_to_h256(U256::one()).as_bytes())?;
+        .get_contract_storage(fixed_address.unwrap(), u256_to_h256(U256::one()).as_bytes())?;
 
     debug!("Count: {:#x}", count + U256::one());
 
