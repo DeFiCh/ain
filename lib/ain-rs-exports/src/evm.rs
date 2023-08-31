@@ -1,4 +1,4 @@
-use ain_contracts::{Contract, get_transferdomain_contract};
+use ain_contracts::{get_transferdomain_contract, Contract};
 use ain_evm::storage::traits::BlockStorage;
 use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
 use ain_evm::txqueue::QueueTx;
@@ -94,7 +94,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     result: &mut ffi::CrossBoundaryResult,
     ctx: ffi::CreateTransferDomainContext,
 ) -> Vec<u8> {
-    let Contract{fixed_address, ..} = get_transferdomain_contract();
+    let Contract { fixed_address, .. } = get_transferdomain_contract();
     let contract_address = fixed_address.unwrap();
     let action = TransactionAction::Call(contract_address);
 
@@ -117,7 +117,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let to_address_string = &format!("{:x?}", to_address)[2..];
     let mut bytes = [0_u8; 32];
     value.0.to_big_endian(&mut bytes);
-    let value_string = hex::encode(&bytes);
+    let value_string = hex::encode(bytes);
     let input = format!(
         "0xa9059cbb000000000000000000000000{}{}",
         to_address_string, value_string

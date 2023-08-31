@@ -22,8 +22,8 @@ pub struct DST20Data {
 pub enum SystemTx {
     DeployContract(DeployContractData),
     DST20Bridge(DST20Data),
-    EvmIn(SignedTx),
-    EvmOut(SignedTx),
+    EvmIn(Box<SignedTx>),
+    EvmOut(Box<SignedTx>),
 }
 
 impl SystemTx {

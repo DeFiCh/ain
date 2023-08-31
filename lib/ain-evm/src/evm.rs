@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use ain_contracts::{Contract, get_dst20_contract, get_transferdomain_contract, get_reserved_contract};
+use ain_contracts::{
+    get_dst20_contract, get_reserved_contract, get_transferdomain_contract, Contract,
+};
 use anyhow::format_err;
 use ethereum::{
     Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
@@ -13,7 +15,10 @@ use primitive_types::H256;
 
 use crate::backend::{EVMBackend, Vicinity};
 use crate::block::BlockService;
-use crate::contract::{self, DST20BridgeInfo, DeployContractInfo};
+use crate::contract::{
+    bridge_dst20, counter_contract, dst20_contract, transfer_domain_contract, DST20BridgeInfo,
+    DeployContractInfo,
+};
 use crate::core::{EVMCoreService, XHash};
 use crate::executor::{AinExecutor, TxResponse};
 use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
@@ -190,11 +195,7 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = contract::counter_contract(
-                &executor.backend,
-                dvm_block_number,
-                current_block_number,
-            )?;
+            } = counter_contract(executor.backend, dvm_block_number, current_block_number)?;
 
             debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -205,7 +206,7 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = contract::transfer_domain_contract()?;
+            } = transfer_domain_contract()?;
 
             debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -218,11 +219,7 @@ impl EVMServices {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = contract::counter_contract(
-                &executor.backend,
-                dvm_block_number,
-                current_block_number,
-            )?;
+            } = counter_contract(executor.backend, dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
             executor.commit();
         }
@@ -278,11 +275,15 @@ impl EVMServices {
                         to, amount, queue_id, queue_item.tx_hash
                     );
 
-                    let Contract{fixed_address, codehash, ..} = get_transferdomain_contract();
+                    let Contract {
+                        fixed_address,
+                        codehash,
+                        ..
+                    } = get_transferdomain_contract();
                     let address = fixed_address.unwrap();
                     let mismatch = match executor.backend.get_account(&address) {
                         None => true,
-                        Some(account) => account.code_hash != codehash
+                        Some(account) => account.code_hash != codehash,
                     };
                     if mismatch {
                         debug!("[construct_block] EvmIn failed with as transferdomain account codehash mismatch");
@@ -290,10 +291,9 @@ impl EVMServices {
                         continue;
                     }
 
-                    if let Err(e) = executor.add_balance(
-                        address,
-                        amount.saturating_mul(U256::from(10)),
-                    ) {
+                    if let Err(e) =
+                        executor.add_balance(address, amount.saturating_mul(U256::from(10)))
+                    {
                         debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
                         continue;
@@ -319,7 +319,7 @@ impl EVMServices {
                         failed_transactions.push(queue_item.tx_hash);
                     }
 
-                    all_transactions.push(Box::new(signed_tx));
+                    all_transactions.push(signed_tx);
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push((receipt, None));
                 }
@@ -334,11 +334,15 @@ impl EVMServices {
                         to, amount, queue_id, queue_item.tx_hash
                     );
 
-                    let Contract{fixed_address, codehash, ..} = get_transferdomain_contract();
+                    let Contract {
+                        fixed_address,
+                        codehash,
+                        ..
+                    } = get_transferdomain_contract();
                     let address = fixed_address.unwrap();
                     let mismatch = match executor.backend.get_account(&address) {
                         None => true,
-                        Some(account) => account.code_hash != codehash
+                        Some(account) => account.code_hash != codehash,
                     };
                     if mismatch {
                         debug!("[construct_block] EvmOut failed with as transferdomain account codehash mismatch");
@@ -371,7 +375,7 @@ impl EVMServices {
                     }
                     executor.commit();
 
-                    all_transactions.push(Box::new(signed_tx));
+                    all_transactions.push(signed_tx);
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push((receipt, None));
                 }
@@ -390,7 +394,7 @@ impl EVMServices {
                         address,
                         bytecode,
                         storage,
-                    } = contract::dst20_contract(&executor.backend, address, name, symbol)?;
+                    } = dst20_contract(executor.backend, address, name, symbol)?;
 
                     if let Err(e) = executor.deploy_contract(address, bytecode.clone(), storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
@@ -411,7 +415,7 @@ impl EVMServices {
                         to, contract, amount, out
                     );
 
-                    match contract::bridge_dst20(&executor.backend, contract, to, amount, out) {
+                    match bridge_dst20(executor.backend, contract, to, amount, out) {
                         Ok(DST20BridgeInfo { address, storage }) => {
                             if let Err(e) = executor.update_storage(address, storage) {
                                 debug!("[construct_block] EvmOut failed with {e}");
@@ -580,7 +584,7 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                let Contract{codehash, ..} = get_dst20_contract();
+                let Contract { codehash, .. } = get_dst20_contract();
                 if account.code_hash == codehash {
                     return Ok(true);
                 }
@@ -600,7 +604,7 @@ impl EVMServices {
     }
 
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
-        let Contract{bytecode, ..} = get_reserved_contract();
+        let Contract { bytecode, .. } = get_reserved_contract();
         let addresses = (1..=1024)
             .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
             .collect::<Vec<H160>>();

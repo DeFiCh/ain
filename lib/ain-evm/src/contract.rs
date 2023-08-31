@@ -1,4 +1,7 @@
-use ain_contracts::{Contract, get_dst20_contract, get_intrinsic_contract, get_reserved_contract, get_transferdomain_contract};
+use ain_contracts::{
+    get_dst20_contract, get_intrinsic_contract, get_reserved_contract, get_transferdomain_contract,
+    Contract,
+};
 use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
 use log::debug;
@@ -61,7 +64,8 @@ pub fn counter_contract(
 ) -> Result<DeployContractInfo> {
     let Contract {
         bytecode,
-        fixed_address, ..
+        fixed_address,
+        ..
     } = get_intrinsic_contract();
     let count = backend
         .get_contract_storage(fixed_address.unwrap(), u256_to_h256(U256::one()).as_bytes())?;
@@ -86,7 +90,8 @@ pub fn counter_contract(
 pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
     let Contract {
         bytecode,
-        fixed_address, ..
+        fixed_address,
+        ..
     } = get_transferdomain_contract();
 
     Ok(DeployContractInfo {
@@ -105,14 +110,14 @@ pub fn dst20_contract(
     match backend.get_account(&address) {
         None => {}
         Some(account) => {
-            let Contract {codehash, ..} = get_reserved_contract();
+            let Contract { codehash, .. } = get_reserved_contract();
             if account.code_hash != codehash {
                 return Err(format_err!("Token {symbol} address is already in use").into());
             }
         }
     }
 
-    let Contract {bytecode, ..} = get_dst20_contract();
+    let Contract { bytecode, .. } = get_dst20_contract();
     let storage = vec![
         (
             H256::from_low_u64_be(3),
@@ -143,7 +148,7 @@ pub fn bridge_dst20(
         .get_account(&contract)
         .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
 
-    let Contract {codehash, ..} = get_dst20_contract();
+    let Contract { codehash, .. } = get_dst20_contract();
     if account.code_hash != codehash {
         return Err(format_err!("DST20 token code is not valid").into());
     }

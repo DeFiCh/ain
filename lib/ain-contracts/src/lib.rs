@@ -23,8 +23,8 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     Ok(H160::from_str(&final_str)?)
 }
 
-    #[derive(Clone)]
-    pub struct Contract {
+#[derive(Clone)]
+pub struct Contract {
     pub codehash: H256,
     pub bytecode: Vec<u8>,
     pub fixed_address: Option<H160>,

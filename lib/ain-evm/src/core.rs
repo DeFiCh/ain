@@ -352,7 +352,7 @@ impl EVMCoreService {
         signed_tx: SignedTx,
         hash: XHash,
     ) -> Result<()> {
-        let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(signed_tx));
+        let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(Box::new(signed_tx)));
         self.tx_queues
             .push_in(queue_id, queue_tx, hash, U256::zero())?;
         Ok(())
@@ -383,7 +383,7 @@ impl EVMCoreService {
             })
             .into())
         } else {
-            let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(signed_tx));
+            let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(Box::new(signed_tx)));
             self.tx_queues
                 .push_in(queue_id, queue_tx, hash, U256::zero())?;
             Ok(())
