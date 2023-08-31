@@ -394,7 +394,7 @@ class EVMTest(DefiTestFramework):
     def invalid_values_dvm_evm(self):
         assert_raises_rpc_error(
             -1,
-            'Invalid address',
+            "Invalid address",
             lambda: transfer_domain(
                 self.nodes[0], self.address, self.address, "100@DFI", 2, 3
             ),
