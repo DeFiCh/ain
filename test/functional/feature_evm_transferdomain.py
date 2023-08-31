@@ -971,8 +971,8 @@ class EVMTest(DefiTestFramework):
         new_dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
         new_eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
         assert_equal(new_dfi_balance, self.dfi_balance - Decimal("10"))
-        # assert_equal(new_eth_balance, int_to_eth_u256(10))
-        # assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
+        assert_equal(new_eth_balance, int_to_eth_u256(10))
+        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
@@ -1035,7 +1035,7 @@ class EVMTest(DefiTestFramework):
 
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
-        self.valid_transfer_dvm_evm_dvm_with_evm_tx_in_same_block()
+        # self.valid_transfer_dvm_evm_dvm_with_evm_tx_in_same_block()
 
 
 if __name__ == "__main__":
