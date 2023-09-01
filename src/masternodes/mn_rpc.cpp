@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <regex>
+#include <masternodes/consensus/xvm.h>
 #include <masternodes/mn_rpc.h>
 #include <base58.h>
 #include <policy/settings.h>

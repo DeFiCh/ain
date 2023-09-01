@@ -16,6 +16,7 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 #include <policy/feerate.h>
@@ -2094,7 +2095,7 @@ static UniValue getblockstats(const JSONRPCRequest& request)
         CAmount tx_total_out = 0;
         if (loop_outputs) {
             auto mintingOutputsStart = ~0u;
-            if (auto accountToUtxos = GetAccountToUtxosMsg(*tx)) {
+            if (auto accountToUtxos = GetIf<CAccountToUtxosMessage>(*tx, CustomTxType::AccountToUtxos)) {
                 mintingOutputsStart = accountToUtxos->mintingOutputsStart;
             }
             for (size_t i = 0; i < tx->vout.size(); ++i) {

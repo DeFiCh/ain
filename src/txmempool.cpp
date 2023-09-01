@@ -9,6 +9,7 @@
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
 #include <validation.h>
 #include <policy/policy.h>
