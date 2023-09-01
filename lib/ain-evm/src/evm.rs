@@ -267,7 +267,8 @@ impl EVMServices {
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(signed_tx)) => {
                     let to = signed_tx.to().unwrap();
-                    let amount = signed_tx.value();
+                    let input = signed_tx.data();
+                    let amount = U256::from_big_endian(&input[68..100]);
 
                     debug!(
                         "[construct_block] Transfer domain to EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
@@ -289,7 +290,7 @@ impl EVMServices {
                         continue;
                     }
 
-                    if let Err(e) = executor.add_balance(signed_tx.sender, amount) {
+                    if let Err(e) = executor.add_balance(fixed_address, amount) {
                         debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
                         continue;
@@ -322,7 +323,8 @@ impl EVMServices {
                 QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
                     debug!("signed_tx : {:#?}", signed_tx);
                     let to = signed_tx.to().unwrap();
-                    let amount = signed_tx.value();
+                    let input = signed_tx.data();
+                    let amount = U256::from_big_endian(&input[68..100]);
 
                     debug!(
                         "[construct_block] Transfer domain from EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
@@ -362,6 +364,12 @@ impl EVMServices {
                     if !exit_reason.is_succeed() {
                         failed_transactions.push(queue_item.tx_hash);
                     }
+
+                    if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
+                        debug!("[construct_block] EvmIn failed with {e}");
+                        // failed_transactions.push(queue_item.tx_hash);
+                    }
+                    executor.commit();
 
                     all_transactions.push(signed_tx);
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
@@ -589,6 +597,12 @@ impl EVMServices {
         let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
 
         Ok(is_queued)
+    }
+
+    pub fn get_nonce(&self, address: H160) -> Result<U256> {
+        let backend = self.core.get_latest_block_backend()?;
+        let nonce = backend.get_nonce(&address);
+        Ok(nonce)
     }
 
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {

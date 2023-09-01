@@ -7,19 +7,23 @@ pragma solidity >=0.8.2 <0.9.0;
  */
 contract TransferDomain {
     event Transfer(address indexed from, address indexed to, uint256 amount);
+    event NativeAddress(string nativeAddress);
 
     function transfer(
         address from,
-        address payable to // uint256 amount
+        address payable to,
+        uint256 amount,
+        string memory nativeAddress
     ) external payable {
         if (to != address(this)) {
             require(
-                address(this).balance >= msg.value,
+                address(this).balance >= amount,
                 "Insufficient contract balance"
             );
-            to.transfer(msg.value);
+            to.transfer(amount);
         }
 
-        emit Transfer(from, to, msg.value);
+        emit Transfer(from, to, amount / 1 ether);
+        emit NativeAddress(nativeAddress);
     }
 }

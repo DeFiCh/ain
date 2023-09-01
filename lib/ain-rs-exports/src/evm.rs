@@ -118,22 +118,44 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
 
-    // Craft TX call input
-    let to_address_string = &format!("{:x?}", to_address)[2..];
-    let from_address_string = &format!("{:x?}", from_address)[2..];
-    let input = format!(
-        "0xba45b0b8000000000000000000000000{}000000000000000000000000{}",
-        from_address_string, to_address_string
-    );
+    let build_input = || -> Vec<u8> {
+        // Craft TX call input
+        let to_address_string = &format!("{:x?}", to_address)[2..];
+        let from_address_string = &format!("{:x?}", from_address)[2..];
+        let mut bytes = [0_u8; 32];
+        value.0.to_big_endian(&mut bytes);
+        let value_string = hex::encode(bytes);
 
-    let bytes = hex::decode(&input[2..]).expect("Failed to decode hex string");
+        let input = format!(
+            "0xd57b2826000000000000000000000000{}000000000000000000000000{}{}000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000{:x}{:0<130}",
+            from_address_string, to_address_string, value_string, ctx.native_address.len(), hex::encode(ctx.native_address)
+        );
+
+        hex::decode(&input[2..]).expect("Failed to decode hex string")
+    };
+
+    let bytes = build_input();
+
+    let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
+        return cross_boundary_error_return(
+            result,
+            format!("Could not calculate next block base fee"),
+        );
+    };
+
+    let Ok(nonce) = SERVICES.evm.get_nonce(from_address) else {
+        return cross_boundary_error_return(
+            result,
+            format!("Could not get nonce for {:x?}", from_address),
+        );
+    };
 
     let t = LegacyUnsignedTransaction {
-        nonce: U256::zero(),
-        gas_price: U256::zero(),
+        nonce,
+        gas_price: base_fee,
         gas_limit: U256::from(1000000),
         action,
-        value: value.0,
+        value: U256::zero(),
         input: bytes,
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
     };

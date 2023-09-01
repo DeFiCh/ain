@@ -78,6 +78,7 @@ pub mod ffi {
     pub struct CreateTransferDomainContext {
         pub from: String,
         pub to: String,
+        pub native_address: String,
         pub direction: bool,
         pub value: u64,
         pub chain_id: u64,

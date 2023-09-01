@@ -2116,8 +2116,12 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             std::copy(key.begin(), key.end(), privKey.begin());
 
             std::string to = "";
+            std::string nativeAddress = "";
             if (isEVMIn) {
                 to = ScriptToString(dst.address);
+                nativeAddress = ScriptToString(src.address);
+            } else {
+                nativeAddress = ScriptToString(dst.address);
             }
             auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
             auto script = GetScriptForDestination(dest);
@@ -2126,6 +2130,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             CrossBoundaryResult result;
             const auto signedTx = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{std::move(from),
                                                                                                                  std::move(to),
+                                                                                                                 nativeAddress,
                                                                                                                  isEVMIn,
                                                                                                                  static_cast<uint64_t>(dst.amount.nValue),
                                                                                                                  Params().GetConsensus().evmChainId,
