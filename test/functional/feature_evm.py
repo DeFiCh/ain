@@ -980,14 +980,15 @@ class EVMTest(DefiTestFramework):
         assert_equal(opreturn_priority_fee_amount, self.miner_fee)
 
         # Check EVM beneficiary address
-        opreturn_miner_keyid = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
-        miner_eth_address = self.nodes[0].addressmap(
-            self.nodes[0].get_genesis_keys().operatorAuthAddress, 1
+        opreturn_miner_address = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
+        miner_eth_address = (
+            self.nodes[0]
+            .addressmap(self.nodes[0].get_genesis_keys().operatorAuthAddress, 1)[
+                "format"
+            ]["erc55"][2:]
+            .lower()
         )
-        miner_eth_keyid = self.nodes[0].getaddressinfo(
-            miner_eth_address["format"]["erc55"]
-        )["witness_program"]
-        assert_equal(opreturn_miner_keyid, miner_eth_keyid)
+        assert_equal(opreturn_miner_address, miner_eth_address)
 
     def evm_rollback(self):
         # Test rollback of EVM TX
