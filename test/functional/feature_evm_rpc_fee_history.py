@@ -96,6 +96,7 @@ class EVMTest(DefiTestFramework):
 
     def create_block(self, count, priority_fees):
         node = self.nodes[0]
+        nonce = 0
         for x in range(count):
             for y in priority_fees:
                 tx = {
@@ -103,29 +104,33 @@ class EVMTest(DefiTestFramework):
                     "value": "0x0",
                     "data": CONTRACT_BYTECODE,
                     "gas": "0x18e70",  # 102_000
-                    "maxPriorityFeePerGas": hex(16),
-                    # "maxPriorityFeePerGas": hex(y), # <-- too-many-eth-txs-by-sender
+                    "maxPriorityFeePerGas": hex(y),
                     "maxFeePerGas": "0x22ecb25c00",  # 150_000_000_000
                     "type": "0x2",
+                    "nonce": hex(nonce),
                 }
+                nonce += 1
+                node.eth_sendTransaction(tx)
             node.generate(1)
 
     def test_fee_history(self):
         node = self.nodes[0]
 
-        self.create_block(11, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        self.create_block(2, [2, 3, 5, 6, 7])
 
         count = 2
         reward_percentiles = [20, 50, 70]
+        # import pdb; pdb.set_trace()
         history = node.eth_feeHistory(hex(count), "latest", reward_percentiles)
         print("history: ", history)
 
-        # assert oldest_block
+        current = node.eth_blockNumber()
+        assert_equal(history["oldestBlock"], hex(int(current, 16) - count + 1))
         assert_equal(len(history["baseFeePerGas"]), count + 1)
         # assert gas_used ratio
-        # assert len(history.reward) == count
         for x in history["reward"]:
             assert_equal(len(x), len(reward_percentiles))
+            assert_equal(x, ['0x2', '0x5', '0x7'])
 
     def run_test(self):
         self.setup()
