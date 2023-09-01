@@ -267,7 +267,6 @@ impl EVMServices {
                 }
                 QueueTx::SystemTx(SystemTx::EvmIn(signed_tx)) => {
                     let to = signed_tx.to().unwrap();
-                    let input = signed_tx.data();
                     let amount = signed_tx.value();
 
                     debug!(
@@ -323,7 +322,6 @@ impl EVMServices {
                 QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
                     debug!("signed_tx : {:#?}", signed_tx);
                     let to = signed_tx.to().unwrap();
-                    let input = signed_tx.data();
                     let amount = signed_tx.value();
 
                     debug!(
