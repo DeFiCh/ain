@@ -331,12 +331,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_attributes_or_default()
             .map_err(to_jsonrpsee_custom_error)?
             .block_gas_limit;
-        let TxResponse {
-            data,
-            exit_reason,
-            logs,
-            ..
-        } = self
+        let TxResponse { data, .. } = self
             .handler
             .core
             .call(EthCallArgs {

@@ -121,12 +121,9 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     // Craft TX call input
     let to_address_string = &format!("{:x?}", to_address)[2..];
     let from_address_string = &format!("{:x?}", from_address)[2..];
-    let mut bytes = [0_u8; 32];
-    value.0.to_big_endian(&mut bytes);
-    let value_string = hex::encode(bytes);
     let input = format!(
-        "0xbeabacc8000000000000000000000000{}000000000000000000000000{}{}",
-        from_address_string, to_address_string, value_string
+        "0xba45b0b8000000000000000000000000{}000000000000000000000000{}",
+        from_address_string, to_address_string
     );
 
     let bytes = hex::decode(&input[2..]).expect("Failed to decode hex string");
@@ -136,7 +133,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         gas_price: U256::zero(),
         gas_limit: U256::from(1000000),
         action,
-        value: U256::zero(),
+        value: value.0,
         input: bytes,
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
     };

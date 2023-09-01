@@ -268,7 +268,7 @@ impl EVMServices {
                 QueueTx::SystemTx(SystemTx::EvmIn(signed_tx)) => {
                     let to = signed_tx.to().unwrap();
                     let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[input.len() - 32..]);
+                    let amount = signed_tx.value();
 
                     debug!(
                         "[construct_block] Transfer domain to EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
@@ -290,9 +290,7 @@ impl EVMServices {
                         continue;
                     }
 
-                    if let Err(e) =
-                        executor.add_balance(fixed_address, amount.saturating_mul(U256::from(10)))
-                    {
+                    if let Err(e) = executor.add_balance(signed_tx.sender, amount) {
                         debug!("[construct_block] EvmIn failed with {e}");
                         failed_transactions.push(queue_item.tx_hash);
                         continue;
@@ -326,7 +324,7 @@ impl EVMServices {
                     debug!("signed_tx : {:#?}", signed_tx);
                     let to = signed_tx.to().unwrap();
                     let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[input.len() - 32..]);
+                    let amount = signed_tx.value();
 
                     debug!(
                         "[construct_block] Transfer domain from EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
@@ -366,12 +364,6 @@ impl EVMServices {
                     if !exit_reason.is_succeed() {
                         failed_transactions.push(queue_item.tx_hash);
                     }
-
-                    if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
-                        debug!("[construct_block] EvmIn failed with {e}");
-                        // failed_transactions.push(queue_item.tx_hash);
-                    }
-                    executor.commit();
 
                     all_transactions.push(signed_tx);
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
