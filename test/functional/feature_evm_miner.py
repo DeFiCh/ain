@@ -9,7 +9,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    # int_to_eth_u256,
+    int_to_eth_u256,
 )
 from decimal import Decimal
 
@@ -459,10 +459,9 @@ class EVMTest(DefiTestFramework):
             assert_equal(block["transactions"][11 + idx], hashes[11 + idx])
             assert_equal(gas_used, gas_used_when_false)
 
-        # TODO: Verified with debug logs that this assertion is correct, but eth_getBlockByNumber RPC is
-        # returning incorrect gas used. Disabling this check for now.
-        # correct_gas_used = gas_used_when_true * 10 + gas_used_when_false * 8 + gas_used_when_change_state
-        # assert_equal(block["gasUsed"], int_to_eth_u256(int(correct_gas_used)))
+        correct_gas_used = gas_used_when_true * 10 + gas_used_when_false * 8 + gas_used_when_change_state
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used)
 
         # Check that the remaining 7 evm txs are still in mempool
         assert_equal(Decimal(self.nodes[0].getmempoolinfo()["size"]), Decimal("7"))
