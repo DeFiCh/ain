@@ -13,7 +13,7 @@ use ain_evm::{
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
-use primitive_types::U256;
+use primitive_types::{H160, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -97,14 +97,20 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let FixedContract { fixed_address, .. } = get_transferdomain_contract();
     let action = TransactionAction::Call(fixed_address);
 
-    let to_address = if ctx.direction {
+    let (from_address, to_address) = if ctx.direction {
         let Ok(to_address) = ctx.to.parse() else {
             return cross_boundary_error_return(result, format!("Invalid address {}", ctx.to));
         };
-        to_address
+        let Ok(from_address) = ctx.from.parse::<H160>() else {
+            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
+        };
+        (from_address, to_address)
     } else {
+        let Ok(from_address) = ctx.from.parse() else {
+            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
+        };
         // Send EvmOut to contract address
-        fixed_address
+        (from_address, fixed_address)
     };
 
     let value = match try_from_satoshi(U256::from(ctx.value)) {
@@ -114,19 +120,21 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
 
     // Craft TX call input
     let to_address_string = &format!("{:x?}", to_address)[2..];
+    let from_address_string = &format!("{:x?}", from_address)[2..];
     let mut bytes = [0_u8; 32];
     value.0.to_big_endian(&mut bytes);
     let value_string = hex::encode(bytes);
     let input = format!(
-        "0xa9059cbb000000000000000000000000{}{}",
-        to_address_string, value_string
+        "0xbeabacc8000000000000000000000000{}000000000000000000000000{}{}",
+        from_address_string, to_address_string, value_string
     );
+
     let bytes = hex::decode(&input[2..]).expect("Failed to decode hex string");
 
     let t = LegacyUnsignedTransaction {
         nonce: U256::zero(),
         gas_price: U256::zero(),
-        gas_limit: U256::from(100000),
+        gas_limit: U256::from(1000000),
         action,
         value: U256::zero(),
         input: bytes,

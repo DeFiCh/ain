@@ -331,7 +331,12 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_attributes_or_default()
             .map_err(to_jsonrpsee_custom_error)?
             .block_gas_limit;
-        let TxResponse { data, .. } = self
+        let TxResponse {
+            data,
+            exit_reason,
+            logs,
+            ..
+        } = self
             .handler
             .core
             .call(EthCallArgs {
@@ -352,7 +357,10 @@ impl MetachainRPCServer for MetachainRPCModule {
                 block_number: self.block_number_to_u256(block_number)?,
                 transaction_type,
             })
-            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
+            .map_err(|e| {
+                debug!("Error calling EVM : {e:?}");
+                Error::Custom(format!("Error calling EVM : {e:?}"))
+            })?;
         Ok(Bytes(data))
     }
 

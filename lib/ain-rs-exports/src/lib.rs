@@ -76,6 +76,7 @@ pub mod ffi {
     }
 
     pub struct CreateTransferDomainContext {
+        pub from: String,
         pub to: String,
         pub direction: bool,
         pub value: u64,

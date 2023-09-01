@@ -44,6 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .deployed_bytecode
                     .expect("No deployed_bytecode found");
 
+                let bytecode = artifact.bytecode.expect("No bytecode found");
+
                 fs::create_dir_all(format!("{output_path}/ain_contracts/{file_path}"))?;
                 fs::write(
                     PathBuf::from(format!(
@@ -52,6 +54,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     serde_json::to_string(&deployed_bytecode)
                         .unwrap()
                         .as_bytes(),
+                )?;
+                fs::write(
+                    PathBuf::from(format!(
+                        "{output_path}/ain_contracts/{file_path}/input.json"
+                    )),
+                    serde_json::to_string(&bytecode).unwrap().as_bytes(),
                 )?;
                 fs::write(
                     PathBuf::from(format!("{output_path}/ain_contracts/{file_path}/abi.json")),
