@@ -459,16 +459,21 @@ class EVMTest(DefiTestFramework):
             assert_equal(block["transactions"][11 + idx], hashes[11 + idx])
             assert_equal(gas_used, gas_used_when_false)
 
-        correct_gas_used = gas_used_when_true * 10 + gas_used_when_false * 8 + gas_used_when_change_state
-        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
-        assert_equal(block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used)
-
-        # Check that the remaining 7 evm txs are still in mempool
-        assert_equal(Decimal(self.nodes[0].getmempoolinfo()["size"]), Decimal("7"))
-
         # TODO: Thereotical block size calculated in txqueue would be:
         # gas_used_when_true * 18 + gas_used_when_change_state = 28639540
         # But the minted block is only of size 16111252.
+        correct_gas_used = (
+            gas_used_when_true * 10
+            + gas_used_when_false * 8
+            + gas_used_when_change_state
+        )
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(
+            block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used
+        )
+
+        # Check that the remaining 7 evm txs are still in mempool
+        assert_equal(Decimal(self.nodes[0].getmempoolinfo()["size"]), Decimal("7"))
 
     def run_test(self):
         self.setup()
