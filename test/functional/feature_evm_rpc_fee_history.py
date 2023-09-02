@@ -116,21 +116,18 @@ class EVMTest(DefiTestFramework):
     def test_fee_history(self):
         node = self.nodes[0]
 
-        self.create_block(2, [2, 3, 5, 6, 7])
+        self.create_block(2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
         count = 2
-        reward_percentiles = [20, 50, 70]
-        # import pdb; pdb.set_trace()
+        reward_percentiles = [20, 30, 50, 70, 85, 100]
         history = node.eth_feeHistory(hex(count), "latest", reward_percentiles)
-        print("history: ", history)
 
         current = node.eth_blockNumber()
         assert_equal(history["oldestBlock"], hex(int(current, 16) - count + 1))
         assert_equal(len(history["baseFeePerGas"]), count + 1)
-        # assert gas_used ratio
         for x in history["reward"]:
             assert_equal(len(x), len(reward_percentiles))
-            assert_equal(x, ['0x2', '0x5', '0x7'])
+            assert_equal(x, ['0x2', '0x3', '0x5', '0x7', '0x9', '0xa'])
 
     def run_test(self):
         self.setup()

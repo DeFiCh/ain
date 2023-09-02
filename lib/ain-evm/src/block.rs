@@ -236,7 +236,7 @@ impl BlockService {
                 let mut data = Data::new(priority_fees);
 
                 for pct in &priority_fee_percentile {
-                    block_rewards.push(U256::from(data.percentile(*pct).ceil() as u64));
+                    block_rewards.push(U256::from(data.percentile(*pct).floor() as u64));
                 }
 
                 reward.push(block_rewards);
