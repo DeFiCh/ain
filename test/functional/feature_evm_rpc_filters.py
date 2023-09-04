@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
+    assert_raises_rpc_error,
     int_to_eth_u256,
 )
 
@@ -121,10 +122,21 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(len(logs), 3)
 
-    def test_new_filter(self):
+    def test_get_filter_logs(self):
         node = self.nodes[0]
 
-        self.create_block(3)
+        id = node.eth_newFilter(
+            {
+                "fromBlock": "earliest",
+                "toBlock": "latest",
+            }
+        )
+
+        logs = node.eth_getFilterLogs(id)
+        assert_equal(len(logs), 3)
+
+    def test_new_filter(self):
+        node = self.nodes[0]
 
         id1 = node.eth_newFilter(
             {
@@ -140,18 +152,27 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(hex(int(id1, 16) + 1), id2)
 
-    def test_get_filter_logs(self):
-        node = self.nodes[0]
-
-        id = node.eth_newFilter(
+    def fail_new_filter_to_greater_than_from(self):
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: fromBlock (0x1) > toBlock (0x0)",
+            self.nodes[0].eth_newFilter,
             {
-                "fromBlock": "earliest",
-                "toBlock": "latest",
+                "fromBlock": "0x1",
+                "toBlock": "0x0"
             }
         )
 
-        logs = node.eth_getFilterLogs(id)
-        assert_equal(len(logs), 3)
+    def fail_new_filter_unavailable_block(self):
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: header not found",
+            self.nodes[0].eth_newFilter,
+            {
+                "fromBlock": "0x1",
+                "toBlock": "0x999999999"
+            }
+        )
 
     def run_test(self):
         self.setup()
@@ -163,6 +184,12 @@ class EVMTest(DefiTestFramework):
         self.test_get_filter_logs()
 
         self.test_new_filter()
+
+        self.fail_new_filter_to_greater_than_from()
+
+        self.fail_new_filter_unavailable_block()
+
+        self.fail_new_filter_unavailable_block()
 
 
 if __name__ == "__main__":
