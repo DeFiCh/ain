@@ -109,14 +109,12 @@ class EVMTest(DefiTestFramework):
 
     def create_block(self, count):
         node = self.nodes[0]
-        nonce = node.eth_getTransactionCount(self.evm_key_pair.address)
         for x in range(count):
             tx = self.contract.functions.store(10).build_transaction(
                 {
                     "chainId": node.w3.eth.chain_id,
                     "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
                     "gasPrice": 10_000_000_000,
-                    "nonce": node.eth_getTransactionCount(self.evm_key_pair.address)
                 }
             )
             signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
