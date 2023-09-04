@@ -26,6 +26,7 @@
 #define MILLI 0.001
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
+extern UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version);
 
 template<typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator& incentivePair, CCustomCSView& cache, int nHeight) {
@@ -2387,16 +2388,31 @@ static void RevertFailedTransferDomainTxs(const std::vector<std::string> &failed
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
     const auto blockResultBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2);
 
+    bool fail{};
+
     if (xvm.evm.blockHash != blockResultBlockHash) {
-        return Res::Err("Incorrect EVM block hash in coinbase output");
+        fail = true;
+        LogPrintf("Incorrect EVM block hash in coinbase output\n");
     }
 
     if (xvm.evm.burntFee != blockResult.total_burnt_fees) {
-        return Res::Err("Incorrect EVM burnt fee in coinbase output");
+        fail = true;
+        LogPrintf("Incorrect EVM burnt fee in coinbase output\n");
     }
 
     if (xvm.evm.priorityFee != blockResult.total_priority_fees) {
-        return Res::Err("Incorrect EVM priority fee in coinbase output");
+        fail = true;
+        LogPrintf("Incorrect EVM priority fee in coinbase output\n");
+    }
+
+    if (fail) {
+        for (auto str : blockResult.failed_transactions) {
+            LogPrintf("Failed transactions %s\n", str.c_str());
+        }
+
+        LogPrintf("Failed block height %d\n", blockResult.block_number);
+
+        return Res::Err("Incorrect EVM coinbase output");
     }
 
     return Res::Ok();
@@ -2661,7 +2677,12 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     }
 
     auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
-    if (!res) return res;
+    if (!res) {
+        if (LogAcceptCategory(BCLog::CONNECT)) {
+            LogPrintf("ProcessEVMQueue: failed block: %s\n", blockToJSON(block, pindex, pindex, true, 4).write(2));
+        }
+        return res;
+    }
 
     auto evmBlockHash = std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2);
     res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash().GetHex(), evmBlockHash);

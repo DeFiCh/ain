@@ -40,6 +40,8 @@
 #include <random>
 #include <utility>
 
+extern UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version);
+
 struct EvmAddressWithNonce {
     EvmAddressData address;
     uint64_t nonce;
@@ -294,11 +296,14 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (!res) { return nullptr; }
         auto blockResult = *res;
 
+        if (LogAcceptCategory(BCLog::STAKING)) {
+            LogPrintf("CreateNewBlock: new block: %s\n", blockToJSON(*pblock, pindexPrev, pindexPrev, true, 4).write(2));
+        }
+
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
 
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
-        // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;
         for (const auto& txRustStr : blockResult.failed_transactions) {
@@ -317,6 +322,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
             const auto txType = GuessCustomTxType(tx, metadata, false);
             if (txType == CustomTxType::TransferDomain) {
                 failedTransferDomainTxs.insert(iter);
+                if (LogAcceptCategory(BCLog::STAKING)) {
+                    LogPrintf("Failed transactions %s\n", tx.GetHash().ToString());
+                }
             }
         }
 

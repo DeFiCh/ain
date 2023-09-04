@@ -159,6 +159,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::TOKENSPLIT, "tokensplit"},
     {BCLog::RPCCACHE, "rpccache"},
     {BCLog::CUSTOMTXBENCH, "customtxbench"},
+    {BCLog::CONNECT, "connect"},
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},
 };
