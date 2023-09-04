@@ -139,7 +139,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
         return cross_boundary_error_return(
             result,
-            format!("Could not calculate next block base fee"),
+            "Could not calculate next block base fee".to_string(),
         );
     };
 
