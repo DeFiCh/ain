@@ -2008,7 +2008,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
                                             {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
                                             {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
-                                            {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                            // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     },
                                     {"dst", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Destination arguments",
@@ -2016,7 +2016,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
                                             {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
                                             {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
-                                            {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                            // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     }
                                 },
@@ -2086,8 +2086,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             } else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Invalid parameters, src argument \"domain\" must be either %d (DFI token to EVM) or %d (EVM to DFI token)", static_cast<uint8_t>(VMDomain::DVM), static_cast<uint8_t>(VMDomain::EVM)));
 
-            if (!srcObj["data"].isNull())
-                src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
+            // if (!srcObj["data"].isNull())
+            //     src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
 
             if (!dstObj["address"].isNull())
                 dst.address = DecodeScript(dstObj["address"].getValStr());
@@ -2104,8 +2104,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"domain\" must not be null");
 
-            if (!dstObj["data"].isNull())
-                dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
+            // if (!dstObj["data"].isNull())
+            //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
 
             // Create signed EVM TX
             CKey key;
@@ -2142,7 +2142,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
             std::vector<uint8_t> evmTx(signedTx.size());
             std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
-            src.evmTx = evmTx;
+            dst.data = evmTx;
 
             msg.transfers.push_back({src, dst});
         }

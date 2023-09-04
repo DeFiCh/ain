@@ -118,7 +118,7 @@ namespace AuthFlags {
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
 
-constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 0;
+constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
 enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
@@ -201,7 +201,7 @@ enum class CustomTxType : uint8_t {
     ProposalFeeRedistribution = 'Y',
     UnsetGovVariable          = 'Z',
     // EVM
-    TransferDomain                  = '8',
+    TransferDomain            = '8',
     EvmTx                     = '9',
 };
 
@@ -308,7 +308,7 @@ struct OpReturnLimits {
 
     void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
     Res Validate(const CTransaction& tx, const CustomTxType txType) const;
-    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); } 
+    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); }
 };
 
 struct TransferDomainConfig {

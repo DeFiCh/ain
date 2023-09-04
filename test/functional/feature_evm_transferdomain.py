@@ -423,42 +423,6 @@ class EVMTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -32600,
-            "Excess data set, maximum allow is 0",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {
-                        "address": self.address,
-                        "amount": "100@DFI",
-                        "domain": 2,
-                        "data": "1",
-                    },
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
-        )
-        assert_raises_rpc_error(
-            -32600,
-            "Excess data set, maximum allow is 0",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                        "data": "1",
-                    },
-                }
-            ],
-        )
-        assert_raises_rpc_error(
-            -32600,
             "Non-DAT or LP tokens are not supported for transferdomain",
             lambda: transfer_domain(
                 self.nodes[0],
