@@ -14,6 +14,7 @@ from test_framework.util import (
     int_to_eth_u256,
 )
 
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -113,7 +114,9 @@ class EVMTest(DefiTestFramework):
             tx = self.contract.functions.store(10).build_transaction(
                 {
                     "chainId": node.w3.eth.chain_id,
-                    "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                    "nonce": node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
                     "gasPrice": 10_000_000_000,
                 }
             )
@@ -169,10 +172,7 @@ class EVMTest(DefiTestFramework):
             -32001,
             "Custom error: fromBlock (0x1) > toBlock (0x0)",
             self.nodes[0].eth_newFilter,
-            {
-                "fromBlock": "0x1",
-                "toBlock": "0x0"
-            }
+            {"fromBlock": "0x1", "toBlock": "0x0"},
         )
 
     def fail_new_filter_unavailable_block(self):
@@ -180,10 +180,7 @@ class EVMTest(DefiTestFramework):
             -32001,
             "Custom error: header not found",
             self.nodes[0].eth_newFilter,
-            {
-                "fromBlock": "0x1",
-                "toBlock": "0x999999999"
-            }
+            {"fromBlock": "0x1", "toBlock": "0x999999999"},
         )
 
     def run_test(self):
