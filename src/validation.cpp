@@ -2692,13 +2692,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             const auto applyCustomTxTime = GetTimeMicros();
             uint64_t gasUsed{};
             const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock);
-
             totalGas += gasUsed;
-            if (totalGas > MAX_BLOCK_GAS_LIMIT) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                     error("%s: ApplyCustomTx failed. Gas limit: %d Gas used: %d", __func__, MAX_BLOCK_GAS_LIMIT, totalGas),
-                                     REJECT_CUSTOMTX, "over-gas-limit");
-            }
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
