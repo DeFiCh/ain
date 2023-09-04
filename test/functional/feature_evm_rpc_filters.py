@@ -113,10 +113,12 @@ class EVMTest(DefiTestFramework):
     def test_get_logs(self):
         node = self.nodes[0]
 
-        logs = node.eth_getLogs({
-            "fromBlock": "earliest",
-            "toBlock": "latest",
-        })
+        logs = node.eth_getLogs(
+            {
+                "fromBlock": "earliest",
+                "toBlock": "latest",
+            }
+        )
         assert_equal(len(logs), 3)
 
     def test_new_filter(self):
@@ -124,23 +126,29 @@ class EVMTest(DefiTestFramework):
 
         self.create_block(3)
 
-        id1 = node.eth_newFilter({
-            "fromBlock": "0x0",
-            "toBlock": "0x1",
-        })
-        id2 = node.eth_newFilter({
-            "fromBlock": "0x1",
-            "toBlock": "0x2",
-        })
+        id1 = node.eth_newFilter(
+            {
+                "fromBlock": "0x0",
+                "toBlock": "0x1",
+            }
+        )
+        id2 = node.eth_newFilter(
+            {
+                "fromBlock": "0x1",
+                "toBlock": "0x2",
+            }
+        )
         assert_equal(hex(int(id1, 16) + 1), id2)
 
     def test_get_filter_logs(self):
         node = self.nodes[0]
 
-        id = node.eth_newFilter({
-            "fromBlock": "earliest",
-            "toBlock": "latest",
-        })
+        id = node.eth_newFilter(
+            {
+                "fromBlock": "earliest",
+                "toBlock": "latest",
+            }
+        )
 
         logs = node.eth_getFilterLogs(id)
         assert_equal(len(logs), 3)

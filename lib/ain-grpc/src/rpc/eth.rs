@@ -8,6 +8,7 @@ use ain_evm::core::EthCallArgs;
 use ain_evm::evm::EVMServices;
 use ain_evm::executor::TxResponse;
 use ain_evm::filters::Filter;
+use ain_evm::log::FilterType;
 use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
 use ain_evm::transaction::SignedTx;
 use ethereum::{EnvelopedEncodable, TransactionV2};
@@ -1000,7 +1001,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let logs = self
                     .handler
                     .logs
-                    .get_logs_from_filter(filter)
+                    .get_logs_from_filter(filter, FilterType::GetFilterChanges)
                     .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
@@ -1046,7 +1047,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let logs = self
                     .handler
                     .logs
-                    .get_logs_from_filter(filter)
+                    .get_logs_from_filter(filter, FilterType::GetFilterLogs)
                     .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
