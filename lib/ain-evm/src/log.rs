@@ -111,14 +111,14 @@ impl LogService {
     }
 
     pub fn get_logs_from_filter(&self, filter: LogsFilter) -> Result<Vec<LogIndex>> {
-        if filter.last_block_height >= filter.to_block {
-            // not possible to have any new entries
-            return Ok(Vec::new());
-        }
+        // if filter.last_block_height >= filter.to_block {
+        //     // not possible to have any new entries
+        //     return Ok(Vec::new());
+        // }
 
         // get all logs that match filter from last_block_height to to_block
         let mut block_numbers = Vec::new();
-        let mut block_number = filter.last_block_height;
+        let mut block_number = filter.from_block;
 
         while block_number <= filter.to_block {
             debug!("Will query block {block_number}");
