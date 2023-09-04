@@ -274,6 +274,46 @@ pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: &str)
     }
 }
 
+/// Retrieves the balance of an EVM account at state root.
+///
+/// # Arguments
+///
+/// * `address` - The EVM address of the account.
+/// * `state_root` - The state root from which to restore temporary trie database.
+///
+/// # Errors
+///
+/// Returns an Error if the address is not a valid EVM address.
+///
+/// # Returns
+///
+/// Returns the balance of the account as a `u64` on success.
+pub fn evm_try_get_balance_at_state_root(
+    result: &mut ffi::CrossBoundaryResult,
+    address: &str,
+    state_root: &str,
+) -> u64 {
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+    let Ok(state_root) = state_root.parse() else {
+        return cross_boundary_error_return(result, "Invalid state root");
+    };
+
+    match SERVICES
+        .evm
+        .core
+        .get_balance_at_state_root(address, state_root)
+    {
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+        Ok(balance) => {
+            let amount = WeiAmount(balance).to_satoshi().try_into();
+
+            try_cross_boundary_return(result, amount)
+        }
+    }
+}
+
 /// Retrieves the next valid nonce of an EVM account in a specific queue_id
 ///
 /// # Arguments
@@ -647,6 +687,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 total_burnt_fees,
                 total_priority_fees,
                 block_number,
+                state_root,
             }) => {
                 let Ok(total_burnt_fees) = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi())
                 else {
@@ -667,6 +708,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
                     total_burnt_fees,
                     total_priority_fees,
                     block_number: block_number.as_u64(),
+                    state_root,
                 }
             }
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -823,6 +865,30 @@ pub fn evm_try_is_dst20_deployed_or_queued(
             Ok(is_deployed) => cross_boundary_success_return(result, is_deployed),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
+    }
+}
+
+pub fn evm_try_get_dst20_total_supply(
+    result: &mut ffi::CrossBoundaryResult,
+    token_id: u64,
+    state_root: &str,
+) -> u64 {
+    let state_root = match state_root {
+        "" => None,
+        _ => match state_root.parse() {
+            Ok(state_root) => Some(state_root),
+            Err(_) => return cross_boundary_error_return(result, "Invalid state root"),
+        },
+    };
+
+    match SERVICES.evm.get_dst20_total_supply(token_id, state_root) {
+        Ok(total_supply) => {
+            let Ok(total_supply) = u64::try_from(WeiAmount(total_supply).to_satoshi()) else {
+                return cross_boundary_error_return(result, "Total supply value overflow");
+            };
+            cross_boundary_success_return(result, total_supply)
+        }
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
@@ -1014,7 +1080,7 @@ mod tests {
     #[test]
     fn test_hash_type_string() {
         use primitive_types::H160;
-        let num = 0b11010111_11010111_11010111_11010111_11010111_11010111_11010111_11010111;
+        let num = 0b1101_0111_1101_0111_1101_0111_1101_0111_1101_0111_1101_0111_1101_0111_1101_0111;
         let num_h160 = H160::from_low_u64_be(num);
         let num_h160_string = format!("{:?}", num_h160);
         println!("{}", num_h160_string);

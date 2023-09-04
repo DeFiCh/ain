@@ -3909,7 +3909,6 @@ public:
                     }
                 }
                 else {
-                    CrossBoundaryResult result;
                     evm_try_bridge_dst20(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex(), tokenId.v, true);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
@@ -3924,8 +3923,8 @@ public:
                 ExtractDestination(src.address, dest);
 
                 auto tokenId = dst.amount.nTokenId;
+                CrossBoundaryResult result;
                 if (tokenId == DCT_ID{0}) {
-                    CrossBoundaryResult result;
                     if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex())) {
                         return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                     }
@@ -3934,7 +3933,6 @@ public:
                     }
                 }
                 else {
-                    CrossBoundaryResult result;
                     evm_try_bridge_dst20(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);

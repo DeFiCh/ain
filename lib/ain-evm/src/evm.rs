@@ -51,6 +51,7 @@ pub struct FinalizedBlockInfo {
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
+    pub state_root: XHash,
 }
 
 pub type ReceiptAndOptionalContractAddress = (ReceiptV3, Option<H160>);
@@ -487,6 +488,7 @@ impl EVMServices {
             block.header.hash(),
             block.header.number,
         );
+        let new_state_root = format!("{:?}", block.header.state_root);
         queue.block_data = Some(BlockData { block, receipts });
 
         Ok(FinalizedBlockInfo {
@@ -495,6 +497,7 @@ impl EVMServices {
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
+            state_root: new_state_root,
         })
     }
 
@@ -618,6 +621,19 @@ impl EVMServices {
         let backend = self.core.get_latest_block_backend()?;
         let nonce = backend.get_nonce(&address);
         Ok(nonce)
+    }
+
+    pub fn get_dst20_total_supply(&self, token_id: u64, state_root: Option<H256>) -> Result<U256> {
+        let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+        debug!("[get_dst20_total_supply] Fetching address {:#?}", address);
+
+        let backend = match state_root {
+            Some(state_root) => self.core.get_backend(state_root),
+            None => self.core.get_latest_block_backend(),
+        }?;
+
+        let total_supply_index = H256::from_low_u64_be(2);
+        backend.get_contract_storage(address, total_supply_index.as_bytes())
     }
 
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {

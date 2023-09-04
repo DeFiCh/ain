@@ -201,6 +201,12 @@ impl EVMBackend {
             .unwrap_or_default()
     }
 
+    pub fn get_balance(&self, address: &H160) -> U256 {
+        self.get_account(address)
+            .map(|acc| acc.balance)
+            .unwrap_or_default()
+    }
+
     pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
         let Some(account) = self.get_account(&contract) else {
             return Ok(U256::zero());
