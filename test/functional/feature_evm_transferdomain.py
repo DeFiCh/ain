@@ -365,8 +365,8 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -5,
-            "recipient (blablabla) does not refer to any valid address",
+            -8,
+            "Invalid src address provided",
             self.nodes[0].transferdomain,
             [
                 {
@@ -380,8 +380,8 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -5,
-            "recipient (blablabla) does not refer to any valid address",
+            -8,
+            "Invalid dst address provided",
             self.nodes[0].transferdomain,
             [
                 {

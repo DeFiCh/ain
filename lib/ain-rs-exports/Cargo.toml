@@ -14,17 +14,17 @@ ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
 ain-contracts = { path = "../ain-contracts" }
 
-ethereum = "0.14.0"
-rlp = "0.5.2"
-primitive-types = "0.12.1"
-log = { version = "0.4" }
-hex = "0.4.3"
-serde_json = "1.0"
-anyhow = "1.0.71"
+ethereum.workspace = true
+rlp.workspace = true
+primitive-types.workspace = true
+log.workspace = true
+hex.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
 
 # Build
-cxx = "1.0"
+cxx.workspace = true
 
 [build-dependencies]
-cxx-gen = "0.7"
-proc-macro2 = "1.0"
+cxx-gen.workspace = true
+proc-macro2.workspace = true
