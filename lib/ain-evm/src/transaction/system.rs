@@ -14,22 +14,54 @@ pub struct DeployContractData {
 pub struct DST20Data {
     pub signed_tx: Box<SignedTx>,
     pub contract_address: H160,
-    pub out: bool,
+    pub direction: TransferDirection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransferDomainData {
+    pub signed_tx: Box<SignedTx>,
+    pub direction: TransferDirection,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SystemTx {
     DeployContract(DeployContractData),
     DST20Bridge(DST20Data),
-    EvmIn(Box<SignedTx>),
-    EvmOut(Box<SignedTx>),
+    TransferDomain(TransferDomainData),
 }
 
 impl SystemTx {
     pub fn sender(&self) -> Option<H160> {
         match self {
-            SystemTx::EvmIn(tx) | SystemTx::EvmOut(tx) => Some(tx.sender),
+            SystemTx::TransferDomain(data) => Some(data.signed_tx.sender),
+            SystemTx::DST20Bridge(data) => Some(data.signed_tx.sender),
             _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferDirection {
+    EvmIn,
+    EvmOut,
+}
+
+impl From<bool> for TransferDirection {
+    fn from(direction: bool) -> TransferDirection {
+        match direction {
+            true => TransferDirection::EvmIn,
+            false => TransferDirection::EvmOut,
+        }
+    }
+}
+
+use std::fmt;
+
+impl fmt::Display for TransferDirection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            TransferDirection::EvmIn => write!(f, "EVM In"),
+            TransferDirection::EvmOut => write!(f, "EVM Out"),
         }
     }
 }

@@ -212,8 +212,6 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         }
     };
 
-    println!("hex::encoe(input.clone()) : {}", hex::encode(input.clone()));
-
     let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
         return cross_boundary_error_return(
             result,
@@ -351,11 +349,9 @@ pub fn evm_unsafe_try_add_balance_in_q(
     raw_tx: &str,
     native_hash: &str,
 ) {
-    println!("raw_tx : {}", raw_tx);
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
     };
-    println!("signed_tx.input() : {}", hex::encode(signed_tx.data()));
     let native_hash = XHash::from(native_hash);
 
     unsafe {
@@ -978,7 +974,7 @@ pub fn evm_try_bridge_dst20(
     let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         signed_tx: Box::new(signed_tx),
         contract_address,
-        out,
+        direction: out.into(),
     }));
 
     unsafe {

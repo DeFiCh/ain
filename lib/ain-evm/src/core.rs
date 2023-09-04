@@ -16,7 +16,7 @@ use crate::gas::check_tx_intrinsic_gas;
 use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
-use crate::transaction::system::SystemTx;
+use crate::transaction::system::{SystemTx, TransferDirection, TransferDomainData};
 use crate::trie::TrieDBStore;
 use crate::txqueue::{QueueTx, TransactionQueueMap};
 use crate::weiamount::WeiAmount;
@@ -352,7 +352,10 @@ impl EVMCoreService {
         signed_tx: SignedTx,
         hash: XHash,
     ) -> Result<()> {
-        let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(Box::new(signed_tx)));
+        let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+            signed_tx: Box::new(signed_tx),
+            direction: TransferDirection::EvmIn,
+        }));
         self.tx_queues
             .push_in(queue_id, queue_tx, hash, U256::zero())?;
         Ok(())
@@ -383,7 +386,10 @@ impl EVMCoreService {
             })
             .into())
         } else {
-            let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(Box::new(signed_tx)));
+            let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+                signed_tx: Box::new(signed_tx),
+                direction: TransferDirection::EvmOut,
+            }));
             self.tx_queues
                 .push_in(queue_id, queue_tx, hash, U256::zero())?;
             Ok(())

@@ -28,7 +28,9 @@ use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
 use crate::traits::Executor;
-use crate::transaction::system::{DST20Data, DeployContractData, SystemTx};
+use crate::transaction::system::{
+    DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData,
+};
 use crate::transaction::{SignedTx, LOWER_H256};
 use crate::trie::GENESIS_STATE_ROOT;
 use crate::txqueue::{BlockData, QueueTx, QueueTxItem};
@@ -230,7 +232,7 @@ impl EVMServices {
         );
 
         for queue_item in queue.transactions.clone() {
-            match queue_item.tx {
+            let (tx, logs, (receipt, address)) = match queue_item.tx {
                 QueueTx::SignedTx(signed_tx) => {
                     let nonce = executor.get_nonce(&signed_tx.sender);
                     if signed_tx.nonce() != nonce {
@@ -261,18 +263,20 @@ impl EVMServices {
                     total_gas_used += used_gas;
                     total_gas_fees += gas_fee;
 
-                    all_transactions.push(signed_tx.clone());
-                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push((receipt, None));
+                    (signed_tx, logs, (receipt, None))
                 }
-                QueueTx::SystemTx(SystemTx::EvmIn(signed_tx)) => {
+                QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+                    signed_tx,
+                    direction,
+                })) => {
                     let to = signed_tx.to().unwrap();
                     let input = signed_tx.data();
                     let amount = U256::from_big_endian(&input[68..100]);
+                    let native_hash = &queue_item.tx_hash;
 
                     debug!(
-                        "[construct_block] Transfer domain to EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
-                        to, amount, queue_id, queue_item.tx_hash
+                        "[construct_block] Transfer domain: {} from address {:x?}, to address {:x?}, amount: {}, queue_id {}, tx hash {}",
+                        direction, signed_tx.sender, to, amount, queue_id, queue_item.tx_hash
                     );
 
                     let FixedContract {
@@ -286,16 +290,19 @@ impl EVMServices {
                     };
                     if mismatch {
                         debug!("[construct_block] EvmIn failed with as transferdomain account codehash mismatch");
-                        failed_transactions.push(queue_item.tx_hash);
+                        failed_transactions.push(native_hash.clone());
                         continue;
                     }
 
-                    if let Err(e) = executor.add_balance(fixed_address, amount) {
-                        debug!("[construct_block] EvmIn failed with {e}");
-                        failed_transactions.push(queue_item.tx_hash);
-                        continue;
+                    if direction == TransferDirection::EvmIn {
+                        if let Err(e) = executor.add_balance(fixed_address, amount) {
+                            debug!("[construct_block] EvmIn failed with {e}");
+                            failed_transactions.push(native_hash.clone());
+                            continue;
+                        }
+                        executor.commit();
                     }
-                    executor.commit();
+
                     let (
                         TxResponse {
                             exit_reason, logs, ..
@@ -313,92 +320,39 @@ impl EVMServices {
                         logs
                     );
                     if !exit_reason.is_succeed() {
-                        failed_transactions.push(queue_item.tx_hash);
+                        failed_transactions.push(native_hash.clone());
                     }
 
-                    all_transactions.push(signed_tx);
-                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push((receipt, None));
-                }
-                QueueTx::SystemTx(SystemTx::EvmOut(signed_tx)) => {
-                    debug!("signed_tx : {:#?}", signed_tx);
-                    let to = signed_tx.to().unwrap();
-                    let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[68..100]);
-
-                    debug!(
-                        "[construct_block] Transfer domain from EVM for address {:x?}, amount: {}, queue_id {}, tx hash {}",
-                        to, amount, queue_id, queue_item.tx_hash
-                    );
-
-                    let FixedContract {
-                        contract,
-                        fixed_address,
-                        ..
-                    } = get_transferdomain_contract();
-                    let mismatch = match executor.backend.get_account(&fixed_address) {
-                        None => true,
-                        Some(account) => account.code_hash != contract.codehash,
-                    };
-                    if mismatch {
-                        debug!("[construct_block] EvmOut failed with as transferdomain account codehash mismatch");
-                        failed_transactions.push(queue_item.tx_hash);
-                        continue;
+                    if direction == TransferDirection::EvmOut {
+                        if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
+                            debug!("[construct_block] EvmIn failed with {e}");
+                            failed_transactions.push(queue_item.tx_hash);
+                        }
                     }
 
-                    let (
-                        TxResponse {
-                            exit_reason, logs, ..
-                        },
-                        receipt,
-                    ) = executor.exec(&signed_tx, U256::zero());
-
-                    executor.commit();
-                    debug!(
-                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
-                        receipt,
-                        exit_reason,
-                        signed_tx.transaction.hash(),
-                        logs
-                    );
-                    if !exit_reason.is_succeed() {
-                        failed_transactions.push(queue_item.tx_hash);
-                    }
-
-                    if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
-                        debug!("[construct_block] EvmIn failed with {e}");
-                        // failed_transactions.push(queue_item.tx_hash);
-                    }
-                    executor.commit();
-
-                    all_transactions.push(signed_tx);
-                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push((receipt, None));
+                    (signed_tx, logs, (receipt, None))
                 }
                 QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                     signed_tx,
                     contract_address,
-                    out,
+                    direction,
                 })) => {
-                    println!("signed_tx : {:#?}", signed_tx);
-                    println!("contract_address : {:#?}", contract_address);
-                    println!("out : {:#?}", out);
                     let input = signed_tx.data();
                     let native_hash = &queue_item.tx_hash;
                     let amount = U256::from_big_endian(&input[100..132]);
 
                     debug!(
-                        "[construct_block] DST20Bridge from {}, contract_address {}, amount {}, out {}",
-                        signed_tx.sender, contract_address, amount, out
+                        "[construct_block] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
+                        signed_tx.sender, contract_address, amount, direction
                     );
 
-                    if !out {
+                    if direction == TransferDirection::EvmIn {
                         match bridge_dst20(
                             executor.backend,
                             contract_address,
                             signed_tx.sender,
                             amount,
-                            out,
+                            direction,
                         ) {
                             Ok(DST20BridgeInfo { address, storage }) => {
                                 if let Err(e) = executor.update_storage(address, storage) {
@@ -434,13 +388,13 @@ impl EVMServices {
                         failed_transactions.push(native_hash.clone());
                     }
 
-                    if out {
+                    if direction == TransferDirection::EvmOut {
                         match bridge_dst20(
                             executor.backend,
                             contract_address,
                             signed_tx.sender,
                             amount,
-                            out,
+                            direction,
                         ) {
                             Ok(DST20BridgeInfo { address, storage }) => {
                                 if let Err(e) = executor.update_storage(address, storage) {
@@ -455,9 +409,7 @@ impl EVMServices {
                         }
                     }
 
-                    all_transactions.push(signed_tx);
-                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-                    receipts_v3.push((receipt, None));
+                    (signed_tx, logs, (receipt, None))
                 }
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                     name,
@@ -481,10 +433,13 @@ impl EVMServices {
                     }
                     let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
 
-                    all_transactions.push(Box::new(tx));
-                    receipts_v3.push((receipt, Some(address)));
+                    (tx, Vec::new(), (receipt, Some(address)))
                 }
-            }
+            };
+
+            all_transactions.push(tx);
+            EVMCoreService::logs_bloom(logs, &mut logs_bloom);
+            receipts_v3.push((receipt, address));
 
             executor.commit();
         }
@@ -683,7 +638,7 @@ impl EVMServices {
     }
 }
 
-fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx, ReceiptV3)> {
+fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(Box<SignedTx>, ReceiptV3)> {
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(token_id),
         gas_price: *base_fee,
@@ -698,7 +653,7 @@ fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(SignedTx,
 
     let receipt = get_default_successful_receipt();
 
-    Ok((tx, receipt))
+    Ok((Box::new(tx), receipt))
 }
 
 fn transfer_domain_deploy_contract_tx(base_fee: &U256) -> Result<(SignedTx, ReceiptV3)> {

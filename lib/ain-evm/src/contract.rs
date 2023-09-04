@@ -7,7 +7,7 @@ use ethereum_types::{H160, H256, U256};
 use log::debug;
 use sha3::{Digest, Keccak256};
 
-use crate::{backend::EVMBackend, bytes::Bytes, Result};
+use crate::{backend::EVMBackend, bytes::Bytes, transaction::system::TransferDirection, Result};
 
 pub fn u256_to_h256(input: U256) -> H256 {
     let mut bytes = [0_u8; 32];
@@ -140,7 +140,7 @@ pub fn bridge_dst20(
     contract: H160,
     from: H160,
     amount: U256,
-    out: bool,
+    direction: TransferDirection,
 ) -> Result<DST20BridgeInfo> {
     // check if code of address matches DST20 bytecode
     let account = backend
@@ -158,7 +158,7 @@ pub fn bridge_dst20(
     let total_supply_index = H256::from_low_u64_be(2);
     let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
 
-    let (new_balance, new_total_supply) = if out {
+    let (new_balance, new_total_supply) = if direction == TransferDirection::EvmOut {
         (
             balance.checked_sub(amount),
             total_supply.checked_sub(amount),
