@@ -17,7 +17,7 @@ pub struct BlockService {
 }
 
 pub struct FeeHistoryData {
-    pub oldest_block: H256,
+    pub oldest_block: U256,
     pub base_fee_per_gas: Vec<U256>,
     pub gas_used_ratio: Vec<f64>,
     pub reward: Option<Vec<Vec<U256>>>,
@@ -163,7 +163,7 @@ impl BlockService {
         let mut blocks = Vec::with_capacity(block_count);
         let mut block_number = first_block;
 
-        for _ in 0..=block_count {
+        for _ in 1..=block_count {
             let block = match self.storage.get_block_by_number(&block_number)? {
                 None => Err(format_err!("Block {} out of range", block_number)),
                 Some(block) => Ok(block),
@@ -174,7 +174,7 @@ impl BlockService {
             block_number -= U256::one();
         }
 
-        let oldest_block = blocks.last().unwrap().header.hash();
+        let oldest_block = blocks.last().unwrap().header.number;
 
         let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
             .iter()
@@ -236,7 +236,7 @@ impl BlockService {
                 let mut data = Data::new(priority_fees);
 
                 for pct in &priority_fee_percentile {
-                    block_rewards.push(U256::from(data.percentile(*pct).ceil() as u64));
+                    block_rewards.push(U256::from(data.percentile(*pct).floor() as u64));
                 }
 
                 reward.push(block_rewards);
@@ -246,7 +246,25 @@ impl BlockService {
             Some(reward)
         };
 
+        // add another entry for baseFeePerGas
+        let next_block_base_fee = match self
+            .storage
+            .get_block_by_number(&(first_block + U256::one()))?
+        {
+            None => {
+                // get one block earlier (this should exist)
+                let block = self
+                    .storage
+                    .get_block_by_number(&first_block)?
+                    .ok_or_else(|| format_err!("Block {} out of range", first_block))?;
+                self.calculate_base_fee(block.header.hash())?
+            }
+            Some(block) => self.calculate_base_fee(block.header.hash())?,
+        };
+
         base_fee_per_gas.reverse();
+        base_fee_per_gas.push(next_block_base_fee);
+
         gas_used_ratio.reverse();
 
         Ok(FeeHistoryData {
