@@ -14,7 +14,7 @@ contract TransferDomain {
         address payable to,
         uint256 amount,
         string memory nativeAddress
-    ) external payable {
+    ) external {
         if (to != address(this)) {
             require(
                 address(this).balance >= amount,
