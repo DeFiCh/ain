@@ -2617,6 +2617,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto consensus = chainparams.GetConsensus();
     auto isEvmEnabledForBlock = IsEVMEnabled(pindex->nHeight, mnview, consensus);
 
+    CEVMInitialState evmInitialState;
+
+    if (isEvmEnabledForBlock) {
+        evmInitialState.transferDomainState = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+        auto res = ProcessAccountingStateBeforeBlock(block, pindex, mnview, chainparams, evmInitialState);
+        if (!res.ok)
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
+    }
+
     // Variable to tally total gas used in the block
     uint64_t totalGas{};
 
@@ -2866,7 +2875,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock, evmInitialState);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -3364,7 +3373,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
         uint64_t evmQueueId = *r;
-        
+
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
