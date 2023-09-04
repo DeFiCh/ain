@@ -337,7 +337,7 @@ impl Serialize for BlockTransactions {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcFeeHistory {
-    pub oldest_block: H256,
+    pub oldest_block: U256,
     pub base_fee_per_gas: Vec<U256>,
     pub gas_used_ratio: Vec<f64>,
     pub reward: Option<Vec<Vec<U256>>>,

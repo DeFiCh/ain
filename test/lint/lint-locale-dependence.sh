@@ -16,6 +16,8 @@ KNOWN_VIOLATIONS=(
     "src/rest.cpp:.*strtol"
     "src/rpc/rawtransaction_util.cpp:.*stoul"
     "src/test/dbwrapper_tests.cpp:.*snprintf"
+    "src/test/key_tests.cpp:.*isdigit"
+    "src/test/key_tests.cpp:.*toupper"
     "src/test/liquidity_tests.cpp:.*printf"
     "src/torcontrol.cpp:.*atoi"
     "src/torcontrol.cpp:.*strtol"
