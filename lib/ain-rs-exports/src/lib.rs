@@ -81,6 +81,7 @@ pub mod ffi {
         pub native_address: String,
         pub direction: bool,
         pub value: u64,
+        pub token_id: u32,
         pub chain_id: u64,
         pub priv_key: [u8; 32],
     }
@@ -204,8 +205,7 @@ pub mod ffi {
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
             token_id: u64,
             out: bool,

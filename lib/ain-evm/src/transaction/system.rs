@@ -1,4 +1,4 @@
-use primitive_types::{H160, U256};
+use primitive_types::H160;
 
 use super::SignedTx;
 
@@ -12,9 +12,8 @@ pub struct DeployContractData {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DST20Data {
-    pub to: H160,
-    pub contract: H160,
-    pub amount: U256,
+    pub signed_tx: Box<SignedTx>,
+    pub contract_address: H160,
     pub out: bool,
 }
 

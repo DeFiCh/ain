@@ -2133,6 +2133,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                                                                                                  nativeAddress,
                                                                                                                  isEVMIn,
                                                                                                                  static_cast<uint64_t>(dst.amount.nValue),
+                                                                                                                 dst.amount.nTokenId.v,
                                                                                                                  Params().GetConsensus().evmChainId,
                                                                                                                  privKey});
             if (!result.ok) {

@@ -878,6 +878,7 @@ class DST20(DefiTestFramework):
         self.node.generate(1)
 
         self.test_dst20_dvm_to_evm_bridge()
+
         self.test_dst20_evm_to_dvm_bridge()
         self.test_multiple_dvm_evm_bridge()
         self.test_conflicting_bridge()

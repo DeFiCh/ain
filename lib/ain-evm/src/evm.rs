@@ -375,6 +375,90 @@ impl EVMServices {
                     EVMCoreService::logs_bloom(logs, &mut logs_bloom);
                     receipts_v3.push((receipt, None));
                 }
+                QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                    signed_tx,
+                    contract_address,
+                    out,
+                })) => {
+                    println!("signed_tx : {:#?}", signed_tx);
+                    println!("contract_address : {:#?}", contract_address);
+                    println!("out : {:#?}", out);
+                    let input = signed_tx.data();
+                    let native_hash = &queue_item.tx_hash;
+                    let amount = U256::from_big_endian(&input[100..132]);
+
+                    debug!(
+                        "[construct_block] DST20Bridge from {}, contract_address {}, amount {}, out {}",
+                        signed_tx.sender, contract_address, amount, out
+                    );
+
+                    if !out {
+                        match bridge_dst20(
+                            executor.backend,
+                            contract_address,
+                            signed_tx.sender,
+                            amount,
+                            out,
+                        ) {
+                            Ok(DST20BridgeInfo { address, storage }) => {
+                                if let Err(e) = executor.update_storage(address, storage) {
+                                    debug!("[construct_block] EvmOut failed with {e}");
+                                    failed_transactions.push(native_hash.clone());
+                                }
+                            }
+                            Err(e) => {
+                                debug!("[construct_block] EvmOut failed with {e}");
+                                failed_transactions.push(native_hash.clone());
+                            }
+                        }
+                        executor.commit();
+                    }
+
+                    let (
+                        TxResponse {
+                            exit_reason, logs, ..
+                        },
+                        receipt,
+                    ) = executor.exec(&signed_tx, U256::zero());
+
+                    executor.commit();
+
+                    debug!(
+                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                        receipt,
+                        exit_reason,
+                        signed_tx.transaction.hash(),
+                        logs
+                    );
+                    if !exit_reason.is_succeed() {
+                        failed_transactions.push(native_hash.clone());
+                    }
+
+                    if out {
+                        match bridge_dst20(
+                            executor.backend,
+                            contract_address,
+                            signed_tx.sender,
+                            amount,
+                            out,
+                        ) {
+                            Ok(DST20BridgeInfo { address, storage }) => {
+                                if let Err(e) = executor.update_storage(address, storage) {
+                                    debug!("[construct_block] EvmOut failed with {e}");
+                                    failed_transactions.push(native_hash.clone());
+                                }
+                            }
+                            Err(e) => {
+                                debug!("[construct_block] EvmOut failed with {e}");
+                                failed_transactions.push(native_hash.clone());
+                            }
+                        }
+                    }
+
+                    all_transactions.push(signed_tx);
+                    EVMCoreService::logs_bloom(logs, &mut logs_bloom);
+                    receipts_v3.push((receipt, None));
+                }
                 QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                     name,
                     symbol,
@@ -399,30 +483,6 @@ impl EVMServices {
 
                     all_transactions.push(Box::new(tx));
                     receipts_v3.push((receipt, Some(address)));
-                }
-                QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-                    to,
-                    contract,
-                    amount,
-                    out,
-                })) => {
-                    debug!(
-                        "[construct_block] DST20Bridge for to {}, contract {}, amount {}, out {}",
-                        to, contract, amount, out
-                    );
-
-                    match bridge_dst20(executor.backend, contract, to, amount, out) {
-                        Ok(DST20BridgeInfo { address, storage }) => {
-                            if let Err(e) = executor.update_storage(address, storage) {
-                                debug!("[construct_block] EvmOut failed with {e}");
-                                failed_transactions.push(queue_item.tx_hash);
-                            }
-                        }
-                        Err(e) => {
-                            debug!("[construct_block] EvmOut failed with {e}");
-                            failed_transactions.push(queue_item.tx_hash);
-                        }
-                    }
                 }
             }
 

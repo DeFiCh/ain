@@ -138,7 +138,7 @@ pub fn dst20_contract(
 pub fn bridge_dst20(
     backend: &EVMBackend,
     contract: H160,
-    to: H160,
+    from: H160,
     amount: U256,
     out: bool,
 ) -> Result<DST20BridgeInfo> {
@@ -152,7 +152,7 @@ pub fn bridge_dst20(
         return Err(format_err!("DST20 token code is not valid").into());
     }
 
-    let storage_index = get_address_storage_index(to);
+    let storage_index = get_address_storage_index(from);
     let balance = backend.get_contract_storage(contract, storage_index.as_bytes())?;
 
     let total_supply_index = H256::from_low_u64_be(2);

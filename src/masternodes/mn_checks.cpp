@@ -3912,7 +3912,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, toAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(src.evmTx), tx.GetHash().GetHex(), tokenId.v, false);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }
@@ -3940,7 +3940,7 @@ public:
                 }
                 else {
                     CrossBoundaryResult result;
-                    evm_try_bridge_dst20(result, evmQueueId, fromAddress.ToHexString(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
+                    evm_try_bridge_dst20(result, evmQueueId, HexStr(src.evmTx), tx.GetHash().GetHex(), tokenId.v, true);
                     if (!result.ok) {
                         return Res::Err("Error bridging DST20: %s", result.reason);
                     }

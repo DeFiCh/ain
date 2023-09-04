@@ -1,3 +1,17 @@
+// File: @openzeppelin/contracts@4.9.2/token/ERC20/IERC20.sol
+
+// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/IERC20.sol)
+
+pragma solidity ^0.8.0;
+
+interface IERC20 {
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) external returns (bool);
+}
+
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.2 <0.9.0;
@@ -57,5 +71,18 @@ contract TransferDomain {
      */
     function decimals() public view virtual returns (uint8) {
         return 18;
+    }
+
+    function bridgeDST20(
+        address contractAddress,
+        address from,
+        address payable to,
+        uint256 amount,
+        string memory nativeAddress
+    ) external {
+        if (to != address(this)) {
+            IERC20(contractAddress).transferFrom(from, to, amount);
+        }
+        emit NativeAddress(nativeAddress);
     }
 }

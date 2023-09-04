@@ -118,49 +118,101 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
 
-    let build_input = || {
-        #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-        let function = ethabi::Function {
-            name: String::from("transfer"),
-            inputs: vec![
-                ethabi::Param {
-                    name: String::from("from"),
-                    kind: ethabi::ParamType::Address,
-                    internal_type: None,
-                },
-                ethabi::Param {
-                    name: String::from("to"),
-                    kind: ethabi::ParamType::Address,
-                    internal_type: None,
-                },
-                ethabi::Param {
-                    name: String::from("amount"),
-                    kind: ethabi::ParamType::Uint(256),
-                    internal_type: None,
-                },
-                ethabi::Param {
-                    name: String::from("nativeAddress"),
-                    kind: ethabi::ParamType::String,
-                    internal_type: None,
-                },
-            ],
-            outputs: vec![],
-            constant: None,
-            state_mutability: ethabi::StateMutability::NonPayable,
-        };
-
+    let input = {
         let from_address = ethabi::Token::Address(from_address);
         let to_address = ethabi::Token::Address(to_address);
         let value = ethabi::Token::Uint(value.0);
         let native_address = ethabi::Token::String(ctx.native_address);
 
-        function.encode_input(&[from_address, to_address, value, native_address])
+        let is_native_token_transfer = ctx.token_id == 0;
+        match if is_native_token_transfer {
+            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+            let function = ethabi::Function {
+                name: String::from("transfer"),
+                inputs: vec![
+                    ethabi::Param {
+                        name: String::from("from"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("to"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("amount"),
+                        kind: ethabi::ParamType::Uint(256),
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("nativeAddress"),
+                        kind: ethabi::ParamType::String,
+                        internal_type: None,
+                    },
+                ],
+                outputs: vec![],
+                constant: None,
+                state_mutability: ethabi::StateMutability::NonPayable,
+            };
+
+            function.encode_input(&[from_address, to_address, value, native_address])
+        } else {
+            let contract_address =
+                match ain_contracts::dst20_address_from_token_id(u64::from(ctx.token_id)) {
+                    Ok(address) => ethabi::Token::Address(address),
+                    Err(e) => return cross_boundary_error_return(result, e.to_string()),
+                };
+
+            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+            let function = ethabi::Function {
+                name: String::from("bridgeDST20"),
+                inputs: vec![
+                    ethabi::Param {
+                        name: String::from("contractAddress"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("from"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("to"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("amount"),
+                        kind: ethabi::ParamType::Uint(256),
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("nativeAddress"),
+                        kind: ethabi::ParamType::String,
+                        internal_type: None,
+                    },
+                ],
+                outputs: vec![],
+                constant: None,
+                state_mutability: ethabi::StateMutability::NonPayable,
+            };
+
+            function.encode_input(&[
+                contract_address,
+                from_address,
+                to_address,
+                value,
+                native_address,
+            ])
+        } {
+            Ok(input) => input,
+            Err(e) => return cross_boundary_error_return(result, e.to_string()),
+        }
     };
 
-    let input = match build_input() {
-        Ok(input) => input,
-        Err(e) => return cross_boundary_error_return(result, e.to_string()),
-    };
+    println!("hex::encoe(input.clone()) : {}", hex::encode(input.clone()));
 
     let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
         return cross_boundary_error_return(
@@ -179,14 +231,13 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let t = LegacyUnsignedTransaction {
         nonce,
         gas_price: base_fee,
-        gas_limit: U256::from(1000000),
+        gas_limit: U256::from(100000),
         action,
         value: U256::zero(),
         input,
         sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
     };
 
-    // Sign with a big endian byte array
     match t.sign(&ctx.priv_key, ctx.chain_id) {
         Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -300,10 +351,11 @@ pub fn evm_unsafe_try_add_balance_in_q(
     raw_tx: &str,
     native_hash: &str,
 ) {
-    debug!("raw_Tx {raw_tx}");
+    println!("raw_tx : {}", raw_tx);
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
     };
+    println!("signed_tx.input() : {}", hex::encode(signed_tx.data()));
     let native_hash = XHash::from(native_hash);
 
     unsafe {
@@ -910,27 +962,22 @@ pub fn evm_try_create_dst20(
 pub fn evm_try_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: &str,
-    amount: u64,
+    raw_tx: &str,
     native_hash: &str,
     token_id: u64,
     out: bool,
 ) {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-    let amount = match try_from_satoshi(U256::from(amount)) {
-        Ok(wei_amount) => wei_amount,
+    let native_hash = XHash::from(native_hash);
+    let contract_address = match ain_contracts::dst20_address_from_token_id(token_id) {
+        Ok(address) => address,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
-    let native_hash = XHash::from(native_hash);
-    let contract = ain_contracts::dst20_address_from_token_id(token_id)
-        .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
-
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
+    };
     let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-        to: address,
-        contract,
-        amount: amount.0,
+        signed_tx: Box::new(signed_tx),
+        contract_address,
         out,
     }));
 
