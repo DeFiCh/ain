@@ -127,7 +127,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(history["baseFeePerGas"]), count + 1)
         for x in history["reward"]:
             assert_equal(len(x), len(reward_percentiles))
-            assert_equal(x, ['0x2', '0x3', '0x5', '0x7', '0x9', '0xa'])
+            assert_equal(x, ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
 
     def run_test(self):
         self.setup()
