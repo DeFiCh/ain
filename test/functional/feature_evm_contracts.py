@@ -245,8 +245,12 @@ class EVMTest(DefiTestFramework):
         assert_equal(before_tx_count + 1, after_tx_count)
 
     def should_deploy_contract_with_different_sizes(self):
-        test_data = [(128, "ContractSize1KBTo10KB", 6901), (256,  "ContractSize10KBTo19KB", 13685), (400, "ContractSize20KBTo29KB", 21140)]
-        for (iteration, contract_name, expected_runtime_bytecode_size) in test_data:
+        test_data = [
+            (128, "ContractSize1KBTo10KB", 6901),
+            (256, "ContractSize10KBTo19KB", 13685),
+            (400, "ContractSize20KBTo29KB", 21140),
+        ]
+        for iteration, contract_name, expected_runtime_bytecode_size in test_data:
             compiled_contract, compiler_runtime_bytecode = self.generate_contract(
                 self.node, iteration, contract_name
             )
