@@ -26,10 +26,7 @@ pub fn get_abi_encoded_string(input: &str) -> H256 {
     storage_value
 }
 
-pub fn get_address_storage_index(address: H160) -> H256 {
-    // padded slot, slot for our contract is 0
-    let slot = H256::zero();
-
+pub fn get_address_storage_index(slot: H256, address: H160) -> H256 {
     // padded key
     let key = H256::from(address);
 
@@ -147,13 +144,21 @@ pub fn bridge_dst20(
         .get_account(&contract)
         .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
 
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+
     let Contract { codehash, .. } = get_dst20_contract();
     if account.code_hash != codehash {
         return Err(format_err!("DST20 token code is not valid").into());
     }
 
-    let storage_index = get_address_storage_index(from);
-    let balance = backend.get_contract_storage(contract, storage_index.as_bytes())?;
+    // balance has slot 0
+    let balance_storage_index = get_address_storage_index(H256::zero(), from);
+    let balance = backend.get_contract_storage(contract, balance_storage_index.as_bytes())?;
+
+    // allowance has slot 1
+    let allowance_storage_index = get_address_storage_index(H256::from_low_u64_be(1), from);
+    let address_allowance_storage_index =
+        get_address_storage_index(allowance_storage_index, fixed_address);
 
     let total_supply_index = H256::from_low_u64_be(2);
     let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
@@ -177,8 +182,9 @@ pub fn bridge_dst20(
     Ok(DST20BridgeInfo {
         address: contract,
         storage: vec![
-            (storage_index, u256_to_h256(new_balance)),
+            (balance_storage_index, u256_to_h256(new_balance)),
             (total_supply_index, u256_to_h256(new_total_supply)),
+            (address_allowance_storage_index, u256_to_h256(amount)),
         ],
     })
 }
