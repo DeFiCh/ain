@@ -622,6 +622,7 @@ void CTxMemPool::_clear()
     mapTx.clear();
     vTxHashes.clear();
     mapNextTx.clear();
+    ethTxsBySender.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     lastRollingFeeUpdate = GetTime();
@@ -1134,7 +1135,8 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus , height, 0, nullptr, 0, 0, isEvmEnabledForBlock);
+        uint64_t gasUsed{};
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, gasUsed, 0, nullptr, 0, 0, isEvmEnabledForBlock);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

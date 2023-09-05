@@ -298,9 +298,9 @@ impl EVMCoreService {
                 gas_limit: signed_tx.gas_limit().as_u64(),
                 access_list: signed_tx.access_list(),
                 block_number,
-                gas_price: None,
-                max_fee_per_gas: None,
-                transaction_type: None,
+                gas_price: Some(tx_gas_price),
+                max_fee_per_gas: signed_tx.max_fee_per_gas(),
+                transaction_type: Some(signed_tx.get_tx_type()),
             })?;
             used_gas
         } else {
@@ -584,11 +584,23 @@ impl EVMCoreService {
             "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
             block_number, state_root
         );
+        self.get_backend(state_root)
+    }
+
+    pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
+        debug!("[get_backend] State_root : {:#x}", state_root);
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             Vicinity::default(),
         )
+    }
+
+    pub fn get_balance_at_state_root(&self, address: H160, state_root: H256) -> Result<U256> {
+        let balance = self.get_backend(state_root)?.get_balance(&address);
+
+        debug!("Account {:x?} balance {:x?}", address, balance);
+        Ok(balance)
     }
 }

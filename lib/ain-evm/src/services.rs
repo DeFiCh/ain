@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use anyhow::Result;
-use jsonrpsee_http_server::HttpServerHandle;
+use jsonrpsee_server::ServerHandle as HttpServerHandle;
 use tokio::runtime::{Builder, Handle as AsyncHandle};
 use tokio::sync::mpsc::{self, Sender};
 
