@@ -93,6 +93,9 @@ class EVMTest(DefiTestFramework):
         # Toggle EVM
         self.toggle_evm_enablement()
 
+        # Check multiple transfer domain TXs in the same block
+        self.multiple_transferdomain()
+
     def test_tx_without_chainid(self):
         node = self.nodes[0]
 
@@ -1228,6 +1231,40 @@ class EVMTest(DefiTestFramework):
             int(evm_first_valid_block["number"], base=16),
             int(evm_enabling_block["number"], base=16) + 1,
         )
+
+    def multiple_transferdomain(self):
+        # Get block count
+        block_count = self.nodes[0].getblockcount()
+
+        # Create multiple transfer domain TXs in one block
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        # Make sure that block count has incremented
+        assert_equal(self.nodes[0].getblockcount(), block_count + 1)
 
 
 if __name__ == "__main__":
