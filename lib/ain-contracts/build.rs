@@ -44,17 +44,27 @@ fn main() -> Result<()> {
             if id.name != contract_name {
                 continue;
             }
+
             let abi = artifact.abi.context("ABI not found")?;
-            let bytecode = artifact.deployed_bytecode.context("Bytecode not found")?;
-            let bytecode_out_path = sol_project_outdir.join("bytecode.json");
-            let abi_out_path = sol_project_outdir.join("abi.json");
+            let bytecode = artifact.bytecode.context("Bytecode not found")?;
+            let deployed_bytecode = artifact
+                .deployed_bytecode
+                .context("Deployed bytecode not found")?;
+
+            let abi_bytes = serde_json::to_string(&abi)?;
+            let bytecode_bytes = serde_json::to_string(&bytecode)?;
+            let deployed_bytecode_bytes = serde_json::to_string(&deployed_bytecode)?;
+
+            let items = [
+                ("abi.json", abi_bytes),
+                ("bytecode.json", bytecode_bytes),
+                ("deployed_bytecode.json", deployed_bytecode_bytes),
+            ];
 
             fs::create_dir_all(&sol_project_outdir)?;
-            fs::write(
-                bytecode_out_path,
-                serde_json::to_string(&bytecode)?.as_bytes(),
-            )?;
-            fs::write(abi_out_path, serde_json::to_string(&abi)?.as_bytes())?;
+            for (file_name, contents) in items {
+                fs::write(sol_project_outdir.join(file_name), contents.as_bytes())?
+            }
         }
 
         project.rerun_if_sources_changed();
