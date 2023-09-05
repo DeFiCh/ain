@@ -427,8 +427,14 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_txs_by_sender_in(&self, queue_id: u64, address: H160) -> Result<()> {
-        self.tx_queues.remove_by_sender_in(queue_id, address)?;
+    pub unsafe fn remove_txs_by_sender_in(
+        &self,
+        queue_id: u64,
+        address: H160,
+        nonce: U256,
+    ) -> Result<()> {
+        self.tx_queues
+            .remove_by_sender_in(queue_id, address, nonce)?;
         Ok(())
     }
 

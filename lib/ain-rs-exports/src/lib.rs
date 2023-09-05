@@ -126,6 +126,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             address: &str,
+            nonce: u64,
         );
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,

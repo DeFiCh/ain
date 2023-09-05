@@ -134,8 +134,13 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
+    pub unsafe fn remove_by_sender_in(
+        &self,
+        queue_id: u64,
+        sender: H160,
+        nonce: U256,
+    ) -> Result<()> {
+        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender, nonce))
     }
 
     ///
@@ -285,17 +290,18 @@ impl TransactionQueue {
         Ok(())
     }
 
-    pub fn remove_txs_by_sender(&self, sender: H160) {
+    pub fn remove_txs_by_sender(&self, sender: H160, nonce: U256) {
         let mut data = self.data.lock().unwrap();
         let mut gas_used_to_remove = U256::zero();
         data.transactions.retain(|item| {
-            let tx_sender = match &item.tx {
-                QueueTx::SignedTx(tx) => tx.sender,
-                QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
-            };
-            if tx_sender == sender {
-                gas_used_to_remove += item.gas_used;
-                return false;
+            if let Some((tx_sender, tx_nonce)) = match &item.tx {
+                QueueTx::SignedTx(tx) => Some((tx.sender, tx.nonce())),
+                QueueTx::SystemTx(tx) => None,
+            } {
+                if tx_sender == sender && tx_nonce >= nonce {
+                    gas_used_to_remove += item.gas_used;
+                    return false;
+                }
             }
             true
         });

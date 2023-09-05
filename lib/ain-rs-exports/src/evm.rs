@@ -316,18 +316,24 @@ pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
 ///
 /// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
+/// * `nonce`   - The nonce above which to remove TXs.
 ///
 pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     address: &str,
+    nonce: u64,
 ) {
     let Ok(address) = address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
 
     unsafe {
-        match SERVICES.evm.core.remove_txs_by_sender_in(queue_id, address) {
+        match SERVICES
+            .evm
+            .core
+            .remove_txs_by_sender_in(queue_id, address, U256::from(nonce))
+        {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
