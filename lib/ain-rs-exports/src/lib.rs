@@ -75,6 +75,17 @@ pub mod ffi {
         pub priv_key: [u8; 32],
     }
 
+    pub struct CreateTransferDomainContext {
+        pub from: String,
+        pub to: String,
+        pub native_address: String,
+        pub direction: bool,
+        pub value: u64,
+        pub token_id: u32,
+        pub chain_id: u64,
+        pub priv_key: [u8; 32],
+    }
+
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
         pub block_hash: String,
@@ -119,15 +130,13 @@ pub mod ffi {
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
         ) -> bool;
         fn evm_unsafe_try_prevalidate_raw_tx(
@@ -166,6 +175,10 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
         ) -> Vec<u8>;
+        fn evm_try_create_and_sign_transfer_domain_tx(
+            result: &mut CrossBoundaryResult,
+            ctx: CreateTransferDomainContext,
+        ) -> Vec<u8>;
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,
@@ -192,8 +205,7 @@ pub mod ffi {
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
             token_id: u64,
             out: bool,

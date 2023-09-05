@@ -13,7 +13,7 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 
-constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 0;
+constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
 static bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
     if (height < consensus.NextNetworkUpgradeHeight) {
@@ -190,6 +190,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
+
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
@@ -202,21 +203,17 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to ERC55 address
             CTxDestination dest;
             ExtractDestination(dst.address, dest);
-            const auto toAddress = std::get<WitnessV16EthHash>(dest);
 
-            // Safety: Safe since validate checks for < 0
-            const auto balanceIn = static_cast<uint64_t>(dst.amount.nValue);
             auto tokenId = dst.amount.nTokenId;
             CrossBoundaryResult result;
             if (tokenId == DCT_ID{0}) {
-                evm_unsafe_try_add_balance_in_q(result, evmQueueId, toAddress.GetHex(), balanceIn, tx.GetHash().GetHex());
+                evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex());
                 if (!result.ok) {
                     return Res::Err("Error bridging DFI: %s", result.reason);
                 }
             }
             else {
-                CrossBoundaryResult result;
-                evm_try_bridge_dst20(result, evmQueueId, toAddress.GetHex(), balanceIn, tx.GetHash().GetHex(), tokenId.v, false);
+                evm_try_bridge_dst20(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex(), tokenId.v, true);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }
@@ -228,14 +225,11 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Subtract balance from ERC55 address
             CTxDestination dest;
             ExtractDestination(src.address, dest);
-            const auto fromAddress = std::get<WitnessV16EthHash>(dest);
 
-            // Safety: Safe since validate checks for < 0
-            const auto balanceIn = static_cast<uint64_t>(src.amount.nValue);
             auto tokenId = dst.amount.nTokenId;
+            CrossBoundaryResult result;
             if (tokenId == DCT_ID{0}) {
-                CrossBoundaryResult result;
-                if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, fromAddress.GetHex(), balanceIn, tx.GetHash().GetHex())) {
+                if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
                 if (!result.ok) {
@@ -243,8 +237,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 }
             }
             else {
-                CrossBoundaryResult result;
-                evm_try_bridge_dst20(result, evmQueueId, fromAddress.GetHex(), balanceIn, tx.GetHash().GetHex(), tokenId.v, true);
+                evm_try_bridge_dst20(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex(), tokenId.v, false);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }

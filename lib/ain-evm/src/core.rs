@@ -16,7 +16,7 @@ use crate::gas::check_tx_intrinsic_gas;
 use crate::receipt::ReceiptService;
 use crate::storage::traits::BlockStorage;
 use crate::storage::Storage;
-use crate::transaction::system::{BalanceUpdate, SystemTx};
+use crate::transaction::system::{SystemTx, TransferDirection, TransferDomainData};
 use crate::trie::TrieDBStore;
 use crate::txqueue::{QueueTx, TransactionQueueMap};
 use crate::weiamount::WeiAmount;
@@ -349,11 +349,13 @@ impl EVMCoreService {
     pub unsafe fn add_balance(
         &self,
         queue_id: u64,
-        address: H160,
-        amount: U256,
+        signed_tx: SignedTx,
         hash: XHash,
     ) -> Result<()> {
-        let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
+        let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+            signed_tx: Box::new(signed_tx),
+            direction: TransferDirection::EvmIn,
+        }));
         self.tx_queues
             .push_in(queue_id, queue_tx, hash, U256::zero())?;
         Ok(())
@@ -368,24 +370,26 @@ impl EVMCoreService {
     pub unsafe fn sub_balance(
         &self,
         queue_id: u64,
-        address: H160,
-        amount: U256,
+        signed_tx: SignedTx,
         hash: XHash,
     ) -> Result<()> {
         let block_number = self
             .storage
             .get_latest_block()?
             .map_or(U256::default(), |block| block.header.number);
-        let balance = self.get_balance(address, block_number)?;
-        if balance < amount {
+        let balance = self.get_balance(signed_tx.sender, block_number)?;
+        if balance < signed_tx.value() {
             Err(BackendError::InsufficientBalance(InsufficientBalance {
-                address,
+                address: signed_tx.sender,
                 account_balance: balance,
-                amount,
+                amount: signed_tx.value(),
             })
             .into())
         } else {
-            let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
+            let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+                signed_tx: Box::new(signed_tx),
+                direction: TransferDirection::EvmOut,
+            }));
             self.tx_queues
                 .push_in(queue_id, queue_tx, hash, U256::zero())?;
             Ok(())

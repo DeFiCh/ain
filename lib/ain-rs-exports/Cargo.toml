@@ -21,6 +21,7 @@ log.workspace = true
 hex.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
+ethabi.workspace = true
 
 # Build
 cxx.workspace = true

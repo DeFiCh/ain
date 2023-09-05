@@ -4,6 +4,7 @@ use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
+use log::debug;
 use primitive_types::{H160, H256, U256};
 
 use super::db::{Column, ColumnName, LedgerColumn, Rocks};
@@ -196,7 +197,10 @@ impl BlockStore {
 impl Rollback for BlockStore {
     fn disconnect_latest_block(&self) -> Result<()> {
         if let Some(block) = self.get_latest_block()? {
-            println!("disconnecting block number : {:x?}", block.header.number);
+            debug!(
+                "[disconnect_latest_block] disconnecting block number : {:x?}",
+                block.header.number
+            );
             let transactions_cf = self.column::<columns::Transactions>();
             let receipts_cf = self.column::<columns::Receipts>();
             for tx in &block.transactions {

@@ -12,6 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("dfi_intrinsics", "DFIIntrinsics"),
         ("dst20", "DST20"),
         ("system_reserved", "SystemReservedContract"),
+        ("transfer_domain", "TransferDomain"),
     ];
 
     for (file_path, contract_name) in contracts {
@@ -39,12 +40,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for (id, artifact) in artifacts {
             if id.name == contract_name {
                 let abi = artifact.abi.ok_or_else(|| format_err!("ABI not found"))?;
-                let bytecode = artifact.deployed_bytecode.expect("No bytecode found");
+                let deployed_bytecode = artifact
+                    .deployed_bytecode
+                    .expect("No deployed_bytecode found");
+
+                let bytecode = artifact.bytecode.expect("No bytecode found");
 
                 fs::create_dir_all(format!("{output_path}/ain_contracts/{file_path}"))?;
                 fs::write(
                     PathBuf::from(format!(
                         "{output_path}/ain_contracts/{file_path}/bytecode.json"
+                    )),
+                    serde_json::to_string(&deployed_bytecode)
+                        .unwrap()
+                        .as_bytes(),
+                )?;
+                fs::write(
+                    PathBuf::from(format!(
+                        "{output_path}/ain_contracts/{file_path}/input.json"
                     )),
                     serde_json::to_string(&bytecode).unwrap().as_bytes(),
                 )?;

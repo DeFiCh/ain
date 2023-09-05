@@ -75,7 +75,7 @@ struct OpReturnLimits {
 
     void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
     Res Validate(const CTransaction& tx, const CustomTxType txType) const;
-    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); } 
+    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); }
 };
 
 struct TransferDomainConfig {
