@@ -75,6 +75,7 @@ struct EvmTxPreApplyContext {
     EvmPackageContext& pkgCtx;
     std::set<uint256>& checkedTXEntries;
     CTxMemPool::setEntries& failedTxEntries;
+    std::map<uint256, std::pair<EvmAddressData, uint64_t>>& nativeTxToEvmAddress;
 };
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
@@ -134,6 +135,35 @@ void BlockAssembler::resetBlock()
     // These counters do not include coinbase tx
     nBlockTx = 0;
     nFees = 0;
+}
+
+static std::set<uint256> ConvertFailedEVMTxs(const rust::Vec<::rust::String> &failed_transactions) {
+    std::set<uint256> failedTransactions;
+
+    for (const auto& txRustStr : failed_transactions) {
+        auto txStr = std::string(txRustStr.data(), txRustStr.length());
+        failedTransactions.insert(uint256S(txStr));
+    }
+
+    return failedTransactions;
+}
+
+CTxMemPool::setEntries BlockAssembler::GetFailedTransferDomainTxs(const std::set<uint256> &failedTransactions) {
+    CTxMemPool::setEntries failedTransferDomainTxs;
+
+    // Get All TransferDomainTxs
+    for (const auto& iter : inBlock) {
+        auto tx = iter->GetTx();
+        if (!failedTransactions.count(tx.GetHash()))
+            continue;
+        std::vector<unsigned char> metadata;
+        const auto txType = GuessCustomTxType(tx, metadata, false);
+        if (txType == CustomTxType::TransferDomain) {
+            failedTransferDomainTxs.insert(iter);
+        }
+    }
+
+    return failedTransferDomainTxs;
 }
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressData& evmBeneficiary)
@@ -281,11 +311,12 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if (!r) return nullptr;
     const auto evmQueueId = *r;
     std::map<uint256, CAmount> txFees;
+    std::map<uint256, std::pair<EvmAddressData, uint64_t>> nativeTxToEvmAddress;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock, nativeTxToEvmAddress);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock, nativeTxToEvmAddress);
     }
 
     XVM xvm{};
@@ -294,33 +325,34 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         if (!res) { return nullptr; }
         auto blockResult = *res;
 
-        auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
-        if (!r) { return nullptr; }
+        auto failedTransactions = ConvertFailedEVMTxs(blockResult.failed_transactions);
+        auto failedTransferDomainTxs = GetFailedTransferDomainTxs(failedTransactions);
+
+        while (!failedTransferDomainTxs.empty()) {
+            RemoveFromBlock(failedTransferDomainTxs, true);
+
+            // Remove TX from queue
+            for (const auto &tx : failedTransferDomainTxs) {
+                if (!nativeTxToEvmAddress.count(tx->GetTx().GetHash())) return nullptr;
+
+                auto& [address, nonce] = nativeTxToEvmAddress.at(tx->GetTx().GetHash());
+
+                CrossBoundaryResult result;
+                evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, address, nonce);
+            }
+
+            res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+            if (!res) { return nullptr; }
+            blockResult = *res;
+
+            failedTransactions = ConvertFailedEVMTxs(blockResult.failed_transactions);
+            failedTransferDomainTxs = GetFailedTransferDomainTxs(failedTransactions);
+        }
 
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
-        // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
-        std::set<uint256> failedTransactions;
-        for (const auto& txRustStr : blockResult.failed_transactions) {
-            auto txStr = std::string(txRustStr.data(), txRustStr.length());
-            failedTransactions.insert(uint256S(txStr));
-        }
-
-        CTxMemPool::setEntries failedTransferDomainTxs;
-
-        // Get All TransferDomainTxs
-        for (const auto& iter : inBlock) {
-            auto tx = iter->GetTx();
-            if (!failedTransactions.count(tx.GetHash()))
-                continue;
-            std::vector<unsigned char> metadata;
-            const auto txType = GuessCustomTxType(tx, metadata, false);
-            if (txType == CustomTxType::TransferDomain) {
-                failedTransferDomainTxs.insert(iter);
-            }
-        }
-
-        RemoveFromBlock(failedTransferDomainTxs, true);
+        auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+        if (!r) { return nullptr; }
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -655,6 +687,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& failedNonces = ctx.pkgCtx.failedNonces;
     auto& replaceByFee = ctx.pkgCtx.replaceByFee;
     auto& totalGas = ctx.pkgCtx.totalGas;
+    auto& nativeTxToEvmAddress = ctx.nativeTxToEvmAddress;
 
     if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
         return false;
@@ -696,7 +729,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                 }
             }
             evmAddressTxsMap.erase(addrKey.address);
-            evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, addrKey.address);
+            evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, addrKey.address, 0);
             // TODO handle missing evmQueueId error
             if (!result.ok) {
                 return false;
@@ -721,6 +754,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto addrNonce = EvmAddressWithNonce{txResultSender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
     evmAddressTxsMap[txResultSender].emplace(txResult.nonce, txIter);
+    nativeTxToEvmAddress[txIter->GetTx().GetHash()] = std::make_pair(txResultSender, txResult.nonce);
     return true;
 }
 
@@ -736,7 +770,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock, std::map<uint256, std::pair<EvmAddressData, uint64_t>> &nativeTxToEvmAddress)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -914,6 +948,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         evmPackageContext,
                         checkedDfTxHashSet,
                         failedTxSet,
+                        nativeTxToEvmAddress
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
                     if (res) {
