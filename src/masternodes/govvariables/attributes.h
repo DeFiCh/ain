@@ -306,25 +306,7 @@ struct CTransferDomainStatsLive {
         READWRITE(evmCurrent);
     }
 
-    UniValue ToUniValue() const;
-
     static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
-};
-
-struct CEVMInitialState
-{
-    CTransferDomainStatsLive transferDomainState;
-    std::map<CScript, CStatsTokenBalances> evmBalances;
-    CStatsTokenBalances dst20EvmTotalSupply;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(transferDomainState);
-        READWRITE(evmBalances);
-        READWRITE(dst20EvmTotalSupply);
-    }
 };
 
 struct CConsortiumMember {

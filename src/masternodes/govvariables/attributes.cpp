@@ -25,19 +25,6 @@ enum class EVMAttributesTypes : uint32_t {
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
 
-UniValue CTransferDomainStatsLive::ToUniValue() const {
-    UniValue obj(UniValue::VOBJ);
-    obj.pushKV("dvmIn", AmountsToJSON(dvmIn.balances));
-    obj.pushKV("dvmOut", AmountsToJSON(dvmOut.balances));
-    obj.pushKV("dvmCurrent", AmountsToJSON(dvmCurrent.balances));
-    obj.pushKV("evmIn", AmountsToJSON(evmIn.balances));
-    obj.pushKV("evmOut", AmountsToJSON(evmOut.balances));
-    obj.pushKV("evmOut", AmountsToJSON(evmCurrent.balances));
-    obj.pushKV("dvmEvm", AmountsToJSON(dvmEvmTotal.balances));
-    obj.pushKV("evmDvm", AmountsToJSON(evmDvmTotal.balances));
-    return obj;
-}
-
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
     s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());

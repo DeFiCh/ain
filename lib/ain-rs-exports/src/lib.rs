@@ -82,7 +82,6 @@ pub mod ffi {
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
         pub block_number: u64,
-        pub state_root: String,
     }
 
     #[derive(Default)]
@@ -100,12 +99,6 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: &str) -> u64;
-        fn evm_try_get_balance_at_state_root(
-            result: &mut CrossBoundaryResult,
-            address: &str,
-            state_root: &str,
-        ) -> u64;
-
         fn evm_unsafe_try_create_queue(result: &mut CrossBoundaryResult) -> u64;
         fn evm_unsafe_try_remove_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
@@ -216,12 +209,6 @@ pub mod ffi {
         fn evm_unsafe_try_get_target_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-        ) -> u64;
-
-        fn evm_try_get_dst20_total_supply(
-            result: &mut CrossBoundaryResult,
-            token_id: u64,
-            state_root: &str,
         ) -> u64;
     }
 }
