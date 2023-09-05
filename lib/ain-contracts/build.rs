@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     ];
 
     for (sol_project_name, contract_name) in contracts {
-        let solc = Solc::new(solc_path_str.clone());
+        let solc = Solc::new(&solc_path_str);
 
         let sol_project_root = PathBuf::from(sol_project_name);
         if !sol_project_root.exists() {
@@ -35,25 +35,26 @@ fn main() -> Result<()> {
             .set_auto_detect(true)
             .no_artifacts()
             .build()?;
-        let output = project.compile().unwrap();
-        let artifacts = output.into_artifacts();
 
+        let output = project.compile()?;
+        let artifacts = output.into_artifacts();
         let sol_project_outdir = out_dir.join(sol_project_name);
 
         for (id, artifact) in artifacts {
-            if id.name == contract_name {
-                let abi = artifact.abi.context("ABI not found")?;
-                let bytecode = artifact.deployed_bytecode.context("Bytecode not found")?;
-                let bytecode_out_path = sol_project_outdir.join("bytecode.json");
-                let abi_out_path = sol_project_outdir.join("abi.json");
-
-                fs::create_dir_all(sol_project_outdir.clone())?;
-                fs::write(
-                    bytecode_out_path,
-                    serde_json::to_string(&bytecode)?.as_bytes(),
-                )?;
-                fs::write(abi_out_path, serde_json::to_string(&abi)?.as_bytes())?;
+            if id.name != contract_name {
+                continue;
             }
+            let abi = artifact.abi.context("ABI not found")?;
+            let bytecode = artifact.deployed_bytecode.context("Bytecode not found")?;
+            let bytecode_out_path = sol_project_outdir.join("bytecode.json");
+            let abi_out_path = sol_project_outdir.join("abi.json");
+
+            fs::create_dir_all(&sol_project_outdir)?;
+            fs::write(
+                bytecode_out_path,
+                serde_json::to_string(&bytecode)?.as_bytes(),
+            )?;
+            fs::write(abi_out_path, serde_json::to_string(&abi)?.as_bytes())?;
         }
 
         project.rerun_if_sources_changed();
