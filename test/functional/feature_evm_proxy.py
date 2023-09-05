@@ -134,7 +134,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(proxy_contract.functions.randomVar().call(), 10)
         return proxy_contract
 
-    def should_call_function_in_implementation_contract(
+    def should_delegatecall_function_in_implementation_contract(
         self, proxy_contract: web3Contract
     ):
         node = self.nodes[0]
@@ -171,6 +171,51 @@ class EVMTest(DefiTestFramework):
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 0)
 
+    def fail_delegatecall_to_non_existing_function_in_implementation(
+        self, proxy_contract: web3Contract
+    ):
+        node = self.nodes[0]
+        transaction = {
+            "to": proxy_contract.address,
+            # signature of function randomFunction()
+            "data": "0xf6376d45",
+            "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+            "gas": 1_000_000,
+            "chainId": node.w3.eth.chain_id,
+            "maxFeePerGas": 10_000_000_000,
+            "maxPriorityFeePerGas": 1_500_000_000,
+        }
+        signed = node.w3.eth.account.sign_transaction(
+            transaction, self.evm_key_pair.privkey
+        )
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(receipt["status"], 0)
+
+    def fail_send_eth_when_delegatecall_to_non_payable_function(
+        self, proxy_contract: web3Contract
+    ):
+        node = self.nodes[0]
+        transaction = {
+            "to": proxy_contract.address,
+            # setRandomVar(19)
+            "data": "0x9b6e6b170000000000000000000000000000000000000000000000000000000000000013",
+            "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+            "value": node.w3.to_wei(1, "ether"),
+            "gas": 1_000_000,
+            "chainId": node.w3.eth.chain_id,
+            "maxFeePerGas": 10_000_000_000,
+            "maxPriorityFeePerGas": 1_500_000_000,
+        }
+        signed = node.w3.eth.account.sign_transaction(
+            transaction, self.evm_key_pair.privkey
+        )
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(receipt["status"], 0)
+
     def should_deploy_new_implementation_smart_contract(self) -> web3Contract:
         node = self.nodes[0]
         new_implementation_abi, bytecode = EVMContract.from_file(
@@ -194,6 +239,50 @@ class EVMTest(DefiTestFramework):
             address=receipt["contractAddress"], abi=new_implementation_abi
         )
         return new_implementation_contract
+
+    def fail_unauthorized_upgrade(
+        self, proxy_contract: web3Contract, new_implementation_contract: web3Contract
+    ):
+        node = self.nodes[0]
+        second_evm_key_pair = EvmKeyPair.from_node(node)
+
+        transaction = {
+            "to": second_evm_key_pair.address,
+            "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+            "value": node.w3.to_wei(1, "ether"),
+            "chainId": node.w3.eth.chain_id,
+            "maxFeePerGas": 10_000_000_000,
+            "maxPriorityFeePerGas": 1_500_000_000,
+            "gas": 1_000_000,
+        }
+
+        signed = node.w3.eth.account.sign_transaction(
+            transaction, self.evm_key_pair.privkey
+        )
+        node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        node.generate(1)
+
+        assert_equal(
+            node.w3.eth.get_balance(second_evm_key_pair.address),
+            node.w3.to_wei(1, "ether"),
+        )
+
+        # Upgrade the smart contract but in an unauthorized way
+        tx = proxy_contract.functions.upgradeTo(
+            new_implementation_contract.address,
+            new_implementation_contract.encodeABI("reinitialize", [1000]),
+        ).build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(second_evm_key_pair.address),
+                "gas": 1_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, second_evm_key_pair.privkey)
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(receipt["status"], 0)
 
     def should_upgrade_and_interact_with_smart_contract(
         self, proxy_contract: web3Contract, new_implementation_contract: web3Contract
@@ -264,13 +353,21 @@ class EVMTest(DefiTestFramework):
             implementation_contract
         )
 
-        self.should_call_function_in_implementation_contract(proxy_contract)
+        self.should_delegatecall_function_in_implementation_contract(proxy_contract)
 
         self.fail_send_money_to_smart_contract(proxy_contract)
+
+        self.fail_delegatecall_to_non_existing_function_in_implementation(
+            proxy_contract
+        )
+
+        self.fail_send_eth_when_delegatecall_to_non_payable_function(proxy_contract)
 
         new_implementation_contract = (
             self.should_deploy_new_implementation_smart_contract()
         )
+
+        self.fail_unauthorized_upgrade(proxy_contract, new_implementation_contract)
 
         self.should_upgrade_and_interact_with_smart_contract(
             proxy_contract, new_implementation_contract
