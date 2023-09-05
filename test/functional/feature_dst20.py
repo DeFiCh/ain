@@ -553,6 +553,11 @@ class DST20(DefiTestFramework):
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(beforeAmount, afterAmount)
 
+        assert_equal(
+            len(self.node.getrawmempool()), 1
+        )  # failed tx should be in mempool
+        self.node.clearmempool()
+
     def test_invalid_token(self):
         # DVM to EVM
         assert_raises_rpc_error(
