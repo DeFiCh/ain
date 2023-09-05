@@ -584,23 +584,11 @@ impl EVMCoreService {
             "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
             block_number, state_root
         );
-        self.get_backend(state_root)
-    }
-
-    pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
-        debug!("[get_backend] State_root : {:#x}", state_root);
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             Vicinity::default(),
         )
-    }
-
-    pub fn get_balance_at_state_root(&self, address: H160, state_root: H256) -> Result<U256> {
-        let balance = self.get_backend(state_root)?.get_balance(&address);
-
-        debug!("Account {:x?} balance {:x?}", address, balance);
-        Ok(balance)
     }
 }

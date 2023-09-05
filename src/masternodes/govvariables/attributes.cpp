@@ -25,19 +25,6 @@ enum class EVMAttributesTypes : uint32_t {
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
 
-UniValue CTransferDomainStatsLive::ToUniValue() const {
-    UniValue obj(UniValue::VOBJ);
-    obj.pushKV("dvmIn", AmountsToJSON(dvmIn.balances));
-    obj.pushKV("dvmOut", AmountsToJSON(dvmOut.balances));
-    obj.pushKV("dvmCurrent", AmountsToJSON(dvmCurrent.balances));
-    obj.pushKV("evmIn", AmountsToJSON(evmIn.balances));
-    obj.pushKV("evmOut", AmountsToJSON(evmOut.balances));
-    obj.pushKV("evmOut", AmountsToJSON(evmCurrent.balances));
-    obj.pushKV("dvmEvm", AmountsToJSON(dvmEvmTotal.balances));
-    obj.pushKV("evmDvm", AmountsToJSON(evmDvmTotal.balances));
-    return obj;
-}
-
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
     s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
@@ -919,6 +906,37 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
     }
     attributes->SetValue(liveKey, storedBalances);
     mnview.SetVariable(*attributes);
+}
+
+bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
+}
+
+Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
+    // Retrieve any stored GovVariables at startHeight
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
+
+    // Remove any pre-existing entry
+    for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+        if ((*it)->GetName() == obj.govVar->GetName()) {
+            it = storedGovVars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Add GovVariable to set for storage
+    storedGovVars.insert(obj.govVar);
+
+    // Store GovVariable set by height
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string &key,
@@ -2282,7 +2300,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     lock.startHeight = startHeight;
                     lock.govVar      = govVar;
 
-                    if (auto res = storeGovVars(lock, mnview); !res) {
+                    if (auto res = StoreGovVars(lock, mnview); !res) {
                         return res;
                     }
                 } else {
