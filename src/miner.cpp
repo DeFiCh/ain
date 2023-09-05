@@ -315,7 +315,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                 if (txType == CustomTxType::TransferDomain) {
                     failedTransferDomainTxs.insert(iter);
                     if (LogAcceptCategory(BCLog::STAKING)) {
-                        LogPrintf("Failed transactions %s\n", tx.GetHash().ToString());
+                        LogPrintf("Failed TransferDomain transactions %s\n", tx.GetHash().ToString());
+                    }
+                } else {
+                    if (LogAcceptCategory(BCLog::STAKING)) {
+                        LogPrintf("Failed EVM transactions %s\n", tx.GetHash().ToString());
                     }
                 }
             }
