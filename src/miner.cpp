@@ -336,10 +336,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!r) { return nullptr; }
-
-        if (LogAcceptCategory(BCLog::STAKING)) {
-            LogPrintf("CreateNewBlock: new block: %s\n", blockToJSON(*pblock, pindexPrev, pindexPrev, true, 4).write(2));
-        }
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -487,6 +483,10 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         // includes coinbase account changes
         ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
         pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
+    }
+
+    if (LogAcceptCategory(BCLog::STAKING)) {
+        LogPrintf("CreateNewBlock: new block: %s\n", blockToJSON(*pblock, pindexPrev, pindexPrev, true, 4).write(2));
     }
 
     LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
