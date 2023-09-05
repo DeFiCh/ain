@@ -264,7 +264,6 @@ impl EVMCoreService {
             return Err(format_err!("value more than money range").into());
         }
 
-
         // Validate tx gas limit with intrinsic gas
         check_tx_intrinsic_gas(&signed_tx)?;
 
