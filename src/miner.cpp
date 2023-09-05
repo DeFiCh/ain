@@ -1154,8 +1154,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     if (pubKey.IsCompressed()) {
         pubKey.Decompress();
     }
-    // TODO: Use GetHex when eth key is fixed to be stored in LE
-    const auto evmBeneficiary = HexStr(pubKey.GetEthID());
+    const auto evmBeneficiary = pubKey.GetEthID().GetHex();
     auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
     if (!pblocktemplate) {
         LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
