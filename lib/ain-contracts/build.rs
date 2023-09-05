@@ -51,14 +51,10 @@ fn main() -> Result<()> {
                 .deployed_bytecode
                 .context("Deployed bytecode not found")?;
 
-            let abi_bytes = serde_json::to_string(&abi)?;
-            let bytecode_bytes = serde_json::to_string(&bytecode)?;
-            let deployed_bytecode_bytes = serde_json::to_string(&deployed_bytecode)?;
-
             let items = [
-                ("abi.json", abi_bytes),
-                ("bytecode.json", bytecode_bytes),
-                ("deployed_bytecode.json", deployed_bytecode_bytes),
+                ("abi.json", serde_json::to_string(&abi)?),
+                ("bytecode.json", serde_json::to_string(&bytecode)?),
+                ("deployed_bytecode.json", serde_json::to_string(&deployed_bytecode)?),
             ];
 
             fs::create_dir_all(&sol_project_outdir)?;
