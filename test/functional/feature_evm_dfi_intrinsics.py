@@ -46,12 +46,19 @@ class DFIIntrinsicsTest(DefiTestFramework):
         node.generate(1)
 
         # check counter contract
-        # Temp. workaround
-        abi = open(
-            f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dfi_intrinsics/output/abi.json",
-            "r",
-            encoding="utf8",
-        ).read()
+        if os.getenv("BUILD_DIR"):
+            abi = open(
+                f"{os.getenv('BUILD_DIR')}/ain_contracts/dfi_intrinsics/abi.json",
+                "r",
+                encoding="utf8",
+            ).read()
+        else:
+            abi = open(
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_intrinsics/abi.json",
+                "r",
+                encoding="utf8",
+            ).read()
+
         counter_contract = node.w3.eth.contract(
             address="0x0000000000000000000000000000000000000301", abi=abi
         )

@@ -787,27 +787,48 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
-        # Temp. workaround
-        self.abi = open(
-            f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/abi.json",
-            "r",
-            encoding="utf8",
-        ).read()
-        self.reserved_bytecode = json.loads(
-            open(
-                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/system_reserved/output/bytecode.json",
+        if os.getenv("BUILD_DIR"):
+            build_dir = os.getenv("BUILD_DIR")
+            self.abi = open(
+                f"{build_dir}/ain_contracts/dst20/abi.json",
                 "r",
                 encoding="utf8",
             ).read()
-        )["object"]
-
-        self.bytecode = json.loads(
-            open(
-                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dst20/output/bytecode.json",
+            self.bytecode = json.loads(
+                open(
+                    f"{build_dir}/ain_contracts/dst20/bytecode.json",
+                    "r",
+                    encoding="utf8",
+                ).read()
+            )["object"]
+            self.reserved_bytecode = json.loads(
+                open(
+                    f"{build_dir}/ain_contracts/system_reserved/bytecode.json",
+                    "r",
+                    encoding="utf8",
+                ).read()
+            )["object"]
+        else:
+            # fall back to using relative path
+            self.abi = open(
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/abi.json",
                 "r",
                 encoding="utf8",
             ).read()
-        )["object"]
+            self.bytecode = json.loads(
+                open(
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/bytecode.json",
+                    "r",
+                    encoding="utf8",
+                ).read()
+            )["object"]
+            self.reserved_bytecode = json.loads(
+                open(
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/system_reserved/bytecode.json",
+                    "r",
+                    encoding="utf8",
+                ).read()
+            )["object"]
 
         # Generate chain
         self.node.generate(150)

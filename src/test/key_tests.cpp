@@ -4,6 +4,7 @@
 
 #include <key.h>
 
+#include <bech32.h>
 #include <key_io.h>
 #include <uint256.h>
 #include <util/system.h>
@@ -19,17 +20,31 @@ static const std::string strSecret1 = "5HxWvvfubhXpYYpS3tJkw6fq9jE9j18THftkZjHHf
 static const std::string strSecret2 = "5KC4ejrDjv152FGwP386VD1i2NYc5KkfSMyv1nGy1VGDxGHqVY3";
 static const std::string strSecret1C = "Kwr371tjA9u2rFSMZjTNun2PXXP3WPZu2afRHTcta6KxEUdm1vEw";
 static const std::string strSecret2C = "L3Hq7a8FEQwJkW1M2GNKDW28546Vp5miewcCzSqUD9kCAXrJdS3g";
-static const std::string addr1 = "8eLhZJqPrKuFmBonk7tK3Tma6oyRvJM4Tz";
-static const std::string addr2 = "8VApoBSS8rRKiRpSchh5JjYDNLrvyXEYgJ";
-static const std::string addr1C = "8ctAamF4jdX6NzoTk5So1qXUBc4CxovyK9";
-static const std::string addr2C = "8SWakFLXnSsHi5g5mxtSzbsr1T68JmXMdR";
+
+// public key hash addresses
+static const std::string pkh_addr1 = "8eLhZJqPrKuFmBonk7tK3Tma6oyRvJM4Tz";
+static const std::string pkh_addr2 = "8VApoBSS8rRKiRpSchh5JjYDNLrvyXEYgJ";
+static const std::string pkh_addr1C = "8ctAamF4jdX6NzoTk5So1qXUBc4CxovyK9";
+static const std::string pkh_addr2C = "8SWakFLXnSsHi5g5mxtSzbsr1T68JmXMdR";
+
+// witness public key hash addresses
+static const std::string wpkh_addr1 = "df1qluvhk989q245ruau3n95339t4j02kddu2vqwve";
+static const std::string wpkh_addr2 = "df1qn2prk6v0w78vay9sjnwr7y4gra0rcv69f5qxqz";
+static const std::string wpkh_addr1C = "df1qauw2aajwu832l7rhkl5wjufacfdj9z0jquwv3z";
+static const std::string wpkh_addr2C = "df1q04t8rax7tc7s2jzeuphjpyvuc0vgygsz3drcsg";
+
+// erc55 addresses
+static const std::string erc55_addr1 = "0x482e975Ee029d6d268CC1dCce529748a06A46AAc";
+static const std::string erc55_addr2 = "0x43162a466BD5891dfBf7c438b0c35F0144690D26";
+static const std::string erc55_addr1C = "0x2D586e4Dec0798F728b626a4f134a3728772a8E5";
+static const std::string erc55_addr2C = "0x83bB997178Cd7F6876620096EFADB18a712eDdca";
 
 static const std::string strAddressBad = "1HV9Lc3sNHZxwj4Zk6fB38tEmBryq2cBiF";
 
 
 BOOST_FIXTURE_TEST_SUITE(key_tests, BasicTestingSetup)
 
-BOOST_AUTO_TEST_CASE(key_test1)
+BOOST_AUTO_TEST_CASE(key_test_1)
 {
     CKey key1  = DecodeSecret(strSecret1);
     BOOST_CHECK(key1.IsValid() && !key1.IsCompressed());
@@ -67,10 +82,10 @@ BOOST_AUTO_TEST_CASE(key_test1)
     BOOST_CHECK(!key2C.VerifyPubKey(pubkey2));
     BOOST_CHECK(key2C.VerifyPubKey(pubkey2C));
 
-    BOOST_CHECK(DecodeDestination(addr1)  == CTxDestination(PKHash(pubkey1)));
-    BOOST_CHECK(DecodeDestination(addr2)  == CTxDestination(PKHash(pubkey2)));
-    BOOST_CHECK(DecodeDestination(addr1C) == CTxDestination(PKHash(pubkey1C)));
-    BOOST_CHECK(DecodeDestination(addr2C) == CTxDestination(PKHash(pubkey2C)));
+    BOOST_CHECK(DecodeDestination(pkh_addr1)  == CTxDestination(PKHash(pubkey1)));
+    BOOST_CHECK(DecodeDestination(pkh_addr2)  == CTxDestination(PKHash(pubkey2)));
+    BOOST_CHECK(DecodeDestination(pkh_addr1C) == CTxDestination(PKHash(pubkey1C)));
+    BOOST_CHECK(DecodeDestination(pkh_addr2C) == CTxDestination(PKHash(pubkey2C)));
 
     for (int n=0; n<16; n++)
     {
@@ -217,6 +232,250 @@ BOOST_AUTO_TEST_CASE(key_key_negation)
     key.Sign(hash, vch_sig_cmp);
     BOOST_CHECK(vch_sig_cmp == vch_sig);
     BOOST_CHECK(key.GetPubKey().data()[0] == 0x03);
+}
+
+BOOST_AUTO_TEST_CASE(pkh_key_test)
+{
+    CKey key1  = DecodeSecret(strSecret1);
+    BOOST_CHECK(key1.IsValid() && !key1.IsCompressed());
+    CKey key2  = DecodeSecret(strSecret2);
+    BOOST_CHECK(key2.IsValid() && !key2.IsCompressed());
+    CKey key1C = DecodeSecret(strSecret1C);
+    BOOST_CHECK(key1C.IsValid() && key1C.IsCompressed());
+    CKey key2C = DecodeSecret(strSecret2C);
+    BOOST_CHECK(key2C.IsValid() && key2C.IsCompressed());
+    CKey bad_key = DecodeSecret(strAddressBad);
+    BOOST_CHECK(!bad_key.IsValid());
+
+    CPubKey pubkey1  = key1. GetPubKey();
+    CPubKey pubkey2  = key2. GetPubKey();
+    CPubKey pubkey1C = key1C.GetPubKey();
+    CPubKey pubkey2C = key2C.GetPubKey();
+
+    BOOST_CHECK(key1.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey1));
+    BOOST_CHECK(key1C.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(key2.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey2));
+    BOOST_CHECK(key2C.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(DecodeDestination(pkh_addr1)  == CTxDestination(PKHash(pubkey1)));
+    BOOST_CHECK(DecodeDestination(pkh_addr2)  == CTxDestination(PKHash(pubkey2)));
+    BOOST_CHECK(DecodeDestination(pkh_addr1C) == CTxDestination(PKHash(pubkey1C)));
+    BOOST_CHECK(DecodeDestination(pkh_addr2C) == CTxDestination(PKHash(pubkey2C)));
+
+    BOOST_CHECK(pkh_addr1 == EncodeDestination(CTxDestination(PKHash(pubkey1))));
+    BOOST_CHECK(pkh_addr2 == EncodeDestination(CTxDestination(PKHash(pubkey2))));
+    BOOST_CHECK(pkh_addr1C == EncodeDestination(CTxDestination(PKHash(pubkey1C))));
+    BOOST_CHECK(pkh_addr2C == EncodeDestination(CTxDestination(PKHash(pubkey2C))));
+
+    // Test script to destination conversions
+    CScript pkh_addr1_script = GetScriptForDestination(DecodeDestination(pkh_addr1));
+    CScript pkh_addr2_script = GetScriptForDestination(DecodeDestination(pkh_addr2));
+    CScript pkh_addr1C_script = GetScriptForDestination(DecodeDestination(pkh_addr1C));
+    CScript pkh_addr2C_script = GetScriptForDestination(DecodeDestination(pkh_addr2C));
+
+    CTxDestination pkh_addr1_script_dest;
+    CTxDestination pkh_addr2_script_dest;
+    CTxDestination pkh_addr1C_script_dest;
+    CTxDestination pkh_addr2C_script_dest;
+    ExtractDestination(pkh_addr1_script, pkh_addr1_script_dest);
+    ExtractDestination(pkh_addr2_script, pkh_addr2_script_dest);
+    ExtractDestination(pkh_addr1C_script, pkh_addr1C_script_dest);
+    ExtractDestination(pkh_addr2C_script, pkh_addr2C_script_dest);
+
+    BOOST_CHECK(pkh_addr1 == EncodeDestination(pkh_addr1_script_dest));
+    BOOST_CHECK(pkh_addr2 == EncodeDestination(pkh_addr2_script_dest));
+    BOOST_CHECK(pkh_addr1C == EncodeDestination(pkh_addr1C_script_dest));
+    BOOST_CHECK(pkh_addr2C == EncodeDestination(pkh_addr2C_script_dest));
+}
+
+BOOST_AUTO_TEST_CASE(serialised_address_from_block_test)
+{
+    // Addresses
+    auto bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8";
+    auto eth = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89";
+
+    // CKeyIDs taken from serialised block
+    auto bech32Hex = "5f4fbcf30273f770702297e8e0fc55f1bb213db3";
+    auto ethHex = "897e03dda17125f022a853c1a4d84021f44a8a9b";
+
+    // Encode Bech32
+    auto bech32Vec = ParseHex(bech32Hex);
+    std::vector<unsigned char> data = {0};
+    data.reserve(33);
+    ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bech32Vec.begin(), bech32Vec.end());
+    auto bech32Encoded = bech32::Encode("bcrt", data);
+
+    // Encode Eth
+    auto ethVec = ParseHex(ethHex);
+    auto ethID = HexStr(ethVec.rbegin(), ethVec.rend());
+    std::vector<uint8_t> ethOutput, ethInput(ethID.begin(), ethID.end());
+    sha3_256_safe(ethInput, ethOutput);
+    auto hashedAddress = HexStr(ethOutput);
+    std::string ethEncoded = "0x";
+    for (size_t i{}; i < ethID.size(); ++i) {
+        if (std::isdigit(ethID[i]) || hashedAddress[i] < '8') {
+            ethEncoded += ethID[i];
+        } else {
+            ethEncoded += std::toupper(ethID[i]);
+        }
+    }
+
+    // Check results match
+    BOOST_CHECK_EQUAL(bech32, bech32Encoded);
+    BOOST_CHECK_EQUAL(eth, ethEncoded);
+}
+
+BOOST_AUTO_TEST_CASE(wpkh_key_test)
+{
+    CKey key1  = DecodeSecret(strSecret1);
+    BOOST_CHECK(key1.IsValid() && !key1.IsCompressed());
+    CKey key2  = DecodeSecret(strSecret2);
+    BOOST_CHECK(key2.IsValid() && !key2.IsCompressed());
+    CKey key1C = DecodeSecret(strSecret1C);
+    BOOST_CHECK(key1C.IsValid() && key1C.IsCompressed());
+    CKey key2C = DecodeSecret(strSecret2C);
+    BOOST_CHECK(key2C.IsValid() && key2C.IsCompressed());
+    CKey bad_key = DecodeSecret(strAddressBad);
+    BOOST_CHECK(!bad_key.IsValid());
+
+    CPubKey pubkey1  = key1. GetPubKey();
+    CPubKey pubkey2  = key2. GetPubKey();
+    CPubKey pubkey1C = key1C.GetPubKey();
+    CPubKey pubkey2C = key2C.GetPubKey();
+
+    BOOST_CHECK(key1.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey1));
+    BOOST_CHECK(key1C.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(key2.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey2));
+    BOOST_CHECK(key2C.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(DecodeDestination(wpkh_addr1)  == CTxDestination(WitnessV0KeyHash(pubkey1)));
+    BOOST_CHECK(DecodeDestination(wpkh_addr2)  == CTxDestination(WitnessV0KeyHash(pubkey2)));
+    BOOST_CHECK(DecodeDestination(wpkh_addr1C) == CTxDestination(WitnessV0KeyHash(pubkey1C)));
+    BOOST_CHECK(DecodeDestination(wpkh_addr2C) == CTxDestination(WitnessV0KeyHash(pubkey2C)));
+
+    BOOST_CHECK(wpkh_addr1 == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey1))));
+    BOOST_CHECK(wpkh_addr2 == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey2))));
+    BOOST_CHECK(wpkh_addr1C == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey1C))));
+    BOOST_CHECK(wpkh_addr2C == EncodeDestination(CTxDestination(WitnessV0KeyHash(pubkey2C))));
+
+    // Test script to destination conversions
+    CScript wpkh_addr1_script = GetScriptForDestination(DecodeDestination(wpkh_addr1));
+    CScript wpkh_addr2_script = GetScriptForDestination(DecodeDestination(wpkh_addr2));
+    CScript wpkh_addr1C_script = GetScriptForDestination(DecodeDestination(wpkh_addr1C));
+    CScript wpkh_addr2C_script = GetScriptForDestination(DecodeDestination(wpkh_addr2C));
+
+    CTxDestination wpkh_addr1_script_dest;
+    CTxDestination wpkh_addr2_script_dest;
+    CTxDestination wpkh_addr1C_script_dest;
+    CTxDestination wpkh_addr2C_script_dest;
+    ExtractDestination(wpkh_addr1_script, wpkh_addr1_script_dest);
+    ExtractDestination(wpkh_addr2_script, wpkh_addr2_script_dest);
+    ExtractDestination(wpkh_addr1C_script, wpkh_addr1C_script_dest);
+    ExtractDestination(wpkh_addr2C_script, wpkh_addr2C_script_dest);
+
+    BOOST_CHECK(wpkh_addr1 == EncodeDestination(wpkh_addr1_script_dest));
+    BOOST_CHECK(wpkh_addr2 == EncodeDestination(wpkh_addr2_script_dest));
+    BOOST_CHECK(wpkh_addr1C == EncodeDestination(wpkh_addr1C_script_dest));
+    BOOST_CHECK(wpkh_addr2C == EncodeDestination(wpkh_addr2C_script_dest));
+}
+
+BOOST_AUTO_TEST_CASE(erc55_key_test)
+{
+    CKey key1  = DecodeSecret(strSecret1);
+    BOOST_CHECK(key1.IsValid() && !key1.IsCompressed());
+    CKey key2  = DecodeSecret(strSecret2);
+    BOOST_CHECK(key2.IsValid() && !key2.IsCompressed());
+    CKey key1C = DecodeSecret(strSecret1C);
+    BOOST_CHECK(key1C.IsValid() && key1C.IsCompressed());
+    CKey key2C = DecodeSecret(strSecret2C);
+    BOOST_CHECK(key2C.IsValid() && key2C.IsCompressed());
+    CKey bad_key = DecodeSecret(strAddressBad);
+    BOOST_CHECK(!bad_key.IsValid());
+
+    CPubKey pubkey1  = key1. GetPubKey();
+    CPubKey pubkey2  = key2. GetPubKey();
+    CPubKey pubkey1C = key1C.GetPubKey();
+    CPubKey pubkey2C = key2C.GetPubKey();
+
+    BOOST_CHECK(key1.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key1.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey1));
+    BOOST_CHECK(key1C.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key1C.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(key2.VerifyPubKey(pubkey2));
+    BOOST_CHECK(!key2.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey1));
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey1C));
+    BOOST_CHECK(!key2C.VerifyPubKey(pubkey2));
+    BOOST_CHECK(key2C.VerifyPubKey(pubkey2C));
+
+    BOOST_CHECK(DecodeDestination(erc55_addr1)  == CTxDestination(WitnessV16EthHash(pubkey1)));
+    BOOST_CHECK(DecodeDestination(erc55_addr2)  == CTxDestination(WitnessV16EthHash(pubkey2)));
+    BOOST_CHECK(DecodeDestination(erc55_addr1C) == CTxDestination(WitnessV16EthHash(pubkey1C)));
+    BOOST_CHECK(DecodeDestination(erc55_addr2C) == CTxDestination(WitnessV16EthHash(pubkey2C)));
+
+    BOOST_CHECK(erc55_addr1 == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey1))));
+    BOOST_CHECK(erc55_addr2 == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey2))));
+    BOOST_CHECK(erc55_addr1C == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey1C))));
+    BOOST_CHECK(erc55_addr2C == EncodeDestination(CTxDestination(WitnessV16EthHash(pubkey2C))));
+
+    // Test script to destination conversions
+    CScript erc55_addr1_script = GetScriptForDestination(DecodeDestination(erc55_addr1));
+    CScript erc55_addr2_script = GetScriptForDestination(DecodeDestination(erc55_addr2));
+    CScript erc55_addr1C_script = GetScriptForDestination(DecodeDestination(erc55_addr1C));
+    CScript erc55_addr2C_script = GetScriptForDestination(DecodeDestination(erc55_addr2C));
+
+    CTxDestination erc55_addr1_script_dest;
+    CTxDestination erc55_addr2_script_dest;
+    CTxDestination erc55_addr1C_script_dest;
+    CTxDestination erc55_addr2C_script_dest;
+    ExtractDestination(erc55_addr1_script, erc55_addr1_script_dest);
+    ExtractDestination(erc55_addr2_script, erc55_addr2_script_dest);
+    ExtractDestination(erc55_addr1C_script, erc55_addr1C_script_dest);
+    ExtractDestination(erc55_addr2C_script, erc55_addr2C_script_dest);
+
+    BOOST_CHECK(erc55_addr1 == EncodeDestination(erc55_addr1_script_dest));
+    BOOST_CHECK(erc55_addr2 == EncodeDestination(erc55_addr2_script_dest));
+    BOOST_CHECK(erc55_addr1C == EncodeDestination(erc55_addr1C_script_dest));
+    BOOST_CHECK(erc55_addr2C == EncodeDestination(erc55_addr2C_script_dest));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
