@@ -13,7 +13,7 @@ use ain_evm::{
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use log::debug;
-use primitive_types::{H160, U256};
+use primitive_types::{H160, H256, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::ffi;
@@ -442,6 +442,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
                 signed_tx,
                 prepay_fee,
                 used_gas,
+                state_root,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -459,6 +460,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
                         gas_used: used_gas,
+                        state_root: state_root.to_fixed_bytes(),
                     },
                 )
             }
@@ -475,8 +477,8 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
 /// # Arguments
 ///
 /// * `result` - Result object
-/// * `tx` - The raw transaction string.
 /// * `queue_id` - The EVM queue ID
+/// * `tx` - The raw transaction string.
 ///
 /// # Errors
 ///
@@ -492,12 +494,12 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce, sender address, transaction fees and gas used
-/// if valid. Logs and set the error reason to result object otherwise.
+/// Returns the transaction nonce, sender address, transaction fees, gas used and
+/// updated state rooot if valid. Logs and set the error reason to result object otherwise.
 pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
-    tx: &str,
     queue_id: u64,
+    tx: &str,
 ) -> ffi::ValidateTxCompletion {
     match SERVICES.evm.verify_tx_fees(tx) {
         Ok(_) => (),
@@ -512,6 +514,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                 signed_tx,
                 prepay_fee,
                 used_gas,
+                state_root,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -529,6 +532,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
                         gas_used: used_gas,
+                        state_root: state_root.to_fixed_bytes(),
                     },
                 )
             }
@@ -585,6 +589,7 @@ pub fn evm_unsafe_try_push_tx_in_q(
     raw_tx: &str,
     native_hash: &str,
     gas_used: u64,
+    state_root: [u8; 32],
 ) {
     let native_hash = native_hash.to_string();
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
@@ -597,6 +602,7 @@ pub fn evm_unsafe_try_push_tx_in_q(
                     signed_tx.into(),
                     native_hash,
                     U256::from(gas_used),
+                    H256::from(state_root),
                 ) {
                     Ok(_) => cross_boundary_success(result),
                     Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -945,10 +951,13 @@ pub fn evm_try_create_dst20(
     }));
 
     unsafe {
-        match SERVICES
-            .evm
-            .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
-        {
+        match SERVICES.evm.push_tx_in_queue(
+            queue_id,
+            system_tx,
+            native_hash,
+            U256::zero(),
+            H256::default(),
+        ) {
             Ok(_) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
@@ -978,10 +987,13 @@ pub fn evm_try_bridge_dst20(
     }));
 
     unsafe {
-        match SERVICES
-            .evm
-            .push_tx_in_queue(queue_id, system_tx, native_hash, U256::zero())
-        {
+        match SERVICES.evm.push_tx_in_queue(
+            queue_id,
+            system_tx,
+            native_hash,
+            U256::zero(),
+            H256::default(),
+        ) {
             Ok(_) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }

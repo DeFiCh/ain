@@ -430,7 +430,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check that only 19 txs are minted
-        block = self.nodes[0].eth_getBlockByNumber("latest", False)
+        block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(len(block["transactions"]), 19)
 
         # Check first 10 txs should have gas used when true

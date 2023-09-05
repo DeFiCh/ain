@@ -102,6 +102,7 @@ pub mod ffi {
         pub tx_hash: String,
         pub prepay_fee: u64,
         pub gas_used: u64,
+        pub state_root: [u8; 32],
     }
 
     extern "Rust" {
@@ -145,8 +146,8 @@ pub mod ffi {
         ) -> ValidateTxCompletion;
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
-            tx: &str,
             queue_id: u64,
+            tx: &str,
         ) -> ValidateTxCompletion;
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
@@ -154,6 +155,7 @@ pub mod ffi {
             raw_tx: &str,
             native_hash: &str,
             gas_used: u64,
+            state_root: [u8; 32],
         );
         fn evm_unsafe_try_construct_block_in_q(
             result: &mut CrossBoundaryResult,

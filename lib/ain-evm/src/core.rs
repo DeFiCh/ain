@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, U256};
-use log::debug;
+use log::{debug, trace};
 use primitive_types::H256;
 use vsdb_core::vsdb_set_base_dir;
 
@@ -51,6 +51,7 @@ pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
     pub used_gas: u64,
+    pub state_root: H256,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -220,17 +221,28 @@ impl EVMCoreService {
             signed_tx.transaction
         );
 
-        let block_number = self
-            .storage
-            .get_latest_block()?
-            .map(|block| block.header.number)
-            .unwrap_or_default();
-        debug!("[validate_raw_tx] block_number : {:#?}", block_number);
+        let state_root = if queue_id != 0 {
+            match self.tx_queues.get_latest_state_root_in(queue_id)? {
+                Some(state_root) => state_root,
+                None => self
+                    .storage
+                    .get_latest_block()?
+                    .map(|block| block.header.state_root)
+                    .unwrap_or_default(),
+            }
+        } else {
+            self.storage
+                .get_latest_block()?
+                .map(|block| block.header.state_root)
+                .unwrap_or_default()
+        };
+        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+
+        // Has to be mutable to obtain new state root
+        let mut backend = self.get_backend(state_root)?;
 
         let signed_tx: SignedTx = tx.try_into()?;
-        let nonce = self
-            .get_nonce(signed_tx.sender, block_number)
-            .map_err(|e| format_err!("Error getting nonce {e}"))?;
+        let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
@@ -264,9 +276,7 @@ impl EVMCoreService {
             return Err(format_err!("value more than money range").into());
         }
 
-        let balance = self
-            .get_balance(signed_tx.sender, block_number)
-            .map_err(|e| format_err!("Error getting balance {e}"))?;
+        let balance = backend.get_balance(&signed_tx.sender);
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
@@ -289,22 +299,25 @@ impl EVMCoreService {
         }
 
         let use_queue = queue_id != 0;
-        let used_gas = if use_queue {
-            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
-                caller: Some(signed_tx.sender),
-                to: signed_tx.to(),
-                value: signed_tx.value(),
-                data: signed_tx.data(),
-                gas_limit: signed_tx.gas_limit().as_u64(),
-                access_list: signed_tx.access_list(),
-                block_number,
-                gas_price: Some(tx_gas_price),
-                max_fee_per_gas: signed_tx.max_fee_per_gas(),
-                transaction_type: Some(signed_tx.get_tx_type()),
-            })?;
-            used_gas
+        let (used_gas, state_root) = if use_queue {
+            let mut executor = AinExecutor::new(&mut backend);
+
+            let (
+                TxResponse {
+                    exit_reason,
+                    used_gas,
+                    ..
+                },
+                receipt,
+            ) = executor.exec(&signed_tx, prepay_fee);
+
+            let state_root = backend.root();
+            debug!("exit_reason : {:#?}", exit_reason);
+
+            debug!("[validate_raw_tx] new state_root : {:#x}", state_root);
+            (used_gas, state_root)
         } else {
-            u64::default()
+            (u64::default(), H256::default())
         };
 
         // Validate total gas usage in queued txs exceeds block size
@@ -325,6 +338,7 @@ impl EVMCoreService {
             signed_tx,
             prepay_fee,
             used_gas,
+            state_root,
         })
     }
 
@@ -357,7 +371,7 @@ impl EVMCoreService {
             direction: TransferDirection::EvmIn,
         }));
         self.tx_queues
-            .push_in(queue_id, queue_tx, hash, U256::zero())?;
+            .push_in(queue_id, queue_tx, hash, U256::zero(), H256::default())?;
         Ok(())
     }
 
@@ -391,7 +405,7 @@ impl EVMCoreService {
                 direction: TransferDirection::EvmOut,
             }));
             self.tx_queues
-                .push_in(queue_id, queue_tx, hash, U256::zero())?;
+                .push_in(queue_id, queue_tx, hash, U256::zero(), H256::default())?;
             Ok(())
         }
     }
@@ -584,10 +598,21 @@ impl EVMCoreService {
             .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
 
-        debug!(
+        trace!(
             "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
+            block_number,
+            state_root
         );
+        EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity::default(),
+        )
+    }
+
+    pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
+        trace!("[get_backend] state_root : {:#x}", state_root);
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),

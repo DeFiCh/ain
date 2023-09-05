@@ -559,10 +559,11 @@ impl EVMServices {
         tx: QueueTx,
         hash: XHash,
         gas_used: U256,
+        state_root: H256,
     ) -> Result<()> {
         self.core
             .tx_queues
-            .push_in(queue_id, tx.clone(), hash, gas_used)?;
+            .push_in(queue_id, tx.clone(), hash, gas_used, state_root)?;
 
         if let QueueTx::SignedTx(signed_tx) = tx {
             self.filters.add_tx_to_filters(signed_tx.transaction.hash());
@@ -702,6 +703,7 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
             tx,
             tx_hash: Default::default(),
             gas_used: U256::zero(),
+            state_root: H256::default(),
         });
     }
     Ok(txs)

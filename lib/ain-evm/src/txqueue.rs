@@ -5,6 +5,7 @@ use std::{
 
 use ethereum::{Block, TransactionV2};
 use ethereum_types::{H160, U256};
+use primitive_types::H256;
 use rand::Rng;
 
 use crate::core::XHash;
@@ -119,9 +120,12 @@ impl TransactionQueueMap {
         tx: QueueTx,
         hash: XHash,
         gas_used: U256,
+        state_root: H256,
     ) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| queue.queue_tx(tx, hash, gas_used))
-            .and_then(|res| res)
+        self.with_transaction_queue(queue_id, |queue| {
+            queue.queue_tx(tx, hash, gas_used, state_root)
+        })
+        .and_then(|res| res)
     }
 
     /// Removes all transactions in the queue whose sender matches the provided sender address.
@@ -190,6 +194,15 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, |queue| queue.get_target_block())
     }
 
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<Option<H256>> {
+        self.with_transaction_queue(queue_id, |queue| queue.get_latest_state_root())
+    }
+
     /// Apply the closure to the queue associated with the queue ID.
     /// # Errors
     ///
@@ -216,6 +229,7 @@ pub struct QueueTxItem {
     pub tx: QueueTx,
     pub tx_hash: XHash,
     pub gas_used: U256,
+    pub state_root: H256,
 }
 
 #[derive(Clone, Debug)]
@@ -265,7 +279,13 @@ impl TransactionQueue {
         }
     }
 
-    pub fn queue_tx(&self, tx: QueueTx, tx_hash: XHash, gas_used: U256) -> Result<()> {
+    pub fn queue_tx(
+        &self,
+        tx: QueueTx,
+        tx_hash: XHash,
+        gas_used: U256,
+        state_root: H256,
+    ) -> Result<()> {
         let mut data = self.data.lock().unwrap();
         if let QueueTx::SignedTx(signed_tx) = &tx {
             if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
@@ -281,6 +301,7 @@ impl TransactionQueue {
             tx,
             tx_hash,
             gas_used,
+            state_root,
         });
         Ok(())
     }
@@ -323,6 +344,25 @@ impl TransactionQueue {
 
     pub fn get_target_block(&self) -> U256 {
         self.data.lock().unwrap().target_block
+    }
+
+    pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
+        self.data
+            .lock()
+            .unwrap()
+            .transactions
+            .iter()
+            .find(|tx_item| tx_item.tx_hash == hash)
+            .map(|tx_item| tx_item.state_root)
+    }
+
+    pub fn get_latest_state_root(&self) -> Option<H256> {
+        self.data
+            .lock()
+            .unwrap()
+            .transactions
+            .last()
+            .map(|tx_item| tx_item.state_root)
     }
 
     pub fn is_queued(&self, tx: QueueTx) -> bool {
