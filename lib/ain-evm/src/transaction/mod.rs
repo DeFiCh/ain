@@ -4,8 +4,8 @@ use ethereum::{
     AccessList, EnvelopedDecoderError, EnvelopedEncodable, LegacyTransaction, TransactionAction,
     TransactionSignature, TransactionV2,
 };
+use ethereum_types::{H160, H256, U256};
 use libsecp256k1::PublicKey;
-use primitive_types::{H160, H256, U256};
 use rlp::RlpStream;
 use sha3::Digest;
 
@@ -306,8 +306,10 @@ impl SignedTx {
     }
 }
 
-use std::convert::{TryFrom, TryInto};
-use std::fmt;
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt,
+};
 
 #[derive(Debug)]
 pub enum TransactionError {
@@ -358,17 +360,13 @@ impl<T> From<EnvelopedDecoderError<T>> for TransactionError {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-    use std::fs;
-    use std::path::Path;
+    use std::{error::Error, fs, path::Path};
 
     use ethereum::{AccessListItem, EnvelopedEncodable};
-    use ethereum_types::{H160, U64};
-    use primitive_types::{H256, U256};
+    use ethereum_types::{H160, H256, U256, U64};
     use serde::Deserialize;
 
-    use crate::bytes::Bytes;
-    use crate::transaction::SignedTx;
+    use crate::{bytes::Bytes, transaction::SignedTx};
 
     #[test]
     fn test_signed_tx_from_raw_tx() {

@@ -1,23 +1,23 @@
 use ain_contracts::{get_transferdomain_contract, FixedContract};
-use ain_evm::storage::traits::BlockStorage;
-use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
-use ain_evm::txqueue::QueueTx;
 use ain_evm::{
     core::{ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     services::SERVICES,
-    storage::traits::Rollback,
-    storage::traits::TransactionStorage,
-    transaction::{self, SignedTx},
+    storage::traits::{BlockStorage, Rollback, TransactionStorage},
+    transaction::{
+        self,
+        system::{DST20Data, DeployContractData, SystemTx},
+        SignedTx,
+    },
+    txqueue::QueueTx,
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
+use ethereum_types::{H160, U256};
 use log::debug;
-use primitive_types::{H160, U256};
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::ffi;
-use crate::prelude::*;
+use crate::{ffi, prelude::*};
 
 /// Creates and signs a transaction.
 ///
@@ -1013,7 +1013,7 @@ pub fn evm_unsafe_try_get_target_block_in_q(
 mod tests {
     #[test]
     fn test_hash_type_string() {
-        use primitive_types::H160;
+        use ethereum_types::H160;
         let num = 0b11010111_11010111_11010111_11010111_11010111_11010111_11010111_11010111;
         let num_h160 = H160::from_low_u64_be(num);
         let num_h160_string = format!("{:?}", num_h160);
@@ -1022,7 +1022,7 @@ mod tests {
         let num_h160_test: H160 = num_h160_string.parse().unwrap();
         assert_eq!(num_h160_test, num_h160);
 
-        use primitive_types::H256;
+        use ethereum_types::H256;
         let num_h256: H256 = "0x3186715414c5fbd73586662d26b83b66b5754036379d56e896a560a90e409351"
             .parse()
             .unwrap();

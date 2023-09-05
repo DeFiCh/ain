@@ -1,15 +1,19 @@
-use std::cmp::{max, Ordering};
-use std::sync::Arc;
+use std::{
+    cmp::{max, Ordering},
+    sync::Arc,
+};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionAny};
+use ethereum_types::U256;
 use keccak_hash::H256;
 use log::{debug, trace};
-use primitive_types::U256;
 use statrs::statistics::{Data, OrderStatistics};
 
-use crate::storage::{traits::BlockStorage, Storage};
-use crate::Result;
+use crate::{
+    storage::{traits::BlockStorage, Storage},
+    Result,
+};
 
 pub struct BlockService {
     storage: Arc<Storage>,

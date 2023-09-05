@@ -1,6 +1,5 @@
-use ain_evm::bytes::Bytes;
-use ain_evm::log::LogIndex;
-use primitive_types::{H160, H256, U256};
+use ain_evm::{bytes::Bytes, log::LogIndex};
+use ethereum_types::{H160, H256, U256};
 use serde_with::{serde_as, OneOrMany};
 
 use crate::block::BlockNumber;
