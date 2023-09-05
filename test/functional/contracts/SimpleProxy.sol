@@ -121,11 +121,6 @@ contract SimpleERC1967Proxy is Proxy, ERC1967Upgrade {
         _initial_implementation.delegatecall(_initializeBytecode);
     }
 
-    function upgradeTo(address _new_implementation) external {
-        require(msg.sender == _getAddressSlot(_IMPLEMENTATION_SLOT).value);
-        _getAddressSlot(_IMPLEMENTATION_SLOT).value = _new_implementation;
-    }
-
     function _implementation() internal view override returns (address) {
         return _getAddressSlot(_IMPLEMENTATION_SLOT).value;
     }
