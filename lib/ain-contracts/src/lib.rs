@@ -57,14 +57,21 @@ pub fn get_bytecode(input: &str) -> Result<Vec<u8>> {
 pub fn get_counter_bytecode() -> Result<Vec<u8>> {
     get_bytecode(include_str!(concat!(
         env!("OUT_DIR"),
-        "/dfi_intrinsics/bytecode.json"
+        "/dfi_intrinsics/deployed_bytecode.json"
     )))
 }
 
 pub fn get_dst20_bytecode() -> Result<Vec<u8>> {
     get_bytecode(include_str!(concat!(
         env!("OUT_DIR"),
-        "/dst20/bytecode.json"
+        "/dst20/deployed_bytecode.json"
+    )))
+}
+
+pub fn get_system_reserved_bytecode() -> Result<Vec<u8>> {
+    get_bytecode(include_str!(concat!(
+        env!("OUT_DIR"),
+        "/system_reserved/deployed_bytecode.json"
     )))
 }
 
@@ -72,26 +79,13 @@ pub fn get_dst20_input() -> Result<Vec<u8>> {
     get_bytecode(include_str!("../dst20/input.json"))
 }
 
-pub fn get_system_reserved_bytecode() -> Result<Vec<u8>> {
-    get_bytecode(include_str!(concat!(
-        env!("OUT_DIR"),
-        "/system_reserved/bytecode.json"
-    )))
-}
-
 pub fn get_system_reserved_codehash() -> Result<H256> {
-    let bytecode = get_bytecode(include_str!(concat!(
-        env!("OUT_DIR"),
-        "/system_reserved/bytecode.json"
-    )))?;
+    let bytecode = get_system_reserved_bytecode()?;
     Ok(Blake2Hasher::hash(&bytecode))
 }
 
 pub fn get_dst20_codehash() -> Result<H256> {
-    let bytecode = get_bytecode(include_str!(concat!(
-        env!("OUT_DIR"),
-        "/dst20/bytecode.json"
-    )))?;
+    let bytecode = get_dst20_bytecode()?;
     Ok(Blake2Hasher::hash(&bytecode))
 }
 
