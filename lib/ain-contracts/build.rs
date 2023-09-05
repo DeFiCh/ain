@@ -2,8 +2,7 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::format_err;
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use ethers_solc::{Project, ProjectPathsConfig, Solc};
 
 fn main() -> Result<()> {
@@ -22,7 +21,7 @@ fn main() -> Result<()> {
 
         let sol_project_root = PathBuf::from(sol_project_name);
         if !sol_project_root.exists() {
-            return Err(format_err!("Solidity project missing: {sol_project_root:?}"));
+            bail!("Solidity project missing: {sol_project_root:?}");
         }
 
         let paths = ProjectPathsConfig::builder()
@@ -43,22 +42,17 @@ fn main() -> Result<()> {
 
         for (id, artifact) in artifacts {
             if id.name == contract_name {
-                let abi = artifact.abi.ok_or_else(|| format_err!("ABI not found"))?;
-                let bytecode = artifact
-                    .deployed_bytecode
-                    .ok_or_else(|| format_err!("Bytecode not found"))?;
-                let bytecode_out_path = sol_project_outdir.clone().join("bytecode.json");
-                let abi_out_path = sol_project_outdir.clone().join("abi.json");
+                let abi = artifact.abi.context("ABI not found")?;
+                let bytecode = artifact.deployed_bytecode.context("Bytecode not found")?;
+                let bytecode_out_path = sol_project_outdir.join("bytecode.json");
+                let abi_out_path = sol_project_outdir.join("abi.json");
 
                 fs::create_dir_all(sol_project_outdir.clone())?;
                 fs::write(
                     bytecode_out_path,
                     serde_json::to_string(&bytecode)?.as_bytes(),
                 )?;
-                fs::write(
-                    abi_out_path,
-                    serde_json::to_string(&abi)?.as_bytes(),
-                )?;
+                fs::write(abi_out_path, serde_json::to_string(&abi)?.as_bytes())?;
             }
         }
 
