@@ -901,9 +901,53 @@ class EVMTest(DefiTestFramework):
             Decimal("100.00000000"),
         )
 
+    def invalid_transfer_evm_dvm_after_evm_tx(self):
+        self.rollback_to(self.start_height)
+
+        # Transfer 100 DFI from DVM to EVM
+        self.valid_transfer_dvm_evm()
+
+        balance = self.nodes[0].eth_getBalance(self.eth_address)
+        assert_equal(balance, "0x56bc75e2d63100000") # 100 DFI
+        erc55_address = self.nodes[0].getnewaddress('', 'erc55')
+
+        tx1 = self.nodes[0].evmtx(self.eth_address, 0, 21, 21001, erc55_address, 50) # Spend half balance
+
+        # Transfer 100 DFI from EVM to DVM
+        tx2 = transfer_domain(
+            self.nodes[0], self.eth_address, self.address, "100@DFI", 3, 2
+        )
+        self.nodes[0].generate(1)
+
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(len(block["transactions"]), 1)
+        evm_tx = self.nodes[0].vmmap(tx1, 0)["output"]
+        assert_equal(block["transactions"][0], evm_tx)
+
+        mempool = self.nodes[0].getrawmempool()
+        assert_equal([tx2], mempool)
+
+    def valid_evm_tx_after_dvm_to_evm(self):
+        self.rollback_to(self.start_height)
+
+        erc55_address = self.nodes[0].getnewaddress('', 'erc55')
+
+        transfer_domain(
+            self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+        )
+
+        # Should be able to spend queued balance update from transfer domain
+        self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, erc55_address, 50) # Spend half balance
+
+        self.nodes[0].generate(1)
+
+        block = self.nodes[0].eth_getBlockByNumber("latest", True)
+        assert_equal(len(block["transactions"]), 2)
+
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
+
         self.check_initial_balance()
         self.invalid_parameters()
 
@@ -919,6 +963,9 @@ class EVMTest(DefiTestFramework):
         self.invalid_transfer_no_auth()
 
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
+
+        self.invalid_transfer_evm_dvm_after_evm_tx() # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+        self.valid_evm_tx_after_dvm_to_evm()
 
 
 if __name__ == "__main__":
