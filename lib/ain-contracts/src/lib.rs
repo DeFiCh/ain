@@ -7,7 +7,7 @@ use sp_core::{Blake2Hasher, Hasher};
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 macro_rules! solc_artifact_path {
-    ($project_name:expr, $artifact:expr) => {
+    ($project_name:literal, $artifact:literal) => {
         concat!(
             env!("CARGO_TARGET_DIR"),
             "/sol_artifacts/",
@@ -19,7 +19,7 @@ macro_rules! solc_artifact_path {
 }
 
 macro_rules! solc_artifact_content_str {
-    ($project_name:expr, $artifact:expr) => {
+    ($project_name:literal, $artifact:literal) => {
         include_str!(solc_artifact_path!($project_name, $artifact))
     };
 }
