@@ -129,10 +129,12 @@ inline uint160 Hash160(const prevector<N, unsigned char>& vch)
 }
 
 inline uint160 EthHash160(const std::vector<unsigned char>& vch) {
-    std::vector<unsigned char> output;
-    sha3_256_safe(vch, output);
+    std::vector<unsigned char> result;
+    sha3_256_safe(vch, result);
     const size_t ADDRESS_OFFSET{12};
-    return uint160({output.begin() + ADDRESS_OFFSET, output.end()});
+    std::vector<unsigned char> output(result.begin() + ADDRESS_OFFSET, result.end());
+    std::reverse(output.begin(), output.end());
+    return uint160(output);
 }
 
 /** A writer stream (for serialization) that computes a 256-bit hash. */

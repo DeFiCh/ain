@@ -80,7 +80,7 @@ clippy:
 # cause conflicts across toolchains
 .PHONY: fmt-check
 fmt-check:
-	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check 2> >(grep -v -E 'group_imports|unstable_features')
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check 2> >(grep -v -E 'group_imports|unstable_features|imports_granularity')
 
 .PHONY: fmt
 fmt:

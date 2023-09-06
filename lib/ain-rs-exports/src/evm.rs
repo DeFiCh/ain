@@ -1,22 +1,23 @@
-use ain_evm::storage::traits::BlockStorage;
-use ain_evm::transaction::system::{DST20Data, DeployContractData, SystemTx};
-use ain_evm::txqueue::QueueTx;
+use ain_contracts::{get_transferdomain_contract, FixedContract};
 use ain_evm::{
     core::{ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     services::SERVICES,
-    storage::traits::Rollback,
-    storage::traits::TransactionStorage,
-    transaction::{self, SignedTx},
+    storage::traits::{BlockStorage, Rollback, TransactionStorage},
+    transaction::{
+        self,
+        system::{DST20Data, DeployContractData, SystemTx},
+        SignedTx,
+    },
+    txqueue::QueueTx,
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
+use ethereum_types::{H160, U256};
 use log::debug;
-use primitive_types::U256;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::ffi;
-use crate::prelude::*;
+use crate::{ffi, prelude::*};
 
 /// Creates and signs a transaction.
 ///
@@ -67,6 +68,174 @@ pub fn evm_try_create_and_sign_tx(
     };
 
     // Sign with a big endian byte array
+    match t.sign(&ctx.priv_key, ctx.chain_id) {
+        Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
+/// Creates and signs a transfer domain transaction.
+///
+/// # Arguments
+///
+/// * `to` - The address to transfer funds to.
+/// * `direction` - True if sending to EVM. False if sending from EVM
+/// * `value` - Amount to send
+/// * `priv_key` - Key used to sign the TX
+///
+/// # Errors
+///
+/// Returns a `TransactionError` if signing fails.
+///
+/// # Returns
+///
+/// Returns the signed transaction encoded as a byte vector on success.
+pub fn evm_try_create_and_sign_transfer_domain_tx(
+    result: &mut ffi::CrossBoundaryResult,
+    ctx: ffi::CreateTransferDomainContext,
+) -> Vec<u8> {
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+    let action = TransactionAction::Call(fixed_address);
+
+    let (from_address, to_address) = if ctx.direction {
+        let Ok(to_address) = ctx.to.parse() else {
+            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.to));
+        };
+        let Ok(from_address) = ctx.from.parse::<H160>() else {
+            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
+        };
+        (from_address, to_address)
+    } else {
+        let Ok(from_address) = ctx.from.parse() else {
+            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
+        };
+        // Send EvmOut to contract address
+        (from_address, fixed_address)
+    };
+
+    let value = match try_from_satoshi(U256::from(ctx.value)) {
+        Ok(wei_value) => wei_value,
+        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    };
+
+    let input = {
+        let from_address = ethabi::Token::Address(from_address);
+        let to_address = ethabi::Token::Address(to_address);
+        let value = ethabi::Token::Uint(value.0);
+        let native_address = ethabi::Token::String(ctx.native_address);
+
+        let is_native_token_transfer = ctx.token_id == 0;
+        match if is_native_token_transfer {
+            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+            let function = ethabi::Function {
+                name: String::from("transfer"),
+                inputs: vec![
+                    ethabi::Param {
+                        name: String::from("from"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("to"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("amount"),
+                        kind: ethabi::ParamType::Uint(256),
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("nativeAddress"),
+                        kind: ethabi::ParamType::String,
+                        internal_type: None,
+                    },
+                ],
+                outputs: vec![],
+                constant: None,
+                state_mutability: ethabi::StateMutability::NonPayable,
+            };
+
+            function.encode_input(&[from_address, to_address, value, native_address])
+        } else {
+            let contract_address =
+                match ain_contracts::dst20_address_from_token_id(u64::from(ctx.token_id)) {
+                    Ok(address) => ethabi::Token::Address(address),
+                    Err(e) => return cross_boundary_error_return(result, e.to_string()),
+                };
+
+            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+            let function = ethabi::Function {
+                name: String::from("bridgeDST20"),
+                inputs: vec![
+                    ethabi::Param {
+                        name: String::from("contractAddress"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("from"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("to"),
+                        kind: ethabi::ParamType::Address,
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("amount"),
+                        kind: ethabi::ParamType::Uint(256),
+                        internal_type: None,
+                    },
+                    ethabi::Param {
+                        name: String::from("nativeAddress"),
+                        kind: ethabi::ParamType::String,
+                        internal_type: None,
+                    },
+                ],
+                outputs: vec![],
+                constant: None,
+                state_mutability: ethabi::StateMutability::NonPayable,
+            };
+
+            function.encode_input(&[
+                contract_address,
+                from_address,
+                to_address,
+                value,
+                native_address,
+            ])
+        } {
+            Ok(input) => input,
+            Err(e) => return cross_boundary_error_return(result, e.to_string()),
+        }
+    };
+
+    let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
+        return cross_boundary_error_return(
+            result,
+            "Could not calculate next block base fee".to_string(),
+        );
+    };
+
+    let Ok(nonce) = SERVICES.evm.get_nonce(from_address) else {
+        return cross_boundary_error_return(
+            result,
+            format!("Could not get nonce for {:x?}", from_address),
+        );
+    };
+
+    let t = LegacyUnsignedTransaction {
+        nonce,
+        gas_price: base_fee,
+        gas_limit: U256::from(100000),
+        action,
+        value: U256::zero(),
+        input,
+        sig: TransactionSignature::new(27, LOWER_H256, LOWER_H256).unwrap(),
+    };
+
     match t.sign(&ctx.priv_key, ctx.chain_id) {
         Ok(signed) => cross_boundary_success_return(result, signed.encode().into()),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -177,16 +346,11 @@ pub fn evm_unsafe_try_remove_txs_by_sender_in_q(
 pub fn evm_unsafe_try_add_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: &str,
-    amount: u64,
+    raw_tx: &str,
     native_hash: &str,
 ) {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-    let amount = match try_from_satoshi(U256::from(amount)) {
-        Ok(wei_amount) => wei_amount,
-        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
     };
     let native_hash = XHash::from(native_hash);
 
@@ -194,7 +358,7 @@ pub fn evm_unsafe_try_add_balance_in_q(
         match SERVICES
             .evm
             .core
-            .add_balance(queue_id, address, amount.0, native_hash)
+            .add_balance(queue_id, signed_tx, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -224,16 +388,11 @@ pub fn evm_unsafe_try_add_balance_in_q(
 pub fn evm_unsafe_try_sub_balance_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: &str,
-    amount: u64,
+    raw_tx: &str,
     native_hash: &str,
 ) -> bool {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-    let amount = match try_from_satoshi(U256::from(amount)) {
-        Ok(wei_amount) => wei_amount,
-        Err(e) => return cross_boundary_error_return(result, e.to_string()),
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
     };
     let native_hash = XHash::from(native_hash);
 
@@ -241,7 +400,7 @@ pub fn evm_unsafe_try_sub_balance_in_q(
         match SERVICES
             .evm
             .core
-            .sub_balance(queue_id, address, amount.0, native_hash)
+            .sub_balance(queue_id, signed_tx, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, true),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -531,11 +690,11 @@ pub fn evm_try_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
     }
 }
 
-pub fn evm_try_set_attribute(
+pub fn evm_try_handle_attribute_apply(
     result: &mut ffi::CrossBoundaryResult,
     _queue_id: u64,
-    _attribute_type: u32,
-    _value: u64,
+    _attribute_type: ffi::GovVarKeyDataStructure,
+    _value: Vec<u8>,
 ) -> bool {
     cross_boundary_success_return(result, true)
 }
@@ -799,28 +958,23 @@ pub fn evm_try_create_dst20(
 pub fn evm_try_bridge_dst20(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    address: &str,
-    amount: u64,
+    raw_tx: &str,
     native_hash: &str,
     token_id: u64,
     out: bool,
 ) {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-    let amount = match try_from_satoshi(U256::from(amount)) {
-        Ok(wei_amount) => wei_amount,
+    let native_hash = XHash::from(native_hash);
+    let contract_address = match ain_contracts::dst20_address_from_token_id(token_id) {
+        Ok(address) => address,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
     };
-    let native_hash = XHash::from(native_hash);
-    let contract = ain_contracts::dst20_address_from_token_id(token_id)
-        .unwrap_or_else(|e| cross_boundary_error_return(result, e.to_string()));
-
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
+    };
     let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-        to: address,
-        contract,
-        amount: amount.0,
-        out,
+        signed_tx: Box::new(signed_tx),
+        contract_address,
+        direction: out.into(),
     }));
 
     unsafe {
@@ -859,7 +1013,7 @@ pub fn evm_unsafe_try_get_target_block_in_q(
 mod tests {
     #[test]
     fn test_hash_type_string() {
-        use primitive_types::H160;
+        use ethereum_types::H160;
         let num = 0b11010111_11010111_11010111_11010111_11010111_11010111_11010111_11010111;
         let num_h160 = H160::from_low_u64_be(num);
         let num_h160_string = format!("{:?}", num_h160);
@@ -868,7 +1022,7 @@ mod tests {
         let num_h160_test: H160 = num_h160_string.parse().unwrap();
         assert_eq!(num_h160_test, num_h160);
 
-        use primitive_types::H256;
+        use ethereum_types::H256;
         let num_h256: H256 = "0x3186715414c5fbd73586662d26b83b66b5754036379d56e896a560a90e409351"
             .parse()
             .unwrap();

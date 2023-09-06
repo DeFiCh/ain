@@ -2,8 +2,7 @@ use std::fmt;
 
 use ain_evm::bytes::Bytes;
 use ethereum::{BlockAny, TransactionV2};
-use ethereum_types::H64;
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, H64, U256};
 use rlp::Encodable;
 use serde::{
     de::{Error, MapAccess, Visitor},
@@ -337,7 +336,7 @@ impl Serialize for BlockTransactions {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcFeeHistory {
-    pub oldest_block: H256,
+    pub oldest_block: U256,
     pub base_fee_per_gas: Vec<U256>,
     pub gas_used_ratio: Vec<f64>,
     pub reward: Option<Vec<Vec<U256>>>,

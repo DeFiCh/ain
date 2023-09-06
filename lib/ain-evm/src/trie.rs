@@ -1,19 +1,17 @@
-use std::fs;
-use std::io::BufReader;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{fs, io::BufReader, path::PathBuf, sync::Arc};
 
+use ethereum_types::H256;
 use evm::backend::{Backend, Basic};
 use log::debug;
-use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 use vsdb_trie_db::MptStore;
 
-use crate::backend::{EVMBackend, Vicinity};
-use crate::genesis::GenesisData;
-use crate::storage::traits::PersistentState;
-use crate::storage::Storage;
-use crate::Result;
+use crate::{
+    backend::{EVMBackend, Vicinity},
+    genesis::GenesisData,
+    storage::{traits::PersistentState, Storage},
+    Result,
+};
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
 pub static GENESIS_STATE_ROOT: &str =

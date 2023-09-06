@@ -107,7 +107,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        to = toEth.ToHexString();
+        to = toEth.GetHex();
     }
 
     rust::Vec<uint8_t> input{};

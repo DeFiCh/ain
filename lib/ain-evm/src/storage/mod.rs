@@ -7,7 +7,7 @@ use std::{collections::HashMap, path::Path};
 
 use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, U256};
 
 use self::{
     block_store::BlockStore,
@@ -17,10 +17,7 @@ use self::{
         TransactionStorage,
     },
 };
-use crate::log::LogIndex;
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
-use crate::Result;
+use crate::{log::LogIndex, receipt::Receipt, storage::traits::LogStorage, Result};
 
 #[derive(Debug)]
 pub struct Storage {

@@ -118,10 +118,11 @@ class DST20(DefiTestFramework):
             for token in all_tokens.values()
             if token["isDAT"] == True and token["symbol"] != "DFI"
         ]
-        assert_equal(len(block["transactions"]), len(loanTokens))
+        # 1 extra deployment TX (for transfer domain deploy contract)
+        assert_equal(len(block["transactions"]), len(loanTokens) + 1)
 
         # check USDT migration
-        usdt_tx = block["transactions"][0]
+        usdt_tx = block["transactions"][1]
         receipt = self.nodes[0].eth_getTransactionReceipt(usdt_tx)
         tx1 = self.nodes[0].eth_getTransactionByHash(usdt_tx)
         assert_equal(
@@ -142,7 +143,7 @@ class DST20(DefiTestFramework):
         )
 
         # check BTC migration
-        btc_tx = block["transactions"][1]
+        btc_tx = block["transactions"][2]
         receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
         tx2 = self.nodes[0].eth_getTransactionByHash(btc_tx)
         assert_equal(
@@ -163,7 +164,7 @@ class DST20(DefiTestFramework):
         )
 
         # check ETH migration
-        eth_tx = block["transactions"][2]
+        eth_tx = block["transactions"][3]
         receipt = self.nodes[0].eth_getTransactionReceipt(eth_tx)
         tx3 = self.nodes[0].eth_getTransactionByHash(eth_tx)
         assert_equal(
@@ -552,6 +553,11 @@ class DST20(DefiTestFramework):
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(beforeAmount, afterAmount)
 
+        assert_equal(
+            len(self.node.getrawmempool()), 1
+        )  # failed tx should be in mempool
+        self.node.clearmempool()
+
     def test_invalid_token(self):
         # DVM to EVM
         assert_raises_rpc_error(
@@ -877,6 +883,7 @@ class DST20(DefiTestFramework):
         self.node.generate(1)
 
         self.test_dst20_dvm_to_evm_bridge()
+
         self.test_dst20_evm_to_dvm_bridge()
         self.test_multiple_dvm_evm_bridge()
         self.test_conflicting_bridge()

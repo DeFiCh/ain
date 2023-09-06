@@ -80,7 +80,7 @@ class EVMTestLogs(DefiTestFramework):
         node.generate(1)
 
         self.contract = EVMContract.from_file("Events.sol", "TestEvents")
-        abi, bytecode = self.contract.compile()
+        abi, bytecode, _ = self.contract.compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
         self.abi = abi
         self.event_abi = compiled._find_matching_event_abi("NumberStored")

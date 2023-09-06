@@ -1,11 +1,12 @@
-use std::cmp;
-use std::sync::Arc;
+use std::{cmp, sync::Arc};
 
 use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
 use ethereum::Account;
 use ethereum_types::U256;
-use jsonrpsee::core::{Error, RpcResult};
-use jsonrpsee::proc_macros::rpc;
+use jsonrpsee::{
+    core::{Error, RpcResult},
+    proc_macros::rpc,
+};
 use log::debug;
 use rlp::{Decodable, Rlp};
 

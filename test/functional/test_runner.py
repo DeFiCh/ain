@@ -306,6 +306,8 @@ BASE_SCRIPTS = [
     "feature_evm_rollback.py",
     "feature_evm_rpc_transaction.py",
     "feature_evm_rpc.py",
+    "feature_evm_rpc_fee_history.py",
+    "feature_evm_rpc_filters.py",
     "feature_evm_smart_contract.py",
     "feature_evm_transaction_replacement.py",
     "feature_evm_transferdomain.py",

@@ -30,6 +30,10 @@ class EVMContract:
         ) as file:
             return EVMContract(file.read(), file_name, contract_name)
 
+    @staticmethod
+    def from_str(sourceCode: str, contract_name: str):
+        return EVMContract(sourceCode, f"{contract_name}.sol", contract_name)
+
     def compile(self) -> (List[Dict], str):
         compiled_sol = compile_standard(
             {
@@ -37,12 +41,7 @@ class EVMContract:
                 "sources": {self.file_name: {"content": self.code}},
                 "settings": {
                     "outputSelection": {
-                        "*": {
-                            "*": [
-                                "abi",
-                                "evm.bytecode",
-                            ]
-                        }
+                        "*": {"*": ["abi", "evm.bytecode", "evm.deployedBytecode"]}
                     }
                 },
             },
@@ -52,5 +51,6 @@ class EVMContract:
         data = compiled_sol["contracts"][self.file_name][self.contract_name]
         abi = data["abi"]
         bytecode = data["evm"]["bytecode"]["object"]
+        deployedBytecode = data["evm"]["deployedBytecode"]["object"]
 
-        return abi, bytecode
+        return abi, bytecode, deployedBytecode

@@ -67,7 +67,9 @@ ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::stri
 }
 
 
-// decodes either base58/bech32 address, or a hex format
+// Decodes either base58/bech32 address, or a hex format. Legacy function, should
+// use DecodeScript(DecodeDestination(str)) to ensure proper decoding of address
+// to script to include erc55 address support.
 CScript DecodeScript(std::string const& str)
 {
     if (IsHex(str)) {
