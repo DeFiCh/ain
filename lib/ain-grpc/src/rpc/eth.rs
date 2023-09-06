@@ -7,6 +7,7 @@ use ain_evm::{
     evm::EVMServices,
     executor::TxResponse,
     filters::Filter,
+    log::FilterType,
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
@@ -1004,7 +1005,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let logs = self
                     .handler
                     .logs
-                    .get_logs_from_filter(filter)
+                    .get_logs_from_filter(filter, FilterType::GetFilterChanges)
                     .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
@@ -1050,7 +1051,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let logs = self
                     .handler
                     .logs
-                    .get_logs_from_filter(filter)
+                    .get_logs_from_filter(filter, FilterType::GetFilterLogs)
                     .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
