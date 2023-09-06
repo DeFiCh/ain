@@ -53,7 +53,7 @@ fn main() -> Result<()> {
             let items = [
                 ("abi.json", serde_json::to_string(&abi)?),
                 ("bytecode.json", serde_json::to_string(&bytecode)?),
-                ("deployed_bytecode.json", serde_json::to_string(&deployed_bytecode)?),
+                ("bytedcode_deployed.json", serde_json::to_string(&deployed_bytecode)?),
             ];
 
             fs::create_dir_all(&sol_project_outdir)?;

@@ -47,8 +47,8 @@ pub struct FixedContract {
 lazy_static::lazy_static! {
     pub static ref INTRINSIC_CONTRACT: FixedContract = {
         let bytecode = get_bytecode(include_str!(concat!(
-                env!("CARGO_TARGET_DIR"),
-                "/ain_contracts/dfi_intrinsics/bytecode.json"
+                env!("OUT_DIR"),
+                "/dfi_intrinsics/bytecode_deployed.json"
         ))).unwrap();
 
         FixedContract {
@@ -66,12 +66,12 @@ lazy_static::lazy_static! {
 
     pub static ref TRANSFERDOMAIN_CONTRACT: FixedContract = {
         let bytecode = get_bytecode(include_str!(concat!(
-            env!("CARGO_TARGET_DIR"),
-            "/ain_contracts/transfer_domain/bytecode.json"
+            env!("OUT_DIR"),
+            "/transfer_domain/bytecode_deployed.json"
         ))).unwrap();
         let input = get_bytecode(include_str!(concat!(
-            env!("CARGO_TARGET_DIR"),
-            "/ain_contracts/transfer_domain/input.json"
+            env!("OUT_DIR"),
+            "/transfer_domain/input.json"
         ))).unwrap();
 
         FixedContract {
@@ -89,8 +89,8 @@ lazy_static::lazy_static! {
 
     pub static ref DST20_CONTRACT: Contract = {
         let bytecode = get_bytecode(include_str!(concat!(
-            env!("CARGO_TARGET_DIR"),
-            "/ain_contracts/dst20/bytecode.json"
+            env!("OUT_DIR"),
+            "/dst20/bytecode_deployed.json"
         ))).unwrap();
         let input = get_bytecode(include_str!(
             "../dst20/input.json"
@@ -105,8 +105,8 @@ lazy_static::lazy_static! {
 
     pub static ref RESERVED_CONTRACT: Contract = {
         let bytecode = get_bytecode(include_str!(concat!(
-            env!("CARGO_TARGET_DIR"),
-            "/ain_contracts/system_reserved/bytecode.json"
+            env!("OUT_DIR"),
+            "/system_reserved/bytecode_deployed.json"
         ))).unwrap();
 
         Contract {
