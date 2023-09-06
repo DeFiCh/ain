@@ -136,7 +136,7 @@ void BlockAssembler::resetBlock()
     nFees = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressData& evmBeneficiary)
+ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime, const EvmAddressData& evmBeneficiary)
 {
     int64_t nTimeStart = GetTimeMicros();
 
@@ -145,7 +145,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate = std::make_unique<CBlockTemplate>();
 
     if (!pblocktemplate)
-        return nullptr;
+        return Res::Err("Failed to create block template");
     pblock = &pblocktemplate->block; // pointer for convenience
 
     // Add dummy coinbase tx as first transaction
@@ -160,11 +160,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     const auto myIDs = pcustomcsview->AmIOperator();
     if (!myIDs) {
-        return nullptr;
+        return Res::Err("Node has no operators");
     }
     const auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
     if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
-        return nullptr;
+        return Res::Err("Node is not active");
     }
 
     auto consensus = chainparams.GetConsensus();
@@ -278,7 +278,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     }
 
     auto r = XResultValueLogged(evm_unsafe_try_create_queue(result));
-    if (!r) return nullptr;
+    if (!r) return Res::Err("Failed to create queue");
     const auto evmQueueId = *r;
     std::map<uint256, CAmount> txFees;
 
@@ -291,14 +291,13 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     XVM xvm{};
     if (isEvmEnabledForBlock) {
         auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
-        if (!res) { return nullptr; }
+        if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
 
         auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
-        if (!r) { return nullptr; }
+        if (!r) return Res::Err("Failed to remove queue");
 
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
-        // LogPrintf("DEBUG:: CreateNewBlock:: xvm-init:: %s\n", xvm.ToUniValue().write());
 
         std::set<uint256> failedTransactions;
         for (const auto& txRustStr : blockResult.failed_transactions) {
@@ -398,8 +397,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
         if (isEvmEnabledForBlock) {
             if (xvm.evm.blockHash.empty()) {
-                LogPrint(BCLog::STAKING, "%s: EVM block hash is null\n", __func__);
-                return nullptr;
+                return Res::Err("EVM block hash is null");
             }
             const auto headerIndex = coinbaseTx.vout.size();
             coinbaseTx.vout.resize(headerIndex + 1);
@@ -445,7 +443,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     pblocktemplate->vchCoinbaseCommitment = GenerateCoinbaseCommitment(*pblock, pindexPrev, consensus);
     pblocktemplate->vTxFees[0] = -nFees;
 
-    LogPrint(BCLog::STAKING, "CreateNewBlock(): block weight: %u txs: %u fees: %ld sigops %d\n", GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+    LogPrint(BCLog::STAKING, "%s: block weight: %u txs: %u fees: %ld sigops %d\n", __func__, GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
 
     // Fill in header
     pblock->hashPrevBlock = pindexPrev->GetBlockHash();
@@ -470,9 +468,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
     }
 
-    LogPrint(BCLog::BENCH, "CreateNewBlock() packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
+    LogPrint(BCLog::BENCH, "%s packages: %.2fms (%d packages, %d updated descendants), validity: %.2fms (total %.2fms)\n", __func__, 0.001 * (nTime1 - nTimeStart), nPackagesSelected, nDescendantsUpdated, 0.001 * (nTime2 - nTime1), 0.001 * (nTime2 - nTimeStart));
 
-    return std::move(pblocktemplate);
+    return {std::move(pblocktemplate), Res::Ok()};
 }
 
 void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries& testSet)
@@ -1155,12 +1153,13 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         pubKey.Decompress();
     }
     const auto evmBeneficiary = pubKey.GetEthID().GetHex();
-    auto pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
-    if (!pblocktemplate) {
-        LogPrintf("Error: WalletStaker: Keypool ran out, keypoolrefill and restart required\n");
+    auto res = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
+    if (!res) {
+        LogPrintf("Error: WalletStaker: %s\n", res.msg);
         return Status::stakeWaiting;
     }
 
+    auto& pblocktemplate = *res;
     auto pblock = std::make_shared<CBlock>(pblocktemplate->block);
 
     pblock->nBits = nBits;
