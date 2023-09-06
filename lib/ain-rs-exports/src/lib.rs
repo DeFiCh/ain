@@ -231,9 +231,6 @@ pub mod ffi {
             queue_id: u64,
         ) -> u64;
 
-        fn evm_is_smart_contract(
-            result: &mut CrossBoundaryResult,
-            address: &str
-        ) -> bool;
+        fn evm_is_smart_contract(result: &mut CrossBoundaryResult, address: &str) -> bool;
     }
 }
