@@ -333,7 +333,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
             // Remove TX from queue
             for (const auto &tx : failedTransferDomainTxs) {
-                if (!nativeTxToEvmAddress.count(tx->GetTx().GetHash())) return nullptr;
+                if (!nativeTxToEvmAddress.count(tx->GetTx().GetHash())) return Res::Err("TransferDomain TX not found in TX to ERC address map");
 
                 auto& [address, nonce] = nativeTxToEvmAddress.at(tx->GetTx().GetHash());
 
@@ -675,7 +675,8 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 
 bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
 {
-    auto txMessage = customTypeToMessage(ctx.txType);
+    auto& txType = ctx.txType;
+    auto txMessage = customTypeToMessage(txType);
     auto& txIter = ctx.txIter;
     auto& evmQueueId = ctx.evmQueueId;
     auto& metadata = ctx.txMetadata;
@@ -692,11 +693,28 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    const auto obj = std::get<CEvmTxMessage>(txMessage);
-
     CrossBoundaryResult result;
-    const auto txResult = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
-    if (!result.ok) {
+    ValidateTxCompletion txResult{};
+    if (txType == CustomTxType::EvmTx) {
+        const auto obj = std::get<CEvmTxMessage>(txMessage);
+        txResult = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+        if (!result.ok) {
+            return false;
+        }
+    } else if (txType == CustomTxType::TransferDomain) {
+        const auto obj = std::get<CTransferDomainMessage>(txMessage);
+        // Consensus only supports a single transfer domain entry
+        if (obj.transfers.size() != 1) {
+            return false;
+        }
+        auto res = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.transfers[0].second.data));
+        if (!result.ok) {
+            return false;
+        }
+        txResult.nonce = res.nonce;
+        txResult.sender = res.address;
+        txResult.prepay_fee = 0;
+    } else {
         return false;
     }
 
@@ -754,6 +772,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
     evmAddressTxsMap[txResultSender].emplace(txResult.nonce, txIter);
     nativeTxToEvmAddress[txIter->GetTx().GetHash()] = std::make_pair(txResultSender, txResult.nonce);
+
     return true;
 }
 
@@ -932,7 +951,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                if (txType == CustomTxType::EvmTx) {
+                if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
                     if (!isEvmEnabledForBlock) {
                         customTxPassed = false;
                         break;
