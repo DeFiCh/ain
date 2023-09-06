@@ -298,28 +298,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         if (!r) return Res::Err("Failed to remove queue");
 
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
-
-        std::set<uint256> failedTransactions;
-        for (const auto& txRustStr : blockResult.failed_transactions) {
-            auto txStr = std::string(txRustStr.data(), txRustStr.length());
-            failedTransactions.insert(uint256S(txStr));
-        }
-
-        CTxMemPool::setEntries failedTransferDomainTxs;
-
-        // Get All TransferDomainTxs
-        for (const auto& iter : inBlock) {
-            auto tx = iter->GetTx();
-            if (!failedTransactions.count(tx.GetHash()))
-                continue;
-            std::vector<unsigned char> metadata;
-            const auto txType = GuessCustomTxType(tx, metadata, false);
-            if (txType == CustomTxType::TransferDomain) {
-                failedTransferDomainTxs.insert(iter);
-            }
-        }
-
-        RemoveFromBlock(failedTransferDomainTxs, true);
     }
 
     // TXs for the creationTx field in new tokens created via token split
