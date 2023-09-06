@@ -262,19 +262,6 @@ impl EVMCoreService {
             return Err(format_err!("value more than money range").into());
         }
 
-        let balance = self
-            .get_balance(signed_tx.sender, block_number)
-            .map_err(|e| format_err!("Error getting balance {e}"))?;
-        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
-
-        // Validate tx prepay fees with account balance
-        if balance < prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(format_err!("insufficient balance to pay fees").into());
-        }
-
         // Validate tx gas limit with intrinsic gas
         check_tx_intrinsic_gas(&signed_tx)?;
 
@@ -305,8 +292,21 @@ impl EVMCoreService {
             u64::default()
         };
 
-        // Validate total gas usage in queued txs exceeds block size
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
         if use_queue {
+            // Validate tx prepay fees with account balance
+            let balance = self
+                .get_balance(signed_tx.sender, block_number)
+                .map_err(|e| format_err!("Error getting balance {e}"))?;
+            debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+
+            if balance < prepay_fee {
+                debug!("[validate_raw_tx] insufficient balance to pay fees");
+                return Err(format_err!("insufficient balance to pay fees").into());
+            }
+
+            // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues

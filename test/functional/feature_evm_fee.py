@@ -193,7 +193,7 @@ class EVMFeeTest(DefiTestFramework):
         # Test insufficient balance due to high gas fees
         assert_raises_rpc_error(
             -32001,
-            "evm tx failed to validate insufficient balance to pay fees",
+            "evm tx failed to validate prepay fee value overflow",
             self.nodes[0].eth_sendTransaction,
             {
                 "from": self.ethAddress,
@@ -254,11 +254,7 @@ class EVMFeeTest(DefiTestFramework):
         emptyAddress = self.nodes[0].getnewaddress("", "erc55")
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
-
-        assert_raises_rpc_error(
-            -32001,
-            "evm tx failed to validate insufficient balance to pay fees",
-            self.nodes[0].eth_sendTransaction,
+        self.nodes[0].eth_sendTransaction(
             {
                 "from": emptyAddress,
                 "to": self.toAddress,
@@ -267,6 +263,10 @@ class EVMFeeTest(DefiTestFramework):
                 "gasPrice": "0x2540BE400",  # 10_000_000_000
             },
         )
+        self.nodes[0].generate(1)
+        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+        # Tx should be valid and enter the mempool, but will not be minted into the block
+        assert_equal(len(block["tx"]), 1)
 
         self.rollback_to(height)
 
