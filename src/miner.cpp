@@ -690,18 +690,6 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         }
     }
 
-    const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResultSender);
-    if (!result.ok) {
-        return false;
-    }
-    if (nonce != txResult.nonce) {
-        // Only add if not already in failed TXs to prevent adding on second attempt.
-        if (!failedTxSet.count(txIter)) {
-            failedNonces.emplace(txResult.nonce, txIter);
-        }
-        return false;
-    }
-
     auto addrNonce = EvmAddressWithNonce{txResultSender, txResult.nonce};
     evmFeeMap.insert({addrNonce, txResult.prepay_fee});
     evmAddressTxsMap[txResultSender].emplace(txResult.nonce, txIter);

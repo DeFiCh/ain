@@ -460,55 +460,6 @@ impl EVMCoreService {
         let target_block = self.tx_queues.get_target_block_in(queue_id)?;
         Ok(target_block)
     }
-
-    /// Retrieves the next valid nonce for the specified account within a particular queue.
-    ///
-    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
-    /// provided queue_id. If no nonce is found in the transaction queue, that means that no transactions have been
-    /// queued for this account in this queue_id. It falls back to retrieving the nonce from the storage at the latest
-    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
-    /// the nonce is defaulted to zero.
-    ///
-    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
-    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
-    ///
-    /// # Arguments
-    ///
-    /// * `queue_id` - The queue_id queue number.
-    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
-    ///
-    /// # Returns
-    ///
-    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_next_valid_nonce_in_queue(
-        &self,
-        queue_id: u64,
-        address: H160,
-    ) -> Result<U256> {
-        let nonce = match self.tx_queues.get_next_valid_nonce_in(queue_id, address)? {
-            Some(nonce) => Ok(nonce),
-            None => {
-                let block_number = self
-                    .storage
-                    .get_latest_block()?
-                    .map_or_else(U256::zero, |block| block.header.number);
-
-                self.get_nonce(address, block_number)
-            }
-        }?;
-
-        debug!(
-            "Account {:x?} nonce {:x?} in queue_id {queue_id}",
-            address, nonce
-        );
-        Ok(nonce)
-    }
 }
 
 // State methods

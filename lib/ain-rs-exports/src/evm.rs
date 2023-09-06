@@ -274,42 +274,6 @@ pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: &str)
     }
 }
 
-/// Retrieves the next valid nonce of an EVM account in a specific queue_id
-///
-/// # Arguments
-///
-/// * `queue_id` - The queue ID.
-/// * `address` - The EVM address of the account.
-///
-/// # Returns
-///
-/// Returns the next valid nonce of the account in a specific queue_id as a `u64`
-pub fn evm_unsafe_try_get_next_valid_nonce_in_q(
-    result: &mut ffi::CrossBoundaryResult,
-    queue_id: u64,
-    address: &str,
-) -> u64 {
-    let Ok(address) = address.parse() else {
-        return cross_boundary_error_return(result, "Invalid address");
-    };
-
-    unsafe {
-        match SERVICES
-            .evm
-            .core
-            .get_next_valid_nonce_in_queue(queue_id, address)
-        {
-            Ok(nonce) => {
-                let Ok(nonce) = u64::try_from(nonce) else {
-                    return cross_boundary_error_return(result, "nonce value overflow");
-                };
-                cross_boundary_success_return(result, nonce)
-            }
-            Err(e) => cross_boundary_error_return(result, e.to_string()),
-        }
-    }
-}
-
 /// Removes all transactions in the queue whose sender matches the provided sender address in a specific queue_id
 ///
 /// # Arguments

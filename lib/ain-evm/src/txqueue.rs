@@ -158,30 +158,6 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, TransactionQueue::get_queue_txs_cloned)
     }
 
-    /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
-    /// in the `TransactionQueue` associated with the provided queue ID. This method assumes that
-    /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
-    /// and that their nonces are in increasing order.
-    /// # Errors
-    ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    ///
-    /// Returns None when the address does not have any transaction queued or
-    /// Some(nonce) with the next valid nonce (current + 1) for the associated address
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_next_valid_nonce_in(
-        &self,
-        queue_id: u64,
-        address: H160,
-    ) -> Result<Option<U256>> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
-    }
-
     /// # Safety
     ///
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
@@ -350,16 +326,6 @@ impl TransactionQueue {
 
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
         self.data.lock().unwrap().transactions.clone()
-    }
-
-    pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
-        self.data
-            .lock()
-            .unwrap()
-            .account_nonces
-            .get(&address)
-            .map(ToOwned::to_owned)
-            .map(|nonce| nonce + 1)
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
