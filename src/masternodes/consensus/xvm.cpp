@@ -192,6 +192,23 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     for (const auto &[src, dst] : obj.transfers) {
 
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            // Check if destination address is a contract
+            {
+                CTxDestination dest;
+                ExtractDestination(dst.address, dest);
+                const auto toAddress = std::get<WitnessV16EthHash>(dest);
+
+                CrossBoundaryResult result;
+                auto isSmartContract = evm_is_smart_contract(result, toAddress.GetHex());
+
+                if (!result.ok) {
+                    return Res::Err("transferdomain error: %s", result.reason);
+                }
+                if (isSmartContract) {
+                    return Res::Err("transferdomain error: EVM destination is a smart contract");
+                }
+            }
+
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
             if (!res)
@@ -222,6 +239,23 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.evmIn.Add(tokenAmount);
             stats.evmCurrent.Add(tokenAmount);
         } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            // Check if source address is a contract
+            {
+                CTxDestination dest;
+                ExtractDestination(src.address, dest);
+                const auto fromAddress = std::get<WitnessV16EthHash>(dest);
+
+                CrossBoundaryResult result;
+                auto isSmartContract = evm_is_smart_contract(result, fromAddress.GetHex());
+
+                if (!result.ok) {
+                    return Res::Err("transferdomain error: %s", result.reason);
+                }
+                if (isSmartContract) {
+                    return Res::Err("transferdomain error: EVM source is a smart contract");
+                }
+            }
+
             // Subtract balance from ERC55 address
             CTxDestination dest;
             ExtractDestination(src.address, dest);

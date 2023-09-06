@@ -1009,6 +1009,30 @@ pub fn evm_unsafe_try_get_target_block_in_q(
     }
 }
 
+/// Checks if the given address is a smart contract
+///
+/// # Arguments
+///
+/// * `address` - The address to check.
+///
+/// # Returns
+///
+/// Returns `true` if the address is a contract, `false` otherwise
+pub fn evm_is_smart_contract(
+    result: &mut ffi::CrossBoundaryResult,
+    address: &str
+) -> bool {
+    debug!("{}", address);
+    let Ok(address) = address.parse() else {
+        return cross_boundary_error_return(result, "Invalid address");
+    };
+
+    match SERVICES.evm.is_smart_contract(address) {
+        Ok(is_contract) => cross_boundary_success_return(result, is_contract),
+        Err(e) => cross_boundary_error_return(result, e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

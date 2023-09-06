@@ -614,6 +614,18 @@ impl EVMServices {
         Ok(is_queued)
     }
 
+    pub fn is_smart_contract(
+        &self,
+        address: H160
+    ) -> Result<bool> {
+        let backend = self.core.get_latest_block_backend()?;
+
+        Ok(match backend.get_account(&address) {
+            None => false,
+            Some(account) => account.code_hash != H256::zero()
+        })
+    }
+
     pub fn get_nonce(&self, address: H160) -> Result<U256> {
         let backend = self.core.get_latest_block_backend()?;
         let nonce = backend.get_nonce(&address);
