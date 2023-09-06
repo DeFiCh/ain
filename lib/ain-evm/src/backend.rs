@@ -1,22 +1,20 @@
-use std::error::Error;
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
 use ethereum::{Account, Log};
+use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
 use log::{debug, trace};
-use primitive_types::{H160, H256, U256};
 use rlp::{Decodable, Encodable, Rlp};
-use sp_core::hexdisplay::AsBytesRef;
-use sp_core::Blake2Hasher;
+use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher};
 use vsdb_trie_db::{MptOnce, MptRo};
 
-use crate::Result;
 use crate::{
     storage::{traits::BlockStorage, Storage},
     traits::BridgeBackend,
     transaction::SignedTx,
     trie::TrieDBStore,
+    Result,
 };
 
 type Hasher = Blake2Hasher;
@@ -198,12 +196,6 @@ impl EVMBackend {
     pub fn get_nonce(&self, address: &H160) -> U256 {
         self.get_account(address)
             .map(|acc| acc.nonce)
-            .unwrap_or_default()
-    }
-
-    pub fn get_balance(&self, address: &H160) -> U256 {
-        self.get_account(address)
-            .map(|acc| acc.balance)
             .unwrap_or_default()
     }
 

@@ -1,6 +1,5 @@
-use libsecp256k1::Error;
-use libsecp256k1::{PublicKey, RecoveryId, Signature};
-use primitive_types::{H160, H256};
+use ethereum_types::{H160, H256};
+use libsecp256k1::{Error, PublicKey, RecoveryId, Signature};
 use sha3::Digest;
 
 pub fn recover_public_key(
@@ -30,8 +29,8 @@ pub fn public_key_to_address(pubkey: &PublicKey) -> H160 {
 
 #[cfg(test)]
 mod tests {
+    use ethereum_types::*;
     use hex_literal::hex;
-    use primitive_types::*;
 
     use super::{public_key_to_address, recover_public_key};
 

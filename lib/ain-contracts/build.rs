@@ -1,6 +1,4 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{env, fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
 use ethers_solc::{Project, ProjectPathsConfig, Solc};
@@ -14,6 +12,7 @@ fn main() -> Result<()> {
         ("dfi_intrinsics", "DFIIntrinsics"),
         ("dst20", "DST20"),
         ("system_reserved", "SystemReservedContract"),
+        ("transfer_domain", "TransferDomain"),
     ];
 
     for (sol_project_name, contract_name) in contracts {

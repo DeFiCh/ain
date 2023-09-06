@@ -3,7 +3,7 @@
 
 #include <amount.h>
 #include <flushablestorage.h>
-#include <masternodes/balances.h>
+#include <masternodes/consensus/xvm.h>
 #include <masternodes/res.h>
 #include <script/script.h>
 #include <serialize.h>

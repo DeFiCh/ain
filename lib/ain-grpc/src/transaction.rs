@@ -1,7 +1,6 @@
 use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::{AccessListItem, EnvelopedEncodable};
-use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H256, U256};
+use ethereum::{AccessListItem, BlockAny, EnvelopedEncodable, TransactionV2};
+use ethereum_types::{H256, U256};
 
 use crate::{
     codegen::types::{EthAccessList, EthTransactionInfo},

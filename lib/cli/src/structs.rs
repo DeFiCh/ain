@@ -1,6 +1,5 @@
 use ethereum::AccessListItem;
-use primitive_types::H160;
-use primitive_types::U256;
+use ethereum_types::{H160, U256};
 use structopt::StructOpt;
 
 #[derive(Debug)]

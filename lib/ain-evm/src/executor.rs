@@ -1,21 +1,20 @@
 use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
-use ethereum_types::{Bloom, U256};
+use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, CreateScheme, ExitReason,
 };
 use log::trace;
-use primitive_types::{H160, H256};
 
-use crate::bytes::Bytes;
-use crate::precompiles::MetachainPrecompiles;
-use crate::Result;
 use crate::{
     backend::EVMBackend,
+    bytes::Bytes,
     core::EVMCoreService,
+    precompiles::MetachainPrecompiles,
     traits::{BridgeBackend, Executor, ExecutorContext},
     transaction::SignedTx,
+    Result,
 };
 
 pub struct AinExecutor<'backend> {
@@ -157,12 +156,14 @@ impl<'backend> Executor for AinExecutor<'backend> {
         ApplyBackend::apply(self.backend, values, logs.clone(), true);
         self.backend.commit();
 
-        self.backend.refund_unused_gas(
-            signed_tx.sender,
-            signed_tx.gas_limit(),
-            U256::from(used_gas),
-            signed_tx.gas_price(),
-        );
+        if prepay_gas != U256::zero() {
+            self.backend.refund_unused_gas(
+                signed_tx.sender,
+                signed_tx.gas_limit(),
+                U256::from(used_gas),
+                signed_tx.gas_price(),
+            );
+        }
 
         let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
             logs_bloom: {

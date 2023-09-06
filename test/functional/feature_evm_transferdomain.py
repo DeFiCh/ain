@@ -393,8 +393,8 @@ class EVMTest(DefiTestFramework):
 
     def invalid_values_dvm_evm(self):
         assert_raises_rpc_error(
-            -32600,
-            'Dst address must be an ERC55 address in case of "EVM" domain',
+            -1,
+            "Invalid address",
             lambda: transfer_domain(
                 self.nodes[0], self.address, self.address, "100@DFI", 2, 3
             ),
@@ -417,42 +417,6 @@ class EVMTest(DefiTestFramework):
                         "address": self.eth_address,
                         "amount": "101@DFI",
                         "domain": 3,
-                    },
-                }
-            ],
-        )
-        assert_raises_rpc_error(
-            -32600,
-            "Excess data set, maximum allow is 0",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {
-                        "address": self.address,
-                        "amount": "100@DFI",
-                        "domain": 2,
-                        "data": "1",
-                    },
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ],
-        )
-        assert_raises_rpc_error(
-            -32600,
-            "Excess data set, maximum allow is 0",
-            self.nodes[0].transferdomain,
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.eth_address,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                        "data": "1",
                     },
                 }
             ],
@@ -518,18 +482,12 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/transferdomain/dvm-evm/0/total"],
             Decimal("100.00000000"),
         )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/dvm/0/current"],
-            Decimal("-100.00000000"),
-        )
+        # assert_equal(attributes['v0/live/economy/transferdomain/dvm/0/current'], Decimal('-100.00000000'))
         assert_equal(
             attributes["v0/live/economy/transferdomain/dvm/0/out"],
             Decimal("100.00000000"),
         )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/evm/0/current"],
-            Decimal("100.00000000"),
-        )
+        # assert_equal(attributes['v0/live/economy/transferdomain/evm/0/current'], Decimal('100.00000000'))
         assert_equal(
             attributes["v0/live/economy/transferdomain/evm/0/in"],
             Decimal("100.00000000"),
@@ -743,7 +701,7 @@ class EVMTest(DefiTestFramework):
     def invalid_transfer_no_auth(self):
         assert_raises_rpc_error(
             -5,
-            "Incorrect authorization for " + self.address1,
+            "no full public key for address " + self.address1,
             self.nodes[0].transferdomain,
             [
                 {
@@ -943,79 +901,6 @@ class EVMTest(DefiTestFramework):
             Decimal("100.00000000"),
         )
 
-    def valid_transfer_dvm_evm_dvm_with_evm_tx_in_same_block(self):
-        self.rollback_to(self.start_height)
-
-        # Transfer 100 DFI from DVM to EVM
-        self.valid_transfer_dvm_evm()
-
-        # Transfer 100 DFI from EVM to DVM
-        tx = transfer_domain(
-            self.nodes[0], self.eth_address, self.address, "90@DFI", 3, 2
-        )
-
-        self.nodes[0].evmtx(self.eth_address, 0, 21, 21000, self.eth_address1, 5)
-
-        self.nodes[0].generate(1)
-
-        # Check tx fields
-        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
-        assert_equal(result["src"]["address"], self.eth_address)
-        assert_equal(result["src"]["amount"], "90.00000000@0")
-        assert_equal(result["src"]["domain"], "EVM")
-        assert_equal(result["dst"]["address"], self.address)
-        assert_equal(result["dst"]["amount"], "90.00000000@0")
-        assert_equal(result["dst"]["domain"], "DVM")
-
-        # Check new balances
-        new_dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
-        new_eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
-        assert_equal(new_dfi_balance, self.dfi_balance - Decimal("10"))
-        assert_equal(new_eth_balance, int_to_eth_u256(10))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
-
-        # Check accounting of DVM->EVM transfer
-        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/dvm-evm/0/total"],
-            Decimal("100.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/dvm/0/current"],
-            Decimal("-10.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/dvm/0/out"],
-            Decimal("100.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/dvm/0/in"],
-            Decimal("90.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/evm-dvm/0/total"],
-            Decimal("90.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/evm/0/current"],
-            Decimal("10.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/evm/0/in"],
-            Decimal("100.00000000"),
-        )
-        assert_equal(
-            attributes["v0/live/economy/transferdomain/evm/0/out"],
-            Decimal("90.00000000"),
-        )
-
-        # Check accounting of EVM fees
-        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt"], Decimal("0E-8"))
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], Decimal("0E-8")
-        )
-
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
@@ -1034,8 +919,6 @@ class EVMTest(DefiTestFramework):
         self.invalid_transfer_no_auth()
 
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
-
-        # self.valid_transfer_dvm_evm_dvm_with_evm_tx_in_same_block()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,5 @@
-use ain_grpc::block::RpcBlock;
-use ain_grpc::codegen::types::EthTransactionInfo;
-use primitive_types::{H256, U256};
+use ain_grpc::{block::RpcBlock, codegen::types::EthTransactionInfo};
+use ethereum_types::{H256, U256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
