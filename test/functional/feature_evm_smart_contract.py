@@ -81,6 +81,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].importprivkey(
             "957ac3be2a08afe1fafb55bd3e1d479c4ae6d7bf1c9b2a0dcc5caad6929e6617"
         )
+        self.nodes[0].generate(1)
 
     def test_deploy_smart_contract(self):
         # deploy smart contract
