@@ -1029,7 +1029,7 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
 
     TxSenderInfo {
         nonce,
-        address: format!("{:x?}", signed_tx.sender),
+        address: format!("{:?}", signed_tx.sender),
     }
 }
 
