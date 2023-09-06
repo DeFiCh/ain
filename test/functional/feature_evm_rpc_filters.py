@@ -104,6 +104,7 @@ class EVMTest(DefiTestFramework):
         node.generate(1)
 
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        self.contract_address = receipt["contractAddress"]
         self.contract = node.w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
@@ -133,6 +134,7 @@ class EVMTest(DefiTestFramework):
             {
                 "fromBlock": "earliest",
                 "toBlock": "latest",
+                "address": self.contract_address,
             }
         )
         assert_equal(len(logs), 3)
@@ -144,6 +146,7 @@ class EVMTest(DefiTestFramework):
             {
                 "fromBlock": "earliest",
                 "toBlock": "latest",
+                "address": self.contract_address,
             }
         )
 
