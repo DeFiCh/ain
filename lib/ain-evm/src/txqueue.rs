@@ -325,6 +325,37 @@ impl TransactionQueue {
         data.account_nonces.remove(&sender);
     }
 
+    pub fn remove_txs_above_hash(&self, target_hash: XHash) -> Vec<XHash> {
+        let mut data = self.data.lock().unwrap();
+        let mut removed_txs = Vec::new();
+
+        if let Some(index) = data
+            .transactions
+            .iter()
+            .position(|item| item.tx_hash == target_hash)
+        {
+            removed_txs = data
+                .transactions
+                .drain(index..)
+                .map(|tx_item| tx_item.tx_hash)
+                .collect();
+
+            let mut new_nonces = HashMap::new();
+            let mut new_total_gas_used = U256::zero();
+            for item in &data.transactions {
+                if let QueueTx::SignedTx(signed_tx) = &item.tx {
+                    new_nonces.insert(signed_tx.sender, signed_tx.nonce());
+                }
+                new_total_gas_used += item.gas_used;
+            }
+
+            data.account_nonces = new_nonces;
+            data.total_gas_used = new_total_gas_used;
+        }
+
+        removed_txs
+    }
+
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
         self.data.lock().unwrap().transactions.clone()
     }
