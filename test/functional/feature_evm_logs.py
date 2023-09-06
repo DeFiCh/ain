@@ -11,7 +11,6 @@ from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 from web3._utils.events import get_event_data
 
-
 class EVMTestLogs(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -59,7 +58,7 @@ class EVMTestLogs(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
     def should_create_contract(self):
         node = self.nodes[0]

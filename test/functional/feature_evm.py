@@ -72,7 +72,7 @@ class EVMTest(DefiTestFramework):
         # Fund accounts
         self.setup_accounts()
 
-        # Test block ordering by nonce and Eth RBF
+        # # Test block ordering by nonce and Eth RBF
         self.nonce_order_and_rbf()
 
         # Check XVM in coinbase

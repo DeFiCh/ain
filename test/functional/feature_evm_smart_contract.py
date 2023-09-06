@@ -75,7 +75,7 @@ class EVMTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
         self.creationAddress = "0xe61a3a6eb316d773c773f4ce757a542f673023c6"
         self.nodes[0].importprivkey(
