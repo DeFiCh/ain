@@ -796,20 +796,20 @@ class DST20(DefiTestFramework):
         if os.getenv("BUILD_DIR"):
             build_dir = os.getenv("BUILD_DIR")
             self.abi = open(
-                f"{build_dir}/ain_contracts/dst20/abi.json",
+                f"{build_dir}/sol_artifacts/dst20/abi.json",
                 "r",
                 encoding="utf8",
             ).read()
             self.bytecode = json.loads(
                 open(
-                    f"{build_dir}/ain_contracts/dst20/bytecode.json",
+                    f"{build_dir}/sol_artifacts/dst20/bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
             )["object"]
             self.reserved_bytecode = json.loads(
                 open(
-                    f"{build_dir}/ain_contracts/dfi_reserved/bytecode.json",
+                    f"{build_dir}/sol_artifacts/dfi_reserved/bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
@@ -817,20 +817,20 @@ class DST20(DefiTestFramework):
         else:
             # fall back to using relative path
             self.abi = open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/abi.json",
+                f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dst20/abi.json",
                 "r",
                 encoding="utf8",
             ).read()
             self.bytecode = json.loads(
                 open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/bytecode.json",
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dst20/deployed_bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
             )["object"]
             self.reserved_bytecode = json.loads(
                 open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_reserved/bytecode.json",
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dfi_reserved/deployed_bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
