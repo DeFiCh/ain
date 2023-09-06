@@ -1,6 +1,4 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{env, fs, path::PathBuf};
 
 use anyhow::format_err;
 use ethers_solc::{Project, ProjectPathsConfig, Solc};
@@ -12,10 +10,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ("dfi_intrinsics", "DFIIntrinsics"),
         ("dst20", "DST20"),
         ("system_reserved", "SystemReservedContract"),
+        ("transfer_domain", "TransferDomain"),
     ];
 
     for (file_path, contract_name) in contracts {
         let solc = Solc::new(env::var("SOLC_PATH")?);
+        let output_path = env::var("CARGO_TARGET_DIR")?;
         let root = PathBuf::from(file_path);
         if !root.exists() {
             return Err("Project root {root:?} does not exists!".into());
@@ -38,15 +38,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for (id, artifact) in artifacts {
             if id.name == contract_name {
                 let abi = artifact.abi.ok_or_else(|| format_err!("ABI not found"))?;
-                let bytecode = artifact.deployed_bytecode.expect("No bytecode found");
+                let deployed_bytecode = artifact
+                    .deployed_bytecode
+                    .expect("No deployed_bytecode found");
 
-                fs::create_dir_all(format!("{file_path}/output/"))?;
+                let bytecode = artifact.bytecode.expect("No bytecode found");
+
+                fs::create_dir_all(format!("{output_path}/ain_contracts/{file_path}"))?;
                 fs::write(
-                    PathBuf::from(format!("{file_path}/output/bytecode.json")),
+                    PathBuf::from(format!(
+                        "{output_path}/ain_contracts/{file_path}/bytecode.json"
+                    )),
+                    serde_json::to_string(&deployed_bytecode)
+                        .unwrap()
+                        .as_bytes(),
+                )?;
+                fs::write(
+                    PathBuf::from(format!(
+                        "{output_path}/ain_contracts/{file_path}/input.json"
+                    )),
                     serde_json::to_string(&bytecode).unwrap().as_bytes(),
                 )?;
                 fs::write(
-                    PathBuf::from(format!("{file_path}/output/abi.json")),
+                    PathBuf::from(format!("{output_path}/ain_contracts/{file_path}/abi.json")),
                     serde_json::to_string(&abi).unwrap().as_bytes(),
                 )?;
             }

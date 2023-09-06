@@ -6,8 +6,7 @@ use evm::{
 };
 use log::debug;
 
-use crate::transaction::SignedTx;
-use crate::Result;
+use crate::{transaction::SignedTx, Result};
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx

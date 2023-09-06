@@ -1,9 +1,8 @@
 use ethereum::{AccessList, ReceiptV3};
+use ethereum_types::{H160, U256};
 use evm::Config;
-use primitive_types::{H160, U256};
 
-use crate::Result;
-use crate::{executor::TxResponse, transaction::SignedTx};
+use crate::{executor::TxResponse, transaction::SignedTx, Result};
 
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {

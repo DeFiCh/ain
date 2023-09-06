@@ -49,7 +49,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
         # check reserved address space
         reserved_bytecode = json.loads(
             open(
-                f"{os.path.dirname(__file__)}/../../lib/ain-contracts/system_reserved/output/bytecode.json",
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/system_reserved/bytecode.json",
                 "r",
                 encoding="utf8",
             ).read()
@@ -72,15 +72,22 @@ class DFIIntrinsicsTest(DefiTestFramework):
         )
 
         # check counter contract
-        # Temp. workaround
-        abi = open(
-            f"{os.path.dirname(__file__)}/../../lib/ain-contracts/dfi_intrinsics/output/abi.json",
-            "r",
-            encoding="utf8",
-        ).read()
+        if os.getenv("BUILD_DIR"):
+            abi = open(
+                f"{os.getenv('BUILD_DIR')}/ain_contracts/dfi_intrinsics/abi.json",
+                "r",
+                encoding="utf8",
+            ).read()
+        else:
+            abi = open(
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_intrinsics/abi.json",
+                "r",
+                encoding="utf8",
+            ).read()
+
         counter_contract = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
-                "0xff10000000000000000000000000000000000000"
+                "0x0000000000000000000000000000000000000301"
             ),
             abi=abi,
         )

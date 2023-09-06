@@ -430,7 +430,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
     if (auto res = GetRPCResultCache().TryGet(request)) return *res;
 
     // decode owner
-    const auto reqOwner = DecodeScript(request.params[0].get_str());
+    const auto reqOwner = GetScriptForDestination(DecodeDestination(request.params[0].get_str()));
 
     // parse pagination
     size_t limit = 100;
@@ -477,7 +477,7 @@ UniValue getaccount(const JSONRPCRequest& request) {
     CTxDestination dest;
     if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
-        auto r = XResultValue(evm_try_get_balance(result, keyID.ToHexString()));
+        auto r = XResultValue(evm_try_get_balance(result, keyID.GetHex()));
         if (!r) throw JSONRPCError(RPC_MISC_ERROR, r.msg);
         if (const auto balance = *r) {
             balances[DCT_ID{}] = balance;
@@ -605,7 +605,7 @@ UniValue gettokenbalances(const JSONRPCRequest& request) {
     if (evm_dfi_lookup) {
         for (const auto keyID : pwallet->GetKeys()) {
             // TODO: Use GetHex when eth key is fixed to be stored in LE
-            auto res = XResultValue(evm_try_get_balance(result, HexStr(keyID)));
+            auto res = XResultValue(evm_try_get_balance(result, keyID.GetHex()));
             if (res) {
                 auto evmAmount = *res;
                 totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
@@ -2008,7 +2008,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
                                             {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
                                             {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
-                                            {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                            // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     },
                                     {"dst", RPCArg::Type::OBJ, RPCArg::Optional::OMITTED, "Destination arguments",
@@ -2016,7 +2016,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                             {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
                                             {"amount", RPCArg::Type::STR, RPCArg::Optional::NO, "Amount transfered, the value is amount in amount@token format"},
                                             {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
-                                            {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                            // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     }
                                 },
@@ -2057,8 +2057,12 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
             CTransferDomainItem src, dst;
 
-            if (!srcObj["address"].isNull())
-                src.address = DecodeScript(srcObj["address"].getValStr());
+            if (!srcObj["address"].isNull()) {
+                const auto dest = DecodeDestination(srcObj["address"].getValStr());
+                if (!IsValidDestination(dest))
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid src address provided");
+                src.address = GetScriptForDestination(dest);
+            }
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"address\" must not be null");
 
@@ -2071,13 +2075,14 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                 src.domain = srcObj["domain"].get_int();
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, src argument \"domain\" must not be null");
+            auto isEVMIn = src.domain == static_cast<uint8_t>(VMDomain::DVM);
 
-            if (src.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            auto srcKey = AddrToPubKey(pwallet, ScriptToString(src.address));
+            if (isEVMIn) {
                 auths.insert(src.address);
             } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                auto key = AddrToPubKey(pwallet, ScriptToString(src.address));
-                if (key.Compress()) {
-                    const auto auth = GetScriptForDestination(WitnessV0KeyHash(key.GetID()));
+                if (srcKey.Compress()) {
+                    const auto auth = GetScriptForDestination(WitnessV0KeyHash(srcKey.GetID()));
                     auths.insert(auth);
                 } else {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Failed to get compressed address for Bech32 equivilent of ERC55 address"));
@@ -2085,11 +2090,15 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             } else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,strprintf("Invalid parameters, src argument \"domain\" must be either %d (DFI token to EVM) or %d (EVM to DFI token)", static_cast<uint8_t>(VMDomain::DVM), static_cast<uint8_t>(VMDomain::EVM)));
 
-            if (!srcObj["data"].isNull())
-                src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
+            // if (!srcObj["data"].isNull())
+            //     src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
 
-            if (!dstObj["address"].isNull())
-                dst.address = DecodeScript(dstObj["address"].getValStr());
+            if (!dstObj["address"].isNull()) {
+                const auto dest = DecodeDestination(dstObj["address"].getValStr());
+                if (!IsValidDestination(dest))
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
+                dst.address = GetScriptForDestination(dest);
+            }
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"address\" must not be null");
 
@@ -2103,11 +2112,47 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             else
                 throw JSONRPCError(RPC_INVALID_PARAMETER,"Invalid parameters, dst argument \"domain\" must not be null");
 
-            if (!dstObj["data"].isNull())
-                dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
+            // if (!dstObj["data"].isNull())
+            //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
+
+            // Create signed EVM TX
+            CKey key;
+            if (!pwallet->GetKey(srcKey.GetID(), key)) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
+            }
+            std::array<uint8_t, 32> privKey{};
+            std::copy(key.begin(), key.end(), privKey.begin());
+
+            std::string to = "";
+            std::string nativeAddress = "";
+            if (isEVMIn) {
+                to = ScriptToString(dst.address);
+                nativeAddress = ScriptToString(src.address);
+            } else {
+                nativeAddress = ScriptToString(dst.address);
+            }
+            auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
+            auto script = GetScriptForDestination(dest);
+            std::string   from = ScriptToString(script);
+
+            CrossBoundaryResult result;
+            const auto signedTx = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{std::move(from),
+                                                                                                                 std::move(to),
+                                                                                                                 nativeAddress,
+                                                                                                                 isEVMIn,
+                                                                                                                 static_cast<uint64_t>(dst.amount.nValue),
+                                                                                                                 dst.amount.nTokenId.v,
+                                                                                                                 Params().GetConsensus().evmChainId,
+                                                                                                                 privKey});
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+            }
+
+            std::vector<uint8_t> evmTx(signedTx.size());
+            std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
+            dst.data = evmTx;
 
             msg.transfers.push_back({src, dst});
-
         }
     } catch(std::runtime_error& e) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, e.what());

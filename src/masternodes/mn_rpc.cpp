@@ -3,6 +3,7 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <regex>
+#include <masternodes/consensus/xvm.h>
 #include <masternodes/mn_rpc.h>
 #include <base58.h>
 #include <policy/settings.h>
@@ -457,7 +458,8 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
         CCustomCSView view(*pcustomcsview);
         auto consensus = Params().GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, view, consensus);
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, 0, isEvmEnabledForBlock);
+        uint64_t gasUsed{};
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, gasUsed, 0, 0, isEvmEnabledForBlock);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

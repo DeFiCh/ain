@@ -1,7 +1,9 @@
-use std::env;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::{
+    env,
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 use proc_macro2::TokenStream;
 

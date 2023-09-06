@@ -134,11 +134,11 @@ class EVMTest(DefiTestFramework):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.eth_address = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.eth_address_bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8"
-        eth_address_privkey = (
+        self.eth_address_privkey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
         self.to_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        to_address_privkey = (
+        self.to_address_privkey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )
 
@@ -242,8 +242,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(addr_info["witness_version"], 16)
 
         # Import addresses
-        self.nodes[0].importprivkey(eth_address_privkey)  # eth_address
-        self.nodes[0].importprivkey(to_address_privkey)  # self.to_address
+        self.nodes[0].importprivkey(self.eth_address_privkey)  # eth_address
+        self.nodes[0].importprivkey(self.to_address_privkey)  # self.to_address
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -980,14 +980,15 @@ class EVMTest(DefiTestFramework):
         assert_equal(opreturn_priority_fee_amount, self.miner_fee)
 
         # Check EVM beneficiary address
-        opreturn_miner_keyid = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
-        miner_eth_address = self.nodes[0].addressmap(
-            self.nodes[0].get_genesis_keys().operatorAuthAddress, 1
+        opreturn_miner_address = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
+        miner_eth_address = (
+            self.nodes[0]
+            .addressmap(self.nodes[0].get_genesis_keys().operatorAuthAddress, 1)[
+                "format"
+            ]["erc55"][2:]
+            .lower()
         )
-        miner_eth_keyid = self.nodes[0].getaddressinfo(
-            miner_eth_address["format"]["erc55"]
-        )["witness_program"]
-        assert_equal(opreturn_miner_keyid, miner_eth_keyid)
+        assert_equal(opreturn_miner_address, miner_eth_address)
 
     def evm_rollback(self):
         # Test rollback of EVM TX
@@ -1008,7 +1009,7 @@ class EVMTest(DefiTestFramework):
 
     def mempool_tx_limit(self):
         # Test max limit of TX from a specific sender
-        for i in range(63):
+        for i in range(64):
             self.nodes[0].evmtx(self.eth_address, i, 21, 21001, self.to_address, 1)
 
         # Test error at the 64th EVM TX
@@ -1017,7 +1018,7 @@ class EVMTest(DefiTestFramework):
             "too-many-eth-txs-by-sender",
             self.nodes[0].evmtx,
             self.eth_address,
-            63,
+            64,
             21,
             21001,
             self.to_address,
@@ -1030,31 +1031,31 @@ class EVMTest(DefiTestFramework):
         block_txs = self.nodes[0].getblock(
             self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         )["tx"]
-        assert_equal(len(block_txs), 64)
+        assert_equal(len(block_txs), 65)
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee * 63
+            attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee * 64
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee * 63
+            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee * 64
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 63
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 64
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee * 63
+            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee * 64
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min"],
-            self.priority_fee * 63,
+            self.priority_fee * 64,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
@@ -1062,7 +1063,7 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee * 63,
+            self.priority_fee * 64,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
@@ -1072,22 +1073,22 @@ class EVMTest(DefiTestFramework):
         # Check Eth balances after transfer
         assert_equal(
             int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
-            136972217000000000000,
+            135971776000000000000,
         )
         assert_equal(
             int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16),
-            63000000000000000000,
+            64000000000000000000,
         )
 
-        # Try and send another TX to make sure mempool has removed entires
-        tx = self.nodes[0].evmtx(self.eth_address, 63, 21, 21001, self.to_address, 1)
+        # Try and send another TX to make sure mempool has removed entries
+        tx = self.nodes[0].evmtx(self.eth_address, 64, 21, 21001, self.to_address, 1)
         self.nodes[0].generate(1)
         self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee * 64
+            attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee * 65
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee
@@ -1096,13 +1097,13 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash1
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 63
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 64
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee * 64
+            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee * 65
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min"], self.priority_fee
@@ -1113,7 +1114,7 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee * 63,
+            self.priority_fee * 64,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
@@ -1128,11 +1129,11 @@ class EVMTest(DefiTestFramework):
 
     def multiple_eth_rbf(self):
         # Test multiple replacement TXs with differing fees
-        self.nodes[0].evmtx(self.eth_address, 64, 22, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 64, 23, 21001, self.to_address, 1)
-        tx0 = self.nodes[0].evmtx(self.eth_address, 64, 25, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 64, 21, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 64, 24, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 65, 22, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 65, 23, 21001, self.to_address, 1)
+        tx0 = self.nodes[0].evmtx(self.eth_address, 65, 25, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 65, 21, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, 65, 24, 21001, self.to_address, 1)
         self.nodes[0].evmtx(self.to_address, 0, 22, 21001, self.eth_address, 1)
         self.nodes[0].evmtx(self.to_address, 0, 23, 21001, self.eth_address, 1)
         tx1 = self.nodes[0].evmtx(self.to_address, 0, 25, 21001, self.eth_address, 1)
@@ -1141,29 +1142,29 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check accounting of EVM fees
-        txLegacy64 = {
+        txLegacy65 = {
             "nonce": "0x1",
             "from": self.eth_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x5D21DBA00",  # 25_000_000_000,
         }
-        fees64 = self.nodes[0].debug_feeEstimate(txLegacy64)
-        self.burnt_fee64 = hex_to_decimal(fees64["burnt_fee"])
-        self.priority_fee64 = hex_to_decimal(fees64["priority_fee"])
+        fees65 = self.nodes[0].debug_feeEstimate(txLegacy65)
+        self.burnt_fee65 = hex_to_decimal(fees65["burnt_fee"])
+        self.priority_fee65 = hex_to_decimal(fees65["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt"],
-            self.burnt_fee * 64 + 2 * self.burnt_fee64,
+            self.burnt_fee * 65 + 2 * self.burnt_fee65,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority"],
-            self.priority_fee * 64 + 2 * self.priority_fee64,
+            self.priority_fee * 65 + 2 * self.priority_fee65,
         )
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt"],
-            self.burnt_fee * 64 + 2 * self.burnt_fee64,
+            self.burnt_fee * 65 + 2 * self.burnt_fee65,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee
@@ -1172,14 +1173,14 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash1
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 63
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 64
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority"],
-            self.priority_fee * 64 + 2 * self.priority_fee64,
+            self.priority_fee * 65 + 2 * self.priority_fee65,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min"], self.priority_fee
@@ -1190,7 +1191,7 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee * 63,
+            self.priority_fee * 64,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
