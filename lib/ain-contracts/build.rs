@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
 use anyhow::format_err;
-use ethers_solc::{Project, ProjectPathsConfig, Solc};
+use ethers_solc::{artifacts::Optimizer, Project, ProjectPathsConfig, Solc, SolcConfig};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile solidity project
@@ -26,8 +26,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .sources(&root)
             .build()?;
 
+        let mut solc_config = SolcConfig::builder().build();
+
+        solc_config.settings.optimizer = Optimizer {
+            enabled: Some(true),
+            runs: Some(u32::MAX as usize),
+            details: None,
+        };
+
         let project = Project::builder()
             .solc(solc)
+            .solc_config(solc_config)
             .paths(paths)
             .set_auto_detect(true)
             .no_artifacts()
