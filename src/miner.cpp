@@ -653,9 +653,23 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
         if (txResult.prepay_fee > lastFee) {
-            // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
-            const auto& addrTxs = evmAddressTxsMap[addrKey.address];
-            for (const auto& [nonce, entry] : addrTxs) {
+            // Higher paying fee. Remove all TXs above the TX to be replaced.
+            // auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, txIter->GetTx().GetHash().ToString());
+            // if (!result.ok) {
+            //     return false;
+            // }
+
+            // Loop through hashes and remove from block. Add TXs hashes to new replaceByFee collection
+            // with nonce + sender pair as collection order replacing the TX with the RBF TX from here.
+
+            auto& addrTxs = evmAddressTxsMap[addrKey.address];
+            for (auto it = addrTxs.begin(); it != addrTxs.end();) {
+                const auto& [nonce, entry] = *it;
+                if (nonce < txResult.nonce) {
+                    ++it;
+                    continue;
+                }
+                it = addrTxs.erase(it);
                 RemoveFromBlock(entry);
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
                 replaceByFee.emplace(nonce, entry);
@@ -671,12 +685,6 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                     ++it;
                 }
             }
-            // evmAddressTxsMap.erase(addrKey.address);
-            // evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, addrKey.address);
-            // // TODO handle missing evmQueueId error
-            // if (!result.ok) {
-            //     return false;
-            // }
 
             return false;
         }
