@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     // Reason: Currently setting --out-dir is nightly only, so there's no way to get OUT_DIR
     // out of cargo reliably for pointing deps determinisitcally.
     let target_dir: PathBuf = PathBuf::from(env::var("CARGO_TARGET_DIR").or(env::var("OUT_DIR"))?);
-    let solc_artifact_dir = target_dir.join("solc");
+    let solc_artifact_dir = target_dir.join("sol_artifacts");
 
     // Solidity project root and contract names relative to our project
     let contracts = vec![

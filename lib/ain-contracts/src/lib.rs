@@ -6,15 +6,22 @@ use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
-macro_rules! get_solc_artifact_path {
+macro_rules! solc_artifact_path {
     ($project_name:expr, $artifact:expr) => {
-        concat!(env!("OUT_DIR"), "/solc/", $project_name, "/", $artifact, ".json")
+        concat!(
+            env!("CARGO_TARGET_DIR"),
+            "/sol_artifacts/",
+            $project_name,
+            "/",
+            $artifact,
+            ".json"
+        )
     };
 }
 
-macro_rules! get_solc_artifact_string {
+macro_rules! solc_artifact_content_str {
     ($project_name:expr, $artifact:expr) => {
-        include_str!(get_solc_artifact_path!($project_name, $artifact))
+        include_str!(solc_artifact_path!($project_name, $artifact))
     };
 }
 
@@ -58,7 +65,7 @@ pub struct FixedContract {
 
 lazy_static::lazy_static! {
     pub static ref INTRINSIC_CONTRACT: FixedContract = {
-        let bytecode = get_bytecode(get_solc_artifact_string!("dfi_intrinsics", "deployed_bytecode")).unwrap();
+        let bytecode = get_bytecode(solc_artifact_content_str!("dfi_intrinsics", "deployed_bytecode")).unwrap();
 
         FixedContract {
             contract: Contract {
@@ -75,13 +82,13 @@ lazy_static::lazy_static! {
 
     pub static ref TRANSFERDOMAIN_CONTRACT: FixedContract = {
         // Note that input, bytecode, and deployed bytecode is used in confusing ways since
-        // deployedBytecode was exposed as bytecode earlier in build script. 
+        // deployedBytecode was exposed as bytecode earlier in build script.
         // TODO: Refactor terminology to align with the source of truth.
-        let bytecode = get_bytecode(get_solc_artifact_string!("transfer_domain", "deployed_bytecode")).unwrap();
-        let input = get_bytecode(include_str!(concat!(
-            env!("OUT_DIR"),
-            "/transfer_domain/bytecode.json"
-        ))).unwrap();
+        let bytecode = get_bytecode(solc_artifact_content_str!("transfer_domain", "deployed_bytecode")).unwrap();
+        let input = get_bytecode(solc_artifact_content_str!(
+            "transfer_domain",
+            "bytecode"
+        )).unwrap();
 
         FixedContract {
             contract: Contract {
@@ -97,10 +104,9 @@ lazy_static::lazy_static! {
     };
 
     pub static ref DST20_CONTRACT: Contract = {
-        let bytecode = get_bytecode(include_str!(concat!(
-            env!("OUT_DIR"),
-            "/dst20/bytecode_deployed.json"
-        ))).unwrap();
+        let bytecode = get_bytecode(solc_artifact_content_str!(
+            "dst20", "deployed_bytecode"
+        )).unwrap();
         let input = get_bytecode(include_str!(
             "../dst20/input.json"
         )).unwrap();
@@ -113,10 +119,10 @@ lazy_static::lazy_static! {
     };
 
     pub static ref RESERVED_CONTRACT: Contract = {
-        let bytecode = get_bytecode(include_str!(concat!(
-            env!("OUT_DIR"),
-            "/dfi_reserved/bytecode_deployed.json"
-        ))).unwrap();
+        let bytecode = get_bytecode(solc_artifact_content_str!(
+            "dfi_reserved",
+            "deployed_bytecode"
+        )).unwrap();
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
