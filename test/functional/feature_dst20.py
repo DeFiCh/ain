@@ -809,7 +809,7 @@ class DST20(DefiTestFramework):
             )["object"]
             self.reserved_bytecode = json.loads(
                 open(
-                    f"{build_dir}/ain_contracts/system_reserved/bytecode.json",
+                    f"{build_dir}/ain_contracts/dfi_reserved/bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()
@@ -830,7 +830,7 @@ class DST20(DefiTestFramework):
             )["object"]
             self.reserved_bytecode = json.loads(
                 open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/system_reserved/bytecode.json",
+                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_reserved/bytecode.json",
                     "r",
                     encoding="utf8",
                 ).read()

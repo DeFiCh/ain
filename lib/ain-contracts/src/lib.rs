@@ -65,13 +65,16 @@ lazy_static::lazy_static! {
     };
 
     pub static ref TRANSFERDOMAIN_CONTRACT: FixedContract = {
+        // Note that input, bytecode, and deployed bytecode is used in confusing ways since
+        // deployedBytecode was exposed as bytecode earlier in build script. 
+        // TODO: Refactor terminology to align with the source of truth.
         let bytecode = get_bytecode(include_str!(concat!(
             env!("OUT_DIR"),
             "/transfer_domain/bytecode_deployed.json"
         ))).unwrap();
         let input = get_bytecode(include_str!(concat!(
             env!("OUT_DIR"),
-            "/transfer_domain/input.json"
+            "/transfer_domain/bytecode.json"
         ))).unwrap();
 
         FixedContract {
@@ -106,7 +109,7 @@ lazy_static::lazy_static! {
     pub static ref RESERVED_CONTRACT: Contract = {
         let bytecode = get_bytecode(include_str!(concat!(
             env!("OUT_DIR"),
-            "/system_reserved/bytecode_deployed.json"
+            "/dfi_reserved/bytecode_deployed.json"
         ))).unwrap();
 
         Contract {

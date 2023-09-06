@@ -49,7 +49,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
         # check reserved address space
         reserved_bytecode = json.loads(
             open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/system_reserved/bytecode.json",
+                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_reserved/bytecode.json",
                 "r",
                 encoding="utf8",
             ).read()

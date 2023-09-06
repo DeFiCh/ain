@@ -10,9 +10,9 @@ fn main() -> Result<()> {
     // Solidity project root and contract names relative to our project
     let contracts = vec![
         ("dfi_intrinsics", "DFIIntrinsics"),
-        ("dst20", "DST20"),
-        ("system_reserved", "SystemReservedContract"),
+        ("dfi_reserved", "DFIReserved"),
         ("transfer_domain", "TransferDomain"),
+        ("dst20", "DST20"),
     ];
 
     for (sol_project_name, contract_name) in contracts {
@@ -53,7 +53,7 @@ fn main() -> Result<()> {
             let items = [
                 ("abi.json", serde_json::to_string(&abi)?),
                 ("bytecode.json", serde_json::to_string(&bytecode)?),
-                ("bytedcode_deployed.json", serde_json::to_string(&deployed_bytecode)?),
+                ("bytecode_deployed.json", serde_json::to_string(&deployed_bytecode)?),
             ];
 
             fs::create_dir_all(&sol_project_outdir)?;
