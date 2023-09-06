@@ -16,11 +16,12 @@ ain-contracts = { path = "../ain-contracts" }
 
 ethereum.workspace = true
 rlp.workspace = true
-primitive-types.workspace = true
+ethereum-types.workspace = true
 log.workspace = true
 hex.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
+ethabi.workspace = true
 
 # Build
 cxx.workspace = true

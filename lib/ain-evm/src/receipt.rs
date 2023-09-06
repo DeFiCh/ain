@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
-use ethereum::util::ordered_trie_root;
-use ethereum::{EnvelopedEncodable, ReceiptV3};
+use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3};
+use ethereum_types::{H160, H256, U256};
 use keccak_hash::keccak;
-use primitive_types::{H160, H256, U256};
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 
-use crate::evm::ReceiptAndOptionalContractAddress;
-use crate::storage::{traits::ReceiptStorage, Storage};
-use crate::transaction::SignedTx;
-use crate::Result;
+use crate::{
+    evm::ReceiptAndOptionalContractAddress,
+    storage::{traits::ReceiptStorage, Storage},
+    transaction::SignedTx,
+    Result,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Receipt {
@@ -106,7 +107,7 @@ impl ReceiptService {
 mod test {
     use std::str::FromStr;
 
-    use primitive_types::{H160, U256};
+    use ethereum_types::{H160, U256};
 
     use crate::receipt::get_contract_address;
 

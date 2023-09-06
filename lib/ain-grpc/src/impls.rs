@@ -1,10 +1,11 @@
-use std::convert::From;
-use std::mem::size_of_val;
+use std::{convert::From, mem::size_of_val};
 
 use ethereum::BlockAny;
 
-use crate::codegen::types::EthBlockInfo;
-use crate::utils::{format_h256, format_u256};
+use crate::{
+    codegen::types::EthBlockInfo,
+    utils::{format_h256, format_u256},
+};
 
 impl From<BlockAny> for EthBlockInfo {
     fn from(block: BlockAny) -> Self {

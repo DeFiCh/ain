@@ -1,16 +1,16 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use ethereum::ReceiptV3;
+use ethereum_types::{H160, H256, U256};
 use log::debug;
-use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 
-use crate::filters::LogsFilter;
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
-use crate::storage::Storage;
-use crate::Result;
+use crate::{
+    filters::LogsFilter,
+    receipt::Receipt,
+    storage::{traits::LogStorage, Storage},
+    Result,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogIndex {
@@ -27,6 +27,11 @@ pub struct LogIndex {
 
 pub struct LogService {
     storage: Arc<Storage>,
+}
+
+pub enum FilterType {
+    GetFilterChanges,
+    GetFilterLogs,
 }
 
 impl LogService {
@@ -110,15 +115,24 @@ impl LogService {
         Ok(logs)
     }
 
-    pub fn get_logs_from_filter(&self, filter: LogsFilter) -> Result<Vec<LogIndex>> {
-        if filter.last_block_height >= filter.to_block {
+    pub fn get_logs_from_filter(
+        &self,
+        filter: LogsFilter,
+        filter_type: FilterType,
+    ) -> Result<Vec<LogIndex>> {
+        let block_number = match filter_type {
+            FilterType::GetFilterChanges => filter.last_block_height,
+            FilterType::GetFilterLogs => filter.from_block,
+        };
+
+        if block_number >= filter.to_block {
             // not possible to have any new entries
             return Ok(Vec::new());
         }
 
-        // get all logs that match filter from last_block_height to to_block
+        // get all logs that match filter from block_number to to_block
         let mut block_numbers = Vec::new();
-        let mut block_number = filter.last_block_height;
+        let mut block_number = block_number;
 
         while block_number <= filter.to_block {
             debug!("Will query block {block_number}");

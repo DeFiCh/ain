@@ -1,16 +1,17 @@
-use std::path::PathBuf;
-use std::{collections::HashMap, marker::PhantomData, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    marker::PhantomData,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use bincode;
 use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, U256};
 use rocksdb::{ColumnFamily, ColumnFamilyDescriptor, Options, DB};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::log::LogIndex;
-use crate::receipt::Receipt;
-use crate::Result;
+use crate::{log::LogIndex, receipt::Receipt, Result};
 
 fn get_db_options() -> Options {
     let mut options = Options::default();

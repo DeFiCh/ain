@@ -4,8 +4,7 @@ use anyhow::format_err;
 use ethereum::TransactionV2;
 use ethereum_types::U256;
 
-use crate::transaction::SignedTx;
-use crate::Result;
+use crate::{transaction::SignedTx, Result};
 
 pub fn calculate_prepay_gas_fee(signed_tx: &SignedTx) -> Result<U256> {
     match &signed_tx.transaction {

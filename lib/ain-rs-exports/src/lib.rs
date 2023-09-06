@@ -2,8 +2,7 @@ mod core;
 mod evm;
 mod prelude;
 
-use crate::core::*;
-use crate::evm::*;
+use crate::{core::*, evm::*};
 
 #[cxx::bridge]
 pub mod ffi {
@@ -42,6 +41,15 @@ pub mod ffi {
         pub data: Vec<u8>,
     }
 
+    // ========== Governance Variable ==========
+    #[derive(Default)]
+    pub struct GovVarKeyDataStructure {
+        pub category: u8,
+        pub category_id: u32,
+        pub key: u32,
+        pub key_id: u32,
+    }
+
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
@@ -75,6 +83,17 @@ pub mod ffi {
         pub priv_key: [u8; 32],
     }
 
+    pub struct CreateTransferDomainContext {
+        pub from: String,
+        pub to: String,
+        pub native_address: String,
+        pub direction: bool,
+        pub value: u64,
+        pub token_id: u32,
+        pub chain_id: u64,
+        pub priv_key: [u8; 32],
+    }
+
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
         pub block_hash: String,
@@ -82,7 +101,6 @@ pub mod ffi {
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
         pub block_number: u64,
-        pub state_root: String,
     }
 
     #[derive(Default)]
@@ -100,12 +118,6 @@ pub mod ffi {
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: &str) -> u64;
-        fn evm_try_get_balance_at_state_root(
-            result: &mut CrossBoundaryResult,
-            address: &str,
-            state_root: &str,
-        ) -> u64;
-
         fn evm_unsafe_try_create_queue(result: &mut CrossBoundaryResult) -> u64;
         fn evm_unsafe_try_remove_queue(result: &mut CrossBoundaryResult, queue_id: u64);
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
@@ -126,15 +138,13 @@ pub mod ffi {
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
         ) -> bool;
         fn evm_unsafe_try_prevalidate_raw_tx(
@@ -163,15 +173,19 @@ pub mod ffi {
             mnview_ptr: usize,
         ) -> FinalizeBlockCompletion;
         fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
-        fn evm_try_set_attribute(
+        fn evm_try_handle_attribute_apply(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            attribute_type: u32,
-            value: u64,
+            attribute_type: GovVarKeyDataStructure,
+            value: Vec<u8>,
         ) -> bool;
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
+        ) -> Vec<u8>;
+        fn evm_try_create_and_sign_transfer_domain_tx(
+            result: &mut CrossBoundaryResult,
+            ctx: CreateTransferDomainContext,
         ) -> Vec<u8>;
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
@@ -199,8 +213,7 @@ pub mod ffi {
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
             token_id: u64,
             out: bool,
@@ -216,12 +229,6 @@ pub mod ffi {
         fn evm_unsafe_try_get_target_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-        ) -> u64;
-
-        fn evm_try_get_dst20_total_supply(
-            result: &mut CrossBoundaryResult,
-            token_id: u64,
-            state_root: &str,
         ) -> u64;
     }
 }

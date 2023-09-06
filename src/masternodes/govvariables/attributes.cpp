@@ -15,6 +15,8 @@
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
+
+#include <ain_rs_exports.h>
 #include <ffi/ffihelpers.h>
 
 enum class EVMAttributesTypes : uint32_t {
@@ -24,19 +26,6 @@ enum class EVMAttributesTypes : uint32_t {
 };
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
-
-UniValue CTransferDomainStatsLive::ToUniValue() const {
-    UniValue obj(UniValue::VOBJ);
-    obj.pushKV("dvmIn", AmountsToJSON(dvmIn.balances));
-    obj.pushKV("dvmOut", AmountsToJSON(dvmOut.balances));
-    obj.pushKV("dvmCurrent", AmountsToJSON(dvmCurrent.balances));
-    obj.pushKV("evmIn", AmountsToJSON(evmIn.balances));
-    obj.pushKV("evmOut", AmountsToJSON(evmOut.balances));
-    obj.pushKV("evmOut", AmountsToJSON(evmCurrent.balances));
-    obj.pushKV("dvmEvm", AmountsToJSON(dvmEvmTotal.balances));
-    obj.pushKV("evmDvm", AmountsToJSON(evmDvmTotal.balances));
-    return obj;
-}
 
 static inline std::string trim_all_ws(std::string s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); }));
@@ -919,6 +908,37 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
     }
     attributes->SetValue(liveKey, storedBalances);
     mnview.SetVariable(*attributes);
+}
+
+bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+    if (height < consensus.NextNetworkUpgradeHeight) {
+        return false;
+    }
+
+    const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    auto attributes = view.GetAttributes();
+    assert(attributes);
+    return attributes->GetValue(enabledKey, false);
+}
+
+Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
+    // Retrieve any stored GovVariables at startHeight
+    auto storedGovVars = view.GetStoredVariables(obj.startHeight);
+
+    // Remove any pre-existing entry
+    for (auto it = storedGovVars.begin(); it != storedGovVars.end();) {
+        if ((*it)->GetName() == obj.govVar->GetName()) {
+            it = storedGovVars.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Add GovVariable to set for storage
+    storedGovVars.insert(obj.govVar);
+
+    // Store GovVariable set by height
+    return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
 Res ATTRIBUTES::ProcessVariable(const std::string &key,
@@ -2282,7 +2302,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     lock.startHeight = startHeight;
                     lock.govVar      = govVar;
 
-                    if (auto res = storeGovVars(lock, mnview); !res) {
+                    if (auto res = StoreGovVars(lock, mnview); !res) {
                         return res;
                     }
                 } else {
@@ -2290,36 +2310,25 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     SetValue(lockKey, true);
                 }
             }
-        } else if (attrV0->type == AttributeTypes::EVMType && attrV0->typeId == EVMIDs::Block) {
-            uint32_t attributeType{};
-            if (attrV0->key == EVMKeys::Finalized) {
-                attributeType = static_cast<uint32_t>(EVMAttributesTypes::Finalized);
-            } else if (attrV0->key == EVMKeys::GasLimit) {
-                attributeType = static_cast<uint32_t>(EVMAttributesTypes::GasLimit);
-            } else if (attrV0->key == EVMKeys::GasTarget) {
-                attributeType = static_cast<uint32_t>(EVMAttributesTypes::GasTarget);
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedEVMType(attrV0->key);
-            }
+        }
 
-            const auto number = std::get_if<uint64_t>(&attribute.second);
-            if (!number) {
-                return DeFiErrors::GovVarUnsupportedValue();
-            }
+        const auto govVarPtr = static_cast<const uint8_t*>(static_cast<const void*>(&attribute.second));
+        const auto govVarVec = std::vector<uint8_t>(govVarPtr, govVarPtr + sizeof(attribute.second));
 
-            // TODO: Cut this out.
-            CrossBoundaryResult result;
-            if (!evm_try_set_attribute(result, evmQueueId, attributeType, *number)) {
-                return DeFiErrors::SettingEVMAttributeFailure();
-            }
-            if (!result.ok) {
-                return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
-            }
+        rust::Vec<uint8_t> govVarValue{};
+        govVarValue.reserve(govVarVec.size());
+        std::copy(govVarVec.begin(), govVarVec.end(), govVarValue.begin());
+
+        CrossBoundaryResult result;
+        const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
+        if (!evm_try_handle_attribute_apply(result, evmQueueId, rustKey, govVarValue)) {
+            return DeFiErrors::SettingEVMAttributeFailure();
+        }
+        if (!result.ok) {
+            return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
         }
     }
 
-    // TODO: evm_try_handle_attribute_apply here. 
-    // Pass the whole apply chain. On the rust side, pick and choose what needs to be handled 
     return Res::Ok();
 }
 

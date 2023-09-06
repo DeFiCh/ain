@@ -1,10 +1,9 @@
-use std::borrow::ToOwned;
-use std::{num::NonZeroUsize, sync::RwLock};
+use std::{borrow::ToOwned, num::NonZeroUsize, sync::RwLock};
 
 use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::{H256, U256};
 use lru::LruCache;
-use primitive_types::{H256, U256};
 
 use super::traits::{AttributesStorage, BlockStorage, Rollback, TransactionStorage};
 use crate::Result;
