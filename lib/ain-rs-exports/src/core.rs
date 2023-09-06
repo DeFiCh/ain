@@ -1,5 +1,4 @@
-use crate::ffi::CrossBoundaryResult;
-use crate::prelude::*;
+use crate::{ffi::CrossBoundaryResult, prelude::*};
 
 pub fn ain_rs_preinit(result: &mut CrossBoundaryResult) {
     ain_grpc::preinit();

@@ -8,7 +8,6 @@ ain-cpp-imports = { path = "../ain-cpp-imports" }
 ain-contracts = { path = "../ain-contracts" }
 
 evm = { workspace = true, default-features = false, features = ["with-serde"] }
-primitive-types = { workspace = true, default-features = false, features = ["serde"] }
 log.workspace = true
 rlp.workspace = true
 libsecp256k1.workspace = true

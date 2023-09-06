@@ -1,5 +1,4 @@
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
     get_dst20_contract, get_reserved_contract, get_transferdomain_contract, Contract, FixedContract,
@@ -9,32 +8,32 @@ use ethereum::{
     Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
     TransactionSignature, TransactionV2,
 };
-use ethereum_types::{Bloom, H160, H64, U256};
+use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::debug;
-use primitive_types::H256;
 
-use crate::backend::{EVMBackend, Vicinity};
-use crate::block::BlockService;
-use crate::contract::{
-    bridge_dst20, counter_contract, dst20_contract, transfer_domain_contract, DST20BridgeInfo,
-    DeployContractInfo,
+use crate::{
+    backend::{EVMBackend, Vicinity},
+    block::BlockService,
+    contract::{
+        bridge_dst20, dst20_contract, intrinsics_contract, transfer_domain_contract,
+        DST20BridgeInfo, DeployContractInfo,
+    },
+    core::{EVMCoreService, XHash},
+    executor::{AinExecutor, TxResponse},
+    fee::{calculate_gas_fee, calculate_prepay_gas_fee},
+    filters::FilterService,
+    log::LogService,
+    receipt::ReceiptService,
+    storage::{traits::BlockStorage, Storage},
+    traits::Executor,
+    transaction::{
+        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        SignedTx, LOWER_H256,
+    },
+    trie::GENESIS_STATE_ROOT,
+    txqueue::{BlockData, QueueTx, QueueTxItem},
+    Result,
 };
-use crate::core::{EVMCoreService, XHash};
-use crate::executor::{AinExecutor, TxResponse};
-use crate::fee::{calculate_gas_fee, calculate_prepay_gas_fee};
-use crate::filters::FilterService;
-use crate::log::LogService;
-use crate::receipt::ReceiptService;
-use crate::storage::traits::BlockStorage;
-use crate::storage::Storage;
-use crate::traits::Executor;
-use crate::transaction::system::{
-    DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData,
-};
-use crate::transaction::{SignedTx, LOWER_H256};
-use crate::trie::GENESIS_STATE_ROOT;
-use crate::txqueue::{BlockData, QueueTx, QueueTxItem};
-use crate::Result;
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -188,6 +187,7 @@ impl EVMServices {
         if is_evm_genesis_block {
             // reserve DST20 namespace
             self.reserve_dst20_namespace(&mut executor)?;
+            self.reserve_intrinsics_namespace(&mut executor)?;
 
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs);
@@ -197,7 +197,7 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = counter_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
 
             debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -221,7 +221,7 @@ impl EVMServices {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = counter_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
             executor.commit();
         }
@@ -630,6 +630,23 @@ impl EVMServices {
         for address in addresses {
             debug!(
                 "[reserve_dst20_namespace] Deploying address to {:#?}",
+                address
+            );
+            executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn reserve_intrinsics_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
+        let Contract { bytecode, .. } = get_reserved_contract();
+        let addresses = (1..=127)
+            .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
+            .collect::<Vec<H160>>();
+
+        for address in addresses {
+            debug!(
+                "[reserve_intrinsics_namespace] Deploying address to {:#?}",
                 address
             );
             executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;

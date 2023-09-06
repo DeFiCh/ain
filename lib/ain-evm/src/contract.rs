@@ -54,7 +54,7 @@ pub struct DST20BridgeInfo {
 }
 
 /// Returns address, bytecode and storage with incremented count for the counter contract
-pub fn counter_contract(
+pub fn intrinsics_contract(
     backend: &EVMBackend,
     dvm_block_number: u64,
     evm_block_number: U256,

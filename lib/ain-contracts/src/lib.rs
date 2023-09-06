@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::format_err;
-use primitive_types::{H160, H256};
+use ethereum_types::{H160, H256};
 use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
@@ -19,6 +19,14 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     let number_str = format!("{:x}", token_id);
     let padded_number_str = format!("{number_str:0>38}");
     let final_str = format!("ff{padded_number_str}");
+
+    Ok(H160::from_str(&final_str)?)
+}
+
+pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
+    let number_str = format!("{:x}", id);
+    let padded_number_str = format!("{number_str:0>37}");
+    let final_str = format!("ff1{padded_number_str}");
 
     Ok(H160::from_str(&final_str)?)
 }

@@ -15,6 +15,8 @@
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount
 #include <util/strencodings.h>
+
+#include <ain_rs_exports.h>
 #include <ffi/ffihelpers.h>
 
 enum class EVMAttributesTypes : uint32_t {
@@ -2308,36 +2310,25 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     SetValue(lockKey, true);
                 }
             }
-        } else if (attrV0->type == AttributeTypes::EVMType && attrV0->typeId == EVMIDs::Block) {
-            uint32_t attributeType{};
-            if (attrV0->key == EVMKeys::Finalized) {
-                attributeType = static_cast<uint32_t>(EVMAttributesTypes::Finalized);
-            } else if (attrV0->key == EVMKeys::GasLimit) {
-                attributeType = static_cast<uint32_t>(EVMAttributesTypes::GasLimit);
-            } else if (attrV0->key == EVMKeys::GasTarget) {
-                attributeType = static_cast<uint32_t>(EVMAttributesTypes::GasTarget);
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedEVMType(attrV0->key);
-            }
+        }
 
-            const auto number = std::get_if<uint64_t>(&attribute.second);
-            if (!number) {
-                return DeFiErrors::GovVarUnsupportedValue();
-            }
+        const auto govVarPtr = static_cast<const uint8_t*>(static_cast<const void*>(&attribute.second));
+        const auto govVarVec = std::vector<uint8_t>(govVarPtr, govVarPtr + sizeof(attribute.second));
 
-            // TODO: Cut this out.
-            CrossBoundaryResult result;
-            if (!evm_try_set_attribute(result, evmQueueId, attributeType, *number)) {
-                return DeFiErrors::SettingEVMAttributeFailure();
-            }
-            if (!result.ok) {
-                return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
-            }
+        rust::Vec<uint8_t> govVarValue{};
+        govVarValue.reserve(govVarVec.size());
+        std::copy(govVarVec.begin(), govVarVec.end(), govVarValue.begin());
+
+        CrossBoundaryResult result;
+        const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
+        if (!evm_try_handle_attribute_apply(result, evmQueueId, rustKey, govVarValue)) {
+            return DeFiErrors::SettingEVMAttributeFailure();
+        }
+        if (!result.ok) {
+            return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
         }
     }
 
-    // TODO: evm_try_handle_attribute_apply here. 
-    // Pass the whole apply chain. On the rust side, pick and choose what needs to be handled 
     return Res::Ok();
 }
 
