@@ -78,7 +78,7 @@ class EVMTest(DefiTestFramework):
         )
         node.generate(1)
 
-        abi, bytecode = EVMContract.from_file(
+        abi, bytecode, _ = EVMContract.from_file(
             "GlobalVariable.sol", "GlobalVariable"
         ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)

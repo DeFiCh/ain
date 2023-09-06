@@ -62,6 +62,16 @@ def assert_raises(exc, fun, *args, **kwds):
     assert_raises_message(exc, None, fun, *args, **kwds)
 
 
+def assert_raises_web3_error(code, message, fun, *args, **kwargs):
+    try:
+        fun(*args, **kwargs)
+    except ValueError as e:
+        assert_equal(e.args[0]["code"], code)
+
+        if message not in e.args[0]["message"]:
+            raise AssertionError("Expected substring not found:" + e.args[0]["message"])
+
+
 def assert_raises_message(exc, message, fun, *args, **kwds):
     try:
         fun(*args, **kwds)
@@ -901,3 +911,11 @@ def token_index_in_account(account, symbol):
         if symbol in account[id]:
             return id
     return -1
+
+
+# Web3 functions
+#############################
+
+
+def get_solc_artifact_path(contract: str, file_name: str) -> str:
+    return f"{os.path.dirname(__file__)}/../../../build/lib/target/sol_artifacts/{contract}/{file_name}"

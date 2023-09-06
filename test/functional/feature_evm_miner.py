@@ -107,7 +107,7 @@ class EVMTest(DefiTestFramework):
 
     def mempool_block_limit(self):
         self.rollback_and_clear_mempool()
-        abi, bytecode = EVMContract.from_file("Loop.sol", "Loop").compile()
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
             {
@@ -281,7 +281,7 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(before_balance, Decimal("100"))
 
-        abi, bytecode = EVMContract.from_file(
+        abi, bytecode, _ = EVMContract.from_file(
             "StateChange.sol", "StateChange"
         ).compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
