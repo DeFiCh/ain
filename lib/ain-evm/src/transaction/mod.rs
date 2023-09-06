@@ -97,11 +97,29 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
     pub pubkey: PublicKey,
+}
+
+impl fmt::Debug for SignedTx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SignedTx")
+            .field("hash", &self.hash())
+            .field("nonce", &self.nonce())
+            .field("to", &self.to())
+            .field("action", &self.action())
+            .field("value", &self.value())
+            .field("gas_limit", &self.gas_limit())
+            .field("max_fee_per_gas", &self.max_fee_per_gas())
+            .field("max_priority_fee_per_gas", &self.max_priority_fee_per_gas())
+            .field("access_list", &self.access_list())
+            .field("input", &hex::encode(self.data()))
+            .field("sender", &self.sender)
+            .finish()
+    }
 }
 
 impl TryFrom<TransactionV2> for SignedTx {
