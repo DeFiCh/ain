@@ -690,11 +690,11 @@ pub fn evm_try_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
     }
 }
 
-pub fn evm_try_set_attribute(
+pub fn evm_try_handle_attribute_apply(
     result: &mut ffi::CrossBoundaryResult,
     _queue_id: u64,
-    _attribute_type: u32,
-    _value: u64,
+    _attribute_type: ffi::GovVarKeyDataStructure,
+    _value: Vec<u8>,
 ) -> bool {
     cross_boundary_success_return(result, true)
 }
