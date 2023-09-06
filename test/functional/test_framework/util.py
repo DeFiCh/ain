@@ -62,6 +62,16 @@ def assert_raises(exc, fun, *args, **kwds):
     assert_raises_message(exc, None, fun, *args, **kwds)
 
 
+def assert_raises_web3_error(code, message, fun, *args, **kwargs):
+    try:
+        fun(*args, **kwargs)
+    except ValueError as e:
+        assert_equal(e.args[0]["code"], code)
+
+        if message not in e.args[0]["message"]:
+            raise AssertionError("Expected substring not found:" + e.args[0]["message"])
+
+
 def assert_raises_message(exc, message, fun, *args, **kwds):
     try:
         fun(*args, **kwds)

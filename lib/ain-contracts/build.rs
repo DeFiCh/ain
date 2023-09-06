@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
-use ethers_solc::{Project, ProjectPathsConfig, Solc};
+use ethers_solc::{artifacts::Optimizer, Project, ProjectPathsConfig, Solc, SolcConfig};
 
 fn main() -> Result<()> {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
@@ -35,8 +35,17 @@ fn main() -> Result<()> {
             .sources(&sol_project_root)
             .build()?;
 
+        let mut solc_config = SolcConfig::builder().build();
+
+        solc_config.settings.optimizer = Optimizer {
+            enabled: Some(true),
+            runs: Some(u32::MAX as usize),
+            details: None,
+        };
+
         let project = Project::builder()
             .solc(solc)
+            .solc_config(solc_config)
             .paths(paths)
             .set_auto_detect(true)
             .no_artifacts()
