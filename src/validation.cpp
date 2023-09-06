@@ -2937,6 +2937,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Finalize items
     if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_unsafe_try_commit_queue(result, evmQueueId));
+    } else {
+        XResultThrowOnErr(evm_unsafe_try_remove_queue(result, evmQueueId));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -3354,7 +3356,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
         uint64_t evmQueueId = *r;
-        
+
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmQueueId);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
