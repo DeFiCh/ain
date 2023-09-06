@@ -328,20 +328,17 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         auto failedTransactions = ConvertFailedEVMTxs(blockResult.failed_transactions);
         auto failedTransferDomainTxs = GetFailedTransferDomainTxs(failedTransactions);
 
+        CrossBoundaryResult result;
         while (!failedTransferDomainTxs.empty()) {
             RemoveFromBlock(failedTransferDomainTxs, true);
 
             // Remove TX from queue
-            CrossBoundaryResult result{};
             for (const auto &tx : failedTransferDomainTxs) {
                 if (!nativeTxToEvmAddress.count(tx->GetTx().GetHash())) return Res::Err("TransferDomain TX not found in TX to ERC address map");
 
                 auto& [address, nonce] = nativeTxToEvmAddress.at(tx->GetTx().GetHash());
 
                 evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, address, nonce);
-                if (!result.ok) {
-                    return Res::Err("Failed to remove TXs by sender from queue");
-                }
             }
 
             res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
@@ -696,7 +693,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    CrossBoundaryResult result{};
+    CrossBoundaryResult result;
     ValidateTxCompletion txResult{};
     if (txType == CustomTxType::EvmTx) {
         const auto obj = std::get<CEvmTxMessage>(txMessage);
