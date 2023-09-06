@@ -190,7 +190,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
-
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
@@ -276,31 +275,18 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx size too large");
 
     CrossBoundaryResult result;
-    ValidateTxCompletion validateResults;
-
-    if (evmSanityCheckOnly) {
-        validateResults = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
-        if (!result.ok) {
-            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-            return Res::Err("evm tx failed to validate %s", result.reason);
-        }
-        return Res::Ok();
-    }
-
-    validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+    LogPrintf("evm_unsafe_try_validate_raw_tx_in_q in evmtx\n");
+    auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s", result.reason);
     }
 
-    gasUsed = validateResults.gas_used;
-
-    evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex(), validateResults.gas_used, validateResults.state_root);
+    evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {
         LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to queue %s\n", result.reason);
     }
-
 
     auto txHash = tx.GetHash().GetHex();
     auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);

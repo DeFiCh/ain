@@ -639,7 +639,9 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
     CrossBoundaryResult result;
-    const auto txResult = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+    LogPrintf("evm_unsafe_try_validate_raw_tx_in_q in miner\n");
+    const auto txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+
     if (!result.ok) {
         return false;
     }

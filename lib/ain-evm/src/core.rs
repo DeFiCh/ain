@@ -7,20 +7,16 @@ use log::{debug, trace};
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
-    backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity},
+    backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
-    executor::{AinExecutor, TxResponse},
+    executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    traits::{Executor, ExecutorContext},
-    transaction::{
-        system::{SystemTx, TransferDirection, TransferDomainData},
-        SignedTx,
-    },
+    transaction::SignedTx,
     trie::TrieDBStore,
-    txqueue::{QueueTx, TransactionQueueMap},
+    txqueue::TransactionQueueMap,
     weiamount::WeiAmount,
     Result,
 };
@@ -48,8 +44,6 @@ pub struct EthCallArgs<'a> {
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
-    pub used_gas: u64,
-    pub state_root: H256,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -199,7 +193,6 @@ impl EVMCoreService {
     ///
     /// * `tx` - The raw tx.
     /// * `queue_id` - The queue_id queue number.
-    /// * `use_context` - Flag to call tx with stack executor.
     ///
     /// # Returns
     ///
@@ -211,13 +204,11 @@ impl EVMCoreService {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
+        debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!(
-            "[validate_raw_tx] TransactionV2 : {:#?}",
-            signed_tx.transaction
-        );
+        debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
         let state_root = if queue_id != 0 {
             match self.tx_queues.get_latest_state_root_in(queue_id)? {
@@ -236,8 +227,7 @@ impl EVMCoreService {
         };
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
-        // Has to be mutable to obtain new state root
-        let mut backend = self.get_backend(state_root)?;
+        let backend = self.get_backend(state_root)?;
 
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
@@ -286,10 +276,28 @@ impl EVMCoreService {
         }
 
         let use_queue = queue_id != 0;
-        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        let used_gas = if use_queue {
+            let block_number = self.tx_queues.get_target_block_in(queue_id)?;
+            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
+                caller: Some(signed_tx.sender),
+                to: signed_tx.to(),
+                value: signed_tx.value(),
+                data: signed_tx.data(),
+                gas_limit: signed_tx.gas_limit().as_u64(),
+                access_list: signed_tx.access_list(),
+                block_number,
+                gas_price: Some(tx_gas_price),
+                max_fee_per_gas: signed_tx.max_fee_per_gas(),
+                transaction_type: Some(signed_tx.get_tx_type()),
+            })?;
+            used_gas
+        } else {
+            u64::default()
+        };
 
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
-        let (used_gas, state_root) = if use_queue {
+        if use_queue {
             // Validate tx prepay fees with account balance
             let balance = backend.get_balance(&signed_tx.sender);
             debug!("[validate_raw_tx] Account balance : {:x?}", balance);
@@ -298,22 +306,6 @@ impl EVMCoreService {
                 debug!("[validate_raw_tx] insufficient balance to pay fees");
                 return Err(format_err!("insufficient balance to pay fees").into());
             }
-
-            let mut executor = AinExecutor::new(&mut backend);
-
-            let (
-                TxResponse {
-                    exit_reason,
-                    used_gas,
-                    ..
-                },
-                receipt,
-            ) = executor.exec(&signed_tx, prepay_fee);
-
-            let state_root = backend.root();
-            debug!("exit_reason : {:#?}", exit_reason);
-
-            debug!("[validate_raw_tx] new state_root : {:#x}", state_root);
 
             // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
@@ -326,17 +318,11 @@ impl EVMCoreService {
             if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
                 return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
             }
-
-            (used_gas, state_root)
-        } else {
-            (u64::default(), H256::default())
-        };
+        }
 
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
-            used_gas,
-            state_root,
         })
     }
 
@@ -352,62 +338,6 @@ impl EVMCoreService {
 
 // Transaction queue methods
 impl EVMCoreService {
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn add_balance(
-        &self,
-        queue_id: u64,
-        signed_tx: SignedTx,
-        hash: XHash,
-    ) -> Result<()> {
-        let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-            signed_tx: Box::new(signed_tx),
-            direction: TransferDirection::EvmIn,
-        }));
-        self.tx_queues
-            .push_in(queue_id, queue_tx, hash, U256::zero(), H256::default())?;
-        Ok(())
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn sub_balance(
-        &self,
-        queue_id: u64,
-        signed_tx: SignedTx,
-        hash: XHash,
-    ) -> Result<()> {
-        let block_number = self
-            .storage
-            .get_latest_block()?
-            .map_or(U256::default(), |block| block.header.number);
-        let balance = self.get_balance(signed_tx.sender, block_number)?;
-        if balance < signed_tx.value() {
-            Err(BackendError::InsufficientBalance(InsufficientBalance {
-                address: signed_tx.sender,
-                account_balance: balance,
-                amount: signed_tx.value(),
-            })
-            .into())
-        } else {
-            let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                signed_tx: Box::new(signed_tx),
-                direction: TransferDirection::EvmOut,
-            }));
-            self.tx_queues
-                .push_in(queue_id, queue_tx, hash, U256::zero(), H256::default())?;
-            Ok(())
-        }
-    }
-
     ///
     /// # Safety
     ///

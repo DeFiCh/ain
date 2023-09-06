@@ -97,7 +97,6 @@ pub mod ffi {
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
         pub block_hash: String,
-        pub failed_transactions: Vec<String>,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
         pub block_number: u64,
@@ -109,8 +108,6 @@ pub mod ffi {
         pub sender: String,
         pub tx_hash: String,
         pub prepay_fee: u64,
-        pub gas_used: u64,
-        pub state_root: [u8; 32],
     }
 
     extern "Rust" {
@@ -150,15 +147,13 @@ pub mod ffi {
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            tx: &str,
+            raw_tx: &str,
         ) -> ValidateTxCompletion;
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            gas_used: u64,
-            state_root: [u8; 32],
         );
         fn evm_unsafe_try_construct_block_in_q(
             result: &mut CrossBoundaryResult,

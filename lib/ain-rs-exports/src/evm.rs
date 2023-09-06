@@ -6,14 +6,14 @@ use ain_evm::{
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     transaction::{
         self,
-        system::{DST20Data, DeployContractData, SystemTx},
+        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
         SignedTx,
     },
     txqueue::QueueTx,
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::{H160, U256};
 use log::debug;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
@@ -318,11 +318,14 @@ pub fn evm_unsafe_try_add_balance_in_q(
     };
     let native_hash = XHash::from(native_hash);
 
+    let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+        signed_tx: Box::new(signed_tx),
+        direction: TransferDirection::EvmIn,
+    }));
     unsafe {
         match SERVICES
             .evm
-            .core
-            .add_balance(queue_id, signed_tx, native_hash)
+            .push_tx_in_queue(queue_id, queue_tx, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -360,11 +363,15 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     };
     let native_hash = XHash::from(native_hash);
 
+    let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+        signed_tx: Box::new(signed_tx),
+        direction: TransferDirection::EvmOut,
+    }));
+
     unsafe {
         match SERVICES
             .evm
-            .core
-            .sub_balance(queue_id, signed_tx, native_hash)
+            .push_tx_in_queue(queue_id, queue_tx, native_hash)
         {
             Ok(_) => cross_boundary_success_return(result, true),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
@@ -398,6 +405,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     tx: &str,
 ) -> ffi::ValidateTxCompletion {
+    debug!("[evm_unsafe_try_prevalidate_raw_tx]");
     let queue_id = 0;
 
     unsafe {
@@ -405,8 +413,6 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                used_gas,
-                state_root,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -423,8 +429,6 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
-                        gas_used: used_gas,
-                        state_root: state_root.to_fixed_bytes(),
                     },
                 )
             }
@@ -463,9 +467,10 @@ pub fn evm_unsafe_try_prevalidate_raw_tx(
 pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
-    tx: &str,
+    raw_tx: &str,
 ) -> ffi::ValidateTxCompletion {
-    match SERVICES.evm.verify_tx_fees(tx) {
+    debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
+    match SERVICES.evm.verify_tx_fees(raw_tx) {
         Ok(_) => (),
         Err(e) => {
             debug!("evm_try_validate_raw_tx failed with error: {e}");
@@ -473,12 +478,10 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         }
     }
     unsafe {
-        match SERVICES.evm.core.validate_raw_tx(tx, queue_id) {
+        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                used_gas,
-                state_root,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -495,8 +498,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
-                        gas_used: used_gas,
-                        state_root: state_root.to_fixed_bytes(),
                     },
                 )
             }
@@ -552,8 +553,6 @@ pub fn evm_unsafe_try_push_tx_in_q(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    gas_used: u64,
-    state_root: [u8; 32],
 ) {
     let native_hash = native_hash.to_string();
     let signed_tx: Result<SignedTx, TransactionError> = raw_tx.try_into();
@@ -561,13 +560,10 @@ pub fn evm_unsafe_try_push_tx_in_q(
     unsafe {
         match signed_tx {
             Ok(signed_tx) => {
-                match SERVICES.evm.push_tx_in_queue(
-                    queue_id,
-                    signed_tx.into(),
-                    native_hash,
-                    U256::from(gas_used),
-                    H256::from(state_root),
-                ) {
+                match SERVICES
+                    .evm
+                    .push_tx_in_queue(queue_id, signed_tx.into(), native_hash)
+                {
                     Ok(_) => cross_boundary_success(result),
                     Err(e) => cross_boundary_error_return(result, e.to_string()),
                 }
@@ -613,7 +609,6 @@ pub fn evm_unsafe_try_construct_block_in_q(
         ) {
             Ok(FinalizedBlockInfo {
                 block_hash,
-                failed_transactions,
                 total_burnt_fees,
                 total_priority_fees,
                 block_number,
@@ -633,7 +628,6 @@ pub fn evm_unsafe_try_construct_block_in_q(
                 cross_boundary_success(result);
                 ffi::FinalizeBlockCompletion {
                     block_hash,
-                    failed_transactions,
                     total_burnt_fees,
                     total_priority_fees,
                     block_number: block_number.as_u64(),
@@ -915,13 +909,10 @@ pub fn evm_try_create_dst20(
     }));
 
     unsafe {
-        match SERVICES.evm.push_tx_in_queue(
-            queue_id,
-            system_tx,
-            native_hash,
-            U256::zero(),
-            H256::default(),
-        ) {
+        match SERVICES
+            .evm
+            .push_tx_in_queue(queue_id, system_tx, native_hash)
+        {
             Ok(_) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
@@ -951,13 +942,10 @@ pub fn evm_try_bridge_dst20(
     }));
 
     unsafe {
-        match SERVICES.evm.push_tx_in_queue(
-            queue_id,
-            system_tx,
-            native_hash,
-            U256::zero(),
-            H256::default(),
-        ) {
+        match SERVICES
+            .evm
+            .push_tx_in_queue(queue_id, system_tx, native_hash)
+        {
             Ok(_) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
