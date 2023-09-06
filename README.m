@@ -1,4 +1,4 @@
-(https://github.com/DeFiCh/ain/actions/workflows/lint.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/lint.yaml)
+##(https://github.com/DeFiCh/ain/actions/workflows/lint.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/lint.yaml)
 (https://github.com/DeFiCh/ain/actions/workflows/tests-e2e.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/tests-e2e.yaml)
 (https://github.com/DeFiCh/ain/actions/workflows/build-dev.yaml/badge.svg)](https://github.com/DeFiCh/ain/actions/workflows/build-dev.yaml)
 
