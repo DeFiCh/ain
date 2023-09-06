@@ -139,8 +139,8 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
+    pub unsafe fn remove_by_sender_in(&self, queue_id: u64, target_hash: XHash) -> Result<()> {
+        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_above_hash(target_hash))
     }
 
     ///
@@ -305,24 +305,6 @@ impl TransactionQueue {
             state_root,
         });
         Ok(())
-    }
-
-    pub fn remove_txs_by_sender(&self, sender: H160) {
-        let mut data = self.data.lock().unwrap();
-        let mut gas_used_to_remove = U256::zero();
-        data.transactions.retain(|item| {
-            let tx_sender = match &item.tx {
-                QueueTx::SignedTx(tx) => tx.sender,
-                QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
-            };
-            if tx_sender == sender {
-                gas_used_to_remove += item.gas_used;
-                return false;
-            }
-            true
-        });
-        data.total_gas_used -= gas_used_to_remove;
-        data.account_nonces.remove(&sender);
     }
 
     pub fn remove_txs_above_hash(&self, target_hash: XHash) -> Vec<XHash> {

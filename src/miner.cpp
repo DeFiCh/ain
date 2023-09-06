@@ -695,12 +695,12 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                     ++it;
                 }
             }
-            evmAddressTxsMap.erase(addrKey.address);
-            evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, addrKey.address);
-            // TODO handle missing evmQueueId error
-            if (!result.ok) {
-                return false;
-            }
+            // evmAddressTxsMap.erase(addrKey.address);
+            // evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, addrKey.address);
+            // // TODO handle missing evmQueueId error
+            // if (!result.ok) {
+            //     return false;
+            // }
 
             return false;
         }

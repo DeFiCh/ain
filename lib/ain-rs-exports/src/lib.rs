@@ -131,10 +131,10 @@ pub mod ffi {
             queue_id: u64,
             address: &str,
         ) -> u64;
-        fn evm_unsafe_try_remove_txs_by_sender_in_q(
+        fn evm_unsafe_try_remove_txs_above_hash_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
+            target_hash: String,
         );
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
