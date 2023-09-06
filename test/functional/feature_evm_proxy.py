@@ -78,7 +78,7 @@ class EVMTest(DefiTestFramework):
         )
         node.generate(1)
 
-        implementation_abi, bytecode = EVMContract.from_file(
+        implementation_abi, bytecode, _ = EVMContract.from_file(
             "SimpleProxy.sol", "SimpleImplementation"
         ).compile()
         compiled = node.w3.eth.contract(abi=implementation_abi, bytecode=bytecode)
@@ -104,7 +104,7 @@ class EVMTest(DefiTestFramework):
         self, implementation_contract: web3Contract
     ) -> web3Contract:
         node = self.nodes[0]
-        abi, bytecode = EVMContract.from_file(
+        abi, bytecode, _ = EVMContract.from_file(
             "SimpleProxy.sol", "SimpleERC1967Proxy"
         ).compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
@@ -218,7 +218,7 @@ class EVMTest(DefiTestFramework):
 
     def should_deploy_new_implementation_smart_contract(self) -> web3Contract:
         node = self.nodes[0]
-        new_implementation_abi, bytecode = EVMContract.from_file(
+        new_implementation_abi, bytecode, _ = EVMContract.from_file(
             "SimpleProxy.sol", "NewSimpleImplementation"
         ).compile()
         compiled = node.w3.eth.contract(abi=new_implementation_abi, bytecode=bytecode)
