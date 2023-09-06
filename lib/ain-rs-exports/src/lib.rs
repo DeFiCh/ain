@@ -2,8 +2,7 @@ mod core;
 mod evm;
 mod prelude;
 
-use crate::core::*;
-use crate::evm::*;
+use crate::{core::*, evm::*};
 
 #[cxx::bridge]
 pub mod ffi {

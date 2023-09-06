@@ -1,4 +1,4 @@
-use primitive_types::H160;
+use ethereum_types::H160;
 
 use super::SignedTx;
 

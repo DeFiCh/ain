@@ -7,9 +7,11 @@ use ethereum::{Block, TransactionV2};
 use ethereum_types::{H160, U256};
 use rand::Rng;
 
-use crate::core::XHash;
-use crate::receipt::Receipt;
-use crate::transaction::{system::SystemTx, SignedTx};
+use crate::{
+    core::XHash,
+    receipt::Receipt,
+    transaction::{system::SystemTx, SignedTx},
+};
 
 type Result<T> = std::result::Result<T, QueueError>;
 

@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-use std::sync::RwLock;
+use std::{collections::HashMap, sync::RwLock};
 
+use ethereum_types::{H160, H256, U256};
 use log::debug;
-use primitive_types::{H160, H256, U256};
 
 #[derive(Clone, Debug)]
 pub enum Filter {

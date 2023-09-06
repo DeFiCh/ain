@@ -1,19 +1,20 @@
-use std::fs;
-use std::path::Path;
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, fs, marker::PhantomData, path::Path, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::{H160, H256, U256};
 use log::debug;
-use primitive_types::{H160, H256, U256};
 
-use super::db::{Column, ColumnName, LedgerColumn, Rocks};
-use super::traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage};
-use crate::log::LogIndex;
-use crate::receipt::Receipt;
-use crate::storage::db::columns;
-use crate::storage::traits::LogStorage;
-use crate::Result;
+use super::{
+    db::{Column, ColumnName, LedgerColumn, Rocks},
+    traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
+};
+use crate::{
+    log::LogIndex,
+    receipt::Receipt,
+    storage::{db::columns, traits::LogStorage},
+    Result,
+};
 
 #[derive(Debug, Clone)]
 pub struct BlockStore(Arc<Rocks>);

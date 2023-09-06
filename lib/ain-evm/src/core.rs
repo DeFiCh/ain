@@ -1,29 +1,27 @@
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput, H160, U256};
+use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::debug;
-use primitive_types::H256;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity};
-use crate::block::INITIAL_BASE_FEE;
-use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas_fee;
-use crate::gas::check_tx_intrinsic_gas;
-use crate::receipt::ReceiptService;
-use crate::storage::traits::BlockStorage;
-use crate::storage::Storage;
-use crate::transaction::system::{SystemTx, TransferDirection, TransferDomainData};
-use crate::trie::TrieDBStore;
-use crate::txqueue::{QueueTx, TransactionQueueMap};
-use crate::weiamount::WeiAmount;
 use crate::{
-    executor::AinExecutor,
+    backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity},
+    block::INITIAL_BASE_FEE,
+    executor::{AinExecutor, TxResponse},
+    fee::calculate_prepay_gas_fee,
+    gas::check_tx_intrinsic_gas,
+    receipt::ReceiptService,
+    storage::{traits::BlockStorage, Storage},
     traits::{Executor, ExecutorContext},
-    transaction::SignedTx,
+    transaction::{
+        system::{SystemTx, TransferDirection, TransferDomainData},
+        SignedTx,
+    },
+    trie::TrieDBStore,
+    txqueue::{QueueTx, TransactionQueueMap},
+    weiamount::WeiAmount,
     Result,
 };
 

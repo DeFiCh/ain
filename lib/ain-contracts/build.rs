@@ -1,6 +1,4 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{env, fs, path::PathBuf};
 
 use anyhow::format_err;
 use ethers_solc::{Project, ProjectPathsConfig, Solc};
