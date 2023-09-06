@@ -214,13 +214,14 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey, const uint256 masternodeID)
 {
     const CChainParams& chainparams = Params();
-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    auto res = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    auto& pblocktemplate = *res;
     CBlock& block = pblocktemplate->block;
 
     uint32_t mintedBlocks(0);
     CKey minterKey;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);  /// @todo no self-sufficient logic: BlockAssembler(chainparams).CreateNewBlock() checks AmIOperator():
-                                                                                                        /// so, arg "-masternode_operator" should match with masternodeID !!
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+
     if (pos == testMasternodeKeys.end())
         throw std::runtime_error(std::string(__func__) + ": masternodeID not found");
 
