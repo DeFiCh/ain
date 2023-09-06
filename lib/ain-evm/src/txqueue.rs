@@ -296,7 +296,7 @@ impl TransactionQueue {
         data.transactions.retain(|item| {
             if let Some((tx_sender, tx_nonce)) = match &item.tx {
                 QueueTx::SignedTx(tx) => Some((tx.sender, tx.nonce())),
-                QueueTx::SystemTx(tx) => None,
+                QueueTx::SystemTx(_tx) => None,
             } {
                 if tx_sender == sender && tx_nonce >= nonce {
                     gas_used_to_remove += item.gas_used;
