@@ -5,7 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test DFI intrinsics contract"""
 
-import os
 import json
 
 from test_framework.test_framework import DefiTestFramework
@@ -72,18 +71,11 @@ class DFIIntrinsicsTest(DefiTestFramework):
         )
 
         # check counter contract
-        if os.getenv("BUILD_DIR"):
-            abi = open(
-                f"{os.getenv('BUILD_DIR')}/sol_artifacts/dfi_intrinsics/abi.json",
-                "r",
-                encoding="utf8",
-            ).read()
-        else:
-            abi = open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dfi_intrinsics/abi.json",
-                "r",
-                encoding="utf8",
-            ).read()
+        abi = open(
+            get_solc_artifact_path("dfi_intrinsics", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
 
         counter_contract = node.w3.eth.contract(
             address=node.w3.to_checksum_address(

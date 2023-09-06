@@ -8,7 +8,6 @@
 import math
 import json
 import time
-import os
 from decimal import Decimal
 
 from test_framework.evm_key_pair import EvmKeyPair
