@@ -13,7 +13,11 @@ from decimal import Decimal
 
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    get_solc_artifact_path,
+)
 
 
 class DST20(DefiTestFramework):
@@ -793,48 +797,25 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
-        if os.getenv("BUILD_DIR"):
-            build_dir = os.getenv("BUILD_DIR")
-            self.abi = open(
-                f"{build_dir}/sol_artifacts/dst20/abi.json",
+        self.abi = open(
+            get_solc_artifact_path("dst20", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
+        self.bytecode = json.loads(
+            open(
+                get_solc_artifact_path("dst20", "deployed_bytecode.json"),
                 "r",
                 encoding="utf8",
             ).read()
-            self.bytecode = json.loads(
-                open(
-                    f"{build_dir}/sol_artifacts/dst20/bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
-            self.reserved_bytecode = json.loads(
-                open(
-                    f"{build_dir}/sol_artifacts/dfi_reserved/bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
-        else:
-            # fall back to using relative path
-            self.abi = open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dst20/abi.json",
+        )["object"]
+        self.reserved_bytecode = json.loads(
+            open(
+                get_solc_artifact_path("dfi_reserved", "deployed_bytecode.json"),
                 "r",
                 encoding="utf8",
             ).read()
-            self.bytecode = json.loads(
-                open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dst20/deployed_bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
-            self.reserved_bytecode = json.loads(
-                open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dfi_reserved/deployed_bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
+        )["object"]
 
         # Generate chain
         self.node.generate(150)

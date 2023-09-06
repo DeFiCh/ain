@@ -9,7 +9,7 @@ import os
 import json
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, get_solc_artifact_path
 
 
 class DFIIntrinsicsTest(DefiTestFramework):
@@ -49,7 +49,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
         # check reserved address space
         reserved_bytecode = json.loads(
             open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/sol_artifacts/dfi_reserved/deployed_bytecode.json",
+                get_solc_artifact_path("dfi_reserved", "deployed_bytecode.json"),
                 "r",
                 encoding="utf8",
             ).read()
