@@ -332,13 +332,16 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             RemoveFromBlock(failedTransferDomainTxs, true);
 
             // Remove TX from queue
+            CrossBoundaryResult result{};
             for (const auto &tx : failedTransferDomainTxs) {
                 if (!nativeTxToEvmAddress.count(tx->GetTx().GetHash())) return Res::Err("TransferDomain TX not found in TX to ERC address map");
 
                 auto& [address, nonce] = nativeTxToEvmAddress.at(tx->GetTx().GetHash());
 
-                CrossBoundaryResult result;
                 evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, address, nonce);
+                if (!result.ok) {
+                    return Res::Err("Failed to remove TXs by sender from queue");
+                }
             }
 
             res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
@@ -693,7 +696,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         return false;
     }
 
-    CrossBoundaryResult result;
+    CrossBoundaryResult result{};
     ValidateTxCompletion txResult{};
     if (txType == CustomTxType::EvmTx) {
         const auto obj = std::get<CEvmTxMessage>(txMessage);
@@ -730,6 +733,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
             // Higher paying fee. Remove all TXs from sender and add to collection to add them again in order.
             const auto& addrTxs = evmAddressTxsMap[addrKey.address];
             for (const auto& [nonce, entry] : addrTxs) {
+                if (nonce < txResult.nonce) continue;
                 RemoveFromBlock(entry);
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
                 replaceByFee.emplace(nonce, entry);
@@ -746,7 +750,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
                 }
             }
             evmAddressTxsMap.erase(addrKey.address);
-            evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, addrKey.address, 0);
+            evm_unsafe_try_remove_txs_by_sender_in_q(result, evmQueueId, addrKey.address, txResult.nonce);
             // TODO handle missing evmQueueId error
             if (!result.ok) {
                 return false;
