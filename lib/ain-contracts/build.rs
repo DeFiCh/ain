@@ -4,8 +4,15 @@ use anyhow::{bail, Context, Result};
 use ethers_solc::{Project, ProjectPathsConfig, Solc};
 
 fn main() -> Result<()> {
-    let out_dir: PathBuf = PathBuf::from(env::var("OUT_DIR")?);
+    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
     let solc_path_str = env::var("SOLC_PATH")?;
+
+    // If TARGET_DIR is set, which we do from Makefile, uses that instead of OUT_DIR.
+    // Otherwise, use the path for OUT_DIR that cargo sets, as usual.
+    // Reason: Currently setting --out-dir is nightly only, so there's no way to get OUT_DIR
+    // out of cargo reliably for pointing deps determinisitcally.
+    let target_dir: PathBuf = PathBuf::from(env::var("CARGO_TARGET_DIR").or(env::var("OUT_DIR"))?);
+    let solc_artifact_dir = target_dir.join("solc");
 
     // Solidity project root and contract names relative to our project
     let contracts = vec![
@@ -18,7 +25,7 @@ fn main() -> Result<()> {
     for (sol_project_name, contract_name) in contracts {
         let solc = Solc::new(&solc_path_str);
 
-        let sol_project_root = PathBuf::from(sol_project_name);
+        let sol_project_root = manifest_path.join(sol_project_name);
         if !sol_project_root.exists() {
             bail!("Solidity project missing: {sol_project_root:?}");
         }
@@ -37,7 +44,7 @@ fn main() -> Result<()> {
 
         let output = project.compile()?;
         let artifacts = output.into_artifacts();
-        let sol_project_outdir = out_dir.join(sol_project_name);
+        let sol_project_outdir = solc_artifact_dir.join(sol_project_name);
 
         for (id, artifact) in artifacts {
             if id.name != contract_name {
@@ -53,7 +60,7 @@ fn main() -> Result<()> {
             let items = [
                 ("abi.json", serde_json::to_string(&abi)?),
                 ("bytecode.json", serde_json::to_string(&bytecode)?),
-                ("bytecode_deployed.json", serde_json::to_string(&deployed_bytecode)?),
+                ("deployed_bytecode.json", serde_json::to_string(&deployed_bytecode)?),
             ];
 
             fs::create_dir_all(&sol_project_outdir)?;

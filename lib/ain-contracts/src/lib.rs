@@ -6,6 +6,18 @@ use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
+macro_rules! get_solc_artifact_path {
+    ($project_name:expr, $artifact:expr) => {
+        concat!(env!("OUT_DIR"), "/solc/", $project_name, "/", $artifact, ".json")
+    };
+}
+
+macro_rules! get_solc_artifact_string {
+    ($project_name:expr, $artifact:expr) => {
+        include_str!(get_solc_artifact_path!($project_name, $artifact))
+    };
+}
+
 fn get_bytecode(input: &str) -> Result<Vec<u8>> {
     let bytecode_json: serde_json::Value = serde_json::from_str(input)?;
     let bytecode_raw = bytecode_json["object"]
@@ -46,10 +58,7 @@ pub struct FixedContract {
 
 lazy_static::lazy_static! {
     pub static ref INTRINSIC_CONTRACT: FixedContract = {
-        let bytecode = get_bytecode(include_str!(concat!(
-                env!("OUT_DIR"),
-                "/dfi_intrinsics/bytecode_deployed.json"
-        ))).unwrap();
+        let bytecode = get_bytecode(get_solc_artifact_string!("dfi_intrinsics", "deployed_bytecode")).unwrap();
 
         FixedContract {
             contract: Contract {
@@ -68,10 +77,7 @@ lazy_static::lazy_static! {
         // Note that input, bytecode, and deployed bytecode is used in confusing ways since
         // deployedBytecode was exposed as bytecode earlier in build script. 
         // TODO: Refactor terminology to align with the source of truth.
-        let bytecode = get_bytecode(include_str!(concat!(
-            env!("OUT_DIR"),
-            "/transfer_domain/bytecode_deployed.json"
-        ))).unwrap();
+        let bytecode = get_bytecode(get_solc_artifact_string!("transfer_domain", "deployed_bytecode")).unwrap();
         let input = get_bytecode(include_str!(concat!(
             env!("OUT_DIR"),
             "/transfer_domain/bytecode.json"
