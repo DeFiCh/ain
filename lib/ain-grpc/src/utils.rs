@@ -1,4 +1,4 @@
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, U256};
 
 pub fn format_h256(hash: H256) -> String {
     format!("{hash:#x}")

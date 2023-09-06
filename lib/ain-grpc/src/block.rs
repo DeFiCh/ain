@@ -2,8 +2,7 @@ use std::fmt;
 
 use ain_evm::bytes::Bytes;
 use ethereum::{BlockAny, TransactionV2};
-use ethereum_types::H64;
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, H64, U256};
 use rlp::Encodable;
 use serde::{
     de::{Error, MapAccess, Visitor},

@@ -1,33 +1,37 @@
-use std::convert::Into;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{convert::Into, str::FromStr, sync::Arc};
 
 use ain_cpp_imports::get_eth_priv_key;
-use ain_evm::bytes::Bytes;
-use ain_evm::core::EthCallArgs;
-use ain_evm::evm::EVMServices;
-use ain_evm::executor::TxResponse;
-use ain_evm::filters::Filter;
-use ain_evm::log::FilterType;
-use ain_evm::storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage};
-use ain_evm::transaction::SignedTx;
+use ain_evm::{
+    bytes::Bytes,
+    core::EthCallArgs,
+    evm::EVMServices,
+    executor::TxResponse,
+    filters::Filter,
+    log::FilterType,
+    storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
+    transaction::SignedTx,
+};
 use ethereum::{EnvelopedEncodable, TransactionV2};
-use jsonrpsee::core::{Error, RpcResult};
-use jsonrpsee::proc_macros::rpc;
+use ethereum_types::{H160, H256, U256};
+use jsonrpsee::{
+    core::{Error, RpcResult},
+    proc_macros::rpc,
+};
 use libsecp256k1::SecretKey;
 use log::{debug, trace};
-use primitive_types::{H160, H256, U256};
 
 use super::to_jsonrpsee_custom_error;
-use crate::block::{BlockNumber, RpcBlock, RpcFeeHistory};
-use crate::call_request::CallRequest;
-use crate::codegen::types::EthTransactionInfo;
-use crate::filters::{GetFilterChangesResult, NewFilterRequest};
-use crate::receipt::ReceiptResult;
-use crate::sync::{SyncInfo, SyncState};
-use crate::transaction_log::{GetLogsRequest, LogResult};
-use crate::transaction_request::{TransactionMessage, TransactionRequest};
-use crate::utils::{format_h256, format_u256};
+use crate::{
+    block::{BlockNumber, RpcBlock, RpcFeeHistory},
+    call_request::CallRequest,
+    codegen::types::EthTransactionInfo,
+    filters::{GetFilterChangesResult, NewFilterRequest},
+    receipt::ReceiptResult,
+    sync::{SyncInfo, SyncState},
+    transaction_log::{GetLogsRequest, LogResult},
+    transaction_request::{TransactionMessage, TransactionRequest},
+    utils::{format_h256, format_u256},
+};
 
 #[rpc(server, client, namespace = "eth")]
 pub trait MetachainRPC {

@@ -1,16 +1,16 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use ethereum::ReceiptV3;
+use ethereum_types::{H160, H256, U256};
 use log::debug;
-use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 
-use crate::filters::LogsFilter;
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
-use crate::storage::Storage;
-use crate::Result;
+use crate::{
+    filters::LogsFilter,
+    receipt::Receipt,
+    storage::{traits::LogStorage, Storage},
+    Result,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogIndex {

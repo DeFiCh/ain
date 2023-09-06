@@ -1,10 +1,13 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fs::{DirEntry, File};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::{env, fs, io};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    env, fs,
+    fs::{DirEntry, File},
+    io,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use anyhow::{format_err, Result};
 use proc_macro2::{Span, TokenStream};

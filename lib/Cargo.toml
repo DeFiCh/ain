@@ -69,7 +69,6 @@ jsonrpsee-types = "0.16"
 ethereum = "0.14"
 ethereum-types = "0.14"
 keccak-hash = "0.10"
-primitive-types = { version = "0.12", default-features = false, features = ["serde"] }
 rlp = "0.5"
 ethabi = "18.0.0"
 
