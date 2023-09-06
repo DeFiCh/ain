@@ -139,8 +139,13 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_by_sender_in(&self, queue_id: u64, target_hash: XHash) -> Result<()> {
+    pub unsafe fn remove_txs_above_hash_in(
+        &self,
+        queue_id: u64,
+        target_hash: XHash,
+    ) -> Result<Vec<XHash>> {
         self.with_transaction_queue(queue_id, |queue| queue.remove_txs_above_hash(target_hash))
+            .and_then(|res| res)
     }
 
     ///
@@ -307,7 +312,7 @@ impl TransactionQueue {
         Ok(())
     }
 
-    pub fn remove_txs_above_hash(&self, target_hash: XHash) -> Vec<XHash> {
+    pub fn remove_txs_above_hash(&self, target_hash: XHash) -> Result<Vec<XHash>> {
         let mut data = self.data.lock().unwrap();
         let mut removed_txs = Vec::new();
 
@@ -326,6 +331,11 @@ impl TransactionQueue {
             let mut new_total_gas_used = U256::zero();
             for item in &data.transactions {
                 if let QueueTx::SignedTx(signed_tx) = &item.tx {
+                    if let Some(nonce) = new_nonces.get(&signed_tx.sender) {
+                        if signed_tx.nonce() != nonce + 1 {
+                            return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
+                        }
+                    }
                     new_nonces.insert(signed_tx.sender, signed_tx.nonce());
                 }
                 new_total_gas_used += item.gas_used;
@@ -335,7 +345,7 @@ impl TransactionQueue {
             data.total_gas_used = new_total_gas_used;
         }
 
-        removed_txs
+        Ok(removed_txs)
     }
 
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {

@@ -135,7 +135,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             target_hash: String,
-        );
+        ) -> Vec<String>;
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,

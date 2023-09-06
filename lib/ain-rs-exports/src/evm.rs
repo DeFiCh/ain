@@ -321,14 +321,14 @@ pub fn evm_unsafe_try_remove_txs_above_hash_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     target_hash: String,
-) {
+) -> Vec<String> {
     unsafe {
         match SERVICES
             .evm
             .core
             .remove_txs_above_hash_in(queue_id, target_hash)
         {
-            Ok(_) => cross_boundary_success_return(result, ()),
+            Ok(res) => cross_boundary_success_return(result, res),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
