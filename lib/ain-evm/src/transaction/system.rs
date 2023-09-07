@@ -35,7 +35,7 @@ impl SystemTx {
         match self {
             SystemTx::TransferDomain(data) => Some(data.signed_tx.sender),
             SystemTx::DST20Bridge(data) => Some(data.signed_tx.sender),
-            _ => None,
+            SystemTx::DeployContract(_) => None,
         }
     }
 }
@@ -48,9 +48,10 @@ pub enum TransferDirection {
 
 impl From<bool> for TransferDirection {
     fn from(direction: bool) -> TransferDirection {
-        match direction {
-            true => TransferDirection::EvmIn,
-            false => TransferDirection::EvmOut,
+        if direction {
+            TransferDirection::EvmIn
+        } else {
+            TransferDirection::EvmOut
         }
     }
 }

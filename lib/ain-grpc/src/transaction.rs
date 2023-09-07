@@ -21,13 +21,13 @@ impl From<SignedTx> for EthTransactionInfo {
                 .access_list
                 .clone()
                 .into_iter()
-                .map(|list| list.into())
+                .map(std::convert::Into::into)
                 .collect(),
             TransactionV2::EIP1559(tx) => tx
                 .access_list
                 .clone()
                 .into_iter()
-                .map(|list| list.into())
+                .map(std::convert::Into::into)
                 .collect(),
         };
 

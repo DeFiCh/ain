@@ -69,7 +69,7 @@ impl EVMServices {
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {
-            std::fs::create_dir(&path)?
+            std::fs::create_dir(&path)?;
         }
 
         if let Some(state_input_path) = ain_cpp_imports::get_state_input_json() {
@@ -108,7 +108,7 @@ impl EVMServices {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn construct_block_in_queue(
@@ -200,7 +200,7 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_contract()?;
+            } = transfer_domain_contract();
 
             debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -246,7 +246,7 @@ impl EVMServices {
             total_priority_fees
         );
 
-        let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
+        let extra_data = format!("DFI: {dvm_block_number}").into_bytes();
         let gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
         let block = Block::new(
             PartialHeader {
@@ -348,7 +348,7 @@ impl EVMServices {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn push_tx_in_queue(&self, queue_id: u64, tx: QueueTx, hash: XHash) -> Result<()> {
@@ -387,7 +387,7 @@ impl EVMServices {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn is_dst20_deployed_or_queued(
@@ -422,7 +422,7 @@ impl EVMServices {
             address,
         }));
 
-        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
+        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(&deploy_tx);
 
         Ok(is_queued)
     }
@@ -540,7 +540,7 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
         }));
         txs.push(QueueTxItem {
             tx,
-            tx_hash: Default::default(),
+            tx_hash: String::default(),
             gas_used: U256::zero(),
             state_root: H256::default(),
         });

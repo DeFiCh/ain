@@ -65,7 +65,7 @@ impl LegacyUnsignedTransaction {
         let sig = s.0.serialize();
 
         let sig = TransactionSignature::new(
-            s.1.serialize() as u64 % 2 + chain_id * 2 + 35,
+            u64::from(s.1.serialize()) % 2 + chain_id * 2 + 35,
             H256::from_slice(&sig[0..32]),
             H256::from_slice(&sig[32..64]),
         )
@@ -266,8 +266,8 @@ impl SignedTx {
     pub fn v(&self) -> u64 {
         match &self.transaction {
             TransactionV2::Legacy(tx) => tx.signature.v(),
-            TransactionV2::EIP2930(tx) => tx.odd_y_parity as u64,
-            TransactionV2::EIP1559(tx) => tx.odd_y_parity as u64,
+            TransactionV2::EIP2930(tx) => u64::from(tx.odd_y_parity),
+            TransactionV2::EIP1559(tx) => u64::from(tx.odd_y_parity),
         }
     }
 
@@ -289,16 +289,14 @@ impl SignedTx {
 
     pub fn max_fee_per_gas(&self) -> Option<U256> {
         match &self.transaction {
-            TransactionV2::Legacy(_) => None,
-            TransactionV2::EIP2930(_) => None,
+            TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_fee_per_gas),
         }
     }
 
     pub fn max_priority_fee_per_gas(&self) -> Option<U256> {
         match &self.transaction {
-            TransactionV2::Legacy(_) => None,
-            TransactionV2::EIP2930(_) => None,
+            TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_priority_fee_per_gas),
         }
     }

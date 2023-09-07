@@ -76,13 +76,13 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         ro_handle.iter().for_each(|el| match el {
             Ok((_, v)) => {
                 if let Ok(account) = Account::decode(&Rlp::new(&v)) {
-                    debug!("[log_account_states] account {:?}", account)
+                    debug!("[log_account_states] account {:?}", account);
                 } else {
-                    debug!("[log_account_states] Error decoding account {:?}", v)
+                    debug!("[log_account_states] Error decoding account {:?}", v);
                 }
             }
             Err(e) => {
-                debug!("[log_account_states] Error on iter element {e}")
+                debug!("[log_account_states] Error on iter element {e}");
             }
         });
 

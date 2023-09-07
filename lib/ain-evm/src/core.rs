@@ -337,7 +337,7 @@ impl EVMCoreService {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn create_queue(&self) -> Result<u64> {
@@ -352,7 +352,7 @@ impl EVMCoreService {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove_queue(&self, queue_id: u64) {
@@ -362,7 +362,7 @@ impl EVMCoreService {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove_txs_above_hash_in(
@@ -379,7 +379,7 @@ impl EVMCoreService {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {

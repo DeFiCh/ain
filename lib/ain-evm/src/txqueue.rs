@@ -44,7 +44,7 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn create(&self, target_block: U256, state_root: H256) -> u64 {
@@ -69,7 +69,7 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove(&self, queue_id: u64) -> Option<Arc<TransactionQueue>> {
@@ -115,7 +115,7 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn push_in(
@@ -139,7 +139,7 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove_txs_above_hash_in(
@@ -163,29 +163,29 @@ impl TransactionQueueMap {
 
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_total_gas_used_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_total_gas_used())
+        self.with_transaction_queue(queue_id, TransactionQueue::get_total_gas_used)
     }
 
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_target_block())
+        self.with_transaction_queue(queue_id, TransactionQueue::get_target_block)
     }
 
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<H256> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_latest_state_root())
+        self.with_transaction_queue(queue_id, TransactionQueue::get_latest_state_root)
     }
 
     /// Apply the closure to the queue associated with the queue ID.
@@ -288,7 +288,7 @@ impl TransactionQueue {
                     .insert(signed_tx.sender, signed_tx.nonce());
                 data.total_gas_used += gas_used;
             }
-            _ => (),
+            QueueTx::SystemTx(_) => (),
         }
         data.transactions.push(QueueTxItem {
             tx,
@@ -361,17 +361,16 @@ impl TransactionQueue {
         let data = self.data.lock().unwrap();
         data.transactions
             .last()
-            .map(|tx_item| tx_item.state_root)
-            .unwrap_or(data.initial_state_root)
+            .map_or(data.initial_state_root, |tx_item| tx_item.state_root)
     }
 
-    pub fn is_queued(&self, tx: QueueTx) -> bool {
+    pub fn is_queued(&self, tx: &QueueTx) -> bool {
         self.data
             .lock()
             .unwrap()
             .transactions
             .iter()
-            .any(|queued| queued.tx == tx)
+            .any(|queued| &queued.tx == tx)
     }
 }
 

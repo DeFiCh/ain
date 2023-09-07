@@ -357,7 +357,7 @@ impl<'backend> AinExecutor<'backend> {
                     storage,
                 } = dst20_contract(self.backend, address, &name, &symbol)?;
 
-                self.deploy_contract(address, bytecode.clone(), storage)?;
+                self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee, &name, &symbol)?;
 
                 Ok(ApplyTxResult {

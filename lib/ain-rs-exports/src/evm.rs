@@ -17,8 +17,10 @@ use ethereum_types::{H160, U256};
 use log::debug;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::ffi::{self, TxSenderInfo};
-use crate::prelude::*;
+use crate::{
+    ffi::{self, TxSenderInfo},
+    prelude::*,
+};
 
 /// Creates and signs a transaction.
 ///
@@ -223,14 +225,14 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let Ok(nonce) = SERVICES.evm.get_nonce(from_address) else {
         return cross_boundary_error_return(
             result,
-            format!("Could not get nonce for {:x?}", from_address),
+            format!("Could not get nonce for {from_address:x?}"),
         );
     };
 
     let t = LegacyUnsignedTransaction {
         nonce,
         gas_price: base_fee,
-        gas_limit: U256::from(100000),
+        gas_limit: U256::from(100_000),
         action,
         value: U256::zero(),
         input,
@@ -275,7 +277,7 @@ pub fn evm_try_get_balance(result: &mut ffi::CrossBoundaryResult, address: &str)
     }
 }
 
-/// Removes all transactions in the queue whose sender matches the provided sender address in a specific queue_id
+/// Removes all transactions in the queue whose sender matches the provided sender address in a specific `queue_id`
 ///
 /// # Arguments
 ///
@@ -299,7 +301,7 @@ pub fn evm_unsafe_try_remove_txs_above_hash_in_q(
     }
 }
 
-/// EvmIn. Send DFI to an EVM account.
+/// `EvmIn`. Send DFI to an EVM account.
 ///
 /// # Arguments
 ///
@@ -328,13 +330,13 @@ pub fn evm_unsafe_try_add_balance_in_q(
             .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)
         {
-            Ok(_) => cross_boundary_success_return(result, ()),
+            Ok(()) => cross_boundary_success_return(result, ()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
 }
 
-/// EvmOut. Send DFI from an EVM account.
+/// `EvmOut`. Send DFI from an EVM account.
 ///
 /// # Arguments
 ///
@@ -346,7 +348,7 @@ pub fn evm_unsafe_try_add_balance_in_q(
 /// # Errors
 ///
 /// Returns an Error if:
-/// - the queue_id does not match any existing queue
+/// - the `queue_id` does not match any existing queue
 /// - the address is not a valid EVM address
 /// - the account has insufficient balance.
 ///
@@ -374,7 +376,7 @@ pub fn evm_unsafe_try_sub_balance_in_q(
             .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)
         {
-            Ok(_) => cross_boundary_success_return(result, true),
+            Ok(()) => cross_boundary_success_return(result, true),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
@@ -411,7 +413,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
 ) -> ffi::ValidateTxMiner {
     debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
     match SERVICES.evm.verify_tx_fees(raw_tx) {
-        Ok(_) => (),
+        Ok(()) => (),
         Err(e) => {
             debug!("evm_try_validate_raw_tx failed with error: {e}");
             return cross_boundary_error_return(result, e.to_string());
@@ -506,7 +508,7 @@ pub fn evm_unsafe_try_push_tx_in_q(
                     .evm
                     .push_tx_in_queue(queue_id, signed_tx.into(), native_hash)
                 {
-                    Ok(_) => cross_boundary_success(result),
+                    Ok(()) => cross_boundary_success(result),
                     Err(e) => cross_boundary_error_return(result, e.to_string()),
                 }
             }
@@ -583,7 +585,7 @@ pub fn evm_unsafe_try_construct_block_in_q(
 pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_id: u64) {
     unsafe {
         match SERVICES.evm.commit_queue(queue_id) {
-            Ok(_) => cross_boundary_success(result),
+            Ok(()) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
@@ -591,7 +593,7 @@ pub fn evm_unsafe_try_commit_queue(result: &mut ffi::CrossBoundaryResult, queue_
 
 pub fn evm_try_disconnect_latest_block(result: &mut ffi::CrossBoundaryResult) {
     match SERVICES.evm.storage.disconnect_latest_block() {
-        Ok(_) => cross_boundary_success(result),
+        Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
@@ -815,7 +817,7 @@ pub fn evm_try_get_tx_by_hash(
                     TransactionAction::Create => true,
                 },
                 to: match tx.to() {
-                    Some(to) => format!("{:?}", to),
+                    Some(to) => format!("{to:?}"),
                     None => XHash::new(),
                 },
                 value,
@@ -855,7 +857,7 @@ pub fn evm_try_create_dst20(
             .evm
             .push_tx_in_queue(queue_id, system_tx, native_hash)
         {
-            Ok(_) => cross_boundary_success(result),
+            Ok(()) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
@@ -888,7 +890,7 @@ pub fn evm_try_bridge_dst20(
             .evm
             .push_tx_in_queue(queue_id, system_tx, native_hash)
         {
-            Ok(_) => cross_boundary_success(result),
+            Ok(()) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
@@ -902,7 +904,7 @@ pub fn evm_try_bridge_dst20(
 ///
 /// # Returns
 ///
-/// Returns the target block for a specific queue_id as a `u64`
+/// Returns the target block for a specific `queue_id` as a `u64`
 pub fn evm_unsafe_try_get_target_block_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
