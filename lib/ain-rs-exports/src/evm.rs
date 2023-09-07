@@ -380,68 +380,6 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     }
 }
 
-/// Pre-validates a raw EVM transaction.
-///
-/// # Arguments
-///
-/// * `result` - Result object
-/// * `tx` - The raw transaction string.
-///
-/// # Errors
-///
-/// Returns an Error if:
-/// - The hex data is invalid
-/// - The EVM transaction is invalid
-/// - The EVM transaction fee is lower than initial block base fee
-/// - Could not fetch the underlying EVM account
-/// - Account's nonce does not match raw tx's nonce
-/// - The EVM transaction prepay gas is invalid
-/// - The EVM transaction gas limit is lower than the transaction intrinsic gas
-///
-/// # Returns
-///
-/// Returns the transaction nonce, sender address and transaction fees if valid.
-/// Logs and set the error reason to result object otherwise.
-pub fn evm_unsafe_try_prevalidate_raw_tx(
-    result: &mut ffi::CrossBoundaryResult,
-    tx: &str,
-) -> ffi::ValidateTxCompletion {
-    debug!("[evm_unsafe_try_prevalidate_raw_tx]");
-    let queue_id = 0;
-
-    unsafe {
-        match SERVICES.evm.core.validate_raw_tx(tx, queue_id, false) {
-            Ok(ValidateTxInfo {
-                signed_tx,
-                prepay_fee,
-                invalid_nonce: _,
-            }) => {
-                let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
-                    return cross_boundary_error_return(result, "nonce value overflow");
-                };
-
-                let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
-                    return cross_boundary_error_return(result, "prepay fee value overflow");
-                };
-
-                cross_boundary_success_return(
-                    result,
-                    ffi::ValidateTxCompletion {
-                        nonce,
-                        sender: format!("{:?}", signed_tx.sender),
-                        tx_hash: format!("{:?}", signed_tx.hash()),
-                        prepay_fee,
-                    },
-                )
-            }
-            Err(e) => {
-                debug!("evm_try_prevalidate_raw_tx failed with error: {e}");
-                cross_boundary_error_return(result, e.to_string())
-            }
-        }
-    }
-}
-
 /// Validates a raw EVM transaction.
 ///
 /// # Arguments

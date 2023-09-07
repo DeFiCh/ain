@@ -155,10 +155,6 @@ pub mod ffi {
             raw_tx: &str,
             native_hash: &str,
         ) -> bool;
-        fn evm_unsafe_try_prevalidate_raw_tx(
-            result: &mut CrossBoundaryResult,
-            tx: &str,
-        ) -> ValidateTxCompletion;
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
