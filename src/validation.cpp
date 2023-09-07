@@ -2341,7 +2341,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmQueueId)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, uint64_t evmQueueId, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -3362,7 +3362,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
         uint64_t evmQueueId = *r;
 
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmQueueId);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmQueueId, false);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
 
@@ -4900,6 +4900,10 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.phashBlock = &block_hash;
     CheckContextState ctxState;
 
+    auto r = XResultValue(evm_unsafe_try_create_queue(result));
+    if (!r) { return error("%s: Consensus::ContextualCheckBlockHeader: error creating EVM queue", __func__); }
+    uint64_t evmQueueId = *r;
+
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
@@ -4907,7 +4911,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true))
         return false;
     assert(state.IsValid());
 
@@ -5297,6 +5301,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     int nGoodTransactions = 0;
     CValidationState state;
     int reportDone = 0;
+
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = ::ChainActive().Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
         const int percentageDone = std::max(1, std::min(99, (int)(((double)(::ChainActive().Height() - pindex->nHeight)) / (double)nCheckDepth * (nCheckLevel >= 4 ? 50 : 100))));
@@ -5370,8 +5375,12 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, consensus))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
+
             bool dummyRewardedAnchors{};
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
+            auto r = XResultValue(evm_unsafe_try_create_queue(result));
+            if (!r) { return error("VerifyDB(): *** evm_unsafe_try_create_queue failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString()); }
+            uint64_t evmQueueId = *r;
+            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }
