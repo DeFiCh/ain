@@ -17,7 +17,8 @@ use ethereum_types::{H160, U256};
 use log::debug;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
-use crate::{ffi, prelude::*};
+use crate::ffi::{self, TxSenderInfo};
+use crate::prelude::*;
 
 /// Creates and signs a transaction.
 ///
@@ -973,6 +974,24 @@ pub fn evm_unsafe_try_get_target_block_in_q(
             Ok(target_block) => cross_boundary_success_return(result, target_block.as_u64()),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
+    }
+}
+
+pub fn evm_try_get_tx_sender_info_from_raw_tx(
+    result: &mut ffi::CrossBoundaryResult,
+    raw_tx: &str,
+) -> TxSenderInfo {
+    let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
+        return cross_boundary_error_return(result, "Invalid raw tx");
+    };
+
+    let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
+        return cross_boundary_error_return(result, "nonce value overflow");
+    };
+
+    TxSenderInfo {
+        nonce,
+        address: format!("{:x?}", signed_tx.sender),
     }
 }
 

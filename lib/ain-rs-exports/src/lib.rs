@@ -41,6 +41,12 @@ pub mod ffi {
         pub data: Vec<u8>,
     }
 
+    #[derive(Default)]
+    pub struct TxSenderInfo {
+        address: String,
+        nonce: u64,
+    }
+
     // ========== Governance Variable ==========
     #[derive(Default)]
     pub struct GovVarKeyDataStructure {
@@ -226,10 +232,13 @@ pub mod ffi {
             symbol: &str,
             token_id: u64,
         ) -> bool;
-
         fn evm_unsafe_try_get_target_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
         ) -> u64;
+        fn evm_try_get_tx_sender_info_from_raw_tx(
+            result: &mut CrossBoundaryResult,
+            raw_tx: &str,
+        ) -> TxSenderInfo;
     }
 }
