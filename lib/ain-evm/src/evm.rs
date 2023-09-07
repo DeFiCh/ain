@@ -667,14 +667,6 @@ fn dst20_deploy_contract_tx(
     name: &str,
     symbol: &str,
 ) -> Result<(Box<SignedTx>, ReceiptV3)> {
-    debug!("DST20 Deploy Input");
-    debug!(
-        "{:#?}",
-        hex::encode(
-            get_dst20_deploy_input(get_dst20_contract().init_bytecode, name, symbol)
-                .map_err(|e| format_err!(e))?
-        )
-    );
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(token_id),
         gas_price: *base_fee,
