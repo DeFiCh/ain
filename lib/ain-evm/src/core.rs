@@ -216,21 +216,7 @@ impl EVMCoreService {
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
-        let state_root = if queue_id != 0 {
-            match self.tx_queues.get_latest_state_root_in(queue_id)? {
-                Some(state_root) => state_root,
-                None => self
-                    .storage
-                    .get_latest_block()?
-                    .map(|block| block.header.state_root)
-                    .unwrap_or_default(),
-            }
-        } else {
-            self.storage
-                .get_latest_block()?
-                .map(|block| block.header.state_root)
-                .unwrap_or_default()
-        };
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         let backend = self.get_backend(state_root)?;
@@ -355,11 +341,11 @@ impl EVMCoreService {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn create_queue(&self) -> Result<u64> {
-        let target_block = match self.storage.get_latest_block()? {
+        let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
             None => U256::zero(), // Genesis queue
-            Some(block) => block.header.number + 1,
+            Some(block) => (block.header.number + 1, block.header.state_root),
         };
-        let queue_id = self.tx_queues.create(target_block);
+        let queue_id = self.tx_queues.create(target_block, initial_state_root);
         Ok(queue_id)
     }
 

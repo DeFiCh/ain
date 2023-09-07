@@ -47,7 +47,7 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(&self, target_block: U256) -> u64 {
+    pub unsafe fn create(&self, target_block: U256, state_root: H256) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let queue_id = rng.gen();
@@ -58,7 +58,7 @@ impl TransactionQueueMap {
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(Arc::new(TransactionQueue::new(target_block)));
+                e.insert(Arc::new(TransactionQueue::new(target_block, state_root)));
                 return queue_id;
             }
         }
@@ -184,7 +184,7 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<Option<H256>> {
+    pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<H256> {
         self.with_transaction_queue(queue_id, |queue| queue.get_latest_state_root())
     }
 
@@ -238,16 +238,18 @@ pub struct TransactionQueueData {
     pub block_data: Option<BlockData>,
     pub total_gas_used: U256,
     pub target_block: U256,
+    pub initial_state_root: H256,
 }
 
 impl TransactionQueueData {
-    pub fn new(target_block: U256) -> Self {
+    pub fn new(target_block: U256, state_root: H256) -> Self {
         Self {
             transactions: Vec::new(),
             account_nonces: HashMap::new(),
             total_gas_used: U256::zero(),
             block_data: None,
             target_block,
+            initial_state_root: state_root,
         }
     }
 }
@@ -258,9 +260,9 @@ pub struct TransactionQueue {
 }
 
 impl TransactionQueue {
-    fn new(target_block: U256) -> Self {
+    fn new(target_block: U256, state_root: H256) -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new(target_block)),
+            data: Mutex::new(TransactionQueueData::new(target_block, state_root)),
         }
     }
 
@@ -355,13 +357,12 @@ impl TransactionQueue {
             .map(|tx_item| tx_item.state_root)
     }
 
-    pub fn get_latest_state_root(&self) -> Option<H256> {
-        self.data
-            .lock()
-            .unwrap()
-            .transactions
+    pub fn get_latest_state_root(&self) -> H256 {
+        let data = self.data.lock().unwrap();
+        data.transactions
             .last()
             .map(|tx_item| tx_item.state_root)
+            .unwrap_or(data.initial_state_root)
     }
 
     pub fn is_queued(&self, tx: QueueTx) -> bool {

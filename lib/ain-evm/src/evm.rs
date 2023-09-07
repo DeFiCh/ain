@@ -324,21 +324,7 @@ impl EVMServices {
         queue_id: u64,
         tx: QueueTx,
     ) -> Result<(SignedTx, U256, H256)> {
-        let state_root = if queue_id != 0 {
-            match self.core.tx_queues.get_latest_state_root_in(queue_id)? {
-                Some(state_root) => state_root,
-                None => self
-                    .storage
-                    .get_latest_block()?
-                    .map(|block| block.header.state_root)
-                    .unwrap_or_default(),
-            }
-        } else {
-            self.storage
-                .get_latest_block()?
-                .map(|block| block.header.state_root)
-                .unwrap_or_default()
-        };
+        let state_root = self.core.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         // Has to be mutable to obtain new state root
