@@ -41,24 +41,22 @@
 #include <utility>
 
 struct EvmAddressWithNonce {
-    EvmAddressData address;
     uint64_t nonce;
+    EvmAddressData address;
 
     bool operator<(const EvmAddressWithNonce& item) const
     {
-        return std::tie(address, nonce) < std::tie(item.address, item.nonce);
+        return std::tie(nonce, address) < std::tie(item.nonce, item.address);
     }
 };
 
 struct EvmPackageContext {
     // Used to track EVM TX fee by sender and nonce.
-    std::map<EvmAddressWithNonce, uint64_t> feeMap;
-    // Used to track EVM nonce and TXs by sender
-    std::map<EvmAddressData, std::map<uint64_t, CTxMemPool::txiter>> addressTxsMap;
-    // Keep track of EVM entries that failed nonce check
-    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
+    std::map<EvmAddressWithNonce, uint64_t> evmFeeMap;
+    // Used to track nonce, address and mempool entry by native hash
+    std::map<std::string, std::pair<EvmAddressWithNonce, CTxMemPool::txiter>> evmAddressTxsMap;
     // Used for replacement Eth TXs when a TX in chain pays a higher fee
-    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
+    std::map<EvmAddressWithNonce, CTxMemPool::txiter> replaceByFee;
     // Variable to tally total gas used in the block
     uint64_t totalGas{};
     // Used to track gas fees of EVM TXs
@@ -73,8 +71,7 @@ struct EvmTxPreApplyContext {
     int height;
     uint64_t evmQueueId;
     EvmPackageContext& pkgCtx;
-    std::set<uint256>& checkedTXEntries;
-    CTxMemPool::setEntries& failedTxEntries;
+    std::set<uint256>& checkedDfTxHashSet;
 };
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
@@ -626,9 +623,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     auto& metadata = ctx.txMetadata;
     auto& height = ctx.height;
     auto& pkgCtx = ctx.pkgCtx;
-    auto& checkedDfTxHashSet = ctx.checkedTXEntries;
-    auto& failedTxSet = ctx.failedTxEntries;
-    auto& failedNonces = ctx.pkgCtx.failedNonces;
+    auto& checkedDfTxHashSet = ctx.checkedDfTxHashSet;
     auto& replaceByFee = ctx.pkgCtx.replaceByFee;
     auto& totalGas = ctx.pkgCtx.totalGas;
 
@@ -639,62 +634,50 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
     CrossBoundaryResult result;
-    LogPrintf("evm_unsafe_try_validate_raw_tx_in_q in miner\n");
     const auto txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
 
     if (!result.ok) {
         return false;
     }
 
-    auto& evmFeeMap = pkgCtx.feeMap;
-    auto& evmAddressTxsMap = pkgCtx.addressTxsMap;
+    auto& evmFeeMap = pkgCtx.evmFeeMap;
+    auto& evmAddressTxsMap = pkgCtx.evmAddressTxsMap;
 
-    const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
-    const auto addrKey = EvmAddressWithNonce{txResultSender, txResult.nonce};
+    const std::string txResultSender{txResult.sender.data(), txResult.sender.length()};
+    const EvmAddressWithNonce addrKey{txResult.nonce, txResultSender};
+
     if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
         // Key already exists. We check to see if we need to prioritize higher fee tx
         const auto& lastFee = feeEntry->second;
         if (txResult.prepay_fee > lastFee) {
             // Higher paying fee. Remove all TXs above the TX to be replaced.
-            // auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, txIter->GetTx().GetHash().ToString());
-            // if (!result.ok) {
-            //     return false;
-            // }
-
-            // Loop through hashes and remove from block. Add TXs hashes to new replaceByFee collection
-            // with nonce + sender pair as collection order replacing the TX with the RBF TX from here.
-
-            auto& addrTxs = evmAddressTxsMap[addrKey.address];
-            for (auto it = addrTxs.begin(); it != addrTxs.end();) {
-                const auto& [nonce, entry] = *it;
-                if (nonce < txResult.nonce) {
-                    ++it;
-                    continue;
-                }
-                it = addrTxs.erase(it);
-                RemoveFromBlock(entry);
-                checkedDfTxHashSet.erase(entry->GetTx().GetHash());
-                replaceByFee.emplace(nonce, entry);
-                totalGas -= entry->GetFee();
+            auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, txIter->GetTx().GetHash().ToString());
+            if (!result.ok) {
+                return false;
             }
-            replaceByFee[addrKey.nonce] = txIter;
-            // Remove all fee entries relating to the address
-            for (auto it = evmFeeMap.begin(); it != evmFeeMap.end();) {
-                const auto& [sender, nonce] = it->first;
-                if (sender == addrKey.address) {
-                    it = evmFeeMap.erase(it);
-                } else {
-                    ++it;
-                }
+
+            // Loop through hashes of removed TXs and remove from block.
+            for (const auto &rustStr : hashes) {
+                const std::string txHash{rustStr.data(), rustStr.length()};
+                assert(evmAddressTxsMap.count(txHash));
+                const auto& [key, iter] = evmAddressTxsMap.at(txHash);
+                RemoveFromBlock(iter);
+                checkedDfTxHashSet.erase(iter->GetTx().GetHash());
+                replaceByFee.emplace(key, iter);
+                totalGas -= iter->GetFee();
+                evmFeeMap.erase(key);
             }
+
+            // Replace entry with current higher fee paying one
+            replaceByFee[addrKey] = txIter;
 
             return false;
         }
     }
 
-    auto addrNonce = EvmAddressWithNonce{txResultSender, txResult.nonce};
-    evmFeeMap.insert({addrNonce, txResult.prepay_fee});
-    evmAddressTxsMap[txResultSender].emplace(txResult.nonce, txIter);
+    evmFeeMap.insert({addrKey, txResult.prepay_fee});
+    evmAddressTxsMap[txIter->GetTx().GetHash().ToString()] = std::make_pair(addrKey, txIter);
+
     return true;
 }
 
@@ -739,7 +722,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // EVM related context for this package
     EvmPackageContext evmPackageContext;
 
-    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !evmPackageContext.failedNonces.empty() || !evmPackageContext.replaceByFee.empty()) {
+    while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !evmPackageContext.replaceByFee.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
             SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTxSet, failedTxSet)) {
@@ -761,11 +744,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             iter = it->second;
             replaceByFee.erase(it);
             usingReplaceByFee = true;
-        } else if (mi == mempool.mapTx.get<T>().end() && mapModifiedTxSet.empty()) {
-            auto& failedNonces = evmPackageContext.failedNonces;
-            const auto it = failedNonces.begin();
-            iter = it->second;
-            failedNonces.erase(it);
         } else if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTxSet
             iter = modit->iter;
@@ -886,8 +864,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         nHeight,
                         evmQueueId,
                         evmPackageContext,
-                        checkedDfTxHashSet,
-                        failedTxSet,
+                        checkedDfTxHashSet
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
                     if (res) {
