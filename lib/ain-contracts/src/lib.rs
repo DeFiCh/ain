@@ -39,6 +39,30 @@ fn get_bytecode(input: &str) -> Result<Vec<u8>> {
     hex::decode(&bytecode_raw[2..]).map_err(|e| format_err!(e.to_string()))
 }
 
+pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) -> Result<Vec<u8>> {
+    let name = ethabi::Token::String(name.to_string());
+    let symbol = ethabi::Token::String(symbol.to_string());
+
+    let constructor = ethabi::Constructor {
+        inputs: vec![
+            ethabi::Param {
+                name: String::from("name"),
+                kind: ethabi::ParamType::String,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("symbol"),
+                kind: ethabi::ParamType::String,
+                internal_type: None,
+            },
+        ],
+    };
+
+    constructor
+        .encode_input(init_bytecode, &[name, symbol])
+        .map_err(|e| format_err!(e))
+}
+
 pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     let number_str = format!("{:x}", token_id);
     let padded_number_str = format!("{number_str:0>38}");
@@ -58,8 +82,8 @@ pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
 #[derive(Clone)]
 pub struct Contract {
     pub codehash: H256,
-    pub bytecode: Vec<u8>,
-    pub input: Vec<u8>,
+    pub runtime_bytecode: Vec<u8>,
+    pub init_bytecode: Vec<u8>,
 }
 
 #[derive(Clone)]
@@ -75,8 +99,8 @@ lazy_static::lazy_static! {
         FixedContract {
             contract: Contract {
                 codehash: Blake2Hasher::hash(&bytecode),
-                bytecode,
-                input: Vec::new(),
+                runtime_bytecode: bytecode,
+                init_bytecode: Vec::new(),
             },
             fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -98,8 +122,8 @@ lazy_static::lazy_static! {
         FixedContract {
             contract: Contract {
                 codehash: Blake2Hasher::hash(&bytecode),
-                bytecode,
-                input,
+                runtime_bytecode: bytecode,
+                init_bytecode: input,
             },
             fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -112,14 +136,14 @@ lazy_static::lazy_static! {
         let bytecode = solc_artifact_bytecode_str!(
             "dst20", "deployed_bytecode.json"
         );
-        let input = get_bytecode(include_str!(
-            "../dst20/input.json"
-        )).unwrap();
+        let input = solc_artifact_bytecode_str!(
+            "dst20", "bytecode.json"
+        );
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
-            bytecode,
-            input,
+            runtime_bytecode: bytecode,
+            init_bytecode: input,
         }
     };
 
@@ -131,8 +155,8 @@ lazy_static::lazy_static! {
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
-            bytecode,
-            input: Vec::new(),
+            runtime_bytecode: bytecode,
+            init_bytecode: Vec::new(),
         }
     };
 }
