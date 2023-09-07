@@ -84,7 +84,7 @@ fmt-check:
 
 .PHONY: fmt
 fmt:
-	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all 2> >(grep -v -E 'group_imports|unstable_features|imports_granularity')
 
 clean-local:
 	$(CARGO) clean $(CARGO_MANIFEST_ARG) && \

@@ -7,11 +7,10 @@ fn main() -> Result<()> {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
     let solc_path_str = env::var("SOLC_PATH")?;
 
-    // If TARGET_DIR is set, which we do from Makefile, uses that instead of OUT_DIR.
-    // Otherwise, use the path for OUT_DIR that cargo sets, as usual.
+    // We use CARGO_TARGET_DIR from Makefile instead of OUT_DIR.
     // Reason: Currently setting --out-dir is nightly only, so there's no way to get OUT_DIR
-    // out of cargo reliably for pointing deps determinisitcally.
-    let target_dir: PathBuf = PathBuf::from(env::var("CARGO_TARGET_DIR").or(env::var("OUT_DIR"))?);
+    // out of cargo reliably for pointing non cargo deps (eg: python test files) determinisitcally.
+    let target_dir: PathBuf = PathBuf::from(env::var("CARGO_TARGET_DIR")?);
     let solc_artifact_dir = target_dir.join("sol_artifacts");
 
     // Solidity project root and contract names relative to our project
@@ -77,7 +76,7 @@ fn main() -> Result<()> {
 
             fs::create_dir_all(&sol_project_outdir)?;
             for (file_name, contents) in items {
-                fs::write(sol_project_outdir.join(file_name), contents.as_bytes())?
+                fs::write(sol_project_outdir.join(file_name), contents.as_bytes())?;
             }
         }
 
