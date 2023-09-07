@@ -270,49 +270,42 @@ impl EVMCoreService {
             return Err(format_err!("gas limit higher than max_gas_per_block").into());
         }
 
-        let use_queue = queue_id != 0;
-        let used_gas = if use_queue {
-            let block_number = self.tx_queues.get_target_block_in(queue_id)?;
-            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
-                caller: Some(signed_tx.sender),
-                to: signed_tx.to(),
-                value: signed_tx.value(),
-                data: signed_tx.data(),
-                gas_limit: signed_tx.gas_limit().as_u64(),
-                access_list: signed_tx.access_list(),
-                block_number,
-                gas_price: Some(tx_gas_price),
-                max_fee_per_gas: signed_tx.max_fee_per_gas(),
-                transaction_type: Some(signed_tx.get_tx_type()),
-            })?;
-            used_gas
-        } else {
-            u64::default()
-        };
+        let block_number = self.tx_queues.get_target_block_in(queue_id)?;
+        let TxResponse { used_gas, .. } = self.call(EthCallArgs {
+            caller: Some(signed_tx.sender),
+            to: signed_tx.to(),
+            value: signed_tx.value(),
+            data: signed_tx.data(),
+            gas_limit: signed_tx.gas_limit().as_u64(),
+            access_list: signed_tx.access_list(),
+            block_number,
+            gas_price: Some(tx_gas_price),
+            max_fee_per_gas: signed_tx.max_fee_per_gas(),
+            transaction_type: Some(signed_tx.get_tx_type()),
+        })?;
 
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
-        if use_queue {
-            // Validate tx prepay fees with account balance
-            let balance = backend.get_balance(&signed_tx.sender);
-            debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-            if balance < prepay_fee {
-                debug!("[validate_raw_tx] insufficient balance to pay fees");
-                return Err(format_err!("insufficient balance to pay fees").into());
-            }
+        // Validate tx prepay fees with account balance
+        let balance = backend.get_balance(&signed_tx.sender);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-            // Validate total gas usage in queued txs exceeds block size
-            debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
-            let total_current_gas_used = self
-                .tx_queues
-                .get_total_gas_used_in(queue_id)
-                .unwrap_or_default();
+        if balance < prepay_fee {
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(format_err!("insufficient balance to pay fees").into());
+        }
 
-            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-            if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
-                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
-            }
+        // Validate total gas usage in queued txs exceeds block size
+        debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
+        let total_current_gas_used = self
+            .tx_queues
+            .get_total_gas_used_in(queue_id)
+            .unwrap_or_default();
+
+        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
+        if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
+            return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
         }
 
         Ok(ValidateTxInfo {
