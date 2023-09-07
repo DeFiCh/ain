@@ -621,7 +621,9 @@ impl EVMServices {
     }
 
     pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
-        let Contract { bytecode, .. } = get_reserved_contract();
+        let Contract {
+            runtime_bytecode, ..
+        } = get_reserved_contract();
         let addresses = (1..=1024)
             .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
             .collect::<Vec<H160>>();
@@ -631,14 +633,16 @@ impl EVMServices {
                 "[reserve_dst20_namespace] Deploying address to {:#?}",
                 address
             );
-            executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
+            executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
         }
 
         Ok(())
     }
 
     pub fn reserve_intrinsics_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
-        let Contract { bytecode, .. } = get_reserved_contract();
+        let Contract {
+            runtime_bytecode, ..
+        } = get_reserved_contract();
         let addresses = (1..=127)
             .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
             .collect::<Vec<H160>>();
@@ -648,7 +652,7 @@ impl EVMServices {
                 "[reserve_intrinsics_namespace] Deploying address to {:#?}",
                 address
             );
-            executor.deploy_contract(address, bytecode.clone().into(), Vec::new())?;
+            executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
         }
 
         Ok(())
@@ -662,7 +666,7 @@ fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(Box<Signe
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_dst20_contract().input,
+        input: get_dst20_contract().init_bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
@@ -680,7 +684,7 @@ fn transfer_domain_deploy_contract_tx(base_fee: &U256) -> Result<(SignedTx, Rece
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_transferdomain_contract().contract.input,
+        input: get_transferdomain_contract().contract.init_bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })

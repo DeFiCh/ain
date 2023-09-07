@@ -58,8 +58,8 @@ pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
 #[derive(Clone)]
 pub struct Contract {
     pub codehash: H256,
-    pub bytecode: Vec<u8>,
-    pub input: Vec<u8>,
+    pub runtime_bytecode: Vec<u8>,
+    pub init_bytecode: Vec<u8>,
 }
 
 #[derive(Clone)]
@@ -75,8 +75,8 @@ lazy_static::lazy_static! {
         FixedContract {
             contract: Contract {
                 codehash: Blake2Hasher::hash(&bytecode),
-                bytecode,
-                input: Vec::new(),
+                runtime_bytecode: bytecode,
+                init_bytecode: Vec::new(),
             },
             fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -98,8 +98,8 @@ lazy_static::lazy_static! {
         FixedContract {
             contract: Contract {
                 codehash: Blake2Hasher::hash(&bytecode),
-                bytecode,
-                input,
+                runtime_bytecode: bytecode,
+                init_bytecode: input,
             },
             fixed_address: H160([
                 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -118,8 +118,8 @@ lazy_static::lazy_static! {
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
-            bytecode,
-            input,
+            runtime_bytecode: bytecode,
+            init_bytecode: input,
         }
     };
 
@@ -131,8 +131,8 @@ lazy_static::lazy_static! {
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),
-            bytecode,
-            input: Vec::new(),
+            runtime_bytecode: bytecode,
+            init_bytecode: Vec::new(),
         }
     };
 }

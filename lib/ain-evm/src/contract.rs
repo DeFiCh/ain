@@ -71,7 +71,7 @@ pub fn intrinsics_contract(
 
     Ok(DeployContractInfo {
         address: fixed_address,
-        bytecode: Bytes::from(contract.bytecode),
+        bytecode: Bytes::from(contract.runtime_bytecode),
         storage: vec![
             (H256::from_low_u64_be(0), u256_to_h256(U256::one())),
             (H256::from_low_u64_be(1), u256_to_h256(evm_block_number)),
@@ -92,7 +92,7 @@ pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
 
     Ok(DeployContractInfo {
         address: fixed_address,
-        bytecode: Bytes::from(contract.bytecode),
+        bytecode: Bytes::from(contract.runtime_bytecode),
         storage: Vec::new(),
     })
 }
@@ -113,7 +113,9 @@ pub fn dst20_contract(
         }
     }
 
-    let Contract { bytecode, .. } = get_dst20_contract();
+    let Contract {
+        runtime_bytecode, ..
+    } = get_dst20_contract();
     let storage = vec![
         (
             H256::from_low_u64_be(3),
@@ -127,7 +129,7 @@ pub fn dst20_contract(
 
     Ok(DeployContractInfo {
         address,
-        bytecode: Bytes::from(bytecode),
+        bytecode: Bytes::from(runtime_bytecode),
         storage,
     })
 }
