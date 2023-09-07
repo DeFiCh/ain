@@ -924,7 +924,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
             CrossBoundaryResult result;
-            const auto txResult = evm_unsafe_try_validate_raw_tx_in_q(result, 0, HexStr(obj.evmTx));
+            uint64_t evmQueueId = evm_unsafe_try_create_queue(result);
+            if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to create queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-creation-failed"); }
+
+            const auto txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
@@ -935,6 +938,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             } else {
                 ethSender = txResultSender;
             }
+            evm_unsafe_try_remove_queue(result, evmQueueId);
+            if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to remove queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-removal-failed"); }
         }
 
         if (test_accept) {
