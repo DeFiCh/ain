@@ -15,7 +15,7 @@ use crate::{
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
-    trie::TrieDBStore,
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
     txqueue::TransactionQueueMap,
     weiamount::WeiAmount,
     Result,
@@ -342,7 +342,7 @@ impl EVMCoreService {
     ///
     pub unsafe fn create_queue(&self) -> Result<u64> {
         let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
-            None => U256::zero(), // Genesis queue
+            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis queue
             Some(block) => (block.header.number + 1, block.header.state_root),
         };
         let queue_id = self.tx_queues.create(target_block, initial_state_root);

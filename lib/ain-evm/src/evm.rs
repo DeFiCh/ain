@@ -134,9 +134,7 @@ impl EVMServices {
         let state_root = self
             .storage
             .get_latest_block()?
-            .map_or(GENESIS_STATE_ROOT.parse().unwrap(), |block| {
-                block.header.state_root
-            });
+            .map_or(GENESIS_STATE_ROOT, |block| block.header.state_root);
 
         debug!("[construct_block] queue_id: {:?}", queue_id);
         debug!("[construct_block] beneficiary: {:?}", beneficiary);
