@@ -84,6 +84,7 @@ name = "ain-contracts"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ethabi",
  "ethereum",
  "ethereum-types",
  "ethers",

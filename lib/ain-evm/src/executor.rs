@@ -355,10 +355,10 @@ impl<'backend> AinExecutor<'backend> {
                     address,
                     bytecode,
                     storage,
-                } = dst20_contract(self.backend, address, name, symbol)?;
+                } = dst20_contract(self.backend, address, &name, &symbol)?;
 
                 self.deploy_contract(address, bytecode.clone(), storage)?;
-                let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
+                let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee, &name, &symbol)?;
 
                 Ok(ApplyTxResult {
                     tx,
