@@ -86,7 +86,7 @@ class EVMTest(DefiTestFramework):
         node = self.nodes[0]
 
         self.contract = EVMContract.from_file("Events.sol", "TestEvents")
-        abi, bytecode = self.contract.compile()
+        abi, bytecode, _ = self.contract.compile()
         compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
