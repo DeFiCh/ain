@@ -110,6 +110,15 @@ pub mod ffi {
         pub prepay_fee: u64,
     }
 
+    #[derive(Default)]
+    pub struct ValidateTxMiner {
+        pub nonce: u64,
+        pub sender: String,
+        pub tx_hash: String,
+        pub prepay_fee: u64,
+        pub invalid_nonce: bool,
+    }
+
     extern "Rust" {
         // In-fallible functions
         //
@@ -148,7 +157,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
-        ) -> ValidateTxCompletion;
+        ) -> ValidateTxMiner;
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
