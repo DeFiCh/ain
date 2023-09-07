@@ -330,7 +330,6 @@ class CCustomTxApplyVisitor {
     uint64_t time;
     uint32_t txn;
     uint64_t evmQueueId;
-    bool evmSanityCheckOnly;
     bool isEvmEnabledForBlock;
     uint64_t &gasUsed;
 
@@ -340,7 +339,7 @@ class CCustomTxApplyVisitor {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>)
-            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, evmSanityCheckOnly, isEvmEnabledForBlock, gasUsed}(obj);
+            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, gasUsed}(obj);
         else if constexpr (sizeof...(Args) != 0)
             return ConsensusHandler<T, Args...>(obj);
         else
@@ -358,7 +357,6 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const uint64_t evmQueueId,
-                          const bool evmSanityCheckOnly,
                           const bool isEvmEnabledForBlock,
                           uint64_t &gasUsed)
 
@@ -370,7 +368,6 @@ public:
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          evmSanityCheckOnly(evmSanityCheckOnly),
           isEvmEnabledForBlock(isEvmEnabledForBlock),
           gasUsed(gasUsed) {}
 
@@ -456,16 +453,14 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     auto q = evmQueueId;
-    bool evmSanityCheckOnly = false;
     if (q == 0) {
-        evmSanityCheckOnly = true;
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (r) { q = *r; } else { return r; }
     }
 
     try {
         return std::visit(
-            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, evmSanityCheckOnly, isEvmEnabledForBlock, gasUsed),
+            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, gasUsed),
             txMessage);
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());

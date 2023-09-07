@@ -61,7 +61,6 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const uint64_t time,
                                    const uint32_t txn,
                                    const uint64_t evmQueueId,
-                                   const bool evmSanityCheckOnly,
                                    const bool isEvmEnabledForBlock,
                                    uint64_t &gasUsed)
         : height(height),
@@ -72,7 +71,6 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          evmSanityCheckOnly(evmSanityCheckOnly),
           isEvmEnabledForBlock(isEvmEnabledForBlock),
           gasUsed(gasUsed) {}
 

@@ -51,7 +51,6 @@ protected:
     const uint64_t time;
     const uint32_t txn;
     uint64_t evmQueueId;
-    bool evmSanityCheckOnly;
     bool isEvmEnabledForBlock;
     uint64_t &gasUsed;
 
@@ -64,7 +63,6 @@ public:
                      const uint64_t time,
                      const uint32_t txn,
                      const uint64_t evmQueueId,
-                     const bool evmSanityCheckOnly,
                      const bool isEvmEnabledForBlock,
                      uint64_t &gasUsed);
 
