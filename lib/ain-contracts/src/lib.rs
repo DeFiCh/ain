@@ -39,6 +39,30 @@ fn get_bytecode(input: &str) -> Result<Vec<u8>> {
     hex::decode(&bytecode_raw[2..]).map_err(|e| format_err!(e.to_string()))
 }
 
+pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) -> Result<Vec<u8>> {
+    let name = ethabi::Token::String(name.to_string());
+    let symbol = ethabi::Token::String(symbol.to_string());
+
+    let constructor = ethabi::Constructor {
+        inputs: vec![
+            ethabi::Param {
+                name: String::from("name"),
+                kind: ethabi::ParamType::String,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("symbol"),
+                kind: ethabi::ParamType::String,
+                internal_type: None,
+            },
+        ],
+    };
+
+    constructor
+        .encode_input(init_bytecode, &[name, symbol])
+        .map_err(|e| format_err!(e))
+}
+
 pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
     let number_str = format!("{:x}", token_id);
     let padded_number_str = format!("{number_str:0>38}");
@@ -112,9 +136,9 @@ lazy_static::lazy_static! {
         let bytecode = solc_artifact_bytecode_str!(
             "dst20", "deployed_bytecode.json"
         );
-        let input = get_bytecode(include_str!(
-            "../dst20/input.json"
-        )).unwrap();
+        let input = solc_artifact_bytecode_str!(
+            "dst20", "bytecode.json"
+        );
 
         Contract {
             codehash: Blake2Hasher::hash(&bytecode),

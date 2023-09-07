@@ -100,8 +100,8 @@ pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
 pub fn dst20_contract(
     backend: &EVMBackend,
     address: H160,
-    name: String,
-    symbol: String,
+    name: &str,
+    symbol: &str,
 ) -> Result<DeployContractInfo> {
     match backend.get_account(&address) {
         None => {}
@@ -117,14 +117,8 @@ pub fn dst20_contract(
         runtime_bytecode, ..
     } = get_dst20_contract();
     let storage = vec![
-        (
-            H256::from_low_u64_be(3),
-            get_abi_encoded_string(name.as_str()),
-        ),
-        (
-            H256::from_low_u64_be(4),
-            get_abi_encoded_string(symbol.as_str()),
-        ),
+        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
+        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
     ];
 
     Ok(DeployContractInfo {

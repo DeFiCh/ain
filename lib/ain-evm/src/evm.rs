@@ -1,7 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
-    get_dst20_contract, get_reserved_contract, get_transferdomain_contract, Contract, FixedContract,
+    get_dst20_contract, get_dst20_deploy_input, get_reserved_contract, get_transferdomain_contract,
+    Contract, FixedContract,
 };
 use anyhow::format_err;
 use ethereum::{
@@ -426,12 +427,13 @@ impl EVMServices {
                         address,
                         bytecode,
                         storage,
-                    } = dst20_contract(executor.backend, address, name, symbol)?;
+                    } = dst20_contract(executor.backend, address, &name, &symbol)?;
 
                     if let Err(e) = executor.deploy_contract(address, bytecode.clone(), storage) {
                         debug!("[construct_block] EvmOut failed with {e}");
                     }
-                    let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
+                    let (tx, receipt) =
+                        dst20_deploy_contract_tx(token_id, &base_fee, &name, &symbol)?;
 
                     (tx, Vec::new(), (receipt, Some(address)))
                 }
@@ -659,14 +661,28 @@ impl EVMServices {
     }
 }
 
-fn dst20_deploy_contract_tx(token_id: u64, base_fee: &U256) -> Result<(Box<SignedTx>, ReceiptV3)> {
+fn dst20_deploy_contract_tx(
+    token_id: u64,
+    base_fee: &U256,
+    name: &str,
+    symbol: &str,
+) -> Result<(Box<SignedTx>, ReceiptV3)> {
+    debug!("DST20 Deploy Input");
+    debug!(
+        "{:#?}",
+        hex::encode(
+            get_dst20_deploy_input(get_dst20_contract().init_bytecode, name, symbol)
+                .map_err(|e| format_err!(e))?
+        )
+    );
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(token_id),
         gas_price: *base_fee,
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_dst20_contract().init_bytecode,
+        input: get_dst20_deploy_input(get_dst20_contract().init_bytecode, name, symbol)
+            .map_err(|e| format_err!(e))?,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
