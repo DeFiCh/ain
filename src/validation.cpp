@@ -630,11 +630,18 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.GetBestBlock();
 
         const auto height = GetSpendHeight(view);
-        const auto consensus = chainparams.GetConsensus();
+        const auto& consensus = chainparams.GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, mnview, consensus);
 
-        // rebuild accounts view if dirty
-        pool.rebuildAccountsView(height, view);
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
+        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+            pool.setAccountViewDirty();
+        }
+
+        if (auto res = pool.rebuildAccountsView(height, view, ptx); !res) {
+            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
+        }
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
@@ -904,8 +911,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // TODO: We do multiple guess and parses. Streamline this later.
         // We also have IsEvmTx,  but we need the metadata here.
-        std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
         auto isEvmTx = txType == CustomTxType::EvmTx;
 
         if (!isEvmTx && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
@@ -935,7 +940,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
             const auto sender = pool.ethTxsBySender.find(txResultSender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth transaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
             } else {
                 ethSender = txResultSender;
             }
