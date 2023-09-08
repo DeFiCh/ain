@@ -706,6 +706,12 @@ public:
         return totalTxSize;
     }
 
+    uint64_t GetEvmQueueId() const
+    {
+        LOCK(cs);
+        return evmQueueId;
+    }
+
     bool exists(const uint256& hash) const
     {
         LOCK(cs);

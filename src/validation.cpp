@@ -658,7 +658,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, pool.GetEvmQueueId(), isEvmEnabledForBlock);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }

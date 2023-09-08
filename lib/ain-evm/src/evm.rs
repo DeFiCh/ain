@@ -427,8 +427,8 @@ impl EVMServices {
         Ok(is_queued)
     }
 
-    pub fn get_nonce(&self, address: H160) -> Result<U256> {
-        let backend = self.core.get_latest_block_backend()?;
+    pub fn get_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
+        let backend = self.core.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
         Ok(nonce)
     }

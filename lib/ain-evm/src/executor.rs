@@ -237,9 +237,9 @@ impl<'backend> AinExecutor<'backend> {
                 let amount = U256::from_big_endian(&input[68..100]);
 
                 debug!(
-                "[apply_queue_tx] Transfer domain: {} from address {:x?}, to address {:x?}, amount: {}",
-                direction, signed_tx.sender, to, amount,
-            );
+                    "[apply_queue_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
+                    direction, signed_tx.sender, signed_tx.nonce(), to, amount,
+                );
 
                 let FixedContract {
                     contract,

@@ -98,6 +98,7 @@ pub mod ffi {
         pub token_id: u32,
         pub chain_id: u64,
         pub priv_key: [u8; 32],
+        pub queue_id: u64,
     }
 
     #[derive(Default)]

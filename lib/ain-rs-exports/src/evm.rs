@@ -222,7 +222,20 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         );
     };
 
-    let Ok(nonce) = SERVICES.evm.get_nonce(from_address) else {
+    let state_root = unsafe {
+        match SERVICES
+            .evm
+            .core
+            .tx_queues
+            .get_latest_state_root_in(ctx.queue_id)
+        {
+            Ok(state_root) => state_root,
+            Err(e) => {
+                return cross_boundary_error_return(result, format!("Could not get state root {e}"))
+            }
+        }
+    };
+    let Ok(nonce) = SERVICES.evm.get_nonce(from_address, state_root) else {
         return cross_boundary_error_return(
             result,
             format!("Could not get nonce for {from_address:x?}"),
