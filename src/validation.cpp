@@ -3364,6 +3364,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
 
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmQueueId, false);
         GetMainSignals().BlockChecked(blockConnecting, state);
+        XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
@@ -4911,8 +4912,9 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true))
-        return false;
+    auto res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true);
+    XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+    if (!res) return false;
     assert(state.IsValid());
 
     return true;
@@ -5380,7 +5382,9 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             auto r = XResultValue(evm_unsafe_try_create_queue(result));
             if (!r) { return error("VerifyDB(): *** evm_unsafe_try_create_queue failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString()); }
             uint64_t evmQueueId = *r;
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId))
+            auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId);
+            XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+            if (!res)
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }
