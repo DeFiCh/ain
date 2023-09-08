@@ -631,9 +631,9 @@ public:
         consensus.FortCanningSpringHeight = 1086000;
         consensus.FortCanningGreatWorldHeight = 1223000;
         consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = 1366000;
-        consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = 1356500;
+        consensus.GrandCentralHeight = 1356500;
+        consensus.GrandCentralEpilogueHeight = 1356510;
+        consensus.NextNetworkUpgradeHeight = 1356520;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -796,7 +796,6 @@ public:
                         {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                         {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
                         {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
-                        {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
                 }
         };
 
