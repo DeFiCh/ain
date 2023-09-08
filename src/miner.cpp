@@ -274,9 +274,13 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         timeOrdering = false;
     }
 
-    auto r = XResultValueLogged(evm_unsafe_try_create_queue(result));
-    if (!r) return Res::Err("Failed to create queue");
-    const auto evmQueueId = *r;
+    uint64_t evmQueueId{};
+    if (isEvmEnabledForBlock) {
+        auto r = XResultValueLogged(evm_unsafe_try_create_queue(result));
+        if (!r) return Res::Err("Failed to create queue");
+        evmQueueId = *r;
+    }
+
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
