@@ -1245,7 +1245,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     }
                     continue;
                 }
-                const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.sender);
+                const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, senderInfo.address);
                 if (!result.ok) {
                     AddToStaged(staged, vtx, iter);
                     if (ptx && ptx->GetHash() == tx.GetHash()) {
