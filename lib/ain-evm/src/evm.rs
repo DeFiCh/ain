@@ -461,9 +461,6 @@ impl EVMServices {
         // burn base fee and pay priority fee to miner
         executor
             .backend
-            .add_balance(H160::zero(), total_burnt_fees)?;
-        executor
-            .backend
             .add_balance(beneficiary, total_priority_fees)?;
         executor.commit();
 
