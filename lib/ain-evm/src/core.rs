@@ -269,15 +269,6 @@ impl EVMCoreService {
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
-        // Validate tx prepay fees with account balance
-        let balance = backend.get_balance(&signed_tx.sender);
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-
-        if balance < prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(format_err!("insufficient balance to pay fees").into());
-        }
-
         // Should be queued for now and don't go through VM validation
         if signed_tx.nonce() > nonce {
             return Ok(ValidateTxInfo {
@@ -285,6 +276,15 @@ impl EVMCoreService {
                 prepay_fee,
                 higher_nonce: true,
             });
+        }
+
+        // Validate tx prepay fees with account balance
+        let balance = backend.get_balance(&signed_tx.sender);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+
+        if balance < prepay_fee {
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         let block_number = self.tx_queues.get_target_block_in(queue_id)?;
