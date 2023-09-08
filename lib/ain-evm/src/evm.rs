@@ -12,6 +12,7 @@ use ethereum::{
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::debug;
 
+use crate::traits::BridgeBackend;
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
@@ -456,6 +457,15 @@ impl EVMServices {
             "[construct_block] Total priority fees : {:#?}",
             total_priority_fees
         );
+
+        // burn base fee and pay priority fee to miner
+        executor
+            .backend
+            .add_balance(H160::zero(), total_burnt_fees)?;
+        executor
+            .backend
+            .add_balance(beneficiary, total_priority_fees)?;
+        executor.commit();
 
         let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
         let gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
