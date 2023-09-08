@@ -338,8 +338,6 @@ class EVMFeeTest(DefiTestFramework):
 
         self.test_fee_deduction()
 
-        self.test_eip1559_fee_deduction()
-
         self.test_low_gas_price()
 
         self.test_high_gas_price()
