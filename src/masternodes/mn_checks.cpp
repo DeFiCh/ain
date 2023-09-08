@@ -461,12 +461,13 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     try {
+        auto res = std::visit(
+            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, gasUsed),
+            txMessage);
         if (wipeQueue) {
             XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         }
-        return std::visit(
-            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, gasUsed),
-            txMessage);
+        return res;
     } catch (const std::bad_variant_access &e) {
         if (wipeQueue) {
             XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));

@@ -3369,7 +3369,6 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
 
         bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmQueueId, false);
         GetMainSignals().BlockChecked(blockConnecting, state);
-        XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
