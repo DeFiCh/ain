@@ -4906,15 +4906,22 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     uint64_t evmQueueId = *r;
 
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
-    if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
-        return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot))
-        return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
-        return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    auto res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true);
+    auto res = ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime());
+    XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+    if (!res) return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
+
+    res = CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot);
+    XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+    if (!res) return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
+
+    res = ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev);
+    XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+    if (!res) return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
+
+    res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true);
     XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
     if (!res) return false;
+
     assert(state.IsValid());
 
     return true;
