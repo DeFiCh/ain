@@ -635,7 +635,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
             LogPrintf("XXX evm_try_get_tx_sender_info_from_raw_tx: %s\n", result.reason.c_str());
             return false;
         }
-        const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txResult.sender);
+        const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, senderInfo.address);
         if (!result.ok || nonce > txResult.nonce) {
             return false;
         }
