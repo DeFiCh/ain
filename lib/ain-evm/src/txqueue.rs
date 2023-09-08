@@ -4,16 +4,13 @@ use std::{
 };
 
 use ethereum::{Block, TransactionV2};
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::{H256, U256};
 use rand::Rng;
 
 use crate::{
     core::XHash,
     receipt::Receipt,
-    transaction::{
-        system::{SystemTx, TransferDomainData},
-        SignedTx,
-    },
+    transaction::{system::SystemTx, SignedTx},
 };
 
 type Result<T> = std::result::Result<T, QueueError>;
@@ -234,7 +231,6 @@ pub struct BlockData {
 #[derive(Clone, Debug, Default)]
 pub struct TransactionQueueData {
     pub transactions: Vec<QueueTxItem>,
-    pub account_nonces: HashMap<H160, U256>,
     pub block_data: Option<BlockData>,
     pub total_gas_used: U256,
     pub target_block: U256,
@@ -245,7 +241,6 @@ impl TransactionQueueData {
     pub fn new(target_block: U256, state_root: H256) -> Self {
         Self {
             transactions: Vec::new(),
-            account_nonces: HashMap::new(),
             total_gas_used: U256::zero(),
             block_data: None,
             target_block,
@@ -274,22 +269,9 @@ impl TransactionQueue {
         state_root: H256,
     ) -> Result<()> {
         let mut data = self.data.lock().unwrap();
-        match &tx {
-            QueueTx::SignedTx(signed_tx)
-            | QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                signed_tx, ..
-            })) => {
-                if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
-                    if signed_tx.nonce() != nonce + 1 {
-                        return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
-                    }
-                }
-                data.account_nonces
-                    .insert(signed_tx.sender, signed_tx.nonce());
-                data.total_gas_used += gas_used;
-            }
-            QueueTx::SystemTx(_) => (),
-        }
+
+        data.total_gas_used += gas_used;
+
         data.transactions.push(QueueTxItem {
             tx,
             tx_hash,
@@ -314,22 +296,10 @@ impl TransactionQueue {
                 .map(|tx_item| tx_item.tx_hash)
                 .collect();
 
-            let mut new_nonces = HashMap::new();
-            let mut new_total_gas_used = U256::zero();
-            for item in &data.transactions {
-                if let QueueTx::SignedTx(signed_tx) = &item.tx {
-                    if let Some(nonce) = new_nonces.get(&signed_tx.sender) {
-                        if signed_tx.nonce() != nonce + 1 {
-                            return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
-                        }
-                    }
-                    new_nonces.insert(signed_tx.sender, signed_tx.nonce());
-                }
-                new_total_gas_used += item.gas_used;
-            }
-
-            data.account_nonces = new_nonces;
-            data.total_gas_used = new_total_gas_used;
+            data.total_gas_used = data
+                .transactions
+                .iter()
+                .fold(U256::zero(), |acc, tx| acc + tx.gas_used)
         }
 
         Ok(removed_txs)

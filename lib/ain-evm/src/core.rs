@@ -384,6 +384,35 @@ impl EVMCoreService {
         let target_block = self.tx_queues.get_target_block_in(queue_id)?;
         Ok(target_block)
     }
+
+    /// Retrieves the next valid nonce for the specified account within a particular queue.
+    /// # Arguments
+    ///
+    /// * `queue_id` - The queue_id queue number.
+    /// * `address` - The EVM address of the account whose nonce we want to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// Returns the next valid nonce as a `U256`. Defaults to U256::zero()
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn get_next_valid_nonce_in_queue(
+        &self,
+        queue_id: u64,
+        address: H160,
+    ) -> Result<U256> {
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        let backend = self.get_backend(state_root)?;
+        let nonce = backend.get_nonce(&address);
+        trace!(
+            "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
+        );
+        Ok(nonce)
+    }
 }
 
 // State methods

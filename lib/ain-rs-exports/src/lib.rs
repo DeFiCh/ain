@@ -138,6 +138,11 @@ pub mod ffi {
         // Failible functions
         // Has to take CrossBoundaryResult as first param
         // Has to start with try_ / evm_try
+        fn evm_unsafe_try_get_next_valid_nonce_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            address: &str,
+        ) -> u64;
         fn evm_unsafe_try_remove_txs_above_hash_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
