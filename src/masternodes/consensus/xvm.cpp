@@ -281,6 +281,9 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s", result.reason);
     }
+    if (validateResults.higher_nonce) {
+        return Res::Ok();
+    }
 
     evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {

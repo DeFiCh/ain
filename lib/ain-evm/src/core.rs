@@ -44,7 +44,7 @@ pub struct EthCallArgs<'a> {
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
-    pub invalid_nonce: bool,
+    pub higher_nonce: bool,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -233,11 +233,7 @@ impl EVMCoreService {
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
-        // Validate tx nonce
-        let mut invalid_nonce = false;
-        if miner {
-            invalid_nonce = nonce > signed_tx.nonce();
-        } else if nonce > signed_tx.nonce() {
+        if nonce > signed_tx.nonce() {
             return Err(format_err!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
@@ -270,6 +266,27 @@ impl EVMCoreService {
             return Err(format_err!("gas limit higher than max_gas_per_block").into());
         }
 
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
+
+        // Validate tx prepay fees with account balance
+        let balance = backend.get_balance(&signed_tx.sender);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+
+        if balance < prepay_fee {
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(format_err!("insufficient balance to pay fees").into());
+        }
+
+        // Should be queued for now and don't go through VM validation
+        if signed_tx.nonce() > nonce {
+            return Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                higher_nonce: true,
+            });
+        }
+
         let block_number = self.tx_queues.get_target_block_in(queue_id)?;
         let TxResponse { used_gas, .. } = self.call(EthCallArgs {
             caller: Some(signed_tx.sender),
@@ -283,18 +300,6 @@ impl EVMCoreService {
             max_fee_per_gas: signed_tx.max_fee_per_gas(),
             transaction_type: Some(signed_tx.get_tx_type()),
         })?;
-
-        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
-        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
-
-        // Validate tx prepay fees with account balance
-        let balance = backend.get_balance(&signed_tx.sender);
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-
-        if balance < prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(format_err!("insufficient balance to pay fees").into());
-        }
 
         // Validate total gas usage in queued txs exceeds block size
         debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
@@ -311,7 +316,7 @@ impl EVMCoreService {
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
-            invalid_nonce,
+            higher_nonce: false,
         })
     }
 
