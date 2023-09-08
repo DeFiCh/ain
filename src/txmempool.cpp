@@ -1123,7 +1123,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
     }
 
     CrossBoundaryResult result;
-    if (!evmQueueId) {
+    if (evmQueueId) {
         evm_unsafe_try_remove_queue(result, evmQueueId);
         if (!result.ok) {
             return Res::Err("%s: Unable to remove previous EVM queue\n", __func__);
