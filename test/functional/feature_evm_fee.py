@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+import math
 from decimal import Decimal
 
 
@@ -100,6 +101,7 @@ class EVMFeeTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        beneficiary = self.nodes[0].w3.eth.get_block("latest")["miner"]
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         # Deduct 50000. 29000 value + min 21000 call fee
         assert_equal(int(balance[2:], 16), 99999789999999971000)
@@ -111,7 +113,19 @@ class EVMFeeTest(DefiTestFramework):
             Decimal("0.00021000"),
         )
         assert_equal(
+            self.nodes[0].w3.eth.get_balance(
+                "0x0000000000000000000000000000000000000000"
+            )
+            / math.pow(10, 18),
+            0.00021,
+        )
+
+        assert_equal(
             Decimal(attributes["v0/live/economy/evm/block/fee_priority"]), Decimal("0")
+        )
+        assert_equal(
+            self.nodes[0].w3.eth.get_balance(beneficiary) / math.pow(10, 18),
+            0,
         )
 
         self.rollback_to(height)
