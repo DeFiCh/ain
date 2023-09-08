@@ -572,7 +572,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     auto attributes = mnview.GetAttributes();
     assert(attributes);
 
-    if (txType == CustomTxType::EvmTx && !isEvmEnabledForBlock) {
+    if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
     }
 
