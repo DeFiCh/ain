@@ -204,12 +204,7 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(
-        &self,
-        tx: &str,
-        queue_id: u64,
-        miner: bool,
-    ) -> Result<ValidateTxInfo> {
+    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
