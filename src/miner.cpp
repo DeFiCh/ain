@@ -636,12 +636,12 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
             return false;
         }
         const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, senderInfo.address);
-        if (!result.ok || nonce > txResult.nonce) {
+        if (!result.ok || nonce > senderInfo.nonce) {
             return false;
         }
-        if (nonce < txResult.nonce) {
+        if (nonce < senderInfo.nonce) {
             if (!failedTxSet.count(txIter)) {
-                failedNonces.emplace(txResult.nonce, txIter);
+                failedNonces.emplace(senderInfo.nonce, txIter);
             }
             failedTxSet.insert(txIter);
             return false;

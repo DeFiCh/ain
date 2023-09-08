@@ -1214,7 +1214,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             if (txType == CustomTxType::EvmTx) {
                 const auto obj = std::get<CEvmTxMessage>(txMessage);
                 txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-                if (result.ok) {
+                if (!result.ok) {
                     AddToStaged(staged, vtx, iter);
                     if (ptx && ptx->GetHash() == tx.GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
@@ -1253,15 +1253,15 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     }
                     continue;
                 }
-                if (nonce > txResult.nonce) {
+                if (nonce > senderInfo.nonce) {
                     AddToStaged(staged, vtx, iter);
                     if (ptx && ptx->GetHash() == tx.GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
                     }
                     continue;
-                } else if (nonce < txResult.nonce) {
+                } else if (nonce < senderInfo.nonce) {
                     if (!failedTxSet.count(iter)) {
-                        failedNonces.emplace(txResult.nonce, iter);
+                        failedNonces.emplace(senderInfo.nonce, iter);
                     }
                     failedTxSet.insert(iter);
                     continue;
