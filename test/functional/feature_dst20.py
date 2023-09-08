@@ -187,8 +187,9 @@ class DST20(DefiTestFramework):
             self.bytecode,
         )
 
-        assert_equal(tx1["input"], tx2["input"])
-        assert_equal(tx2["input"], tx3["input"])
+        # init bytecode should match
+        assert_equal(tx1["input"][:-384], tx2["input"][:-384])
+        assert_equal(tx2["input"][:-384], tx3["input"][:-384])
 
         self.rollback_to(block_height)
 
