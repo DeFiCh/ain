@@ -632,7 +632,6 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         }
         auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.transfers[0].second.data));
         if (!result.ok) {
-            LogPrintf("XXX evm_try_get_tx_sender_info_from_raw_tx: %s\n", result.reason.c_str());
             return false;
         }
         const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, senderInfo.address);
