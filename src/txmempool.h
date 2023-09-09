@@ -706,12 +706,6 @@ public:
         return totalTxSize;
     }
 
-    uint64_t GetEvmQueueId() const
-    {
-        LOCK(cs);
-        return evmQueueId;
-    }
-
     bool exists(const uint256& hash) const
     {
         LOCK(cs);
@@ -728,8 +722,10 @@ public:
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
     CCustomCSView& accountsView();
-    Res rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx);
+    Res rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx, const int64_t time = 0);
     void setAccountViewDirty();
+    bool getAccountViewDirty() const;
+    uint64_t getEvmQueueId() const;
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

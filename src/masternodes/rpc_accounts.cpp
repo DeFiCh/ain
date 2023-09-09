@@ -2136,7 +2136,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             std::string   from = ScriptToString(script);
 
             CrossBoundaryResult result;
-            auto evmQueueId = mempool.GetEvmQueueId();
+            auto evmQueueId = mempool.getEvmQueueId();
             const auto signedTx = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{std::move(from),
                                                                                                                  std::move(to),
                                                                                                                  nativeAddress,

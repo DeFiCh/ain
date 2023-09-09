@@ -1116,7 +1116,15 @@ void CTxMemPool::setAccountViewDirty() {
     accountsViewDirty = true;
 }
 
-Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx)
+bool CTxMemPool::getAccountViewDirty() const {
+    return accountsViewDirty;
+}
+
+uint64_t CTxMemPool::getEvmQueueId() const {
+    return evmQueueId;
+}
+
+Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx, const int64_t time)
 {
     if (!pcustomcsview || (!accountsViewDirty && evmQueueId)) {
         return Res::Ok();
@@ -1152,61 +1160,83 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
     CTxMemPool::txiter iter;
 
     // Track mempool time order
-    std::map<int64_t, txiter> mempoolTimeOrder{};
+    std::multimap<int64_t, std::variant<CTxMemPool::txiter, CTransactionRef>> mempoolTimeOrder{};
 
     // Quick lookup for mempool time order map
-    std::map<uint256, int64_t> timeOrderLookup{};
+    using timeMapIterator = std::multimap<int64_t, std::variant<CTxMemPool::txiter, CTransactionRef>>::iterator;
+    std::map<uint256, timeMapIterator> timeOrderLookup{};
 
     // Used to track EVM TX fee by sender and nonce.
-    std::map<EvmAddressWithNonce, std::pair<uint64_t, txiter>> evmFeeMap;
+    std::map<EvmAddressWithNonce, std::pair<uint64_t, uint256>> evmFeeMap;
 
     // Used for replacement Eth TXs ordered by time
-    std::map<uint64_t, CTxMemPool::txiter> replaceByFee;
+    std::map<uint64_t, std::variant<CTxMemPool::txiter, CTransactionRef>> replaceByFee;
 
     // Keep track of EVM entries that failed nonce check
-    std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
+    std::multimap<uint64_t, std::variant<CTxMemPool::txiter, CTransactionRef>> failedNonces;
 
     // Keep track of entries that failed inclusion, to avoid duplicate work
-    CTxMemPool::setEntries failedTxSet;
+    std::set<uint256> failedTxSet;
 
-    while (mi != mempool.mapTx.get<entry_time>().end() || !replaceByFee.empty() || !failedNonces.empty()) {
+    // Temp copy to loop over new TX
+    auto newTx = ptx;
 
+    while (newTx || mi != mempool.mapTx.get<entry_time>().end() || !replaceByFee.empty() || !failedNonces.empty()) {
+
+        CTransactionRef tx;
         if (!replaceByFee.empty()) {
             const auto it = replaceByFee.begin();
-            iter = it->second;
+            if (auto iterator = std::get_if<CTxMemPool::txiter>(&it->second)) {
+                iter = *iterator;
+                tx = iter->GetSharedTx();
+            } else if (auto transaction = std::get_if<CTransactionRef>(&it->second)) {
+                tx = *transaction;
+            }
             replaceByFee.erase(it);
+        } else if (mi == mempool.mapTx.get<entry_time>().end() && newTx) {
+            tx = newTx;
+            auto timeIt = mempoolTimeOrder.emplace(time, tx);
+            timeOrderLookup.emplace(tx->GetHash(), timeIt);
+            newTx = nullptr;
         } else if (mi == mempool.mapTx.get<entry_time>().end()) {
             const auto it = failedNonces.begin();
-            iter = it->second;
+            if (auto iterator = std::get_if<CTxMemPool::txiter>(&it->second)) {
+                iter = *iterator;
+                tx = iter->GetSharedTx();
+            } else if (auto transaction = std::get_if<CTransactionRef>(&it->second)) {
+                tx = *transaction;
+            }
             failedNonces.erase(it);
         } else {
             iter = mempool.mapTx.project<0>(mi);
             ++mi;
-            mempoolTimeOrder.emplace(iter->GetTime(), iter);
-            timeOrderLookup.emplace(iter->GetTx().GetHash(), iter->GetTime());
+            auto timeIt = mempoolTimeOrder.emplace(iter->GetTime(), iter);
+            timeOrderLookup.emplace(iter->GetTx().GetHash(), timeIt);
+            tx = iter->GetSharedTx();
         }
 
         CValidationState state;
-        const auto& tx = iter->GetTx();
-        if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
-            AddToStaged(staged, vtx, iter);
-            if (ptx && ptx->GetHash() == tx.GetHash()) {
+        if (!Consensus::CheckTxInputs(*tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
+            if (ptx && ptx->GetHash() == tx->GetHash()) {
                 newEntryRes = Res::Err(state.GetDebugMessage());
+            } else {
+                AddToStaged(staged, vtx, iter);
             }
             continue;
         }
 
         uint64_t gasUsed{};
         std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
+        CustomTxType txType = GuessCustomTxType(*tx, metadata, true);
 
         if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
             auto txMessage = customTypeToMessage(txType);
             auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
             if (!res) {
-                AddToStaged(staged, vtx, iter);
-                if (ptx && ptx->GetHash() == tx.GetHash()) {
+                if (ptx && ptx->GetHash() == tx->GetHash()) {
                     newEntryRes = Res::Err(res.msg);
+                } else {
+                    AddToStaged(staged, vtx, iter);
                 }
                 continue;
             }
@@ -1215,55 +1245,68 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 const auto obj = std::get<CEvmTxMessage>(txMessage);
                 txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
                 if (!result.ok) {
-                    AddToStaged(staged, vtx, iter);
-                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                    if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
+                    } else {
+                        AddToStaged(staged, vtx, iter);
                     }
                     continue;
                 }
                 if (txResult.higher_nonce) {
-                    if (!failedTxSet.count(iter)) {
-                        failedNonces.emplace(txResult.nonce, iter);
+                    if (!failedTxSet.count(tx->GetHash())) {
+                        if (ptx && ptx->GetHash() == tx->GetHash()) {
+                            failedNonces.emplace(txResult.nonce, tx);
+                        } else {
+                            failedNonces.emplace(txResult.nonce, iter);
+                        }
                     }
-                    failedTxSet.insert(iter);
+                    failedTxSet.insert(tx->GetHash());
                     continue;
                 }
             } else {
                 const auto obj = std::get<CTransferDomainMessage>(txMessage);
                 if (obj.transfers.size() != 1) {
-                    AddToStaged(staged, vtx, iter);
-                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                    if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = DeFiErrors::TransferDomainMultipleTransfers();
+                    } else {
+                        AddToStaged(staged, vtx, iter);
                     }
                     continue;
                 }
                 auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.transfers[0].second.data));
                 if (!result.ok) {
-                    AddToStaged(staged, vtx, iter);
-                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                    if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
+                    } else {
+                        AddToStaged(staged, vtx, iter);
                     }
                     continue;
                 }
                 const auto nonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, senderInfo.address);
                 if (!result.ok) {
-                    AddToStaged(staged, vtx, iter);
-                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                    if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
+                    } else {
+                        AddToStaged(staged, vtx, iter);
                     }
                     continue;
                 }
                 if (nonce > senderInfo.nonce) {
-                    AddToStaged(staged, vtx, iter);
-                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                    if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
+                    } else {
+                        AddToStaged(staged, vtx, iter);
                     }
                     continue;
                 } else if (nonce < senderInfo.nonce) {
-                    if (!failedTxSet.count(iter)) {
-                        failedNonces.emplace(senderInfo.nonce, iter);
+                    if (!failedTxSet.count(tx->GetHash())) {
+                        if (ptx && ptx->GetHash() == tx->GetHash()) {
+                            failedNonces.emplace(senderInfo.nonce, tx);
+                        } else {
+                            failedNonces.emplace(senderInfo.nonce, iter);
+                        }
                     }
-                    failedTxSet.insert(iter);
+                    failedTxSet.insert(tx->GetHash());
                     continue;
                 }
                 txResult.nonce = senderInfo.nonce;
@@ -1276,10 +1319,10 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
 
             if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
                 // Key already exists. We check to see if we need to prioritize higher fee tx
-                const auto& [lastFee, prevIter] = feeEntry->second;
+                const auto& [lastFee, prevHash] = feeEntry->second;
                 if (txResult.prepay_fee > lastFee) {
                     // Higher paying fee. Remove all TXs above the TX to be replaced.
-                    auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, prevIter->GetTx().GetHash().ToString());
+                    auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, prevHash.ToString());
                     if (!result.ok) {
                         return Res::Err("%s: Unable to remove TXs from queue\n", __func__);
                     }
@@ -1288,17 +1331,24 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     for (const auto &rustStr : hashes) {
                         const auto txHash = uint256S(std::string{rustStr.data(), rustStr.length()});
                         assert(timeOrderLookup.count(txHash));
-                        const auto &time = timeOrderLookup.at(txHash);
-                        assert(mempoolTimeOrder.count(time));
-                        if (prevIter->GetTx().GetHash() == tx.GetHash()) {
-                            replaceByFee.emplace(time, iter);
+                        const auto &timeIt = timeOrderLookup.at(txHash);
+                        const auto& [txTime, mapVariant] = *timeIt;
+                        if (prevHash == txHash) {
+                            if (ptx && ptx->GetHash() == tx->GetHash()) {
+                                replaceByFee.emplace(txTime, tx);
+                            } else {
+                                replaceByFee.emplace(txTime, iter);
+                            }
                         } else {
-                            const auto& timeIter = mempoolTimeOrder.at(time);
-                            replaceByFee.emplace(time, timeIter);
+                            if (auto iterator = std::get_if<CTxMemPool::txiter>(&mapVariant)) {
+                                replaceByFee.emplace(txTime, *iterator);
+                            } else if (auto transaction = std::get_if<CTransactionRef>(&mapVariant)) {
+                                replaceByFee.emplace(txTime, *transaction);
+                            }
                         }
                     }
                 } else if (txResult.prepay_fee == lastFee) {
-                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                    if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = Res::Err("Rejected due to same fee as existing entry with the same nonce in mempool");
                     }
                 }
@@ -1306,16 +1356,17 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 continue;
             }
 
-            evmFeeMap.emplace(addrKey, std::make_pair(txResult.prepay_fee, iter));
+            evmFeeMap.emplace(addrKey, std::make_pair(txResult.prepay_fee, tx->GetHash()));
         }
 
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, gasUsed, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, *tx, consensus, height, gasUsed, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
         if (!res) {
-            failedTxSet.insert(iter);
+            failedTxSet.insert(tx->GetHash());
             if ((res.code & CustomTxErrCodes::Fatal)) {
-                AddToStaged(staged, vtx, iter);
-                if (ptx && ptx->GetHash() == tx.GetHash()) {
+                if (ptx && ptx->GetHash() == tx->GetHash()) {
                     newEntryRes = res;
+                } else {
+                    AddToStaged(staged, vtx, iter);
                 }
             }
         }

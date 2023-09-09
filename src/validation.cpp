@@ -639,7 +639,15 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             pool.setAccountViewDirty();
         }
 
-        if (auto res = pool.rebuildAccountsView(height, view, ptx); !res) {
+        // If account view is dirty or there is no EVM queue ID Then ApplyCustomTx will
+        // be tested against the current TX in rebuildAccountsView.
+        if (!pool.getAccountViewDirty() && pool.getEvmQueueId()) {
+            uint64_t gasUsed{};
+            auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
+            if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
+            }
+        } else if (auto res = pool.rebuildAccountsView(height, view, ptx, nAcceptTime); !res) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
@@ -655,12 +663,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // let make sure we have needed coins
         if (!isEVMTx && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
-        }
-
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
-        if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
-            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -922,7 +924,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         if (isEvmTx) {
             auto txMessage = customTypeToMessage(txType);
-            res = CustomMetadataParse(height, consensus, metadata, txMessage);
+            auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
             if (!res) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
             }
@@ -933,10 +935,16 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to create queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-creation-failed"); }
 
             const auto txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-            evm_unsafe_try_remove_queue(result, evmQueueId);
-            if (!result.ok) {
+
+            CrossBoundaryResult removeQueueResult;
+            evm_unsafe_try_remove_queue(removeQueueResult, evmQueueId);
+
+            if (!removeQueueResult.ok) {
+                if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to remove queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-remove-failed"); }
+            } else if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
             }
+
             const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
             const auto sender = pool.ethTxsBySender.find(txResultSender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
