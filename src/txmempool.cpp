@@ -1297,6 +1297,10 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                             replaceByFee.emplace(time, timeIter);
                         }
                     }
+                } else if (txResult.prepay_fee == lastFee) {
+                    if (ptx && ptx->GetHash() == tx.GetHash()) {
+                        newEntryRes = Res::Err("Rejected due to same fee as existing entry with the same nonce in mempool");
+                    }
                 }
 
                 continue;
