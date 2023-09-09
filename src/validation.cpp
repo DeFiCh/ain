@@ -658,7 +658,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, pool.GetEvmQueueId(), isEvmEnabledForBlock);
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -922,7 +922,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         if (isEvmTx) {
             auto txMessage = customTypeToMessage(txType);
-            auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
+            res = CustomMetadataParse(height, consensus, metadata, txMessage);
             if (!res) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
             }
