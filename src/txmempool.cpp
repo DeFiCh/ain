@@ -1163,14 +1163,18 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
     std::multimap<int64_t, std::variant<CTxMemPool::txiter, CTransactionRef>> mempoolTimeOrder{};
 
     // Quick lookup for mempool time order map
-    using timeMapIterator = std::multimap<int64_t, std::variant<CTxMemPool::txiter, CTransactionRef>>::iterator;
-    std::map<uint256, timeMapIterator> timeOrderLookup{};
+    using TimeMapIterator = std::multimap<int64_t, std::variant<CTxMemPool::txiter, CTransactionRef>>::iterator;
+    std::map<uint256, TimeMapIterator> timeOrderLookup{};
 
-    // Used to track EVM TX fee by sender and nonce.
+    // Used to track EVM TX fee and TX hash by sender and nonce.
     std::map<EvmAddressWithNonce, std::pair<uint64_t, uint256>> evmFeeMap;
 
-    // Used for replacement Eth TXs ordered by time
-    std::map<uint64_t, std::variant<CTxMemPool::txiter, CTransactionRef>> replaceByFee;
+    // Quick lookup for EVM fee map
+    using EVMFeeMapIterator = std::map<EvmAddressWithNonce, std::pair<uint64_t, uint256>>::iterator;
+    std::map<uint256, EVMFeeMapIterator> feeMapLookup{};
+
+    // Used for replacement Eth TXs ordered by time and nonce
+    std::map<std::pair<uint64_t, uint64_t>, std::variant<CTxMemPool::txiter, CTransactionRef>> replaceByFee;
 
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, std::variant<CTxMemPool::txiter, CTransactionRef>> failedNonces;
@@ -1322,7 +1326,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             const std::string txResultSender{txResult.sender.data(), txResult.sender.length()};
             const EvmAddressWithNonce addrKey{txResult.nonce, txResultSender};
 
-            if (auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
+            if (const auto feeEntry = evmFeeMap.find(addrKey); feeEntry != evmFeeMap.end()) {
                 // Key already exists. We check to see if we need to prioritize higher fee tx
                 const auto& [lastFee, prevHash] = feeEntry->second;
                 if (txResult.prepay_fee > lastFee) {
@@ -1335,26 +1339,41 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     // Loop through hashes of removed TXs and remove from block.
                     for (const auto &rustStr : hashes) {
                         const auto txHash = uint256S(std::string{rustStr.data(), rustStr.length()});
+                        assert(feeMapLookup.count(txHash));
+                        auto it = feeMapLookup.at(txHash);
+                        auto &[nonce, hash] = it->first;
+                        evmFeeMap.erase(feeMapLookup.at(txHash));
+                        feeMapLookup.erase(txHash);
                         assert(timeOrderLookup.count(txHash));
                         const auto &timeIt = timeOrderLookup.at(txHash);
                         const auto& [txTime, mapVariant] = *timeIt;
+
+                        // This is the entry to be replaced
                         if (prevHash == txHash) {
+                            // If the old entry was a mempool iter remove it from the mempool
+                            if (auto iterator = std::get_if<CTxMemPool::txiter>(&mapVariant)) {
+                                AddToStaged(staged, vtx, *iterator);
+                            }
+
+                            // Add current TX to replaceByFee
                             if (ptx && ptx->GetHash() == tx->GetHash()) {
-                                replaceByFee.emplace(txTime, tx);
+                                replaceByFee.emplace(std::make_pair(txTime, nonce), tx);
                             } else {
-                                replaceByFee.emplace(txTime, iter);
+                                replaceByFee.emplace(std::make_pair(txTime, nonce), iter);
                             }
                         } else {
                             if (auto iterator = std::get_if<CTxMemPool::txiter>(&mapVariant)) {
-                                replaceByFee.emplace(txTime, *iterator);
+                                replaceByFee.emplace(std::make_pair(txTime, nonce), *iterator);
                             } else if (auto transaction = std::get_if<CTransactionRef>(&mapVariant)) {
-                                replaceByFee.emplace(txTime, *transaction);
+                                replaceByFee.emplace(std::make_pair(txTime, nonce), *transaction);
                             }
                         }
                     }
-                } else if (txResult.prepay_fee == lastFee) {
+                } else {
                     if (ptx && ptx->GetHash() == tx->GetHash()) {
-                        newEntryRes = Res::Err("Rejected due to same fee as existing entry with the same nonce in mempool");
+                        newEntryRes = Res::Err("Rejected due to same or lower fee as existing mempool entry");
+                    } else {
+                        AddToStaged(staged, vtx, iter);
                     }
                 }
 
@@ -1368,9 +1387,12 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 } else {
                     AddToStaged(staged, vtx, iter);
                 }
+
+                continue;
             }
 
-            evmFeeMap.emplace(addrKey, std::make_pair(txResult.prepay_fee, tx->GetHash()));
+            auto feeMapRes = evmFeeMap.emplace(addrKey, std::make_pair(txResult.prepay_fee, tx->GetHash()));
+            feeMapLookup.emplace(tx->GetHash(), feeMapRes.first);
         }
 
         auto res = ApplyCustomTx(viewDuplicate, coinsCache, *tx, consensus, height, gasUsed, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
