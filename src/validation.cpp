@@ -930,29 +930,20 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
+
             CrossBoundaryResult result;
-            uint64_t evmQueueId = evm_unsafe_try_create_queue(result);
-            if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to create queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-creation-failed"); }
-
-            const auto txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-
-            CrossBoundaryResult removeQueueResult;
-            evm_unsafe_try_remove_queue(removeQueueResult, evmQueueId);
-
-            if (!removeQueueResult.ok) {
-                if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to remove queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-remove-failed"); }
-            } else if (!result.ok) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
+            const auto txResult = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.evmTx));
+            if (!result.ok) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
             }
 
-            const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
+            const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
             const auto sender = pool.ethTxsBySender.find(txResultSender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth transaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
             } else {
                 ethSender = txResultSender;
             }
-            if (!result.ok) { return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to remove queue %s", result.reason.c_str()), REJECT_INVALID, "evm-queue-removal-failed"); }
         }
 
         if (test_accept) {

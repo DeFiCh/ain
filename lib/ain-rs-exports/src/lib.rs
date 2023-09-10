@@ -124,6 +124,7 @@ pub mod ffi {
         pub tx_hash: String,
         pub prepay_fee: u64,
         pub higher_nonce: bool,
+        pub lower_nonce: bool,
     }
 
     extern "Rust" {
@@ -165,6 +166,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
+            pre_validate: bool,
         ) -> ValidateTxMiner;
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,

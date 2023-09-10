@@ -459,6 +459,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
+    pre_validate: bool,
 ) -> ffi::ValidateTxMiner {
     debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
     match SERVICES.evm.verify_tx_fees(raw_tx) {
@@ -469,11 +470,16 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         }
     }
     unsafe {
-        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id) {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_tx(raw_tx, queue_id, pre_validate)
+        {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
                 higher_nonce,
+                lower_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -491,6 +497,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
                         higher_nonce,
+                        lower_nonce,
                     },
                 )
             }

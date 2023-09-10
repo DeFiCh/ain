@@ -1243,7 +1243,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             ValidateTxMiner txResult;
             if (txType == CustomTxType::EvmTx) {
                 const auto obj = std::get<CEvmTxMessage>(txMessage);
-                txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+                txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), true);
                 if (!result.ok) {
                     if (ptx && ptx->GetHash() == tx->GetHash()) {
                         newEntryRes = Res::Err(result.reason.c_str());
@@ -1354,6 +1354,15 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 }
 
                 continue;
+            }
+
+            // If not RBF at this point then remove
+            if (txResult.lower_nonce) {
+                if (ptx && ptx->GetHash() == tx->GetHash()) {
+                    newEntryRes = Res::Err("Nonce lower than expected");
+                } else {
+                    AddToStaged(staged, vtx, iter);
+                }
             }
 
             evmFeeMap.emplace(addrKey, std::make_pair(txResult.prepay_fee, tx->GetHash()));

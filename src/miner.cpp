@@ -614,14 +614,14 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     ValidateTxMiner txResult;
     if (ctx.txType == CustomTxType::EvmTx) {
         const auto obj = std::get<CEvmTxMessage>(txMessage);
-        txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+        txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), true);
         if (!result.ok) {
             return false;
         }
-        if (txResult.higher_nonce) {
-            if (!failedTxSet.count(txIter)) {
-                failedNonces.emplace(txResult.nonce, txIter);
-            }
+        if (txResult.higher_nonce && !failedTxSet.count(txIter)) {
+            failedNonces.emplace(txResult.nonce, txIter);
+        }
+        if (txResult.higher_nonce || txResult.lower_nonce) {
             failedTxSet.insert(txIter);
             return false;
         }

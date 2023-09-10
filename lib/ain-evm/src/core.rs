@@ -45,6 +45,7 @@ pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
     pub higher_nonce: bool,
+    pub lower_nonce: bool,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -204,7 +205,12 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
+    pub unsafe fn validate_raw_tx(
+        &self,
+        tx: &str,
+        queue_id: u64,
+        pre_validate: bool,
+    ) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
@@ -228,7 +234,7 @@ impl EVMCoreService {
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
-        if nonce > signed_tx.nonce() {
+        if !pre_validate && nonce != signed_tx.nonce() {
             return Err(format_err!(
                 "Invalid nonce. Account nonce {}, signed_tx nonce {}",
                 nonce,
@@ -270,6 +276,14 @@ impl EVMCoreService {
                 signed_tx,
                 prepay_fee,
                 higher_nonce: true,
+                lower_nonce: false,
+            });
+        } else if signed_tx.nonce() < nonce {
+            return Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                higher_nonce: false,
+                lower_nonce: true,
             });
         }
 
@@ -312,6 +326,7 @@ impl EVMCoreService {
             signed_tx,
             prepay_fee,
             higher_nonce: false,
+            lower_nonce: false,
         })
     }
 
