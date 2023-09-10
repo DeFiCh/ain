@@ -2422,6 +2422,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
+        XResultThrowOnErr(evm_unsafe_try_remove_queue(result, evmQueueId));
         return true;
     }
 
