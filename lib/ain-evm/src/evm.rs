@@ -246,6 +246,12 @@ impl EVMServices {
             total_priority_fees
         );
 
+        // burn base fee and pay priority fee to miner
+        executor
+            .backend
+            .add_balance(beneficiary, total_priority_fees)?;
+        executor.commit();
+
         let extra_data = format!("DFI: {dvm_block_number}").into_bytes();
         let gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
         let block = Block::new(
