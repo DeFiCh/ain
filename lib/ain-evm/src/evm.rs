@@ -191,7 +191,7 @@ impl EVMServices {
                 bytecode,
             } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
 
-            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
 
@@ -202,7 +202,7 @@ impl EVMServices {
                 bytecode,
             } = transfer_domain_contract();
 
-            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
             let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
@@ -442,8 +442,8 @@ impl EVMServices {
             .collect::<Vec<H160>>();
 
         for address in addresses {
-            debug!(
-                "[reserve_dst20_namespace] Deploying address to {:#?}",
+            trace!(
+                "[reserve_dst20_namespace] Deploying address to {:x?}",
                 address
             );
             executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
@@ -461,8 +461,8 @@ impl EVMServices {
             .collect::<Vec<H160>>();
 
         for address in addresses {
-            debug!(
-                "[reserve_intrinsics_namespace] Deploying address to {:#?}",
+            trace!(
+                "[reserve_intrinsics_namespace] Deploying address to {:x?}",
                 address
             );
             executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
@@ -527,8 +527,8 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!(
-            "[get_dst20_migration_txs] Deploying to address {:#?}",
+        trace!(
+            "[get_dst20_migration_txs] Deploying to address {:x?}",
             address
         );
 
