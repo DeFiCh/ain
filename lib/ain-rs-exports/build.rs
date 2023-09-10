@@ -9,7 +9,7 @@ use proc_macro2::TokenStream;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pkg_name = env::var("CARGO_PKG_NAME")?;
-    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let manifest_dir_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
 
     // If TARGET_DIR is set, which we do from Makefile, uses that instead of OUT_DIR.
     // Otherwise, use the path for OUT_DIR that cargo sets, as usual.
@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let [out_src_dir, out_include_dir, _out_lib_dir] = res;
 
-    let lib_path = &manifest_path.join("src").join("lib.rs");
+    let lib_path = &manifest_dir_path.join("src").join("lib.rs");
 
     let mut content = String::new();
     File::open(lib_path)?.read_to_string(&mut content)?;
@@ -48,14 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "cargo:rerun-if-changed={}",
         lib_path.as_path().to_str().ok_or("lib path err")?
     );
-    // Using a direct path for now
-    let git_head_path = manifest_path.join(".git/HEAD");
-    if git_head_path.exists() {
-        println!(
-            "cargo:rerun-if-changed={}",
-            git_head_path.to_str().ok_or("git head path err")?
-        );
-    }
 
     Ok(())
 }
