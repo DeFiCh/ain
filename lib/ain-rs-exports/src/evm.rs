@@ -985,10 +985,13 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "nonce value overflow");
     };
 
-    TxSenderInfo {
-        nonce,
-        address: format!("{:?}", signed_tx.sender),
-    }
+    cross_boundary_success_return(
+        result,
+        TxSenderInfo {
+            nonce,
+            address: format!("{:?}", signed_tx.sender),
+        },
+    )
 }
 
 #[cfg(test)]
