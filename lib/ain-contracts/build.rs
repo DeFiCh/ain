@@ -5,7 +5,6 @@ use ethers_solc::{artifacts::Optimizer, Project, ProjectPathsConfig, Solc, SolcC
 
 fn main() -> Result<()> {
     let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let solc_path_str = env::var("SOLC_PATH")?;
 
     // We use CARGO_TARGET_DIR from Makefile instead of OUT_DIR.
     // Reason: Currently setting --out-dir is nightly only, so there's no way to get OUT_DIR
@@ -22,7 +21,7 @@ fn main() -> Result<()> {
     ];
 
     for (sol_project_name, contract_name) in contracts {
-        let solc = Solc::new(&solc_path_str);
+        let solc = Solc::default();
 
         let sol_project_root = manifest_path.join(sol_project_name);
         if !sol_project_root.exists() {
