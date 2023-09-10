@@ -171,6 +171,7 @@ impl EVMCoreService {
             vicinity,
         )
         .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
+
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller: caller.unwrap_or_default(),
             to,
@@ -296,7 +297,12 @@ impl EVMCoreService {
             return Err(format_err!("insufficient balance to pay fees").into());
         }
 
-        let block_number = self.tx_queues.get_target_block_in(queue_id)?;
+        // Get previous block number
+        let prev_block_number = self
+            .tx_queues
+            .get_target_block_in(queue_id)?
+            .saturating_sub(U256::one());
+
         let TxResponse { used_gas, .. } = self.call(EthCallArgs {
             caller: Some(signed_tx.sender),
             to: signed_tx.to(),
@@ -304,7 +310,7 @@ impl EVMCoreService {
             data: signed_tx.data(),
             gas_limit: signed_tx.gas_limit().as_u64(),
             access_list: signed_tx.access_list(),
-            block_number,
+            block_number: prev_block_number,
             gas_price: Some(tx_gas_price),
             max_fee_per_gas: signed_tx.max_fee_per_gas(),
             transaction_type: Some(signed_tx.get_tx_type()),
