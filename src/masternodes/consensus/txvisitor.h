@@ -53,6 +53,7 @@ protected:
     uint64_t evmQueueId;
     bool isEvmEnabledForBlock;
     uint64_t &gasUsed;
+    bool evmPreValidate;
 
 public:
     CCustomTxVisitor(const CTransaction &tx,
@@ -64,7 +65,8 @@ public:
                      const uint32_t txn,
                      const uint64_t evmQueueId,
                      const bool isEvmEnabledForBlock,
-                     uint64_t &gasUsed);
+                     uint64_t &gasUsed,
+                     bool evmPreValidate);
 
 protected:
     Res HasAuth(const CScript &auth) const;
