@@ -388,7 +388,8 @@ public:
     }
 };
 
-struct CPaybackWithCollateralMessage {
+class CPaybackWithCollateralMessage {
+public:
     CVaultId vaultId;
 
     ADD_SERIALIZE_METHODS;

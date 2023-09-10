@@ -6,14 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-primitive-types.workspace = true
+ethereum-types.workspace = true
 anyhow.workspace = true
 ethereum.workspace = true
 serde_json.workspace = true
 hex.workspace = true
-lazy_static.workspace = true
 sha3.workspace = true
 sp-core.workspace = true
+lazy_static.workspace = true
+ethabi.workspace = true
 
 [build-dependencies]
 ethers.workspace = true

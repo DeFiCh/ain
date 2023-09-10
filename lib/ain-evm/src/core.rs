@@ -1,29 +1,27 @@
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
-use ethereum_types::{Bloom, BloomInput, H160, U256};
+use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::debug;
-use primitive_types::H256;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity};
-use crate::block::INITIAL_BASE_FEE;
-use crate::executor::TxResponse;
-use crate::fee::calculate_prepay_gas_fee;
-use crate::gas::check_tx_intrinsic_gas;
-use crate::receipt::ReceiptService;
-use crate::storage::traits::BlockStorage;
-use crate::storage::Storage;
-use crate::transaction::system::{BalanceUpdate, SystemTx};
-use crate::trie::TrieDBStore;
-use crate::txqueue::{QueueTx, TransactionQueueMap};
-use crate::weiamount::WeiAmount;
 use crate::{
-    executor::AinExecutor,
+    backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity},
+    block::INITIAL_BASE_FEE,
+    executor::{AinExecutor, TxResponse},
+    fee::calculate_prepay_gas_fee,
+    gas::check_tx_intrinsic_gas,
+    receipt::ReceiptService,
+    storage::{traits::BlockStorage, Storage},
     traits::{Executor, ExecutorContext},
-    transaction::SignedTx,
+    transaction::{
+        system::{SystemTx, TransferDirection, TransferDomainData},
+        SignedTx,
+    },
+    trie::TrieDBStore,
+    txqueue::{QueueTx, TransactionQueueMap},
+    weiamount::WeiAmount,
     Result,
 };
 
@@ -264,19 +262,6 @@ impl EVMCoreService {
             return Err(format_err!("value more than money range").into());
         }
 
-        let balance = self
-            .get_balance(signed_tx.sender, block_number)
-            .map_err(|e| format_err!("Error getting balance {e}"))?;
-        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
-
-        // Validate tx prepay fees with account balance
-        if balance < prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(format_err!("insufficient balance to pay fees").into());
-        }
-
         // Validate tx gas limit with intrinsic gas
         check_tx_intrinsic_gas(&signed_tx)?;
 
@@ -307,8 +292,21 @@ impl EVMCoreService {
             u64::default()
         };
 
-        // Validate total gas usage in queued txs exceeds block size
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
         if use_queue {
+            // Validate tx prepay fees with account balance
+            let balance = self
+                .get_balance(signed_tx.sender, block_number)
+                .map_err(|e| format_err!("Error getting balance {e}"))?;
+            debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+
+            if balance < prepay_fee {
+                debug!("[validate_raw_tx] insufficient balance to pay fees");
+                return Err(format_err!("insufficient balance to pay fees").into());
+            }
+
+            // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
             let total_current_gas_used = self
                 .tx_queues
@@ -349,11 +347,13 @@ impl EVMCoreService {
     pub unsafe fn add_balance(
         &self,
         queue_id: u64,
-        address: H160,
-        amount: U256,
+        signed_tx: SignedTx,
         hash: XHash,
     ) -> Result<()> {
-        let queue_tx = QueueTx::SystemTx(SystemTx::EvmIn(BalanceUpdate { address, amount }));
+        let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+            signed_tx: Box::new(signed_tx),
+            direction: TransferDirection::EvmIn,
+        }));
         self.tx_queues
             .push_in(queue_id, queue_tx, hash, U256::zero())?;
         Ok(())
@@ -368,24 +368,26 @@ impl EVMCoreService {
     pub unsafe fn sub_balance(
         &self,
         queue_id: u64,
-        address: H160,
-        amount: U256,
+        signed_tx: SignedTx,
         hash: XHash,
     ) -> Result<()> {
         let block_number = self
             .storage
             .get_latest_block()?
             .map_or(U256::default(), |block| block.header.number);
-        let balance = self.get_balance(address, block_number)?;
-        if balance < amount {
+        let balance = self.get_balance(signed_tx.sender, block_number)?;
+        if balance < signed_tx.value() {
             Err(BackendError::InsufficientBalance(InsufficientBalance {
-                address,
+                address: signed_tx.sender,
                 account_balance: balance,
-                amount,
+                amount: signed_tx.value(),
             })
             .into())
         } else {
-            let queue_tx = QueueTx::SystemTx(SystemTx::EvmOut(BalanceUpdate { address, amount }));
+            let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+                signed_tx: Box::new(signed_tx),
+                direction: TransferDirection::EvmOut,
+            }));
             self.tx_queues
                 .push_in(queue_id, queue_tx, hash, U256::zero())?;
             Ok(())

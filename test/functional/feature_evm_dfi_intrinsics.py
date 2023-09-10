@@ -5,10 +5,10 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test DFI intrinsics contract"""
 
-import os
+import json
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, get_solc_artifact_path
 
 
 class DFIIntrinsicsTest(DefiTestFramework):
@@ -43,24 +43,45 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         # Activate EVM
         node.setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
-        node.generate(1)
+        node.generate(2)
+
+        # check reserved address space
+        reserved_bytecode = json.loads(
+            open(
+                get_solc_artifact_path("dfi_reserved", "deployed_bytecode.json"),
+                "r",
+                encoding="utf8",
+            ).read()
+        )["object"]
+
+        for i in range(1, 128):
+            address = node.w3.to_checksum_address(generate_formatted_string(i))
+            assert (
+                self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
+                == reserved_bytecode
+            )
+
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(
+                    node.w3.to_checksum_address(generate_formatted_string(129))
+                )
+            )
+            != reserved_bytecode
+        )
 
         # check counter contract
-        if os.getenv("BUILD_DIR"):
-            abi = open(
-                f"{os.getenv('BUILD_DIR')}/ain_contracts/dfi_intrinsics/abi.json",
-                "r",
-                encoding="utf8",
-            ).read()
-        else:
-            abi = open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dfi_intrinsics/abi.json",
-                "r",
-                encoding="utf8",
-            ).read()
+        abi = open(
+            get_solc_artifact_path("dfi_intrinsics", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
 
         counter_contract = node.w3.eth.contract(
-            address="0x0000000000000000000000000000000000000301", abi=abi
+            address=node.w3.to_checksum_address(
+                "0x0000000000000000000000000000000000000301"
+            ),
+            abi=abi,
         )
 
         num_blocks = 5
@@ -85,6 +106,18 @@ class DFIIntrinsicsTest(DefiTestFramework):
             )
 
         assert_equal(len(state_roots), num_blocks)
+
+
+def generate_formatted_string(input_number):
+    hex_representation = hex(input_number)[2:]  # Convert to hex and remove '0x' prefix
+
+    if len(hex_representation) > 32:
+        hex_representation = hex_representation[:32]  # Truncate if too long
+
+    padding = "0" * (37 - len(hex_representation))
+    formatted_string = f"0xff1{padding}{hex_representation}"
+
+    return formatted_string
 
 
 if __name__ == "__main__":

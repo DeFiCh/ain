@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 
+import math
 from decimal import Decimal
 
 
@@ -100,6 +101,7 @@ class EVMFeeTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        beneficiary = self.nodes[0].w3.eth.get_block("latest")["miner"]
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         # Deduct 50000. 29000 value + min 21000 call fee
         assert_equal(int(balance[2:], 16), 99999789999999971000)
@@ -111,7 +113,19 @@ class EVMFeeTest(DefiTestFramework):
             Decimal("0.00021000"),
         )
         assert_equal(
+            self.nodes[0].w3.eth.get_balance(
+                "0x0000000000000000000000000000000000000000"
+            )
+            / math.pow(10, 18),
+            0.00021,
+        )
+
+        assert_equal(
             Decimal(attributes["v0/live/economy/evm/block/fee_priority"]), Decimal("0")
+        )
+        assert_equal(
+            self.nodes[0].w3.eth.get_balance(beneficiary) / math.pow(10, 18),
+            0,
         )
 
         self.rollback_to(height)
@@ -193,7 +207,7 @@ class EVMFeeTest(DefiTestFramework):
         # Test insufficient balance due to high gas fees
         assert_raises_rpc_error(
             -32001,
-            "evm tx failed to validate insufficient balance to pay fees",
+            "evm tx failed to validate prepay fee value overflow",
             self.nodes[0].eth_sendTransaction,
             {
                 "from": self.ethAddress,
@@ -254,11 +268,7 @@ class EVMFeeTest(DefiTestFramework):
         emptyAddress = self.nodes[0].getnewaddress("", "erc55")
         balance = self.nodes[0].eth_getBalance(emptyAddress, "latest")
         assert_equal(int(balance[2:], 16), 000000000000000000000)
-
-        assert_raises_rpc_error(
-            -32001,
-            "evm tx failed to validate insufficient balance to pay fees",
-            self.nodes[0].eth_sendTransaction,
+        self.nodes[0].eth_sendTransaction(
             {
                 "from": emptyAddress,
                 "to": self.toAddress,
@@ -267,6 +277,10 @@ class EVMFeeTest(DefiTestFramework):
                 "gasPrice": "0x2540BE400",  # 10_000_000_000
             },
         )
+        self.nodes[0].generate(1)
+        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
+        # Tx should be valid and enter the mempool, but will not be minted into the block
+        assert_equal(len(block["tx"]), 1)
 
         self.rollback_to(height)
 

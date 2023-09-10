@@ -1,12 +1,10 @@
 #![cfg(test_off)]
 
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use ain_evm::handler::Handlers;
-use ain_evm::transaction::SignedTx;
+use ain_evm::{handler::Handlers, transaction::SignedTx};
 use ethereum::{BlockV2, PartialHeader};
-use primitive_types::{H160, U256};
+use ethereum_types::{H160, U256};
 
 use crate::codegen::types::*;
 

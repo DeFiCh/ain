@@ -29,11 +29,6 @@ WitnessV0KeyHash::WitnessV0KeyHash(const CPubKey& pubkey) : uint160(pubkey.GetID
 
 WitnessV16EthHash::WitnessV16EthHash(const CPubKey& pubkey) : uint160(pubkey.GetEthID()) {}
 
-// TO DO: Remove this temporary fix to return hex string, once EthHash is switched from big endian to little endian.
-std::string WitnessV16EthHash::ToHexString() const {
-    return HexStr(data, data + sizeof(data));
-}
-
 const char* GetTxnOutputType(txnouttype t)
 {
     switch (t)

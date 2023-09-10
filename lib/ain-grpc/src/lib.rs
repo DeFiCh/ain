@@ -19,8 +19,11 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
-use std::sync::{atomic::Ordering, Arc};
-use std::{net::SocketAddr, path::PathBuf};
+use std::{
+    net::SocketAddr,
+    path::PathBuf,
+    sync::{atomic::Ordering, Arc},
+};
 
 use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
 use anyhow::{format_err, Result};

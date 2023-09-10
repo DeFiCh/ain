@@ -226,7 +226,7 @@ public:
         rpcInfo.pushKV("fromAmount", ValueFromAmount(obj.amountFrom));
         rpcInfo.pushKV("toAddress", ScriptToString(obj.to));
         rpcInfo.pushKV("toToken", obj.idTokenTo.ToString());
-        
+
         if (obj.maxPrice.isAboveValid()) {
             auto price = PoolPrice::getMaxValid();
             rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
@@ -562,7 +562,7 @@ public:
                 j.pushKV("amount", o.amount.ToString());
                 j.pushKV("domain", CTransferDomainToString(VMDomain(o.domain)));
                 if (!o.data.empty()) {
-                    j.pushKV("data", std::string(o.data.begin(), o.data.end()));
+                    j.pushKV("data", HexStr(o.data));
                 }
             }
 

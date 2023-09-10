@@ -2,8 +2,7 @@ mod core;
 mod evm;
 mod prelude;
 
-use crate::core::*;
-use crate::evm::*;
+use crate::{core::*, evm::*};
 
 #[cxx::bridge]
 pub mod ffi {
@@ -42,6 +41,15 @@ pub mod ffi {
         pub data: Vec<u8>,
     }
 
+    // ========== Governance Variable ==========
+    #[derive(Default)]
+    pub struct GovVarKeyDataStructure {
+        pub category: u8,
+        pub category_id: u32,
+        pub key: u32,
+        pub key_id: u32,
+    }
+
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
@@ -72,6 +80,17 @@ pub mod ffi {
         pub to: &'a str,
         pub value: u64,
         pub input: Vec<u8>,
+        pub priv_key: [u8; 32],
+    }
+
+    pub struct CreateTransferDomainContext {
+        pub from: String,
+        pub to: String,
+        pub native_address: String,
+        pub direction: bool,
+        pub value: u64,
+        pub token_id: u32,
+        pub chain_id: u64,
         pub priv_key: [u8; 32],
     }
 
@@ -119,15 +138,13 @@ pub mod ffi {
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
         ) -> bool;
         fn evm_unsafe_try_prevalidate_raw_tx(
@@ -156,15 +173,19 @@ pub mod ffi {
             mnview_ptr: usize,
         ) -> FinalizeBlockCompletion;
         fn evm_unsafe_try_commit_queue(result: &mut CrossBoundaryResult, queue_id: u64);
-        fn evm_try_set_attribute(
+        fn evm_try_handle_attribute_apply(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            attribute_type: u32,
-            value: u64,
+            attribute_type: GovVarKeyDataStructure,
+            value: Vec<u8>,
         ) -> bool;
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
+        ) -> Vec<u8>;
+        fn evm_try_create_and_sign_transfer_domain_tx(
+            result: &mut CrossBoundaryResult,
+            ctx: CreateTransferDomainContext,
         ) -> Vec<u8>;
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
@@ -192,8 +213,7 @@ pub mod ffi {
         fn evm_try_bridge_dst20(
             result: &mut CrossBoundaryResult,
             context: u64,
-            address: &str,
-            amount: u64,
+            raw_tx: &str,
             native_hash: &str,
             token_id: u64,
             out: bool,

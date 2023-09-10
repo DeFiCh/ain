@@ -86,11 +86,11 @@ evm = { version = "0.39", default-features = false, features = ["with-serde"] }
 ethereum = "0.14"
 ethereum-types = "0.14"
 keccak-hash = "0.10"
-primitive-types = { version = "0.12", default-features = false, features = ["serde"] }
 rlp = "0.5"
 ethers = "2.0"
 ethers-solc = "2.0"
 ethbloom = "0.13"
+ethabi = "18.0.0"
 
 ### ain-evm
 

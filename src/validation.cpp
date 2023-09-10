@@ -396,10 +396,10 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
     // Iterate disconnectpool in reverse, so that we add transactions
     // back to the mempool starting with the earliest transaction that had
     // been previously seen in a block.
+    TBytes dummy;
     bool possibleMintTokenAffected{false};
     auto it = disconnectpool.queuedTx.get<insertion_order>().rbegin();
     while (it != disconnectpool.queuedTx.get<insertion_order>().rend()) {
-        TBytes dummy;
         if (GuessCustomTxType(**it, dummy) == CustomTxType::CreateToken) // regardless of fAddToMempool and prooven CreateTokenTx
             possibleMintTokenAffected = true;
 
@@ -424,7 +424,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
         std::vector<uint256> mintTokensToRemove; // not sure about tx refs safety while recursive deletion, so hashes
         for (const CTxMemPoolEntry& e : mempool.mapTx) {
             auto tx = e.GetTx();
-            if (IsMintTokenTx(tx)) {
+            if (GuessCustomTxType(tx, dummy) == CustomTxType::MintToken) {
                 auto values = tx.GetValuesOut();
                 for (auto const & pair : values) {
                     if (pair.first == DCT_ID{0})
@@ -2617,9 +2617,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto consensus = chainparams.GetConsensus();
     auto isEvmEnabledForBlock = IsEVMEnabled(pindex->nHeight, mnview, consensus);
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2692,13 +2689,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             const auto applyCustomTxTime = GetTimeMicros();
             uint64_t gasUsed{};
             const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock);
-
-            totalGas += gasUsed;
-            if (totalGas > MAX_BLOCK_GAS_LIMIT) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                     error("%s: ApplyCustomTx failed. Gas limit: %d Gas used: %d", __func__, MAX_BLOCK_GAS_LIMIT, totalGas),
-                                     REJECT_CUSTOMTX, "over-gas-limit");
-            }
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

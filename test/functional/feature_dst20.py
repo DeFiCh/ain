@@ -8,12 +8,15 @@
 import math
 import json
 import time
-import os
 from decimal import Decimal
 
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    get_solc_artifact_path,
+)
 
 
 class DST20(DefiTestFramework):
@@ -118,10 +121,11 @@ class DST20(DefiTestFramework):
             for token in all_tokens.values()
             if token["isDAT"] == True and token["symbol"] != "DFI"
         ]
-        assert_equal(len(block["transactions"]), len(loanTokens))
+        # 1 extra deployment TX (for transfer domain deploy contract)
+        assert_equal(len(block["transactions"]), len(loanTokens) + 1)
 
         # check USDT migration
-        usdt_tx = block["transactions"][0]
+        usdt_tx = block["transactions"][1]
         receipt = self.nodes[0].eth_getTransactionReceipt(usdt_tx)
         tx1 = self.nodes[0].eth_getTransactionByHash(usdt_tx)
         assert_equal(
@@ -142,7 +146,7 @@ class DST20(DefiTestFramework):
         )
 
         # check BTC migration
-        btc_tx = block["transactions"][1]
+        btc_tx = block["transactions"][2]
         receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
         tx2 = self.nodes[0].eth_getTransactionByHash(btc_tx)
         assert_equal(
@@ -163,7 +167,7 @@ class DST20(DefiTestFramework):
         )
 
         # check ETH migration
-        eth_tx = block["transactions"][2]
+        eth_tx = block["transactions"][3]
         receipt = self.nodes[0].eth_getTransactionReceipt(eth_tx)
         tx3 = self.nodes[0].eth_getTransactionByHash(eth_tx)
         assert_equal(
@@ -183,8 +187,9 @@ class DST20(DefiTestFramework):
             self.bytecode,
         )
 
-        assert_equal(tx1["input"], tx2["input"])
-        assert_equal(tx2["input"], tx3["input"])
+        # init bytecode should match
+        assert_equal(tx1["input"][:-384], tx2["input"][:-384])
+        assert_equal(tx2["input"][:-384], tx3["input"][:-384])
 
         self.rollback_to(block_height)
 
@@ -552,6 +557,11 @@ class DST20(DefiTestFramework):
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(beforeAmount, afterAmount)
 
+        assert_equal(
+            len(self.node.getrawmempool()), 1
+        )  # failed tx should be in mempool
+        self.node.clearmempool()
+
     def test_invalid_token(self):
         # DVM to EVM
         assert_raises_rpc_error(
@@ -787,48 +797,25 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
-        if os.getenv("BUILD_DIR"):
-            build_dir = os.getenv("BUILD_DIR")
-            self.abi = open(
-                f"{build_dir}/ain_contracts/dst20/abi.json",
+        self.abi = open(
+            get_solc_artifact_path("dst20", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
+        self.bytecode = json.loads(
+            open(
+                get_solc_artifact_path("dst20", "deployed_bytecode.json"),
                 "r",
                 encoding="utf8",
             ).read()
-            self.bytecode = json.loads(
-                open(
-                    f"{build_dir}/ain_contracts/dst20/bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
-            self.reserved_bytecode = json.loads(
-                open(
-                    f"{build_dir}/ain_contracts/system_reserved/bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
-        else:
-            # fall back to using relative path
-            self.abi = open(
-                f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/abi.json",
+        )["object"]
+        self.reserved_bytecode = json.loads(
+            open(
+                get_solc_artifact_path("dfi_reserved", "deployed_bytecode.json"),
                 "r",
                 encoding="utf8",
             ).read()
-            self.bytecode = json.loads(
-                open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/dst20/bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
-            self.reserved_bytecode = json.loads(
-                open(
-                    f"{os.path.dirname(__file__)}/../../build/lib/target/ain_contracts/system_reserved/bytecode.json",
-                    "r",
-                    encoding="utf8",
-                ).read()
-            )["object"]
+        )["object"]
 
         # Generate chain
         self.node.generate(150)
@@ -877,6 +864,7 @@ class DST20(DefiTestFramework):
         self.node.generate(1)
 
         self.test_dst20_dvm_to_evm_bridge()
+
         self.test_dst20_evm_to_dvm_bridge()
         self.test_multiple_dvm_evm_bridge()
         self.test_conflicting_bridge()

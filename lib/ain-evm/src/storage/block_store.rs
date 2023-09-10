@@ -1,18 +1,20 @@
-use std::fs;
-use std::path::Path;
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, fs, marker::PhantomData, path::Path, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, U256};
+use log::debug;
 
-use super::db::{Column, ColumnName, LedgerColumn, Rocks};
-use super::traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage};
-use crate::log::LogIndex;
-use crate::receipt::Receipt;
-use crate::storage::db::columns;
-use crate::storage::traits::LogStorage;
-use crate::Result;
+use super::{
+    db::{Column, ColumnName, LedgerColumn, Rocks},
+    traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
+};
+use crate::{
+    log::LogIndex,
+    receipt::Receipt,
+    storage::{db::columns, traits::LogStorage},
+    Result,
+};
 
 #[derive(Debug, Clone)]
 pub struct BlockStore(Arc<Rocks>);
@@ -196,7 +198,10 @@ impl BlockStore {
 impl Rollback for BlockStore {
     fn disconnect_latest_block(&self) -> Result<()> {
         if let Some(block) = self.get_latest_block()? {
-            println!("disconnecting block number : {:x?}", block.header.number);
+            debug!(
+                "[disconnect_latest_block] disconnecting block number : {:x?}",
+                block.header.number
+            );
             let transactions_cf = self.column::<columns::Transactions>();
             let receipts_cf = self.column::<columns::Receipts>();
             for tx in &block.transactions {

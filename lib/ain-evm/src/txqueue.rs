@@ -7,9 +7,14 @@ use ethereum::{Block, TransactionV2};
 use ethereum_types::{H160, U256};
 use rand::Rng;
 
-use crate::core::XHash;
-use crate::receipt::Receipt;
-use crate::transaction::{system::SystemTx, SignedTx};
+use crate::{
+    core::XHash,
+    receipt::Receipt,
+    transaction::{
+        system::{SystemTx, TransferDomainData},
+        SignedTx,
+    },
+};
 
 type Result<T> = std::result::Result<T, QueueError>;
 
@@ -267,15 +272,21 @@ impl TransactionQueue {
 
     pub fn queue_tx(&self, tx: QueueTx, tx_hash: XHash, gas_used: U256) -> Result<()> {
         let mut data = self.data.lock().unwrap();
-        if let QueueTx::SignedTx(signed_tx) = &tx {
-            if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
-                if signed_tx.nonce() != nonce + 1 {
-                    return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
+        match &tx {
+            QueueTx::SignedTx(signed_tx)
+            | QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+                signed_tx, ..
+            })) => {
+                if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
+                    if signed_tx.nonce() != nonce + 1 {
+                        return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
+                    }
                 }
+                data.account_nonces
+                    .insert(signed_tx.sender, signed_tx.nonce());
+                data.total_gas_used += gas_used;
             }
-            data.account_nonces
-                .insert(signed_tx.sender, signed_tx.nonce());
-            data.total_gas_used += gas_used;
+            _ => (),
         }
         data.transactions.push(QueueTxItem {
             tx,
