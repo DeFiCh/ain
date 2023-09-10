@@ -1308,10 +1308,15 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     }
                     failedTxSet.insert(tx->GetHash());
                     continue;
+                } else if (nonce > senderInfo.nonce) {
+                    failedTxSet.insert(tx->GetHash());
+                    continue;
                 }
                 txResult.nonce = senderInfo.nonce;
                 txResult.sender = senderInfo.address;
                 txResult.prepay_fee = 0;
+                txResult.higher_nonce = false;
+                txResult.lower_nonce = false;
             }
 
             const std::string txResultSender{txResult.sender.data(), txResult.sender.length()};
