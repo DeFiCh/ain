@@ -54,8 +54,6 @@ fn main() -> Result<()> {
         let artifacts = output.into_artifacts();
         let sol_project_outdir = solc_artifact_dir.join(sol_project_name);
 
-        let sol_project_outdir = out_dir.join(sol_project_name);
-
         for (id, artifact) in artifacts {
             if id.name != contract_name {
                 continue;
@@ -84,6 +82,5 @@ fn main() -> Result<()> {
 
         project.rerun_if_sources_changed();
     }
-
     Ok(())
 }

@@ -53,7 +53,7 @@ fn main() -> Result<()> {
         &ffi_exports_h_path.to_str().ok_or_else(path_utf8_err)?
     );
     // Using a direct path for now
-    let git_head_path = manifest_path.join("../../.git/HEAD");
+    let git_head_path = manifest_path.join(".git/HEAD");
     if git_head_path.exists() {
         println!(
             "cargo:rerun-if-changed={}",
