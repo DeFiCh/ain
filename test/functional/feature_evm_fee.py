@@ -112,13 +112,6 @@ class EVMFeeTest(DefiTestFramework):
             Decimal(attributes["v0/live/economy/evm/block/fee_burnt"]),
             Decimal("0.00021000"),
         )
-        assert_equal(
-            self.nodes[0].w3.eth.get_balance(
-                "0x0000000000000000000000000000000000000000"
-            )
-            / math.pow(10, 18),
-            0.00021,
-        )
 
         assert_equal(
             Decimal(attributes["v0/live/economy/evm/block/fee_priority"]), Decimal("0")

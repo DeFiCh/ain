@@ -833,7 +833,7 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"], blockHash
         )
 
-        dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
+        dfi_balance = self.nodes[0].getaccount(self.address, {}, True).get("0", 0)
 
         # Transfer 100 DFI from EVM to DVM
         tx = self.nodes[0].transferdomain(
