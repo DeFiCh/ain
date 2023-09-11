@@ -54,7 +54,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ).read()
         )["object"]
 
-        for i in range(1, 128):
+        for i in range(3, 128):
             address = node.w3.to_checksum_address(generate_formatted_string(i))
             assert (
                 self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
@@ -79,7 +79,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         counter_contract = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
-                "0x0000000000000000000000000000000000000301"
+                "0xff10000000000000000000000000000000000001"
             ),
             abi=abi,
         )
