@@ -725,7 +725,8 @@ public:
     Res rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx, const int64_t time = 0);
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
-    uint64_t getEvmQueueId() const;
+    uint64_t getEvmQueueId();
+    void wipeEvmQueueId();
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

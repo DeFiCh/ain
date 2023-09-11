@@ -548,6 +548,12 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         CalculateDescendants(it, setAllRemoves);
     }
     RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+
+    if (pcustomcsview) {
+        accountsViewDirty |= forceRebuildForReorg;
+        CTransactionRef ptx{};
+        rebuildAccountsView(nMemPoolHeight, &::ChainstateActive().CoinsTip(), ptx);
+    }
 }
 
 void CTxMemPool::removeConflicts(const CTransaction &tx)
@@ -1120,8 +1126,16 @@ bool CTxMemPool::getAccountViewDirty() const {
     return accountsViewDirty;
 }
 
-uint64_t CTxMemPool::getEvmQueueId() const {
+uint64_t CTxMemPool::getEvmQueueId() {
+    if (!evmQueueId) {
+        CrossBoundaryResult result;
+        evmQueueId = evm_unsafe_try_create_queue(result);
+    }
     return evmQueueId;
+}
+
+void CTxMemPool::wipeEvmQueueId() {
+    evmQueueId = 0;
 }
 
 Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx, const int64_t time)
