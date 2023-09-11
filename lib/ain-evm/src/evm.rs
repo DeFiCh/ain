@@ -1,24 +1,19 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{
-    get_dst20_contract, get_dst20_deploy_input, get_reserved_contract, get_transferdomain_contract,
-    Contract, FixedContract,
-};
+use ain_contracts::{get_dst20_contract, get_transferdomain_contract, Contract, FixedContract};
 use anyhow::format_err;
-use ethereum::{
-    Block, EIP1559ReceiptData, LegacyTransaction, PartialHeader, ReceiptV3, TransactionAction,
-    TransactionSignature, TransactionV2,
-};
+use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::debug;
 
-use crate::traits::BridgeBackend;
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
     contract::{
-        bridge_dst20, dst20_contract, intrinsics_contract, transfer_domain_contract,
-        DST20BridgeInfo, DeployContractInfo,
+        bridge_dst20, dst20_contract, dst20_deploy_contract_tx, get_dst20_migration_txs,
+        intrinsics_contract, reserve_dst20_namespace, reserve_intrinsics_namespace,
+        transfer_domain_contract, transfer_domain_deploy_contract_tx, DST20BridgeInfo,
+        DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
     executor::{AinExecutor, TxResponse},
@@ -27,13 +22,13 @@ use crate::{
     log::LogService,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    traits::Executor,
+    traits::{BridgeBackend, Executor},
     transaction::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
-        SignedTx, LOWER_H256,
+        SignedTx,
     },
     trie::GENESIS_STATE_ROOT,
-    txqueue::{BlockData, QueueTx, QueueTxItem},
+    txqueue::{BlockData, QueueTx},
     Result,
 };
 
@@ -188,8 +183,8 @@ impl EVMServices {
         let is_evm_genesis_block = queue.target_block == U256::zero();
         if is_evm_genesis_block {
             // reserve DST20 namespace
-            self.reserve_dst20_namespace(&mut executor)?;
-            self.reserve_intrinsics_namespace(&mut executor)?;
+            reserve_dst20_namespace(&mut executor)?;
+            reserve_intrinsics_namespace(&mut executor)?;
 
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs);
@@ -201,7 +196,7 @@ impl EVMServices {
                 bytecode,
             } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
 
-            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
+            debug!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
 
@@ -212,7 +207,7 @@ impl EVMServices {
                 bytecode,
             } = transfer_domain_contract()?;
 
-            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
+            debug!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
             let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
@@ -628,117 +623,4 @@ impl EVMServices {
         let nonce = backend.get_nonce(&address);
         Ok(nonce)
     }
-
-    pub fn reserve_dst20_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
-        let Contract {
-            runtime_bytecode, ..
-        } = get_reserved_contract();
-        let addresses = (1..=1024)
-            .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
-            .collect::<Vec<H160>>();
-
-        for address in addresses {
-            debug!(
-                "[reserve_dst20_namespace] Deploying address to {:#?}",
-                address
-            );
-            executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
-        }
-
-        Ok(())
-    }
-
-    pub fn reserve_intrinsics_namespace(&self, executor: &mut AinExecutor) -> Result<()> {
-        let Contract {
-            runtime_bytecode, ..
-        } = get_reserved_contract();
-        let addresses = (1..=127)
-            .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
-            .collect::<Vec<H160>>();
-
-        for address in addresses {
-            debug!(
-                "[reserve_intrinsics_namespace] Deploying address to {:#?}",
-                address
-            );
-            executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
-        }
-
-        Ok(())
-    }
-}
-
-fn dst20_deploy_contract_tx(
-    token_id: u64,
-    base_fee: &U256,
-    name: &str,
-    symbol: &str,
-) -> Result<(Box<SignedTx>, ReceiptV3)> {
-    let tx = TransactionV2::Legacy(LegacyTransaction {
-        nonce: U256::from(token_id),
-        gas_price: *base_fee,
-        gas_limit: U256::from(u64::MAX),
-        action: TransactionAction::Create,
-        value: U256::zero(),
-        input: get_dst20_deploy_input(get_dst20_contract().init_bytecode, name, symbol)
-            .map_err(|e| format_err!(e))?,
-        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
-            .ok_or(format_err!("Invalid transaction signature format"))?,
-    })
-    .try_into()?;
-
-    let receipt = get_default_successful_receipt();
-
-    Ok((Box::new(tx), receipt))
-}
-
-fn transfer_domain_deploy_contract_tx(base_fee: &U256) -> Result<(SignedTx, ReceiptV3)> {
-    let tx = TransactionV2::Legacy(LegacyTransaction {
-        nonce: U256::zero(),
-        gas_price: *base_fee,
-        gas_limit: U256::from(u64::MAX),
-        action: TransactionAction::Create,
-        value: U256::zero(),
-        input: get_transferdomain_contract().contract.init_bytecode,
-        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
-            .ok_or(format_err!("Invalid transaction signature format"))?,
-    })
-    .try_into()?;
-
-    let receipt = get_default_successful_receipt();
-
-    Ok((tx, receipt))
-}
-
-fn get_default_successful_receipt() -> ReceiptV3 {
-    ReceiptV3::Legacy(EIP1559ReceiptData {
-        status_code: 1u8,
-        used_gas: U256::zero(),
-        logs_bloom: Bloom::default(),
-        logs: Vec::new(),
-    })
-}
-
-fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
-    let mut txs = Vec::new();
-    for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
-        let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!(
-            "[get_dst20_migration_txs] Deploying to address {:#?}",
-            address
-        );
-
-        let tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-            name: token.name,
-            symbol: token.symbol,
-            token_id: token.id,
-            address,
-        }));
-        txs.push(QueueTxItem {
-            tx,
-            tx_hash: Default::default(),
-            gas_used: U256::zero(),
-        });
-    }
-    Ok(txs)
 }

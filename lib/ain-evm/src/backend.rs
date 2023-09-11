@@ -357,7 +357,7 @@ impl ApplyBackend for EVMBackend {
                         .expect("Error applying state");
 
                     if is_empty_account(&new_account) && delete_empty {
-                        debug!("Deleting empty address {}", address);
+                        debug!("Deleting empty address {:x?}", address);
                         self.trie_store.trie_db.trie_remove(address.as_bytes());
                         self.state
                             .remove(address.as_bytes())
@@ -365,7 +365,7 @@ impl ApplyBackend for EVMBackend {
                     }
                 }
                 Apply::Delete { address } => {
-                    debug!("Deleting address {}", address);
+                    debug!("Deleting address {:x?}", address);
                     self.trie_store.trie_db.trie_remove(address.as_bytes());
                     self.state
                         .remove(address.as_bytes())
