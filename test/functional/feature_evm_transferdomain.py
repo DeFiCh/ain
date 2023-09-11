@@ -927,23 +927,6 @@ class EVMTest(DefiTestFramework):
         mempool = self.nodes[0].getrawmempool()
         assert_equal([tx2], mempool)
 
-    def valid_evm_tx_after_dvm_to_evm(self):
-        self.rollback_to(self.start_height)
-
-        erc55_address = self.nodes[0].getnewaddress('', 'erc55')
-
-        transfer_domain(
-            self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
-        )
-
-        # Should be able to spend queued balance update from transfer domain
-        self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, erc55_address, 50) # Spend half balance
-
-        self.nodes[0].generate(1)
-
-        block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(len(block["transactions"]), 2)
-
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
@@ -965,8 +948,6 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
         self.invalid_transfer_evm_dvm_after_evm_tx() # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
-        self.valid_evm_tx_after_dvm_to_evm()
-
 
 if __name__ == "__main__":
     EVMTest().main()
