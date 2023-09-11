@@ -1132,6 +1132,7 @@ static UniValue clearmempool(const JSONRPCRequest& request)
         LOCK(mempool.cs);
         mempool.queryHashes(vtxid);
         mempool.clear();
+        mempool.wipeEvmQueueId();
     }
 
     {
