@@ -73,7 +73,7 @@ class EVMTest(DefiTestFramework):
         # Fund accounts
         self.setup_accounts()
 
-        # # Test block ordering by nonce and Eth RBF
+        # Test block ordering by nonce and Eth RBF
         self.nonce_order_and_rbf()
 
         # Check XVM in coinbase
@@ -944,7 +944,7 @@ class EVMTest(DefiTestFramework):
 
         # Try and send EVM TX a second time
         assert_raises_rpc_error(
-            -26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx
+            -26, "Nonce lower than expected", self.nodes[0].sendrawtransaction, raw_tx
         )
 
     def validate_xvm_coinbase(self):
@@ -1118,13 +1118,62 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].evmtx(self.eth_address, 65, 22, 21001, self.to_address, 1)
         self.nodes[0].evmtx(self.eth_address, 65, 23, 21001, self.to_address, 1)
         tx0 = self.nodes[0].evmtx(self.eth_address, 65, 25, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 21, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 24, 21001, self.to_address, 1)
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            65,
+            21,
+            21001,
+            self.to_address,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            65,
+            24,
+            21001,
+            self.to_address,
+            1,
+        )
         self.nodes[0].evmtx(self.to_address, 0, 22, 21001, self.eth_address, 1)
         self.nodes[0].evmtx(self.to_address, 0, 23, 21001, self.eth_address, 1)
         tx1 = self.nodes[0].evmtx(self.to_address, 0, 25, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 21, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 24, 21001, self.eth_address, 1)
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.to_address,
+            0,
+            21,
+            21001,
+            self.eth_address,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.to_address,
+            0,
+            24,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Check mempool only contains two entries
+        assert_equal(
+            sorted(self.nodes[0].getrawmempool()),
+            [
+                "2b13a48b2af32206a2d60d535ad46d4958c25b4ddd4c30f3a2da32f092c23916",
+                "6a6b53538b66e0eb477ce923901e6fa1714c4f52a83f8f1793c92c14ebc0f910",
+            ],
+        )
         self.nodes[0].generate(1)
 
         # Check accounting of EVM fees
