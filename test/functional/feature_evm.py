@@ -13,6 +13,7 @@ from test_framework.util import (
     hex_to_decimal,
 )
 from decimal import Decimal
+import math
 
 
 class EVMTest(DefiTestFramework):
@@ -771,14 +772,12 @@ class EVMTest(DefiTestFramework):
 
     def nonce_order_and_rbf(self):
         # Get burn address and miner account balance before transaction
+        self.miner_eth_address = self.nodes[0].addressmap(
+            self.nodes[0].get_genesis_keys().operatorAuthAddress, 1
+        )["format"]["erc55"]
         self.before_blockheight = self.nodes[0].getblockcount()
-        burn_before = Decimal(
-            self.nodes[0].getaccount(self.burn_address)[0].split("@")[0]
-        )
         self.miner_before = Decimal(
-            self.nodes[0]
-            .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
-            .split("@")[0]
+            self.nodes[0].w3.eth.get_balance(self.miner_eth_address)
         )
 
         # Check accounting of EVM fees
@@ -925,16 +924,8 @@ class EVMTest(DefiTestFramework):
             6000000000000000000,
         )
 
-        # Get burn address and miner account balance after transfer
-        burn_after = Decimal(
-            self.nodes[0].getaccount(self.burn_address)[0].split("@")[0]
-        )
-        miner_after = Decimal(
-            self.nodes[0]
-            .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
-            .split("@")[0]
-        )
-        self.burn = burn_after - burn_before
+        # Get miner account balance after transfer
+        miner_after = Decimal(self.nodes[0].w3.eth.get_balance(self.miner_eth_address))
         self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -969,15 +960,12 @@ class EVMTest(DefiTestFramework):
         block_hash = coinbase_xvm["msg"]["evm"]["blockHash"][2:]
         assert_equal(block_hash, eth_hash)
 
-        # Check EVM burnt fee
-        opreturn_burnt_fee_sats = coinbase_xvm["msg"]["evm"]["burntFee"]
-        opreturn_burnt_fee_amount = Decimal(opreturn_burnt_fee_sats) / 100000000
-        assert_equal(opreturn_burnt_fee_amount, self.burn)
-
         # Check EVM miner fee
         opreturn_priority_fee_sats = coinbase_xvm["msg"]["evm"]["priorityFee"]
         opreturn_priority_fee_amount = Decimal(opreturn_priority_fee_sats) / 100000000
-        assert_equal(opreturn_priority_fee_amount, self.miner_fee)
+        assert_equal(
+            opreturn_priority_fee_amount, self.miner_fee / int(math.pow(10, 18))
+        )
 
         # Check EVM beneficiary address
         opreturn_miner_address = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
@@ -994,9 +982,7 @@ class EVMTest(DefiTestFramework):
         # Test rollback of EVM TX
         self.rollback_to(self.before_blockheight, self.nodes)
         miner_rollback = Decimal(
-            self.nodes[0]
-            .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
-            .split("@")[0]
+            self.nodes[0].w3.eth.get_balance(self.miner_eth_address)
         )
         assert_equal(self.miner_before, miner_rollback)
 
