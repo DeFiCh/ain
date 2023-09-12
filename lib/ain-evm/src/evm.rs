@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
     get_dst20_contract, get_dst20_deploy_input, get_reserved_contract, get_transferdomain_contract,
-    Contract, FixedContract,
+    Contract,
 };
 use anyhow::format_err;
 use ethereum::{
@@ -10,26 +10,20 @@ use ethereum::{
     TransactionSignature, TransactionV2,
 };
 use ethereum_types::{Bloom, H160, H256, H64, U256};
-use log::debug;
+use log::{debug, trace};
 
-use crate::traits::BridgeBackend;
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
-    contract::{
-        bridge_dst20, dst20_contract, intrinsics_contract, transfer_domain_contract,
-        DST20BridgeInfo, DeployContractInfo,
-    },
+    contract::{intrinsics_contract, transfer_domain_contract, DeployContractInfo},
     core::{EVMCoreService, XHash},
-    executor::{AinExecutor, TxResponse},
-    fee::{calculate_gas_fee, calculate_prepay_gas_fee},
+    executor::AinExecutor,
     filters::FilterService,
     log::LogService,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    traits::Executor,
     transaction::{
-        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        system::{DeployContractData, SystemTx},
         SignedTx, LOWER_H256,
     },
     trie::GENESIS_STATE_ROOT,
@@ -48,7 +42,6 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: XHash,
-    pub failed_transactions: Vec<XHash>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
@@ -76,7 +69,7 @@ impl EVMServices {
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {
-            std::fs::create_dir(&path)?
+            std::fs::create_dir(&path)?;
         }
 
         if let Some(state_input_path) = ain_cpp_imports::get_state_input_json() {
@@ -115,7 +108,7 @@ impl EVMServices {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn construct_block_in_queue(
@@ -132,7 +125,6 @@ impl EVMServices {
 
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
-        let mut failed_transactions = Vec::with_capacity(queue_txs_len);
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
             Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
@@ -143,9 +135,7 @@ impl EVMServices {
         let state_root = self
             .storage
             .get_latest_block()?
-            .map_or(GENESIS_STATE_ROOT.parse().unwrap(), |block| {
-                block.header.state_root
-            });
+            .map_or(GENESIS_STATE_ROOT, |block| block.header.state_root);
 
         debug!("[construct_block] queue_id: {:?}", queue_id);
         debug!("[construct_block] beneficiary: {:?}", beneficiary);
@@ -201,7 +191,7 @@ impl EVMServices {
                 bytecode,
             } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
 
-            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
 
@@ -210,9 +200,9 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_contract()?;
+            } = transfer_domain_contract();
 
-            debug!("deploying {:x?} bytecode {:#?}", address, bytecode);
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
             let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
@@ -234,215 +224,13 @@ impl EVMServices {
         );
 
         for queue_item in queue.transactions.clone() {
-            let (tx, logs, (receipt, address)) = match queue_item.tx {
-                QueueTx::SignedTx(signed_tx) => {
-                    let nonce = executor.get_nonce(&signed_tx.sender);
-                    if signed_tx.nonce() != nonce {
-                        return Err(format_err!("EVM block rejected for invalid nonce. Address {} nonce {}, signed_tx nonce: {}", signed_tx.sender, nonce, signed_tx.nonce()).into());
-                    }
+            let apply_result = executor.apply_queue_tx(queue_item.tx, base_fee)?;
 
-                    let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
-                    let (
-                        TxResponse {
-                            exit_reason,
-                            logs,
-                            used_gas,
-                            ..
-                        },
-                        receipt,
-                    ) = executor.exec(&signed_tx, prepay_gas);
-                    debug!(
-                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
-                        receipt,
-                        exit_reason,
-                        signed_tx.transaction.hash()
-                    );
-                    if !exit_reason.is_succeed() {
-                        failed_transactions.push(queue_item.tx_hash);
-                    }
-
-                    let gas_fee = calculate_gas_fee(&signed_tx, U256::from(used_gas), base_fee)?;
-                    total_gas_used += used_gas;
-                    total_gas_fees += gas_fee;
-
-                    (signed_tx, logs, (receipt, None))
-                }
-                QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                    signed_tx,
-                    direction,
-                })) => {
-                    let to = signed_tx.to().unwrap();
-                    let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[68..100]);
-                    let native_hash = &queue_item.tx_hash;
-
-                    debug!(
-                        "[construct_block] Transfer domain: {} from address {:x?}, to address {:x?}, amount: {}, queue_id {}, tx hash {}",
-                        direction, signed_tx.sender, to, amount, queue_id, queue_item.tx_hash
-                    );
-
-                    let FixedContract {
-                        contract,
-                        fixed_address,
-                        ..
-                    } = get_transferdomain_contract();
-                    let mismatch = match executor.backend.get_account(&fixed_address) {
-                        None => true,
-                        Some(account) => account.code_hash != contract.codehash,
-                    };
-                    if mismatch {
-                        debug!("[construct_block] EvmIn failed with as transferdomain account codehash mismatch");
-                        failed_transactions.push(native_hash.clone());
-                        continue;
-                    }
-
-                    if direction == TransferDirection::EvmIn {
-                        if let Err(e) = executor.add_balance(fixed_address, amount) {
-                            debug!("[construct_block] EvmIn failed with {e}");
-                            failed_transactions.push(native_hash.clone());
-                            continue;
-                        }
-                        executor.commit();
-                    }
-
-                    let (
-                        TxResponse {
-                            exit_reason, logs, ..
-                        },
-                        receipt,
-                    ) = executor.exec(&signed_tx, U256::zero());
-
-                    executor.commit();
-
-                    debug!(
-                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
-                        receipt,
-                        exit_reason,
-                        signed_tx.transaction.hash(),
-                        logs
-                    );
-                    if !exit_reason.is_succeed() {
-                        failed_transactions.push(native_hash.clone());
-                    }
-
-                    if direction == TransferDirection::EvmOut {
-                        if let Err(e) = executor.sub_balance(signed_tx.sender, amount) {
-                            debug!("[construct_block] EvmIn failed with {e}");
-                            failed_transactions.push(queue_item.tx_hash);
-                        }
-                    }
-
-                    (signed_tx, logs, (receipt, None))
-                }
-                QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-                    signed_tx,
-                    contract_address,
-                    direction,
-                })) => {
-                    let input = signed_tx.data();
-                    let native_hash = &queue_item.tx_hash;
-                    let amount = U256::from_big_endian(&input[100..132]);
-
-                    debug!(
-                        "[construct_block] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
-                        signed_tx.sender, contract_address, amount, direction
-                    );
-
-                    if direction == TransferDirection::EvmIn {
-                        match bridge_dst20(
-                            executor.backend,
-                            contract_address,
-                            signed_tx.sender,
-                            amount,
-                            direction,
-                        ) {
-                            Ok(DST20BridgeInfo { address, storage }) => {
-                                if let Err(e) = executor.update_storage(address, storage) {
-                                    debug!("[construct_block] EvmOut failed with {e}");
-                                    failed_transactions.push(native_hash.clone());
-                                }
-                            }
-                            Err(e) => {
-                                debug!("[construct_block] EvmOut failed with {e}");
-                                failed_transactions.push(native_hash.clone());
-                            }
-                        }
-                        executor.commit();
-                    }
-
-                    let (
-                        TxResponse {
-                            exit_reason, logs, ..
-                        },
-                        receipt,
-                    ) = executor.exec(&signed_tx, U256::zero());
-
-                    executor.commit();
-
-                    debug!(
-                        "receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
-                        receipt,
-                        exit_reason,
-                        signed_tx.transaction.hash(),
-                        logs
-                    );
-                    if !exit_reason.is_succeed() {
-                        failed_transactions.push(native_hash.clone());
-                    }
-
-                    if direction == TransferDirection::EvmOut {
-                        match bridge_dst20(
-                            executor.backend,
-                            contract_address,
-                            signed_tx.sender,
-                            amount,
-                            direction,
-                        ) {
-                            Ok(DST20BridgeInfo { address, storage }) => {
-                                if let Err(e) = executor.update_storage(address, storage) {
-                                    debug!("[construct_block] EvmOut failed with {e}");
-                                    failed_transactions.push(native_hash.clone());
-                                }
-                            }
-                            Err(e) => {
-                                debug!("[construct_block] EvmOut failed with {e}");
-                                failed_transactions.push(native_hash.clone());
-                            }
-                        }
-                    }
-
-                    (signed_tx, logs, (receipt, None))
-                }
-                QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-                    name,
-                    symbol,
-                    address,
-                    token_id,
-                })) => {
-                    debug!(
-                        "[construct_block] DeployContract for address {:x?}, name {}, symbol {}",
-                        address, name, symbol
-                    );
-
-                    let DeployContractInfo {
-                        address,
-                        bytecode,
-                        storage,
-                    } = dst20_contract(executor.backend, address, &name, &symbol)?;
-
-                    if let Err(e) = executor.deploy_contract(address, bytecode.clone(), storage) {
-                        debug!("[construct_block] EvmOut failed with {e}");
-                    }
-                    let (tx, receipt) =
-                        dst20_deploy_contract_tx(token_id, &base_fee, &name, &symbol)?;
-
-                    (tx, Vec::new(), (receipt, Some(address)))
-                }
-            };
-
-            all_transactions.push(tx);
-            EVMCoreService::logs_bloom(logs, &mut logs_bloom);
-            receipts_v3.push((receipt, address));
+            all_transactions.push(apply_result.tx);
+            EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
+            receipts_v3.push(apply_result.receipt);
+            total_gas_used += apply_result.used_gas;
+            total_gas_fees += apply_result.gas_fee;
 
             executor.commit();
         }
@@ -464,7 +252,7 @@ impl EVMServices {
             .add_balance(beneficiary, total_priority_fees)?;
         executor.commit();
 
-        let extra_data = format!("DFI: {}", dvm_block_number).into_bytes();
+        let extra_data = format!("DFI: {dvm_block_number}").into_bytes();
         let gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
         let block = Block::new(
             PartialHeader {
@@ -500,7 +288,6 @@ impl EVMServices {
 
         Ok(FinalizedBlockInfo {
             block_hash,
-            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
@@ -537,19 +324,66 @@ impl EVMServices {
         Ok(())
     }
 
+    unsafe fn update_queue_state_from_tx(
+        &self,
+        queue_id: u64,
+        tx: QueueTx,
+    ) -> Result<(SignedTx, U256, H256)> {
+        let state_root = self.core.tx_queues.get_latest_state_root_in(queue_id)?;
+        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+
+        // Has to be mutable to obtain new state root
+        let mut backend = self.core.get_backend(state_root)?;
+        let mut executor = AinExecutor::new(&mut backend);
+
+        let (parent_hash, _) = self
+            .block
+            .get_latest_block_hash_and_number()?
+            .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
+        let base_fee = self.block.calculate_base_fee(parent_hash)?;
+
+        let apply_tx = executor.apply_queue_tx(tx, base_fee)?;
+
+        Ok((
+            *apply_tx.tx,
+            U256::from(apply_tx.used_gas),
+            backend.commit(),
+        ))
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn push_tx_in_queue(&self, queue_id: u64, tx: QueueTx, hash: XHash) -> Result<()> {
+        let (signed_tx, gas_used, state_root) =
+            self.update_queue_state_from_tx(queue_id, tx.clone())?;
+
+        debug!(
+            "[push_tx_in_queue] Pushing new state_root {:x?} to queue_id {}",
+            state_root, queue_id
+        );
+        self.core
+            .tx_queues
+            .push_in(queue_id, tx, hash, gas_used, state_root)?;
+
+        self.filters.add_tx_to_filters(signed_tx.transaction.hash());
+
+        Ok(())
+    }
+
     pub fn verify_tx_fees(&self, tx: &str) -> Result<()> {
-        debug!("[verify_tx_fees] raw transaction : {:#?}", tx);
+        trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!(
-            "[verify_tx_fees] TransactionV2 : {:#?}",
-            signed_tx.transaction
-        );
+        trace!("[verify_tx_fees] signed_tx : {:#?}", signed_tx);
 
         let block_fee = self.block.calculate_next_block_base_fee()?;
         let tx_gas_price = signed_tx.gas_price();
         if tx_gas_price < block_fee {
-            debug!("[verify_tx_fees] tx gas price is lower than block base fee");
+            trace!("[verify_tx_fees] tx gas price is lower than block base fee");
             return Err(format_err!("tx gas price is lower than block base fee").into());
         }
 
@@ -559,31 +393,7 @@ impl EVMServices {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn push_tx_in_queue(
-        &self,
-        queue_id: u64,
-        tx: QueueTx,
-        hash: XHash,
-        gas_used: U256,
-    ) -> Result<()> {
-        self.core
-            .tx_queues
-            .push_in(queue_id, tx.clone(), hash, gas_used)?;
-
-        if let QueueTx::SignedTx(signed_tx) = tx {
-            self.filters.add_tx_to_filters(signed_tx.transaction.hash());
-        }
-
-        Ok(())
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn is_dst20_deployed_or_queued(
@@ -618,13 +428,13 @@ impl EVMServices {
             address,
         }));
 
-        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(deploy_tx);
+        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(&deploy_tx);
 
         Ok(is_queued)
     }
 
-    pub fn get_nonce(&self, address: H160) -> Result<U256> {
-        let backend = self.core.get_latest_block_backend()?;
+    pub fn get_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
+        let backend = self.core.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
         Ok(nonce)
     }
@@ -638,8 +448,8 @@ impl EVMServices {
             .collect::<Vec<H160>>();
 
         for address in addresses {
-            debug!(
-                "[reserve_dst20_namespace] Deploying address to {:#?}",
+            trace!(
+                "[reserve_dst20_namespace] Deploying address to {:x?}",
                 address
             );
             executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
@@ -657,8 +467,8 @@ impl EVMServices {
             .collect::<Vec<H160>>();
 
         for address in addresses {
-            debug!(
-                "[reserve_intrinsics_namespace] Deploying address to {:#?}",
+            trace!(
+                "[reserve_intrinsics_namespace] Deploying address to {:x?}",
                 address
             );
             executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
@@ -668,7 +478,7 @@ impl EVMServices {
     }
 }
 
-fn dst20_deploy_contract_tx(
+pub fn dst20_deploy_contract_tx(
     token_id: u64,
     base_fee: &U256,
     name: &str,
@@ -723,8 +533,8 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!(
-            "[get_dst20_migration_txs] Deploying to address {:#?}",
+        trace!(
+            "[get_dst20_migration_txs] Deploying to address {:x?}",
             address
         );
 
@@ -736,8 +546,9 @@ fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
         }));
         txs.push(QueueTxItem {
             tx,
-            tx_hash: Default::default(),
+            tx_hash: String::default(),
             gas_used: U256::zero(),
+            state_root: H256::default(),
         });
     }
     Ok(txs)

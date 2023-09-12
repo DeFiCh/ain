@@ -292,31 +292,20 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx size too large");
 
     CrossBoundaryResult result;
-    ValidateTxCompletion validateResults;
-
-    if (evmSanityCheckOnly) {
-        validateResults = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
-        if (!result.ok) {
-            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
-            return Res::Err("evm tx failed to validate %s", result.reason);
-        }
-        return Res::Ok();
-    }
-
-    validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, HexStr(obj.evmTx), evmQueueId);
+    auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), evmPreValidate, testTx);
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s", result.reason);
     }
+    if (validateResults.higher_nonce) {
+        return Res::Ok();
+    }
 
-    gasUsed = validateResults.gas_used;
-
-    evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex(), validateResults.gas_used);
+    evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {
         LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to queue %s\n", result.reason);
     }
-
 
     auto txHash = tx.GetHash().GetHex();
     auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);

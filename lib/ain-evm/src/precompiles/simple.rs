@@ -101,7 +101,7 @@ impl LinearCostPrecompile for Sha256 {
 }
 
 /// The ECRecoverPublicKey precompile.
-/// Similar to ECRecover, but returns the pubkey (not the corresponding Ethereum address)
+/// Similar to `ECRecover`, but returns the pubkey (not the corresponding Ethereum address)
 pub struct ECRecoverPublicKey;
 
 impl LinearCostPrecompile for ECRecoverPublicKey {

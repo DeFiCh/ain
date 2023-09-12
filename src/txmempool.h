@@ -35,6 +35,16 @@ class CChainParams;
 class CCustomCSView;
 extern CCriticalSection cs_main;
 
+struct EvmAddressWithNonce {
+    uint64_t nonce;
+    EvmAddressData address;
+
+    bool operator<(const EvmAddressWithNonce& item) const
+    {
+        return std::tie(nonce, address) < std::tie(item.nonce, item.address);
+    }
+};
+
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
 static const uint32_t MEMPOOL_HEIGHT = 0x7FFFFFFF;
 
@@ -446,7 +456,7 @@ class CTxMemPool
 {
 private:
     uint32_t nCheckFrequency GUARDED_BY(cs); //!< Value n means that n times in 2^32 we check.
-    std::atomic<unsigned int> nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
+    std::atomic<unsigned int> nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock () invocation
     CBlockPolicyEstimator* minerPolicyEstimator;
 
     uint64_t totalTxSize;      //!< sum of all mempool tx's virtual sizes. Differs from serialized tx size since witness data is discounted. Defined in BIP 141.
@@ -554,6 +564,9 @@ private:
     bool accountsViewDirty;
     bool forceRebuildForReorg;
     std::unique_ptr<CCustomCSView> acview;
+    uint64_t evmQueueId{};
+
+    static void AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap);
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
     std::map<uint256, CAmount> mapDeltas;
@@ -709,7 +722,11 @@ public:
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
     CCustomCSView& accountsView();
-    void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
+    Res rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx, const int64_t time = 0);
+    void setAccountViewDirty();
+    bool getAccountViewDirty() const;
+    uint64_t getEvmQueueId();
+    void wipeEvmQueueId();
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the
