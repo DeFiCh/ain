@@ -138,7 +138,8 @@ class EVMTest(DefiTestFramework):
             -32001,
             "lower fee as existing mempool entry",
             self.send_transaction,
-            gasPrices[0], count
+            gasPrices[0],
+            count,
         )
 
         self.nodes[0].generate(1)
