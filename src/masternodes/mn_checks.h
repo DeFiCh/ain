@@ -188,7 +188,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const uint32_t txn,
                   const uint64_t evmQueueId,
                   const bool isEvmEnabledForBlock,
-                  bool evmPreValidate);
+                  const bool evmPreValidate,
+                  const bool testTx);
 
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,

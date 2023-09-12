@@ -1268,7 +1268,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             ValidateTxMiner txResult;
             if (txType == CustomTxType::EvmTx) {
                 const auto obj = std::get<CEvmTxMessage>(txMessage);
-                txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), true);
+                txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), true, true);
                 if (!result.ok) {
                     if (newTxLoop) {
                         newEntryRes = Res::Err(result.reason.c_str());

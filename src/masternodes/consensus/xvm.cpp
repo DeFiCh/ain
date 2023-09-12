@@ -292,8 +292,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx size too large");
 
     CrossBoundaryResult result;
-    LogPrintf("evm_unsafe_try_validate_raw_tx_in_q in evmtx\n");
-    auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), evmPreValidate);
+    auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), evmPreValidate, testTx);
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s", result.reason);
