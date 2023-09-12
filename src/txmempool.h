@@ -681,6 +681,7 @@ public:
 
     /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
     int Expire(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    int ExpireEVM(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.
