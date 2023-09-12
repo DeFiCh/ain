@@ -261,7 +261,7 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
-                if (!tx_response.exit_reason.is_succeed()) {
+                if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] Transfer domain failed VM execution {:?}",
                         tx_response.exit_reason
@@ -316,7 +316,7 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
-                if (!tx_response.exit_reason.is_succeed()) {
+                if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] DST20 bridge failed VM execution {:?}",
                         tx_response.exit_reason
