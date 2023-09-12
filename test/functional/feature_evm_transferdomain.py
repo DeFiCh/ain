@@ -776,7 +776,9 @@ class EVMTest(DefiTestFramework):
                 "gas": 1_000_000,
             }
         )
-        self.nodes[0].w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
         contract_address = web3.utils.get_create_address(
             self.evm_key_pair.address, nonce
         )
