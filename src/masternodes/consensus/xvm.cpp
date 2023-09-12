@@ -206,7 +206,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 const auto toAddress = std::get<WitnessV16EthHash>(dest);
 
                 CrossBoundaryResult result;
-                auto isSmartContract = evm_is_smart_contract(result, toAddress.GetHex());
+                auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress.GetHex(), evmQueueId);
 
                 if (!result.ok) {
                     return Res::Err("transferdomain error: %s", result.reason);
@@ -252,7 +252,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 const auto fromAddress = std::get<WitnessV16EthHash>(dest);
 
                 CrossBoundaryResult result;
-                auto isSmartContract = evm_is_smart_contract(result, fromAddress.GetHex());
+                auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress.GetHex(), evmQueueId);
 
                 if (!result.ok) {
                     return Res::Err("transferdomain error: %s", result.reason);

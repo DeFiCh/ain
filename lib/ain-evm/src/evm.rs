@@ -433,14 +433,23 @@ impl EVMServices {
         Ok(is_queued)
     }
 
-    pub fn is_smart_contract(&self, address: H160) -> Result<bool> {
-        let backend = self.core.get_latest_block_backend()?;
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn is_smart_contract_in_queue(&self, address: H160, queue_id: u64) -> Result<bool> {
+        let backend = self
+            .core
+            .get_backend(self.core.tx_queues.get_latest_state_root_in(queue_id)?)?;
 
         Ok(match backend.get_account(&address) {
             None => false,
             Some(account) => account.code_hash != H256::zero(),
         })
     }
+
     pub fn get_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
         let backend = self.core.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
