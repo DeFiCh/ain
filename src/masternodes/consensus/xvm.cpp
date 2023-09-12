@@ -187,9 +187,17 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
     auto attributes = mnview.GetAttributes();
     auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+    std::string evmTxHash;
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
+        CrossBoundaryResult result;
+        auto hash = evm_try_get_tx_hash(result, HexStr(dst.data));
+        if (!result.ok) {
+            return Res::Err("Error bridging DFI: %s", result.reason);
+        }
+        evmTxHash = std::string(hash.data(), hash.length()).substr(2);
+
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
@@ -204,7 +212,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             ExtractDestination(dst.address, dest);
 
             auto tokenId = dst.amount.nTokenId;
-            CrossBoundaryResult result;
             if (tokenId == DCT_ID{0}) {
                 evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex());
                 if (!result.ok) {
@@ -260,6 +267,16 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
         if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
             return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
         }
+    }
+
+    auto txHash = tx.GetHash().GetHex();
+    res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+    if (!res) {
+        LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash);
+    }
+    res = mnview.SetVMDomainTxEdge(VMDomainEdge::EVMToDVM, evmTxHash, txHash);
+    if (!res) {
+        LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash);
     }
 
     attributes->SetValue(CTransferDomainStatsLive::Key, stats);

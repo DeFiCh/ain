@@ -952,6 +952,21 @@ pub fn evm_try_bridge_dst20(
     }
 }
 
+/// Retrieves a raw tx's transaction hash
+/// # Arguments
+///
+/// * `raw_tx` - The transaction as raw hex
+///
+/// # Returns
+///
+/// Returns the transaction's hash
+pub fn evm_try_get_tx_hash(result: &mut ffi::CrossBoundaryResult, raw_tx: &str) -> String {
+    match SignedTx::try_from(raw_tx) {
+        Ok(signed_tx) => cross_boundary_success_return(result, format!("{:?}", signed_tx.hash())),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
 /// Retrieves the queue target block
 ///
 /// # Arguments
