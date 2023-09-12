@@ -253,6 +253,18 @@ class EVMTest(DefiTestFramework):
         # Check setting vars before height
         assert_raises_rpc_error(
             -32600,
+            "Cannot be set before NextNetworkUpgradeHeight",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/evm": "true"}}
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before NextNetworkUpgradeHeight",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/transferdomain": "true"}}
+        )
+        assert_raises_rpc_error(
+            -32600,
             "called before NextNetworkUpgrade height",
             self.nodes[0].evmtx,
             self.eth_address,
