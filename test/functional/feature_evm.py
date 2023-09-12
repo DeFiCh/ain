@@ -255,13 +255,13 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot be set before NextNetworkUpgradeHeight",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/params/feature/evm": "true"}}
+            {"ATTRIBUTES": {"v0/params/feature/evm": "true"}},
         )
         assert_raises_rpc_error(
             -32600,
             "Cannot be set before NextNetworkUpgradeHeight",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/params/feature/transferdomain": "true"}}
+            {"ATTRIBUTES": {"v0/params/feature/transferdomain": "true"}},
         )
         assert_raises_rpc_error(
             -32600,

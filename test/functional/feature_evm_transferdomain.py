@@ -908,10 +908,12 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_dvm_evm()
 
         balance = self.nodes[0].eth_getBalance(self.eth_address)
-        assert_equal(balance, "0x56bc75e2d63100000") # 100 DFI
-        erc55_address = self.nodes[0].getnewaddress('', 'erc55')
+        assert_equal(balance, "0x56bc75e2d63100000")  # 100 DFI
+        erc55_address = self.nodes[0].getnewaddress("", "erc55")
 
-        tx1 = self.nodes[0].evmtx(self.eth_address, 0, 21, 21001, erc55_address, 50) # Spend half balance
+        tx1 = self.nodes[0].evmtx(
+            self.eth_address, 0, 21, 21001, erc55_address, 50
+        )  # Spend half balance
 
         # Transfer 100 DFI from EVM to DVM
         tx2 = transfer_domain(
@@ -947,7 +949,8 @@ class EVMTest(DefiTestFramework):
 
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
-        self.invalid_transfer_evm_dvm_after_evm_tx() # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+        self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+
 
 if __name__ == "__main__":
     EVMTest().main()
