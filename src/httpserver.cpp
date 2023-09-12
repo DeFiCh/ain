@@ -301,6 +301,7 @@ static bool ThreadHTTP(struct event_base* base)
 static bool HTTPBindAddresses(struct evhttp* http)
 {
     int http_port = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+    int eth_http_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     std::vector<std::pair<std::string, uint16_t> > endpoints;
 
     // Determine what addresses to bind to
@@ -316,6 +317,12 @@ static bool HTTPBindAddresses(struct evhttp* http)
     } else if (gArgs.IsArgSet("-rpcbind")) { // Specific bind address
         for (const std::string& strRPCBind : gArgs.GetArgs("-rpcbind")) {
             int port = http_port;
+            std::string host;
+            SplitHostPort(strRPCBind, port, host);
+            endpoints.push_back(std::make_pair(host, port));
+        }
+        for (const std::string& strRPCBind : gArgs.GetArgs("-rpcbind")) {
+            int port = eth_http_port;
             std::string host;
             SplitHostPort(strRPCBind, port, host);
             endpoints.push_back(std::make_pair(host, port));
