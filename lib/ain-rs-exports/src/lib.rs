@@ -242,6 +242,11 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
         ) -> u64;
+        fn evm_is_smart_contract_in_q(
+            result: &mut CrossBoundaryResult,
+            address: &str,
+            queue_id: u64,
+        ) -> bool;
         fn evm_try_get_tx_sender_info_from_raw_tx(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,

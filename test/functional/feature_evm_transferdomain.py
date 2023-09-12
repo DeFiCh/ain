@@ -3,8 +3,12 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
+import web3.utils
+
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256
+from test_framework.evm_contract import EVMContract
+from test_framework.evm_key_pair import EvmKeyPair
 
 from decimal import Decimal
 
@@ -698,6 +702,107 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority"], Decimal("0E-8")
         )
 
+    def invalid_transfer_sc(self):
+        self.evm_key_pair = EvmKeyPair.from_node(self.nodes[0])
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "50@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        abi, bytecode, _ = EVMContract.from_file("Reverter.sol", "Reverter").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.nodes[0].generate(1)
+
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract_address = receipt["contractAddress"]
+
+        assert_raises_rpc_error(
+            -32600,
+            "EVM destination is a smart contract",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": contract_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
+    def invalid_transfer_sc_mempool(self):
+        abi, bytecode, _ = EVMContract.from_file("Reverter.sol", "Reverter").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": nonce,
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        contract_address = web3.utils.get_create_address(
+            self.evm_key_pair.address, nonce
+        )
+
+        assert_raises_rpc_error(
+            -32600,
+            "EVM destination is a smart contract",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": contract_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
     def invalid_transfer_no_auth(self):
         assert_raises_rpc_error(
             -5,
@@ -943,6 +1048,10 @@ class EVMTest(DefiTestFramework):
         # Transfer EVM->DVM
         self.invalid_values_evm_dvm()
         self.valid_transfer_evm_dvm()
+
+        # Transfer to smart contract
+        self.invalid_transfer_sc()
+        self.invalid_transfer_sc_mempool()
 
         # Invalid authorisation
         self.invalid_transfer_no_auth()
