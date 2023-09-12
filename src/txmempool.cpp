@@ -1171,16 +1171,15 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
 
     // Check custom TX consensus types are now not in conflict with account layer
     auto mi = mapTx.get<entry_time>().begin();
-    CTxMemPool::txiter iter;
 
-    // Holds either an iter to a TX in the mempool or new TX to be added to the mempool
-    using TransactionTypes = std::variant<CTxMemPool::txiter, CTransactionRef>;
+    // Track TX hashes to mempool iterators
+    std::map<uint256, CTxMemPool::txiter> mempoolIterMap{};
 
     // Track mempool time order
-    std::multimap<int64_t, TransactionTypes> mempoolTimeOrder{};
+    std::multimap<int64_t, CTransactionRef> mempoolTimeOrder{};
 
     // Quick lookup for mempool time order map
-    using TimeMapIterator = std::multimap<int64_t, TransactionTypes>::iterator;
+    using TimeMapIterator = std::multimap<int64_t, CTransactionRef>::iterator;
     std::map<uint256, TimeMapIterator> timeOrderLookup{};
 
     // Used to track EVM TX fee and TX hash by sender and nonce.
@@ -1191,10 +1190,10 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
     std::map<uint256, EVMFeeMapIterator> feeMapLookup{};
 
     // Used for replacement Eth TXs ordered by time and nonce
-    std::map<std::pair<uint64_t, uint64_t>, TransactionTypes> replaceByFee;
+    std::map<std::pair<uint64_t, uint64_t>, CTransactionRef> replaceByFee;
 
     // Keep track of EVM entries that failed nonce check
-    std::multimap<uint64_t, TransactionTypes> failedNonces;
+    std::multimap<uint64_t, CTransactionRef> failedNonces;
 
     // Keep track of entries that failed inclusion, to avoid duplicate work
     std::set<uint256> failedTxSet;
@@ -1210,12 +1209,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
         CTransactionRef tx;
         if (!replaceByFee.empty()) {
             const auto it = replaceByFee.begin();
-            if (auto iterator = std::get_if<CTxMemPool::txiter>(&it->second)) {
-                iter = *iterator;
-                tx = iter->GetSharedTx();
-            } else if (auto transaction = std::get_if<CTransactionRef>(&it->second)) {
-                tx = *transaction;
-            }
+            tx = it->second;
             replaceByFee.erase(it);
         } else if (mi == mempool.mapTx.get<entry_time>().end() && newTx) {
             tx = newTx;
@@ -1225,19 +1219,15 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             newTxLoop = true;
         } else if (mi == mempool.mapTx.get<entry_time>().end()) {
             const auto it = failedNonces.begin();
-            if (auto iterator = std::get_if<CTxMemPool::txiter>(&it->second)) {
-                iter = *iterator;
-                tx = iter->GetSharedTx();
-            } else if (auto transaction = std::get_if<CTransactionRef>(&it->second)) {
-                tx = *transaction;
-            }
+            tx = it->second;
             failedNonces.erase(it);
         } else {
-            iter = mempool.mapTx.project<0>(mi);
-            ++mi;
-            auto timeIt = mempoolTimeOrder.emplace(iter->GetTime(), iter);
-            timeOrderLookup.emplace(iter->GetTx().GetHash(), timeIt);
+            auto iter = mempool.mapTx.project<0>(mi);
+            mempoolIterMap.emplace(iter->GetTx().GetHash(), iter);
             tx = iter->GetSharedTx();
+            auto timeIt = mempoolTimeOrder.emplace(iter->GetTime(), tx);
+            timeOrderLookup.emplace(iter->GetTx().GetHash(), timeIt);
+            ++mi;
         }
 
         CValidationState state;
@@ -1245,7 +1235,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             if (newTxLoop) {
                 newEntryRes = Res::Err(state.GetDebugMessage());
             } else {
-                AddToStaged(staged, vtx, iter);
+                AddToStaged(staged, vtx, tx, mempoolIterMap);
             }
             continue;
         }
@@ -1261,7 +1251,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 if (newTxLoop) {
                     newEntryRes = Res::Err(res.msg);
                 } else {
-                    AddToStaged(staged, vtx, iter);
+                    AddToStaged(staged, vtx, tx, mempoolIterMap);
                 }
                 continue;
             }
@@ -1273,17 +1263,13 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     if (newTxLoop) {
                         newEntryRes = Res::Err(result.reason.c_str());
                     } else {
-                        AddToStaged(staged, vtx, iter);
+                        AddToStaged(staged, vtx, tx, mempoolIterMap);
                     }
                     continue;
                 }
                 if (txResult.higher_nonce) {
                     if (!failedTxSet.count(tx->GetHash())) {
-                        if (newTxLoop) {
-                            failedNonces.emplace(txResult.nonce, tx);
-                        } else {
-                            failedNonces.emplace(txResult.nonce, iter);
-                        }
+                        failedNonces.emplace(txResult.nonce, tx);
                     }
                     failedTxSet.insert(tx->GetHash());
                     continue;
@@ -1294,7 +1280,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     if (newTxLoop) {
                         newEntryRes = DeFiErrors::TransferDomainMultipleTransfers();
                     } else {
-                        AddToStaged(staged, vtx, iter);
+                        AddToStaged(staged, vtx, tx, mempoolIterMap);
                     }
                     continue;
                 }
@@ -1303,7 +1289,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     if (newTxLoop) {
                         newEntryRes = Res::Err(result.reason.c_str());
                     } else {
-                        AddToStaged(staged, vtx, iter);
+                        AddToStaged(staged, vtx, tx, mempoolIterMap);
                     }
                     continue;
                 }
@@ -1312,7 +1298,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     if (newTxLoop) {
                         newEntryRes = Res::Err(result.reason.c_str());
                     } else {
-                        AddToStaged(staged, vtx, iter);
+                        AddToStaged(staged, vtx, tx, mempoolIterMap);
                     }
                     continue;
                 }
@@ -1320,16 +1306,12 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     if (newTxLoop) {
                         newEntryRes = Res::Err(result.reason.c_str());
                     } else {
-                        AddToStaged(staged, vtx, iter);
+                        AddToStaged(staged, vtx, tx, mempoolIterMap);
                     }
                     continue;
                 } else if (nonce < senderInfo.nonce) {
                     if (!failedTxSet.count(tx->GetHash())) {
-                        if (newTxLoop) {
-                            failedNonces.emplace(senderInfo.nonce, tx);
-                        } else {
-                            failedNonces.emplace(senderInfo.nonce, iter);
-                        }
+                        failedNonces.emplace(senderInfo.nonce, tx);
                     }
                     failedTxSet.insert(tx->GetHash());
                     continue;
@@ -1369,25 +1351,16 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                         // Check TX time order entry and get time and TX
                         assert(timeOrderLookup.count(txHash));
                         const auto &timeIt = timeOrderLookup.at(txHash);
-                        const auto& [txTime, mapVariant] = *timeIt;
+                        const auto& [txTime, transaction] = *timeIt;
 
                         // This is the entry to be replaced
                         if (prevHash == txHash) {
-                            // If the old entry was a mempool iter remove it from the mempool
-                            if (auto iterator = std::get_if<CTxMemPool::txiter>(&mapVariant)) {
-                                AddToStaged(staged, vtx, *iterator);
-                            }
-
-                            // Add current TX to replaceByFee
-                            if (newTxLoop) {
-                                replaceByFee.emplace(std::make_pair(txTime, nonce), tx);
-                            } else {
-                                replaceByFee.emplace(std::make_pair(txTime, nonce), iter);
-                            }
+                            AddToStaged(staged, vtx, transaction, mempoolIterMap);
+                            replaceByFee.emplace(std::make_pair(txTime, nonce), tx);
                         }
                         else // Add in previous mempool entry
                         {
-                            replaceByFee.emplace(std::make_pair(txTime, nonce), mapVariant);
+                            replaceByFee.emplace(std::make_pair(txTime, nonce), transaction);
                         }
 
                         // Remove replace fee entries
@@ -1398,7 +1371,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                     if (newTxLoop) {
                         newEntryRes = Res::Err("Rejected due to same or lower fee as existing mempool entry");
                     } else {
-                        AddToStaged(staged, vtx, iter);
+                        AddToStaged(staged, vtx, tx, mempoolIterMap);
                     }
                 }
 
@@ -1410,7 +1383,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 if (newTxLoop) {
                     newEntryRes = Res::Err("Nonce lower than expected");
                 } else {
-                    AddToStaged(staged, vtx, iter);
+                    AddToStaged(staged, vtx, tx, mempoolIterMap);
                 }
 
                 continue;
@@ -1427,7 +1400,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
                 if (newTxLoop) {
                     newEntryRes = res;
                 } else {
-                    AddToStaged(staged, vtx, iter);
+                    AddToStaged(staged, vtx, tx, mempoolIterMap);
                 }
             }
         }
@@ -1447,7 +1420,10 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
     return newEntryRes;
 }
 
-void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const txiter it) {
+void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap) {
+    const auto &hash = tx->GetHash();
+    if (!mempoolIterMap.count(hash)) return;
+    auto it = mempoolIterMap.at(hash);
     LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
     staged.insert(it);
     vtx.push_back(it->GetSharedTx());

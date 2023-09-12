@@ -566,7 +566,7 @@ private:
     std::unique_ptr<CCustomCSView> acview;
     uint64_t evmQueueId{};
 
-    static void AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const txiter iter);
+    static void AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap);
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
     std::map<uint256, CAmount> mapDeltas;
