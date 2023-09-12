@@ -11,6 +11,7 @@ from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 from web3._utils.events import get_event_data
 
+
 class EVMTestLogs(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1

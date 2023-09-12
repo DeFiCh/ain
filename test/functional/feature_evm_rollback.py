@@ -189,7 +189,6 @@ class EVMRolllbackTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-
         self.nodes[0].transferdomain(
             [
                 {

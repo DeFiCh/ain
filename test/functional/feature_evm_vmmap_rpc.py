@@ -395,7 +395,11 @@ class VMMapTests(DefiTestFramework):
         tx = self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.ethAddress, "amount": "100@DFI", "domain": 3},
+                    "src": {
+                        "address": self.ethAddress,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
                     "dst": {
                         "address": self.address,
                         "amount": "100@DFI",
