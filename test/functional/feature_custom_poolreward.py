@@ -40,6 +40,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # collateral addresses
         collateral_a = self.nodes[0].getnewaddress("", "legacy")
         collateral_b = self.nodes[0].getnewaddress("", "legacy")
+        collateral_d = self.nodes[0].getnewaddress("", "legacy")
 
         # Create token
         self.nodes[0].createtoken(
@@ -55,6 +56,13 @@ class TokensCustomPoolReward(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks()
 
+        # Create token
+        self.nodes[0].createtoken(
+            {"symbol": "ETH", "name": "Ethereum", "collateralAddress": collateral_d}
+        )
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
@@ -62,13 +70,16 @@ class TokensCustomPoolReward(DefiTestFramework):
                 token_a = idx
             if token["symbol"] == "SILVER":
                 token_b = idx
+            if token["symbol"] == "ETH":
+                token_d = idx
 
         # Make sure there's an extra token
-        assert_equal(len(self.nodes[0].listtokens()), num_tokens + 2)
+        assert_equal(len(self.nodes[0].listtokens()), num_tokens + 3)
 
         # Mint some tokens
         self.nodes[0].minttokens(["100000@" + token_a])
         self.nodes[0].minttokens(["100000@" + token_b])
+        self.nodes[0].minttokens(["100000@" + token_d])
         self.nodes[0].generate(1)
 
         # Create pool collateral address
@@ -337,7 +348,7 @@ class TokensCustomPoolReward(DefiTestFramework):
 
         # Check for new block reward and payout
         assert_equal(
-            self.nodes[1].getpoolpair(1)["1"]["customRewards"], ["1.00000000@130"]
+            self.nodes[1].getpoolpair(1)["1"]["customRewards"], ["1.00000000@131"]
         )
         assert_equal(
             self.nodes[1].getaccount(provider),
@@ -345,12 +356,12 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "20.99979000@GOLD#128",
                 "20.99979000@SILVER#129",
-                "0.99999000@BRONZE#130",
+                "0.99999000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["0.00021000@GOLD#128", "0.00021000@SILVER#129", "9.00001000@BRONZE#130"],
+            ["0.00021000@GOLD#128", "0.00021000@SILVER#129", "9.00001000@BRONZE#131"],
         )
 
         # Provide pool reward for token a, should not show as it wasd removed
@@ -360,7 +371,7 @@ class TokensCustomPoolReward(DefiTestFramework):
 
         # Check for new block reward and payout
         assert_equal(
-            self.nodes[1].getpoolpair(1)["1"]["customRewards"], ["1.00000000@130"]
+            self.nodes[1].getpoolpair(1)["1"]["customRewards"], ["1.00000000@131"]
         )
         assert_equal(
             self.nodes[1].getaccount(provider),
@@ -368,12 +379,12 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "20.99979000@GOLD#128",
                 "20.99979000@SILVER#129",
-                "1.99998000@BRONZE#130",
+                "1.99998000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["10.00021000@GOLD#128", "0.00021000@SILVER#129", "8.00002000@BRONZE#130"],
+            ["10.00021000@GOLD#128", "0.00021000@SILVER#129", "8.00002000@BRONZE#131"],
         )
 
         # Add back token a
@@ -393,7 +404,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Check for new block reward and payout for token a and c
         assert_equal(
             self.nodes[1].getpoolpair(1)["1"]["customRewards"],
-            ["1.00000000@128", "1.00000000@130"],
+            ["1.00000000@128", "1.00000000@131"],
         )
         assert_equal(
             self.nodes[1].getaccount(provider),
@@ -401,12 +412,12 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "21.99978000@GOLD#128",
                 "20.99979000@SILVER#129",
-                "2.99997000@BRONZE#130",
+                "2.99997000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["9.00022000@GOLD#128", "0.00021000@SILVER#129", "7.00003000@BRONZE#130"],
+            ["9.00022000@GOLD#128", "0.00021000@SILVER#129", "7.00003000@BRONZE#131"],
         )
 
         # Provide pool reward for token b, should not show as it was removed
@@ -417,7 +428,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Check for new block reward and payout
         assert_equal(
             self.nodes[1].getpoolpair(1)["1"]["customRewards"],
-            ["1.00000000@128", "1.00000000@130"],
+            ["1.00000000@128", "1.00000000@131"],
         )
         assert_equal(
             self.nodes[1].getaccount(provider),
@@ -425,12 +436,12 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "22.99977000@GOLD#128",
                 "20.99979000@SILVER#129",
-                "3.99996000@BRONZE#130",
+                "3.99996000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["8.00023000@GOLD#128", "10.00021000@SILVER#129", "6.00004000@BRONZE#130"],
+            ["8.00023000@GOLD#128", "10.00021000@SILVER#129", "6.00004000@BRONZE#131"],
         )
 
         # Add back token b
@@ -453,7 +464,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Check for new block reward and payout for token a, b and c
         assert_equal(
             self.nodes[1].getpoolpair(1)["1"]["customRewards"],
-            ["1.00000000@128", "1.00000000@129", "1.00000000@130"],
+            ["1.00000000@128", "1.00000000@129", "1.00000000@131"],
         )
         assert_equal(
             self.nodes[1].getaccount(provider),
@@ -461,12 +472,12 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "23.99976000@GOLD#128",
                 "21.99978000@SILVER#129",
-                "4.99995000@BRONZE#130",
+                "4.99995000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["7.00024000@GOLD#128", "9.00022000@SILVER#129", "5.00005000@BRONZE#130"],
+            ["7.00024000@GOLD#128", "9.00022000@SILVER#129", "5.00005000@BRONZE#131"],
         )
 
         # Do nothing
@@ -481,7 +492,7 @@ class TokensCustomPoolReward(DefiTestFramework):
         # Check for new block reward and payout for token a, b and c
         assert_equal(
             self.nodes[1].getpoolpair(1)["1"]["customRewards"],
-            ["1.00000000@128", "1.00000000@129", "1.00000000@130"],
+            ["1.00000000@128", "1.00000000@129", "1.00000000@131"],
         )
         assert_equal(
             self.nodes[1].getaccount(provider),
@@ -489,12 +500,12 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "24.99975000@GOLD#128",
                 "22.99977000@SILVER#129",
-                "5.99994000@BRONZE#130",
+                "5.99994000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["6.00025000@GOLD#128", "8.00023000@SILVER#129", "4.00006000@BRONZE#130"],
+            ["6.00025000@GOLD#128", "8.00023000@SILVER#129", "4.00006000@BRONZE#131"],
         )
 
         # Wipe all rewards
@@ -513,12 +524,51 @@ class TokensCustomPoolReward(DefiTestFramework):
                 "0.99999000@SILVGOLD",
                 "24.99975000@GOLD#128",
                 "22.99977000@SILVER#129",
-                "5.99994000@BRONZE#130",
+                "5.99994000@BRONZE#131",
             ],
         )
         assert_equal(
             self.nodes[1].getaccount(pool_collateral),
-            ["6.00025000@GOLD#128", "8.00023000@SILVER#129", "4.00006000@BRONZE#130"],
+            ["6.00025000@GOLD#128", "8.00023000@SILVER#129", "4.00006000@BRONZE#131"],
+        )
+
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": "GOLD#" + token_a,
+                "tokenB": "ETH#" + token_d,
+                "commission": 0.002,
+                "status": True,
+                "ownerAddress": pool_collateral,
+                "pairSymbol": "GOLDETH",
+                "customRewards": ["1@" + token_a],
+            }
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].updatepoolpair({"pool": "1", "customRewards": ["1@" + token_a]})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].accounttoaccount(
+            collateral_a, {pool_collateral: "100@" + token_a}
+        )
+        self.nodes[0].generate(1)
+        self.sync_blocks()
+
+        self.nodes[0].addpoolliquidity(
+            {"*": ["1@" + token_a, "1@" + token_b]}, provider
+        )
+        self.nodes[0].addpoolliquidity(
+            {"*": ["1@" + token_a, "1@" + token_d]}, provider
+        )
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.nodes[0].getaccount(provider)[2], "28.99971500@GOLD#" + token_a
+        )
+
+        # should be +2 GOLD (1 from each pool)
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.nodes[0].getaccount(provider)[2], "30.99970000@GOLD#" + token_a
         )
 
 

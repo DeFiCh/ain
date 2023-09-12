@@ -68,10 +68,9 @@ CTxIn MineBlock(const CScript& coinbase_scriptPubKey)
 
 std::shared_ptr<CBlock> PrepareBlock(const CScript& coinbase_scriptPubKey)
 {
-    auto block = std::make_shared<CBlock>(
-        BlockAssembler{Params()}
-            .CreateNewBlock(coinbase_scriptPubKey)
-            ->block);
+    auto res = BlockAssembler(Params()).CreateNewBlock(coinbase_scriptPubKey);
+    auto& blockTemplate = *res;
+    auto block = std::make_shared<CBlock>(blockTemplate->block);
 
     LOCK(cs_main);
     block->nTime = ::ChainActive().Tip()->GetMedianTimePast() + 1;

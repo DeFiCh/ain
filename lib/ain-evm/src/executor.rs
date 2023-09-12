@@ -1,21 +1,39 @@
-use ethereum::{EIP658ReceiptData, Log, ReceiptV3};
+use ain_contracts::{get_transferdomain_contract, FixedContract};
+use anyhow::format_err;
+use ethereum::{AccessList, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, CreateScheme, ExitReason,
 };
-use log::trace;
+use log::{debug, trace};
 
 use crate::{
     backend::EVMBackend,
     bytes::Bytes,
+    contract::{bridge_dst20, dst20_contract, DST20BridgeInfo, DeployContractInfo},
     core::EVMCoreService,
+    evm::{dst20_deploy_contract_tx, ReceiptAndOptionalContractAddress},
+    fee::{calculate_gas_fee, calculate_prepay_gas_fee},
     precompiles::MetachainPrecompiles,
-    traits::{BridgeBackend, Executor, ExecutorContext},
-    transaction::SignedTx,
+    transaction::{
+        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        SignedTx,
+    },
+    txqueue::QueueTx,
     Result,
 };
+
+#[derive(Debug)]
+pub struct ExecutorContext<'a> {
+    pub caller: H160,
+    pub to: Option<H160>,
+    pub value: U256,
+    pub data: &'a [u8],
+    pub gas_limit: u64,
+    pub access_list: AccessList,
+}
 
 pub struct AinExecutor<'backend> {
     pub backend: &'backend mut EVMBackend,
@@ -56,11 +74,11 @@ impl<'backend> AinExecutor<'backend> {
     }
 }
 
-impl<'backend> Executor for AinExecutor<'backend> {
+impl<'backend> AinExecutor<'backend> {
     const CONFIG: Config = Config::shanghai();
 
     /// Read-only call
-    fn call(&mut self, ctx: ExecutorContext) -> TxResponse {
+    pub fn call(&mut self, ctx: ExecutorContext) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
         let precompiles = MetachainPrecompiles;
@@ -104,7 +122,7 @@ impl<'backend> Executor for AinExecutor<'backend> {
     }
 
     /// Update state
-    fn exec(&mut self, signed_tx: &SignedTx, prepay_gas: U256) -> (TxResponse, ReceiptV3) {
+    pub fn exec(&mut self, signed_tx: &SignedTx, prepay_gas: U256) -> (TxResponse, ReceiptV3) {
         self.backend.update_vicinity_from_tx(signed_tx);
         trace!(
             "[Executor] Executing EVM TX with vicinity : {:?}",
@@ -186,6 +204,181 @@ impl<'backend> Executor for AinExecutor<'backend> {
             receipt,
         )
     }
+
+    pub fn apply_queue_tx(&mut self, tx: QueueTx, base_fee: U256) -> Result<ApplyTxResult> {
+        match tx {
+            QueueTx::SignedTx(signed_tx) => {
+                let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
+                let (tx_response, receipt) = self.exec(&signed_tx, prepay_gas);
+                debug!(
+                    "[apply_queue_tx]receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    receipt,
+                    tx_response.exit_reason,
+                    signed_tx.transaction.hash()
+                );
+
+                let gas_fee =
+                    calculate_gas_fee(&signed_tx, U256::from(tx_response.used_gas), base_fee)?;
+
+                Ok(ApplyTxResult {
+                    tx: signed_tx,
+                    used_gas: tx_response.used_gas,
+                    logs: tx_response.logs,
+                    gas_fee,
+                    receipt: (receipt, None),
+                })
+            }
+            QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+                signed_tx,
+                direction,
+            })) => {
+                let to = signed_tx.to().unwrap();
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[68..100]);
+
+                debug!(
+                    "[apply_queue_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
+                    direction, signed_tx.sender, signed_tx.nonce(), to, amount,
+                );
+
+                let FixedContract {
+                    contract,
+                    fixed_address,
+                    ..
+                } = get_transferdomain_contract();
+                let mismatch = match self.backend.get_account(&fixed_address) {
+                    None => true,
+                    Some(account) => account.code_hash != contract.codehash,
+                };
+                if mismatch {
+                    debug!("[apply_queue_tx] {} failed with as transferdomain account codehash mismatch", direction);
+                    return Err(format_err!("[apply_queue_tx] {} failed with as transferdomain account codehash mismatch", direction).into());
+                }
+
+                if direction == TransferDirection::EvmIn {
+                    self.add_balance(fixed_address, amount)?;
+                    self.commit();
+                }
+
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
+
+                self.commit();
+
+                debug!(
+                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    receipt,
+                    tx_response.exit_reason,
+                    signed_tx.transaction.hash(),
+                    tx_response.logs
+                );
+
+                if direction == TransferDirection::EvmOut {
+                    self.sub_balance(signed_tx.sender, amount)?;
+                }
+
+                Ok(ApplyTxResult {
+                    tx: signed_tx,
+                    used_gas: 0,
+                    logs: tx_response.logs,
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, None),
+                })
+            }
+            QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                signed_tx,
+                contract_address,
+                direction,
+            })) => {
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[100..132]);
+
+                debug!(
+                "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
+                signed_tx.sender, contract_address, amount, direction
+            );
+
+                if direction == TransferDirection::EvmIn {
+                    let DST20BridgeInfo { address, storage } = bridge_dst20(
+                        self.backend,
+                        contract_address,
+                        signed_tx.sender,
+                        amount,
+                        direction,
+                    )?;
+                    self.update_storage(address, storage)?;
+                    self.commit();
+                }
+
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
+
+                self.commit();
+
+                debug!(
+                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    receipt,
+                    tx_response.exit_reason,
+                    signed_tx.transaction.hash(),
+                    tx_response.logs
+                );
+
+                if direction == TransferDirection::EvmOut {
+                    let DST20BridgeInfo { address, storage } = bridge_dst20(
+                        self.backend,
+                        contract_address,
+                        signed_tx.sender,
+                        amount,
+                        direction,
+                    )?;
+                    self.update_storage(address, storage)?;
+                }
+
+                Ok(ApplyTxResult {
+                    tx: signed_tx,
+                    used_gas: 0,
+                    logs: tx_response.logs,
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, None),
+                })
+            }
+            QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                name,
+                symbol,
+                address,
+                token_id,
+            })) => {
+                debug!(
+                    "[apply_queue_tx] DeployContract for address {:x?}, name {}, symbol {}",
+                    address, name, symbol
+                );
+
+                let DeployContractInfo {
+                    address,
+                    bytecode,
+                    storage,
+                } = dst20_contract(self.backend, address, &name, &symbol)?;
+
+                self.deploy_contract(address, bytecode, storage)?;
+                let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee, &name, &symbol)?;
+
+                Ok(ApplyTxResult {
+                    tx,
+                    used_gas: 0,
+                    logs: Vec::new(),
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, Some(address)),
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ApplyTxResult {
+    pub tx: Box<SignedTx>,
+    pub used_gas: u64,
+    pub logs: Vec<Log>,
+    pub gas_fee: U256,
+    pub receipt: ReceiptAndOptionalContractAddress,
 }
 
 #[derive(Debug)]

@@ -71,7 +71,7 @@ pub fn intrinsics_contract(
 
     Ok(DeployContractInfo {
         address: fixed_address,
-        bytecode: Bytes::from(contract.bytecode),
+        bytecode: Bytes::from(contract.runtime_bytecode),
         storage: vec![
             (H256::from_low_u64_be(0), u256_to_h256(U256::one())),
             (H256::from_low_u64_be(1), u256_to_h256(evm_block_number)),
@@ -84,24 +84,24 @@ pub fn intrinsics_contract(
 }
 
 /// Returns transfer domain address, bytecode and null storage
-pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
+pub fn transfer_domain_contract() -> DeployContractInfo {
     let FixedContract {
         contract,
         fixed_address,
     } = get_transferdomain_contract();
 
-    Ok(DeployContractInfo {
+    DeployContractInfo {
         address: fixed_address,
-        bytecode: Bytes::from(contract.bytecode),
+        bytecode: Bytes::from(contract.runtime_bytecode),
         storage: Vec::new(),
-    })
+    }
 }
 
 pub fn dst20_contract(
     backend: &EVMBackend,
     address: H160,
-    name: String,
-    symbol: String,
+    name: &str,
+    symbol: &str,
 ) -> Result<DeployContractInfo> {
     match backend.get_account(&address) {
         None => {}
@@ -113,21 +113,17 @@ pub fn dst20_contract(
         }
     }
 
-    let Contract { bytecode, .. } = get_dst20_contract();
+    let Contract {
+        runtime_bytecode, ..
+    } = get_dst20_contract();
     let storage = vec![
-        (
-            H256::from_low_u64_be(3),
-            get_abi_encoded_string(name.as_str()),
-        ),
-        (
-            H256::from_low_u64_be(4),
-            get_abi_encoded_string(symbol.as_str()),
-        ),
+        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
+        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
     ];
 
     Ok(DeployContractInfo {
         address,
-        bytecode: Bytes::from(bytecode),
+        bytecode: Bytes::from(runtime_bytecode),
         storage,
     })
 }

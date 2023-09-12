@@ -281,6 +281,7 @@ class TestNode:
         "net_version",
         # debug
         "debug_feeEstimate",
+        "debug_logqueues",
     }
 
     def get_genesis_keys(self):

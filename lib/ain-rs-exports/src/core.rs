@@ -26,21 +26,21 @@ pub fn ain_rs_init_network_services(
     grpc_addr: &str,
 ) {
     match ain_grpc::init_network_services(json_addr, grpc_addr) {
-        Ok(_) => cross_boundary_success(result),
+        Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 pub fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult) {
     match ain_grpc::stop_network_services() {
-        Ok(_) => cross_boundary_success(result),
+        Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
 pub fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult) {
     match ain_grpc::wipe_evm_folder() {
-        Ok(_) => cross_boundary_success(result),
+        Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }

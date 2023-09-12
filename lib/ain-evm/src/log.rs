@@ -117,8 +117,8 @@ impl LogService {
 
     pub fn get_logs_from_filter(
         &self,
-        filter: LogsFilter,
-        filter_type: FilterType,
+        filter: &LogsFilter,
+        filter_type: &FilterType,
     ) -> Result<Vec<LogIndex>> {
         let block_number = match filter_type {
             FilterType::GetFilterChanges => filter.last_block_height,
