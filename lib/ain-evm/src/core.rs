@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::format_err;
@@ -273,20 +274,24 @@ impl EVMCoreService {
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         // Should be queued for now and don't go through VM validation
-        if signed_tx.nonce() > nonce {
-            return Ok(ValidateTxInfo {
-                signed_tx,
-                prepay_fee,
-                higher_nonce: true,
-                lower_nonce: false,
-            });
-        } else if signed_tx.nonce() < nonce {
-            return Ok(ValidateTxInfo {
-                signed_tx,
-                prepay_fee,
-                higher_nonce: false,
-                lower_nonce: true,
-            });
+        match signed_tx.nonce().cmp(&nonce) {
+            Ordering::Greater => {
+                return Ok(ValidateTxInfo {
+                    signed_tx,
+                    prepay_fee,
+                    higher_nonce: true,
+                    lower_nonce: false,
+                });
+            }
+            Ordering::Less => {
+                return Ok(ValidateTxInfo {
+                    signed_tx,
+                    prepay_fee,
+                    higher_nonce: false,
+                    lower_nonce: true,
+                });
+            }
+            _ => {}
         }
 
         // Validate tx prepay fees with account balance
