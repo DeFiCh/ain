@@ -998,6 +998,26 @@ int CTxMemPool::Expire(int64_t time) {
     return stage.size();
 }
 
+int CTxMemPool::ExpireEVM(int64_t time) {
+    AssertLockHeld(cs);
+    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    setEntries toremove;
+    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata, true);
+        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        it++;
+    }
+    setEntries stage;
+    for (txiter removeit : toremove) {
+        CalculateDescendants(removeit, stage);
+    }
+    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
+    return stage.size();
+}
+
 void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, bool validFeeEstimate)
 {
     setEntries setAncestors;
