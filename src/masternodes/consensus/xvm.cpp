@@ -194,16 +194,21 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
         CrossBoundaryResult result;
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             CTxDestination dest;
-            ExtractDestination(dst.address, dest);
-            const auto toAddress = std::get<WitnessV16EthHash>(dest);
+            if (!ExtractDestination(dst.address, dest)) {
+                return DeFiErrors::TransferDomainETHDestAddress();
+            }
+            const auto toAddress = std::get_if<WitnessV16EthHash>(&dest);
+            if (!toAddress) {
+                return DeFiErrors::TransferDomainETHSourceAddress();
+            }
 
             // Check if destination address is a contract
-            auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress.GetHex(), evmQueueId);
+            auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress->GetHex(), evmQueueId);
             if (!result.ok) {
-                return Res::Err("transferdomain error: %s", result.reason);
+                return Res::Err("Error checking contract address: %s", result.reason);
             }
             if (isSmartContract) {
-                return Res::Err("transferdomain error: EVM destination is a smart contract");
+                return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
             auto hash = evm_try_get_tx_hash(result, HexStr(dst.data));
@@ -239,16 +244,21 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.evmCurrent.Add(tokenAmount);
         } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             CTxDestination dest;
-            ExtractDestination(src.address, dest);
-            const auto fromAddress = std::get<WitnessV16EthHash>(dest);
+            if (!ExtractDestination(src.address, dest)) {
+                return DeFiErrors::TransferDomainETHSourceAddress();
+            }
+            const auto fromAddress = std::get_if<WitnessV16EthHash>(&dest);
+            if (!fromAddress) {
+                return DeFiErrors::TransferDomainETHSourceAddress();
+            }
 
             // Check if source address is a contract
-            auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress.GetHex(), evmQueueId);
+            auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress->GetHex(), evmQueueId);
             if (!result.ok) {
-                return Res::Err("transferdomain error: %s", result.reason);
+                return Res::Err("Error checking contract address: %s", result.reason);
             }
             if (isSmartContract) {
-                return Res::Err("transferdomain error: EVM source is a smart contract");
+                return DeFiErrors::TransferDomainSmartContractSourceAddress();
             }
 
             auto hash = evm_try_get_tx_hash(result, HexStr(src.data));
