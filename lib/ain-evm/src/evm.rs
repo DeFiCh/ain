@@ -330,7 +330,10 @@ impl EVMServices {
         tx: QueueTx,
     ) -> Result<(SignedTx, U256, H256)> {
         let state_root = self.core.tx_queues.get_latest_state_root_in(queue_id)?;
-        debug!("[update_queue_state_from_tx] state_root : {:#?}", state_root);
+        debug!(
+            "[update_queue_state_from_tx] state_root : {:#?}",
+            state_root
+        );
 
         // Has to be mutable to obtain new state root
         let mut backend = self.core.get_backend(state_root)?;
