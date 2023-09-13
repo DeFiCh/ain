@@ -1997,6 +1997,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                         return DeFiErrors::GovVarValidateFortCanningRoad();
                     }
+                    if (attrV0->key == DFIPKeys::StartBlock) {
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
+                            return Res::Err("Cannot be set before FortCanningSpringHeight");
+                        }
+                    }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
