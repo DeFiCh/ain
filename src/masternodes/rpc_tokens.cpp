@@ -608,7 +608,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         auto isEvmEnabledForBlock = IsEVMEnabled(nHeight, mnview, consensus);
 
         uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, *tx, consensus, nHeight, gasUsed, 0, nullptr, 0, 0, isEvmEnabledForBlock);
+        auto res = ApplyCustomTx(mnview, view, *tx, consensus, nHeight, gasUsed, 0, nullptr, 0, 0, isEvmEnabledForBlock, true);
 
         result.pushKV("valid", res.ok);
     } else {

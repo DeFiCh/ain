@@ -1413,7 +1413,7 @@ Res CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCach
             feeMapLookup.emplace(tx->GetHash(), feeMapRes.first);
         }
 
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, *tx, consensus, height, gasUsed, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, *tx, consensus, height, gasUsed, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock, true);
         if (!res) {
             failedTxSet.insert(tx->GetHash());
             if ((res.code & CustomTxErrCodes::Fatal)) {

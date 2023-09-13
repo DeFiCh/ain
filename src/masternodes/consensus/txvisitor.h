@@ -54,7 +54,7 @@ protected:
     bool isEvmEnabledForBlock;
     uint64_t &gasUsed;
     bool evmPreValidate;
-    bool testTx;
+    bool skipBlockSizeLimit;
 
 public:
     CCustomTxVisitor(const CTransaction &tx,
@@ -68,7 +68,7 @@ public:
                      const bool isEvmEnabledForBlock,
                      uint64_t &gasUsed,
                      const bool evmPreValidate,
-                     const bool testTx);
+                     const bool skipBlockSizeLimit);
 
 protected:
     Res HasAuth(const CScript &auth) const;

@@ -167,7 +167,7 @@ pub mod ffi {
             queue_id: u64,
             raw_tx: &str,
             pre_validate: bool,
-            test_tx: bool,
+            skip_block_limit: bool,
         ) -> ValidateTxMiner;
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,

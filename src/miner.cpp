@@ -844,7 +844,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 }
 
                 uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;

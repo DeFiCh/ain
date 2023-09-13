@@ -175,7 +175,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint256 *canSpend,
                   uint32_t txn,
                   const uint64_t evmQueueId,
-                  const bool isEvmEnabledForBlock);
+                  const bool isEvmEnabledForBlock,
+                  const bool skipBlockSizeLimit);
 
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
@@ -189,7 +190,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const uint64_t evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate,
-                  const bool testTx);
+                  const bool skipBlockSizeLimit);
 
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,

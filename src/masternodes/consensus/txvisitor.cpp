@@ -64,7 +64,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const bool isEvmEnabledForBlock,
                                    uint64_t &gasUsed,
                                    const bool evmPreValidate,
-                                   const bool testTx)
+                                   const bool skipBlockSizeLimit)
         : height(height),
           mnview(mnview),
           tx(tx),
@@ -76,7 +76,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
           isEvmEnabledForBlock(isEvmEnabledForBlock),
           gasUsed(gasUsed),
           evmPreValidate(evmPreValidate),
-          testTx(testTx) {}
+          skipBlockSizeLimit(skipBlockSizeLimit) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
     return ::HasAuth(tx, coins, auth);
