@@ -438,6 +438,8 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 /// * `result` - Result object
 /// * `queue_id` - The EVM queue ID
 /// * `tx` - The raw transaction string.
+/// * `pre_validate` - Validate the raw transaction with or without state context.
+/// * `test_tx` - Test the validity of the raw transaction with block context.
 ///
 /// # Errors
 ///
@@ -453,8 +455,9 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce, sender address, transaction fees, gas used and
-/// updated state rooot if valid. Logs and set the error reason to result object otherwise.
+/// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
+/// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
+/// object otherwise.
 pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
