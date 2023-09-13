@@ -630,7 +630,15 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
         if (obj.transfers.size() != 1) {
             return false;
         }
-        auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.transfers[0].second.data));
+
+        std::string evmTx = "";
+        if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            evmTx = HexStr(obj.transfers[0].second.data);
+        }
+        else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+            evmTx = HexStr(obj.transfers[0].first.data);
+        }
+        auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, evmTx);
         if (!result.ok) {
             return false;
         }

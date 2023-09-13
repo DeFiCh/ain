@@ -2153,7 +2153,11 @@ UniValue transferdomain(const JSONRPCRequest& request) {
 
             std::vector<uint8_t> evmTx(signedTx.size());
             std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
-            dst.data = evmTx;
+            if (isEVMIn) {
+                dst.data = evmTx;
+            } else {
+                src.data = evmTx;
+            }
 
             msg.transfers.push_back({src, dst});
         }

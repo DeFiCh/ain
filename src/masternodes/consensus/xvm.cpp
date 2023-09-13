@@ -192,29 +192,25 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
         CrossBoundaryResult result;
-        auto hash = evm_try_get_tx_hash(result, HexStr(dst.data));
-        if (!result.ok) {
-            return Res::Err("Error bridging DFI: %s", result.reason);
-        }
-        evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+            CTxDestination dest;
+            ExtractDestination(dst.address, dest);
+            const auto toAddress = std::get<WitnessV16EthHash>(dest);
+
             // Check if destination address is a contract
-            {
-                CTxDestination dest;
-                ExtractDestination(dst.address, dest);
-                const auto toAddress = std::get<WitnessV16EthHash>(dest);
-
-                CrossBoundaryResult result;
-                auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress.GetHex(), evmQueueId);
-
-                if (!result.ok) {
-                    return Res::Err("transferdomain error: %s", result.reason);
-                }
-                if (isSmartContract) {
-                    return Res::Err("transferdomain error: EVM destination is a smart contract");
-                }
+            auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress.GetHex(), evmQueueId);
+            if (!result.ok) {
+                return Res::Err("transferdomain error: %s", result.reason);
             }
+            if (isSmartContract) {
+                return Res::Err("transferdomain error: EVM destination is a smart contract");
+            }
+
+            auto hash = evm_try_get_tx_hash(result, HexStr(dst.data));
+            if (!result.ok) {
+                return Res::Err("Error bridging DFI: %s", result.reason);
+            }
+            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
 
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
@@ -225,9 +221,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.dvmCurrent.Sub(src.amount);
 
             // Add balance to ERC55 address
-            CTxDestination dest;
-            ExtractDestination(dst.address, dest);
-
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
                 evm_unsafe_try_add_balance_in_q(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex());
@@ -245,31 +238,29 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.evmIn.Add(tokenAmount);
             stats.evmCurrent.Add(tokenAmount);
         } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-            // Check if source address is a contract
-            {
-                CTxDestination dest;
-                ExtractDestination(src.address, dest);
-                const auto fromAddress = std::get<WitnessV16EthHash>(dest);
-
-                CrossBoundaryResult result;
-                auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress.GetHex(), evmQueueId);
-
-                if (!result.ok) {
-                    return Res::Err("transferdomain error: %s", result.reason);
-                }
-                if (isSmartContract) {
-                    return Res::Err("transferdomain error: EVM source is a smart contract");
-                }
-            }
-
-            // Subtract balance from ERC55 address
             CTxDestination dest;
             ExtractDestination(src.address, dest);
+            const auto fromAddress = std::get<WitnessV16EthHash>(dest);
 
+            // Check if source address is a contract
+            auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress.GetHex(), evmQueueId);
+            if (!result.ok) {
+                return Res::Err("transferdomain error: %s", result.reason);
+            }
+            if (isSmartContract) {
+                return Res::Err("transferdomain error: EVM source is a smart contract");
+            }
+
+            auto hash = evm_try_get_tx_hash(result, HexStr(src.data));
+            if (!result.ok) {
+                return Res::Err("Error bridging DFI: %s", result.reason);
+            }
+            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
+
+            // Subtract balance from ERC55 address
             auto tokenId = dst.amount.nTokenId;
-            CrossBoundaryResult result;
             if (tokenId == DCT_ID{0}) {
-                if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex())) {
+                if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, HexStr(src.data), tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
                 if (!result.ok) {
@@ -277,7 +268,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 }
             }
             else {
-                evm_try_bridge_dst20(result, evmQueueId, HexStr(dst.data), tx.GetHash().GetHex(), tokenId.v, false);
+                evm_try_bridge_dst20(result, evmQueueId, HexStr(src.data), tx.GetHash().GetHex(), tokenId.v, false);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }

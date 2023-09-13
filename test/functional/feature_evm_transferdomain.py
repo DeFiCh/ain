@@ -736,7 +736,6 @@ class EVMTest(DefiTestFramework):
             tx, self.evm_key_pair.privkey
         )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-
         self.nodes[0].generate(1)
 
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
