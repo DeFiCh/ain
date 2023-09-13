@@ -552,7 +552,14 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
     if (pcustomcsview) {
         accountsViewDirty |= forceRebuildForReorg;
         CTransactionRef ptx{};
-        rebuildAccountsView(nMemPoolHeight, &::ChainstateActive().CoinsTip(), ptx);
+
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+        view.SetBackend(viewMemPool);
+
+        rebuildAccountsView(nMemPoolHeight, view, ptx);
     }
 }
 
@@ -619,7 +626,14 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     if (pcustomcsview) {
         accountsViewDirty |= forceRebuildForReorg;
         CTransactionRef ptx{};
-        rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip(), ptx);
+
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+        view.SetBackend(viewMemPool);
+
+        rebuildAccountsView(nBlockHeight, view, ptx);
     }
 
     lastRollingFeeUpdate = GetTime();
