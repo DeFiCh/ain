@@ -43,8 +43,8 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct TxSenderInfo {
-        address: String,
-        nonce: u64,
+        pub address: String,
+        pub nonce: u64,
     }
 
     // ========== Governance Variable ==========
@@ -99,6 +99,8 @@ pub mod ffi {
         pub chain_id: u64,
         pub priv_key: [u8; 32],
         pub queue_id: u64,
+        pub use_nonce: bool,
+        pub nonce: u64,
     }
 
     #[derive(Default)]
