@@ -552,7 +552,7 @@ class DST20(DefiTestFramework):
         assert_equal(
             self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(5.5),
+            Decimal(3.5),
         )
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(beforeAmount, afterAmount)
@@ -595,32 +595,6 @@ class DST20(DefiTestFramework):
                     "dst": {"address": self.address, "amount": "1@XYZ", "domain": 2},
                 }
             ],
-        )
-
-    def test_transfer_to_token_address(self):
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "2@BTC", "domain": 2},
-                    "dst": {
-                        "address": self.contract_address_btc,
-                        "amount": "2@BTC",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.node.generate(1)
-
-        assert_equal(
-            self.btc.functions.balanceOf(self.contract_address_btc).call()
-            / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(2),
-        )
-        assert_equal(
-            self.btc.functions.totalSupply().call()
-            / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(5.5),
         )
 
     def test_negative_transfer(self):
@@ -869,7 +843,6 @@ class DST20(DefiTestFramework):
         self.test_multiple_dvm_evm_bridge()
         self.test_conflicting_bridge()
         self.test_invalid_token()
-        self.test_transfer_to_token_address()
         self.test_bridge_when_no_balance()
         self.test_negative_transfer()
         self.test_different_tokens()

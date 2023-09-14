@@ -364,6 +364,7 @@ pub fn evm_unsafe_try_add_balance_in_q(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
+    pre_validate: bool,
 ) {
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
@@ -374,12 +375,29 @@ pub fn evm_unsafe_try_add_balance_in_q(
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmIn,
     }));
+
     unsafe {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_transferdomain_tx(raw_tx, queue_id)
+        {
+            Ok(()) => {}
+            Err(e) => {
+                debug!("validate_raw_transferdomain_tx failed with error: {e}");
+                return cross_boundary_error_return(result, e.to_string());
+            }
+        }
+
+        if pre_validate {
+            return cross_boundary_success(result);
+        }
+
         match SERVICES
             .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)
         {
-            Ok(()) => cross_boundary_success_return(result, ()),
+            Ok(()) => cross_boundary_success(result),
             Err(e) => cross_boundary_error_return(result, e.to_string()),
         }
     }
@@ -409,6 +427,7 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
+    pre_validate: bool,
 ) -> bool {
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
@@ -421,6 +440,22 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     }));
 
     unsafe {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_transferdomain_tx(raw_tx, queue_id)
+        {
+            Ok(()) => {}
+            Err(e) => {
+                debug!("validate_raw_transferdomain_tx failed with error: {e}");
+                return cross_boundary_error_return(result, e.to_string());
+            }
+        }
+
+        if pre_validate {
+            return cross_boundary_success_return(result, true);
+        }
+
         match SERVICES
             .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)
@@ -930,6 +965,7 @@ pub fn evm_try_bridge_dst20(
     native_hash: &str,
     token_id: u64,
     out: bool,
+    pre_validate: bool,
 ) {
     let native_hash = XHash::from(native_hash);
     let contract_address = match ain_contracts::dst20_address_from_token_id(token_id) {
@@ -946,6 +982,22 @@ pub fn evm_try_bridge_dst20(
     }));
 
     unsafe {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_transferdomain_tx(raw_tx, queue_id)
+        {
+            Ok(()) => {}
+            Err(e) => {
+                debug!("validate_raw_transferdomain_tx failed with error: {e}");
+                return cross_boundary_error_return(result, e.to_string());
+            }
+        }
+
+        if pre_validate {
+            return cross_boundary_success(result);
+        }
+
         match SERVICES
             .evm
             .push_tx_in_queue(queue_id, system_tx, native_hash)
