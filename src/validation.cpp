@@ -639,6 +639,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             pool.setAccountViewDirty();
         }
 
+        CAmount nFees = 0;
+        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
+            return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
+        }
+
         // If account view is dirty or there is no EVM queue ID Then ApplyCustomTx will
         // be tested against the current TX in rebuildAccountsView.
         if (!pool.getAccountViewDirty() && pool.getEvmQueueId()) {
@@ -649,11 +654,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
         } else if (auto res = pool.rebuildAccountsView(height, view, ptx, nAcceptTime); !res) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
-        }
-
-        CAmount nFees = 0;
-        if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
-            return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
         }
 
         if (nAbsurdFee && nFees > nAbsurdFee) {
