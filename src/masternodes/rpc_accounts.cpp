@@ -2019,7 +2019,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                             // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
                                     },
-                                    {"nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Transaction nonce"},
+                                    {"nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Optional parameter to specify the transaction nonce"},
                                 },
                             },
                         },
@@ -2051,11 +2051,11 @@ UniValue transferdomain(const JSONRPCRequest& request) {
     try {
         for (unsigned int i=0; i < srcDstArray.size(); i++) {
             const UniValue& elem = srcDstArray[i];
-            RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ}, false);
+            RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VNUM}, false);
 
             const UniValue& srcObj = elem["src"].get_obj();
             const UniValue& dstObj = elem["dst"].get_obj();
-            const UniValue& nonceObj = elem["nonce"].get_obj();
+            const UniValue& nonceObj = elem["nonce"];
 
             CTransferDomainItem src, dst;
 

@@ -446,6 +446,7 @@ class DST20(DefiTestFramework):
         assert_equal(amountBTC, "9.50000000@BTC")
 
     def test_multiple_dvm_evm_bridge(self):
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.erc55_address)
         self.nodes[0].transferdomain(
             [
                 {
@@ -455,6 +456,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "nonce": nonce,
                 }
             ]
         )
@@ -467,6 +469,7 @@ class DST20(DefiTestFramework):
                         "amount": "2@BTC",
                         "domain": 3,
                     },
+                    "nonce": nonce + 1,
                 }
             ]
         )
@@ -517,7 +520,9 @@ class DST20(DefiTestFramework):
 
         [afterAmount] = [x for x in self.node.getaccount(self.address) if "BTC" in x]
         assert_equal(
-            self.btc.functions.balanceOf(self.key_pair2.address).call(), Decimal(0)
+            self.btc.functions.balanceOf(self.key_pair2.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
         )
         assert_equal(
             self.btc.functions.totalSupply().call()
@@ -749,6 +754,7 @@ class DST20(DefiTestFramework):
         self.node = self.nodes[0]
         self.w0 = self.node.w3
         self.address = self.node.get_genesis_keys().ownerAuthAddress
+        self.erc55_address = self.node.addressmap(self.address, 1)["format"]["erc55"]
 
         # Contract addresses
         self.contract_address_usdt = self.w0.to_checksum_address(
