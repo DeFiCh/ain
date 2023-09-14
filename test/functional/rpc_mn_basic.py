@@ -167,7 +167,9 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         self.sync_blocks(self.nodes[0:2])
 
         # Check that collateral spending tx was deleted
-        assert_equal(sorted(self.nodes[0].getrawmempool()), sorted([resignTx, fundingTx]))
+        assert_equal(
+            sorted(self.nodes[0].getrawmempool()), sorted([resignTx, fundingTx])
+        )
         assert_equal(self.nodes[0].listmasternodes()[idnode0]["state"], "ENABLED")
 
         # Revert creation!
