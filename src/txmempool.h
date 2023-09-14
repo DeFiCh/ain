@@ -564,7 +564,6 @@ private:
     bool accountsViewDirty;
     bool forceRebuildForReorg;
     std::unique_ptr<CCustomCSView> acview;
-    uint64_t evmQueueId{};
 
     static void AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap);
 public:
@@ -723,11 +722,10 @@ public:
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
     CCustomCSView& accountsView();
-    Res rebuildAccountsView(int height, const CCoinsViewCache& coinsCache, const CTransactionRef& ptx, const int64_t time = 0);
+    void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
-    uint64_t getEvmQueueId();
-    void wipeEvmQueueId();
+
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

@@ -216,7 +216,6 @@ impl EVMCoreService {
         tx: &str,
         queue_id: u64,
         pre_validate: bool,
-        test_tx: bool,
     ) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
@@ -333,11 +332,9 @@ impl EVMCoreService {
             .get_total_gas_used_in(queue_id)
             .unwrap_or_default();
 
-        if !test_tx {
-            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-            if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
-                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
-            }
+        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
+        if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
+            return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
         }
 
         Ok(ValidateTxInfo {
