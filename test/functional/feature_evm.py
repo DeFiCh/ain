@@ -809,7 +809,6 @@ class EVMTest(DefiTestFramework):
         tx2 = self.nodes[0].evmtx(self.eth_address, 2, 21, 21001, self.to_address, 1)
         tx1 = self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, self.to_address, 1)
         tx3 = self.nodes[0].evmtx(self.eth_address, 3, 21, 21001, self.to_address, 1)
-        raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
         # Check the pending TXs
