@@ -155,12 +155,14 @@ pub mod ffi {
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
+            pre_validate: bool,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
+            pre_validate: bool,
         ) -> bool;
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
@@ -230,6 +232,7 @@ pub mod ffi {
             native_hash: &str,
             token_id: u64,
             out: bool,
+            pre_validate: bool,
         );
         fn evm_try_is_dst20_deployed_or_queued(
             result: &mut CrossBoundaryResult,

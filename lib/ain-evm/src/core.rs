@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 use std::{path::PathBuf, sync::Arc};
 
+use ain_contracts::{get_transferdomain_contract, FixedContract};
 use anyhow::format_err;
-use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
 use vsdb_core::vsdb_set_base_dir;
@@ -345,6 +346,99 @@ impl EVMCoreService {
             higher_nonce: false,
             lower_nonce: false,
         })
+    }
+
+    /// Validates a raw transfer domain tx.
+    ///
+    /// The validation checks of the tx before we consider it to be valid are:
+    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    /// 2. tx value check: verify that amount is set to zero.
+    /// 3. Verify that transaction action is a call to the transferdomain contract address.
+    ///
+    /// # Arguments
+    ///
+    /// * `tx` - The raw tx.
+    /// * `queue_id` - The queue_id queue number.
+    ///
+    /// # Returns
+    ///
+    /// Returns the validation result.
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn validate_raw_transferdomain_tx(&self, tx: &str, queue_id: u64) -> Result<()> {
+        debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
+        debug!(
+            "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
+            tx
+        );
+        let signed_tx = SignedTx::try_from(tx)
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
+            signed_tx
+        );
+
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        debug!(
+            "[validate_raw_transferdomain_tx] state_root : {:#?}",
+            state_root
+        );
+
+        let backend = self.get_backend(state_root)?;
+
+        let signed_tx: SignedTx = tx.try_into()?;
+        let nonce = backend.get_nonce(&signed_tx.sender);
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
+            signed_tx.sender
+        );
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx nonce : {:#?}",
+            signed_tx.nonce()
+        );
+        debug!("[validate_raw_transferdomain_tx] nonce : {:#?}", nonce);
+
+        // Validate tx nonce
+        if nonce > signed_tx.nonce() {
+            return Err(format_err!(
+                "Invalid nonce. Account nonce {}, signed_tx nonce {}",
+                nonce,
+                signed_tx.nonce()
+            )
+            .into());
+        }
+
+        // Validate tx value equal to zero
+        if signed_tx.value() != U256::zero() {
+            debug!("[validate_raw_transferdomain_tx] value not equal to zero");
+            return Err(format_err!("value not equal to zero").into());
+        }
+
+        // Verify transaction action and transferdomain contract address
+        let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+        match signed_tx.action() {
+            TransactionAction::Call(address) => {
+                if address != fixed_address {
+                    return Err(format_err!(
+                        "Invalid call address. Fixed address: {:#?}, signed_tx call address: {:#?}",
+                        fixed_address,
+                        address
+                    )
+                    .into());
+                }
+            }
+            _ => {
+                return Err(
+                    format_err!("tx action not a call to transferdomain contract address").into(),
+                )
+            }
+        }
+
+        Ok(())
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
