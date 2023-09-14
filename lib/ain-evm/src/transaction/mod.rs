@@ -65,7 +65,7 @@ impl LegacyUnsignedTransaction {
         let sig = s.0.serialize();
 
         let sig = TransactionSignature::new(
-            s.1.serialize() as u64 % 2 + chain_id * 2 + 35,
+            u64::from(s.1.serialize()) % 2 + chain_id * 2 + 35,
             H256::from_slice(&sig[0..32]),
             H256::from_slice(&sig[32..64]),
         )
@@ -97,11 +97,29 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
     pub pubkey: PublicKey,
+}
+
+impl fmt::Debug for SignedTx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SignedTx")
+            .field("hash", &self.hash())
+            .field("nonce", &self.nonce())
+            .field("to", &self.to())
+            .field("action", &self.action())
+            .field("value", &self.value())
+            .field("gas_limit", &self.gas_limit())
+            .field("max_fee_per_gas", &self.max_fee_per_gas())
+            .field("max_priority_fee_per_gas", &self.max_priority_fee_per_gas())
+            .field("access_list", &self.access_list())
+            .field("input", &hex::encode(self.data()))
+            .field("sender", &self.sender)
+            .finish()
+    }
 }
 
 impl TryFrom<TransactionV2> for SignedTx {
@@ -248,8 +266,8 @@ impl SignedTx {
     pub fn v(&self) -> u64 {
         match &self.transaction {
             TransactionV2::Legacy(tx) => tx.signature.v(),
-            TransactionV2::EIP2930(tx) => tx.odd_y_parity as u64,
-            TransactionV2::EIP1559(tx) => tx.odd_y_parity as u64,
+            TransactionV2::EIP2930(tx) => u64::from(tx.odd_y_parity),
+            TransactionV2::EIP1559(tx) => u64::from(tx.odd_y_parity),
         }
     }
 
@@ -271,16 +289,14 @@ impl SignedTx {
 
     pub fn max_fee_per_gas(&self) -> Option<U256> {
         match &self.transaction {
-            TransactionV2::Legacy(_) => None,
-            TransactionV2::EIP2930(_) => None,
+            TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_fee_per_gas),
         }
     }
 
     pub fn max_priority_fee_per_gas(&self) -> Option<U256> {
         match &self.transaction {
-            TransactionV2::Legacy(_) => None,
-            TransactionV2::EIP2930(_) => None,
+            TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => None,
             TransactionV2::EIP1559(tx) => Some(tx.max_priority_fee_per_gas),
         }
     }

@@ -346,7 +346,7 @@ bool CheckSequenceLocks(const CTxMemPool& pool, const CTransaction& tx, int flag
 // Returns the script flags which should be checked for a given block
 static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consensus::Params& chainparams);
 
-static void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age)
+static void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age, unsigned long evmAge)
     EXCLUSIVE_LOCKS_REQUIRED(pool.cs, ::cs_main)
 {
     int expired = pool.Expire(GetTime() - age);
@@ -453,7 +453,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
     // We also need to remove any now-immature transactions
     mempool.removeForReorg(&::ChainstateActive().CoinsTip(), ::ChainActive().Tip()->nHeight + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+    LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60, gArgs.GetArg("-mempoolevmexpiry", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60);
 }
 
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
@@ -630,15 +630,30 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.GetBestBlock();
 
         const auto height = GetSpendHeight(view);
-        const auto consensus = chainparams.GetConsensus();
+        const auto& consensus = chainparams.GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, mnview, consensus);
 
-        // rebuild accounts view if dirty
-        pool.rebuildAccountsView(height, view);
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
+        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+            pool.setAccountViewDirty();
+        }
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
+        }
+
+        // If account view is dirty or there is no EVM queue ID Then ApplyCustomTx will
+        // be tested against the current TX in rebuildAccountsView.
+        if (!pool.getAccountViewDirty() && pool.getEvmQueueId()) {
+            uint64_t gasUsed{};
+            auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
+            if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
+            }
+        } else if (auto res = pool.rebuildAccountsView(height, view, ptx, nAcceptTime); !res) {
+            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
         if (nAbsurdFee && nFees > nAbsurdFee) {
@@ -648,12 +663,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // let make sure we have needed coins
         if (!isEVMTx && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
-        }
-
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
-        if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
-            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -897,15 +906,13 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // instance the STRICTENC flag was incorrectly allowing certain
         // CHECKSIG NOT scripts to pass, even though they were invalid.
         //
-        // There is a similar check in CreateNewBlock() to prevent creating
+        // There is a similar check in CreateNewBlock () to prevent creating
         // invalid blocks (using TestBlockValidity), however allowing such
         // transactions into the mempool can be exploited as a DoS attack.
         unsigned int currentBlockScriptVerifyFlags = GetBlockScriptFlags(::ChainActive().Tip(), consensus);
 
         // TODO: We do multiple guess and parses. Streamline this later.
         // We also have IsEvmTx,  but we need the metadata here.
-        std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
         auto isEvmTx = txType == CustomTxType::EvmTx;
 
         if (!isEvmTx && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
@@ -923,15 +930,17 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
+
             CrossBoundaryResult result;
-            const auto txResult = evm_unsafe_try_prevalidate_raw_tx(result, HexStr(obj.evmTx));
+            const auto txResult = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.evmTx));
             if (!result.ok) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to validate %s", result.reason.c_str()), REJECT_INVALID, "evm-validate-failed");
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
             }
-            const auto txResultSender = std::string(txResult.sender.data(), txResult.sender.length());
+
+            const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
             const auto sender = pool.ethTxsBySender.find(txResultSender);
             if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth trransaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth transaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
             } else {
                 ethSender = txResultSender;
             }
@@ -968,7 +977,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // trim mempool and check if tx was trimmed
         if (!bypass_limits) {
-            LimitMempoolSize(pool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60);
+            LimitMempoolSize(pool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60, gArgs.GetArg("-mempoolevmexpiry", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60);
             if (!pool.exists(hash))
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }
@@ -2336,7 +2345,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck, const int64_t evmQueueId)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, uint64_t evmQueueId, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2413,6 +2422,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
+        XResultThrowOnErr(evm_unsafe_try_remove_queue(result, evmQueueId));
         return true;
     }
 
@@ -2937,6 +2947,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Finalize items
     if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_unsafe_try_commit_queue(result, evmQueueId));
+    } else {
+        XResultThrowOnErr(evm_unsafe_try_remove_queue(result, evmQueueId));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -3354,8 +3366,8 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         auto r = XResultValue(evm_unsafe_try_create_queue(result));
         if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
         uint64_t evmQueueId = *r;
-        
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false, evmQueueId);
+
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmQueueId, false);
         GetMainSignals().BlockChecked(blockConnecting, state);
         if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
 
@@ -4893,15 +4905,33 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.phashBlock = &block_hash;
     CheckContextState ctxState;
 
+    auto r = XResultValue(evm_unsafe_try_create_queue(result));
+    if (!r) { return error("%s: Consensus::ContextualCheckBlockHeader: error creating EVM queue", __func__); }
+    uint64_t evmQueueId = *r;
+
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
-    if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime()))
+    auto res = ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime());
+    if (!res) {
+        XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
-    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot))
+    }
+
+    res = CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot);
+    if (!res) {
+        XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
+    }
+
+    res = ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev);
+    if (!res) {
+        XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true))
-        return false;
+    }
+
+    res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true);
+    XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+    if (!res) return false;
+
     assert(state.IsValid());
 
     return true;
@@ -5290,6 +5320,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
     int nGoodTransactions = 0;
     CValidationState state;
     int reportDone = 0;
+
     LogPrintf("[0%%]..."); /* Continued */
     for (pindex = ::ChainActive().Tip(); pindex && pindex->pprev; pindex = pindex->pprev) {
         const int percentageDone = std::max(1, std::min(99, (int)(((double)(::ChainActive().Height() - pindex->nHeight)) / (double)nCheckDepth * (nCheckLevel >= 4 ? 50 : 100))));
@@ -5363,8 +5394,14 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, consensus))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
+
             bool dummyRewardedAnchors{};
-            if (!::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors))
+            auto r = XResultValue(evm_unsafe_try_create_queue(result));
+            if (!r) { return error("VerifyDB(): *** evm_unsafe_try_create_queue failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString()); }
+            uint64_t evmQueueId = *r;
+            auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId);
+            XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+            if (!res)
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;
         }
@@ -6050,7 +6087,8 @@ static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 bool LoadMempool(CTxMemPool& pool)
 {
     const CChainParams& chainparams = Params();
-    int64_t nExpiryTimeout = gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60;
+    int64_t nExpiryTimeout = gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60;
+    int64_t nExpiryEVMTimeout = gArgs.GetArg("-mempoolevmexpiry", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60;
     FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {
@@ -6084,8 +6122,13 @@ bool LoadMempool(CTxMemPool& pool)
             if (amountdelta) {
                 pool.PrioritiseTransaction(tx->GetHash(), amountdelta);
             }
+
+            std::vector<unsigned char> metadata;
+            CustomTxType txType = GuessCustomTxType(*tx, metadata, true);
+            auto isEVMTx = txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain;
+
             CValidationState state;
-            if (nTime + nExpiryTimeout > nNow) {
+            if ((isEVMTx && (nTime + nExpiryEVMTimeout > nNow)) || (nTime + nExpiryTimeout > nNow)) {
                 LOCK(cs_main);
                 AcceptToMemoryPoolWithTime(chainparams, pool, state, tx, nullptr /* pfMissingInputs */, nTime,
                                            nullptr /* plTxnReplaced */, false /* bypass_limits */, 0 /* nAbsurdFee */,

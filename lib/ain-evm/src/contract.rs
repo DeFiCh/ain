@@ -84,17 +84,17 @@ pub fn intrinsics_contract(
 }
 
 /// Returns transfer domain address, bytecode and null storage
-pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
+pub fn transfer_domain_contract() -> DeployContractInfo {
     let FixedContract {
         contract,
         fixed_address,
     } = get_transferdomain_contract();
 
-    Ok(DeployContractInfo {
+    DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
         storage: Vec::new(),
-    })
+    }
 }
 
 pub fn dst20_contract(

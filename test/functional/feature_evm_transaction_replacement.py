@@ -120,20 +120,27 @@ class EVMTest(DefiTestFramework):
 
     def should_prioritize_transaction_with_the_higher_gas_price(self):
         gasPrices = [
-            "0x2540be401",
             "0x2540be400",
-            "0x2540be404",
-            "0x2540be406",
             "0x2540be401",
-            "0x2540be407",
             "0x2540be402",
-            "0x2540be405",
             "0x2540be403",
+            "0x2540be404",
+            "0x2540be405",
+            "0x2540be406",
+            "0x2540be407",
         ]
 
         count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
         for gasPrice in gasPrices:
             self.send_transaction(gasPrice, count)
+
+        assert_raises_rpc_error(
+            -32001,
+            "lower fee as existing mempool entry",
+            self.send_transaction,
+            gasPrices[0],
+            count,
+        )
 
         self.nodes[0].generate(1)
 
@@ -143,8 +150,8 @@ class EVMTest(DefiTestFramework):
 
     def should_replace_pending_transaction_0(self):
         gasPrices = [
-            "0x2540be401",
             "0x2540be400",
+            "0x2540be401",
             # '0x2540be404',
             # '0x2540be406',
             # '0x2540be401',
@@ -214,9 +221,9 @@ class EVMTest(DefiTestFramework):
         gasPrices = [
             # '0x2540be401',
             "0x2540be400",
+            "0x2540be401",
             "0x2540be404",
             "0x2540be406",
-            "0x2540be401",
             # '0x2540be407',
             # '0x2540be402',
             # '0x2540be405',

@@ -13,6 +13,7 @@ from test_framework.util import (
     hex_to_decimal,
 )
 from decimal import Decimal
+import math
 
 
 class EVMTest(DefiTestFramework):
@@ -250,6 +251,18 @@ class EVMTest(DefiTestFramework):
 
     def evm_gov_vars(self):
         # Check setting vars before height
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before NextNetworkUpgradeHeight",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/evm": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before NextNetworkUpgradeHeight",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/transferdomain": "true"}},
+        )
         assert_raises_rpc_error(
             -32600,
             "called before NextNetworkUpgrade height",
@@ -771,14 +784,12 @@ class EVMTest(DefiTestFramework):
 
     def nonce_order_and_rbf(self):
         # Get burn address and miner account balance before transaction
+        self.miner_eth_address = self.nodes[0].addressmap(
+            self.nodes[0].get_genesis_keys().operatorAuthAddress, 1
+        )["format"]["erc55"]
         self.before_blockheight = self.nodes[0].getblockcount()
-        burn_before = Decimal(
-            self.nodes[0].getaccount(self.burn_address)[0].split("@")[0]
-        )
         self.miner_before = Decimal(
-            self.nodes[0]
-            .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
-            .split("@")[0]
+            self.nodes[0].w3.eth.get_balance(self.miner_eth_address)
         )
 
         # Check accounting of EVM fees
@@ -925,16 +936,8 @@ class EVMTest(DefiTestFramework):
             6000000000000000000,
         )
 
-        # Get burn address and miner account balance after transfer
-        burn_after = Decimal(
-            self.nodes[0].getaccount(self.burn_address)[0].split("@")[0]
-        )
-        miner_after = Decimal(
-            self.nodes[0]
-            .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
-            .split("@")[0]
-        )
-        self.burn = burn_after - burn_before
+        # Get miner account balance after transfer
+        miner_after = Decimal(self.nodes[0].w3.eth.get_balance(self.miner_eth_address))
         self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -953,7 +956,7 @@ class EVMTest(DefiTestFramework):
 
         # Try and send EVM TX a second time
         assert_raises_rpc_error(
-            -26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx
+            -26, "Nonce lower than expected", self.nodes[0].sendrawtransaction, raw_tx
         )
 
     def validate_xvm_coinbase(self):
@@ -969,15 +972,12 @@ class EVMTest(DefiTestFramework):
         block_hash = coinbase_xvm["msg"]["evm"]["blockHash"][2:]
         assert_equal(block_hash, eth_hash)
 
-        # Check EVM burnt fee
-        opreturn_burnt_fee_sats = coinbase_xvm["msg"]["evm"]["burntFee"]
-        opreturn_burnt_fee_amount = Decimal(opreturn_burnt_fee_sats) / 100000000
-        assert_equal(opreturn_burnt_fee_amount, self.burn)
-
         # Check EVM miner fee
         opreturn_priority_fee_sats = coinbase_xvm["msg"]["evm"]["priorityFee"]
         opreturn_priority_fee_amount = Decimal(opreturn_priority_fee_sats) / 100000000
-        assert_equal(opreturn_priority_fee_amount, self.miner_fee)
+        assert_equal(
+            opreturn_priority_fee_amount, self.miner_fee / int(math.pow(10, 18))
+        )
 
         # Check EVM beneficiary address
         opreturn_miner_address = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
@@ -994,9 +994,7 @@ class EVMTest(DefiTestFramework):
         # Test rollback of EVM TX
         self.rollback_to(self.before_blockheight, self.nodes)
         miner_rollback = Decimal(
-            self.nodes[0]
-            .getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress)[0]
-            .split("@")[0]
+            self.nodes[0].w3.eth.get_balance(self.miner_eth_address)
         )
         assert_equal(self.miner_before, miner_rollback)
 
@@ -1132,13 +1130,62 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].evmtx(self.eth_address, 65, 22, 21001, self.to_address, 1)
         self.nodes[0].evmtx(self.eth_address, 65, 23, 21001, self.to_address, 1)
         tx0 = self.nodes[0].evmtx(self.eth_address, 65, 25, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 21, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 24, 21001, self.to_address, 1)
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            65,
+            21,
+            21001,
+            self.to_address,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            65,
+            24,
+            21001,
+            self.to_address,
+            1,
+        )
         self.nodes[0].evmtx(self.to_address, 0, 22, 21001, self.eth_address, 1)
         self.nodes[0].evmtx(self.to_address, 0, 23, 21001, self.eth_address, 1)
         tx1 = self.nodes[0].evmtx(self.to_address, 0, 25, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 21, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 24, 21001, self.eth_address, 1)
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.to_address,
+            0,
+            21,
+            21001,
+            self.eth_address,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "Rejected due to same or lower fee as existing mempool entry",
+            self.nodes[0].evmtx,
+            self.to_address,
+            0,
+            24,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Check mempool only contains two entries
+        assert_equal(
+            sorted(self.nodes[0].getrawmempool()),
+            [
+                "2b13a48b2af32206a2d60d535ad46d4958c25b4ddd4c30f3a2da32f092c23916",
+                "6a6b53538b66e0eb477ce923901e6fa1714c4f52a83f8f1793c92c14ebc0f910",
+            ],
+        )
         self.nodes[0].generate(1)
 
         # Check accounting of EVM fees

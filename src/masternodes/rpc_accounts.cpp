@@ -2136,6 +2136,7 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             std::string   from = ScriptToString(script);
 
             CrossBoundaryResult result;
+            auto evmQueueId = mempool.getEvmQueueId();
             const auto signedTx = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{std::move(from),
                                                                                                                  std::move(to),
                                                                                                                  nativeAddress,
@@ -2143,14 +2144,20 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                                                                                                  static_cast<uint64_t>(dst.amount.nValue),
                                                                                                                  dst.amount.nTokenId.v,
                                                                                                                  Params().GetConsensus().evmChainId,
-                                                                                                                 privKey});
+                                                                                                                 privKey,
+                                                                                                                 evmQueueId
+                                                                                                                 });
             if (!result.ok) {
                 throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
             }
 
             std::vector<uint8_t> evmTx(signedTx.size());
             std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
-            dst.data = evmTx;
+            if (isEVMIn) {
+                dst.data = evmTx;
+            } else {
+                src.data = evmTx;
+            }
 
             msg.transfers.push_back({src, dst});
         }

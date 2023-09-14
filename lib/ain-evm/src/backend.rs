@@ -11,7 +11,6 @@ use vsdb_trie_db::{MptOnce, MptRo};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
-    traits::BridgeBackend,
     transaction::SignedTx,
     trie::TrieDBStore,
     Result,
@@ -199,6 +198,12 @@ impl EVMBackend {
             .unwrap_or_default()
     }
 
+    pub fn get_balance(&self, address: &H160) -> U256 {
+        self.get_account(address)
+            .map(|acc| acc.balance)
+            .unwrap_or_default()
+    }
+
     pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
         let Some(account) = self.get_account(&contract) else {
             return Ok(U256::zero());
@@ -376,8 +381,8 @@ impl ApplyBackend for EVMBackend {
     }
 }
 
-impl BridgeBackend for EVMBackend {
-    fn add_balance(&mut self, address: H160, amount: U256) -> Result<()> {
+impl EVMBackend {
+    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         let basic = self.basic(address);
 
         let new_basic = Basic {
@@ -389,7 +394,7 @@ impl BridgeBackend for EVMBackend {
         Ok(())
     }
 
-    fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
+    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
         let account = self
             .get_account(&address)
             .ok_or(BackendError::NoSuchAccount(address))?;

@@ -34,6 +34,10 @@ pub trait MetachainDebugRPC {
     #[method(name = "logaccountstates")]
     fn log_account_states(&self) -> RpcResult<()>;
 
+    // Log txqueue state
+    #[method(name = "logqueues")]
+    fn log_queues(&self) -> RpcResult<()>;
+
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
     fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate>;
@@ -72,13 +76,13 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         ro_handle.iter().for_each(|el| match el {
             Ok((_, v)) => {
                 if let Ok(account) = Account::decode(&Rlp::new(&v)) {
-                    debug!("[log_account_states] account {:?}", account)
+                    debug!("[log_account_states] account {:?}", account);
                 } else {
-                    debug!("[log_account_states] Error decoding account {:?}", v)
+                    debug!("[log_account_states] Error decoding account {:?}", v);
                 }
             }
             Err(e) => {
-                debug!("[log_account_states] Error on iter element {e}")
+                debug!("[log_account_states] Error on iter element {e}");
             }
         });
 
@@ -185,5 +189,11 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             burnt_fee,
             priority_fee,
         })
+    }
+
+    fn log_queues(&self) -> RpcResult<()> {
+        let queues = &self.handler.core.tx_queues;
+        debug!("queues : {:#?}", queues);
+        Ok(())
     }
 }

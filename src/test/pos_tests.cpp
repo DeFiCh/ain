@@ -21,7 +21,8 @@ std::shared_ptr<CBlock> Block( const uint256& prev_hash, const uint64_t& height,
 {
     CScript pubKey = CScript() << OP_TRUE;
 
-    auto ptemplate = BlockAssembler(Params()).CreateNewBlock(pubKey);
+    auto res = BlockAssembler(Params()).CreateNewBlock(pubKey);
+    auto& ptemplate = *res;
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->mintedBlocks = mintedBlocks;
