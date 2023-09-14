@@ -8,6 +8,7 @@
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET = 15000000;
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
+static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
 
 struct Attributes {
     uint64_t blockGasTarget;
@@ -36,6 +37,7 @@ rust::vec<rust::string> getAccounts();
 rust::string getDatadir();
 rust::string getNetwork();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
+uint32_t getEthMaxConnections();
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<rust::string> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
