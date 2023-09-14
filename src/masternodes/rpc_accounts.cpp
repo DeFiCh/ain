@@ -2138,7 +2138,10 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             std::string   from = ScriptToString(script);
 
             CrossBoundaryResult result;
-            auto evmQueueId = mempool.getEvmQueueId();
+            auto evmQueueId = evm_unsafe_try_create_queue(result);
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, "Unable to create EVM queue");
+            }
             uint64_t nonce = 0;
             bool useNonce = !nonceObj.isNull();
             if (useNonce) {
@@ -2158,6 +2161,11 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                                                                                                  });
             if (!result.ok) {
                 throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+            }
+
+            evm_unsafe_try_remove_queue(result, evmQueueId);
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, "Unable to destroy EVM queue");
             }
 
             std::vector<uint8_t> evmTx(signedTx.size());

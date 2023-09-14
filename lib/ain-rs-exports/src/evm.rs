@@ -503,7 +503,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
     queue_id: u64,
     raw_tx: &str,
     pre_validate: bool,
-    test_tx: bool,
 ) -> ffi::ValidateTxMiner {
     debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
     match SERVICES.evm.verify_tx_fees(raw_tx) {
@@ -517,7 +516,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         match SERVICES
             .evm
             .core
-            .validate_raw_tx(raw_tx, queue_id, pre_validate, test_tx)
+            .validate_raw_tx(raw_tx, queue_id, pre_validate)
         {
             Ok(ValidateTxInfo {
                 signed_tx,

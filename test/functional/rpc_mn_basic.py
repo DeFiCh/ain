@@ -140,7 +140,7 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         fundingTx = self.nodes[0].sendtoaddress(collateral0, 1)
         self.nodes[0].generate(1)
         # resignTx
-        self.nodes[0].resignmasternode(idnode0)
+        resignTx = self.nodes[0].resignmasternode(idnode0)
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[idnode0]["state"], "PRE_RESIGNED")
         self.nodes[0].generate(10)
@@ -167,12 +167,9 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         self.sync_blocks(self.nodes[0:2])
 
         # Check that collateral spending tx was deleted
-        # print ("CreateTx", idnode0)
-        # print ("ResignTx", resignTx)
-        # print ("FundingTx", fundingTx)
-        # print ("SpendTx", sendedTxHash)
-        # resignTx is removed for a block
-        assert_equal(self.nodes[0].getrawmempool(), [fundingTx])
+        assert_equal(
+            sorted(self.nodes[0].getrawmempool()), sorted([resignTx, fundingTx])
+        )
         assert_equal(self.nodes[0].listmasternodes()[idnode0]["state"], "ENABLED")
 
         # Revert creation!
