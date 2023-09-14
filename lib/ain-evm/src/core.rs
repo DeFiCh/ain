@@ -186,17 +186,20 @@ impl EVMCoreService {
     /// Validates a raw tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:
-    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    /// 1. Account nonce check: verify that the tx nonce must equal to the account nonce (for validation)
     /// 2. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
     /// 3. Gas price and tx value check: verify that amount is within money range.
-    /// 4. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
-    /// 5. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
-    /// 6. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    /// 4. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
+    /// 5. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    /// 6. Verify if tx nonce is greater or less than current account nonce.
+    /// 7. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
     ///
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
     /// * `queue_id` - The queue_id queue number.
+    /// * `pre_validate` - Validate the raw tx with or without state context.
+    /// * `test_tx` - Test the validity of the raw transaction with block context.
     ///
     /// # Returns
     ///
