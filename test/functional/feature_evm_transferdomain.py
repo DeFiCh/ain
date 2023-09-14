@@ -736,7 +736,6 @@ class EVMTest(DefiTestFramework):
             tx, self.evm_key_pair.privkey
         )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-
         self.nodes[0].generate(1)
 
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -776,7 +775,9 @@ class EVMTest(DefiTestFramework):
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
         self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
 
         contract_address = web3.utils.get_create_address(
