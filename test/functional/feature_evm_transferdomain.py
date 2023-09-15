@@ -995,6 +995,70 @@ class EVMTest(DefiTestFramework):
         evm_tx = self.nodes[0].vmmap(tx1, 0)["output"]
         assert_equal(block["transactions"][0], evm_tx)
 
+    def conflicting_transferdomain_evmtx(self):
+        burn_address = self.nodes[0].w3.to_checksum_address("0x0000000000000000000000000000000000000000")
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        self.nodes[0].generate(1)
+
+        transfer_domain(
+            self.nodes[0], self.address, self.evm_key_pair.address, "100@DFI", 2, 3
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].eth_sendTransaction(
+            {
+                "nonce": self.nodes[0].w3.to_hex(0),
+                "from": self.evm_key_pair.address,
+                "to": burn_address,
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+        self.nodes[0].generate(1)
+
+        balance = Decimal(self.nodes[0].w3.eth.get_balance(self.evm_key_pair.address))
+        burn_balance = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address)
+
+        print(balance)
+        print(nonce)
+        print(burn_balance)
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "nonce": nonce + 1
+                }
+            ]
+        )
+        self.nodes[0].eth_sendTransaction(
+            {
+                "nonce": self.nodes[0].w3.to_hex(nonce + 1),
+                "from": self.evm_key_pair.address,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+        self.nodes[0].generate(1)
+
+        balance_after = Decimal(self.nodes[0].w3.eth.get_balance(self.evm_key_pair.address))
+        burn_balance_after = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
+        nonce_after = self.nodes[0].w3.eth.get_transaction_count(self.evm_key_pair.address)
+
+        # evmtx should take precedence, transferdomain should be discarded
+        assert_equal(nonce + 1, nonce_after)  # evm tx will increment account nonce
+        assert_equal(burn_balance_after, burn_balance + Decimal(1))  # null address should have more balance
+        assert(balance_after < balance)  # sender should have less balance since tranferdomain failed
+
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
@@ -1019,6 +1083,8 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
         self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+
+        self.conflicting_transferdomain_evmtx()
 
 
 if __name__ == "__main__":
