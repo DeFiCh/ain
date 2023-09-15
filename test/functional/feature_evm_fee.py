@@ -131,7 +131,7 @@ class EVMFeeTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32001,
-            "tx gas price is lower than block base fee",
+            "evm tx failed to pre-validate tx gas price is lower than initial block base fee",
             self.nodes[0].eth_sendTransaction,
             {
                 "from": self.ethAddress,

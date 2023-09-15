@@ -437,6 +437,76 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     }
 }
 
+/// Pre-validates a raw EVM transaction.
+///
+/// # Arguments
+///
+/// * `result` - Result object
+/// * `queue_id` - The EVM queue ID
+/// * `tx` - The raw transaction string.
+///
+/// # Errors
+///
+/// Returns an Error if:
+/// - The hex data is invalid
+/// - The EVM transaction is invalid
+/// - The EVM transaction fee is lower than the next block's base fee
+/// - Could not fetch the underlying EVM account
+/// - Account's nonce is more than raw tx's nonce
+/// - The EVM transaction prepay gas is invalid
+/// - The EVM transaction gas limit is lower than the transaction intrinsic gas
+///
+/// # Returns
+///
+/// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
+/// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
+/// object otherwise.
+pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    raw_tx: &str,
+) -> ffi::ValidateTxCompletion {
+    debug!("[evm_unsafe_try_prevalidate_raw_tx_in_q]");
+    unsafe {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_tx(raw_tx, queue_id, true)
+        {
+            Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                higher_nonce,
+                lower_nonce,
+            }) => {
+                let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
+                    return cross_boundary_error_return(result, "nonce value overflow");
+                };
+
+                let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
+                    return cross_boundary_error_return(result, "prepay fee value overflow");
+                };
+
+                cross_boundary_success_return(
+                    result,
+                    ffi::ValidateTxCompletion {
+                        nonce,
+                        sender: format!("{:?}", signed_tx.sender),
+                        tx_hash: format!("{:?}", signed_tx.hash()),
+                        prepay_fee,
+                        higher_nonce,
+                        lower_nonce,
+                    },
+                )
+            }
+            Err(e) => {
+                debug!("evm_try_validate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
+        }
+    }
+}
+
 /// Validates a raw EVM transaction.
 ///
 /// # Arguments
@@ -444,7 +514,6 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 /// * `result` - Result object
 /// * `queue_id` - The EVM queue ID
 /// * `tx` - The raw transaction string.
-/// * `pre_validate` - Validate the raw transaction with or without state context.
 ///
 /// # Errors
 ///
@@ -456,7 +525,6 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 /// - Account's nonce does not match raw tx's nonce
 /// - The EVM transaction prepay gas is invalid
 /// - The EVM transaction gas limit is lower than the transaction intrinsic gas
-/// - The EVM transaction execution failed
 /// - THe EVM transaction cannot be added into the transaction queue as it exceeds the block size limit.
 ///
 /// # Returns
@@ -468,7 +536,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
-    pre_validate: bool,
 ) -> ffi::ValidateTxCompletion {
     debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
     match SERVICES.evm.verify_tx_fees(raw_tx) {
@@ -482,7 +549,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         match SERVICES
             .evm
             .core
-            .validate_raw_tx(raw_tx, queue_id, pre_validate)
+            .validate_raw_tx(raw_tx, queue_id, false)
         {
             Ok(ValidateTxInfo {
                 signed_tx,
@@ -525,7 +592,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
 /// * `result` - Result object
 /// * `queue_id` - The EVM queue ID
 /// * `tx` - The raw transaction string.
-/// * `pre_validate` - Validate the raw transaction with or without state context.
 ///
 /// # Errors
 ///

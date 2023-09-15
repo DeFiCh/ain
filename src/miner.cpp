@@ -640,7 +640,7 @@ bool BlockAssembler::EvmTxPreapply(const EvmTxPreApplyContext& ctx)
     ValidateTxCompletion txResult;
     if (ctx.txType == CustomTxType::EvmTx) {
         const auto obj = std::get<CEvmTxMessage>(txMessage);
-        txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), false);
+        txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
             return false;
         }
