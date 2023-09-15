@@ -142,19 +142,35 @@ rust::vec<rust::string> getPoolTransactions() {
 
         std::vector<unsigned char> metadata;
         const auto txType = GuessCustomTxType(tx, metadata, true);
-        if (txType != CustomTxType::EvmTx) {
-            continue;
-        }
+        if (txType == CustomTxType::EvmTx) {
+            CCustomTxMessage txMessage{CEvmTxMessage{}};
+            const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
+                                                 txMessage);
+            if (!res) {
+                continue;
+            }
 
-        CCustomTxMessage txMessage{CEvmTxMessage{}};
-        const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
-                                             txMessage);
-        if (!res) {
-            continue;
-        }
+            const auto obj = std::get<CEvmTxMessage>(txMessage);
+            poolTransactions.push_back(HexStr(obj.evmTx));
+        } else if (txType == CustomTxType::TransferDomain) {
+            CCustomTxMessage txMessage{CTransferDomainMessage{}};
+            const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
+                                                 txMessage);
+            if (!res) {
+                continue;
+            }
 
-        const auto obj = std::get<CEvmTxMessage>(txMessage);
-        poolTransactions.push_back(HexStr(obj.evmTx.begin(), obj.evmTx.end()));
+            const auto obj = std::get<CTransferDomainMessage>(txMessage);
+            if (obj.transfers.size() != 1) {
+                continue;
+            }
+
+            if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                poolTransactions.push_back(HexStr(obj.transfers[0].second.data));
+            } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                poolTransactions.push_back(HexStr(obj.transfers[0].first.data));
+            }
+        }
     }
 
     return poolTransactions;
