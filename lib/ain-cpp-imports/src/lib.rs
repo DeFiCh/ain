@@ -37,6 +37,9 @@ mod ffi {
     pub fn getDatadir() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEthMaxConnections() -> u32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getNetwork() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -105,6 +108,10 @@ pub fn get_accounts() -> Result<Vec<String>, Box<dyn Error>> {
 
 pub fn get_datadir() -> String {
     ffi::getDatadir()
+}
+
+pub fn get_max_connections() -> u32 {
+    ffi::getEthMaxConnections()
 }
 
 pub fn get_network() -> String {
