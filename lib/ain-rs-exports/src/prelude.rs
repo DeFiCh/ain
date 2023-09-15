@@ -1,4 +1,5 @@
 use crate::ffi;
+use log::debug;
 
 pub fn cross_boundary_success(result: &mut ffi::CrossBoundaryResult) {
     result.ok = true;
@@ -8,6 +9,7 @@ pub fn cross_boundary_success(result: &mut ffi::CrossBoundaryResult) {
 pub fn cross_boundary_error<S: Into<String>>(result: &mut ffi::CrossBoundaryResult, message: S) {
     result.ok = false;
     result.reason = message.into();
+    debug!("[cross_boundary_error] reason: {:?}", result.reason);
 }
 
 pub fn cross_boundary_error_return<T: Default, S: Into<String>>(
