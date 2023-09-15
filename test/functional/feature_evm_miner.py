@@ -274,7 +274,7 @@ class EVMTest(DefiTestFramework):
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         assert_equal(len(block_info["tx"]) - 1, 20)
 
-    def test_for_fee_mismatch_between_block_and_queue(self):
+    def state_dependent_txs_in_block_and_queue(self):
         self.rollback_and_clear_mempool()
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
@@ -382,7 +382,6 @@ class EVMTest(DefiTestFramework):
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
-        # Only the first 10 txs should have gas used = gas_used_when_true
         hashes = []
         count = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         for idx in range(10):
@@ -411,9 +410,6 @@ class EVMTest(DefiTestFramework):
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         hashes.append(signed.hash.hex())
 
-        # Only the 8 of the 15 txs should be able to be minted before reaching block limit
-        # calculated in txqueue.
-        # All of these txs should have gas used = gas_used_when_false
         for idx in range(15):
             tx = contract.functions.loop(9_000).build_transaction(
                 {
@@ -429,9 +425,8 @@ class EVMTest(DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        # Check that only 19 txs are minted
         block = self.nodes[0].eth_getBlockByNumber("latest")
-        assert_equal(len(block["transactions"]), 19)
+        assert_equal(len(block["transactions"]), 26)
 
         # Check first 10 txs should have gas used when true
         for idx in range(10):
@@ -463,16 +458,13 @@ class EVMTest(DefiTestFramework):
         # But the minted block is only of size 16111252.
         correct_gas_used = (
             gas_used_when_true * 10
-            + gas_used_when_false * 8
+            + gas_used_when_false * 15
             + gas_used_when_change_state
         )
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         assert_equal(
             block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used
         )
-
-        # Check that the remaining 7 evm txs are still in mempool
-        assert_equal(Decimal(self.nodes[0].getmempoolinfo()["size"]), Decimal("7"))
 
     def run_test(self):
         self.setup()
@@ -484,7 +476,7 @@ class EVMTest(DefiTestFramework):
         self.invalid_evm_tx_in_block_creation()
 
         # Test for block size overflow from fee mismatch between tx queue and block
-        self.test_for_fee_mismatch_between_block_and_queue()
+        self.state_dependent_txs_in_block_and_queue()
 
 
 if __name__ == "__main__":

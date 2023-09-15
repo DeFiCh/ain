@@ -2018,7 +2018,8 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                             {"domain", RPCArg::Type::NUM, RPCArg::Optional::NO, "Domain of source: 2 - DVM, 3 - EVM"},
                                             // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                         },
-                                    }
+                                    },
+                                    {"nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Optional parameter to specify the transaction nonce"},
                                 },
                             },
                         },
@@ -2050,10 +2051,11 @@ UniValue transferdomain(const JSONRPCRequest& request) {
     try {
         for (unsigned int i=0; i < srcDstArray.size(); i++) {
             const UniValue& elem = srcDstArray[i];
-            RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ}, false);
+            RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VNUM}, false);
 
             const UniValue& srcObj = elem["src"].get_obj();
             const UniValue& dstObj = elem["dst"].get_obj();
+            const UniValue& nonceObj = elem["nonce"];
 
             CTransferDomainItem src, dst;
 
@@ -2136,7 +2138,15 @@ UniValue transferdomain(const JSONRPCRequest& request) {
             std::string   from = ScriptToString(script);
 
             CrossBoundaryResult result;
-            auto evmQueueId = mempool.getEvmQueueId();
+            auto evmQueueId = evm_unsafe_try_create_queue(result);
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, "Unable to create EVM queue");
+            }
+            uint64_t nonce = 0;
+            bool useNonce = !nonceObj.isNull();
+            if (useNonce) {
+                nonce = nonceObj.get_int64();
+            }
             const auto signedTx = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{std::move(from),
                                                                                                                  std::move(to),
                                                                                                                  nativeAddress,
@@ -2145,10 +2155,17 @@ UniValue transferdomain(const JSONRPCRequest& request) {
                                                                                                                  dst.amount.nTokenId.v,
                                                                                                                  Params().GetConsensus().evmChainId,
                                                                                                                  privKey,
-                                                                                                                 evmQueueId
+                                                                                                                 evmQueueId,
+                                                                                                                 useNonce,
+                                                                                                                 nonce
                                                                                                                  });
             if (!result.ok) {
                 throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+            }
+
+            evm_unsafe_try_remove_queue(result, evmQueueId);
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, "Unable to destroy EVM queue");
             }
 
             std::vector<uint8_t> evmTx(signedTx.size());

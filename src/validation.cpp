@@ -633,27 +633,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         const auto& consensus = chainparams.GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, mnview, consensus);
 
-        std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
-        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
-            pool.setAccountViewDirty();
-        }
+        // rebuild accounts view if dirty
+        pool.rebuildAccountsView(height, view);
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
             return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), FormatStateMessage(state));
-        }
-
-        // If account view is dirty or there is no EVM queue ID Then ApplyCustomTx will
-        // be tested against the current TX in rebuildAccountsView.
-        if (!pool.getAccountViewDirty() && pool.getEvmQueueId()) {
-            uint64_t gasUsed{};
-            auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock);
-            if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
-            }
-        } else if (auto res = pool.rebuildAccountsView(height, view, ptx, nAcceptTime); !res) {
-            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
         if (nAbsurdFee && nFees > nAbsurdFee) {
@@ -663,6 +648,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         // let make sure we have needed coins
         if (!isEVMTx && view.GetValueIn(tx) < nFees) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
+        }
+
+        uint64_t gasUsed{};
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock, true);
+        if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
+            return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
 
         // we have all inputs cached now, so switch back to dummy, so we don't need to keep lock on mempool
@@ -913,6 +904,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // TODO: We do multiple guess and parses. Streamline this later.
         // We also have IsEvmTx,  but we need the metadata here.
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
         auto isEvmTx = txType == CustomTxType::EvmTx;
 
         if (!isEvmTx && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
@@ -924,7 +917,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         if (isEvmTx) {
             auto txMessage = customTypeToMessage(txType);
-            auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
+            res = CustomMetadataParse(height, consensus, metadata, txMessage);
             if (!res) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
             }
@@ -2414,7 +2407,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, 0, false);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, 0, false, false);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2698,7 +2691,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             const auto applyCustomTxTime = GetTimeMicros();
             uint64_t gasUsed{};
-            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock);
+            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock, false);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

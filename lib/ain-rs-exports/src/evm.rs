@@ -235,11 +235,16 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
             }
         }
     };
-    let Ok(nonce) = SERVICES.evm.get_nonce(from_address, state_root) else {
-        return cross_boundary_error_return(
-            result,
-            format!("Could not get nonce for {from_address:x?}"),
-        );
+    let nonce = if ctx.use_nonce {
+        U256::from(ctx.nonce)
+    } else {
+        let Ok(nonce) = SERVICES.evm.get_nonce(from_address, state_root) else {
+            return cross_boundary_error_return(
+                result,
+                format!("Could not get nonce for {from_address:x?}"),
+            );
+        };
+        nonce
     };
 
     let t = LegacyUnsignedTransaction {
@@ -498,7 +503,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
     queue_id: u64,
     raw_tx: &str,
     pre_validate: bool,
-    test_tx: bool,
 ) -> ffi::ValidateTxMiner {
     debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
     match SERVICES.evm.verify_tx_fees(raw_tx) {
@@ -512,7 +516,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         match SERVICES
             .evm
             .core
-            .validate_raw_tx(raw_tx, queue_id, pre_validate, test_tx)
+            .validate_raw_tx(raw_tx, queue_id, pre_validate)
         {
             Ok(ValidateTxInfo {
                 signed_tx,

@@ -459,7 +459,7 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
         auto consensus = Params().GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, view, consensus);
         uint64_t gasUsed{};
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, gasUsed, 0, 0, isEvmEnabledForBlock, true, true);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, gasUsed, 0, 0, isEvmEnabledForBlock, true);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -1132,7 +1132,6 @@ static UniValue clearmempool(const JSONRPCRequest& request)
         LOCK(mempool.cs);
         mempool.queryHashes(vtxid);
         mempool.clear();
-        mempool.wipeEvmQueueId();
     }
 
     {
