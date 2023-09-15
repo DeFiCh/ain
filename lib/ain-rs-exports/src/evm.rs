@@ -468,11 +468,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
 ) -> ffi::ValidateTxCompletion {
     debug!("[evm_unsafe_try_prevalidate_raw_tx_in_q]");
     unsafe {
-        match SERVICES
-            .evm
-            .core
-            .validate_raw_tx(raw_tx, queue_id, true)
-        {
+        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, true) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
@@ -546,11 +542,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         }
     }
     unsafe {
-        match SERVICES
-            .evm
-            .core
-            .validate_raw_tx(raw_tx, queue_id, false)
-        {
+        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, false) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
