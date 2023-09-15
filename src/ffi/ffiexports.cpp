@@ -136,9 +136,6 @@ rust::vec<rust::string> getPoolTransactions() {
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
-        if (!IsEVMTx(tx)) {
-            continue;
-        }
 
         std::vector<unsigned char> metadata;
         const auto txType = GuessCustomTxType(tx, metadata, true);
