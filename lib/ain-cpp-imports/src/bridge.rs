@@ -18,7 +18,7 @@ pub mod ffi {
     pub struct TransactionData {
         pub tx_type: u8,
         pub data: String,
-        pub direction : u8,
+        pub direction: u8,
     }
 
     unsafe extern "C++" {
