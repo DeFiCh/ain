@@ -186,21 +186,24 @@ impl EVMCoreService {
 
     /// Validates a raw tx.
     ///
-    /// The validation checks of the tx before we consider it to be valid are:
-    /// 1. Account nonce check: verify that the tx nonce must equal to the account nonce (for validation)
-    /// 2. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
-    /// 3. Gas price and tx value check: verify that amount is within money range.
-    /// 4. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
-    /// 5. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
-    /// 6. Verify if tx nonce is greater or less than current account nonce.
-    /// 7. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// The pre-validation checks of the tx before we consider it to be valid are:
+    /// 1. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
+    /// 2. Gas price and tx value check: verify that amount is within money range.
+    /// 3. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
+    /// 4. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    /// 5. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    ///
+    /// The validation checks with state context of the tx before we consider it to be valid are:
+    /// 1. Nonce check: Returns flag if nonce is lower or higher than the current state account nonce.
+    /// 2. Execute the tx with the state root from the txqueue.
+    /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 4. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
     ///
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
     /// * `queue_id` - The queue_id queue number.
     /// * `pre_validate` - Validate the raw tx with or without state context.
-    /// * `test_tx` - Test the validity of the raw transaction with block context.
     ///
     /// # Returns
     ///
@@ -226,7 +229,7 @@ impl EVMCoreService {
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
-        let backend = self.get_backend(state_root)?;
+        let mut backend = self.get_backend(state_root)?;
 
         let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
@@ -239,15 +242,6 @@ impl EVMCoreService {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-
-        if !pre_validate && nonce != signed_tx.nonce() {
-            return Err(format_err!(
-                "Invalid nonce. Account nonce {}, signed_tx nonce {}",
-                nonce,
-                signed_tx.nonce()
-            )
-            .into());
-        }
 
         // Validate tx gas price with initial block base fee
         let tx_gas_price = signed_tx.gas_price();
@@ -276,65 +270,71 @@ impl EVMCoreService {
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
-        // Should be queued for now and don't go through VM validation
-        match signed_tx.nonce().cmp(&nonce) {
-            Ordering::Greater => {
-                return Ok(ValidateTxInfo {
-                    signed_tx,
-                    prepay_fee,
-                    higher_nonce: true,
-                    lower_nonce: false,
-                });
+        if pre_validate {
+            // Validate tx nonce
+            if nonce > signed_tx.nonce() {
+                return Err(format_err!(
+                    "Invalid nonce. Account nonce {}, signed_tx nonce {}",
+                    nonce,
+                    signed_tx.nonce()
+                )
+                .into());
             }
-            Ordering::Less => {
-                return Ok(ValidateTxInfo {
-                    signed_tx,
-                    prepay_fee,
-                    higher_nonce: false,
-                    lower_nonce: true,
-                });
+
+            return Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                higher_nonce: false,
+                lower_nonce: false,
+            });
+        } else {
+            // Should be queued for now and don't go through VM validation
+            match signed_tx.nonce().cmp(&nonce) {
+                Ordering::Greater => {
+                    return Ok(ValidateTxInfo {
+                        signed_tx,
+                        prepay_fee,
+                        higher_nonce: true,
+                        lower_nonce: false,
+                    });
+                }
+                Ordering::Less => {
+                    return Ok(ValidateTxInfo {
+                        signed_tx,
+                        prepay_fee,
+                        higher_nonce: false,
+                        lower_nonce: true,
+                    });
+                }
+                _ => {}
             }
-            _ => {}
-        }
 
-        // Validate tx prepay fees with account balance
-        let balance = backend.get_balance(&signed_tx.sender);
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+            // Execute tx
+            let mut executor = AinExecutor::new(&mut backend);
+            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);
 
-        if balance < prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
-            return Err(format_err!("insufficient balance to pay fees").into());
-        }
+            // Validate tx prepay fees with account balance
+            let balance = backend.get_balance(&signed_tx.sender);
+            debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
-        // Get previous block number
-        let prev_block_number = self
-            .tx_queues
-            .get_target_block_in(queue_id)?
-            .saturating_sub(U256::one());
+            if balance < prepay_fee {
+                debug!("[validate_raw_tx] insufficient balance to pay fees");
+                return Err(format_err!("insufficient balance to pay fees").into());
+            }
 
-        let TxResponse { used_gas, .. } = self.call(EthCallArgs {
-            caller: Some(signed_tx.sender),
-            to: signed_tx.to(),
-            value: signed_tx.value(),
-            data: signed_tx.data(),
-            gas_limit: signed_tx.gas_limit().as_u64(),
-            access_list: signed_tx.access_list(),
-            block_number: prev_block_number,
-            gas_price: Some(tx_gas_price),
-            max_fee_per_gas: signed_tx.max_fee_per_gas(),
-            transaction_type: Some(signed_tx.get_tx_type()),
-        })?;
+            // Validate total gas usage in queued txs exceeds block size
+            debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
+            let total_current_gas_used = self
+                .tx_queues
+                .get_total_gas_used_in(queue_id)
+                .unwrap_or_default();
 
-        // Validate total gas usage in queued txs exceeds block size
-        debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
-        let total_current_gas_used = self
-            .tx_queues
-            .get_total_gas_used_in(queue_id)
-            .unwrap_or_default();
-
-        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-        if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
-            return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
+            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
+            if total_current_gas_used + U256::from(tx_response.used_gas)
+                > U256::from(block_gas_limit)
+            {
+                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(tx_response.used_gas), total_current_gas_used + U256::from(tx_response.used_gas)).into());
+            }
         }
 
         Ok(ValidateTxInfo {
@@ -347,7 +347,7 @@ impl EVMCoreService {
 
     /// Validates a raw transfer domain tx.
     ///
-    /// The validation checks of the tx before we consider it to be valid are:
+    /// The pre-validation checks of the tx before we consider it to be valid are:
     /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     /// 2. tx value check: verify that amount is set to zero.
     /// 3. Verify that transaction action is a call to the transferdomain contract address.
