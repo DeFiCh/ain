@@ -131,8 +131,8 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
     return chainWork;
 }
 
-rust::vec<rust::string> getPoolTransactions() {
-    rust::vec<rust::string> poolTransactions;
+rust::vec<TransactionData> getPoolTransactions() {
+    rust::vec<TransactionData> poolTransactions;
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
@@ -148,7 +148,11 @@ rust::vec<rust::string> getPoolTransactions() {
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
-            poolTransactions.push_back(HexStr(obj.evmTx));
+            poolTransactions.push_back({
+                static_cast<uint8_t>(TransactionDataTxType::EVM),
+                HexStr(obj.evmTx),
+                static_cast<uint8_t>(TransactionDataDirection::None),
+            });
         } else if (txType == CustomTxType::TransferDomain) {
             CCustomTxMessage txMessage{CTransferDomainMessage{}};
             const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
@@ -163,9 +167,17 @@ rust::vec<rust::string> getPoolTransactions() {
             }
 
             if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                poolTransactions.push_back(HexStr(obj.transfers[0].second.data));
+                poolTransactions.push_back({
+                    static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                    HexStr(obj.transfers[0].second.data),
+                    static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                });
             } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                poolTransactions.push_back(HexStr(obj.transfers[0].first.data));
+                poolTransactions.push_back({
+                    static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                    HexStr(obj.transfers[0].second.data),
+                    static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                });
             }
         }
     }
