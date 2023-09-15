@@ -192,7 +192,7 @@ impl EVMCoreService {
     /// 3. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
     /// 4. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
     /// 5. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
-    /// 
+    ///
     /// The validation checks with state context of the tx before we consider it to be valid are:
     /// 1. Nonce check: Returns flag if nonce is lower or higher than the current state account nonce.
     /// 2. Execute the tx with the state root from the txqueue.
@@ -330,7 +330,9 @@ impl EVMCoreService {
                 .unwrap_or_default();
 
             let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-            if total_current_gas_used + U256::from(tx_response.used_gas) > U256::from(block_gas_limit) {
+            if total_current_gas_used + U256::from(tx_response.used_gas)
+                > U256::from(block_gas_limit)
+            {
                 return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(tx_response.used_gas), total_current_gas_used + U256::from(tx_response.used_gas)).into());
             }
         }
