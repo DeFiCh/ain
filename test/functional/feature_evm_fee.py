@@ -221,7 +221,7 @@ class EVMFeeTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32001,
-            "evm tx failed to validate gas limit is below the minimum gas per tx",
+            "evm tx failed to pre-validate gas limit is below the minimum gas per tx",
             self.nodes[0].eth_sendTransaction,
             {
                 "from": self.ethAddress,
@@ -242,7 +242,7 @@ class EVMFeeTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32001,
-            "evm tx failed to validate gas limit higher than max_gas_per_block",
+            "evm tx failed to pre-validate gas limit higher than max_gas_per_block",
             self.nodes[0].eth_sendTransaction,
             {
                 "from": self.ethAddress,
