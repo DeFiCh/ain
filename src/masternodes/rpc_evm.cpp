@@ -75,6 +75,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
 
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
+    const auto from = fromEth.GetHex();
 
     CKey key;
     if (!pwallet->GetKey(keyId, key)) {
@@ -131,6 +132,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
                                                                               nonce,
                                                                               gasPrice,
                                                                               gasLimit,
+                                                                              from,
                                                                               to,
                                                                               value,
                                                                               input,

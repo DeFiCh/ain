@@ -597,14 +597,15 @@ impl MetachainRPCServer for MetachainRPCModule {
         let chain_id = ain_cpp_imports::get_chain_id()
             .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
 
-        let block_number = self.block_number()?;
-
+        let Ok(state_root) = self.handler.core.get_state_root() else {
+            return Err(Error::Custom(String::from("Could not get state root")));
+        };
         let nonce = match request.nonce {
             Some(nonce) => nonce,
             None => self
                 .handler
                 .core
-                .get_nonce(from, block_number)
+                .get_next_account_nonce(from, state_root)
                 .map_err(|e| {
                     Error::Custom(format!("Error getting address transaction count : {e:?}"))
                 })?,
@@ -722,7 +723,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let nonce = self
             .handler
             .core
-            .get_nonce(address, block_number)
+            .get_nonce_from_block_number(address, block_number)
             .map_err(to_jsonrpsee_custom_error)?;
 
         debug!(target:"rpc", "Count: {:#?}", nonce);

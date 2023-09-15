@@ -83,6 +83,7 @@ pub mod ffi {
         pub nonce: u64,
         pub gas_price: u64,
         pub gas_limit: u64,
+        pub from: &'a str,
         pub to: &'a str,
         pub value: u64,
         pub input: Vec<u8>,
@@ -98,7 +99,6 @@ pub mod ffi {
         pub token_id: u32,
         pub chain_id: u64,
         pub priv_key: [u8; 32],
-        pub queue_id: u64,
         pub use_nonce: bool,
         pub nonce: u64,
     }

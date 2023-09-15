@@ -43,11 +43,20 @@ pub fn evm_try_create_and_sign_tx(
         TransactionAction::Create
     } else {
         let Ok(to_address) = ctx.to.parse() else {
-            return cross_boundary_error_return(result, "Invalid address");
+            return cross_boundary_error_return(result, "Invalid to address");
         };
         TransactionAction::Call(to_address)
     };
     let nonce = U256::from(ctx.nonce);
+    let Ok(from_address) = ctx.from.parse() else {
+        return cross_boundary_error_return(result, "Invalid from address");
+    };
+    if !SERVICES.evm.core.store_account_nonce(from_address, nonce) {
+        return cross_boundary_error_return(
+            result,
+            format!("Could not cache nonce {nonce:x?} for {from_address:x?}"),
+        );
+    }
     let gas_price = match try_from_gwei(U256::from(ctx.gas_price)) {
         Ok(price) => price,
         Err(e) => return cross_boundary_error_return(result, e.to_string()),
@@ -222,23 +231,20 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         );
     };
 
-    let state_root = unsafe {
-        match SERVICES
-            .evm
-            .core
-            .tx_queues
-            .get_latest_state_root_in(ctx.queue_id)
-        {
-            Ok(state_root) => state_root,
-            Err(e) => {
-                return cross_boundary_error_return(result, format!("Could not get state root {e}"))
-            }
+    let state_root = match SERVICES
+        .evm
+        .core
+        .get_state_root()
+    {
+        Ok(state_root) => state_root,
+        Err(e) => {
+            return cross_boundary_error_return(result, format!("Could not get state root {e}"))
         }
     };
     let nonce = if ctx.use_nonce {
         U256::from(ctx.nonce)
     } else {
-        let Ok(nonce) = SERVICES.evm.get_nonce(from_address, state_root) else {
+        let Ok(nonce) = SERVICES.evm.core.get_next_account_nonce(from_address, state_root) else {
             return cross_boundary_error_return(
                 result,
                 format!("Could not get nonce for {from_address:x?}"),
@@ -246,6 +252,12 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         };
         nonce
     };
+    if !SERVICES.evm.core.store_account_nonce(from_address, nonce) {
+        return cross_boundary_error_return(
+            result,
+            format!("Could not cache nonce {nonce:x?} for {from_address:x?}"),
+        );
+    }
 
     let t = LegacyUnsignedTransaction {
         nonce,
