@@ -25,6 +25,7 @@ pub mod ffi {
         fn getAccounts() -> Vec<String>;
         fn getDatadir() -> String;
         fn getNetwork() -> String;
+        fn getEthMaxConnections() -> u32;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
         fn getPoolTransactions() -> Vec<String>;

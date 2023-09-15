@@ -69,9 +69,12 @@ pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<()> {
 pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<()> {
     info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
+    let max_connections = ain_cpp_imports::get_max_connections();
+
     let handle = runtime.tokio_runtime.clone();
     let server = runtime.tokio_runtime.block_on(
         HttpServerBuilder::default()
+            .max_connections(max_connections)
             .custom_tokio_runtime(handle)
             .build(addr),
     )?;
