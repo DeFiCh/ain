@@ -907,6 +907,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         std::vector<unsigned char> metadata;
         CustomTxType txType = GuessCustomTxType(tx, metadata, true);
         auto isEvmTx = txType == CustomTxType::EvmTx;
+        entry.SetCustomTxType(txType);
 
         if (!isEvmTx && !CheckInputsFromMempoolAndCache(tx, state, view, pool, currentBlockScriptVerifyFlags, true, txdata)) {
             return error("%s: BUG! PLEASE REPORT THIS! CheckInputs failed against latest-block but not STANDARD flags %s, %s",
@@ -915,19 +916,42 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         std::optional<EvmAddressData> ethSender{};
 
-        if (isEvmTx) {
+        if (isEvmTx || txType == CustomTxType::TransferDomain) {
             auto txMessage = customTypeToMessage(txType);
             res = CustomMetadataParse(height, consensus, metadata, txMessage);
             if (!res) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
             }
 
-            const auto obj = std::get<CEvmTxMessage>(txMessage);
+            std::string rawEVMTx;
+
+            if (isEVMTx) {
+                const auto obj = std::get<CEvmTxMessage>(txMessage);
+                rawEVMTx = HexStr(obj.evmTx);
+            } else {
+                const auto obj = std::get<CTransferDomainMessage>(txMessage);
+                if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                    rawEVMTx = HexStr(obj.transfers[0].second.data);
+                } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                    rawEVMTx = HexStr(obj.transfers[0].first.data);
+                }
+            }
 
             CrossBoundaryResult result;
-            const auto txResult = evm_try_get_tx_sender_info_from_raw_tx(result, HexStr(obj.evmTx));
+            auto txResult = evm_try_get_tx_sender_info_from_raw_tx(result, rawEVMTx);
             if (!result.ok) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
+                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
+            }
+
+            EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
+
+            const auto prePayFee = isEVMTx ? txResult.prepay_fee : 0;
+
+            entry.SetEVMAddrAndNonce(evmAddrAndNonce);
+            entry.SetEVMPrePayFee(prePayFee);
+
+            if (!pool.checkAddressNonceAndFee(entry)) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");
             }
 
             const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
