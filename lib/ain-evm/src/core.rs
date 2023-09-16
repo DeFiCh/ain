@@ -346,7 +346,7 @@ impl EVMCoreService {
     }
 
     pub fn calculate_prepay_gas_fee(&self, signed_tx: &SignedTx) -> Result<U256> {
-        let result = calculate_prepay_gas_fee(&signed_tx)?;
+        let result = calculate_prepay_gas_fee(signed_tx)?;
         Ok(result)
     }
 
