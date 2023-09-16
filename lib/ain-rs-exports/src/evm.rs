@@ -381,7 +381,6 @@ pub fn evm_unsafe_try_add_balance_in_q(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    pre_validate: bool,
 ) {
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
@@ -394,22 +393,6 @@ pub fn evm_unsafe_try_add_balance_in_q(
     }));
 
     unsafe {
-        match SERVICES
-            .evm
-            .core
-            .validate_raw_transferdomain_tx(raw_tx, queue_id)
-        {
-            Ok(()) => {}
-            Err(e) => {
-                debug!("validate_raw_transferdomain_tx failed with error: {e}");
-                return cross_boundary_error_return(result, e.to_string());
-            }
-        }
-
-        if pre_validate {
-            return cross_boundary_success(result);
-        }
-
         match SERVICES
             .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)
@@ -444,7 +427,6 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    pre_validate: bool,
 ) -> bool {
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
@@ -459,22 +441,6 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     unsafe {
         match SERVICES
             .evm
-            .core
-            .validate_raw_transferdomain_tx(raw_tx, queue_id)
-        {
-            Ok(()) => {}
-            Err(e) => {
-                debug!("validate_raw_transferdomain_tx failed with error: {e}");
-                return cross_boundary_error_return(result, e.to_string());
-            }
-        }
-
-        if pre_validate {
-            return cross_boundary_success_return(result, true);
-        }
-
-        match SERVICES
-            .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)
         {
             Ok(()) => cross_boundary_success_return(result, true),
@@ -483,15 +449,13 @@ pub fn evm_unsafe_try_sub_balance_in_q(
     }
 }
 
-/// Validates a raw EVM transaction.
+/// Pre-validates a raw EVM transaction.
 ///
 /// # Arguments
 ///
 /// * `result` - Result object
 /// * `queue_id` - The EVM queue ID
 /// * `tx` - The raw transaction string.
-/// * `pre_validate` - Validate the raw transaction with or without state context.
-/// * `test_tx` - Test the validity of the raw transaction with block context.
 ///
 /// # Errors
 ///
@@ -500,36 +464,23 @@ pub fn evm_unsafe_try_sub_balance_in_q(
 /// - The EVM transaction is invalid
 /// - The EVM transaction fee is lower than the next block's base fee
 /// - Could not fetch the underlying EVM account
-/// - Account's nonce does not match raw tx's nonce
+/// - Account's nonce is more than raw tx's nonce
 /// - The EVM transaction prepay gas is invalid
 /// - The EVM transaction gas limit is lower than the transaction intrinsic gas
-/// - The EVM transaction call failed
 ///
 /// # Returns
 ///
 /// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
 /// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
 /// object otherwise.
-pub fn evm_unsafe_try_validate_raw_tx_in_q(
+pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
     result: &mut ffi::CrossBoundaryResult,
     queue_id: u64,
     raw_tx: &str,
-    pre_validate: bool,
-) -> ffi::ValidateTxMiner {
-    debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
-    match SERVICES.evm.verify_tx_fees(raw_tx) {
-        Ok(()) => (),
-        Err(e) => {
-            debug!("evm_try_validate_raw_tx failed with error: {e}");
-            return cross_boundary_error_return(result, e.to_string());
-        }
-    }
+) -> ffi::ValidateTxCompletion {
+    debug!("[evm_unsafe_try_prevalidate_raw_tx_in_q]");
     unsafe {
-        match SERVICES
-            .evm
-            .core
-            .validate_raw_tx(raw_tx, queue_id, pre_validate)
-        {
+        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, true) {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
@@ -546,7 +497,7 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
 
                 cross_boundary_success_return(
                     result,
-                    ffi::ValidateTxMiner {
+                    ffi::ValidateTxCompletion {
                         nonce,
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
@@ -558,6 +509,123 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
             }
             Err(e) => {
                 debug!("evm_try_validate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
+        }
+    }
+}
+
+/// Validates a raw EVM transaction.
+///
+/// # Arguments
+///
+/// * `result` - Result object
+/// * `queue_id` - The EVM queue ID
+/// * `tx` - The raw transaction string.
+///
+/// # Errors
+///
+/// Returns an Error if:
+/// - The hex data is invalid
+/// - The EVM transaction is invalid
+/// - The EVM transaction fee is lower than the next block's base fee
+/// - Could not fetch the underlying EVM account
+/// - Account's nonce does not match raw tx's nonce
+/// - The EVM transaction prepay gas is invalid
+/// - The EVM transaction gas limit is lower than the transaction intrinsic gas
+/// - THe EVM transaction cannot be added into the transaction queue as it exceeds the block size limit.
+///
+/// # Returns
+///
+/// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
+/// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
+/// object otherwise.
+pub fn evm_unsafe_try_validate_raw_tx_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    raw_tx: &str,
+) -> ffi::ValidateTxCompletion {
+    debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
+    match SERVICES.evm.verify_tx_fees(raw_tx) {
+        Ok(()) => (),
+        Err(e) => {
+            debug!("evm_try_validate_raw_tx failed with error: {e}");
+            return cross_boundary_error_return(result, e.to_string());
+        }
+    }
+    unsafe {
+        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, false) {
+            Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                higher_nonce,
+                lower_nonce,
+            }) => {
+                let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
+                    return cross_boundary_error_return(result, "nonce value overflow");
+                };
+
+                let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
+                    return cross_boundary_error_return(result, "prepay fee value overflow");
+                };
+
+                cross_boundary_success_return(
+                    result,
+                    ffi::ValidateTxCompletion {
+                        nonce,
+                        sender: format!("{:?}", signed_tx.sender),
+                        tx_hash: format!("{:?}", signed_tx.hash()),
+                        prepay_fee,
+                        higher_nonce,
+                        lower_nonce,
+                    },
+                )
+            }
+            Err(e) => {
+                debug!("evm_try_validate_raw_tx failed with error: {e}");
+                cross_boundary_error_return(result, e.to_string())
+            }
+        }
+    }
+}
+
+/// Validates a raw transfer domain EVM transaction.
+///
+/// # Arguments
+///
+/// * `result` - Result object
+/// * `queue_id` - The EVM queue ID
+/// * `tx` - The raw transaction string.
+///
+/// # Errors
+///
+/// Returns an Error if:
+/// - The hex data is invalid
+/// - The EVM transaction is invalid
+/// - Could not fetch the underlying EVM account
+/// - Account's nonce does not match raw tx's nonce
+/// - The EVM transaction value is not zero
+/// - The EVM tranasction action is not a call to the transferdomain contract address
+/// - The EVM transaction execution is unsuccessful
+///
+/// # Returns
+///
+/// Returns the valiadtion result.
+pub fn evm_unsafe_try_validate_transferdomain_tx_in_q(
+    result: &mut ffi::CrossBoundaryResult,
+    queue_id: u64,
+    raw_tx: &str,
+) {
+    debug!("[evm_unsafe_try_validate_transferdomain_tx_in_q]");
+    unsafe {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_transferdomain_tx(raw_tx, queue_id)
+        {
+            Ok(()) => cross_boundary_success(result),
+            Err(e) => {
+                debug!("validate_raw_transferdomain_tx failed with error: {e}");
                 cross_boundary_error_return(result, e.to_string())
             }
         }
@@ -981,7 +1049,6 @@ pub fn evm_try_bridge_dst20(
     native_hash: &str,
     token_id: u64,
     out: bool,
-    pre_validate: bool,
 ) {
     let native_hash = XHash::from(native_hash);
     let contract_address = match ain_contracts::dst20_address_from_token_id(token_id) {
@@ -998,22 +1065,6 @@ pub fn evm_try_bridge_dst20(
     }));
 
     unsafe {
-        match SERVICES
-            .evm
-            .core
-            .validate_raw_transferdomain_tx(raw_tx, queue_id)
-        {
-            Ok(()) => {}
-            Err(e) => {
-                debug!("validate_raw_transferdomain_tx failed with error: {e}");
-                return cross_boundary_error_return(result, e.to_string());
-            }
-        }
-
-        if pre_validate {
-            return cross_boundary_success(result);
-        }
-
         match SERVICES
             .evm
             .push_tx_in_queue(queue_id, system_tx, native_hash)

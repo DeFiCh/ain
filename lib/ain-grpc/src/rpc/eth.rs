@@ -524,7 +524,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         ain_cpp_imports::get_pool_transactions()
             .map(|txs| {
                 txs.into_iter()
-                    .flat_map(|tx| EthTransactionInfo::try_from(tx.as_str()))
+                    .flat_map(|tx| EthTransactionInfo::try_from(tx.data.as_str()))
                     .map(EthTransactionInfo::into_pending_transaction_info)
                     .collect()
             })

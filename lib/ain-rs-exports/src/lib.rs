@@ -117,14 +117,6 @@ pub mod ffi {
         pub sender: String,
         pub tx_hash: String,
         pub prepay_fee: u64,
-    }
-
-    #[derive(Default)]
-    pub struct ValidateTxMiner {
-        pub nonce: u64,
-        pub sender: String,
-        pub tx_hash: String,
-        pub prepay_fee: u64,
         pub higher_nonce: bool,
         pub lower_nonce: bool,
     }
@@ -157,21 +149,28 @@ pub mod ffi {
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            pre_validate: bool,
         );
         fn evm_unsafe_try_sub_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            pre_validate: bool,
         ) -> bool;
+        fn evm_unsafe_try_prevalidate_raw_tx_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            raw_tx: &str,
+        ) -> ValidateTxCompletion;
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
-            pre_validate: bool,
-        ) -> ValidateTxMiner;
+        ) -> ValidateTxCompletion;
+        fn evm_unsafe_try_validate_transferdomain_tx_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            raw_tx: &str,
+        );
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
@@ -233,7 +232,6 @@ pub mod ffi {
             native_hash: &str,
             token_id: u64,
             out: bool,
-            pre_validate: bool,
         );
         fn evm_try_is_dst20_deployed_or_queued(
             result: &mut CrossBoundaryResult,
