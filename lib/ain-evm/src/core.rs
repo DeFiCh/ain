@@ -320,7 +320,7 @@ impl EVMCoreService {
 
             // Execute tx
             let mut executor = AinExecutor::new(&mut backend);
-            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);\
+            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);
 
             // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
