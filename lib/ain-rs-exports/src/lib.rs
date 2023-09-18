@@ -207,7 +207,11 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             ctx: CreateTransferDomainContext,
         ) -> CreateTxResult;
-        fn evm_try_store_account_nonce(result: &mut CrossBoundaryResult, from_address: &str, nonce: u64);
+        fn evm_try_store_account_nonce(
+            result: &mut CrossBoundaryResult,
+            from_address: &str,
+            nonce: u64,
+        );
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,

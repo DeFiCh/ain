@@ -76,8 +76,9 @@ pub fn evm_try_create_and_sign_tx(
             let Ok(nonce) = u64::try_from(signed.nonce) else {
                 return cross_boundary_error_return(result, "nonce value overflow");
             };
-            cross_boundary_success_return(result,
-            ffi::CreateTxResult {
+            cross_boundary_success_return(
+                result,
+                ffi::CreateTxResult {
                     tx: signed.encode().into(),
                     nonce,
                 },
@@ -265,8 +266,9 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
             let Ok(nonce) = u64::try_from(signed.nonce) else {
                 return cross_boundary_error_return(result, "nonce value overflow");
             };
-            cross_boundary_success_return(result,
-            ffi::CreateTxResult {
+            cross_boundary_success_return(
+                result,
+                ffi::CreateTxResult {
                     tx: signed.encode().into(),
                     nonce,
                 },
@@ -276,11 +278,19 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     }
 }
 
-pub fn evm_try_store_account_nonce(result: &mut ffi::CrossBoundaryResult, from_address: &str, nonce: u64) {
+pub fn evm_try_store_account_nonce(
+    result: &mut ffi::CrossBoundaryResult,
+    from_address: &str,
+    nonce: u64,
+) {
     let Ok(from_address) = from_address.parse() else {
         return cross_boundary_error_return(result, "Invalid address");
     };
-    if !SERVICES.evm.core.store_account_nonce(from_address, U256::from(nonce)) {
+    if !SERVICES
+        .evm
+        .core
+        .store_account_nonce(from_address, U256::from(nonce))
+    {
         return cross_boundary_error_return(
             result,
             format!("Could not cache nonce {nonce:x?} for {from_address:x?}"),

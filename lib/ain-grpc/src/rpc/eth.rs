@@ -698,8 +698,16 @@ impl MetachainRPCServer for MetachainRPCModule {
                         signed_tx.transaction.hash()
                     );
 
-                    if !self.handler.core.store_account_nonce(signed_tx.sender, signed_tx.nonce()) {
-                        return Err(Error::Custom(format!("Could not cache nonce {:x?} for {:x?}", signed_tx.nonce(), signed_tx.sender)));
+                    if !self
+                        .handler
+                        .core
+                        .store_account_nonce(signed_tx.sender, signed_tx.nonce())
+                    {
+                        return Err(Error::Custom(format!(
+                            "Could not cache nonce {:x?} for {:x?}",
+                            signed_tx.nonce(),
+                            signed_tx.sender
+                        )));
                     }
 
                     Ok(format!("{:#x}", signed_tx.transaction.hash()))
