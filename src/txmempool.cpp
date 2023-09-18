@@ -1160,6 +1160,41 @@ bool CTxMemPool::getAccountViewDirty() const {
     return accountsViewDirty;
 }
 
+bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
+    if (pendingEntry.GetCustomTxType() != CustomTxType::EvmTx &&
+        pendingEntry.GetCustomTxType() != CustomTxType::TransferDomain) {
+        return true;
+    }
+
+    auto& addressNonceIndex = mapTx.get<address_and_nonce>();
+    auto range = addressNonceIndex.equal_range(pendingEntry.GetEVMAddrAndNonce());
+
+    auto result{true};
+
+    for (auto it = range.first; it != range.second; ++it) {
+        const auto& entry = *it;
+
+        if (pendingEntry.GetEVMPrePayFee() > entry.GetEVMPrePayFee()) {
+            if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
+                auto txIter = mapTx.project<0>(it);
+                removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
+            } else {
+                removeRecursive(entry.GetTx(), MemPoolRemovalReason::REPLACED);
+            }
+
+            // We might want to set accountsViewDirty to true here but
+            // then we would trigger a rebuild on every EVM RBF TX.
+            // Imperfect mempool behaviour might be preferred over this
+            // performance cost. Account view will be rebuilt on each
+            // new block.
+        } else {
+            result = false;
+        }
+    }
+
+    return result;
+}
+
 void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
     if (!pcustomcsview || !accountsViewDirty) {

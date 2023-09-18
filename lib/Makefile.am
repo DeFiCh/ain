@@ -55,7 +55,7 @@ unexport DESTDIR
 
 export RUST_BACKTRACE=1
 
-.PHONY:
+.PHONY: all
 all: build
 
 .PHONY: build

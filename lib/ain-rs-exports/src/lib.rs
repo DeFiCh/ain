@@ -45,6 +45,7 @@ pub mod ffi {
     pub struct TxSenderInfo {
         pub address: String,
         pub nonce: u64,
+        pub prepay_fee: u64,
     }
 
     // ========== Governance Variable ==========
