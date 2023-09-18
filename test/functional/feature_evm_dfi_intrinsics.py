@@ -56,9 +56,11 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         for i in range(2, 128):
             address = node.w3.to_checksum_address(generate_formatted_string(i))
-            code_at_addr =  self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
+            code_at_addr = self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(address)
+            )
             # print(i, address, code_at_addr, reserved_bytecode)
-            assert (code_at_addr == reserved_bytecode)
+            assert code_at_addr == reserved_bytecode
 
         assert (
             self.nodes[0].w3.to_hex(
@@ -81,7 +83,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
                 "0xdf00000000000000000000000000000000000000"
             ),
             abi=abi,
-        ) 
+        )
 
         num_blocks = 5
         state_roots = set()
