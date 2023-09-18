@@ -91,6 +91,7 @@ impl EVMBackend {
         storage.into_iter().for_each(|(k, v)| {
             debug!("Apply::Modify storage, key: {:x} value: {:x}", k, v);
             let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
+            storage_trie.commit();
         });
 
         let code_hash = match code {
@@ -120,6 +121,7 @@ impl EVMBackend {
         self.state
             .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
             .map_err(|e| BackendError::TrieError(format!("{e}")))?;
+        self.state.commit();
 
         Ok(new_account)
     }
