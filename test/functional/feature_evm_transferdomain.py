@@ -977,9 +977,16 @@ class EVMTest(DefiTestFramework):
             self.eth_address, 0, 21, 21001, erc55_address, 50
         )  # Spend half balance
 
-        # Transfer 100 DFI from EVM to DVM
-        tx2 = transfer_domain(
-            self.nodes[0], self.eth_address, self.address, "100@DFI", 3, 2
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            transfer_domain,
+            self.nodes[0],
+            self.eth_address,
+            self.address,
+            "100@DFI",
+            3,
+            2,
         )
         self.nodes[0].generate(1)
 
@@ -987,9 +994,6 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block["transactions"]), 1)
         evm_tx = self.nodes[0].vmmap(tx1, 0)["output"]
         assert_equal(block["transactions"][0], evm_tx)
-
-        mempool = self.nodes[0].getrawmempool()
-        assert_equal([tx2], mempool)
 
     def run_test(self):
         self.setup()

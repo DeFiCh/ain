@@ -222,7 +222,7 @@ private:
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
     /** Run EVM transaction checks */
-    bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
+    bool EvmTxPreapply(EvmTxPreApplyContext& ctx);
 };
 
 /** Modify the extranonce in a block */
