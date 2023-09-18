@@ -41,6 +41,13 @@ pub mod ffi {
         pub data: Vec<u8>,
     }
 
+    #[derive(Default)]
+    pub struct TxSenderInfo {
+        pub address: String,
+        pub nonce: u64,
+        pub prepay_fee: u64,
+    }
+
     // ========== Governance Variable ==========
     #[derive(Default)]
     pub struct GovVarKeyDataStructure {
@@ -92,12 +99,14 @@ pub mod ffi {
         pub token_id: u32,
         pub chain_id: u64,
         pub priv_key: [u8; 32],
+        pub queue_id: u64,
+        pub use_nonce: bool,
+        pub nonce: u64,
     }
 
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
         pub block_hash: String,
-        pub failed_transactions: Vec<String>,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
         pub block_number: u64,
@@ -109,7 +118,8 @@ pub mod ffi {
         pub sender: String,
         pub tx_hash: String,
         pub prepay_fee: u64,
-        pub gas_used: u64,
+        pub higher_nonce: bool,
+        pub lower_nonce: bool,
     }
 
     extern "Rust" {
@@ -130,11 +140,11 @@ pub mod ffi {
             queue_id: u64,
             address: &str,
         ) -> u64;
-        fn evm_unsafe_try_remove_txs_by_sender_in_q(
+        fn evm_unsafe_try_remove_txs_above_hash_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
-            address: &str,
-        );
+            target_hash: String,
+        ) -> Vec<String>;
         fn evm_unsafe_try_add_balance_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
@@ -147,21 +157,26 @@ pub mod ffi {
             raw_tx: &str,
             native_hash: &str,
         ) -> bool;
-        fn evm_unsafe_try_prevalidate_raw_tx(
+        fn evm_unsafe_try_prevalidate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
-            tx: &str,
+            queue_id: u64,
+            raw_tx: &str,
         ) -> ValidateTxCompletion;
         fn evm_unsafe_try_validate_raw_tx_in_q(
             result: &mut CrossBoundaryResult,
-            tx: &str,
             queue_id: u64,
+            raw_tx: &str,
         ) -> ValidateTxCompletion;
+        fn evm_unsafe_try_validate_transferdomain_tx_in_q(
+            result: &mut CrossBoundaryResult,
+            queue_id: u64,
+            raw_tx: &str,
+        );
         fn evm_unsafe_try_push_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            gas_used: u64,
         );
         fn evm_unsafe_try_construct_block_in_q(
             result: &mut CrossBoundaryResult,
@@ -201,6 +216,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             tx_hash: &str,
         ) -> EVMTransaction;
+        fn evm_try_get_tx_hash(result: &mut CrossBoundaryResult, raw_tx: &str) -> String;
 
         fn evm_try_create_dst20(
             result: &mut CrossBoundaryResult,
@@ -225,10 +241,18 @@ pub mod ffi {
             symbol: &str,
             token_id: u64,
         ) -> bool;
-
         fn evm_unsafe_try_get_target_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
         ) -> u64;
+        fn evm_is_smart_contract_in_q(
+            result: &mut CrossBoundaryResult,
+            address: &str,
+            queue_id: u64,
+        ) -> bool;
+        fn evm_try_get_tx_sender_info_from_raw_tx(
+            result: &mut CrossBoundaryResult,
+            raw_tx: &str,
+        ) -> TxSenderInfo;
     }
 }

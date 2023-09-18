@@ -14,10 +14,18 @@ pub mod ffi {
         pub symbol: String,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct TransactionData {
+        pub tx_type: u8,
+        pub data: String,
+        pub direction: u8,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
         type DST20Token;
+        type TransactionData;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -25,9 +33,10 @@ pub mod ffi {
         fn getAccounts() -> Vec<String>;
         fn getDatadir() -> String;
         fn getNetwork() -> String;
+        fn getEthMaxConnections() -> u32;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
-        fn getPoolTransactions() -> Vec<String>;
+        fn getPoolTransactions() -> Vec<TransactionData>;
         fn getNativeTxSize(data: Vec<u8>) -> u64;
         fn getMinRelayTxFee() -> u64;
         fn getEthPrivKey(key: String) -> [u8; 32];

@@ -5,10 +5,12 @@
 
 #include <txmempool.h>
 
+#include <ain_rs_exports.h>
 #include <chainparams.h>
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
+#include <masternodes/errors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
 #include <validation.h>
@@ -546,6 +548,19 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         CalculateDescendants(it, setAllRemoves);
     }
     RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
+
+    if (pcustomcsview) {
+        accountsViewDirty |= forceRebuildForReorg;
+        CTransactionRef ptx{};
+
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+        view.SetBackend(viewMemPool);
+
+        rebuildAccountsView(nMemPoolHeight, view);
+    }
 }
 
 void CTxMemPool::removeConflicts(const CTransaction &tx)
@@ -610,7 +625,15 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
 
     if (pcustomcsview) {
         accountsViewDirty |= forceRebuildForReorg;
-        rebuildAccountsView(nBlockHeight, &::ChainstateActive().CoinsTip());
+        CTransactionRef ptx{};
+
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+        view.SetBackend(viewMemPool);
+
+        rebuildAccountsView(nBlockHeight, view);
     }
 
     lastRollingFeeUpdate = GetTime();
@@ -989,6 +1012,26 @@ int CTxMemPool::Expire(int64_t time) {
     return stage.size();
 }
 
+int CTxMemPool::ExpireEVM(int64_t time) {
+    AssertLockHeld(cs);
+    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    setEntries toremove;
+    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
+        std::vector<unsigned char> metadata;
+        CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata, true);
+        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        it++;
+    }
+    setEntries stage;
+    for (txiter removeit : toremove) {
+        CalculateDescendants(removeit, stage);
+    }
+    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
+    return stage.size();
+}
+
 void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, bool validFeeEstimate)
 {
     setEntries setAncestors;
@@ -1109,13 +1152,56 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
     }
 }
 
+void CTxMemPool::setAccountViewDirty() {
+    accountsViewDirty = true;
+}
+
+bool CTxMemPool::getAccountViewDirty() const {
+    return accountsViewDirty;
+}
+
+bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
+    if (pendingEntry.GetCustomTxType() != CustomTxType::EvmTx &&
+        pendingEntry.GetCustomTxType() != CustomTxType::TransferDomain) {
+        return true;
+    }
+
+    auto& addressNonceIndex = mapTx.get<address_and_nonce>();
+    auto range = addressNonceIndex.equal_range(pendingEntry.GetEVMAddrAndNonce());
+
+    auto result{true};
+
+    for (auto it = range.first; it != range.second; ++it) {
+        const auto& entry = *it;
+
+        if (pendingEntry.GetEVMPrePayFee() > entry.GetEVMPrePayFee()) {
+            if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
+                auto txIter = mapTx.project<0>(it);
+                removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
+            } else {
+                removeRecursive(entry.GetTx(), MemPoolRemovalReason::REPLACED);
+            }
+
+            // We might want to set accountsViewDirty to true here but
+            // then we would trigger a rebuild on every EVM RBF TX.
+            // Imperfect mempool behaviour might be preferred over this
+            // performance cost. Account view will be rebuilt on each
+            // new block.
+        } else {
+            result = false;
+        }
+    }
+
+    return result;
+}
+
 void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
     if (!pcustomcsview || !accountsViewDirty) {
         return;
     }
 
-    CAmount txfee = 0;
+    CAmount txfee{};
     accountsView().Discard();
     CCustomCSView viewDuplicate(accountsView());
 
@@ -1137,7 +1223,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             continue;
         }
         uint64_t gasUsed{};
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, gasUsed, 0, nullptr, 0, 0, isEvmEnabledForBlock);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, gasUsed, 0, nullptr, 0, 0, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
@@ -1155,6 +1241,15 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     viewDuplicate.Flush();
     accountsViewDirty = false;
     forceRebuildForReorg = false;
+}
+
+void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap) {
+    const auto &hash = tx->GetHash();
+    if (!mempoolIterMap.count(hash)) return;
+    auto it = mempoolIterMap.at(hash);
+    LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
+    staged.insert(it);
+    vtx.push_back(it->GetSharedTx());
 }
 
 uint64_t CTxMemPool::CalculateDescendantMaximum(txiter entry) const {

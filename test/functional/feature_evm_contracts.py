@@ -60,7 +60,7 @@ class EVMTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
     def generate_contract(self, node: TestNode, num_functions: int, contract_name: str):
         contract_start = f"""

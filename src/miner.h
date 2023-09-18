@@ -8,6 +8,7 @@
 
 #include <primitives/block.h>
 #include <key.h>
+#include <masternodes/res.h>
 #include <timedata.h>
 #include <txmempool.h>
 #include <validation.h>
@@ -178,7 +179,7 @@ public:
     BlockAssembler(const CChainParams& params, const Options& options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    std::unique_ptr<CBlockTemplate> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0, const EvmAddressData& beneficiary = {});
+    ResVal<std::unique_ptr<CBlockTemplate>> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0, const EvmAddressData& beneficiary = {});
 
     inline static std::optional<int64_t> m_last_block_num_txs{};
     inline static std::optional<int64_t> m_last_block_weight{};
@@ -221,7 +222,7 @@ private:
       * of updated descendants. */
     int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
     /** Run EVM transaction checks */
-    bool EvmTxPreapply(const EvmTxPreApplyContext& ctx);
+    bool EvmTxPreapply(EvmTxPreApplyContext& ctx);
 };
 
 /** Modify the extranonce in a block */

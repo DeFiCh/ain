@@ -131,30 +131,60 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
     return chainWork;
 }
 
-rust::vec<rust::string> getPoolTransactions() {
-    rust::vec<rust::string> poolTransactions;
+rust::vec<TransactionData> getPoolTransactions() {
+    std::multimap<uint64_t, TransactionData> poolTransactionsByFee;
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
-        if (!IsEVMTx(tx)) {
-            continue;
-        }
 
         std::vector<unsigned char> metadata;
         const auto txType = GuessCustomTxType(tx, metadata, true);
-        if (txType != CustomTxType::EvmTx) {
-            continue;
-        }
+        if (txType == CustomTxType::EvmTx) {
+            CCustomTxMessage txMessage{CEvmTxMessage{}};
+            const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
+                                                 txMessage);
+            if (!res) {
+                continue;
+            }
 
-        CCustomTxMessage txMessage{CEvmTxMessage{}};
-        const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
-                                             txMessage);
-        if (!res) {
-            continue;
-        }
+            const auto obj = std::get<CEvmTxMessage>(txMessage);
+            poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                static_cast<uint8_t>(TransactionDataTxType::EVM),
+                HexStr(obj.evmTx),
+                static_cast<uint8_t>(TransactionDataDirection::None),
+            });
+        } else if (txType == CustomTxType::TransferDomain) {
+            CCustomTxMessage txMessage{CTransferDomainMessage{}};
+            const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
+                                                 txMessage);
+            if (!res) {
+                continue;
+            }
 
-        const auto obj = std::get<CEvmTxMessage>(txMessage);
-        poolTransactions.push_back(HexStr(obj.evmTx.begin(), obj.evmTx.end()));
+            const auto obj = std::get<CTransferDomainMessage>(txMessage);
+            if (obj.transfers.size() != 1) {
+                continue;
+            }
+
+            if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                    static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                    HexStr(obj.transfers[0].second.data),
+                    static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                });
+            } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                    static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                    HexStr(obj.transfers[0].first.data),
+                    static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
+                });
+            }
+        }
+    }
+
+    rust::vec<TransactionData> poolTransactions;
+    for (const auto &[key, txData] : poolTransactionsByFee) {
+        poolTransactions.push_back(txData);
     }
 
     return poolTransactions;
@@ -229,6 +259,10 @@ int getCurrentHeight() {
 
 Attributes getAttributeDefaults() {
     return Attributes::Default();
+}
+
+uint32_t getEthMaxConnections() {
+    return gArgs.GetArg("-ethmaxconnections", DEFAULT_ETH_MAX_CONNECTIONS);
 }
 
 rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {

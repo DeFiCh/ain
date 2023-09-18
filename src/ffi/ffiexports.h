@@ -8,6 +8,7 @@
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET = 15000000;
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
+static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
 
 struct Attributes {
     uint64_t blockGasTarget;
@@ -29,6 +30,23 @@ struct DST20Token {
     rust::string symbol;
 };
 
+struct TransactionData {
+    uint8_t txType;
+    rust::string data;
+    uint8_t direction;
+};
+
+enum class TransactionDataTxType : uint8_t {
+    EVM,
+    TransferDomain,
+};
+
+enum class TransactionDataDirection : uint8_t {
+    None,
+    DVMToEVM,
+    EVMToDVM,
+};
+
 uint64_t getChainId();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
@@ -36,8 +54,9 @@ rust::vec<rust::string> getAccounts();
 rust::string getDatadir();
 rust::string getNetwork();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
+uint32_t getEthMaxConnections();
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
-rust::vec<rust::string> getPoolTransactions();
+rust::vec<TransactionData> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
 std::array<uint8_t, 32> getEthPrivKey(rust::string key);

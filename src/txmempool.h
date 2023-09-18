@@ -18,6 +18,7 @@
 #include <coins.h>
 #include <crypto/siphash.h>
 #include <indirectmap.h>
+#include <masternodes/customtx.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <sync.h>
@@ -26,6 +27,7 @@
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
 #include <boost/signals2/signal.hpp>
@@ -34,6 +36,16 @@ class CBlockIndex;
 class CChainParams;
 class CCustomCSView;
 extern CCriticalSection cs_main;
+
+struct EvmAddressWithNonce {
+    uint64_t nonce{};
+    EvmAddressData address;
+
+    bool operator<(const EvmAddressWithNonce& item) const
+    {
+        return std::tie(nonce, address) < std::tie(item.nonce, item.address);
+    }
+};
 
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
 static const uint32_t MEMPOOL_HEIGHT = 0x7FFFFFFF;
@@ -94,6 +106,11 @@ private:
     CAmount nModFeesWithAncestors;
     int64_t nSigOpCostWithAncestors;
 
+    // EVM related data
+    uint64_t evmPrePayFee{};
+    EvmAddressWithNonce evmAddressAndNonce;
+    CustomTxType customTxType{CustomTxType::None};
+
 public:
     CTxMemPoolEntry(const CTransactionRef& _tx, const CAmount& _nFee,
                     int64_t _nTime, unsigned int _entryHeight,
@@ -111,6 +128,14 @@ public:
     int64_t GetModifiedFee() const { return nFee + feeDelta; }
     size_t DynamicMemoryUsage() const { return nUsageSize; }
     const LockPoints& GetLockPoints() const { return lockPoints; }
+
+    // Getter / Setter for EVM related data
+    void SetCustomTxType(const CustomTxType type) { customTxType = type; }
+    [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
+    void SetEVMPrePayFee(const uint64_t prePayFee) { evmPrePayFee = prePayFee; }
+    [[nodiscard]] uint64_t GetEVMPrePayFee() const { return evmPrePayFee; }
+    void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }
+    [[nodiscard]] const EvmAddressWithNonce& GetEVMAddrAndNonce() const { return evmAddressAndNonce; }
 
     // Adjusts the descendant state.
     void UpdateDescendantState(int64_t modifySize, CAmount modifyFee, int64_t modifyCount);
@@ -275,6 +300,13 @@ public:
     }
 };
 
+class CompareTxMemPoolEntryByAddressAndNonce {
+public:
+    bool operator()(const EvmAddressWithNonce& a, const EvmAddressWithNonce& b) const {
+        return a < b;
+    }
+};
+
 /** \class CompareTxMemPoolEntryByAncestorScore
  *
  *  Sort an entry by min(score/size of entry's tx, score/size with all ancestors).
@@ -323,6 +355,7 @@ public:
 struct descendant_score {};
 struct entry_time {};
 struct ancestor_score {};
+struct address_and_nonce {};
 
 class CBlockPolicyEstimator;
 
@@ -446,7 +479,7 @@ class CTxMemPool
 {
 private:
     uint32_t nCheckFrequency GUARDED_BY(cs); //!< Value n means that n times in 2^32 we check.
-    std::atomic<unsigned int> nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
+    std::atomic<unsigned int> nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock () invocation
     CBlockPolicyEstimator* minerPolicyEstimator;
 
     uint64_t totalTxSize;      //!< sum of all mempool tx's virtual sizes. Differs from serialized tx size since witness data is discounted. Defined in BIP 141.
@@ -486,6 +519,16 @@ public:
                 boost::multi_index::tag<ancestor_score>,
                 boost::multi_index::identity<CTxMemPoolEntry>,
                 CompareTxMemPoolEntryByAncestorFee
+            >,
+            // sorted by EVM nonce and address
+            boost::multi_index::ordered_non_unique<
+                boost::multi_index::tag<address_and_nonce>,
+                boost::multi_index::const_mem_fun<
+                    CTxMemPoolEntry,
+                    const EvmAddressWithNonce&,
+                    &CTxMemPoolEntry::GetEVMAddrAndNonce
+                >,
+                CompareTxMemPoolEntryByAddressAndNonce
             >
         >
     > indexed_transaction_set;
@@ -554,6 +597,8 @@ private:
     bool accountsViewDirty;
     bool forceRebuildForReorg;
     std::unique_ptr<CCustomCSView> acview;
+
+    static void AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap);
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
     std::map<uint256, CAmount> mapDeltas;
@@ -668,6 +713,7 @@ public:
 
     /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
     int Expire(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    int ExpireEVM(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.
@@ -710,6 +756,11 @@ public:
 
     CCustomCSView& accountsView();
     void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
+    void setAccountViewDirty();
+    bool getAccountViewDirty() const;
+
+    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry);
+
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

@@ -524,7 +524,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         ain_cpp_imports::get_pool_transactions()
             .map(|txs| {
                 txs.into_iter()
-                    .flat_map(|tx| EthTransactionInfo::try_from(tx.as_str()))
+                    .flat_map(|tx| EthTransactionInfo::try_from(tx.data.as_str()))
                     .map(EthTransactionInfo::into_pending_transaction_info)
                     .collect()
             })
@@ -871,19 +871,19 @@ impl MetachainRPCServer for MetachainRPCModule {
         }
     }
     fn get_uncle_count_by_block_number(&self) -> RpcResult<U256> {
-        Ok(Default::default())
+        Ok(U256::default())
     }
 
     fn get_uncle_count_by_block_hash(&self) -> RpcResult<U256> {
-        Ok(Default::default())
+        Ok(U256::default())
     }
 
     fn get_uncle_by_block_number(&self) -> RpcResult<Option<bool>> {
-        Ok(Default::default())
+        Ok(None)
     }
 
     fn get_uncle_by_block_hash(&self) -> RpcResult<Option<bool>> {
-        Ok(Default::default())
+        Ok(None)
     }
 
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
@@ -1005,7 +1005,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let logs = self
                     .handler
                     .logs
-                    .get_logs_from_filter(filter, FilterType::GetFilterChanges)
+                    .get_logs_from_filter(&filter, &FilterType::GetFilterChanges)
                     .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
@@ -1051,7 +1051,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let logs = self
                     .handler
                     .logs
-                    .get_logs_from_filter(filter, FilterType::GetFilterLogs)
+                    .get_logs_from_filter(&filter, &FilterType::GetFilterLogs)
                     .map_err(to_jsonrpsee_custom_error)?
                     .into_iter()
                     .map(LogResult::from)
@@ -1072,7 +1072,7 @@ fn sign(
     message: TransactionMessage,
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
     debug!("sign address {:#x}", address);
-    let key = format!("{:?}", address);
+    let key = format!("{address:?}");
     let priv_key = get_eth_priv_key(key).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
 
@@ -1082,8 +1082,8 @@ fn sign(
                 .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let v = match m.chain_id {
-                None => 27 + recid.serialize() as u64,
-                Some(chain_id) => 2 * chain_id + 35 + recid.serialize() as u64,
+                None => 27 + u64::from(recid.serialize()),
+                Some(chain_id) => 2 * chain_id + 35 + u64::from(recid.serialize()),
             };
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
