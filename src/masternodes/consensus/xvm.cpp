@@ -358,8 +358,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    ValidateTxCompletion validateResults;
-    validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+    const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
     if (validateResults.higher_nonce) {
         return Res::Ok();
     }
