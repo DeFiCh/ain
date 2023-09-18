@@ -78,10 +78,10 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         contract_0 = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
-                "0xdf00000000000000000000000000000000000001"
+                "0xdf00000000000000000000000000000000000000"
             ),
             abi=abi,
-        )
+        ) 
 
         num_blocks = 5
         state_roots = set()

@@ -295,7 +295,7 @@ BASE_SCRIPTS = [
     "feature_loan_priceupdate.py",
     "feature_loan_vaultstate.py",
     "feature_loan.py",
-    "feature_dst20.py",
+    "feature_evm_dst20.py",
     "feature_evm_contracts.py",
     "feature_evm_proxy.py",
     "feature_evm_contract_env_vars.py",
