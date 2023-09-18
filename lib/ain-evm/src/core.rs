@@ -309,10 +309,6 @@ impl EVMCoreService {
                 _ => {}
             }
 
-            // Execute tx
-            let mut executor = AinExecutor::new(&mut backend);
-            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);
-
             // Validate tx prepay fees with account balance
             let balance = backend.get_balance(&signed_tx.sender);
             debug!("[validate_raw_tx] Account balance : {:x?}", balance);
@@ -321,6 +317,10 @@ impl EVMCoreService {
                 debug!("[validate_raw_tx] insufficient balance to pay fees");
                 return Err(format_err!("insufficient balance to pay fees").into());
             }
+
+            // Execute tx
+            let mut executor = AinExecutor::new(&mut backend);
+            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);\
 
             // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
@@ -347,7 +347,7 @@ impl EVMCoreService {
 
     /// Validates a raw transfer domain tx.
     ///
-    /// The pre-validation checks of the tx before we consider it to be valid are:
+    /// The validation checks of the tx before we consider it to be valid are:
     /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     /// 2. tx value check: verify that amount is set to zero.
     /// 3. Verify that transaction action is a call to the transferdomain contract address.
