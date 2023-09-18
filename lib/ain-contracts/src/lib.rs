@@ -94,11 +94,9 @@ pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) 
 }
 
 pub fn generate_intrinsic_addr(prefix_byte: u8, suffix_num: u64) -> Result<H160> {
-    let number_str = format!("{suffix_num:x}");
-    let padded_number_str = format!("{number_str:0>38}");
-    let final_str = format!("{prefix_byte:x}{padded_number_str}");
+    let s = format!("{prefix_byte:x}{suffix_num:0>38x}");
 
-    Ok(H160::from_str(&final_str)?)
+    Ok(H160::from_str(&s)?)
 }
 
 pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
