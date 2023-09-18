@@ -195,3 +195,31 @@ pub fn get_dst20_contract() -> Contract {
 pub fn get_reserved_contract() -> Contract {
     RESERVED_CONTRACT.clone()
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_addr_gen() {
+        let items: Vec<(Result<H160>, &str)> = vec![
+            (generate_intrinsic_addr(DST20_ADDR_PREFIX_BYTE, 0x0), "ff00000000000000000000000000000000000000"),
+            (generate_intrinsic_addr(DST20_ADDR_PREFIX_BYTE, 0x1), "ff00000000000000000000000000000000000001"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x0), "df00000000000000000000000000000000000000"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x1), "df00000000000000000000000000000000000001"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x2), "df00000000000000000000000000000000000002"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xff), "df000000000000000000000000000000000000ff"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xfe), "df000000000000000000000000000000000000fe"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x1fffe), "df0000000000000000000000000000000001fffe"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xffff), "df0000000000000000000000000000000000ffff"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xffff_ffff_ffff_ffff), "df0000000000000000000000ffffffffffffffff"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xefff_ffff_ffff_ffff), "df0000000000000000000000efffffffffffffff"),
+            // Should not compile
+            // (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x1ffff_ffff_ffff_ffff), "df0000000000000000000001ffffffffffffffff"),
+        ];
+
+        for x in items {
+            assert_eq!(x.0.unwrap(), H160::from_str(x.1).unwrap());
+        }
+    }
+}
