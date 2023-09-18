@@ -176,7 +176,7 @@ rust::vec<TransactionData> getPoolTransactions() {
                 poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
                     static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
                     HexStr(obj.transfers[0].first.data),
-                    static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                    static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
                 });
             }
         }
