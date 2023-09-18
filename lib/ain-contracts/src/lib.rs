@@ -90,20 +90,20 @@ pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) 
         .map_err(|e| format_err!(e))
 }
 
-pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
-    let number_str = format!("{token_id:x}");
+pub fn generate_intrinsic_addr(prefix_hex_str: &str, suffix_num: u64) -> Result<H160> {
+    let number_str = format!("{suffix_num:x}");
     let padded_number_str = format!("{number_str:0>38}");
-    let final_str = format!("ff{padded_number_str}");
+    let final_str = format!("{prefix_hex_str}{padded_number_str}");
 
     Ok(H160::from_str(&final_str)?)
 }
 
-pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
-    let number_str = format!("{:x}", id);
-    let padded_number_str = format!("{number_str:0>38}");
-    let final_str = format!("df{padded_number_str}");
+pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
+    generate_intrinsic_addr("ff", token_id)
+}
 
-    Ok(H160::from_str(&final_str)?)
+pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
+    generate_intrinsic_addr("df", id)
 }
 
 #[derive(Clone)]
