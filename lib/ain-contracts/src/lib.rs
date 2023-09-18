@@ -64,7 +64,7 @@ pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) 
 }
 
 pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
-    let number_str = format!("{:x}", token_id);
+    let number_str = format!("{token_id:x}");
     let padded_number_str = format!("{number_str:0>38}");
     let final_str = format!("ff{padded_number_str}");
 

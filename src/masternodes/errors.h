@@ -518,6 +518,14 @@ public:
         return Res::Err("TransferDomain currently only supports a single transfer per transaction");
     }
 
+    static Res TransferDomainSmartContractSourceAddress() {
+        return Res::Err("TransferDomain EVM source is a smart contract");
+    }
+
+    static Res TransferDomainSmartContractDestAddress() {
+        return Res::Err("TransferDomain EVM destination is a smart contract");
+    }
+
     static Res SettingEVMAttributeFailure() {
         return Res::Err("Failed to set EVM attribute");
     }

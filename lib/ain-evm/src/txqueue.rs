@@ -4,16 +4,13 @@ use std::{
 };
 
 use ethereum::{Block, TransactionV2};
-use ethereum_types::{H160, U256};
+use ethereum_types::{H256, U256};
 use rand::Rng;
 
 use crate::{
     core::XHash,
     receipt::Receipt,
-    transaction::{
-        system::{SystemTx, TransferDomainData},
-        SignedTx,
-    },
+    transaction::{system::SystemTx, SignedTx},
 };
 
 type Result<T> = std::result::Result<T, QueueError>;
@@ -44,10 +41,10 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(&self, target_block: U256) -> u64 {
+    pub unsafe fn create(&self, target_block: U256, state_root: H256) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let queue_id = rng.gen();
@@ -58,7 +55,7 @@ impl TransactionQueueMap {
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(Arc::new(TransactionQueue::new(target_block)));
+                e.insert(Arc::new(TransactionQueue::new(target_block, state_root)));
                 return queue_id;
             }
         }
@@ -69,7 +66,7 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove(&self, queue_id: u64) -> Option<Arc<TransactionQueue>> {
@@ -115,7 +112,7 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn push_in(
@@ -124,9 +121,12 @@ impl TransactionQueueMap {
         tx: QueueTx,
         hash: XHash,
         gas_used: U256,
+        state_root: H256,
     ) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| queue.queue_tx(tx, hash, gas_used))
-            .and_then(|res| res)
+        self.with_transaction_queue(queue_id, |queue| {
+            queue.queue_tx(tx, hash, gas_used, state_root)
+        })
+        .and_then(|res| res)
     }
 
     /// Removes all transactions in the queue whose sender matches the provided sender address.
@@ -136,11 +136,16 @@ impl TransactionQueueMap {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_by_sender_in(&self, queue_id: u64, sender: H160) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_by_sender(sender))
+    pub unsafe fn remove_txs_above_hash_in(
+        &self,
+        queue_id: u64,
+        target_hash: XHash,
+    ) -> Result<Vec<XHash>> {
+        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_above_hash(target_hash))
+            .and_then(|res| res)
     }
 
     ///
@@ -153,46 +158,31 @@ impl TransactionQueueMap {
         self.with_transaction_queue(queue_id, TransactionQueue::get_queue_txs_cloned)
     }
 
-    /// `get_next_valid_nonce` returns the next valid nonce for the account with the provided address
-    /// in the `TransactionQueue` associated with the provided queue ID. This method assumes that
-    /// only signed transactions (which include a nonce) are added to the queue using `queue_tx`
-    /// and that their nonces are in increasing order.
-    /// # Errors
-    ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    ///
-    /// Returns None when the address does not have any transaction queued or
-    /// Some(nonce) with the next valid nonce (current + 1) for the associated address
-    ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_next_valid_nonce_in(
-        &self,
-        queue_id: u64,
-        address: H160,
-    ) -> Result<Option<U256>> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_next_valid_nonce(address))
-    }
-
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_total_gas_used_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_total_gas_used())
+        self.with_transaction_queue(queue_id, TransactionQueue::get_total_gas_used)
     }
 
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, |queue| queue.get_target_block())
+        self.with_transaction_queue(queue_id, TransactionQueue::get_target_block)
+    }
+
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<H256> {
+        self.with_transaction_queue(queue_id, TransactionQueue::get_latest_state_root)
     }
 
     /// Apply the closure to the queue associated with the queue ID.
@@ -221,6 +211,7 @@ pub struct QueueTxItem {
     pub tx: QueueTx,
     pub tx_hash: XHash,
     pub gas_used: U256,
+    pub state_root: H256,
 }
 
 #[derive(Clone, Debug)]
@@ -240,20 +231,20 @@ pub struct BlockData {
 #[derive(Clone, Debug, Default)]
 pub struct TransactionQueueData {
     pub transactions: Vec<QueueTxItem>,
-    pub account_nonces: HashMap<H160, U256>,
     pub block_data: Option<BlockData>,
     pub total_gas_used: U256,
     pub target_block: U256,
+    pub initial_state_root: H256,
 }
 
 impl TransactionQueueData {
-    pub fn new(target_block: U256) -> Self {
+    pub fn new(target_block: U256, state_root: H256) -> Self {
         Self {
             transactions: Vec::new(),
-            account_nonces: HashMap::new(),
             total_gas_used: U256::zero(),
             block_data: None,
             target_block,
+            initial_state_root: state_root,
         }
     }
 }
@@ -264,68 +255,58 @@ pub struct TransactionQueue {
 }
 
 impl TransactionQueue {
-    fn new(target_block: U256) -> Self {
+    fn new(target_block: U256, state_root: H256) -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new(target_block)),
+            data: Mutex::new(TransactionQueueData::new(target_block, state_root)),
         }
     }
 
-    pub fn queue_tx(&self, tx: QueueTx, tx_hash: XHash, gas_used: U256) -> Result<()> {
+    pub fn queue_tx(
+        &self,
+        tx: QueueTx,
+        tx_hash: XHash,
+        gas_used: U256,
+        state_root: H256,
+    ) -> Result<()> {
         let mut data = self.data.lock().unwrap();
-        match &tx {
-            QueueTx::SignedTx(signed_tx)
-            | QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                signed_tx, ..
-            })) => {
-                if let Some(nonce) = data.account_nonces.get(&signed_tx.sender) {
-                    if signed_tx.nonce() != nonce + 1 {
-                        return Err(QueueError::InvalidNonce((signed_tx.clone(), *nonce)));
-                    }
-                }
-                data.account_nonces
-                    .insert(signed_tx.sender, signed_tx.nonce());
-                data.total_gas_used += gas_used;
-            }
-            _ => (),
-        }
+
+        data.total_gas_used += gas_used;
+
         data.transactions.push(QueueTxItem {
             tx,
             tx_hash,
             gas_used,
+            state_root,
         });
         Ok(())
     }
 
-    pub fn remove_txs_by_sender(&self, sender: H160) {
+    pub fn remove_txs_above_hash(&self, target_hash: XHash) -> Result<Vec<XHash>> {
         let mut data = self.data.lock().unwrap();
-        let mut gas_used_to_remove = U256::zero();
-        data.transactions.retain(|item| {
-            let tx_sender = match &item.tx {
-                QueueTx::SignedTx(tx) => tx.sender,
-                QueueTx::SystemTx(tx) => tx.sender().unwrap_or_default(),
-            };
-            if tx_sender == sender {
-                gas_used_to_remove += item.gas_used;
-                return false;
-            }
-            true
-        });
-        data.total_gas_used -= gas_used_to_remove;
-        data.account_nonces.remove(&sender);
+        let mut removed_txs = Vec::new();
+
+        if let Some(index) = data
+            .transactions
+            .iter()
+            .position(|item| item.tx_hash == target_hash)
+        {
+            removed_txs = data
+                .transactions
+                .drain(index..)
+                .map(|tx_item| tx_item.tx_hash)
+                .collect();
+
+            data.total_gas_used = data
+                .transactions
+                .iter()
+                .fold(U256::zero(), |acc, tx| acc + tx.gas_used)
+        }
+
+        Ok(removed_txs)
     }
 
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
         self.data.lock().unwrap().transactions.clone()
-    }
-
-    pub fn get_next_valid_nonce(&self, address: H160) -> Option<U256> {
-        self.data
-            .lock()
-            .unwrap()
-            .account_nonces
-            .get(&address)
-            .map(ToOwned::to_owned)
-            .map(|nonce| nonce + 1)
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
@@ -336,13 +317,30 @@ impl TransactionQueue {
         self.data.lock().unwrap().target_block
     }
 
-    pub fn is_queued(&self, tx: QueueTx) -> bool {
+    pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
         self.data
             .lock()
             .unwrap()
             .transactions
             .iter()
-            .any(|queued| queued.tx == tx)
+            .find(|tx_item| tx_item.tx_hash == hash)
+            .map(|tx_item| tx_item.state_root)
+    }
+
+    pub fn get_latest_state_root(&self) -> H256 {
+        let data = self.data.lock().unwrap();
+        data.transactions
+            .last()
+            .map_or(data.initial_state_root, |tx_item| tx_item.state_root)
+    }
+
+    pub fn is_queued(&self, tx: &QueueTx) -> bool {
+        self.data
+            .lock()
+            .unwrap()
+            .transactions
+            .iter()
+            .any(|queued| &queued.tx == tx)
     }
 }
 

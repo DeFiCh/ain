@@ -14,8 +14,10 @@ use crate::{
 };
 
 pub static TRIE_DB_STORE: &str = "trie_db_store.bin";
-pub static GENESIS_STATE_ROOT: &str =
-    "0xbc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a";
+pub static GENESIS_STATE_ROOT: H256 = H256([
+    188, 54, 120, 158, 122, 30, 40, 20, 54, 70, 66, 41, 130, 143, 129, 125, 102, 18, 247, 180, 119,
+    214, 101, 145, 255, 150, 169, 224, 100, 188, 201, 138,
+]);
 
 #[derive(Serialize, Deserialize)]
 pub struct TrieDBStore {
@@ -57,7 +59,7 @@ impl TrieDBStore {
         storage: &Arc<Storage>,
         json_file: PathBuf,
     ) -> Result<(H256, GenesisData)> {
-        let state_root: H256 = GENESIS_STATE_ROOT.parse().unwrap();
+        let state_root: H256 = GENESIS_STATE_ROOT;
 
         let mut backend = EVMBackend::from_root(
             state_root,

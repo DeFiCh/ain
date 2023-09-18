@@ -35,6 +35,16 @@ class CChainParams;
 class CCustomCSView;
 extern CCriticalSection cs_main;
 
+struct EvmAddressWithNonce {
+    uint64_t nonce;
+    EvmAddressData address;
+
+    bool operator<(const EvmAddressWithNonce& item) const
+    {
+        return std::tie(nonce, address) < std::tie(item.nonce, item.address);
+    }
+};
+
 /** Fake height value used in Coin to signify they are only in the memory pool (since 0.8) */
 static const uint32_t MEMPOOL_HEIGHT = 0x7FFFFFFF;
 
@@ -446,7 +456,7 @@ class CTxMemPool
 {
 private:
     uint32_t nCheckFrequency GUARDED_BY(cs); //!< Value n means that n times in 2^32 we check.
-    std::atomic<unsigned int> nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
+    std::atomic<unsigned int> nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock () invocation
     CBlockPolicyEstimator* minerPolicyEstimator;
 
     uint64_t totalTxSize;      //!< sum of all mempool tx's virtual sizes. Differs from serialized tx size since witness data is discounted. Defined in BIP 141.
@@ -554,6 +564,8 @@ private:
     bool accountsViewDirty;
     bool forceRebuildForReorg;
     std::unique_ptr<CCustomCSView> acview;
+
+    static void AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap);
 public:
     indirectmap<COutPoint, const CTransaction*> mapNextTx GUARDED_BY(cs);
     std::map<uint256, CAmount> mapDeltas;
@@ -668,6 +680,7 @@ public:
 
     /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
     int Expire(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    int ExpireEVM(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.
@@ -710,6 +723,9 @@ public:
 
     CCustomCSView& accountsView();
     void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
+    void setAccountViewDirty();
+    bool getAccountViewDirty() const;
+
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
      *  the descendants for a single transaction that has been added to the

@@ -367,6 +367,124 @@ class VMMapTests(DefiTestFramework):
         assert_equal("garbage" not in list(list_block["indexes"].values()), True)
         assert_equal("0x" not in list(list_block["indexes"].values()), True)
 
+    def vmmap_transfer_domain(self):
+        self.rollback_to(self.start_block_height)
+
+        # Evm in
+        tx = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        evm_block = self.nodes[0].eth_getBlockByNumber("latest")
+        evm_tx = self.nodes[0].vmmap(tx, VMMapType.TxHashDVMToEVM)["output"]
+        assert_equal(evm_block["transactions"][0], evm_tx)
+        native_tx = self.nodes[0].vmmap(evm_tx, VMMapType.TxHashEVMToDVM)["output"]
+        assert_equal(tx, native_tx)
+
+        # Evm out
+        tx = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.ethAddress,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "100@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        evm_block = self.nodes[0].eth_getBlockByNumber("latest")
+        evm_tx = self.nodes[0].vmmap(tx, VMMapType.TxHashDVMToEVM)["output"]
+        assert_equal(evm_block["transactions"][0], evm_tx)
+        native_tx = self.nodes[0].vmmap(evm_tx, VMMapType.TxHashEVMToDVM)["output"]
+        assert_equal(tx, native_tx)
+
+    def vmmap_transfer_domain_dst20(self):
+        self.rollback_to(self.start_block_height)
+
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        self.nodes[0].minttokens("1@BTC")
+        self.nodes[0].generate(1)
+
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/transferdomain": "true",
+                    "v0/transferdomain/dvm-evm/enabled": "true",
+                    "v0/transferdomain/dvm-evm/dat-enabled": "true",
+                    "v0/transferdomain/evm-dvm/dat-enabled": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Evm in
+        tx = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        evm_block = self.nodes[0].eth_getBlockByNumber("latest")
+        evm_tx = self.nodes[0].vmmap(tx, VMMapType.TxHashDVMToEVM)["output"]
+        assert_equal(evm_block["transactions"][0], evm_tx)
+        native_tx = self.nodes[0].vmmap(evm_tx, VMMapType.TxHashEVMToDVM)["output"]
+        assert_equal(tx, native_tx)
+
+        # Evm out
+        tx = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        evm_block = self.nodes[0].eth_getBlockByNumber("latest")
+        evm_tx = self.nodes[0].vmmap(tx, VMMapType.TxHashDVMToEVM)["output"]
+        assert_equal(evm_block["transactions"][0], evm_tx)
+        native_tx = self.nodes[0].vmmap(evm_tx, VMMapType.TxHashEVMToDVM)["output"]
+        assert_equal(tx, native_tx)
+
     def run_test(self):
         self.setup()
         # vmmap tests
@@ -377,6 +495,9 @@ class VMMapTests(DefiTestFramework):
         self.vmmap_invalid_block_number_should_fail()
         self.vmmap_rollback_should_succeed()
         self.vmmap_auto_invalid_input_should_fail()
+        self.vmmap_transfer_domain()
+        self.vmmap_transfer_domain_dst20()
+
         # logvmmap tests
         self.logvmmaps_tx_exist()
         self.logvmmaps_invalid_tx_should_fail()

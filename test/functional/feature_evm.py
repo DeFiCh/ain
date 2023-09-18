@@ -253,6 +253,18 @@ class EVMTest(DefiTestFramework):
         # Check setting vars before height
         assert_raises_rpc_error(
             -32600,
+            "Cannot be set before NextNetworkUpgradeHeight",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/evm": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before NextNetworkUpgradeHeight",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/params/feature/transferdomain": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
             "called before NextNetworkUpgrade height",
             self.nodes[0].evmtx,
             self.eth_address,
@@ -797,7 +809,6 @@ class EVMTest(DefiTestFramework):
         tx2 = self.nodes[0].evmtx(self.eth_address, 2, 21, 21001, self.to_address, 1)
         tx1 = self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, self.to_address, 1)
         tx3 = self.nodes[0].evmtx(self.eth_address, 3, 21, 21001, self.to_address, 1)
-        raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
         # Check the pending TXs
@@ -940,11 +951,6 @@ class EVMTest(DefiTestFramework):
                 "0xa382aa9f70f15bd0bf70e838f5ac0163e2501dbff2712e9622275e655e42ec1c",
                 "0x05d4cdabc4ad55fb7caf42a7fb6d4e8cea991e2331cd9d98a5eef10d84b5c994",
             ],
-        )
-
-        # Try and send EVM TX a second time
-        assert_raises_rpc_error(
-            -26, "evm tx failed to validate", self.nodes[0].sendrawtransaction, raw_tx
         )
 
     def validate_xvm_coinbase(self):

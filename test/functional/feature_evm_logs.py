@@ -59,7 +59,7 @@ class EVMTestLogs(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
     def should_create_contract(self):
         node = self.nodes[0]

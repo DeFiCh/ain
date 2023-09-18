@@ -1972,27 +1972,35 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Param:
-                if (attrV0->typeId == ParamIDs::Feature && attrV0->key == DFIPKeys::MintTokens) {
-                    if (view.GetLastHeight() < Params().GetConsensus().GrandCentralEpilogueHeight) {
-                        return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
-                    }
-                } else if (attrV0->typeId == ParamIDs::Feature || attrV0->typeId == ParamIDs::Foundation ||
-                    attrV0->key == DFIPKeys::Members) {
+                if (attrV0->typeId == ParamIDs::Feature) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
                     }
-                } else if (attrV0->typeId == ParamIDs::Foundation || attrV0->key == DFIPKeys::Members) {
+                    if (attrV0->key == DFIPKeys::MintTokens) {
+                        if (view.GetLastHeight() < Params().GetConsensus().GrandCentralEpilogueHeight) {
+                            return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
+                        }
+                    } else if (attrV0->key == DFIPKeys::EVMEnabled || attrV0->key == DFIPKeys::TransferDomain) {
+                        if (view.GetLastHeight() < Params().GetConsensus().NextNetworkUpgradeHeight) {
+                            return Res::Err("Cannot be set before NextNetworkUpgradeHeight");
+                        }
+                    }
+                } else if (attrV0->typeId == ParamIDs::Foundation) {
                     if (view.GetLastHeight() < Params().GetConsensus().GrandCentralHeight) {
                         return Res::Err("Cannot be set before GrandCentralHeight");
                     }
-                } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->key == DFIPKeys::StartBlock ||
-                           attrV0->typeId == ParamIDs::DFIP2206A) {
+                } else if (attrV0->typeId == ParamIDs::DFIP2206F || attrV0->typeId == ParamIDs::DFIP2206A) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
                         return Res::Err("Cannot be set before FortCanningSpringHeight");
                     }
                 } else if (attrV0->typeId == ParamIDs::DFIP2203) {
                     if (view.GetLastHeight() < Params().GetConsensus().FortCanningRoadHeight) {
                         return DeFiErrors::GovVarValidateFortCanningRoad();
+                    }
+                    if (attrV0->key == DFIPKeys::StartBlock) {
+                        if (view.GetLastHeight() < Params().GetConsensus().FortCanningSpringHeight) {
+                            return Res::Err("Cannot be set before FortCanningSpringHeight");
+                        }
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");

@@ -9,7 +9,7 @@ use ethereum::{
     TransactionV2,
 };
 use ethereum_types::{H160, H256, U256};
-use log::debug;
+use log::trace;
 use sha3::{Digest, Keccak256};
 
 use crate::{
@@ -82,7 +82,7 @@ pub fn intrinsics_contract(
     let count =
         backend.get_contract_storage(fixed_address, u256_to_h256(U256::one()).as_bytes())?;
 
-    debug!("Count: {:#x}", count + U256::one());
+    trace!("Count: {:#x}", count + U256::one());
 
     Ok(DeployContractInfo {
         address: fixed_address,
@@ -99,17 +99,17 @@ pub fn intrinsics_contract(
 }
 
 /// Returns transfer domain address, bytecode and null storage
-pub fn transfer_domain_contract() -> Result<DeployContractInfo> {
+pub fn transfer_domain_contract() -> DeployContractInfo {
     let FixedContract {
         contract,
         fixed_address,
     } = get_transferdomain_contract();
 
-    Ok(DeployContractInfo {
+    DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
         storage: Vec::new(),
-    })
+    }
 }
 
 pub fn dst20_contract(
@@ -209,7 +209,7 @@ pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
         .collect::<Vec<H160>>();
 
     for address in addresses {
-        debug!(
+        trace!(
             "[reserve_dst20_namespace] Deploying address to {:#?}",
             address
         );
@@ -228,7 +228,7 @@ pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
         .collect::<Vec<H160>>();
 
     for address in addresses {
-        debug!(
+        trace!(
             "[reserve_intrinsics_namespace] Deploying address to {:#?}",
             address
         );
@@ -293,7 +293,7 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-        debug!(
+        trace!(
             "[get_dst20_migration_txs] Deploying to address {:#?}",
             address
         );
@@ -308,6 +308,7 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
             tx,
             tx_hash: Default::default(),
             gas_used: U256::zero(),
+            state_root: Default::default(),
         });
     }
     Ok(txs)

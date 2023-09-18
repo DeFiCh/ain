@@ -1,26 +1,24 @@
+use std::cmp::Ordering;
 use std::{path::PathBuf, sync::Arc};
 
+use ain_contracts::{get_transferdomain_contract, FixedContract};
 use anyhow::format_err;
-use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionV2};
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
-use log::debug;
+use log::{debug, trace};
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
-    backend::{BackendError, EVMBackend, InsufficientBalance, Vicinity},
+    backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
-    executor::{AinExecutor, TxResponse},
+    executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    traits::{Executor, ExecutorContext},
-    transaction::{
-        system::{SystemTx, TransferDirection, TransferDomainData},
-        SignedTx,
-    },
-    trie::TrieDBStore,
-    txqueue::{QueueTx, TransactionQueueMap},
+    transaction::SignedTx,
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
+    txqueue::TransactionQueueMap,
     weiamount::WeiAmount,
     Result,
 };
@@ -48,7 +46,8 @@ pub struct EthCallArgs<'a> {
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
-    pub used_gas: u64,
+    pub higher_nonce: bool,
+    pub lower_nonce: bool,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -174,6 +173,7 @@ impl EVMCoreService {
             vicinity,
         )
         .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
+
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller: caller.unwrap_or_default(),
             to,
@@ -186,19 +186,24 @@ impl EVMCoreService {
 
     /// Validates a raw tx.
     ///
-    /// The validation checks of the tx before we consider it to be valid are:
-    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
-    /// 2. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
-    /// 3. Gas price and tx value check: verify that amount is within money range.
-    /// 4. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
-    /// 5. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
-    /// 6. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    /// The pre-validation checks of the tx before we consider it to be valid are:
+    /// 1. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
+    /// 2. Gas price and tx value check: verify that amount is within money range.
+    /// 3. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
+    /// 4. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
+    /// 5. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    ///
+    /// The validation checks with state context of the tx before we consider it to be valid are:
+    /// 1. Nonce check: Returns flag if nonce is lower or higher than the current state account nonce.
+    /// 2. Execute the tx with the state root from the txqueue.
+    /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 4. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
     ///
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
     /// * `queue_id` - The queue_id queue number.
-    /// * `use_context` - Flag to call tx with stack executor.
+    /// * `pre_validate` - Validate the raw tx with or without state context.
     ///
     /// # Returns
     ///
@@ -209,26 +214,25 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
+    pub unsafe fn validate_raw_tx(
+        &self,
+        tx: &str,
+        queue_id: u64,
+        pre_validate: bool,
+    ) -> Result<ValidateTxInfo> {
+        debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!(
-            "[validate_raw_tx] TransactionV2 : {:#?}",
-            signed_tx.transaction
-        );
+        debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
-        let block_number = self
-            .storage
-            .get_latest_block()?
-            .map(|block| block.header.number)
-            .unwrap_or_default();
-        debug!("[validate_raw_tx] block_number : {:#?}", block_number);
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+
+        let mut backend = self.get_backend(state_root)?;
 
         let signed_tx: SignedTx = tx.try_into()?;
-        let nonce = self
-            .get_nonce(signed_tx.sender, block_number)
-            .map_err(|e| format_err!("Error getting nonce {e}"))?;
+        let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
@@ -238,16 +242,6 @@ impl EVMCoreService {
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-
-        // Validate tx nonce
-        if nonce > signed_tx.nonce() {
-            return Err(format_err!(
-                "Invalid nonce. Account nonce {}, signed_tx nonce {}",
-                nonce,
-                signed_tx.nonce()
-            )
-            .into());
-        }
 
         // Validate tx gas price with initial block base fee
         let tx_gas_price = signed_tx.gas_price();
@@ -273,32 +267,54 @@ impl EVMCoreService {
             return Err(format_err!("gas limit higher than max_gas_per_block").into());
         }
 
-        let use_queue = queue_id != 0;
-        let used_gas = if use_queue {
-            let TxResponse { used_gas, .. } = self.call(EthCallArgs {
-                caller: Some(signed_tx.sender),
-                to: signed_tx.to(),
-                value: signed_tx.value(),
-                data: signed_tx.data(),
-                gas_limit: signed_tx.gas_limit().as_u64(),
-                access_list: signed_tx.access_list(),
-                block_number,
-                gas_price: Some(tx_gas_price),
-                max_fee_per_gas: signed_tx.max_fee_per_gas(),
-                transaction_type: Some(signed_tx.get_tx_type()),
-            })?;
-            used_gas
-        } else {
-            u64::default()
-        };
-
         let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
-        if use_queue {
+
+        if pre_validate {
+            // Validate tx nonce
+            if nonce > signed_tx.nonce() {
+                return Err(format_err!(
+                    "Invalid nonce. Account nonce {}, signed_tx nonce {}",
+                    nonce,
+                    signed_tx.nonce()
+                )
+                .into());
+            }
+
+            return Ok(ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+                higher_nonce: false,
+                lower_nonce: false,
+            });
+        } else {
+            // Should be queued for now and don't go through VM validation
+            match signed_tx.nonce().cmp(&nonce) {
+                Ordering::Greater => {
+                    return Ok(ValidateTxInfo {
+                        signed_tx,
+                        prepay_fee,
+                        higher_nonce: true,
+                        lower_nonce: false,
+                    });
+                }
+                Ordering::Less => {
+                    return Ok(ValidateTxInfo {
+                        signed_tx,
+                        prepay_fee,
+                        higher_nonce: false,
+                        lower_nonce: true,
+                    });
+                }
+                _ => {}
+            }
+
+            // Execute tx
+            let mut executor = AinExecutor::new(&mut backend);
+            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);
+
             // Validate tx prepay fees with account balance
-            let balance = self
-                .get_balance(signed_tx.sender, block_number)
-                .map_err(|e| format_err!("Error getting balance {e}"))?;
+            let balance = backend.get_balance(&signed_tx.sender);
             debug!("[validate_raw_tx] Account balance : {:x?}", balance);
 
             if balance < prepay_fee {
@@ -307,23 +323,119 @@ impl EVMCoreService {
             }
 
             // Validate total gas usage in queued txs exceeds block size
-            debug!("[validate_raw_tx] used_gas: {:#?}", used_gas);
+            debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
             let total_current_gas_used = self
                 .tx_queues
                 .get_total_gas_used_in(queue_id)
                 .unwrap_or_default();
 
             let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-            if total_current_gas_used + U256::from(used_gas) > U256::from(block_gas_limit) {
-                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(used_gas), total_current_gas_used + U256::from(used_gas)).into());
+            if total_current_gas_used + U256::from(tx_response.used_gas)
+                > U256::from(block_gas_limit)
+            {
+                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(tx_response.used_gas), total_current_gas_used + U256::from(tx_response.used_gas)).into());
             }
         }
 
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
-            used_gas,
+            higher_nonce: false,
+            lower_nonce: false,
         })
+    }
+
+    /// Validates a raw transfer domain tx.
+    ///
+    /// The pre-validation checks of the tx before we consider it to be valid are:
+    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    /// 2. tx value check: verify that amount is set to zero.
+    /// 3. Verify that transaction action is a call to the transferdomain contract address.
+    ///
+    /// # Arguments
+    ///
+    /// * `tx` - The raw tx.
+    /// * `queue_id` - The queue_id queue number.
+    ///
+    /// # Returns
+    ///
+    /// Returns the validation result.
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn validate_raw_transferdomain_tx(&self, tx: &str, queue_id: u64) -> Result<()> {
+        debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
+        debug!(
+            "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
+            tx
+        );
+        let signed_tx = SignedTx::try_from(tx)
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
+            signed_tx
+        );
+
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        debug!(
+            "[validate_raw_transferdomain_tx] state_root : {:#?}",
+            state_root
+        );
+
+        let backend = self.get_backend(state_root)?;
+
+        let signed_tx: SignedTx = tx.try_into()?;
+        let nonce = backend.get_nonce(&signed_tx.sender);
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
+            signed_tx.sender
+        );
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx nonce : {:#?}",
+            signed_tx.nonce()
+        );
+        debug!("[validate_raw_transferdomain_tx] nonce : {:#?}", nonce);
+
+        // Validate tx nonce
+        if nonce > signed_tx.nonce() {
+            return Err(format_err!(
+                "Invalid nonce. Account nonce {}, signed_tx nonce {}",
+                nonce,
+                signed_tx.nonce()
+            )
+            .into());
+        }
+
+        // Validate tx value equal to zero
+        if signed_tx.value() != U256::zero() {
+            debug!("[validate_raw_transferdomain_tx] value not equal to zero");
+            return Err(format_err!("value not equal to zero").into());
+        }
+
+        // Verify transaction action and transferdomain contract address
+        let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+        match signed_tx.action() {
+            TransactionAction::Call(address) => {
+                if address != fixed_address {
+                    return Err(format_err!(
+                        "Invalid call address. Fixed address: {:#?}, signed_tx call address: {:#?}",
+                        fixed_address,
+                        address
+                    )
+                    .into());
+                }
+            }
+            _ => {
+                return Err(
+                    format_err!("tx action not a call to transferdomain contract address").into(),
+                )
+            }
+        }
+
+        Ok(())
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
@@ -341,78 +453,22 @@ impl EVMCoreService {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn add_balance(
-        &self,
-        queue_id: u64,
-        signed_tx: SignedTx,
-        hash: XHash,
-    ) -> Result<()> {
-        let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-            signed_tx: Box::new(signed_tx),
-            direction: TransferDirection::EvmIn,
-        }));
-        self.tx_queues
-            .push_in(queue_id, queue_tx, hash, U256::zero())?;
-        Ok(())
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn sub_balance(
-        &self,
-        queue_id: u64,
-        signed_tx: SignedTx,
-        hash: XHash,
-    ) -> Result<()> {
-        let block_number = self
-            .storage
-            .get_latest_block()?
-            .map_or(U256::default(), |block| block.header.number);
-        let balance = self.get_balance(signed_tx.sender, block_number)?;
-        if balance < signed_tx.value() {
-            Err(BackendError::InsufficientBalance(InsufficientBalance {
-                address: signed_tx.sender,
-                account_balance: balance,
-                amount: signed_tx.value(),
-            })
-            .into())
-        } else {
-            let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                signed_tx: Box::new(signed_tx),
-                direction: TransferDirection::EvmOut,
-            }));
-            self.tx_queues
-                .push_in(queue_id, queue_tx, hash, U256::zero())?;
-            Ok(())
-        }
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn create_queue(&self) -> Result<u64> {
-        let target_block = match self.storage.get_latest_block()? {
-            None => U256::zero(), // Genesis queue
-            Some(block) => block.header.number + 1,
+        let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
+            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis queue
+            Some(block) => (block.header.number + 1, block.header.state_root),
         };
-        let queue_id = self.tx_queues.create(target_block);
+        let queue_id = self.tx_queues.create(target_block, initial_state_root);
         Ok(queue_id)
     }
 
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove_queue(&self, queue_id: u64) {
@@ -422,18 +478,24 @@ impl EVMCoreService {
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_txs_by_sender_in(&self, queue_id: u64, address: H160) -> Result<()> {
-        self.tx_queues.remove_by_sender_in(queue_id, address)?;
-        Ok(())
+    pub unsafe fn remove_txs_above_hash_in(
+        &self,
+        queue_id: u64,
+        target_hash: XHash,
+    ) -> Result<Vec<XHash>> {
+        let hashes = self
+            .tx_queues
+            .remove_txs_above_hash_in(queue_id, target_hash)?;
+        Ok(hashes)
     }
 
     ///
     /// # Safety
     ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
@@ -442,16 +504,6 @@ impl EVMCoreService {
     }
 
     /// Retrieves the next valid nonce for the specified account within a particular queue.
-    ///
-    /// The method first attempts to retrieve the next valid nonce from the transaction queue associated with the
-    /// provided queue_id. If no nonce is found in the transaction queue, that means that no transactions have been
-    /// queued for this account in this queue_id. It falls back to retrieving the nonce from the storage at the latest
-    /// block. If no nonce is found in the storage (i.e., no transactions for this account have been committed yet),
-    /// the nonce is defaulted to zero.
-    ///
-    /// This method provides a unified view of the nonce for an account, taking into account both transactions that are
-    /// waiting to be processed in the queue and transactions that have already been processed and committed to the storage.
-    ///
     /// # Arguments
     ///
     /// * `queue_id` - The queue_id queue number.
@@ -471,21 +523,11 @@ impl EVMCoreService {
         queue_id: u64,
         address: H160,
     ) -> Result<U256> {
-        let nonce = match self.tx_queues.get_next_valid_nonce_in(queue_id, address)? {
-            Some(nonce) => Ok(nonce),
-            None => {
-                let block_number = self
-                    .storage
-                    .get_latest_block()?
-                    .map_or_else(U256::zero, |block| block.header.number);
-
-                self.get_nonce(address, block_number)
-            }
-        }?;
-
-        debug!(
-            "Account {:x?} nonce {:x?} in queue_id {queue_id}",
-            address, nonce
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        let backend = self.get_backend(state_root)?;
+        let nonce = backend.get_nonce(&address);
+        trace!(
+            "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
         );
         Ok(nonce)
     }
@@ -582,10 +624,21 @@ impl EVMCoreService {
             .map(|block| (block.header.state_root, block.header.number))
             .unwrap_or_default();
 
-        debug!(
+        trace!(
             "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
+            block_number,
+            state_root
         );
+        EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity::default(),
+        )
+    }
+
+    pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
+        trace!("[get_backend] state_root : {:#x}", state_root);
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
