@@ -279,10 +279,11 @@ impl EVMCoreService {
                 .into());
             }
 
+            let higher_nonce = nonce < signed_tx.nonce();
             return Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce: nonce < signed_tx.nonce(),
+                higher_nonce,
             });
         } else {
             // Validate tx prepay fees with account balance
