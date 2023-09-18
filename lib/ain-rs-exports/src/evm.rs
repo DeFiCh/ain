@@ -79,7 +79,7 @@ pub fn evm_try_create_and_sign_tx(
             cross_boundary_success_return(result,
             ffi::CreateTxResult {
                     tx: signed.encode().into(),
-                    nonce: nonce,
+                    nonce,
                 },
             )
         }
@@ -268,7 +268,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
             cross_boundary_success_return(result,
             ffi::CreateTxResult {
                     tx: signed.encode().into(),
-                    nonce: nonce,
+                    nonce,
                 },
             )
         }
