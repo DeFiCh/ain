@@ -132,7 +132,6 @@ UniValue evmtx(const JSONRPCRequest &request) {
                                                                               nonce,
                                                                               gasPrice,
                                                                               gasLimit,
-                                                                              from,
                                                                               to,
                                                                               value,
                                                                               input,

@@ -83,7 +83,6 @@ pub mod ffi {
         pub nonce: u64,
         pub gas_price: u64,
         pub gas_limit: u64,
-        pub from: &'a str,
         pub to: &'a str,
         pub value: u64,
         pub input: Vec<u8>,

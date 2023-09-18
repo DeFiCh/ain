@@ -43,7 +43,7 @@ pub fn evm_try_create_and_sign_tx(
         TransactionAction::Create
     } else {
         let Ok(to_address) = ctx.to.parse() else {
-            return cross_boundary_error_return(result, "Invalid to address");
+            return cross_boundary_error_return(result, "Invalid address");
         };
         TransactionAction::Call(to_address)
     };
