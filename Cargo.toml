@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "ain-*",
-    "cli",
-    "labs-grpc2",
+    "lib/ain-*",
+    "lib/cli",
+    "lib/labs-grpc2",
 ]
 
 default-members = [
-    "ain-*",
+    "lib/ain-*",
 ]
 
 resolver = "2"
@@ -36,6 +36,21 @@ tokio = { version = "1.1", features = ["rt-multi-thread"] }
 async-trait = "0.1"
 regex = "1.5"
 
+## build
+
+proc-macro2 = "1.0"
+cxx = "1.0"
+cxx-build = "1.0"
+cxx-gen = "0.7"
+tonic = "0.9"
+tonic-build = "0.9"
+prost = "0.11"
+prost-build = "0.11"
+
+quote = "1.0"
+syn = { version = "2.0", default-features = false, features = ["parsing", "printing"] }
+prettyplease = "0.2.4"
+
 ## crypto
 
 libsecp256k1 = "0.7"
@@ -51,32 +66,34 @@ hex = "0.4"
 hex-literal = "0.4"
 bincode = "1.3"
 serde_with = "3.0"
-
-cxx = "1.0"
-cxx-build = "1.0"
-tonic = "0.9"
-tonic-build = "0.9"
-prost = "0.11"
-prost-build = "0.11"
+heck = "0.4"
 
 jsonrpsee = { version = "0.16", features = ["server", "macros", "http-client"] }
 jsonrpsee-core = "0.16"
 jsonrpsee-server = "0.16"
 jsonrpsee-types = "0.16"
 
+tempdir = "0.3"
+
+rocksdb = { version = "0.21", default-features = false }
+statrs = "0.16"
+rustc-hex = "2.1"
+
 ### eth
+
+evm = { version = "0.39", default-features = false, features = ["with-serde"] }
 
 ethereum = "0.14"
 ethereum-types = "0.14"
 keccak-hash = "0.10"
 rlp = "0.5"
+ethers = "2.0"
+ethers-solc = "2.0"
+ethbloom = "0.13"
 ethabi = "18.0.0"
 
 ### ain-evm
-evm = { version = "0.39", default-features = false, features = ["with-serde"] }
-ethbloom = "0.13"
-statrs = "0.16"
-rustc-hex = "2.1"
+
 
 #### Trie dependencies
 hash-db = "0.16"
@@ -91,31 +108,3 @@ lru = "0.11"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
-
-#### Database dependencies
-rocksdb = { version = "0.21", default-features = false }
-
-## build-deps
-
-
-### ain-rs-exports
-
-cxx-gen = "0.7"
-proc-macro2 = "1.0"
-
-### ain-evm
-
-tempdir = "0.3"
-
-### ain-contracts
-
-ethers = "2.0"
-ethers-solc = "2.0"
-
-### ain-grpc
-
-heck = "0.4"
-quote = "1.0"
-syn = { version = "2.0", default-features = false, features = ["parsing", "printing"] }
-
-prettyplease = "0.2.4"
