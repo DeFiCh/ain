@@ -521,7 +521,7 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
 /// - Account's nonce does not match raw tx's nonce
 /// - The EVM transaction prepay gas is invalid
 /// - The EVM transaction gas limit is lower than the transaction intrinsic gas
-/// - THe EVM transaction cannot be added into the transaction queue as it exceeds the block size limit.
+/// - The EVM transaction cannot be added into the transaction queue as it exceeds the block size limit
 ///
 /// # Returns
 ///
