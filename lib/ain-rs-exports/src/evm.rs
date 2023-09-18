@@ -2,6 +2,7 @@ use ain_contracts::{get_transferdomain_contract, FixedContract};
 use ain_evm::{
     core::{ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
+    fee::calculate_prepay_gas_fee,
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     transaction::{
@@ -1136,7 +1137,7 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "nonce value overflow");
     };
 
-    let Ok(prepay_fee) = SERVICES.evm.core.calculate_prepay_gas_fee(&signed_tx) else {
+    let Ok(prepay_fee) = calculate_prepay_gas_fee(&signed_tx) else {
         return cross_boundary_error_return(result, "failed to get fee from transaction");
     };
 

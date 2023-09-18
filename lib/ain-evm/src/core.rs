@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::{path::PathBuf, sync::Arc};
 
+use crate::fee::calculate_prepay_gas_fee;
 use ain_contracts::{get_transferdomain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
@@ -12,7 +13,6 @@ use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
     executor::{AinExecutor, ExecutorContext, TxResponse},
-    fee::calculate_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
@@ -343,11 +343,6 @@ impl EVMCoreService {
             higher_nonce: false,
             lower_nonce: false,
         })
-    }
-
-    pub fn calculate_prepay_gas_fee(&self, signed_tx: &SignedTx) -> Result<U256> {
-        let result = calculate_prepay_gas_fee(signed_tx)?;
-        Ok(result)
     }
 
     /// Validates a raw transfer domain tx.
