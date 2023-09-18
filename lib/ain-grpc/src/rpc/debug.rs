@@ -1,8 +1,10 @@
 use std::{cmp, sync::Arc};
 
+use ain_evm::storage::traits::{ReceiptStorage, TransactionStorage};
+use ain_evm::transaction::SignedTx;
 use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
 use ethereum::Account;
-use ethereum_types::U256;
+use ethereum_types::{H256, U256};
 use jsonrpsee::{
     core::{Error, RpcResult},
     proc_macros::rpc,
@@ -12,6 +14,7 @@ use rlp::{Decodable, Rlp};
 
 use super::to_jsonrpsee_custom_error;
 use crate::call_request::CallRequest;
+use crate::transaction::{TraceLogs, TraceTransactionResult};
 
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
@@ -24,7 +27,7 @@ pub struct FeeEstimate {
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self) -> RpcResult<()>;
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
 
     // Dump full db
     #[method(name = "dumpdb")]
@@ -55,9 +58,47 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self) -> RpcResult<()> {
-        debug!(target: "rpc", "Tracing transaction");
-        Ok(())
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+        debug!(target: "rpc", "Tracing transaction {tx_hash}");
+
+        let receipt = self
+            .handler
+            .storage
+            .get_receipt(&tx_hash)
+            .map_err(to_jsonrpsee_custom_error)?
+            .ok_or_else(|| Error::Custom(format!("Error")))?;
+
+        let tx = self
+            .handler
+            .storage
+            .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
+            .expect("Unable to find TX hash")
+            .ok_or_else(|| Error::Custom("Error".to_string()))?;
+
+        let signed_tx = SignedTx::try_from(tx).expect("Unable to construct signed TX");
+
+        let (logs, succeeded, return_data, gas_used) = self
+            .handler
+            .core
+            .trace_transaction(
+                signed_tx.sender,
+                signed_tx.to(),
+                signed_tx.value(),
+                signed_tx.data(),
+                signed_tx.gas_limit().as_u64(),
+                signed_tx.access_list(),
+                receipt.block_number,
+            )
+            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
+
+        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
+
+        Ok(TraceTransactionResult {
+            gas: U256::from(gas_used),
+            failed: !succeeded,
+            return_value: format!("{}", hex::encode(return_data)),
+            struct_logs: trace_logs,
+        })
     }
 
     fn dump_db(&self) -> RpcResult<()> {

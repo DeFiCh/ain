@@ -1,4 +1,6 @@
 use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::{path::PathBuf, sync::Arc};
 
 use crate::fee::calculate_prepay_gas_fee;
@@ -6,9 +8,14 @@ use ain_contracts::{get_transferdomain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
+use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
+use evm::Capture::Exit;
+use evm::{Capture, Config};
 use log::{debug, trace};
 use vsdb_core::vsdb_set_base_dir;
 
+use crate::opcode;
+use crate::precompiles::Context;
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
@@ -24,6 +31,16 @@ use crate::{
 };
 
 pub type XHash = String;
+
+#[derive(Clone, Debug)]
+pub struct ExecutionStep {
+    pub pc: usize,
+    pub op: String,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<H256>,
+    pub memory: Vec<u8>,
+}
 
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
@@ -530,6 +547,147 @@ impl EVMCoreService {
             "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
         );
         Ok(nonce)
+    }
+
+    pub fn trace_transaction(
+        &self,
+        caller: H160,
+        to: Option<H160>,
+        _value: U256,
+        data: &[u8],
+        gas_limit: u64,
+        access_list: AccessList,
+        block_number: U256,
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        let (state_root, block_number) = self
+            .storage
+            .get_block_by_number(&block_number)?
+            .ok_or_else(|| format_err!("Cannot find block"))
+            .map(|block| (block.header.state_root, block.header.number))?;
+
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
+
+        let vicinity = Vicinity {
+            block_number,
+            origin: caller,
+            gas_limit: U256::from(gas_limit),
+            ..Default::default()
+        };
+
+        let backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+        )
+        .map_err(|e| format_err!("Could not restore backend {}", e))?;
+
+        let config = Config::shanghai();
+        let metadata = StackSubstateMetadata::new(gas_limit, &config);
+        let state = MemoryStackState::new(metadata, &backend);
+        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let mut executor = StackExecutor::new_with_precompiles(state, &config, &precompiles);
+
+        let mut runtime = evm::Runtime::new(
+            Rc::new(match to {
+                Some(to) => self
+                    .get_code(to, block_number)
+                    .unwrap_or_default()
+                    .unwrap_or_default(),
+                None => Vec::new(),
+            }),
+            Rc::new(data.to_vec()),
+            Context {
+                caller,
+                address: caller,
+                apparent_value: U256::default(),
+            },
+            1024,
+            usize::MAX,
+        );
+
+        let mut trace: Vec<ExecutionStep> = Vec::new();
+
+        let (opcode, stack) = runtime.machine().inspect().unwrap();
+        let mut al = Vec::new();
+        let _ = access_list
+            .into_iter()
+            .map(|x| al.push((x.clone().address, x.clone().storage_keys)));
+
+        let mut gasometer = evm::gasometer::Gasometer::new(gas_limit, &config);
+        let base_cost = match to {
+            Some(_) => evm::gasometer::call_transaction_cost(data, al.as_slice()),
+            None => evm::gasometer::create_transaction_cost(data, al.as_slice()),
+        };
+
+        gasometer.record_transaction(base_cost).unwrap();
+        let gas_before = gasometer.gas();
+        opcode::record_cost(opcode, &mut gasometer, to, stack, &mut executor, &config);
+
+        // Record initial state
+        trace.push(ExecutionStep {
+            pc: 0,
+            op: format!("{}", opcode::opcode_to_string(opcode)),
+            gas: gas_before,
+            gas_cost: gas_before - gasometer.gas(),
+            stack: stack.data().to_vec(),
+            memory: vec![],
+        });
+
+        loop {
+            let t = runtime.step(&mut executor);
+            match t {
+                Ok(_) => {
+                    let (opcode, stack) = runtime.machine().inspect().unwrap();
+                    println!("opcode : {:#?}", opcode);
+                    println!("stack : {:#?}", stack);
+
+                    let gas_before = gasometer.gas();
+                    opcode::record_cost(opcode, &mut gasometer, to, stack, &mut executor, &config);
+
+                    trace.push(ExecutionStep {
+                        pc: runtime.machine().position().clone().unwrap(),
+                        op: format!("{}", opcode::opcode_to_string(opcode)),
+                        gas: gas_before,
+                        gas_cost: gas_before - gasometer.gas(),
+                        stack: stack.data().to_vec(),
+                        memory: runtime.machine().memory().data().to_vec(),
+                    });
+                }
+                Err(e) => match e {
+                    Exit(_) => {
+                        debug!("Errored",);
+                        break;
+                    }
+                    Capture::Trap(_) => {
+                        debug!("Trapped");
+                        debug!(
+                            "Next opcode: {:#x?}",
+                            runtime.machine().inspect().unwrap().0.as_u8()
+                        );
+                        break;
+                    }
+                },
+            }
+        }
+
+        println!("trace : {:#?}", trace);
+
+        Ok((
+            trace,
+            runtime
+                .machine()
+                .position()
+                .clone()
+                .err()
+                .expect("Execution not completed")
+                .is_succeed(),
+            runtime.machine().return_value(),
+            gasometer.total_used_gas(),
+        ))
     }
 }
 

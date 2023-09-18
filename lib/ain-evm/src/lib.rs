@@ -11,6 +11,7 @@ pub mod filters;
 mod gas;
 mod genesis;
 pub mod log;
+mod opcode;
 mod precompiles;
 pub mod receipt;
 pub mod services;
