@@ -430,7 +430,7 @@ class BlockchainTest(DefiTestFramework):
         assert_equal(genesis["strippedsize"], 1288)
         assert_equal(genesis["weight"], 5152)
         assert_equal(genesis["height"], 0)
-        assert genesis["masternode"]
+        assert "masternode" not in genesis
         assert_equal(genesis["mintedBlocks"], 0)
         assert_equal(
             genesis["stakeModifier"],

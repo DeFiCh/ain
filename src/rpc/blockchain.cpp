@@ -125,23 +125,26 @@ struct MinterInfo {
     std::string OperatorAddress{};
     std::string RewardAddress{};
     uint64_t MintedBlocks{};
-    uint256 StakeModifier{};
+    std::string StakeModifier{};
 
-    static std::optional<MinterInfo> TryFrom(const CBlock& block, const CBlockIndex* blockindex, const CCustomCSView& view) {
+    static MinterInfo From(const CBlock& block, const CBlockIndex* blockindex, const CCustomCSView& view) {
         MinterInfo result;
         CKeyID minter;
         block.ExtractMinterKey(minter);
+
         auto id = view.GetMasternodeIdByOperator(minter);
-        if (!id && blockindex->nHeight != 0) return {};
-        // note: understand block0(!id) will cause panic here but since block0 never have minter
-        result.Id = id->ToString();
-        auto mn = view.GetMasternode(*id);
-        if (mn) {
-            auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
-            result.OperatorAddress = EncodeDestination(dest);
+        if (id) {
+            result.Id = id->ToString();
+            auto mn = view.GetMasternode(*id);
+            if (mn) {
+                auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
+                result.OperatorAddress = EncodeDestination(dest);
+            }
         }
+
         result.MintedBlocks = blockindex->mintedBlocks;
-        result.StakeModifier = blockindex->stakeModifier;
+        result.StakeModifier = blockindex->stakeModifier.ToString();
+
         return result;
     }
 
@@ -149,11 +152,15 @@ struct MinterInfo {
         // Note: This follows legacy way of empty checks and prints to preserve
         // compatibility. Don't change it. Use the new method ToUniValue method
         // for new version.
-        if (Id.empty()) return;
-        result.pushKV("masternode", Id);
-        if (!OperatorAddress.empty()) result.pushKV("minter", OperatorAddress);
+        if (!Id.empty()) {
+            result.pushKV("masternode", Id);
+            if (!OperatorAddress.empty()) {
+                result.pushKV("minter", OperatorAddress);
+            }
+        }
+
         result.pushKV("mintedBlocks", MintedBlocks);
-        result.pushKV("stakeModifier", StakeModifier.ToString());
+        result.pushKV("stakeModifier", StakeModifier);
     }
 
     UniValue ToUniValue() const {
@@ -165,7 +172,7 @@ struct MinterInfo {
         result.pushKV("operator", OperatorAddress);
         result.pushKV("rewardAddress", RewardAddress);
         result.pushKV("totalMinted", MintedBlocks);
-        result.pushKV("stakeModifier", StakeModifier.ToString());
+        result.pushKV("stakeModifier", StakeModifier);
         return result;
     }
 };
@@ -366,8 +373,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // For v3+, we fix the past mistakes and don't just modify existing root schema.
     // We'll add all these later.
     if (!v3plus) {
-        auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
-        if (minterInfo) { minterInfo->ToUniValueLegacy(result); }
+        MinterInfo::From(block, blockindex, *pcustomcsview).ToUniValueLegacy(result);
     }
 
     result.pushKV("version", block.nVersion);
@@ -392,10 +398,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
     if (v3plus) {
-        auto minterInfo = MinterInfo::TryFrom(block, blockindex, *pcustomcsview);
-        if (minterInfo) {
-            result.pushKV("minter", minterInfo->ToUniValue());
-        }
+        MinterInfo::From(block, blockindex, *pcustomcsview).ToUniValue();
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
