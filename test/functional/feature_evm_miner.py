@@ -483,7 +483,8 @@ class EVMTest(DefiTestFramework):
             ]
         )
         self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce, 30, 21001, self.toAddress, 1)
+        tx = self.nodes[0].evmtx(self.ethAddress, nonce, 30, 21001, self.toAddress, 1)
+        assert_equal(self.nodes[0].getrawmempool(), [tx])
         self.nodes[0].generate(1)
         block_height = self.nodes[0].getblockcount()
         assert_equal(block_height, self.start_height + 1)

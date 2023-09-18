@@ -1172,6 +1172,8 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
     CTxMemPool::setEntries itersToRemove;
     std::set<CTransactionRef> txsToRemove;
 
+    auto& txidIndex = mapTx.get<txid_tag>();
+
     auto result{true};
 
     for (auto it = range.first; it != range.second; ++it) {
@@ -1182,7 +1184,18 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
                 auto txIter = mapTx.project<0>(it);
                 itersToRemove.insert(txIter);
             } else {
-                txsToRemove.insert(entry.GetSharedTx());
+                const auto &tx = entry.GetSharedTx();
+                for (const auto &vin : tx->vin) {
+                    auto hashEntry = txidIndex.find(vin.prevout.hash);
+                    if (hashEntry != txidIndex.end() &&
+                        hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
+                        txsToRemove.insert(hashEntry->GetSharedTx());
+                        // Add auto auth and continue, this will remove the transfer
+                        // domain TX in the removeRecursive function.
+                        continue;
+                    }
+                }
+                txsToRemove.insert(tx);
             }
 
             // We might want to set accountsViewDirty to true here but
