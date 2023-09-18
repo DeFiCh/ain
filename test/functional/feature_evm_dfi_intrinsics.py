@@ -54,12 +54,11 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ).read()
         )["object"]
 
-        for i in range(3, 128):
+        for i in range(1, 128):
             address = node.w3.to_checksum_address(generate_formatted_string(i))
-            assert (
-                self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
-                == reserved_bytecode
-            )
+            code_at_addr =  self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
+            # print(i, address, code_at_addr, reserved_bytecode)
+            assert (code_at_addr == reserved_bytecode)
 
         assert (
             self.nodes[0].w3.to_hex(
@@ -79,7 +78,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         counter_contract = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
-                "0xff10000000000000000000000000000000000001"
+                "0xfe00000000000000000000000000000000000001"
             ),
             abi=abi,
         )
@@ -114,8 +113,8 @@ def generate_formatted_string(input_number):
     if len(hex_representation) > 32:
         hex_representation = hex_representation[:32]  # Truncate if too long
 
-    padding = "0" * (37 - len(hex_representation))
-    formatted_string = f"0xff1{padding}{hex_representation}"
+    padding = "0" * (38 - len(hex_representation))
+    formatted_string = f"0xdf{padding}{hex_representation}"
 
     return formatted_string
 

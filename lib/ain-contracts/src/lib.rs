@@ -30,6 +30,12 @@ macro_rules! solc_artifact_bytecode_str {
     };
 }
 
+macro_rules! slice_20b {
+    ($first_byte:literal, $last_byte:literal) => {
+        [$first_byte, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, $last_byte]
+    };
+}
+
 fn get_bytecode(input: &str) -> Result<Vec<u8>> {
     let bytecode_json: serde_json::Value = serde_json::from_str(input)?;
     let bytecode_raw = bytecode_json["object"]
@@ -73,8 +79,8 @@ pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
 
 pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
     let number_str = format!("{:x}", id);
-    let padded_number_str = format!("{number_str:0>37}");
-    let final_str = format!("ff1{padded_number_str}");
+    let padded_number_str = format!("{number_str:0>38}");
+    let final_str = format!("df{padded_number_str}");
 
     Ok(H160::from_str(&final_str)?)
 }
@@ -102,10 +108,7 @@ lazy_static::lazy_static! {
                 runtime_bytecode: bytecode,
                 init_bytecode: Vec::new(),
             },
-            fixed_address: H160([
-                0xff, 0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-                0x0, 0x1,
-            ]),
+            fixed_address: H160(slice_20b!(0xdf, 0x1)),
         }
     };
 
@@ -125,10 +128,7 @@ lazy_static::lazy_static! {
                 runtime_bytecode: bytecode,
                 init_bytecode: input,
             },
-            fixed_address: H160([
-                0xff, 0x10, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-                0x0, 0x2,
-            ]),
+            fixed_address: H160(slice_20b!(0xdf, 0x2)),
         }
     };
 
