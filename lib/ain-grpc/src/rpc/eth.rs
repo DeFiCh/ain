@@ -698,6 +698,10 @@ impl MetachainRPCServer for MetachainRPCModule {
                         signed_tx.transaction.hash()
                     );
 
+                    if !self.handler.core.store_account_nonce(signed_tx.sender, signed_tx.nonce()) {
+                        return Err(Error::Custom(format!("Could not cache nonce {:x?} for {:x?}", signed_tx.nonce(), signed_tx.sender)));
+                    }
+
                     Ok(format!("{:#x}", signed_tx.transaction.hash()))
                 } else {
                     debug!(target:"rpc", "[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");

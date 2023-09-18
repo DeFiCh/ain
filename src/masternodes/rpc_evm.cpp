@@ -127,7 +127,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     std::copy(key.begin(), key.end(), privKey.begin());
 
     CrossBoundaryResult result;
-    const auto signedTx = evm_try_create_and_sign_tx(result,
+    const auto createResult = evm_try_create_and_sign_tx(result,
                                                      CreateTransactionContext{chainID,
                                                                               nonce,
                                                                               gasPrice,
@@ -141,8 +141,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }
 
-    std::vector<uint8_t> evmTx(signedTx.size());
-    std::copy(signedTx.begin(), signedTx.end(), evmTx.begin());
+    std::vector<uint8_t> evmTx(createResult.tx.size());
+    std::copy(createResult.tx.begin(), createResult.tx.end(), evmTx.begin());
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::EvmTx) << CEvmTxMessage{evmTx};
@@ -162,6 +162,10 @@ UniValue evmtx(const JSONRPCRequest &request) {
     // check execution
     CTransactionRef optAuthTx;
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+    evm_try_store_account_nonce(result, from, createResult.nonce);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Could not cache nonce %i for %s", from, createResult.nonce));
+    }
 
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
 }

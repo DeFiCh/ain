@@ -667,9 +667,7 @@ impl EVMCoreService {
         let state_root_nonce = self.get_nonce_from_state_root(address, state_root)?;
         let mut nonce_store = self.nonce_store.lock().unwrap();
         match nonce_store.entry(address) {
-            std::collections::hash_map::Entry::Vacant(_) => {
-                Ok(state_root_nonce)
-            }
+            std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
             std::collections::hash_map::Entry::Occupied(e) => {
                 let mut nonce = state_root_nonce;
                 let nonce_set = e.get();
@@ -679,12 +677,12 @@ impl EVMCoreService {
 
                 for elem in nonce_set.range(state_root_nonce..) {
                     if (elem - nonce) > U256::from(1) {
-                        nonce = nonce + U256::from(1);
                         break;
                     } else {
-                        nonce = elem.clone();
+                        nonce = *elem;
                     }
                 }
+                nonce += U256::from(1);
                 Ok(nonce)
             }
         }
@@ -692,14 +690,14 @@ impl EVMCoreService {
 
     pub fn store_account_nonce(&self, address: H160, nonce: U256) -> bool {
         let mut nonce_store = self.nonce_store.lock().unwrap();
-        if !nonce_store.contains_key(&address) {
-            nonce_store.insert(address, BTreeSet::new());
-        }
+        nonce_store.entry(address).or_insert_with(BTreeSet::new);
+
         match nonce_store.entry(address) {
             std::collections::hash_map::Entry::Occupied(mut e) => {
-                e.get_mut().insert(nonce)
+                e.get_mut().insert(nonce);
+                true
             }
-            _ => false
+            _ => false,
         }
     }
 

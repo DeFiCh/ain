@@ -320,6 +320,7 @@ impl EVMServices {
             self.filters.add_block_to_filters(block.header.hash());
         }
         self.core.tx_queues.remove(queue_id);
+        self.core.clear_account_nonce();
 
         Ok(())
     }
