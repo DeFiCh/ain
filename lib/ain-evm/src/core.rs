@@ -669,12 +669,12 @@ impl EVMCoreService {
         match nonce_store.entry(address) {
             std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
             std::collections::hash_map::Entry::Occupied(e) => {
-                let mut nonce = state_root_nonce;
                 let nonce_set = e.get();
                 if !nonce_set.contains(&state_root_nonce) {
                     return Ok(state_root_nonce);
                 }
 
+                let mut nonce = state_root_nonce;
                 for elem in nonce_set.range(state_root_nonce..) {
                     if (elem - nonce) > U256::from(1) {
                         break;
