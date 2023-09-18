@@ -204,7 +204,7 @@ pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
     } = get_reserved_contract();
-    let addresses = (0..=1023)
+    let addresses = (0..1024)
         .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
         .collect::<Vec<H160>>();
 
@@ -223,7 +223,7 @@ pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
     } = get_reserved_contract();
-    let addresses = (2..=127)
+    let addresses = (0..128)
         .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
         .collect::<Vec<H160>>();
 
