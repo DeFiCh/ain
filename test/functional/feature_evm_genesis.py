@@ -11,13 +11,12 @@ from test_framework.util import (
     assert_equal,
 )
 
+TESTSDIR = os.path.dirname(os.path.realpath(__file__))
+
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
-        ain = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        )
-        genesis = os.path.join(ain, "lib/ain-evm/genesis.json")
+        genesis = os.path.join(TESTSDIR, "data/evm-genesis.json")
 
         self.num_nodes = 1
         self.setup_clean_chain = True
