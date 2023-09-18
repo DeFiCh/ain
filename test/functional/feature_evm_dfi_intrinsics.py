@@ -59,8 +59,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             code_at_addr = self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(address)
             )
-            # print(i, address, code_at_addr, reserved_bytecode)
-            assert code_at_addr == reserved_bytecode
+            assert_equal(code_at_addr, reserved_bytecode)
 
         assert (
             self.nodes[0].w3.to_hex(
