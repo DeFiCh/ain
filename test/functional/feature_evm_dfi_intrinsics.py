@@ -78,7 +78,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
         counter_contract = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
-                "0xfe00000000000000000000000000000000000001"
+                "0xdf00000000000000000000000000000000000001"
             ),
             abi=abi,
         )
