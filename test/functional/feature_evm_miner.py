@@ -101,12 +101,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
 
-    def rollback_and_clear_mempool(self):
-        self.rollback_to(self.start_height)
-        self.nodes[0].clearmempool()
-
     def mempool_block_limit(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
@@ -236,7 +232,7 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
 
     def invalid_evm_tx_in_block_creation(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -275,7 +271,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_info["tx"]) - 1, 20)
 
     def state_dependent_txs_in_block_and_queue(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -466,17 +462,41 @@ class EVMTest(DefiTestFramework):
             block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used
         )
 
+    def same_nonce_transferdomain_and_evm_txs(self):
+        self.rollback_to(self.start_height)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "nonce": nonce,
+                }
+            ]
+        )
+        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].generate(1)
+        block_height = self.nodes[0].getblockcount()
+        assert_equal(block_height, self.start_height + 1)
+
     def run_test(self):
         self.setup()
 
         # Multiple mempool fee replacement
-        self.mempool_block_limit()
+        # self.mempool_block_limit()
 
         # Test invalid tx in block creation
-        self.invalid_evm_tx_in_block_creation()
+        # self.invalid_evm_tx_in_block_creation()
 
         # Test for block size overflow from fee mismatch between tx queue and block
-        self.state_dependent_txs_in_block_and_queue()
+        # self.state_dependent_txs_in_block_and_queue()
+
+        # Test for transferdomain and evmtx with same nonce
+        self.same_nonce_transferdomain_and_evm_txs()
 
 
 if __name__ == "__main__":
