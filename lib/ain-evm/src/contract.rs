@@ -223,7 +223,7 @@ pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
     } = get_reserved_contract();
-    let addresses = (2..=128)
+    let addresses = (2..=127)
         .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
         .collect::<Vec<H160>>();
 

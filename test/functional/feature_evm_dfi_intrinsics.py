@@ -60,7 +60,6 @@ class DFIIntrinsicsTest(DefiTestFramework):
             # print(i, address, code_at_addr, reserved_bytecode)
             assert (code_at_addr == reserved_bytecode)
 
-        print("check reserved address space done")
         assert (
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(
