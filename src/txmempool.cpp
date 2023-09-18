@@ -1169,6 +1169,9 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
     auto& addressNonceIndex = mapTx.get<address_and_nonce>();
     auto range = addressNonceIndex.equal_range(pendingEntry.GetEVMAddrAndNonce());
 
+    CTxMemPool::setEntries itersToRemove;
+    std::set<CTransactionRef> txsToRemove;
+
     auto result{true};
 
     for (auto it = range.first; it != range.second; ++it) {
@@ -1177,9 +1180,9 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
         if (pendingEntry.GetEVMPrePayFee() > entry.GetEVMPrePayFee()) {
             if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
                 auto txIter = mapTx.project<0>(it);
-                removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
+                itersToRemove.insert(txIter);
             } else {
-                removeRecursive(entry.GetTx(), MemPoolRemovalReason::REPLACED);
+                txsToRemove.insert(entry.GetSharedTx());
             }
 
             // We might want to set accountsViewDirty to true here but
@@ -1190,6 +1193,14 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
         } else {
             result = false;
         }
+    }
+
+    for (const auto& txIter : itersToRemove) {
+        removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
+    }
+
+    for (const auto& tx : txsToRemove) {
+        removeRecursive(*tx, MemPoolRemovalReason::REPLACED);
     }
 
     return result;
