@@ -488,7 +488,7 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
             self.blockHash1,
         )
-    
+
     def test_auto_nonce_for_multiple_transaction(self):
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         self.nodes[0].transferdomain(
@@ -511,7 +511,7 @@ class EVMTest(DefiTestFramework):
                 "from": self.ethAddress,
                 "to": self.toAddress,
                 "nonce": hex(nonce + 3),
-                "value": "0xDE0B6B3A7640000",   # 1 DFI
+                "value": "0xDE0B6B3A7640000",  # 1 DFI
                 "gas": "0x7a120",
                 "gasPrice": "0x2540BE400",
             }
@@ -521,7 +521,7 @@ class EVMTest(DefiTestFramework):
             {
                 "from": self.ethAddress,
                 "to": self.toAddress,
-                "value": "0xDE0B6B3A7640000",   # 1 DFI
+                "value": "0xDE0B6B3A7640000",  # 1 DFI
                 "gas": "0x7a120",
                 "gasPrice": "0x2540BE400",
             }
@@ -540,7 +540,9 @@ class EVMTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
-        block_tx_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)["tx"]
+        block_tx_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)[
+            "tx"
+        ]
 
         # assert all 6 txs are minted (including 2 auto-auth tx and coinbase)
         assert_equal(len(block_tx_info), 9)
