@@ -277,18 +277,12 @@ impl EVMCoreService {
                     signed_tx.nonce()
                 )
                 .into());
-            } else if nonce < signed_tx.nonce() {
-                return Ok(ValidateTxInfo {
-                    signed_tx,
-                    prepay_fee,
-                    higher_nonce: true,
-                });
             }
 
             return Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce: false,
+                higher_nonce: nonce < signed_tx.nonce(),
             });
         } else {
             // Validate tx prepay fees with account balance

@@ -359,9 +359,6 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
     }
 
     const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-    if (validateResults.higher_nonce) {
-        return Res::Ok();
-    }
 
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx_in_q] failed, reason : %s\n", result.reason);
