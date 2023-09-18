@@ -345,6 +345,11 @@ impl EVMCoreService {
         })
     }
 
+    pub fn calculate_prepay_gas_fee(&self, signed_tx: &SignedTx) -> Result<U256> {
+        let result = calculate_prepay_gas_fee(signed_tx)?;
+        Ok(result)
+    }
+
     /// Validates a raw transfer domain tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:

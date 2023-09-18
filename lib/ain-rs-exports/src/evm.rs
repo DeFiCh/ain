@@ -1136,11 +1136,20 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "nonce value overflow");
     };
 
+    let Ok(prepay_fee) = SERVICES.evm.core.calculate_prepay_gas_fee(&signed_tx) else {
+        return cross_boundary_error_return(result, "failed to get fee from transaction");
+    };
+
+    let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
+        return cross_boundary_error_return(result, "prepay fee value overflow");
+    };
+
     cross_boundary_success_return(
         result,
         TxSenderInfo {
             nonce,
             address: format!("{:?}", signed_tx.sender),
+            prepay_fee,
         },
     )
 }

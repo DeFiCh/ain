@@ -809,6 +809,7 @@ class EVMTest(DefiTestFramework):
         tx2 = self.nodes[0].evmtx(self.eth_address, 2, 21, 21001, self.to_address, 1)
         tx1 = self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, self.to_address, 1)
         tx3 = self.nodes[0].evmtx(self.eth_address, 3, 21, 21001, self.to_address, 1)
+        raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
         # Check the pending TXs
@@ -951,6 +952,14 @@ class EVMTest(DefiTestFramework):
                 "0xa382aa9f70f15bd0bf70e838f5ac0163e2501dbff2712e9622275e655e42ec1c",
                 "0x05d4cdabc4ad55fb7caf42a7fb6d4e8cea991e2331cd9d98a5eef10d84b5c994",
             ],
+        )
+
+        # Try and send an already sent transaction
+        assert_raises_rpc_error(
+            -26,
+            "evm tx failed to pre-validate Invalid nonce. Account nonce 6, signed_tx nonce 5",
+            self.nodes[0].sendrawtransaction,
+            raw_tx,
         )
 
     def validate_xvm_coinbase(self):
@@ -1124,13 +1133,62 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].evmtx(self.eth_address, 65, 22, 21001, self.to_address, 1)
         self.nodes[0].evmtx(self.eth_address, 65, 23, 21001, self.to_address, 1)
         tx0 = self.nodes[0].evmtx(self.eth_address, 65, 25, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 21, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 24, 21001, self.to_address, 1)
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            65,
+            21,
+            21001,
+            self.to_address,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            65,
+            24,
+            21001,
+            self.to_address,
+            1,
+        )
         self.nodes[0].evmtx(self.to_address, 0, 22, 21001, self.eth_address, 1)
         self.nodes[0].evmtx(self.to_address, 0, 23, 21001, self.eth_address, 1)
         tx1 = self.nodes[0].evmtx(self.to_address, 0, 25, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 21, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 24, 21001, self.eth_address, 1)
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.to_address,
+            0,
+            21,
+            21001,
+            self.eth_address,
+            1,
+        )
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.to_address,
+            0,
+            24,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Check mempool only contains two entries
+        assert_equal(
+            sorted(self.nodes[0].getrawmempool()),
+            [
+                "2b13a48b2af32206a2d60d535ad46d4958c25b4ddd4c30f3a2da32f092c23916",
+                "6a6b53538b66e0eb477ce923901e6fa1714c4f52a83f8f1793c92c14ebc0f910",
+            ],
+        )
         self.nodes[0].generate(1)
 
         # Check accounting of EVM fees
