@@ -54,29 +54,30 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ).read()
         )["object"]
 
-        for i in range(1, 128):
+        for i in range(2, 128):
             address = node.w3.to_checksum_address(generate_formatted_string(i))
             code_at_addr =  self.nodes[0].w3.to_hex(self.nodes[0].w3.eth.get_code(address))
             # print(i, address, code_at_addr, reserved_bytecode)
             assert (code_at_addr == reserved_bytecode)
 
+        print("check reserved address space done")
         assert (
             self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(
-                    node.w3.to_checksum_address(generate_formatted_string(129))
+                    node.w3.to_checksum_address(generate_formatted_string(128))
                 )
             )
             != reserved_bytecode
         )
 
-        # check counter contract
+        # check intrinsics contract
         abi = open(
             get_solc_artifact_path("dfi_intrinsics", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
 
-        counter_contract = node.w3.eth.contract(
+        contract_0 = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
                 "0xdf00000000000000000000000000000000000001"
             ),
@@ -92,16 +93,16 @@ class DFIIntrinsicsTest(DefiTestFramework):
 
             # check evmBlockCount variable
             assert_equal(
-                counter_contract.functions.evmBlockCount().call(),
+                contract_0.functions.evmBlockCount().call(),
                 node.w3.eth.get_block_number(),
             )
 
             # check version variable
-            assert_equal(counter_contract.functions.version().call(), 1)
+            assert_equal(contract_0.functions.version().call(), 1)
 
             # check dvmBlockCount variable
             assert_equal(
-                counter_contract.functions.dvmBlockCount().call(), node.getblockcount()
+                contract_0.functions.dvmBlockCount().call(), node.getblockcount()
             )
 
         assert_equal(len(state_roots), num_blocks)

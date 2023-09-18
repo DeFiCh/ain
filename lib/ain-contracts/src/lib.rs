@@ -109,7 +109,7 @@ lazy_static::lazy_static! {
                 runtime_bytecode: bytecode,
                 init_bytecode: Vec::new(),
             },
-            fixed_address: H160(slice_20b!(0xdf, 0x1)),
+            fixed_address: H160(slice_20b!(0xdf, 0x0)),
         }
     };
 
@@ -129,7 +129,7 @@ lazy_static::lazy_static! {
                 runtime_bytecode: bytecode,
                 init_bytecode: input,
             },
-            fixed_address: H160(slice_20b!(0xdf, 0x2)),
+            fixed_address: H160(slice_20b!(0xdf, 0x1)),
         }
     };
 
