@@ -17,10 +17,10 @@ export CARGO_BUILD_TARGET = $(RUST_TARGET)
 endif
 TARGET = $(RUST_TARGET)
 
-export CARGO_TARGET_DIR ?= $(abs_top_builddir)/target
+export CARGO_TARGET_DIR ?= $(abs_builddir)/target
 export CARGO_BUILD_JOBS ?= $(if $(JOBS),$(JOBS),-1)
 
-CARGO_MANIFEST_PATH = $(abs_top_srcdir)/Cargo.toml
+CARGO_MANIFEST_PATH = $(abs_srcdir)/Cargo.toml
 BUILD_ARTIFACTS_DIR = $(CARGO_TARGET_DIR)/$(TARGET)/$(if $(DEBUG),debug,release)
 
 CARGO_MANIFEST_ARG = --manifest-path "$(CARGO_MANIFEST_PATH)"

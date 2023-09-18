@@ -2,7 +2,7 @@
 # We set this so that Makefile based
 # builds and ad-hoc cargo invocations all
 # result in the consistent compilation
-target-dir = "./build/target"
+target-dir = "./build/lib/target"
 
 rustflags = [
   "-C", "link-arg=-z",
