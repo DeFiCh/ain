@@ -40,7 +40,7 @@ impl BlockService {
             .unwrap_or_default();
 
         block_handler.starting_block_number = block_number;
-        debug!("Current block number is {:#?}", block_number);
+        debug!("Current block number is {:x?}", block_number);
 
         Ok(block_handler)
     }

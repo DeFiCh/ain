@@ -349,9 +349,8 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx size too large");
 
     CrossBoundaryResult result;
-    ValidateTxCompletion validateResults;
     if (evmPreValidate) {
-        validateResults = evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+        evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
             LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to pre-validate %s", result.reason);
@@ -359,10 +358,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-    if (validateResults.higher_nonce) {
-        return Res::Ok();
-    }
+    const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
 
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx_in_q] failed, reason : %s\n", result.reason);
