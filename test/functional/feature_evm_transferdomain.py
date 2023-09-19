@@ -1134,7 +1134,7 @@ class EVMTest(DefiTestFramework):
 
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
-        # self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+        self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
 
         self.conflicting_transferdomain_evmtx()
 
