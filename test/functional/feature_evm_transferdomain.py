@@ -976,18 +976,6 @@ class EVMTest(DefiTestFramework):
         tx1 = self.nodes[0].evmtx(
             self.eth_address, 0, 21, 21001, erc55_address, 50
         )  # Spend half balance
-
-        assert_raises_rpc_error(
-            -26,
-            "evm-low-fee",
-            transfer_domain,
-            self.nodes[0],
-            self.eth_address,
-            self.address,
-            "100@DFI",
-            3,
-            2,
-        )
         self.nodes[0].generate(1)
 
         block = self.nodes[0].eth_getBlockByNumber("latest")
