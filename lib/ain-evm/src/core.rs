@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::{BTreeSet, HashMap},
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use crate::fee::calculate_prepay_gas_fee;
 use ain_contracts::{get_transferdomain_contract, FixedContract};
@@ -28,6 +32,7 @@ pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
+    nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
 }
 pub struct EthCallArgs<'a> {
     pub caller: Option<H160>,
@@ -63,6 +68,7 @@ impl EVMCoreService {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
             storage,
+            nonce_store: Mutex::new(HashMap::new()),
         }
     }
 
@@ -78,6 +84,7 @@ impl EVMCoreService {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
+            nonce_store: Mutex::new(HashMap::new()),
         };
         let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
             &handler.trie_store,
@@ -511,6 +518,13 @@ impl EVMCoreService {
 
 // State methods
 impl EVMCoreService {
+    pub fn get_state_root(&self) -> Result<H256> {
+        let state_root = self
+            .storage
+            .get_latest_block()?
+            .map_or(H256::default(), |block| block.header.state_root);
+        Ok(state_root)
+    }
     pub fn get_account(&self, address: H160, block_number: U256) -> Result<Option<Account>> {
         let state_root = self
             .storage
@@ -531,11 +545,7 @@ impl EVMCoreService {
     }
 
     pub fn get_latest_contract_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
-        let state_root = self
-            .storage
-            .get_latest_block()?
-            .map_or(H256::default(), |block| block.header.state_root);
-
+        let state_root = self.get_state_root()?;
         let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -584,12 +594,18 @@ impl EVMCoreService {
         Ok(balance)
     }
 
-    pub fn get_nonce(&self, address: H160, block_number: U256) -> Result<U256> {
+    pub fn get_nonce_from_block_number(&self, address: H160, block_number: U256) -> Result<U256> {
         let nonce = self
             .get_account(address, block_number)?
             .map_or(U256::zero(), |account| account.nonce);
 
         debug!("Account {:x?} nonce {:x?}", address, nonce);
+        Ok(nonce)
+    }
+
+    pub fn get_nonce_from_state_root(&self, address: H160, state_root: H256) -> Result<U256> {
+        let backend = self.get_backend(state_root)?;
+        let nonce = backend.get_nonce(&address);
         Ok(nonce)
     }
 
@@ -621,5 +637,48 @@ impl EVMCoreService {
             Arc::clone(&self.storage),
             Vicinity::default(),
         )
+    }
+
+    pub fn get_next_account_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
+        let state_root_nonce = self.get_nonce_from_state_root(address, state_root)?;
+        let mut nonce_store = self.nonce_store.lock().unwrap();
+        match nonce_store.entry(address) {
+            std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
+            std::collections::hash_map::Entry::Occupied(e) => {
+                let nonce_set = e.get();
+                if !nonce_set.contains(&state_root_nonce) {
+                    return Ok(state_root_nonce);
+                }
+
+                let mut nonce = state_root_nonce;
+                for elem in nonce_set.range(state_root_nonce..) {
+                    if (elem - nonce) > U256::from(1) {
+                        break;
+                    } else {
+                        nonce = *elem;
+                    }
+                }
+                nonce += U256::from(1);
+                Ok(nonce)
+            }
+        }
+    }
+
+    pub fn store_account_nonce(&self, address: H160, nonce: U256) -> bool {
+        let mut nonce_store = self.nonce_store.lock().unwrap();
+        nonce_store.entry(address).or_insert_with(BTreeSet::new);
+
+        match nonce_store.entry(address) {
+            std::collections::hash_map::Entry::Occupied(mut e) => {
+                e.get_mut().insert(nonce);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    pub fn clear_account_nonce(&self) {
+        let mut nonce_store = self.nonce_store.lock().unwrap();
+        nonce_store.clear()
     }
 }

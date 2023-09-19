@@ -304,7 +304,7 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -8,
+            -1,
             "JSON value is not an integer as expected",
             self.nodes[0].transferdomain,
             [
@@ -323,7 +323,7 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -8,
+            -1,
             "JSON value is not an integer as expected",
             self.nodes[0].transferdomain,
             [

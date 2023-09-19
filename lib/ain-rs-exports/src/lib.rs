@@ -99,8 +99,13 @@ pub mod ffi {
         pub token_id: u32,
         pub chain_id: u64,
         pub priv_key: [u8; 32],
-        pub queue_id: u64,
         pub use_nonce: bool,
+        pub nonce: u64,
+    }
+
+    #[derive(Default)]
+    pub struct CreateTxResult {
+        pub tx: Vec<u8>,
         pub nonce: u64,
     }
 
@@ -196,11 +201,16 @@ pub mod ffi {
         fn evm_try_create_and_sign_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransactionContext,
-        ) -> Vec<u8>;
+        ) -> CreateTxResult;
         fn evm_try_create_and_sign_transfer_domain_tx(
             result: &mut CrossBoundaryResult,
             ctx: CreateTransferDomainContext,
-        ) -> Vec<u8>;
+        ) -> CreateTxResult;
+        fn evm_try_store_account_nonce(
+            result: &mut CrossBoundaryResult,
+            from_address: &str,
+            nonce: u64,
+        );
         fn evm_try_get_block_hash_by_number(
             result: &mut CrossBoundaryResult,
             height: u64,
