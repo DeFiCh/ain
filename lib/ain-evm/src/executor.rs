@@ -12,9 +12,10 @@ use log::{debug, trace};
 use crate::{
     backend::EVMBackend,
     bytes::Bytes,
+    contract::dst20_deploy_contract_tx,
     contract::{bridge_dst20, dst20_contract, DST20BridgeInfo, DeployContractInfo},
     core::EVMCoreService,
-    evm::{dst20_deploy_contract_tx, ReceiptAndOptionalContractAddress},
+    evm::ReceiptAndOptionalContractAddress,
     fee::{calculate_gas_fee, calculate_prepay_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{

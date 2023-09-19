@@ -6,6 +6,9 @@ use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
+pub const DST20_ADDR_PREFIX_BYTE: u8 = 0xff;
+pub const INTRINSICS_ADDR_PREFIX_BYTE: u8 = 0xdf;
+
 macro_rules! solc_artifact_path {
     ($project_name:literal, $artifact:literal) => {
         concat!(
@@ -27,6 +30,33 @@ macro_rules! solc_artifact_content_str {
 macro_rules! solc_artifact_bytecode_str {
     ($project_name:literal, $artifact:literal) => {
         get_bytecode(solc_artifact_content_str!($project_name, $artifact)).unwrap()
+    };
+}
+
+macro_rules! slice_20b {
+    ($first_byte:tt, $last_byte:tt) => {
+        [
+            $first_byte,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            $last_byte,
+        ]
     };
 }
 
@@ -63,20 +93,18 @@ pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) 
         .map_err(|e| format_err!(e))
 }
 
-pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
-    let number_str = format!("{token_id:x}");
-    let padded_number_str = format!("{number_str:0>38}");
-    let final_str = format!("ff{padded_number_str}");
+pub fn generate_intrinsic_addr(prefix_byte: u8, suffix_num: u64) -> Result<H160> {
+    let s = format!("{prefix_byte:x}{suffix_num:0>38x}");
 
-    Ok(H160::from_str(&final_str)?)
+    Ok(H160::from_str(&s)?)
+}
+
+pub fn dst20_address_from_token_id(token_id: u64) -> Result<H160> {
+    generate_intrinsic_addr(DST20_ADDR_PREFIX_BYTE, token_id)
 }
 
 pub fn intrinsics_address_from_id(id: u64) -> Result<H160> {
-    let number_str = format!("{:x}", id);
-    let padded_number_str = format!("{number_str:0>37}");
-    let final_str = format!("ff1{padded_number_str}");
-
-    Ok(H160::from_str(&final_str)?)
+    generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, id)
 }
 
 #[derive(Clone)]
@@ -102,17 +130,11 @@ lazy_static::lazy_static! {
                 runtime_bytecode: bytecode,
                 init_bytecode: Vec::new(),
             },
-            fixed_address: H160([
-                0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-                0x3, 0x1,
-            ]),
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x0)),
         }
     };
 
     pub static ref TRANSFERDOMAIN_CONTRACT: FixedContract = {
-        // Note that input, bytecode, and deployed bytecode is used in confusing ways since
-        // deployedBytecode was exposed as bytecode earlier in build script.
-        // TODO: Refactor terminology to align with the source of truth.
         let bytecode = solc_artifact_bytecode_str!("transfer_domain", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
             "transfer_domain",
@@ -125,10 +147,7 @@ lazy_static::lazy_static! {
                 runtime_bytecode: bytecode,
                 init_bytecode: input,
             },
-            fixed_address: H160([
-                0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-                0x3, 0x2,
-            ]),
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x1)),
         }
     };
 
@@ -175,4 +194,32 @@ pub fn get_dst20_contract() -> Contract {
 
 pub fn get_reserved_contract() -> Contract {
     RESERVED_CONTRACT.clone()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_addr_gen() {
+        let items: Vec<(Result<H160>, &str)> = vec![
+            (generate_intrinsic_addr(DST20_ADDR_PREFIX_BYTE, 0x0), "ff00000000000000000000000000000000000000"),
+            (generate_intrinsic_addr(DST20_ADDR_PREFIX_BYTE, 0x1), "ff00000000000000000000000000000000000001"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x0), "df00000000000000000000000000000000000000"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x1), "df00000000000000000000000000000000000001"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x2), "df00000000000000000000000000000000000002"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xff), "df000000000000000000000000000000000000ff"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xfe), "df000000000000000000000000000000000000fe"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x1fffe), "df0000000000000000000000000000000001fffe"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xffff), "df0000000000000000000000000000000000ffff"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xffff_ffff_ffff_ffff), "df0000000000000000000000ffffffffffffffff"),
+            (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0xefff_ffff_ffff_ffff), "df0000000000000000000000efffffffffffffff"),
+            // Should not compile
+            // (generate_intrinsic_addr(INTRINSICS_ADDR_PREFIX_BYTE, 0x1ffff_ffff_ffff_ffff), "df0000000000000000000001ffffffffffffffff"),
+        ];
+
+        for x in items {
+            assert_eq!(x.0.unwrap(), H160::from_str(x.1).unwrap());
+        }
+    }
 }
