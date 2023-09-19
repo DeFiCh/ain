@@ -91,6 +91,9 @@ class EVMTest(DefiTestFramework):
         # Test that node should not crash without chainId param
         self.test_tx_without_chainid()
 
+        # Test evmtx auto nonce
+        self.sendtransaction_auto_nonce()
+
         # Toggle EVM
         self.toggle_evm_enablement()
 
@@ -1254,6 +1257,52 @@ class EVMTest(DefiTestFramework):
         )["tx"]
         assert_equal(block_txs[1], tx0)
         assert_equal(block_txs[2], tx1)
+
+    def sendtransaction_auto_nonce(self):
+        self.nodes[0].clearmempool()
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+
+        evm_nonces = [nonce, nonce + 2, nonce + 3]
+
+        # send evmtxs with nonces
+        for nonce in evm_nonces:
+            self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": self.nodes[0].w3.to_hex(nonce),
+                    "from": self.eth_address,
+                    "to": "0x0000000000000000000000000000000000000000",
+                    "value": "0x1",
+                    "gas": "0x100000",
+                    "gasPrice": "0x4e3b29200",
+                }
+            )
+
+        # send transferdomain without specifying nonce
+        self.nodes[0].eth_sendTransaction(
+            {
+                "from": self.eth_address,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+
+        balance_before = self.nodes[0].w3.eth.get_balance(
+            "0x0000000000000000000000000000000000000000"
+        )
+        assert_equal(len(self.nodes[0].getrawmempool()), 4)
+        self.nodes[0].generate(5)
+        balance_after = self.nodes[0].w3.eth.get_balance(
+            "0x0000000000000000000000000000000000000000"
+        )
+
+        assert_equal(
+            len(self.nodes[0].getrawmempool()), 0
+        )  # all TXs should make it through
+        assert_equal(
+            balance_before + 4, balance_after
+        )  # burn balance should increase by 4wei
 
     def toggle_evm_enablement(self):
         # Deactivate EVM
