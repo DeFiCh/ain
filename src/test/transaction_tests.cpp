@@ -788,8 +788,8 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
 
     CrossBoundaryResult result;
     const auto reply = evm_try_create_and_sign_tx(result, CreateTransactionContext{chainID, nonce, gasPrice, gasLimit, to, value, input, privKey});
-    std::vector<uint8_t> replyVector(reply.size());
-    std::copy(reply.begin(), reply.end(), replyVector.begin());
+    std::vector<uint8_t> replyVector(reply.tx.size());
+    std::copy(reply.tx.begin(), reply.tx.end(), replyVector.begin());
     std::string transaction(HexStr(replyVector.begin(), replyVector.end()));
     const auto rawBytes = ParseHex(transaction);
     BOOST_CHECK_EQUAL(transaction, "f86b8085688a7c4a008252089434c1ca09a2dc717d89baef2f30ff6a6b2975e17e872386f26fc10000802ea0faaabaa535de3859c7ee5f924545fcaa071a3516ce7ef1e6dc91faceef9b7c7fa053d23409fc611d228c818111aa75d04e3701ea7944f8e2d7fd8cd695c21399f5");

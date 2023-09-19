@@ -211,6 +211,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
+            if (dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
+            }
             const auto evmTx = HexStr(dst.data);
             auto hash = evm_try_get_tx_hash(result, evmTx);
             if (!result.ok) {
@@ -272,6 +275,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractSourceAddress();
             }
 
+            if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
+            }
             const auto evmTx = HexStr(src.data);
             auto hash = evm_try_get_tx_hash(result, evmTx);
             if (!result.ok) {
@@ -320,10 +326,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
         else {
             return DeFiErrors::TransferDomainInvalidDomain();
         }
-
-        if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
-            return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
-        }
     }
 
     auto txHash = tx.GetHash().GetHex();
@@ -349,9 +351,8 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx size too large");
 
     CrossBoundaryResult result;
-    ValidateTxCompletion validateResults;
     if (evmPreValidate) {
-        validateResults = evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+        evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
             LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to pre-validate %s", result.reason);
@@ -359,11 +360,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-    if (validateResults.higher_nonce) {
-        return Res::Ok();
-    }
-
+    const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s\n", result.reason);
