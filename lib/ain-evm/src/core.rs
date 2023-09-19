@@ -52,7 +52,6 @@ pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
     pub higher_nonce: bool,
-    pub lower_nonce: bool,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -288,34 +287,13 @@ impl EVMCoreService {
                 .into());
             }
 
+            let higher_nonce = nonce < signed_tx.nonce();
             return Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce: false,
-                lower_nonce: false,
+                higher_nonce,
             });
         } else {
-            // Should be queued for now and don't go through VM validation
-            match signed_tx.nonce().cmp(&nonce) {
-                Ordering::Greater => {
-                    return Ok(ValidateTxInfo {
-                        signed_tx,
-                        prepay_fee,
-                        higher_nonce: true,
-                        lower_nonce: false,
-                    });
-                }
-                Ordering::Less => {
-                    return Ok(ValidateTxInfo {
-                        signed_tx,
-                        prepay_fee,
-                        higher_nonce: false,
-                        lower_nonce: true,
-                    });
-                }
-                _ => {}
-            }
-
             // Validate tx prepay fees with account balance
             let balance = backend.get_balance(&signed_tx.sender);
             debug!("[validate_raw_tx] Account balance : {:x?}", balance);
@@ -348,7 +326,6 @@ impl EVMCoreService {
             signed_tx,
             prepay_fee,
             higher_nonce: false,
-            lower_nonce: false,
         })
     }
 

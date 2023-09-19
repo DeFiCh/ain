@@ -356,6 +356,7 @@ struct descendant_score {};
 struct entry_time {};
 struct ancestor_score {};
 struct address_and_nonce {};
+struct txid_tag {};
 
 class CBlockPolicyEstimator;
 
@@ -501,7 +502,11 @@ public:
         CTxMemPoolEntry,
         boost::multi_index::indexed_by<
             // sorted by txid
-            boost::multi_index::hashed_unique<mempoolentry_txid, SaltedTxidHasher>,
+            boost::multi_index::hashed_unique<
+                boost::multi_index::tag<txid_tag>,
+                mempoolentry_txid,
+                SaltedTxidHasher
+            >,
             // sorted by fee rate
             boost::multi_index::ordered_non_unique<
                 boost::multi_index::tag<descendant_score>,

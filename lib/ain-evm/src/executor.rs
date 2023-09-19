@@ -12,9 +12,10 @@ use log::{debug, trace};
 use crate::{
     backend::EVMBackend,
     bytes::Bytes,
+    contract::dst20_deploy_contract_tx,
     contract::{bridge_dst20, dst20_contract, DST20BridgeInfo, DeployContractInfo},
     core::EVMCoreService,
-    evm::{dst20_deploy_contract_tx, ReceiptAndOptionalContractAddress},
+    evm::ReceiptAndOptionalContractAddress,
     fee::{calculate_gas_fee, calculate_prepay_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
@@ -208,6 +209,17 @@ impl<'backend> AinExecutor<'backend> {
     pub fn apply_queue_tx(&mut self, tx: QueueTx, base_fee: U256) -> Result<ApplyTxResult> {
         match tx {
             QueueTx::SignedTx(signed_tx) => {
+                // Validate nonce
+                let nonce = self.backend.get_nonce(&signed_tx.sender);
+                if nonce != signed_tx.nonce() {
+                    return Err(format_err!(
+                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        nonce,
+                        signed_tx.nonce(),
+                    )
+                    .into());
+                }
+
                 let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
                 let (tx_response, receipt) = self.exec(&signed_tx, prepay_gas);
                 debug!(
@@ -232,6 +244,17 @@ impl<'backend> AinExecutor<'backend> {
                 signed_tx,
                 direction,
             })) => {
+                // Validate nonce
+                let nonce = self.backend.get_nonce(&signed_tx.sender);
+                if nonce != signed_tx.nonce() {
+                    return Err(format_err!(
+                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        nonce,
+                        signed_tx.nonce(),
+                    )
+                    .into());
+                }
+
                 let to = signed_tx.to().unwrap();
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[68..100]);
