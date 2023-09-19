@@ -706,9 +706,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -857,20 +854,13 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
-
-                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
-                    customTxPassed = false;
-                    break;
-                }
-                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedDfTxHashSet.insert(tx.GetHash());
