@@ -220,7 +220,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate : %s", result.reason);
             }
-
             if (evmPreValidate) {
                 return Res::Ok();
             }
@@ -284,7 +283,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
-
             if (evmPreValidate) {
                 return Res::Ok();
             }

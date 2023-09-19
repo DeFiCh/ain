@@ -63,7 +63,9 @@ class EVMTest(DefiTestFramework):
         )
         self.eth_address1 = self.nodes[0].getnewaddress("", "erc55")
         self.no_auth_eth_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"]["erc55"]
+        self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
+            "erc55"
+        ]
 
         symbolDFI = "DFI"
         symbolBTC = "BTC"
@@ -1002,7 +1004,9 @@ class EVMTest(DefiTestFramework):
         self.rollback_to(self.start_height)
 
         self.nodes[0].utxostoaccount({self.address: "200@DFI"})
-        transfer_domain(self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3)
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
         self.nodes[0].generate(1)
 
         burn_address = self.nodes[0].w3.to_checksum_address(
@@ -1071,7 +1075,9 @@ class EVMTest(DefiTestFramework):
         self.rollback_to(self.start_height)
 
         self.nodes[0].utxostoaccount({self.address: "200@DFI"})
-        transfer_domain(self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3)
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
         self.nodes[0].generate(1)
 
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
@@ -1179,6 +1185,7 @@ class EVMTest(DefiTestFramework):
         self.should_find_empty_nonce()
 
         self.invalidate_transfer_invalid_nonce()
+
 
 if __name__ == "__main__":
     EVMTest().main()
