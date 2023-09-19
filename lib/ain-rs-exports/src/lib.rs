@@ -119,7 +119,6 @@ pub mod ffi {
         pub tx_hash: String,
         pub prepay_fee: u64,
         pub higher_nonce: bool,
-        pub lower_nonce: bool,
     }
 
     extern "Rust" {
