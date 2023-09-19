@@ -11,7 +11,7 @@ use ain_evm::{
         SignedTx,
     },
     txqueue::QueueTx,
-    weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
+    weiamount::{try_from_gwei, try_from_satoshi, WeiAmount, WEI_TO_SATS},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use ethereum_types::{H160, U256};
@@ -512,12 +512,14 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
         match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, true) {
             Ok(ValidateTxInfo {
                 signed_tx,
-                prepay_fee,
+                mut prepay_fee,
                 higher_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
                 };
+
+                prepay_fee /= WEI_TO_SATS;
 
                 let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
                     return cross_boundary_error_return(result, "prepay fee value overflow");
@@ -584,12 +586,14 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
         match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, false) {
             Ok(ValidateTxInfo {
                 signed_tx,
-                prepay_fee,
+                mut prepay_fee,
                 higher_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
                 };
+
+                prepay_fee /= WEI_TO_SATS;
 
                 let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
                     return cross_boundary_error_return(result, "prepay fee value overflow");
@@ -1174,9 +1178,11 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "nonce value overflow");
     };
 
-    let Ok(prepay_fee) = calculate_prepay_gas_fee(&signed_tx) else {
+    let Ok(mut prepay_fee) = calculate_prepay_gas_fee(&signed_tx) else {
         return cross_boundary_error_return(result, "failed to get fee from transaction");
     };
+
+    prepay_fee /= WEI_TO_SATS;
 
     let Ok(prepay_fee) = u64::try_from(prepay_fee) else {
         return cross_boundary_error_return(result, "prepay fee value overflow");
