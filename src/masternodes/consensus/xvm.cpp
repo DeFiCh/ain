@@ -215,9 +215,18 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(dst.data);
+            evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
+            if (!result.ok) {
+                LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
+                return Res::Err("transferdomain evm tx failed to pre-validate : %s", result.reason);
+            }
+            if (evmPreValidate) {
+                return Res::Ok();
+            }
+
             auto hash = evm_try_get_tx_hash(result, evmTx);
             if (!result.ok) {
-                return Res::Err("Error bridging DFI: %s", result.reason);
+                return Res::Err("Error getting tx hash: %s", result.reason);
             }
             evmTxHash = std::string(hash.data(), hash.length()).substr(2);
 
@@ -231,16 +240,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
-            evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
-            if (!result.ok) {
-                LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
-                return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
-            }
-
-            if (evmPreValidate) {
-                return Res::Ok();
-            }
-
             if (tokenId == DCT_ID{0}) {
                 evm_unsafe_try_add_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex());
                 if (!result.ok) {
@@ -279,24 +278,23 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(src.data);
-            auto hash = evm_try_get_tx_hash(result, evmTx);
-            if (!result.ok) {
-                return Res::Err("Error bridging DFI: %s", result.reason);
-            }
-            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
-            // Subtract balance from ERC55 address
-            auto tokenId = dst.amount.nTokenId;
             evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
-
             if (evmPreValidate) {
                 return Res::Ok();
             }
 
+            auto hash = evm_try_get_tx_hash(result, evmTx);
+            if (!result.ok) {
+                return Res::Err("Error getting tx hash: %s", result.reason);
+            }
+            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
+
+            // Subtract balance from ERC55 address
+            auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
                 if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
