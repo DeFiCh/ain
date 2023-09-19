@@ -706,9 +706,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
-
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -857,36 +854,13 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
+                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
-
-                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
-                    // Remove last TX from the block.
-                    CrossBoundaryResult result;
-                    auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().ToString());
-                    if (!result.ok) {
-                        LogPrintf("%s: Unable to remove %s from queue. Will result in invalid block.\n", __func__, tx.GetHash().ToString());
-                    }
-
-                    // Only one entry
-                    assert(hashes.size() == 1);
-
-                    // Loop through hashes of removed TXs and remove from block.
-                    for (const auto &rustStr : hashes) {
-                        const auto txHash = uint256S(std::string{rustStr.data(), rustStr.length()});
-                        assert(txHash == tx.GetHash());
-                    }
-
-                    customTxPassed = false;
-                    break;
-                }
-                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedDfTxHashSet.insert(tx.GetHash());

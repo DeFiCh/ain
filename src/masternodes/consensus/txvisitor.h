@@ -52,7 +52,6 @@ protected:
     const uint32_t txn;
     uint64_t evmQueueId;
     bool isEvmEnabledForBlock;
-    uint64_t &gasUsed;
     bool evmPreValidate;
 
 public:
@@ -65,7 +64,6 @@ public:
                      const uint32_t txn,
                      const uint64_t evmQueueId,
                      const bool isEvmEnabledForBlock,
-                     uint64_t &gasUsed,
                      const bool evmPreValidate);
 
 protected:

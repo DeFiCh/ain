@@ -381,7 +381,5 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash);
     }
 
-    gasUsed = validateResults.prepay_fee;
-
     return Res::Ok();
 }

@@ -182,8 +182,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough, 
         // that it's propagated.
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, gasUsed, 0, &canSpend, 0, 0, false, false);
+        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, 0, false, false);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

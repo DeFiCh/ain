@@ -458,8 +458,7 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
         CCustomCSView view(*pcustomcsview);
         auto consensus = Params().GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, view, consensus);
-        uint64_t gasUsed{};
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, gasUsed, 0, 0, isEvmEnabledForBlock, true);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, 0, isEvmEnabledForBlock, true);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
