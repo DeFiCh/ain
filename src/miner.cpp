@@ -867,6 +867,22 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 }
 
                 if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
+                    // Remove last TX from the block.
+                    CrossBoundaryResult result;
+                    auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().ToString());
+                    if (!result.ok) {
+                        LogPrintf("%s: Unable to remove %s from queue. Will result in invalid block.\n", __func__, tx.GetHash().ToString());
+                    }
+
+                    // Only one entry
+                    assert(hashes.size() == 1);
+
+                    // Loop through hashes of removed TXs and remove from block.
+                    for (const auto &rustStr : hashes) {
+                        const auto txHash = uint256S(std::string{rustStr.data(), rustStr.length()});
+                        assert(txHash == tx.GetHash());
+                    }
+
                     customTxPassed = false;
                     break;
                 }
