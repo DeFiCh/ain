@@ -1013,7 +1013,9 @@ class EVMTest(DefiTestFramework):
 
         self.nodes[0].eth_sendTransaction(
             {
-                "nonce": self.nodes[0].w3.to_hex(0),
+                "nonce": self.nodes[0].w3.to_hex(
+                    self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+                ),
                 "from": self.address_erc55,
                 "to": burn_address,
                 "value": "0x1",
@@ -1028,7 +1030,7 @@ class EVMTest(DefiTestFramework):
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
         sender_nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
 
-        td = self.nodes[0].transferdomain(
+        self.nodes[0].transferdomain(
             [
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
