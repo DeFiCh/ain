@@ -243,7 +243,11 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let nonce = if ctx.use_nonce {
         U256::from(ctx.nonce)
     } else {
-        let Ok(nonce) = SERVICES.evm.core.get_next_account_nonce(from_address, state_root) else {
+        let Ok(nonce) = SERVICES
+            .evm
+            .core
+            .get_next_account_nonce(from_address, state_root)
+        else {
             return cross_boundary_error_return(
                 result,
                 format!("Could not get nonce for {from_address:x?}"),

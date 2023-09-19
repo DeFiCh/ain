@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     collections::{BTreeSet, HashMap},
     path::PathBuf,
     sync::{Arc, Mutex},
