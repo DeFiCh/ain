@@ -603,18 +603,18 @@ class EVMTest(DefiTestFramework):
         self.setup()
 
         # Multiple mempool fee replacement
-        # self.block_size_gas_limit()
+        self.block_size_gas_limit()
 
         # # Test invalid tx in block creation
-        # self.invalid_evm_tx_in_block_creation()
+        self.invalid_evm_tx_in_block_creation()
 
         # # Test for block size overflow from fee mismatch between tx queue and block
-        # self.state_dependent_txs_in_block_and_queue()
+        self.state_dependent_txs_in_block_and_queue()
 
         # # Test for transferdomain and evmtx with same nonce
-        # self.same_nonce_transferdomain_and_evm_txs()
+        self.same_nonce_transferdomain_and_evm_txs()
 
-        # Test for invalid transferdomain txs nonce
+        # Test for multiple expensive evm txs and transferdomain txs in the same block
         self.multiple_evm_and_transferdomain_txs()
 
         # Test for multiple transferdomain txs in the same block
