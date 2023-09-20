@@ -555,7 +555,6 @@ class EVMTest(DefiTestFramework):
         start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
-        assert_equal(start_nonce_erc55, False)
         for i in range(10):
             self.nodes[0].transferdomain(
                 [
@@ -579,32 +578,29 @@ class EVMTest(DefiTestFramework):
         for i in range(10):
             assert_raises_rpc_error(
                 -32600,
-                "Invalid nonce. Account nonce 11, signed_tx nonce {}".format(
-                    start_nonce_erc55 + i
-                ),
-                self.nodes[0].transferdomain(
-                    [
-                        {
-                            "src": {
-                                "address": self.address,
-                                "amount": "1@DFI",
-                                "domain": 2,
-                            },
-                            "dst": {
-                                "address": self.ethAddress,
-                                "amount": "1@DFI",
-                                "domain": 3,
-                            },
-                            "nonce": start_nonce_erc55 + i,
-                        }
-                    ]
-                ),
+                "transferdomain evm tx failed to pre-validate : Invalid nonce. Account nonce 11, signed_tx nonce {}".format(start_nonce_erc55 + i),    
+                self.nodes[0].transferdomain,
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ],
             )
 
     def run_test(self):
         self.setup()
 
-        # # Multiple mempool fee replacement
+        # Multiple mempool fee replacement
         # self.block_size_gas_limit()
 
         # # Test invalid tx in block creation
