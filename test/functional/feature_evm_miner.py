@@ -489,7 +489,7 @@ class EVMTest(DefiTestFramework):
         block_height = self.nodes[0].getblockcount()
         assert_equal(block_height, self.start_height + 1)
 
-    def tx_ordering_in_block_with_evm_and_transferdomain_txs(self):
+    def multiple_evm_and_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
@@ -550,7 +550,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
-    def mine_transferdomain_txs(self):
+    def multiple_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
@@ -615,10 +615,10 @@ class EVMTest(DefiTestFramework):
         # self.same_nonce_transferdomain_and_evm_txs()
 
         # Test for invalid transferdomain txs nonce
-        self.tx_ordering_in_block_with_evm_and_transferdomain_txs()
+        self.multiple_evm_and_transferdomain_txs()
 
         # Test for multiple transferdomain txs in the same block
-        self.mine_transferdomain_txs()
+        self.multiple_transferdomain_txs()
 
 
 if __name__ == "__main__":
