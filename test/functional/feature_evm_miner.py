@@ -529,7 +529,7 @@ class EVMTest(DefiTestFramework):
             signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
             self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        for i in range(5):
+        for i in range(6):
             self.nodes[0].transferdomain(
                 [
                     {
