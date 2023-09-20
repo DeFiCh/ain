@@ -908,7 +908,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
-                        auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entry->GetTx().GetHash().ToString());
+                        auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entry->GetTx().GetHash().ToString());
                         }
