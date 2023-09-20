@@ -275,7 +275,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_info["tx"]) - 1, 20)
 
     def state_dependent_txs_in_block_and_queue(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
