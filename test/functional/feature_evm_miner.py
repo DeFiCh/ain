@@ -579,7 +579,9 @@ class EVMTest(DefiTestFramework):
         for i in range(10):
             assert_raises_rpc_error(
                 -32600,
-                "Invalid nonce. Account nonce 11, signed_tx nonce {}".format(start_nonce_erc55 + i),
+                "Invalid nonce. Account nonce 11, signed_tx nonce {}".format(
+                    start_nonce_erc55 + i
+                ),
                 self.nodes[0].transferdomain(
                     [
                         {
@@ -596,7 +598,7 @@ class EVMTest(DefiTestFramework):
                             "nonce": start_nonce_erc55 + i,
                         }
                     ]
-                )
+                ),
             )
 
     def run_test(self):
