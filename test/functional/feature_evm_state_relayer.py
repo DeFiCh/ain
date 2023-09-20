@@ -6,9 +6,28 @@ from test_framework.evm_contract import EVMContract
 
 class StateRelayerTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 1
+        self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
+            [
+                "-dummypos=0",
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=51",
+                "-dakotaheight=51",
+                "-eunosheight=80",
+                "-fortcanningheight=82",
+                "-fortcanninghillheight=84",
+                "-fortcanningroadheight=86",
+                "-fortcanningcrunchheight=88",
+                "-fortcanningspringheight=90",
+                "-fortcanninggreatworldheight=94",
+                "-fortcanningepilogueheight=96",
+                "-grandcentralheight=101",
+                "-nextnetworkupgradeheight=105",
+                "-subsidytest=1",
+                "-txindex=1",
+            ],
             [
                 "-dummypos=0",
                 "-txnotokens=0",
@@ -108,10 +127,22 @@ class StateRelayerTest(DefiTestFramework):
         )
         hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        self.node.generate(1)
+        for _ in range(50):
+            self.nodes[0].eth_sendTransaction(
+                {
+                    "from": self.evm_key_pair.address,
+                    "to": "0x0000000000000000000000000000000000000000",
+                    "value": "0x1",  # 29_000
+                    "gas": "0x52aa",  # 20_999
+                    "gasPrice": "0x2540BE400",  # 10_000_000_000
+                }
+            )
 
-        print(self.node.w3.to_json(self.node.w3.eth.get_transaction(hash)))
+        self.node.generate(1)
+        self.sync_all()
+
         print(self.node.w3.to_json(self.node.w3.eth.get_transaction_receipt(hash)))
+        print(self.node.w3.to_json(self.nodes[1].w3.eth.get_transaction_receipt(hash)))
 
     def setup(self):
         self.node = self.nodes[0]
