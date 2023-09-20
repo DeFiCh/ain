@@ -340,7 +340,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_web3_error(
             -32001,
-            "Test EvmTxTx execution failed:\nevm tx size too large",
+            "Test EvmTx execution failed:\nevm tx size too large",
             self.node.w3.eth.send_raw_transaction,
             signed.rawTransaction,
         )
