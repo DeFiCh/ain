@@ -34,30 +34,12 @@ macro_rules! solc_artifact_bytecode_str {
 }
 
 macro_rules! slice_20b {
-    ($first_byte:tt, $last_byte:tt) => {
-        [
-            $first_byte,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            0x0,
-            $last_byte,
-        ]
-    };
+    ($byte0:tt, $byte19:tt) => {{
+        let mut v = [0; 20];
+        v[0] = $byte0;
+        v[19] = $byte19;
+        v
+    }};
 }
 
 fn get_bytecode(input: &str) -> Result<Vec<u8>> {
