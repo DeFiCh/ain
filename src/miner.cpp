@@ -47,6 +47,7 @@ struct EvmTxPreApplyContext {
     int height;
     uint64_t evmQueueId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
+    std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
 };
 
@@ -606,6 +607,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     const auto& height = ctx.height;
     const auto& failedTxSet = ctx.failedTxEntries;
     auto& failedNonces = ctx.failedNonces;
+    auto& failedNoncesLookup = ctx.failedNoncesLookup;
 
     if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
         return false;
@@ -622,7 +624,8 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
         }
         if (txResult.higher_nonce) {
             if (!failedTxSet.count(txIter)) {
-                failedNonces.emplace(txResult.nonce, txIter);
+                auto it = failedNonces.emplace(txResult.nonce, txIter);
+                failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
             }
             return false;
         }
@@ -651,7 +654,8 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
             return false;
         } else if (senderInfo.nonce > expectedNonce) {
             if (!failedTxSet.count(txIter)) {
-                failedNonces.emplace(senderInfo.nonce, txIter);
+                auto it = failedNonces.emplace(senderInfo.nonce, txIter);
+                failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
             }
             return false;
         }
@@ -703,6 +707,9 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
 
+    // Quick lookup for failedNonces entries
+    std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
+
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -720,6 +727,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             const auto it = failedNonces.begin();
             iter = it->second;
             failedNonces.erase(it);
+            failedNoncesLookup.erase(iter->GetTx().GetHash());
         } else if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTxSet
             iter = modit->iter;
@@ -846,6 +854,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         nHeight,
                         evmQueueId,
                         failedNonces,
+                        failedNoncesLookup,
                         failedTxSet,
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
@@ -915,7 +924,13 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         coinsCache.Flush();
 
         for (size_t i = 0; i < sortedEntries.size(); ++i) {
-            txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
+            auto& hash = sortedEntries[i]->GetTx().GetHash();
+            if (failedNoncesLookup.count(hash)) {
+                auto &it = failedNoncesLookup.at(hash);
+                failedNonces.erase(it);
+                failedNoncesLookup.erase(hash);
+            }
+            txFees.emplace(hash, sortedEntries[i]->GetFee());
             AddToBlock(sortedEntries[i]);
             // Erase from the modified set, if present
             mapModifiedTxSet.erase(sortedEntries[i]);
