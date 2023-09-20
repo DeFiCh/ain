@@ -117,7 +117,27 @@ class StateRelayerTest(DefiTestFramework):
                     self.evm_key_pair.address
                 ),
                 "maxFeePerGas": 10_000_000_000,
-                "maxPriorityFeePerGas": 1_500_000_000,
+                "maxPriorityFeePerGas": 500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        tx2 = self.contract.functions.updateVaultGeneralInformation(
+            {
+                "noOfVaultsNoDecimals": 1,
+                "totalLoanValue": 2,
+                "totalCollateralValue": 3,
+                "totalCollateralizationRatio": 4,
+                "activeAuctionsNoDecimals": 5,
+            }
+        ).build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                )
+                + 1,
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_000_000_000,
                 "gas": 1_000_000,
             }
         )
@@ -125,7 +145,11 @@ class StateRelayerTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
+        signed2 = self.node.w3.eth.account.sign_transaction(
+            tx2, self.evm_key_pair.privkey
+        )
         hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash2 = self.node.w3.eth.send_raw_transaction(signed2.rawTransaction)
 
         for _ in range(50):
             self.nodes[0].eth_sendTransaction(
@@ -141,8 +165,10 @@ class StateRelayerTest(DefiTestFramework):
         self.node.generate(1)
         self.sync_all()
 
-        print(self.node.w3.to_json(self.node.w3.eth.get_transaction_receipt(hash)))
-        print(self.node.w3.to_json(self.nodes[1].w3.eth.get_transaction_receipt(hash)))
+        print(self.node.w3.eth.get_transaction_receipt(hash)["status"])
+        print(self.node.w3.eth.get_transaction_receipt(hash2)["status"])
+        print(self.nodes[1].w3.eth.get_transaction_receipt(hash)["status"])
+        print(self.nodes[1].w3.eth.get_transaction_receipt(hash2)["status"])
 
     def setup(self):
         self.node = self.nodes[0]
