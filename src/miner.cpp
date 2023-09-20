@@ -634,14 +634,14 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
         if (obj.transfers.size() != 1) {
             return false;
         }
-        
+
         std::string evmTx;
         {
-            auto& [itemSrc, itemDest] = obj.transfers[0];
-            if (itemSrc.domain == static_cast<uint8_t>(VMDomain::DVM) && itemDest.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                evmTx = HexStr(itemDest.data);
-            } else if (itemSrc.domain == static_cast<uint8_t>(VMDomain::EVM) && itemDest.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                evmTx = HexStr(itemSrc.data);
+            auto& [src, dest] = obj.transfers[0];
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dest.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                evmTx = HexStr(dest.data);
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dest.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                evmTx = HexStr(src.data);
             }
         }
         auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, evmTx);
