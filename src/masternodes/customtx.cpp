@@ -200,7 +200,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::TransferDomain:
             return "TransferDomain";
         case CustomTxType::EvmTx:
-            return "EvmTx";
+            return "Evm";
         case CustomTxType::None:
             return "None";
     }
