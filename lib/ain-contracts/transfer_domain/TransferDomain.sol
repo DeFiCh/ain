@@ -14,20 +14,20 @@ interface IERC20 {
 
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.8.2 <0.9.0;
+pragma solidity ^0.8.0;
 
 /**
  * @title TransferDomain
  */
 contract TransferDomain {
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event NativeAddress(string nativeAddress);
+    event VMTransfer(string vmAddress);
 
     function transfer(
         address from,
         address payable to,
         uint256 amount,
-        string memory nativeAddress
+        string memory vmAddress
     ) external {
         if (to != address(this)) {
             require(
@@ -38,7 +38,7 @@ contract TransferDomain {
         }
 
         emit Transfer(from, to, amount);
-        emit NativeAddress(nativeAddress);
+        emit VMTransfer(vmAddress);
     }
 
     /**
@@ -78,11 +78,11 @@ contract TransferDomain {
         address from,
         address payable to,
         uint256 amount,
-        string memory nativeAddress
+        string memory vmAddress
     ) external {
         if (to != address(this)) {
             IERC20(contractAddress).transferFrom(from, to, amount);
         }
-        emit NativeAddress(nativeAddress);
+        emit VMTransfer(vmAddress);
     }
 }
