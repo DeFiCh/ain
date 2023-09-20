@@ -548,13 +548,14 @@ class EVMTest(DefiTestFramework):
                 ]
             )
         self.nodes[0].generate(1)
-        assert_equal(len(self.nodes[0].getrawmempool()), True)
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
     def mine_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
+        assert_equal(start_nonce_erc55, False)
         for i in range(10):
             self.nodes[0].transferdomain(
                 [
@@ -574,25 +575,29 @@ class EVMTest(DefiTestFramework):
                 ]
             )
         self.nodes[0].generate(1)
+
         for i in range(10):
-            self.nodes[0].transferdomain(
-                [
-                    {
-                        "src": {
-                            "address": self.address,
-                            "amount": "1@DFI",
-                            "domain": 2,
-                        },
-                        "dst": {
-                            "address": self.ethAddress,
-                            "amount": "1@DFI",
-                            "domain": 3,
-                        },
-                        "nonce": start_nonce_erc55 + i,
-                    }
-                ]
+            assert_raises_rpc_error(
+                -32600,
+                "Invalid nonce. Account nonce 11, signed_tx nonce {}".format(start_nonce_erc55 + i),
+                self.nodes[0].transferdomain(
+                    [
+                        {
+                            "src": {
+                                "address": self.address,
+                                "amount": "1@DFI",
+                                "domain": 2,
+                            },
+                            "dst": {
+                                "address": self.ethAddress,
+                                "amount": "1@DFI",
+                                "domain": 3,
+                            },
+                            "nonce": start_nonce_erc55 + i,
+                        }
+                    ]
+                )
             )
-        self.nodes[0].generate(1)
 
     def run_test(self):
         self.setup()
@@ -612,7 +617,8 @@ class EVMTest(DefiTestFramework):
         # Test for invalid transferdomain txs nonce
         self.tx_ordering_in_block_with_evm_and_transferdomain_txs()
 
-        # self.mine_transferdomain_txs()
+        # Test for multiple transferdomain txs in the same block
+        self.mine_transferdomain_txs()
 
 
 if __name__ == "__main__":
