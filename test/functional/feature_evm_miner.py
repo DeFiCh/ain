@@ -489,7 +489,7 @@ class EVMTest(DefiTestFramework):
         block_height = self.nodes[0].getblockcount()
         assert_equal(block_height, self.start_height + 1)
 
-    def block_size_limit_with_transferdomain_txs(self):
+    def tx_ordering_in_block_with_evm_and_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
@@ -610,7 +610,7 @@ class EVMTest(DefiTestFramework):
         # self.same_nonce_transferdomain_and_evm_txs()
 
         # Test for invalid transferdomain txs nonce
-        self.block_size_limit_with_transferdomain_txs()
+        self.tx_ordering_in_block_with_evm_and_transferdomain_txs()
 
         # self.mine_transferdomain_txs()
 
