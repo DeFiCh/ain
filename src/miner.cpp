@@ -866,6 +866,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
+                    failedCustomTx = tx.GetHash();
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
