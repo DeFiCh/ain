@@ -2,6 +2,8 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.evm_contract import EVMContract
+
+
 class StateRelayerTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -29,7 +31,9 @@ class StateRelayerTest(DefiTestFramework):
         ]
 
     def state_relayer(self):
-        abi, bytecode, _ = EVMContract.from_file("StateRelayer.sol", "StateRelayer").compile()
+        abi, bytecode, _ = EVMContract.from_file(
+            "StateRelayer.sol", "StateRelayer"
+        ).compile()
         compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
         tx = compiled.constructor().build_transaction(
@@ -55,7 +59,9 @@ class StateRelayerTest(DefiTestFramework):
             address=receipt["contractAddress"], abi=abi
         )
 
-        tx = self.contract.functions.initialize(self.evm_key_pair.address, self.evm_key_pair.address).build_transaction(
+        tx = self.contract.functions.initialize(
+            self.evm_key_pair.address, self.evm_key_pair.address
+        ).build_transaction(
             {
                 "chainId": self.node.w3.eth.chain_id,
                 "nonce": self.node.w3.eth.get_transaction_count(
@@ -77,13 +83,15 @@ class StateRelayerTest(DefiTestFramework):
         print(self.node.w3.to_json(self.node.w3.eth.get_transaction_receipt(hash)))
 
         # tx = self.contract.functions.updateVaultGeneralInformation([123,4,5,6,8])
-        tx = self.contract.functions.updateVaultGeneralInformation({
-            "noOfVaultsNoDecimals": 123,
-            "totalLoanValue": 456,
-            "totalCollateralValue": 789,
-            "totalCollateralizationRatio": 0,
-            "activeAuctionsNoDecimals": 10
-        }).build_transaction(
+        tx = self.contract.functions.updateVaultGeneralInformation(
+            {
+                "noOfVaultsNoDecimals": 123,
+                "totalLoanValue": 456,
+                "totalCollateralValue": 789,
+                "totalCollateralizationRatio": 0,
+                "activeAuctionsNoDecimals": 10,
+            }
+        ).build_transaction(
             {
                 "chainId": self.node.w3.eth.chain_id,
                 "nonce": self.node.w3.eth.get_transaction_count(
@@ -132,6 +140,7 @@ class StateRelayerTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
+
     def run_test(self):
         self.setup()
 
