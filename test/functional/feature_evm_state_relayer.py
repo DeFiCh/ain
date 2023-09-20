@@ -63,7 +63,7 @@ class StateRelayerTest(DefiTestFramework):
                 ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
-                "gas": 1_000_000,
+                "gas": 10_000_000,
             }
         )
         signed = self.node.w3.eth.account.sign_transaction(
