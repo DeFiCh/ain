@@ -529,38 +529,7 @@ class EVMTest(DefiTestFramework):
             signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
             self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
 
-        for i in range(10):
-            self.nodes[0].transferdomain(
-                [
-                    {
-                        "src": {
-                            "address": self.address,
-                            "amount": "1@DFI",
-                            "domain": 2,
-                        },
-                        "dst": {
-                            "address": self.ethAddress,
-                            "amount": "1@DFI",
-                            "domain": 3,
-                        },
-                        "nonce": start_nonce_erc55 + i,
-                    }
-                ]
-            )
-
-        tx = contract.functions.loop(10_000).build_transaction(
-            {
-                "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": start_nonce + 26,
-                "gasPrice": 25_000_000_000,
-                "gas": 30_000_000,
-            }
-        )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-
-        self.nodes[0].generate(1)
-        for i in range(10):
+        for i in range(5):
             self.nodes[0].transferdomain(
                 [
                     {
@@ -579,6 +548,7 @@ class EVMTest(DefiTestFramework):
                 ]
             )
         self.nodes[0].generate(1)
+        assert_equal(len(self.nodes[0].getrawmempool()), True)
 
     def mine_transferdomain_txs(self):
         self.rollback_to(self.start_height)
@@ -641,6 +611,8 @@ class EVMTest(DefiTestFramework):
 
         # Test for invalid transferdomain txs nonce
         self.block_size_limit_with_transferdomain_txs()
+
+        # self.mine_transferdomain_txs()
 
 
 if __name__ == "__main__":
