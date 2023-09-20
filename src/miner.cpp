@@ -862,8 +862,9 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
-                    customTxPassed = false;
+                    failedTxSet.insert(sortedEntries[i]);
                     failedCustomTx = tx.GetHash();
+                    customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
@@ -879,7 +880,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             if (fUsingModified) {
                 mapModifiedTxSet.get<ancestor_score>().erase(modit);
             }
-            failedTxSet.insert(iter);
 
             // Remove from checked TX set
             for (const auto &entry : sortedEntries) {
