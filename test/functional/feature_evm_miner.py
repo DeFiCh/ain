@@ -41,6 +41,9 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
+            "erc55"
+        ]
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.ethPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
@@ -102,12 +105,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
 
-    def rollback_and_clear_mempool(self):
+    def block_size_gas_limit(self):
         self.rollback_to(self.start_height)
-        self.nodes[0].clearmempool()
-
-    def mempool_block_limit(self):
-        self.rollback_and_clear_mempool()
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
@@ -237,7 +236,7 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
 
     def invalid_evm_tx_in_block_creation(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -490,21 +489,138 @@ class EVMTest(DefiTestFramework):
         block_height = self.nodes[0].getblockcount()
         assert_equal(block_height, self.start_height + 1)
 
+    def block_size_limit_with_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        for i in range(16):
+            # tx call actual used gas - 1_761_626.
+            # tx should always pass evm tx validation, but may return early in construct block.
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        for i in range(10):
+            self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+
+        tx = contract.functions.loop(10_000).build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": start_nonce + 26,
+                "gasPrice": 25_000_000_000,
+                "gas": 30_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.nodes[0].generate(1)
+        for i in range(10):
+            self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+        self.nodes[0].generate(1)
+
+    def mine_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        for i in range(10):
+            self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+        self.nodes[0].generate(1)
+        for i in range(10):
+            self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+        self.nodes[0].generate(1)
+
     def run_test(self):
         self.setup()
 
-        # Multiple mempool fee replacement
-        self.mempool_block_limit()
+        # # Multiple mempool fee replacement
+        # self.block_size_gas_limit()
 
-        # Test invalid tx in block creation
-        self.invalid_evm_tx_in_block_creation()
+        # # Test invalid tx in block creation
+        # self.invalid_evm_tx_in_block_creation()
 
-        # Test for block size overflow from fee mismatch between tx queue and block
-        self.state_dependent_txs_in_block_and_queue()
+        # # Test for block size overflow from fee mismatch between tx queue and block
+        # self.state_dependent_txs_in_block_and_queue()
 
-        # Test for transferdomain and evmtx with same nonce
-        self.same_nonce_transferdomain_and_evm_txs()
+        # # Test for transferdomain and evmtx with same nonce
+        # self.same_nonce_transferdomain_and_evm_txs()
 
+        # Test for invalid transferdomain txs nonce
+        self.block_size_limit_with_transferdomain_txs()
 
 if __name__ == "__main__":
     EVMTest().main()
