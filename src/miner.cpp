@@ -16,6 +16,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <ffi/cxx.h>
+#include <ffi/ffihelpers.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -34,7 +35,6 @@
 #include <util/system.h>
 #include <util/validation.h>
 #include <wallet/wallet.h>
-#include <ffi/ffihelpers.h>
 
 #include <algorithm>
 #include <random>
@@ -638,8 +638,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
         std::string evmTx;
         if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             evmTx = HexStr(obj.transfers[0].second.data);
-        }
-        else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+        } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
             evmTx = HexStr(obj.transfers[0].first.data);
         }
         auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, evmTx);
@@ -821,7 +820,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         uint256 failedCustomTx;
 
         // Apply and check custom TXs in order
-        for (const auto &entry : sortedEntries) {
+        for (const auto& entry : sortedEntries) {
             const CTransaction& tx = entry->GetTx();
 
             // Do not double check already checked custom TX. This will be an ancestor of current TX.
@@ -891,7 +890,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             }
 
             // Remove from checked TX set
-            for (const auto &entry : sortedEntries) {
+            for (const auto& entry : sortedEntries) {
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
             }
 
@@ -900,7 +899,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             }
 
             // Remove entries from queue if first EVM TX is not the failed TX.
-            for (const auto &entry : sortedEntries) {
+            for (const auto& entry : sortedEntries) {
                 auto entryTxType = entry->GetCustomTxType();
                 auto entryHash = entry->GetTx().GetHash();
 
@@ -928,11 +927,10 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         cache.Flush();
         coinsCache.Flush();
 
-        for (size_t i = 0; i < sortedEntries.size(); ++i) {
-            auto& entry = sortedEntries[i];
+        for (const auto& entry : sortedEntries) {
             auto& hash = entry->GetTx().GetHash();
             if (failedNoncesLookup.count(hash)) {
-                auto &it = failedNoncesLookup.at(hash);
+                auto& it = failedNoncesLookup.at(hash);
                 failedNonces.erase(it);
                 failedNoncesLookup.erase(hash);
             }
