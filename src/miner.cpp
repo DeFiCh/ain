@@ -808,6 +808,13 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         // Account check
         bool customTxPassed{true};
 
+        // Temporary views
+        CCoinsViewCache coinsCache(&coinsView);
+        CCustomCSView cache(view);
+
+        // Track failed custom TX. Used for removing EVM TXs from the queue.
+        uint256 failedCustomTx;
+
         // Apply and check custom TXs in order
         for (size_t i = 0; i < sortedEntries.size(); ++i) {
             const CTransaction& tx = sortedEntries[i]->GetTx();
@@ -819,7 +826,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
 
             // temporary view to ensure failed tx
             // to not be kept in parent view
-            CCoinsViewCache coins(&coinsView);
+            CCoinsViewCache coins(&coinsCache);
 
             // allow coin override, tx with same inputs
             // will be removed for block while we connect it
@@ -849,12 +856,13 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         customTxPassed = true;
                     } else {
                         failedTxSet.insert(sortedEntries[i]);
+                        failedCustomTx = tx.GetHash();
                         customTxPassed = false;
                         break;
                     }
                 }
 
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
+                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     customTxPassed = false;
@@ -874,8 +882,39 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 mapModifiedTxSet.get<ancestor_score>().erase(modit);
             }
             failedTxSet.insert(iter);
+
+            // Remove from checked TX set
+            for (const auto &entry : sortedEntries) {
+                checkedDfTxHashSet.erase(entry->GetTx().GetHash());
+            }
+
+            // Remove entries from queue if first EVM TX is not the failed TX.
+            if (sortedEntries.size() > 1) {
+                for (const auto &entry : sortedEntries) {
+                    if (entry->GetCustomTxType() == CustomTxType::EvmTx || entry->GetCustomTxType() == CustomTxType::TransferDomain) {
+                        // If the first TX in a failed set is not the failed TX
+                        // then remove from queue, otherwise it has not been added.
+                        if (entry->GetTx().GetHash() != failedCustomTx) {
+                            CrossBoundaryResult result;
+                            auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entry->GetTx().GetHash().ToString());
+                            if (!result.ok) {
+                                LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entry->GetTx().GetHash().ToString());
+                            }
+                        }
+                        break;
+                    } else if (entry->GetTx().GetHash() == failedCustomTx) {
+                        // Failed before getting to an EVM TX. Break out.
+                        break;
+                    }
+                }
+            }
+
             continue;
         }
+
+        // Flush the views now that add sortedEntries are confirmed successful
+        cache.Flush();
+        coinsCache.Flush();
 
         for (size_t i = 0; i < sortedEntries.size(); ++i) {
             txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
