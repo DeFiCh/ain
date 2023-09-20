@@ -178,7 +178,7 @@ class EVMTest(DefiTestFramework):
             if idx == 0:
                 continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
-            assert_equal(tx_info["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + idx)
             assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx])
@@ -190,7 +190,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_info["tx"]) - 1, second_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
-            assert_equal(tx_info["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
@@ -208,7 +208,7 @@ class EVMTest(DefiTestFramework):
         tx_infos = block_info["tx"][1:]
         for idx in range(1, (40 - first_block_total_txs - second_block_total_txs)):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
-            assert_equal(tx_infos[idx]["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_infos[idx]["vm"]["txtype"], "Evm")
             assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(
                 tx_infos[idx]["vm"]["msg"]["nonce"],
@@ -223,7 +223,7 @@ class EVMTest(DefiTestFramework):
             )
         for idx in range(6, third_block_total_txs):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
-            assert_equal(tx_infos[idx]["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_infos[idx]["vm"]["txtype"], "Evm")
             assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(
                 tx_infos[idx]["vm"]["msg"]["nonce"],
