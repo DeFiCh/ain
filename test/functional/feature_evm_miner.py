@@ -507,7 +507,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         contract = self.nodes[0].w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
@@ -531,7 +533,11 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].transferdomain(
                 [
                     {
-                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": self.ethAddress,
                             "amount": "1@DFI",
@@ -558,7 +564,11 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].transferdomain(
                 [
                     {
-                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": self.ethAddress,
                             "amount": "1@DFI",
@@ -572,12 +582,18 @@ class EVMTest(DefiTestFramework):
 
     def mine_transferdomain_txs(self):
         self.rollback_to(self.start_height)
-        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
         for i in range(10):
             self.nodes[0].transferdomain(
                 [
                     {
-                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": self.ethAddress,
                             "amount": "1@DFI",
@@ -592,7 +608,11 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].transferdomain(
                 [
                     {
-                        "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": self.ethAddress,
                             "amount": "1@DFI",
@@ -621,6 +641,7 @@ class EVMTest(DefiTestFramework):
 
         # Test for invalid transferdomain txs nonce
         self.block_size_limit_with_transferdomain_txs()
+
 
 if __name__ == "__main__":
     EVMTest().main()
