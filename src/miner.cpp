@@ -41,7 +41,7 @@
 #include <utility>
 
 struct EvmTxPreApplyContext {
-    CTxMemPool::txiter& txIter;
+    const CTxMemPool::txiter& txIter;
     std::vector<unsigned char>& txMetadata;
     CustomTxType txType;
     int height;
@@ -821,8 +821,8 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         uint256 failedCustomTx;
 
         // Apply and check custom TXs in order
-        for (size_t i = 0; i < sortedEntries.size(); ++i) {
-            const CTransaction& tx = sortedEntries[i]->GetTx();
+        for (const auto &entry : sortedEntries) {
+            const CTransaction& tx = entry->GetTx();
 
             // Do not double check already checked custom TX. This will be an ancestor of current TX.
             if (checkedDfTxHashSet.find(tx.GetHash()) != checkedDfTxHashSet.end()) {
@@ -848,7 +848,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         break;
                     }
                     auto evmTxCtx = EvmTxPreApplyContext{
-                        sortedEntries[i],
+                        entry,
                         metadata,
                         txType,
                         nHeight,
@@ -861,7 +861,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     if (res) {
                         customTxPassed = true;
                     } else {
-                        failedTxSet.insert(sortedEntries[i]);
+                        failedTxSet.insert(entry);
                         failedCustomTx = tx.GetHash();
                         customTxPassed = false;
                         break;
@@ -871,7 +871,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
-                    failedTxSet.insert(sortedEntries[i]);
+                    failedTxSet.insert(entry);
                     failedCustomTx = tx.GetHash();
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
@@ -895,24 +895,29 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 checkedDfTxHashSet.erase(entry->GetTx().GetHash());
             }
 
+            if (sortedEntries.size() <= 1) {
+                continue;
+            }
+
             // Remove entries from queue if first EVM TX is not the failed TX.
-            if (sortedEntries.size() > 1) {
-                for (const auto &entry : sortedEntries) {
-                    if (entry->GetCustomTxType() == CustomTxType::EvmTx || entry->GetCustomTxType() == CustomTxType::TransferDomain) {
-                        // If the first TX in a failed set is not the failed TX
-                        // then remove from queue, otherwise it has not been added.
-                        if (entry->GetTx().GetHash() != failedCustomTx) {
-                            CrossBoundaryResult result;
-                            auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entry->GetTx().GetHash().ToString());
-                            if (!result.ok) {
-                                LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entry->GetTx().GetHash().ToString());
-                            }
+            for (const auto &entry : sortedEntries) {
+                auto entryTxType = entry->GetCustomTxType();
+                auto entryHash = entry->GetTx().GetHash();
+
+                if (entryTxType == CustomTxType::EvmTx || entryTxType == CustomTxType::TransferDomain) {
+                    // If the first TX in a failed set is not the failed TX
+                    // then remove from queue, otherwise it has not been added.
+                    if (entryHash != failedCustomTx) {
+                        CrossBoundaryResult result;
+                        auto hashes = evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entry->GetTx().GetHash().ToString());
+                        if (!result.ok) {
+                            LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entry->GetTx().GetHash().ToString());
                         }
-                        break;
-                    } else if (entry->GetTx().GetHash() == failedCustomTx) {
-                        // Failed before getting to an EVM TX. Break out.
-                        break;
                     }
+                    break;
+                } else if (entryHash == failedCustomTx) {
+                    // Failed before getting to an EVM TX. Break out.
+                    break;
                 }
             }
 
@@ -924,16 +929,17 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         coinsCache.Flush();
 
         for (size_t i = 0; i < sortedEntries.size(); ++i) {
-            auto& hash = sortedEntries[i]->GetTx().GetHash();
+            auto& entry = sortedEntries[i];
+            auto& hash = entry->GetTx().GetHash();
             if (failedNoncesLookup.count(hash)) {
                 auto &it = failedNoncesLookup.at(hash);
                 failedNonces.erase(it);
                 failedNoncesLookup.erase(hash);
             }
-            txFees.emplace(hash, sortedEntries[i]->GetFee());
-            AddToBlock(sortedEntries[i]);
+            txFees.emplace(hash, entry->GetFee());
+            AddToBlock(entry);
             // Erase from the modified set, if present
-            mapModifiedTxSet.erase(sortedEntries[i]);
+            mapModifiedTxSet.erase(entry);
         }
 
         ++nPackagesSelected;
