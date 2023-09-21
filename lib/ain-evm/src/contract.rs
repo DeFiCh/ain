@@ -1,4 +1,8 @@
-use ain_contracts::{get_dst20_deploy_input, get_instrinics_registry, get_intrinsic_contract_v1, get_reserved_contract, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, FixedContract, IMPLEMENTATION_SLOT, get_dst20_implementation_contract};
+use ain_contracts::{
+    get_dst20_deploy_input, get_dst20_implementation_contract, get_instrinics_registry,
+    get_intrinsic_contract_v1, get_reserved_contract, get_transferdomain_contract_v1,
+    get_transferdomain_proxy, Contract, FixedContract, IMPLEMENTATION_SLOT,
+};
 use anyhow::format_err;
 use ethbloom::Bloom;
 use ethereum::{
@@ -104,7 +108,8 @@ pub fn transfer_domain_proxy(implementation_address: H160) -> Result<DeployContr
 
 pub fn dst20_implementation() -> DeployContractInfo {
     let FixedContract {
-        contract, fixed_address
+        contract,
+        fixed_address,
     } = get_dst20_implementation_contract();
 
     DeployContractInfo {
@@ -185,13 +190,14 @@ pub fn dst20_contract(
         }
     }
 
-    let FixedContract {
-        contract, ..
-    } = get_transferdomain_proxy();
+    let FixedContract { contract, .. } = get_transferdomain_proxy();
     let storage = vec![
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
-        (*IMPLEMENTATION_SLOT, h160_to_h256(get_dst20_implementation_contract().fixed_address))
+        (
+            *IMPLEMENTATION_SLOT,
+            h160_to_h256(get_dst20_implementation_contract().fixed_address),
+        ),
     ];
 
     Ok(DeployContractInfo {
@@ -203,26 +209,26 @@ pub fn dst20_contract(
 
 pub fn bridge_dst20(
     backend: &EVMBackend,
-    contract_address: H160,
+    contract: H160,
     from: H160,
     amount: U256,
     direction: TransferDirection,
 ) -> Result<DST20BridgeInfo> {
     // check if code of address matches DST20 bytecode
     let account = backend
-        .get_account(&contract_address)
+        .get_account(&contract)
         .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
 
     let FixedContract { fixed_address, .. } = get_transferdomain_contract_v1();
 
-    let FixedContract { contract, .. } = get_dst20_implementation_contract();
-    if account.code_hash != contract.codehash {
+    let Contract { codehash, .. } = get_transferdomain_proxy().contract;
+    if account.code_hash != codehash {
         return Err(format_err!("DST20 token code is not valid").into());
     }
 
     // balance has slot 0
     let balance_storage_index = get_address_storage_index(H256::zero(), from);
-    let balance = backend.get_contract_storage(contract_address, balance_storage_index.as_bytes())?;
+    let balance = backend.get_contract_storage(contract, balance_storage_index.as_bytes())?;
 
     // allowance has slot 1
     let allowance_storage_index = get_address_storage_index(H256::from_low_u64_be(1), from);
@@ -230,7 +236,7 @@ pub fn bridge_dst20(
         get_address_storage_index(allowance_storage_index, fixed_address);
 
     let total_supply_index = H256::from_low_u64_be(2);
-    let total_supply = backend.get_contract_storage(contract_address, total_supply_index.as_bytes())?;
+    let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
 
     let (new_balance, new_total_supply) = if direction == TransferDirection::EvmOut {
         (
@@ -249,7 +255,7 @@ pub fn bridge_dst20(
         new_total_supply.ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
 
     Ok(DST20BridgeInfo {
-        address: contract_address,
+        address: contract,
         storage: vec![
             (balance_storage_index, u256_to_h256(new_balance)),
             (total_supply_index, u256_to_h256(new_total_supply)),
