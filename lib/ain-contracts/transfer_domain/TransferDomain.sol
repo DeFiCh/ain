@@ -77,7 +77,7 @@ contract TransferDomain {
         return 18;
     }
 
-    function vmTransfer(
+    function transferDST20(
         address contractAddress,
         address from,
         address payable to,
