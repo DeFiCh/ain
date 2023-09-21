@@ -1027,12 +1027,21 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        balance = Decimal(self.nodes[0].w3.eth.get_balance(self.address_erc55))
         burn_balance = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
         sender_nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
 
-        self.nodes[0].transferdomain(
+        self.nodes[0].eth_sendTransaction(
+            {
+                "nonce": self.nodes[0].w3.to_hex(nonce),
+                "from": self.address_erc55,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+        tx = self.nodes[0].transferdomain(
             [
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
@@ -1045,32 +1054,23 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        self.nodes[0].eth_sendTransaction(
-            {
-                "nonce": self.nodes[0].w3.to_hex(nonce),
-                "from": self.address_erc55,
-                "to": "0x0000000000000000000000000000000000000000",
-                "value": "0x1",
-                "gas": "0x100000",
-                "gasPrice": "0x4e3b29200",
-            }
-        )
         self.nodes[0].generate(1)
 
-        balance_after = Decimal(self.nodes[0].w3.eth.get_balance(self.address_erc55))
         burn_balance_after = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
         sender_nonce_after = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
 
-        # evmtx should take precedence, transferdomain should be discarded
-        assert_equal(
-            sender_nonce + 1, sender_nonce_after
-        )  # evm tx will increment account nonce
-        assert_equal(
-            burn_balance_after, burn_balance + Decimal(1)
-        )  # null address should have more balance
-        assert balance_after < balance  # sender should have less balance
+        # transferdomain should take precedence, evmtx should be discarded
+        assert_equal(sender_nonce + 1, sender_nonce_after)
+        assert_equal(burn_balance_after, burn_balance)
+        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
+        assert_equal(result["src"]["address"], self.address)
+        assert_equal(result["src"]["amount"], "100.00000000@0")
+        assert_equal(result["src"]["domain"], "DVM")
+        assert_equal(result["dst"]["address"], self.address_erc55)
+        assert_equal(result["dst"]["amount"], "100.00000000@0")
+        assert_equal(result["dst"]["domain"], "EVM")
 
     def should_find_empty_nonce(self):
         self.rollback_to(self.start_height)
