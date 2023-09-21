@@ -996,30 +996,30 @@ void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, M
     forceRebuildForReorg |= reason == MemPoolRemovalReason::REORG;
 }
 
-int CTxMemPool::Expire(int64_t time) {
+int CTxMemPool::Expire(int64_t time, int64_t evmTime) {
     AssertLockHeld(cs);
     indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    auto& txidIndex = mapTx.get<txid_tag>();
     setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
-        toremove.insert(mapTx.project<0>(it));
-        it++;
-    }
-    setEntries stage;
-    for (txiter removeit : toremove) {
-        CalculateDescendants(removeit, stage);
-    }
-    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
-    return stage.size();
-}
-
-int CTxMemPool::ExpireEVM(int64_t time) {
-    AssertLockHeld(cs);
-    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
-    setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
+    while (it != mapTx.get<entry_time>().end()) {
         std::vector<unsigned char> metadata;
         CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata, true);
-        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+        if (it->GetTime() < time) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        else if (txType == CustomTxType::EvmTx && it->GetTime() < evmTime) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        else if (txType == CustomTxType::TransferDomain && it->GetTime() < evmTime) {
+            const auto &tx = it->GetSharedTx();
+            for (const auto &vin : tx->vin) {
+                auto hashEntry = txidIndex.find(vin.prevout.hash);
+                if (hashEntry != txidIndex.end() &&
+                    hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
+                    toremove.insert(hashEntry);
+                    break;
+                }
+            }
             toremove.insert(mapTx.project<0>(it));
         }
         it++;
