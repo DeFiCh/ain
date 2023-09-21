@@ -4,23 +4,24 @@
 pragma solidity ^0.8.0;
 
 /**
- * @dev This abstract contract provides a fallback function that delegates all calls to another contract using the EVM
- * instruction `delegatecall`. We refer to the second contract as the _implementation_ behind the proxy, and it has to
- * be specified by overriding the virtual {_implementation} function.
- *
- * Additionally, delegation to the implementation can be triggered manually through the {_fallback} function, or to a
- * different contract through the {_delegate} function.
- *
- * The success and return data of the delegated call will be returned back to the caller of the proxy.
+ * Copied and modified from here: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Proxy.sol
+ * following unstructured pattern
  */
-abstract contract Proxy {
-    address private _implementationAddress;
+contract Proxy {
+
+    /**
+     * @dev Storage slot with the address of the current implementation.
+     * This is the keccak-256 hash of "eip1967.proxy.implementation" subtracted by 1.
+     */
+    // solhint-disable-next-line private-vars-leading-underscore
+    bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
     /**
      * @dev Delegates the current call to `implementation`.
      *
      * This function does not return to its internal call site, it will return directly to the external caller.
      */
-    function _delegate(address implementation) internal virtual {
+    function _delegate(address implementation) internal {
         assembly {
         // Copy msg.data. We take full control of memory in this inline assembly
         // block because it will not return to Solidity code. We overwrite the
@@ -45,8 +46,10 @@ abstract contract Proxy {
         }
     }
 
-    function _implementation() internal pure returns (address) {
-        return _implementationAddress;
+    function _implementation() internal view returns (address res) {
+        assembly {
+            res := sload(IMPLEMENTATION_SLOT)
+        }
     }
 
     /**
@@ -54,16 +57,15 @@ abstract contract Proxy {
      *
      * This function does not return to its internal call site, it will return directly to the external caller.
      */
-    function _fallback() internal virtual {
-        _beforeFallback();
-        _delegate(_implementation());
+    function _fallback() internal {       
+         _delegate(_implementation());
     }
 
     /**
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
      * function in the contract matches the call data.
      */
-    fallback() external payable virtual {
+    fallback() external payable {
         _fallback();
     }
 
@@ -71,15 +73,8 @@ abstract contract Proxy {
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
      * is empty.
      */
-    receive() external payable virtual {
+    receive() external payable {
         _fallback();
     }
 
-    /**
-     * @dev Hook that is called before falling back to the implementation. Can happen as part of a manual `_fallback`
-     * call, or as part of the Solidity `fallback` or `receive` functions.
-     *
-     * If overridden should call `super._beforeFallback()`.
-     */
-    function _beforeFallback() internal virtual {}
 }
