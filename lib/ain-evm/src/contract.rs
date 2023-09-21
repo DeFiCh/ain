@@ -1,7 +1,7 @@
 use ain_contracts::{
-    get_dst20_deploy_input, get_dst20_implementation_contract, get_instrinics_registry,
-    get_intrinsic_contract_v1, get_reserved_contract, get_transferdomain_contract_v1,
-    get_transferdomain_proxy, Contract, FixedContract, IMPLEMENTATION_SLOT,
+    get_dst20_implementation_contract, get_instrinics_registry, get_intrinsic_contract_v1,
+    get_reserved_contract, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract,
+    FixedContract, IMPLEMENTATION_SLOT,
 };
 use anyhow::format_err;
 use ethbloom::Bloom;
@@ -10,7 +10,6 @@ use ethereum::{
     TransactionV2,
 };
 use ethereum_types::{H160, H256, U256};
-use evm::CreateScheme::Fixed;
 use log::trace;
 use sha3::{Digest, Keccak256};
 
@@ -305,8 +304,6 @@ pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
 pub fn dst20_deploy_contract_tx(
     token_id: u64,
     base_fee: &U256,
-    name: &str,
-    symbol: &str,
 ) -> Result<(Box<SignedTx>, ReceiptV3)> {
     let tx = TransactionV2::Legacy(LegacyTransaction {
         nonce: U256::from(token_id),

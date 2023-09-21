@@ -1,12 +1,18 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{get_dst20_implementation_contract, get_instrinics_registry, get_intrinsic_contract_v1, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, FixedContract};
+use ain_contracts::{
+    get_instrinics_registry, get_intrinsic_contract_v1, get_transferdomain_contract_v1,
+    get_transferdomain_proxy, FixedContract,
+};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
-use crate::contract::{deploy_contract_tx, dst20_implementation, intrinsics_contract_v1, intrinsics_registry, transfer_domain_contract_v1, transfer_domain_proxy};
+use crate::contract::{
+    deploy_contract_tx, dst20_implementation, intrinsics_contract_v1, intrinsics_registry,
+    transfer_domain_contract_v1, transfer_domain_proxy,
+};
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
