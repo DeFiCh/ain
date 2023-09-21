@@ -29,15 +29,19 @@ contract TransferDomain {
         uint256 amount,
         string memory vmAddress
     ) external {
+        address transferFrom = from;
+
         if (to != address(this)) {
             require(
                 address(this).balance >= amount,
                 "Insufficient contract balance"
             );
             to.transfer(amount);
+
+            transferFrom = address(this);
         }
 
-        emit Transfer(from, to, amount);
+        emit Transfer(transferFrom, to, amount);
         emit VMTransfer(vmAddress);
     }
 
@@ -45,7 +49,7 @@ contract TransferDomain {
      * @dev Returns the name of the token.
      */
     function name() public view virtual returns (string memory) {
-        return "DFI";
+        return "TransferDomain";
     }
 
     /**
@@ -53,7 +57,7 @@ contract TransferDomain {
      * name.
      */
     function symbol() public view virtual returns (string memory) {
-        return "DFI";
+        return "XVM";
     }
 
     /**
