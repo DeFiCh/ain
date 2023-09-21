@@ -5,17 +5,17 @@ import "./IDFIIntrinsicsV1.sol";
 
 contract ExampleDFIIntrinsicsV1Integration {
 
-    address DFIIntrinsicsV1Address;
+    address _DFIIntrinsicsV1Address;
     
     function getVersion() external view returns (uint256) {
-        return IDFIIntrinsicsV1(DFIIntrinsicsV1Address).version();
+        return IDFIIntrinsicsV1(_DFIIntrinsicsV1Address).version();
     }
 
     function getEvmBlockCount() external view returns (uint256) {
-        return IDFIIntrinsicsV1(DFIIntrinsicsV1Address).evmBlockCount();
+        return IDFIIntrinsicsV1(_DFIIntrinsicsV1Address).evmBlockCount();
     }
 
     function getDvmBlockCount() external view returns (uint256) {
-        return IDFIIntrinsicsV1(DFIIntrinsicsV1Address).evmBlockCount();
+        return IDFIIntrinsicsV1(_DFIIntrinsicsV1Address).dvmBlockCount();
     }
 }
