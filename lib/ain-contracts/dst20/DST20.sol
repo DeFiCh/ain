@@ -559,7 +559,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
 // File: oz.sol
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.0;
 
 contract DST20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}

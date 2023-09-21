@@ -161,7 +161,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
                         internal_type: None,
                     },
                     ethabi::Param {
-                        name: String::from("nativeAddress"),
+                        name: String::from("vmAddress"),
                         kind: ethabi::ParamType::String,
                         internal_type: None,
                     },
@@ -181,7 +181,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
 
             #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
             let function = ethabi::Function {
-                name: String::from("bridgeDST20"),
+                name: String::from("transferDST20"),
                 inputs: vec![
                     ethabi::Param {
                         name: String::from("contractAddress"),
@@ -204,7 +204,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
                         internal_type: None,
                     },
                     ethabi::Param {
-                        name: String::from("nativeAddress"),
+                        name: String::from("vmAddress"),
                         kind: ethabi::ParamType::String,
                         internal_type: None,
                     },
