@@ -1237,7 +1237,7 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min"], self.priority_fee
-        )
+         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
             self.blockHash1,

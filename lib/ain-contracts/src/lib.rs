@@ -106,9 +106,9 @@ lazy_static::lazy_static! {
     pub static ref IMPLEMENTATION_SLOT: H256 = H256::from_str("0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc").unwrap();
 
     pub static ref INSTRINICS_REGISTRY : FixedContract = {
-        let bytecode = solc_artifact_bytecode_str!("proxy", "deployed_bytecode.json");
+        let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics_registry", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
-            "proxy",
+            "dfi_intrinsics_registry",
             "bytecode.json"
         );
 

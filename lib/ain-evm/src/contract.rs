@@ -1,8 +1,4 @@
-use ain_contracts::{
-    get_dst20_contract, get_dst20_deploy_input, get_intrinsic_contract_v1, get_reserved_contract,
-    get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, FixedContract,
-    IMPLEMENTATION_SLOT,
-};
+use ain_contracts::{get_dst20_contract, get_dst20_deploy_input, get_intrinsic_contract_v1, get_reserved_contract, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, FixedContract, IMPLEMENTATION_SLOT, get_instrinics_registry};
 use anyhow::format_err;
 use ethbloom::Bloom;
 use ethereum::{
@@ -64,6 +60,22 @@ pub fn get_address_storage_index(slot: H256, address: H160) -> H256 {
     H256::from(index_bytes)
 }
 
+pub fn get_uint_storage_index(slot: H256, num: u64) -> H256 {
+    // padded key
+    let key = H256::from_low_u64_be(num);
+
+    // keccak256(padded key + padded slot)
+    let mut hasher = Keccak256::new();
+    hasher.update(key.as_fixed_bytes());
+    hasher.update(slot.as_fixed_bytes());
+    let hash_result = hasher.finalize();
+
+    let mut index_bytes = [0u8; 32];
+    index_bytes.copy_from_slice(&hash_result);
+
+    H256::from(index_bytes)
+}
+
 pub struct DeployContractInfo {
     pub address: H160,
     pub storage: Vec<(H256, H256)>,
@@ -112,6 +124,20 @@ pub fn intrinsics_contract_v1(
             ),
         ],
     })
+}
+
+pub fn intrinsics_registry(v1_address: H160) -> DeployContractInfo {
+    let FixedContract {
+        contract, fixed_address
+    } = get_instrinics_registry();
+
+    DeployContractInfo {
+        address: fixed_address,
+        bytecode: Bytes::from(contract.runtime_bytecode),
+        storage: vec![
+            (get_uint_storage_index(H256::from_low_u64_be(1), 0), h160_to_h256(v1_address))
+        ],
+    }
 }
 
 /// Returns transfer domain address, bytecode and null storage
