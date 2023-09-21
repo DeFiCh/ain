@@ -79,7 +79,7 @@ static const unsigned int DEFAULT_DESCENDANT_SIZE_LIMIT = 101;
 static const unsigned int EXTRA_DESCENDANT_TX_SIZE_LIMIT = 10000;
 /** Default for -mempoolexpiry, expiration time for mempool transactions in hours */
 static const unsigned int DEFAULT_MEMPOOL_DVM_EXPIRY = 336;
-/** Default for -mempoolevmexpiry, expiration time for mempool transactions in hours */
+/** Default for -mempoolexpiryevm, expiration time for mempool transactions in hours */
 static const unsigned int DEFAULT_MEMPOOL_EVM_EXPIRY = 3;
 /** Limit in the number of Eth TXs from the same sender allowed in the mempool */
 static const unsigned int MEMPOOL_MAX_ETH_TXS = 64;

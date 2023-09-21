@@ -303,6 +303,7 @@ BASE_SCRIPTS = [
     "feature_evm_logs.py",
     "feature_evm_fee.py",
     "feature_evm_genesis.py",
+    "feature_evm_mempool.py",
     "feature_evm_miner.py",
     "feature_evm_rollback.py",
     "feature_evm_rpc_transaction.py",
