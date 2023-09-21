@@ -1,4 +1,4 @@
-use ain_contracts::{get_transferdomain_contract, FixedContract};
+use ain_contracts::{get_transferdomain_contract_v1, FixedContract};
 use ain_evm::{
     core::{ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
@@ -109,7 +109,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     result: &mut ffi::CrossBoundaryResult,
     ctx: ffi::CreateTransferDomainContext,
 ) -> ffi::CreateTxResult {
-    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract_v1();
     let action = TransactionAction::Call(fixed_address);
 
     let (from_address, to_address) = if ctx.direction {

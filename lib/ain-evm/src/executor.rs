@@ -1,4 +1,4 @@
-use ain_contracts::{get_transferdomain_contract, FixedContract};
+use ain_contracts::{get_transferdomain_contract_v1, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
@@ -268,7 +268,7 @@ impl<'backend> AinExecutor<'backend> {
                     contract,
                     fixed_address,
                     ..
-                } = get_transferdomain_contract();
+                } = get_transferdomain_contract_v1();
                 let mismatch = match self.backend.get_account(&fixed_address) {
                     None => true,
                     Some(account) => account.code_hash != contract.codehash,

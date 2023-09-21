@@ -1,17 +1,22 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{get_dst20_contract, Contract};
+use ain_contracts::{
+    get_dst20_contract, get_intrinsic_contract_v1, get_transferdomain_contract_v1,
+    get_transferdomain_proxy, Contract,
+};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
+use crate::contract::{
+    deploy_contract_tx, intrinsics_contract_v1, transfer_domain_contract_v1, transfer_domain_proxy,
+};
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
     contract::{
-        get_dst20_migration_txs, intrinsics_contract, reserve_dst20_namespace,
-        reserve_intrinsics_namespace, transfer_domain_contract, transfer_domain_deploy_contract_tx,
+        get_dst20_migration_txs, reserve_dst20_namespace, reserve_intrinsics_namespace,
         DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
@@ -182,28 +187,57 @@ impl EVMServices {
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs);
 
-            // Deploy counter contract on the first block
+            // TODO: Deploy DFIIntrinsicsRegistry contract
+
+            // Deploy DFIIntrinsics contract
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = intrinsics_contract_v1(dvm_block_number, current_block_number)?;
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
+
+            // DFIIntrinsics contract deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_intrinsic_contract_v1().contract.init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // Deploy transfer domain proxy
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = transfer_domain_proxy(get_transferdomain_contract_v1().fixed_address)?;
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            // transfer domain proxy deployment TX
+            let (tx, receipt) =
+                deploy_contract_tx(get_transferdomain_proxy().contract.init_bytecode, &base_fee)?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
 
             // Deploy transfer domain contract on the first block
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_contract();
+            } = transfer_domain_contract_v1();
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
-            let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
+            let (tx, receipt) = deploy_contract_tx(
+                get_transferdomain_contract_v1().contract.init_bytecode,
+                &base_fee,
+            )?;
 
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
@@ -211,7 +245,7 @@ impl EVMServices {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = intrinsics_contract_v1(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
             executor.commit();
         }

@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::fee::calculate_prepay_gas_fee;
-use ain_contracts::{get_transferdomain_contract, FixedContract};
+use ain_contracts::{get_transferdomain_contract_v1, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
@@ -399,7 +399,7 @@ impl EVMCoreService {
         }
 
         // Verify transaction action and transferdomain contract address
-        let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+        let FixedContract { fixed_address, .. } = get_transferdomain_contract_v1();
         match signed_tx.action() {
             TransactionAction::Call(address) => {
                 if address != fixed_address {

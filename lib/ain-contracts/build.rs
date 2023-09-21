@@ -18,6 +18,7 @@ fn main() -> Result<()> {
         ("dfi_reserved", "DFIReserved"),
         ("transfer_domain", "TransferDomain"),
         ("dst20", "DST20"),
+        ("proxy", "Proxy"),
     ];
 
     for (sol_project_name, contract_name) in contracts {
