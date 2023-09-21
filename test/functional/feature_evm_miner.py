@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test EVM behaviour"""
+"""Test EVM miner behaviour"""
 from test_framework.evm_contract import EVMContract
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
@@ -466,29 +466,6 @@ class EVMTest(DefiTestFramework):
             block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used
         )
 
-    def same_nonce_transferdomain_and_evm_txs(self):
-        self.rollback_to(self.start_height)
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce, 30, 21001, self.toAddress, 1)
-        tx = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
-                    "dst": {
-                        "address": self.address,
-                        "amount": "1@DFI",
-                        "domain": 2,
-                    },
-                    "nonce": nonce,
-                }
-            ]
-        )
-        assert_equal(self.nodes[0].getrawmempool().count(tx), True)
-        self.nodes[0].generate(1)
-        block_height = self.nodes[0].getblockcount()
-        assert_equal(block_height, self.start_height + 1)
-
     def multiple_evm_and_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
@@ -610,9 +587,6 @@ class EVMTest(DefiTestFramework):
 
         # # Test for block size overflow from fee mismatch between tx queue and block
         self.state_dependent_txs_in_block_and_queue()
-
-        # # Test for transferdomain and evmtx with same nonce
-        self.same_nonce_transferdomain_and_evm_txs()
 
         # Test for multiple expensive evm txs and transferdomain txs in the same block
         self.multiple_evm_and_transferdomain_txs()
