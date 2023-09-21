@@ -1,4 +1,8 @@
-use ain_contracts::{get_dst20_contract, get_dst20_deploy_input, get_intrinsic_contract_v1, get_reserved_contract, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, FixedContract, IMPLEMENTATION_SLOT, get_instrinics_registry};
+use ain_contracts::{
+    get_dst20_contract, get_dst20_deploy_input, get_instrinics_registry, get_intrinsic_contract_v1,
+    get_reserved_contract, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract,
+    FixedContract, IMPLEMENTATION_SLOT,
+};
 use anyhow::format_err;
 use ethbloom::Bloom;
 use ethereum::{
@@ -128,15 +132,17 @@ pub fn intrinsics_contract_v1(
 
 pub fn intrinsics_registry(v1_address: H160) -> DeployContractInfo {
     let FixedContract {
-        contract, fixed_address
+        contract,
+        fixed_address,
     } = get_instrinics_registry();
 
     DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
-        storage: vec![
-            (get_uint_storage_index(H256::from_low_u64_be(1), 0), h160_to_h256(v1_address))
-        ],
+        storage: vec![(
+            get_uint_storage_index(H256::from_low_u64_be(0), 0),
+            h160_to_h256(v1_address),
+        )],
     }
 }
 

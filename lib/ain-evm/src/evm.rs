@@ -1,12 +1,18 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{get_dst20_contract, get_intrinsic_contract_v1, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, get_instrinics_registry};
+use ain_contracts::{
+    get_dst20_contract, get_instrinics_registry, get_intrinsic_contract_v1,
+    get_transferdomain_contract_v1, get_transferdomain_proxy, Contract,
+};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
-use crate::contract::{deploy_contract_tx, intrinsics_contract_v1, intrinsics_registry, transfer_domain_contract_v1, transfer_domain_proxy};
+use crate::contract::{
+    deploy_contract_tx, intrinsics_contract_v1, intrinsics_registry, transfer_domain_contract_v1,
+    transfer_domain_proxy,
+};
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
@@ -194,10 +200,8 @@ impl EVMServices {
             executor.commit();
 
             // DFIIntrinsicsRegistry contract deployment TX
-            let (tx, receipt) = deploy_contract_tx(
-                get_instrinics_registry().contract.init_bytecode,
-                &base_fee,
-            )?;
+            let (tx, receipt) =
+                deploy_contract_tx(get_instrinics_registry().contract.init_bytecode, &base_fee)?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
 
