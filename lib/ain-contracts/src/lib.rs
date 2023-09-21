@@ -173,7 +173,7 @@ lazy_static::lazy_static! {
         }
     };
 
-    pub static ref DST20_CONTRACT: Contract = {
+    pub static ref DST20_CONTRACT: FixedContract = {
         let bytecode = solc_artifact_bytecode_str!(
             "dst20", "deployed_bytecode.json"
         );
@@ -181,10 +181,13 @@ lazy_static::lazy_static! {
             "dst20", "bytecode.json"
         );
 
-        Contract {
+        FixedContract {
+            contract: Contract {
             codehash: Blake2Hasher::hash(&bytecode),
             runtime_bytecode: bytecode,
             init_bytecode: input,
+            },
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x4))
         }
     };
 
@@ -218,7 +221,7 @@ pub fn get_transferdomain_contract_v1() -> FixedContract {
     TRANSFERDOMAIN_CONTRACT_V1.clone()
 }
 
-pub fn get_dst20_contract() -> Contract {
+pub fn get_dst20_implementation_contract() -> FixedContract {
     DST20_CONTRACT.clone()
 }
 

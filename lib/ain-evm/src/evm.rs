@@ -1,18 +1,12 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{
-    get_dst20_contract, get_instrinics_registry, get_intrinsic_contract_v1,
-    get_transferdomain_contract_v1, get_transferdomain_proxy, Contract,
-};
+use ain_contracts::{get_dst20_implementation_contract, get_instrinics_registry, get_intrinsic_contract_v1, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
-use crate::contract::{
-    deploy_contract_tx, intrinsics_contract_v1, intrinsics_registry, transfer_domain_contract_v1,
-    transfer_domain_proxy,
-};
+use crate::contract::{deploy_contract_tx, dst20_implementation, intrinsics_contract_v1, intrinsics_registry, transfer_domain_contract_v1, transfer_domain_proxy};
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
@@ -257,6 +251,16 @@ impl EVMServices {
                 deploy_contract_tx(get_transferdomain_proxy().contract.init_bytecode, &base_fee)?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
+
+            // deploy DST20 implementation contract
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dst20_implementation();
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
@@ -466,8 +470,8 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                let Contract { codehash, .. } = get_dst20_contract();
-                if account.code_hash == codehash {
+                let FixedContract { contract, .. } = get_transferdomain_proxy();
+                if account.code_hash == contract.codehash {
                     return Ok(true);
                 }
             }
