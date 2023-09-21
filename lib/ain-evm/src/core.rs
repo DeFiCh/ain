@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::fee::calculate_prepay_gas_fee;
 use ain_contracts::{get_transferdomain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
@@ -16,6 +15,7 @@ use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
     executor::{AinExecutor, ExecutorContext, TxResponse},
+    fee::calculate_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
@@ -304,7 +304,7 @@ impl EVMCoreService {
 
             // Execute tx
             let mut executor = AinExecutor::new(&mut backend);
-            let (tx_response, ..) = executor.exec(&signed_tx, prepay_fee);
+            let (tx_response, ..) = executor.exec(&signed_tx, signed_tx.gas_limit(), prepay_fee);
 
             // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);

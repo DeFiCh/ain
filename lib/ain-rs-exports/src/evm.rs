@@ -227,13 +227,6 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
         }
     };
 
-    let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
-        return cross_boundary_error_return(
-            result,
-            "Could not calculate next block base fee".to_string(),
-        );
-    };
-
     let state_root = match SERVICES.evm.core.get_state_root() {
         Ok(state_root) => state_root,
         Err(e) => {
@@ -258,8 +251,8 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
 
     let t = LegacyUnsignedTransaction {
         nonce,
-        gas_price: base_fee,
-        gas_limit: U256::from(100_000),
+        gas_price: U256::zero(),
+        gas_limit: U256::zero(),
         action,
         value: U256::zero(),
         input,
