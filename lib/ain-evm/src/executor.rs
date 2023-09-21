@@ -13,7 +13,8 @@ use crate::{
     backend::EVMBackend,
     bytes::Bytes,
     contract::{
-        bridge_dst20, dst20_contract, dst20_deploy_contract_tx, DST20BridgeInfo, DeployContractInfo,
+        bridge_dfi, bridge_dst20, dst20_contract, dst20_deploy_contract_tx, DST20BridgeInfo,
+        DeployContractInfo,
     },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
@@ -230,7 +231,7 @@ impl<'backend> AinExecutor<'backend> {
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas);
                 debug!(
-                    "[apply_queue_tx]receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash()
@@ -286,6 +287,8 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 if direction == TransferDirection::EvmIn {
+                    let storage = bridge_dfi(&self.backend, amount, direction)?;
+                    self.update_storage(fixed_address, storage)?;
                     self.add_balance(fixed_address, amount)?;
                     self.commit();
                 }
@@ -301,7 +304,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash(),
@@ -309,6 +312,8 @@ impl<'backend> AinExecutor<'backend> {
                 );
 
                 if direction == TransferDirection::EvmOut {
+                    let storage = bridge_dfi(&self.backend, amount, direction)?;
+                    self.update_storage(fixed_address, storage)?;
                     self.sub_balance(signed_tx.sender, amount)?;
                 }
 
@@ -357,7 +362,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash(),

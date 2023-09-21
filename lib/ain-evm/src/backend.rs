@@ -214,7 +214,7 @@ impl EVMBackend {
         let state = self
             .trie_store
             .trie_db
-            .trie_restore(contract.clone().as_ref(), None, account.storage_root.into())
+            .trie_restore(contract.as_ref(), None, account.storage_root.into())
             .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(U256::from(
