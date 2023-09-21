@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./IDFIIntrinsicsV1.sol";
-import "../dfi_intrinsics_registry/IDFIIntrinsicsRegistry.sol";
+interface IDFIIntrinsicsV1 { 
+    function version() external view returns (uint256);
+    function evmBlockCount() external view returns(uint256);
+    function dvmBlockCount() external view returns(uint256);
+}
+
+interface IDFIIntrinsicsRegistry {
+    function getAddressForVersion(uint256 _version) external view returns (address);
+}
+
 
 contract ExampleDFIIntrinsicsV1Integration {
 
