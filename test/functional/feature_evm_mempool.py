@@ -10,7 +10,6 @@ from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
 )
-from decimal import Decimal
 
 
 class EVMTest(DefiTestFramework):
