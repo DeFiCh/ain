@@ -469,7 +469,9 @@ class EVMTest(DefiTestFramework):
     def same_nonce_transferdomain_and_evm_txs(self):
         self.rollback_to(self.start_height)
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        self.nodes[0].transferdomain(
+        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, nonce, 30, 21001, self.toAddress, 1)
+        tx = self.nodes[0].transferdomain(
             [
                 {
                     "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
@@ -482,9 +484,7 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        tx = self.nodes[0].evmtx(self.ethAddress, nonce, 30, 21001, self.toAddress, 1)
-        assert_equal(self.nodes[0].getrawmempool(), [tx])
+        assert_equal(self.nodes[0].getrawmempool().count(tx), True)
         self.nodes[0].generate(1)
         block_height = self.nodes[0].getblockcount()
         assert_equal(block_height, self.start_height + 1)

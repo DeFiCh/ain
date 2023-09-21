@@ -1001,6 +1001,58 @@ class EVMTest(DefiTestFramework):
         evm_tx = self.nodes[0].vmmap(tx1, 0)["output"]
         assert_equal(block["transactions"][0], evm_tx)
 
+    def evm_tx_rbf_with_transferdomain_should_fail(self):
+        self.rollback_to(self.start_height)
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
+
+        # Ensure transferdomain tx has highest priority over evm tx
+        assert_raises_rpc_error(
+            -32001,
+            "evm-low-fee",
+            self.nodes[0].eth_sendTransaction,
+            {
+                "nonce": self.nodes[0].w3.to_hex(nonce),
+                "from": self.address_erc55,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0xfffffffffff",
+            },
+        )
+
+        # Manually set nonce in transferdomain
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "nonce": nonce + 100,
+                }
+            ]
+        )
+        # Ensure transferdomain tx has highest priority over evm tx
+        assert_raises_rpc_error(
+            -32001,
+            "evm-low-fee",
+            self.nodes[0].eth_sendTransaction,
+            {
+                "nonce": self.nodes[0].w3.to_hex(nonce + 100),
+                "from": self.address_erc55,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0xfffffffffff",
+            },
+        )
+
     def conflicting_transferdomain_evmtx(self):
         self.rollback_to(self.start_height)
 
@@ -1027,12 +1079,21 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        balance = Decimal(self.nodes[0].w3.eth.get_balance(self.address_erc55))
         burn_balance = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
         sender_nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
 
-        self.nodes[0].transferdomain(
+        self.nodes[0].eth_sendTransaction(
+            {
+                "nonce": self.nodes[0].w3.to_hex(nonce),
+                "from": self.address_erc55,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+        tx = self.nodes[0].transferdomain(
             [
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
@@ -1045,32 +1106,27 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        self.nodes[0].eth_sendTransaction(
-            {
-                "nonce": self.nodes[0].w3.to_hex(nonce),
-                "from": self.address_erc55,
-                "to": "0x0000000000000000000000000000000000000000",
-                "value": "0x1",
-                "gas": "0x100000",
-                "gasPrice": "0x4e3b29200",
-            }
-        )
         self.nodes[0].generate(1)
 
-        balance_after = Decimal(self.nodes[0].w3.eth.get_balance(self.address_erc55))
         burn_balance_after = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
         sender_nonce_after = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
 
-        # evmtx should take precedence, transferdomain should be discarded
+        # transferdomain should take precedence, evmtx should be discarded
         assert_equal(
             sender_nonce + 1, sender_nonce_after
-        )  # evm tx will increment account nonce
+        )
         assert_equal(
-            burn_balance_after, burn_balance + Decimal(1)
-        )  # null address should have more balance
-        assert balance_after < balance  # sender should have less balance
+            burn_balance_after, burn_balance
+        )
+        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
+        assert_equal(result["src"]["address"], self.address)
+        assert_equal(result["src"]["amount"], "100.00000000@0")
+        assert_equal(result["src"]["domain"], "DVM")
+        assert_equal(result["dst"]["address"], self.address_erc55)
+        assert_equal(result["dst"]["amount"], "100.00000000@0")
+        assert_equal(result["dst"]["domain"], "EVM") 
 
     def should_find_empty_nonce(self):
         self.rollback_to(self.start_height)
@@ -1180,6 +1236,8 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
         self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+
+        self.evm_tx_rbf_with_transferdomain_should_fail()
 
         self.conflicting_transferdomain_evmtx()
 
