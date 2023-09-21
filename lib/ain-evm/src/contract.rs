@@ -200,6 +200,29 @@ pub fn bridge_dst20(
     })
 }
 
+pub fn bridge_dfi(
+    backend: &EVMBackend,
+    amount: U256,
+    direction: TransferDirection,
+) -> Result<Vec<(H256, H256)>> {
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+
+    let total_supply_index = H256::from_low_u64_be(1);
+    let total_supply =
+        backend.get_contract_storage(fixed_address, total_supply_index.as_bytes())?;
+
+    let new_total_supply = if direction == TransferDirection::EvmOut {
+        total_supply.checked_sub(amount)
+    } else {
+        total_supply.checked_add(amount)
+    };
+
+    let new_total_supply =
+        new_total_supply.ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
+
+    Ok(vec![(total_supply_index, u256_to_h256(new_total_supply))])
+}
+
 pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
     let Contract {
         runtime_bytecode, ..

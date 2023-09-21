@@ -12,8 +12,10 @@ use log::{debug, trace};
 use crate::{
     backend::EVMBackend,
     bytes::Bytes,
-    contract::dst20_deploy_contract_tx,
-    contract::{bridge_dst20, dst20_contract, DST20BridgeInfo, DeployContractInfo},
+    contract::{
+        bridge_dfi, bridge_dst20, dst20_contract, dst20_deploy_contract_tx, DST20BridgeInfo,
+        DeployContractInfo,
+    },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
     fee::{calculate_gas_fee, calculate_prepay_gas_fee},
@@ -123,7 +125,12 @@ impl<'backend> AinExecutor<'backend> {
     }
 
     /// Update state
-    pub fn exec(&mut self, signed_tx: &SignedTx, prepay_gas: U256) -> (TxResponse, ReceiptV3) {
+    pub fn exec(
+        &mut self,
+        signed_tx: &SignedTx,
+        gas_limit: U256,
+        prepay_gas: U256,
+    ) -> (TxResponse, ReceiptV3) {
         self.backend.update_vicinity_from_tx(signed_tx);
         trace!(
             "[Executor] Executing EVM TX with vicinity : {:?}",
@@ -134,7 +141,7 @@ impl<'backend> AinExecutor<'backend> {
             to: signed_tx.to(),
             value: signed_tx.value(),
             data: signed_tx.data(),
-            gas_limit: signed_tx.gas_limit().as_u64(),
+            gas_limit: u64::try_from(gas_limit).unwrap_or(u64::MAX), // Sets to u64 if overflows
             access_list: signed_tx.access_list(),
         };
 
@@ -221,9 +228,10 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
-                let (tx_response, receipt) = self.exec(&signed_tx, prepay_gas);
+                let (tx_response, receipt) =
+                    self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas);
                 debug!(
-                    "[apply_queue_tx]receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash()
@@ -279,11 +287,13 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 if direction == TransferDirection::EvmIn {
+                    let storage = bridge_dfi(&self.backend, amount, direction)?;
+                    self.update_storage(fixed_address, storage)?;
                     self.add_balance(fixed_address, amount)?;
                     self.commit();
                 }
 
-                let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] Transfer domain failed VM execution {:?}",
@@ -294,7 +304,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash(),
@@ -302,6 +312,8 @@ impl<'backend> AinExecutor<'backend> {
                 );
 
                 if direction == TransferDirection::EvmOut {
+                    let storage = bridge_dfi(&self.backend, amount, direction)?;
+                    self.update_storage(fixed_address, storage)?;
                     self.sub_balance(signed_tx.sender, amount)?;
                 }
 
@@ -338,7 +350,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.commit();
                 }
 
-                let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] DST20 bridge failed VM execution {:?}",
@@ -350,7 +362,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash(),
