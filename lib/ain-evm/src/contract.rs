@@ -1,7 +1,7 @@
 use ain_contracts::{
     get_dst20_implementation_contract, get_instrinics_registry, get_intrinsic_contract_v1,
-    get_reserved_contract, get_transferdomain_contract_v1, get_transferdomain_proxy, Contract,
-    FixedContract, IMPLEMENTATION_SLOT,
+    get_proxy, get_reserved_contract, get_transferdomain_contract_v1, Contract, FixedContract,
+    IMPLEMENTATION_SLOT,
 };
 use anyhow::format_err;
 use ethbloom::Bloom;
@@ -96,7 +96,7 @@ pub fn transfer_domain_proxy(implementation_address: H160) -> Result<DeployContr
         contract,
         fixed_address,
         ..
-    } = get_transferdomain_proxy();
+    } = get_proxy();
 
     Ok(DeployContractInfo {
         address: fixed_address,
@@ -189,7 +189,7 @@ pub fn dst20_contract(
         }
     }
 
-    let FixedContract { contract, .. } = get_transferdomain_proxy();
+    let FixedContract { contract, .. } = get_proxy();
     let storage = vec![
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
@@ -220,7 +220,7 @@ pub fn bridge_dst20(
 
     let FixedContract { fixed_address, .. } = get_transferdomain_contract_v1();
 
-    let Contract { codehash, .. } = get_transferdomain_proxy().contract;
+    let Contract { codehash, .. } = get_proxy().contract;
     if account.code_hash != codehash {
         return Err(format_err!("DST20 token code is not valid").into());
     }
@@ -311,7 +311,7 @@ pub fn dst20_deploy_contract_tx(
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_transferdomain_proxy().contract.init_bytecode,
+        input: get_proxy().contract.init_bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })

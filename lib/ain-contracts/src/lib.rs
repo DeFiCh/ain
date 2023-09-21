@@ -122,7 +122,7 @@ lazy_static::lazy_static! {
         }
     };
 
-    pub static ref TRANSFERDOMAIN_PROXY : FixedContract = {
+    pub static ref PROXY : FixedContract = {
         let bytecode = solc_artifact_bytecode_str!("proxy", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
             "proxy",
@@ -209,8 +209,8 @@ pub fn get_instrinics_registry() -> FixedContract {
     INSTRINICS_REGISTRY.clone()
 }
 
-pub fn get_transferdomain_proxy() -> FixedContract {
-    TRANSFERDOMAIN_PROXY.clone()
+pub fn get_proxy() -> FixedContract {
+    PROXY.clone()
 }
 
 pub fn get_intrinsic_contract_v1() -> FixedContract {

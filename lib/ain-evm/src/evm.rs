@@ -1,8 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
-    get_instrinics_registry, get_intrinsic_contract_v1, get_transferdomain_contract_v1,
-    get_transferdomain_proxy, FixedContract,
+    get_instrinics_registry, get_intrinsic_contract_v1, get_proxy, get_transferdomain_contract_v1,
+    FixedContract,
 };
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
@@ -253,8 +253,7 @@ impl EVMServices {
             executor.commit();
 
             // transfer domain proxy deployment TX
-            let (tx, receipt) =
-                deploy_contract_tx(get_transferdomain_proxy().contract.init_bytecode, &base_fee)?;
+            let (tx, receipt) = deploy_contract_tx(get_proxy().contract.init_bytecode, &base_fee)?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
 
@@ -476,7 +475,7 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                let FixedContract { contract, .. } = get_transferdomain_proxy();
+                let FixedContract { contract, .. } = get_proxy();
                 if account.code_hash == contract.codehash {
                     return Ok(true);
                 }
