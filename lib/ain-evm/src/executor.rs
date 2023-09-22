@@ -287,7 +287,7 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 if direction == TransferDirection::EvmIn {
-                    let storage = bridge_dfi(&self.backend, amount, direction)?;
+                    let storage = bridge_dfi(self.backend, amount, direction)?;
                     self.update_storage(fixed_address, storage)?;
                     self.add_balance(fixed_address, amount)?;
                     self.commit();
@@ -312,7 +312,7 @@ impl<'backend> AinExecutor<'backend> {
                 );
 
                 if direction == TransferDirection::EvmOut {
-                    let storage = bridge_dfi(&self.backend, amount, direction)?;
+                    let storage = bridge_dfi(self.backend, amount, direction)?;
                     self.update_storage(fixed_address, storage)?;
                     self.sub_balance(signed_tx.sender, amount)?;
                 }
