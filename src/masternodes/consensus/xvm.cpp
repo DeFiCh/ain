@@ -211,6 +211,15 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
+            // Subtract balance from DFI address
+            res = mnview.SubBalance(src.address, src.amount);
+            if (!res) {
+                return res;
+            }
+            stats.dvmEvmTotal.Add(src.amount);
+            stats.dvmOut.Add(src.amount);
+            stats.dvmCurrent.Sub(src.amount);
+
             if (dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
@@ -229,14 +238,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Err("Error getting tx hash: %s", result.reason);
             }
             evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
-            // Subtract balance from DFI address
-            res = mnview.SubBalance(src.address, src.amount);
-            if (!res)
-                return res;
-            stats.dvmEvmTotal.Add(src.amount);
-            stats.dvmOut.Add(src.amount);
-            stats.dvmCurrent.Sub(src.amount);
 
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
@@ -315,8 +316,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
-            if (!res)
+            if (!res) {
                 return res;
+            }
             stats.evmDvmTotal.Add(dst.amount);
             stats.dvmIn.Add(dst.amount);
             stats.dvmCurrent.Add(dst.amount);
