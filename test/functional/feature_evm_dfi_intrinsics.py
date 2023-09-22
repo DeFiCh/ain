@@ -9,8 +9,6 @@ import json
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_solc_artifact_path
-from test_framework.evm_contract import EVMContract
-from test_framework.evm_key_pair import EvmKeyPair
 
 
 class DFIIntrinsicsTest(DefiTestFramework):
