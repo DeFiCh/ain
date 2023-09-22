@@ -5,7 +5,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256
+from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256, get_solc_artifact_path
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 
@@ -67,6 +67,12 @@ class EVMTest(DefiTestFramework):
         self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
             "erc55"
         ]
+        self.contract_address = "0xdF00000000000000000000000000000000000001"
+        self.abi = open(
+            get_solc_artifact_path("transfer_domain", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
 
         symbolDFI = "DFI"
         symbolBTC = "BTC"
@@ -1156,6 +1162,56 @@ class EVMTest(DefiTestFramework):
             ],
         )
 
+    def test_contract_methods(self):
+        self.rollback_to(self.start_height)
+
+        contract = self.nodes[0].w3.eth.contract(
+            address=self.contract_address, abi=self.abi
+        )
+
+        assert_equal(contract.functions.name().call(), "TransferDomain")
+        assert_equal(contract.functions.symbol().call(), "XVM")
+        assert_equal(contract.functions.totalSupply().call(), 0)
+        assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
+
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        assert_equal(contract.functions.totalSupply().call(), self.nodes[0].w3.to_wei(100, "ether"))
+        assert_equal(contract.functions.balanceOf(self.address_erc55).call(), self.nodes[0].w3.to_wei(0, "ether")) # Don't track balance per address
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address_erc55, "amount": "100@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "100@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        assert_equal(contract.functions.totalSupply().call(), 0)
+        assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
+
+
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
@@ -1187,6 +1243,7 @@ class EVMTest(DefiTestFramework):
 
         self.invalidate_transfer_invalid_nonce()
 
+        self.test_contract_methods()
 
 if __name__ == "__main__":
     EVMTest().main()

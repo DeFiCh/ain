@@ -161,7 +161,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
                         internal_type: None,
                     },
                     ethabi::Param {
-                        name: String::from("nativeAddress"),
+                        name: String::from("vmAddress"),
                         kind: ethabi::ParamType::String,
                         internal_type: None,
                     },
@@ -181,7 +181,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
 
             #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
             let function = ethabi::Function {
-                name: String::from("bridgeDST20"),
+                name: String::from("transferDST20"),
                 inputs: vec![
                     ethabi::Param {
                         name: String::from("contractAddress"),
@@ -204,7 +204,7 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
                         internal_type: None,
                     },
                     ethabi::Param {
-                        name: String::from("nativeAddress"),
+                        name: String::from("vmAddress"),
                         kind: ethabi::ParamType::String,
                         internal_type: None,
                     },
@@ -225,13 +225,6 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
             Ok(input) => input,
             Err(e) => return cross_boundary_error_return(result, e.to_string()),
         }
-    };
-
-    let Ok(base_fee) = SERVICES.evm.block.calculate_next_block_base_fee() else {
-        return cross_boundary_error_return(
-            result,
-            "Could not calculate next block base fee".to_string(),
-        );
     };
 
     let state_root = match SERVICES.evm.core.get_state_root() {
@@ -258,8 +251,8 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
 
     let t = LegacyUnsignedTransaction {
         nonce,
-        gas_price: base_fee,
-        gas_limit: U256::from(100_000),
+        gas_price: U256::zero(),
+        gas_limit: U256::zero(),
         action,
         value: U256::zero(),
         input,

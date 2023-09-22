@@ -4,6 +4,28 @@
 
 pragma solidity ^0.8.0;
 
+/**
+ * @dev Interface for the optional metadata functions from the ERC20 standard.
+ *
+ * _Available since v4.1._
+ */
+interface IERC20Metadata {
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
 interface IERC20 {
     function transferFrom(
         address from,
@@ -14,46 +36,54 @@ interface IERC20 {
 
 // SPDX-License-Identifier: MIT
 
-pragma solidity >=0.8.2 <0.9.0;
+pragma solidity ^0.8.0;
 
 /**
  * @title TransferDomain
  */
-contract TransferDomain {
+contract TransferDomain is IERC20Metadata {
+    mapping(address => uint256) private _balances;
+    uint256 private _totalSupply;
+
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event NativeAddress(string nativeAddress);
+    event VMTransfer(string vmAddress);
 
     function transfer(
         address from,
         address payable to,
         uint256 amount,
-        string memory nativeAddress
+        string memory vmAddress
     ) external {
+        address transferFrom = from;
+
         if (to != address(this)) {
             require(
                 address(this).balance >= amount,
                 "Insufficient contract balance"
             );
+
             to.transfer(amount);
+
+            transferFrom = address(this);
         }
 
-        emit Transfer(from, to, amount);
-        emit NativeAddress(nativeAddress);
+        emit Transfer(transferFrom, to, amount);
+        emit VMTransfer(vmAddress);
     }
 
     /**
      * @dev Returns the name of the token.
      */
-    function name() public view virtual returns (string memory) {
-        return "DFI";
+    function name() public view virtual override returns (string memory) {
+        return "TransferDomain";
     }
 
     /**
      * @dev Returns the symbol of the token, usually a shorter version of the
      * name.
      */
-    function symbol() public view virtual returns (string memory) {
-        return "DFI";
+    function symbol() public view virtual override returns (string memory) {
+        return "XVM";
     }
 
     /**
@@ -69,20 +99,34 @@ contract TransferDomain {
      * no way affects any of the arithmetic of the contract, including
      * {IERC20-balanceOf} and {IERC20-transfer}.
      */
-    function decimals() public view virtual returns (uint8) {
+    function decimals() public view virtual override returns (uint8) {
         return 18;
     }
 
-    function bridgeDST20(
+    function transferDST20(
         address contractAddress,
         address from,
         address payable to,
         uint256 amount,
-        string memory nativeAddress
+        string memory vmAddress
     ) external {
         if (to != address(this)) {
             IERC20(contractAddress).transferFrom(from, to, amount);
         }
-        emit NativeAddress(nativeAddress);
+        emit VMTransfer(vmAddress);
+    }
+
+    /**
+     * @dev See {IERC20-totalSupply}.
+     */
+    function totalSupply() public view virtual returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev See {IERC20-balanceOf}.
+     */
+    function balanceOf(address account) public view virtual returns (uint256) {
+        return _balances[account];
     }
 }
