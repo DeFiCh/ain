@@ -98,7 +98,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ),
             abi=registry_abi,
         )
-        v1_address = registry.functions.getAddressForVersion(0).call()
+        v1_address = registry.functions.get(0).call()
 
         contract_0 = node.w3.eth.contract(
             address=v1_address,

@@ -8,27 +8,27 @@ interface IDFIIntrinsicsV1 {
 }
 
 interface IDFIIntrinsicsRegistry {
-    function getAddressForVersion(uint256 _version) external view returns (address);
+    function get(uint256 _version) external view returns (address);
 }
 
 
 contract ExampleDFIIntrinsicsV1Integration {
-    address private _DFIIntrinsicsRegistry;
+    IDFIIntrinsicsRegistry private _registry;
 
     constructor(address _registryAddress) {
-        _DFIIntrinsicsRegistry = _registryAddress;
+        _registry = IDFIIntrinsicsRegistry(_registryAddress);
     }
 
-    function _getDFIIntrinsicsV1() internal view returns(address) {
-        return IDFIIntrinsicsRegistry(_DFIIntrinsicsRegistry).getAddressForVersion(0);
+    function _getDFIIntrinsicsV1() internal view returns(IDFIIntrinsicsV1) {
+        return IDFIIntrinsicsV1(_registry.get(0));
     }
     
     function getVersion() external view returns (uint256) {
-        return IDFIIntrinsicsV1(_getDFIIntrinsicsV1()).version();
+        return _getDFIIntrinsicsV1().version();
     }
 
     function getEvmBlockCount() external view returns (uint256) {
-        return IDFIIntrinsicsV1(_getDFIIntrinsicsV1()).evmBlockCount();
+        return _getDFIIntrinsicsV1().evmBlockCount();
     }
 
     function getDvmBlockCount() external view returns (uint256) {
