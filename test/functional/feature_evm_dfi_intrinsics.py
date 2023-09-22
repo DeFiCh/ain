@@ -86,8 +86,10 @@ class DFIIntrinsicsTest(DefiTestFramework):
         ).read()
 
         registry = node.w3.eth.contract(
-            address=node.w3.to_checksum_address("0xdf00000000000000000000000000000000000000"),
-            abi=registry_abi
+            address=node.w3.to_checksum_address(
+                "0xdf00000000000000000000000000000000000000"
+            ),
+            abi=registry_abi,
         )
         v1_address = registry.functions.getAddressForVersion(0).call()
 
