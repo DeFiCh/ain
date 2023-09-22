@@ -162,15 +162,10 @@ pub fn bridge_dst20_in(
 
     // balance has slot 0
     let contract_balance_storage_index = get_address_storage_index(H256::zero(), fixed_address);
-    let contract_balance =
-        backend.get_contract_storage(contract, contract_balance_storage_index.as_bytes())?;
 
     let total_supply_index = H256::from_low_u64_be(2);
     let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
 
-    let new_contract_balance = contract_balance
-        .checked_add(amount)
-        .ok_or_else(|| format_err!("Balance overflow/underflow"))?;
     let new_total_supply = total_supply
         .checked_add(amount)
         .ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
@@ -178,10 +173,7 @@ pub fn bridge_dst20_in(
     Ok(DST20BridgeInfo {
         address: contract,
         storage: vec![
-            (
-                contract_balance_storage_index,
-                u256_to_h256(new_contract_balance),
-            ),
+            (contract_balance_storage_index, u256_to_h256(amount)),
             (total_supply_index, u256_to_h256(new_total_supply)),
         ],
     })
