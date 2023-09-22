@@ -13,8 +13,8 @@ use crate::{
     backend::EVMBackend,
     bytes::Bytes,
     contract::{
-        bridge_dfi, bridge_dst20, dst20_contract, dst20_deploy_contract_tx, DST20BridgeInfo,
-        DeployContractInfo,
+        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_contract,
+        dst20_deploy_contract_tx, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
@@ -339,22 +339,27 @@ impl<'backend> AinExecutor<'backend> {
             );
 
                 if direction == TransferDirection::EvmIn {
-                    let DST20BridgeInfo { address, storage } = bridge_dst20(
-                        self.backend,
-                        contract_address,
-                        signed_tx.sender,
-                        amount,
-                        direction,
-                    )?;
+                    let DST20BridgeInfo { address, storage } =
+                        bridge_dst20_in(self.backend, contract_address, amount)?;
                     self.update_storage(address, storage)?;
                     self.commit();
                 }
 
+                let allowance = dst20_allowance(direction, signed_tx.sender, amount);
+                self.update_storage(contract_address, allowance)?;
+                self.commit();
+
                 let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
                 if !tx_response.exit_reason.is_succeed() {
+                    debug!(
+                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {}",
+                        tx_response.exit_reason,
+                        hex::encode(&tx_response.data)
+                    );
                     return Err(format_err!(
-                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}",
-                        tx_response.exit_reason
+                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {:?}",
+                        tx_response.exit_reason,
+                        tx_response.data
                     )
                     .into());
                 }
@@ -370,13 +375,8 @@ impl<'backend> AinExecutor<'backend> {
                 );
 
                 if direction == TransferDirection::EvmOut {
-                    let DST20BridgeInfo { address, storage } = bridge_dst20(
-                        self.backend,
-                        contract_address,
-                        signed_tx.sender,
-                        amount,
-                        direction,
-                    )?;
+                    let DST20BridgeInfo { address, storage } =
+                        bridge_dst20_out(self.backend, contract_address, amount)?;
                     self.update_storage(address, storage)?;
                 }
 

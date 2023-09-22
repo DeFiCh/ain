@@ -54,8 +54,6 @@ contract TransferDomain is IERC20Metadata {
         uint256 amount,
         string memory vmAddress
     ) external {
-        address transferFrom = from;
-
         if (to != address(this)) {
             require(
                 address(this).balance >= amount,
@@ -63,11 +61,9 @@ contract TransferDomain is IERC20Metadata {
             );
 
             to.transfer(amount);
-
-            transferFrom = address(this);
         }
 
-        emit Transfer(transferFrom, to, amount);
+        emit Transfer(from, to, amount);
         emit VMTransfer(vmAddress);
     }
 
@@ -83,7 +79,7 @@ contract TransferDomain is IERC20Metadata {
      * name.
      */
     function symbol() public view virtual override returns (string memory) {
-        return "XVM";
+        return "DFI";
     }
 
     /**
@@ -110,9 +106,7 @@ contract TransferDomain is IERC20Metadata {
         uint256 amount,
         string memory vmAddress
     ) external {
-        if (to != address(this)) {
-            IERC20(contractAddress).transferFrom(from, to, amount);
-        }
+        IERC20(contractAddress).transferFrom(from, to, amount);
         emit VMTransfer(vmAddress);
     }
 
