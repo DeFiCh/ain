@@ -13,11 +13,14 @@ interface IDFIIntrinsicsRegistry {
 
 
 contract ExampleDFIIntrinsicsV1Integration {
+    address private _DFIIntrinsicsRegistry;
 
-    address _DFIIntrinsicsRegistry;
+    constructor(address _registryAddress) {
+        _DFIIntrinsicsRegistry = _registryAddress;
+    }
 
     function _getDFIIntrinsicsV1() internal view returns(address) {
-        return IDFIIntrinsicsRegistry(_DFIIntrinsicsRegistry).getAddressForVersion(1);
+        return IDFIIntrinsicsRegistry(_DFIIntrinsicsRegistry).getAddressForVersion(0);
     }
     
     function getVersion() external view returns (uint256) {
