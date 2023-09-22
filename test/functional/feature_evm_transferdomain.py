@@ -5,7 +5,12 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256, get_solc_artifact_path
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    int_to_eth_u256,
+    get_solc_artifact_path,
+)
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 
@@ -816,6 +821,34 @@ class EVMTest(DefiTestFramework):
             ],
         )
 
+    def invalid_transfer_dvm_evm_insufficient_balance(self):
+        self.rollback_to(self.start_height)
+
+        # drain account balance
+        balance_before = self.nodes[0].getaccount(self.address, {}, True)["0"]
+        transfer_amount = str(int(balance_before - 1)) + "@DFI"
+        self.nodes[0].accounttoutxos(self.address, {self.address: transfer_amount})
+        self.nodes[0].generate(1)
+        balance_after = Decimal(self.nodes[0].getaccount(self.address, {}, True)["0"])
+        assert_equal(balance_after, Decimal(1.00000000))
+
+        # Invalid transfer domain, insufficient account balance
+        assert_raises_rpc_error(
+            -32600,
+            "amount 1.00000000 is less than 100.00000000",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
     def valid_transfer_to_evm_then_move_then_back_to_dvm(self):
         self.rollback_to(self.start_height)
 
@@ -1125,7 +1158,7 @@ class EVMTest(DefiTestFramework):
         )  # all TXs should make it through
         assert balance_after > balance_before  # transferdomain should succeed
 
-    def invalidate_transfer_invalid_nonce(self):
+    def invalid_transfer_invalid_nonce(self):
         self.rollback_to(self.start_height)
 
         self.nodes[0].utxostoaccount({self.address: "200@DFI"})
@@ -1191,13 +1224,23 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        assert_equal(contract.functions.totalSupply().call(), self.nodes[0].w3.to_wei(100, "ether"))
-        assert_equal(contract.functions.balanceOf(self.address_erc55).call(), self.nodes[0].w3.to_wei(0, "ether")) # Don't track balance per address
+        assert_equal(
+            contract.functions.totalSupply().call(),
+            self.nodes[0].w3.to_wei(100, "ether"),
+        )
+        assert_equal(
+            contract.functions.balanceOf(self.address_erc55).call(),
+            self.nodes[0].w3.to_wei(0, "ether"),
+        )  # Don't track balance per address
 
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.address_erc55, "amount": "100@DFI", "domain": 3},
+                    "src": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
                     "dst": {
                         "address": self.address,
                         "amount": "100@DFI",
@@ -1210,7 +1253,6 @@ class EVMTest(DefiTestFramework):
 
         assert_equal(contract.functions.totalSupply().call(), 0)
         assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
-
 
     def run_test(self):
         self.setup()
@@ -1233,6 +1275,9 @@ class EVMTest(DefiTestFramework):
         # Invalid authorisation
         self.invalid_transfer_no_auth()
 
+        # Invalid DVM account insufficient balance
+        self.invalid_transfer_dvm_evm_insufficient_balance()
+
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
         self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
@@ -1241,9 +1286,10 @@ class EVMTest(DefiTestFramework):
 
         self.should_find_empty_nonce()
 
-        self.invalidate_transfer_invalid_nonce()
+        self.invalid_transfer_invalid_nonce()
 
         self.test_contract_methods()
+
 
 if __name__ == "__main__":
     EVMTest().main()
