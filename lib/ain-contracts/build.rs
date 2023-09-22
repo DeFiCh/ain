@@ -17,9 +17,10 @@ fn main() -> Result<()> {
         ("dfi_intrinsics", "DFIIntrinsicsV1"),
         ("dfi_intrinsics_registry", "DFIIntrinsicsRegistry"),
         ("dfi_reserved", "DFIReserved"),
-        ("transfer_domain", "TransferDomain"),
-        ("dst20", "DST20"),
-        ("proxy", "Proxy"),
+        ("transfer_domain", "TransferDomainImplV1"),
+        ("dst20", "DST20ImplV1"),
+        ("dst20_proxy", "DST20"),
+        ("transferdomain_proxy", "TransferDomain"),
     ];
 
     for (sol_project_name, contract_name) in contracts {

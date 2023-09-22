@@ -784,7 +784,7 @@ class DST20(DefiTestFramework):
         ).read()
         self.bytecode = json.loads(
             open(
-                get_solc_artifact_path("proxy", "deployed_bytecode.json"),
+                get_solc_artifact_path("dst20_proxy", "deployed_bytecode.json"),
                 "r",
                 encoding="utf8",
             ).read()

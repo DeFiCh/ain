@@ -561,6 +561,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
 pragma solidity ^0.8.0;
 
-contract DST20 is ERC20 {
+contract DST20ImplV1 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 }

@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ain_contracts::{get_transferdomain_contract_v1, FixedContract};
+use ain_contracts::{get_transferdomain_proxy, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
@@ -399,7 +399,7 @@ impl EVMCoreService {
         }
 
         // Verify transaction action and transferdomain contract address
-        let FixedContract { fixed_address, .. } = get_transferdomain_contract_v1();
+        let FixedContract { fixed_address, .. } = get_transferdomain_proxy();
         match signed_tx.action() {
             TransactionAction::Call(address) => {
                 if address != fixed_address {

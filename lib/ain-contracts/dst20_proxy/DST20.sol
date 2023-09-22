@@ -7,7 +7,7 @@ pragma solidity ^0.8.0;
  * Copied and modified from here: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Proxy.sol
  * following unstructured pattern
  */
-contract Proxy {
+contract DST20 {
 
     /**
      * @dev Storage slot with the address of the current implementation.

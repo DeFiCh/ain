@@ -122,10 +122,10 @@ lazy_static::lazy_static! {
         }
     };
 
-    pub static ref PROXY : FixedContract = {
-        let bytecode = solc_artifact_bytecode_str!("proxy", "deployed_bytecode.json");
+    pub static ref TRANSFERDOMAIN_PROXY : FixedContract = {
+        let bytecode = solc_artifact_bytecode_str!("transferdomain_proxy", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
-            "proxy",
+            "transferdomain_proxy",
             "bytecode.json"
         );
 
@@ -203,14 +203,31 @@ lazy_static::lazy_static! {
             init_bytecode: Vec::new(),
         }
     };
+
+    pub static ref DST20_PROXY: Contract = {
+        let bytecode = solc_artifact_bytecode_str!(
+            "dst20_proxy",
+            "deployed_bytecode.json"
+        );
+
+        Contract {
+            codehash: Blake2Hasher::hash(&bytecode),
+            runtime_bytecode: bytecode,
+            init_bytecode: Vec::new(),
+        }
+    };
 }
 
 pub fn get_instrinics_registry() -> FixedContract {
     INSTRINICS_REGISTRY.clone()
 }
 
-pub fn get_proxy() -> FixedContract {
-    PROXY.clone()
+pub fn get_transferdomain_proxy() -> FixedContract {
+    TRANSFERDOMAIN_PROXY.clone()
+}
+
+pub fn get_dst20_proxy() -> Contract {
+    DST20_PROXY.clone()
 }
 
 pub fn get_intrinsic_contract_v1() -> FixedContract {
