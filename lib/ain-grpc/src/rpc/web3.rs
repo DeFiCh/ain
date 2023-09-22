@@ -1,8 +1,8 @@
 use ain_evm::bytes::Bytes;
-use sha3::Digest;
 use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use primitive_types::H256;
+use sha3::Digest;
 
 #[rpc(server, client, namespace = "web3")]
 pub trait MetachainWeb3RPC {
@@ -22,9 +22,8 @@ impl MetachainWeb3RPCServer for MetachainWeb3RPCModule {
         let version: [u64; 3] = ain_cpp_imports::get_client_version().map_err(|e| {
             Error::Custom(format!("ain_cpp_imports::get_client_version error : {e:?}"))
         })?;
-        let commit = option_env!("GIT_HASH").ok_or_else(|| {
-            Error::Custom(format!("missing GIT_HASH env var"))
-        })?;
+        let commit = option_env!("GIT_HASH")
+            .ok_or_else(|| Error::Custom(format!("missing GIT_HASH env var")))?;
         let os = std::env::consts::OS;
 
         let version_str = format!("{}.{}.{}", version[0], version[1], version[2]);

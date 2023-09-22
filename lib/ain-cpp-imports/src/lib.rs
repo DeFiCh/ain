@@ -61,7 +61,9 @@ mod ffi {
     pub fn pastChangiIntermediateHeight3() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getClientVersion() -> [u64; 3] { unimplemented("{}", UNIMPL_MSG) }
+    pub fn getClientVersion() -> [u64; 3] {
+        unimplemented("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
