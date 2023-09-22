@@ -9,6 +9,8 @@ import json
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_solc_artifact_path
+from test_framework.evm_contract import EVMContract
+from test_framework.evm_key_pair import EvmKeyPair
 
 
 class DFIIntrinsicsTest(DefiTestFramework):
@@ -55,7 +57,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ).read()
         )["object"]
 
-        for i in range(2, 128):
+        for i in range(5, 128):
             address = node.w3.to_checksum_address(generate_formatted_string(i))
             code_at_addr = self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(address)
@@ -72,16 +74,25 @@ class DFIIntrinsicsTest(DefiTestFramework):
         )
 
         # check intrinsics contract
+        registry_abi = open(
+            get_solc_artifact_path("dfi_intrinsics_registry", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
         abi = open(
             get_solc_artifact_path("dfi_intrinsics", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
 
+        registry = node.w3.eth.contract(
+            address=node.w3.to_checksum_address("0xdf00000000000000000000000000000000000000"),
+            abi=registry_abi
+        )
+        v1_address = registry.functions.getAddressForVersion(0).call()
+
         contract_0 = node.w3.eth.contract(
-            address=node.w3.to_checksum_address(
-                "0xdf00000000000000000000000000000000000000"
-            ),
+            address=v1_address,
             abi=abi,
         )
 
