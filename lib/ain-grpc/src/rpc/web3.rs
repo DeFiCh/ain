@@ -1,6 +1,6 @@
 use ain_evm::bytes::Bytes;
 use sha3::Digest;
-use jsonrpsee::core::RpcResult;
+use jsonrpsee::core::{Error, RpcResult};
 use jsonrpsee::proc_macros::rpc;
 use primitive_types::H256;
 
@@ -19,11 +19,17 @@ pub struct MetachainWeb3RPCModule {}
 
 impl MetachainWeb3RPCServer for MetachainWeb3RPCModule {
     fn client_version(&self) -> RpcResult<String> {
-        let version = env!("CARGO_PKG_VERSION");
-        let commit = option_env!("GIT_HASH").unwrap_or("unknown");
+        let version: [u64; 3] = ain_cpp_imports::get_client_version().map_err(|e| {
+            Error::Custom(format!("ain_cpp_imports::get_client_version error : {e:?}"))
+        })?;
+        let commit = option_env!("GIT_HASH").ok_or_else(|| {
+            Error::Custom(format!("missing GIT_HASH env var"))
+        })?;
         let os = std::env::consts::OS;
 
-        Ok(format!("Metachain/v{}/{}-{}", version, os, commit))
+        let version_str = format!("{}.{}.{}", version[0], version[1], version[2]);
+
+        Ok(format!("Metachain/v{}/{}-{}", version_str, os, commit))
     }
 
     fn sha3(&self, input: Bytes) -> RpcResult<H256> {

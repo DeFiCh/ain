@@ -21,5 +21,6 @@ int getHighestBlock();
 int getCurrentHeight();
 bool pastChangiIntermediateHeight2();
 bool pastChangiIntermediateHeight3();
+std::array<uint64_t, 3> getClientVersion();
 
 #endif // DEFI_FFI_FFIEXPORTS_H

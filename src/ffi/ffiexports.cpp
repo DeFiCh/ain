@@ -2,6 +2,7 @@
 #include <util/system.h>
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
+#include <clientversion.h>
 
 
 uint64_t getChainId() {
@@ -206,6 +207,16 @@ rust::string getStateInputJSON() {
 int getHighestBlock() {
     return pindexBestHeader ? pindexBestHeader->nHeight
                             : (int) ::ChainActive().Height(); // return current block count if no peers
+}
+
+// Returns Major, Minor, Revision
+std::array<uint64_t, 3> getClientVersion() {
+    // Refer to "clientversion.h" for arbitrary divisions
+    uint64_t clientVersionMajor = CLIENT_VERSION / 1000000;
+    uint64_t clientVersionMinor = (CLIENT_VERSION - (clientVersionMajor * 1000000)) / 10000;
+    uint64_t clientVersionRevision = (CLIENT_VERSION - (clientVersionMajor * 1000000) - (clientVersionMinor * 10000)) / 100;
+
+    return { clientVersionMajor, clientVersionMinor, clientVersionRevision };
 }
 
 int getCurrentHeight() {
