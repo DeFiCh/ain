@@ -79,7 +79,7 @@ contract TransferDomain is IERC20Metadata {
      * name.
      */
     function symbol() public view virtual override returns (string memory) {
-        return "XVM";
+        return "DFI";
     }
 
     /**

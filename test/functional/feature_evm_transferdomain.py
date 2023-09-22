@@ -1170,7 +1170,7 @@ class EVMTest(DefiTestFramework):
         )
 
         assert_equal(contract.functions.name().call(), "TransferDomain")
-        assert_equal(contract.functions.symbol().call(), "XVM")
+        assert_equal(contract.functions.symbol().call(), "DFI")
         assert_equal(contract.functions.totalSupply().call(), 0)
         assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
 
