@@ -285,8 +285,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
             if (evmPreValidate) {
-                // Pre-validate DVM balance transfer
-                return mnview.AddBalance(dst.address, dst.amount);
+                return Res::Ok();
             }
 
             auto hash = evm_try_get_tx_hash(result, evmTx);
