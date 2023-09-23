@@ -209,14 +209,9 @@ int getHighestBlock() {
                             : (int) ::ChainActive().Height(); // return current block count if no peers
 }
 
-// Returns Major, Minor, Revision
-std::array<uint64_t, 3> getClientVersion() {
-    // Refer to "clientversion.h" for arbitrary divisions
-    uint64_t clientVersionMajor = CLIENT_VERSION / 1000000;
-    uint64_t clientVersionMinor = (CLIENT_VERSION - (clientVersionMajor * 1000000)) / 10000;
-    uint64_t clientVersionRevision = (CLIENT_VERSION - (clientVersionMajor * 1000000) - (clientVersionMinor * 10000)) / 100;
-
-    return { clientVersionMajor, clientVersionMinor, clientVersionRevision };
+// Returns Major, Minor, Revision in format: "X.Y.Z"
+rust::string getClientVersion() {
+    return rust::String(FormatVersion(CLIENT_VERSION));
 }
 
 int getCurrentHeight() {
