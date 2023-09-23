@@ -285,7 +285,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
             if (evmPreValidate) {
-                return Res::Ok();
+                // Pre-validate DVM balance transfer
+                return mnview.AddBalance(dst.address, dst.amount);
             }
 
             auto hash = evm_try_get_tx_hash(result, evmTx);
@@ -317,6 +318,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
             if (!res) {
+                evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
                 return res;
             }
             stats.evmDvmTotal.Add(dst.amount);
