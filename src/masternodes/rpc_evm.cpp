@@ -176,9 +176,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
         {{"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address, EVM blockhash, EVM transaction"},
           {"type",
           RPCArg::Type::NUM,
-          RPCArg::Optional::NO,
+          RPCArg::Optional::OMITTED,
           "Map types: \n\
-                            0 - Auto \n\
+                            0 - Auto (Default) \n\
                             1 - Block Number: DFI -> EVM \n\
                             2 - Block Number: EVM -> DFI \n\
                             3 - Block Hash: DFI -> EVM \n\
@@ -215,7 +215,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
     const auto inputStr = request.params[0].get_str();
     const auto input = ensureEVMHashStripped(inputStr);
 
-    int typeInt = request.params[1].get_int();
+
+    int typeInt = 0;
+    if (!request.params[1].isNull()) typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
         throwInvalidParam();
     }
