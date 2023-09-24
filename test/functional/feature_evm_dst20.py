@@ -832,7 +832,11 @@ class DST20(DefiTestFramework):
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.key_pair.address, "amount": "1@BTC", "domain": 3},
+                    "src": {
+                        "address": self.key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
                     "dst": {
                         "address": self.address,
                         "amount": "1@BTC",
@@ -867,7 +871,11 @@ class DST20(DefiTestFramework):
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.key_pair.address, "amount": "1@BTC", "domain": 3},
+                    "src": {
+                        "address": self.key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
                     "dst": {
                         "address": self.address,
                         "amount": "1@BTC",
@@ -995,7 +1003,9 @@ class DST20(DefiTestFramework):
         self.node.minttokens("10@BTC")
         self.node.generate(1)
 
-        self.start_height = self.nodes[0].getblockcount() # Use post-token deployment as start height
+        self.start_height = self.nodes[
+            0
+        ].getblockcount()  # Use post-token deployment as start height
 
         self.test_dst20_dvm_to_evm_bridge()
 
@@ -1009,6 +1019,7 @@ class DST20(DefiTestFramework):
         self.test_loan_token()
 
         self.test_dst20_back_and_forth()
+
 
 if __name__ == "__main__":
     DST20().main()
