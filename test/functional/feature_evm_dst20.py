@@ -124,10 +124,10 @@ class DST20(DefiTestFramework):
             if token["isDAT"] == True and token["symbol"] != "DFI"
         ]
         # 1 extra deployment TX (for transfer domain deploy contract)
-        assert_equal(len(block["transactions"]), len(loanTokens) + 4)
+        assert_equal(len(block["transactions"]), len(loanTokens) + 5)
 
         # check USDT migration
-        usdt_tx = block["transactions"][4]
+        usdt_tx = block["transactions"][5]
         receipt = self.nodes[0].eth_getTransactionReceipt(usdt_tx)
         tx1 = self.nodes[0].eth_getTransactionByHash(usdt_tx)
         assert_equal(
@@ -148,7 +148,7 @@ class DST20(DefiTestFramework):
         )
 
         # check BTC migration
-        btc_tx = block["transactions"][5]
+        btc_tx = block["transactions"][6]
         receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
         tx2 = self.nodes[0].eth_getTransactionByHash(btc_tx)
         assert_equal(
@@ -169,7 +169,7 @@ class DST20(DefiTestFramework):
         )
 
         # check ETH migration
-        eth_tx = block["transactions"][6]
+        eth_tx = block["transactions"][7]
         receipt = self.nodes[0].eth_getTransactionReceipt(eth_tx)
         tx3 = self.nodes[0].eth_getTransactionByHash(eth_tx)
         assert_equal(
@@ -937,7 +937,7 @@ class DST20(DefiTestFramework):
 
         # Contract ABI
         self.abi = open(
-            get_solc_artifact_path("dst20", "abi.json"),
+            get_solc_artifact_path("dst20_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()

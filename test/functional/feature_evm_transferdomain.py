@@ -74,7 +74,7 @@ class EVMTest(DefiTestFramework):
         ]
         self.contract_address = "0xdF00000000000000000000000000000000000001"
         self.abi = open(
-            get_solc_artifact_path("transfer_domain", "abi.json"),
+            get_solc_artifact_path("transfer_domain_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
