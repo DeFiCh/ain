@@ -135,7 +135,7 @@ lazy_static::lazy_static! {
         }
     };
 
-    pub static ref DFI_INTRINSICS_CONTRACT_V1: FixedContract = {
+    pub static ref DFI_INTRINSICS_V1_CONTRACT: FixedContract = {
         let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics_v1", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
             "dfi_intrinsics_v1",
@@ -227,7 +227,7 @@ pub fn get_dfi_instrinics_registry_contract() -> FixedContract {
 }
 
 pub fn get_dfi_intrinsics_v1_contract() -> FixedContract {
-    DFI_INTRINSICS_CONTRACT_V1.clone()
+    DFI_INTRINSICS_V1_CONTRACT.clone()
 }
 
 pub fn get_transfer_domain_contract() -> FixedContract {
