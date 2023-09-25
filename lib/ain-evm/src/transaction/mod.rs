@@ -255,6 +255,16 @@ impl SignedTx {
         }
     }
 
+    pub fn effective_gas_price(&self, base_fee: U256) -> U256 {
+        match &self.transaction {
+            TransactionV2::Legacy(tx) => tx.gas_price,
+            TransactionV2::EIP2930(tx) => tx.gas_price,
+            TransactionV2::EIP1559(tx) => {
+                min(tx.max_fee_per_gas, tx.max_priority_fee_per_gas + base_fee)
+            }
+        }
+    }
+
     pub fn data(&self) -> &[u8] {
         match &self.transaction {
             TransactionV2::Legacy(tx) => tx.input.as_ref(),
@@ -322,6 +332,7 @@ impl SignedTx {
     }
 }
 
+use std::cmp::min;
 use std::{
     convert::{TryFrom, TryInto},
     fmt,

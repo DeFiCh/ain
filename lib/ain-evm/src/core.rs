@@ -223,6 +223,7 @@ impl EVMCoreService {
         tx: &str,
         queue_id: u64,
         pre_validate: bool,
+        block_fee: U256,
     ) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
@@ -301,7 +302,8 @@ impl EVMCoreService {
 
             // Execute tx
             let mut executor = AinExecutor::new(&mut backend);
-            let (tx_response, ..) = executor.exec(&signed_tx, signed_tx.gas_limit(), prepay_fee);
+            let (tx_response, ..) =
+                executor.exec(&signed_tx, signed_tx.gas_limit(), prepay_fee, block_fee)?;
 
             // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
