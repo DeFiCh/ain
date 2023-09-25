@@ -1,5 +1,4 @@
 use std::cmp::min;
-use std::ops::Div;
 use std::sync::Arc;
 
 use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3, TransactionV2};
@@ -81,8 +80,7 @@ impl ReceiptService {
                 logs_size += logs_len;
                 cumulative_gas += receipt_data.used_gas;
 
-                let effective_gas_price =
-                    self.effective_gas_price(base_fee, signed_tx, receipt_data.used_gas);
+                let effective_gas_price = self.effective_gas_price(base_fee, signed_tx);
 
                 Receipt {
                     receipt,
@@ -110,15 +108,11 @@ impl ReceiptService {
         self.storage.put_receipts(receipts)
     }
 
-    pub fn effective_gas_price(&self, base_fee: U256, tx: &SignedTx, gas_used: U256) -> U256 {
+    pub fn effective_gas_price(&self, base_fee: U256, tx: &SignedTx) -> U256 {
         match &tx.transaction {
             TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => tx.gas_price(),
             TransactionV2::EIP1559(t) => {
-                base_fee
-                    + min(
-                        t.max_priority_fee_per_gas,
-                        t.max_fee_per_gas - base_fee.div(gas_used),
-                    )
+                base_fee + min(t.max_priority_fee_per_gas, t.max_fee_per_gas - base_fee)
             }
         }
     }
