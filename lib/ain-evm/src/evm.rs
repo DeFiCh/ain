@@ -352,6 +352,7 @@ impl EVMServices {
             receipts_v3,
             block.header.hash(),
             block.header.number,
+            base_fee,
         );
         queue.block_data = Some(BlockData { block, receipts });
 
