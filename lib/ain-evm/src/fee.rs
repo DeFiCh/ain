@@ -1,5 +1,3 @@
-use std::cmp;
-
 use anyhow::format_err;
 use ethereum::TransactionV2;
 use ethereum_types::U256;
@@ -17,13 +15,7 @@ pub fn calculate_prepay_gas_fee(signed_tx: &SignedTx) -> Result<U256> {
 
 // Gas prices are denoted in wei
 pub fn calculate_gas_fee(signed_tx: &SignedTx, used_gas: U256, base_fee: U256) -> Result<U256> {
-    match &signed_tx.transaction {
-        TransactionV2::Legacy(tx) => used_gas.checked_mul(tx.gas_price),
-        TransactionV2::EIP2930(tx) => used_gas.checked_mul(tx.gas_price),
-        TransactionV2::EIP1559(tx) => {
-            let gas_fee = cmp::min(tx.max_fee_per_gas, tx.max_priority_fee_per_gas + base_fee);
-            used_gas.checked_mul(gas_fee)
-        }
-    }
-    .ok_or_else(|| format_err!("calculate gas fee failed from overflow").into())
+    used_gas
+        .checked_mul(signed_tx.effective_gas_price(base_fee))
+        .ok_or_else(|| format_err!("calculate gas fee failed from overflow").into())
 }
