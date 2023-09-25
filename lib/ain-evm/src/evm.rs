@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
-    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract,
+    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
     get_transfer_domain_contract, get_transfer_domain_v1_contract, FixedContract,
 };
 use anyhow::format_err;
@@ -273,6 +273,11 @@ impl EVMServices {
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
+
+            let (tx, receipt) =
+                deploy_contract_tx(get_dst20_v1_contract().contract.init_bytecode, &base_fee)?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
