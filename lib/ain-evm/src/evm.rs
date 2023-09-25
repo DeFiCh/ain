@@ -1,17 +1,23 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{get_dst20_contract, Contract};
+use ain_contracts::{
+    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
+    get_transfer_domain_contract, get_transfer_domain_v1_contract, FixedContract,
+};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
+use crate::contract::{
+    deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
+    dst20_v1_deploy_info, transfer_domain_deploy_info, transfer_domain_v1_contract_deploy_info,
+};
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
     contract::{
-        get_dst20_migration_txs, intrinsics_contract, reserve_dst20_namespace,
-        reserve_intrinsics_namespace, transfer_domain_contract, transfer_domain_deploy_contract_tx,
+        get_dst20_migration_txs, reserve_dst20_namespace, reserve_intrinsics_namespace,
         DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
@@ -182,36 +188,101 @@ impl EVMServices {
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs);
 
-            // Deploy counter contract on the first block
+            // Deploy DFIIntrinsicsRegistry contract
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = dfi_intrinsics_registry_deploy_info(get_dfi_intrinsics_v1_contract().fixed_address);
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
+
+            // DFIIntrinsicsRegistry contract deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_dfi_instrinics_registry_contract()
+                    .contract
+                    .init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // Deploy DFIIntrinsics contract
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dfi_intrinsics_v1_deploy_info(dvm_block_number, current_block_number)?;
+
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            // DFIIntrinsics contract deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_dfi_intrinsics_v1_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
 
             // Deploy transfer domain contract on the first block
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_contract();
+            } = transfer_domain_v1_contract_deploy_info();
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
-            let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
+            let (tx, receipt) = deploy_contract_tx(
+                get_transfer_domain_v1_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
 
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // Deploy transfer domain proxy
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = transfer_domain_deploy_info(get_transfer_domain_v1_contract().fixed_address)?;
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            // transfer domain proxy deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_transfer_domain_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // deploy DST20 implementation contract
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dst20_v1_deploy_info();
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            let (tx, receipt) =
+                deploy_contract_tx(get_dst20_v1_contract().contract.init_bytecode, &base_fee)?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = dfi_intrinsics_v1_deploy_info(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
             executor.commit();
         }
@@ -416,8 +487,8 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                let Contract { codehash, .. } = get_dst20_contract();
-                if account.code_hash == codehash {
+                let FixedContract { contract, .. } = get_transfer_domain_contract();
+                if account.code_hash == contract.codehash {
                     return Ok(true);
                 }
             }

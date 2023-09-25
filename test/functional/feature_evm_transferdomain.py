@@ -73,8 +73,10 @@ class EVMTest(DefiTestFramework):
             "erc55"
         ]
         self.contract_address = "0xdF00000000000000000000000000000000000001"
+
+        # Implementation ABI since we want to call functions from the implementation
         self.abi = open(
-            get_solc_artifact_path("transfer_domain", "abi.json"),
+            get_solc_artifact_path("transfer_domain_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()

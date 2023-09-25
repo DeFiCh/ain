@@ -124,10 +124,10 @@ class DST20(DefiTestFramework):
             if token["isDAT"] == True and token["symbol"] != "DFI"
         ]
         # 1 extra deployment TX (for transfer domain deploy contract)
-        assert_equal(len(block["transactions"]), len(loanTokens) + 1)
+        assert_equal(len(block["transactions"]), len(loanTokens) + 5)
 
         # check USDT migration
-        usdt_tx = block["transactions"][1]
+        usdt_tx = block["transactions"][5]
         receipt = self.nodes[0].eth_getTransactionReceipt(usdt_tx)
         tx1 = self.nodes[0].eth_getTransactionByHash(usdt_tx)
         assert_equal(
@@ -148,7 +148,7 @@ class DST20(DefiTestFramework):
         )
 
         # check BTC migration
-        btc_tx = block["transactions"][2]
+        btc_tx = block["transactions"][6]
         receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
         tx2 = self.nodes[0].eth_getTransactionByHash(btc_tx)
         assert_equal(
@@ -169,7 +169,7 @@ class DST20(DefiTestFramework):
         )
 
         # check ETH migration
-        eth_tx = block["transactions"][3]
+        eth_tx = block["transactions"][7]
         receipt = self.nodes[0].eth_getTransactionReceipt(eth_tx)
         tx3 = self.nodes[0].eth_getTransactionByHash(eth_tx)
         assert_equal(
@@ -189,9 +189,8 @@ class DST20(DefiTestFramework):
             self.bytecode,
         )
 
-        # init bytecode should match
-        assert_equal(tx1["input"][:-384], tx2["input"][:-384])
-        assert_equal(tx2["input"][:-384], tx3["input"][:-384])
+        assert_equal(tx1["input"], tx2["input"])
+        assert_equal(tx2["input"], tx3["input"])
 
         self.rollback_to(block_height)
 
@@ -937,11 +936,14 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
+        # Implementation ABI since we want to call functions from the implementation
         self.abi = open(
-            get_solc_artifact_path("dst20", "abi.json"),
+            get_solc_artifact_path("dst20_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
+
+        # Proxy bytecode since we want to check proxy deployment
         self.bytecode = json.loads(
             open(
                 get_solc_artifact_path("dst20", "deployed_bytecode.json"),
@@ -949,6 +951,7 @@ class DST20(DefiTestFramework):
                 encoding="utf8",
             ).read()
         )["object"]
+
         self.reserved_bytecode = json.loads(
             open(
                 get_solc_artifact_path("dfi_reserved", "deployed_bytecode.json"),

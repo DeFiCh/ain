@@ -14,10 +14,13 @@ fn main() -> Result<()> {
 
     // Solidity project root and contract names relative to our project
     let contracts = vec![
-        ("dfi_intrinsics", "DFIIntrinsics"),
         ("dfi_reserved", "DFIReserved"),
+        ("dfi_intrinsics_registry", "DFIIntrinsicsRegistry"),
+        ("dfi_intrinsics_v1", "DFIIntrinsicsV1"),
         ("transfer_domain", "TransferDomain"),
+        ("transfer_domain_v1", "TransferDomainImplV1"),
         ("dst20", "DST20"),
+        ("dst20_v1", "DST20ImplV1"),
     ];
 
     for (sol_project_name, contract_name) in contracts {

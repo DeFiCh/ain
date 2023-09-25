@@ -1,126 +1,84 @@
-// File: @openzeppelin/contracts@4.9.2/token/ERC20/IERC20.sol
-
-// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/IERC20.sol)
-
-pragma solidity ^0.8.0;
-
-/**
- * @dev Interface for the optional metadata functions from the ERC20 standard.
- *
- * _Available since v4.1._
- */
-interface IERC20Metadata {
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() external view returns (string memory);
-
-    /**
-     * @dev Returns the symbol of the token.
-     */
-    function symbol() external view returns (string memory);
-
-    /**
-     * @dev Returns the decimals places of the token.
-     */
-    function decimals() external view returns (uint8);
-}
-
-interface IERC20 {
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
-}
-
 // SPDX-License-Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.6.0) (proxy/Proxy.sol)
 
 pragma solidity ^0.8.0;
 
 /**
- * @title TransferDomain
+ * Note: TransferDomain's public facing contract is just a facade that delegates all calls to it's 
+ * internal implementation through a proxy. This is an internal impl detail and may be changed by
+ * the node at any time, but primarily used for seamless future updates.
+ 
+ * Copied and modified from here: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Proxy.sol
+ * following unstructured pattern
  */
-contract TransferDomain is IERC20Metadata {
-    mapping(address => uint256) private _balances;
-    uint256 private _totalSupply;
+contract TransferDomain {
 
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event VMTransfer(string vmAddress);
+    /**
+     * @dev Storage slot with the address of the current implementation.
+     * This is the keccak-256 hash of "eip1967.proxy.implementation" subtracted by 1.
+     */
+    // solhint-disable-next-line private-vars-leading-underscore
+    bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
-    function transfer(
-        address from,
-        address payable to,
-        uint256 amount,
-        string memory vmAddress
-    ) external {
-        if (to != address(this)) {
-            require(
-                address(this).balance >= amount,
-                "Insufficient contract balance"
-            );
+    /**
+     * @dev Delegates the current call to `implementation`.
+     *
+     * This function does not return to its internal call site, it will return directly to the external caller.
+     */
+    function _delegate(address implementation) internal {
+        assembly {
+        // Copy msg.data. We take full control of memory in this inline assembly
+        // block because it will not return to Solidity code. We overwrite the
+        // Solidity scratch pad at memory position 0.
+            calldatacopy(0, 0, calldatasize())
 
-            to.transfer(amount);
+        // Call the implementation.
+        // out and outsize are 0 because we don't know the size yet.
+            let result := delegatecall(gas(), implementation, 0, calldatasize(), 0, 0)
+
+        // Copy the returned data.
+            returndatacopy(0, 0, returndatasize())
+
+            switch result
+            // delegatecall returns 0 on error.
+            case 0 {
+                revert(0, returndatasize())
+            }
+            default {
+                return(0, returndatasize())
+            }
         }
+    }
 
-        emit Transfer(from, to, amount);
-        emit VMTransfer(vmAddress);
+    function _implementation() internal view returns (address res) {
+        assembly {
+            res := sload(IMPLEMENTATION_SLOT)
+        }
     }
 
     /**
-     * @dev Returns the name of the token.
-     */
-    function name() public view virtual override returns (string memory) {
-        return "TransferDomain";
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
-    function symbol() public view virtual override returns (string memory) {
-        return "DFI";
-    }
-
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
+     * @dev Delegates the current call to the address returned by `_implementation()`.
      *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the default value returned by this function, unless
-     * it's overridden.
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
+     * This function does not return to its internal call site, it will return directly to the external caller.
      */
-    function decimals() public view virtual override returns (uint8) {
-        return 18;
-    }
-
-    function transferDST20(
-        address contractAddress,
-        address from,
-        address payable to,
-        uint256 amount,
-        string memory vmAddress
-    ) external {
-        IERC20(contractAddress).transferFrom(from, to, amount);
-        emit VMTransfer(vmAddress);
+    function _fallback() internal {       
+         _delegate(_implementation());
     }
 
     /**
-     * @dev See {IERC20-totalSupply}.
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
+     * function in the contract matches the call data.
      */
-    function totalSupply() public view virtual returns (uint256) {
-        return _totalSupply;
+    fallback() external payable {
+        _fallback();
     }
 
     /**
-     * @dev See {IERC20-balanceOf}.
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
+     * is empty.
      */
-    function balanceOf(address account) public view virtual returns (uint256) {
-        return _balances[account];
+    receive() external payable {
+        _fallback();
     }
+
 }
