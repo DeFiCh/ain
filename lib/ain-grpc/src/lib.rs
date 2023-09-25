@@ -83,7 +83,7 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
     methods.merge(MetachainDebugRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
     methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
-    methods.merge(MetachainWeb3RPCModule::new().into_rpc())?;
+    methods.merge(MetachainWeb3RPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
     *runtime.json_rpc.lock().unwrap() = Some(server.start(methods)?);
     Ok(())

@@ -255,7 +255,7 @@ int getHighestBlock() {
 
 // Returns Major, Minor, Revision in format: "X.Y.Z"
 rust::string getClientVersion() {
-    return rust::String(FormatVersion(CLIENT_VERSION));
+    return rust::String(FormatVersionAndSuffix());
 }
 
 int getCurrentHeight() {

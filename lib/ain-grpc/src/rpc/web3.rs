@@ -1,7 +1,15 @@
-use ain_evm::bytes::Bytes;
-use jsonrpsee::core::{Error, RpcResult};
-use jsonrpsee::proc_macros::rpc;
-use primitive_types::H256;
+use std::sync::Arc;
+
+use ain_evm::{
+    bytes::Bytes,
+    evm::EVMServices,
+};
+use ethereum_types::H256;
+use jsonrpsee::{
+    core::RpcResult,
+    proc_macros::rpc,
+};
+use rustc_version_runtime;
 use sha3::Digest;
 
 #[rpc(server, client, namespace = "web3")]
@@ -14,17 +22,24 @@ pub trait MetachainWeb3RPC {
     fn sha3(&self, input: Bytes) -> RpcResult<H256>;
 }
 
-#[derive(Default)]
-pub struct MetachainWeb3RPCModule {}
+pub struct MetachainWeb3RPCModule {
+    _handler: Arc<EVMServices>,
+}
+
+impl MetachainWeb3RPCModule {
+    #[must_use]
+    pub fn new(handler: Arc<EVMServices>) -> Self {
+        Self { _handler: handler }
+    }
+}
 
 impl MetachainWeb3RPCServer for MetachainWeb3RPCModule {
     fn client_version(&self) -> RpcResult<String> {
         let version: String = ain_cpp_imports::get_client_version();
-        let commit = option_env!("GIT_HASH")
-            .ok_or_else(|| Error::Custom(format!("missing GIT_HASH env var")))?;
         let os = std::env::consts::OS;
-
-        Ok(format!("Metachain/v{}/{}-{}", version, os, commit))
+        let arch = std::env::consts::ARCH;
+        let rust_version = rustc_version_runtime::version();
+        Ok(format!("Metachain/{}/{}-{}/{}", version, os, arch, rust_version))
     }
 
     fn sha3(&self, input: Bytes) -> RpcResult<H256> {
