@@ -448,7 +448,7 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<()> {
+    pub fn verify_tx_fees(&self, tx: &str) -> Result<U256> {
         trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
@@ -461,7 +461,7 @@ impl EVMServices {
             return Err(format_err!("tx gas price is lower than block base fee").into());
         }
 
-        Ok(())
+        Ok(block_fee)
     }
 
     ///
