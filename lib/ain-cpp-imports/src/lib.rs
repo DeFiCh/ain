@@ -61,11 +61,18 @@ mod ffi {
     pub fn pastChangiIntermediateHeight3() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getClientVersion() -> String {
+        unimplemented("{}", UNIMPL_MSG)
+    }
 }
 
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
     Ok(chain_id)
+}
+
+pub fn get_client_version() -> String {
+    ffi::getClientVersion()
 }
 
 pub fn is_mining() -> Result<bool, Box<dyn Error>> {
