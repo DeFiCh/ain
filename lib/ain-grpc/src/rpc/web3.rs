@@ -1,14 +1,8 @@
 use std::sync::Arc;
 
-use ain_evm::{
-    bytes::Bytes,
-    evm::EVMServices,
-};
+use ain_evm::{bytes::Bytes, evm::EVMServices};
 use ethereum_types::H256;
-use jsonrpsee::{
-    core::RpcResult,
-    proc_macros::rpc,
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use rustc_version_runtime;
 use sha3::Digest;
 
@@ -39,11 +33,14 @@ impl MetachainWeb3RPCServer for MetachainWeb3RPCModule {
         let os = std::env::consts::OS;
         let arch = std::env::consts::ARCH;
         let rust_version = rustc_version_runtime::version();
-        Ok(format!("Metachain/{}/{}-{}/{}", version, os, arch, rust_version))
+        Ok(format!(
+            "Metachain/{}/{}-{}/{}",
+            version, os, arch, rust_version
+        ))
     }
 
     fn sha3(&self, input: Bytes) -> RpcResult<H256> {
-        let keccak_256: [u8; 32] = sha3::Keccak256::digest(&input.into_vec()).into();
+        let keccak_256: [u8; 32] = sha3::Keccak256::digest(input.into_vec()).into();
         Ok(H256::from(keccak_256))
     }
 }
