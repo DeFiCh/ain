@@ -936,11 +936,14 @@ class DST20(DefiTestFramework):
         )
 
         # Contract ABI
+        # Implementation ABI since we want to call functions from the implementation
         self.abi = open(
             get_solc_artifact_path("dst20_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
+
+        # Proxy bytecode since we want to check proxy deployment
         self.bytecode = json.loads(
             open(
                 get_solc_artifact_path("dst20", "deployed_bytecode.json"),
@@ -948,6 +951,7 @@ class DST20(DefiTestFramework):
                 encoding="utf8",
             ).read()
         )["object"]
+
         self.reserved_bytecode = json.loads(
             open(
                 get_solc_artifact_path("dfi_reserved", "deployed_bytecode.json"),
