@@ -136,9 +136,9 @@ lazy_static::lazy_static! {
     };
 
     pub static ref DFI_INTRINSICS_CONTRACT_V1: FixedContract = {
-        let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics", "deployed_bytecode.json");
+        let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics_v1", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
-            "dfi_intrinsics",
+            "dfi_intrinsics_v1",
             "bytecode.json"
         );
 
@@ -153,9 +153,9 @@ lazy_static::lazy_static! {
     };
 
     pub static ref TRANSFERDOMAIN_CONTRACT : FixedContract = {
-        let bytecode = solc_artifact_bytecode_str!("transferdomain_proxy", "deployed_bytecode.json");
+        let bytecode = solc_artifact_bytecode_str!("transfer_domain", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
-            "transferdomain_proxy",
+            "transfer_domain",
             "bytecode.json"
         );
 
@@ -170,9 +170,9 @@ lazy_static::lazy_static! {
     };
 
     pub static ref TRANSFERDOMAIN_V1_CONTRACT: FixedContract = {
-        let bytecode = solc_artifact_bytecode_str!("transfer_domain", "deployed_bytecode.json");
+        let bytecode = solc_artifact_bytecode_str!("transfer_domain_v1", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
-            "transfer_domain",
+            "transfer_domain_v1",
             "bytecode.json"
         );
 
@@ -188,7 +188,7 @@ lazy_static::lazy_static! {
 
     pub static ref DST20_CONTRACT: Contract = {
         let bytecode = solc_artifact_bytecode_str!(
-            "dst20_proxy",
+            "dst20",
             "deployed_bytecode.json"
         );
 
@@ -201,10 +201,10 @@ lazy_static::lazy_static! {
 
     pub static ref DST20_V1_CONTRACT: FixedContract = {
         let bytecode = solc_artifact_bytecode_str!(
-            "dst20", "deployed_bytecode.json"
+            "dst20_v1", "deployed_bytecode.json"
         );
         let input = solc_artifact_bytecode_str!(
-            "dst20", "bytecode.json"
+            "dst20_v1", "bytecode.json"
         );
 
         FixedContract {
