@@ -356,6 +356,7 @@ struct descendant_score {};
 struct entry_time {};
 struct ancestor_score {};
 struct address_and_nonce {};
+struct txid_tag {};
 
 class CBlockPolicyEstimator;
 
@@ -501,7 +502,11 @@ public:
         CTxMemPoolEntry,
         boost::multi_index::indexed_by<
             // sorted by txid
-            boost::multi_index::hashed_unique<mempoolentry_txid, SaltedTxidHasher>,
+            boost::multi_index::hashed_unique<
+                boost::multi_index::tag<txid_tag>,
+                mempoolentry_txid,
+                SaltedTxidHasher
+            >,
             // sorted by fee rate
             boost::multi_index::ordered_non_unique<
                 boost::multi_index::tag<descendant_score>,
@@ -567,6 +572,9 @@ public:
 
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter>> vTxHashes GUARDED_BY(cs); //!< All tx witness hashes/entries in mapTx, in random order
+
+    /** Map iterator for tracking failed nonces */
+    using FailedNonceIterator = std::multimap<uint64_t, txiter>::iterator;
 
     struct CompareIteratorByHash {
         bool operator()(const txiter &a, const txiter &b) const {
@@ -712,8 +720,7 @@ public:
     void TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpendsRemaining = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
-    int Expire(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
-    int ExpireEVM(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    int Expire(int64_t time, int64_t evmTime) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.

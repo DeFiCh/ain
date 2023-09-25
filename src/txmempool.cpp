@@ -996,30 +996,30 @@ void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, M
     forceRebuildForReorg |= reason == MemPoolRemovalReason::REORG;
 }
 
-int CTxMemPool::Expire(int64_t time) {
+int CTxMemPool::Expire(int64_t time, int64_t evmTime) {
     AssertLockHeld(cs);
     indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    auto& txidIndex = mapTx.get<txid_tag>();
     setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
-        toremove.insert(mapTx.project<0>(it));
-        it++;
-    }
-    setEntries stage;
-    for (txiter removeit : toremove) {
-        CalculateDescendants(removeit, stage);
-    }
-    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
-    return stage.size();
-}
-
-int CTxMemPool::ExpireEVM(int64_t time) {
-    AssertLockHeld(cs);
-    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
-    setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
+    while (it != mapTx.get<entry_time>().end()) {
         std::vector<unsigned char> metadata;
         CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata, true);
-        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+        if (it->GetTime() < time) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        else if (txType == CustomTxType::EvmTx && it->GetTime() < evmTime) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        else if (txType == CustomTxType::TransferDomain && it->GetTime() < evmTime) {
+            const auto &tx = it->GetSharedTx();
+            for (const auto &vin : tx->vin) {
+                auto hashEntry = txidIndex.find(vin.prevout.hash);
+                if (hashEntry != txidIndex.end() &&
+                    hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
+                    toremove.insert(hashEntry);
+                    break;
+                }
+            }
             toremove.insert(mapTx.project<0>(it));
         }
         it++;
@@ -1169,6 +1169,11 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
     auto& addressNonceIndex = mapTx.get<address_and_nonce>();
     auto range = addressNonceIndex.equal_range(pendingEntry.GetEVMAddrAndNonce());
 
+    CTxMemPool::setEntries itersToRemove;
+    std::set<CTransactionRef> txsToRemove;
+
+    auto& txidIndex = mapTx.get<txid_tag>();
+
     auto result{true};
 
     for (auto it = range.first; it != range.second; ++it) {
@@ -1177,9 +1182,20 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
         if (pendingEntry.GetEVMPrePayFee() > entry.GetEVMPrePayFee()) {
             if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
                 auto txIter = mapTx.project<0>(it);
-                removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
+                itersToRemove.insert(txIter);
             } else {
-                removeRecursive(entry.GetTx(), MemPoolRemovalReason::REPLACED);
+                const auto &tx = entry.GetSharedTx();
+                for (const auto &vin : tx->vin) {
+                    auto hashEntry = txidIndex.find(vin.prevout.hash);
+                    if (hashEntry != txidIndex.end() &&
+                        hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
+                        txsToRemove.insert(hashEntry->GetSharedTx());
+                        // Add auto auth and continue, this will remove the transfer
+                        // domain TX in the removeRecursive function.
+                        continue;
+                    }
+                }
+                txsToRemove.insert(tx);
             }
 
             // We might want to set accountsViewDirty to true here but
@@ -1190,6 +1206,14 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
         } else {
             result = false;
         }
+    }
+
+    for (const auto& txIter : itersToRemove) {
+        removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
+    }
+
+    for (const auto& tx : txsToRemove) {
+        removeRecursive(*tx, MemPoolRemovalReason::REPLACED);
     }
 
     return result;
@@ -1222,8 +1246,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, gasUsed, 0, nullptr, 0, 0, isEvmEnabledForBlock, true);
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, 0, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

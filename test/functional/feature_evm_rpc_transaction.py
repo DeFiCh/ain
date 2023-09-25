@@ -33,6 +33,7 @@ class EVMTest(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=51",
+                "-dakotaheight=51",
                 "-eunosheight=80",
                 "-fortcanningheight=82",
                 "-fortcanninghillheight=84",
@@ -489,12 +490,78 @@ class EVMTest(DefiTestFramework):
             self.blockHash1,
         )
 
+    def test_auto_nonce_for_multiple_transaction(self):
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "nonce": nonce + 2,
+                }
+            ]
+        )
+        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, nonce + 5, 21, 21001, self.toAddress, 1)
+        self.nodes[0].eth_sendTransaction(
+            {
+                "from": self.ethAddress,
+                "to": self.toAddress,
+                "nonce": hex(nonce + 3),
+                "value": "0xDE0B6B3A7640000",  # 1 DFI
+                "gas": "0x7a120",
+                "gasPrice": "0x2540BE400",
+            }
+        )
+        # test auto nonce for the 2nd evm tx (nonce + 1)
+        hash = self.nodes[0].eth_sendTransaction(
+            {
+                "from": self.ethAddress,
+                "to": self.toAddress,
+                "value": "0xDE0B6B3A7640000",  # 1 DFI
+                "gas": "0x7a120",
+                "gasPrice": "0x2540BE400",
+            }
+        )
+        # test auto nonce for the 5th transferdomain tx (nonce + 4)
+        tf_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        block_tx_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)[
+            "tx"
+        ]
+
+        # assert all 6 txs are minted (including 2 auto-auth tx and coinbase)
+        assert_equal(len(block_tx_info), 9)
+        # test 2nd evm tx
+        assert_equal(block_tx_info[4]["vm"]["txtype"], "Evm")
+        assert_equal(block_tx_info[4]["vm"]["msg"]["hash"], hash[2:])
+        # test 5th transfer domain
+        assert_equal(block_tx_info[7]["vm"]["txtype"], "TransferDomain")
+        assert_equal(block_tx_info[7]["txid"], tf_hash)
+
     def run_test(self):
         self.setup()
 
         self.test_sign_and_send_raw_transaction()
 
         self.test_send_transaction()
+
+        self.test_auto_nonce_for_multiple_transaction()
 
 
 if __name__ == "__main__":

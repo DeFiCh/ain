@@ -17,6 +17,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
     get_solc_artifact_path,
 )
+from web3 import Web3
 
 
 class DST20(DefiTestFramework):
@@ -30,6 +31,7 @@ class DST20(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=51",
+                "-dakotaheight=51",
                 "-eunosheight=80",
                 "-fortcanningheight=82",
                 "-fortcanninghillheight=84",
@@ -234,6 +236,7 @@ class DST20(DefiTestFramework):
             ]
         )
         self.node.generate(1)
+
         [afterUSDT] = [x for x in self.node.getaccount(self.address) if "USDT" in x]
 
         assert_equal(
@@ -256,6 +259,7 @@ class DST20(DefiTestFramework):
             ]
         )
         self.node.generate(1)
+
         [afterUSDT] = [x for x in self.node.getaccount(self.address) if "USDT" in x]
         assert_equal(afterUSDT, "10.00000000@USDT")
         assert_equal(
@@ -750,6 +754,159 @@ class DST20(DefiTestFramework):
             Decimal(1),
         )
 
+    def test_dst20_back_and_forth(self):
+        self.rollback_to(self.start_height)
+
+        self.node.transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+        block = self.nodes[0].eth_getBlockByNumber("latest", True)
+        sender_address = Web3.to_checksum_address(block["transactions"][0]["from"])
+
+        assert_equal(
+            self.btc.functions.balanceOf(sender_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.contract_address_transfer_domain).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+
+        assert_equal(
+            self.btc.functions.balanceOf(sender_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(2),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.contract_address_transfer_domain).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(2),
+        )
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+
+        assert_equal(
+            self.btc.functions.balanceOf(sender_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.contract_address_transfer_domain).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.key_pair.address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+
+        assert_equal(
+            self.btc.functions.balanceOf(sender_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.key_pair.address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.balanceOf(self.contract_address_transfer_domain).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+
     def run_test(self):
         self.node = self.nodes[0]
         self.w0 = self.node.w3
@@ -757,6 +914,9 @@ class DST20(DefiTestFramework):
         self.erc55_address = self.node.addressmap(self.address, 1)["format"]["erc55"]
 
         # Contract addresses
+        self.contract_address_transfer_domain = self.w0.to_checksum_address(
+            "0xdf00000000000000000000000000000000000001"
+        )
         self.contract_address_usdt = self.w0.to_checksum_address(
             "0xff00000000000000000000000000000000000001"
         )
@@ -843,6 +1003,10 @@ class DST20(DefiTestFramework):
         self.node.minttokens("10@BTC")
         self.node.generate(1)
 
+        self.start_height = self.nodes[
+            0
+        ].getblockcount()  # Use post-token deployment as start height
+
         self.test_dst20_dvm_to_evm_bridge()
 
         self.test_dst20_evm_to_dvm_bridge()
@@ -853,6 +1017,8 @@ class DST20(DefiTestFramework):
         self.test_negative_transfer()
         self.test_different_tokens()
         self.test_loan_token()
+
+        self.test_dst20_back_and_forth()
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test EVM behaviour"""
+"""Test EVM miner behaviour"""
 from test_framework.evm_contract import EVMContract
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
@@ -23,6 +23,7 @@ class EVMTest(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=51",
+                "-dakotaheight=51",
                 "-eunosheight=80",
                 "-fortcanningheight=82",
                 "-fortcanninghillheight=84",
@@ -40,6 +41,9 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
+            "erc55"
+        ]
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.ethPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
@@ -101,12 +105,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
 
-    def rollback_and_clear_mempool(self):
+    def block_size_gas_limit(self):
         self.rollback_to(self.start_height)
-        self.nodes[0].clearmempool()
-
-    def mempool_block_limit(self):
-        self.rollback_and_clear_mempool()
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
@@ -178,7 +178,7 @@ class EVMTest(DefiTestFramework):
             if idx == 0:
                 continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
-            assert_equal(tx_info["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + idx)
             assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx])
@@ -190,7 +190,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_info["tx"]) - 1, second_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
-            assert_equal(tx_info["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
@@ -208,7 +208,7 @@ class EVMTest(DefiTestFramework):
         tx_infos = block_info["tx"][1:]
         for idx in range(1, (40 - first_block_total_txs - second_block_total_txs)):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
-            assert_equal(tx_infos[idx]["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_infos[idx]["vm"]["txtype"], "Evm")
             assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(
                 tx_infos[idx]["vm"]["msg"]["nonce"],
@@ -223,7 +223,7 @@ class EVMTest(DefiTestFramework):
             )
         for idx in range(6, third_block_total_txs):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
-            assert_equal(tx_infos[idx]["vm"]["txtype"], "EvmTx")
+            assert_equal(tx_infos[idx]["vm"]["txtype"], "Evm")
             assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.ethAddress)
             assert_equal(
                 tx_infos[idx]["vm"]["msg"]["nonce"],
@@ -236,7 +236,7 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
 
     def invalid_evm_tx_in_block_creation(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -275,7 +275,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block_info["tx"]) - 1, 20)
 
     def state_dependent_txs_in_block_and_queue(self):
-        self.rollback_and_clear_mempool()
+        self.rollback_to(self.start_height)
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -466,17 +466,133 @@ class EVMTest(DefiTestFramework):
             block_info["tx"][0]["vm"]["xvmHeader"]["gasUsed"], correct_gas_used
         )
 
+    def multiple_evm_and_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        for i in range(16):
+            # tx call actual used gas - 1_761_626.
+            # tx should always pass evm tx validation, but may return early in construct block.
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        for i in range(6):
+            self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+        self.nodes[0].generate(1)
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+
+    def multiple_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+        for i in range(10):
+            self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+        self.nodes[0].generate(1)
+
+        for i in range(10):
+            assert_raises_rpc_error(
+                -32600,
+                "transferdomain evm tx failed to pre-validate : Invalid nonce. Account nonce 11, signed_tx nonce {}".format(
+                    start_nonce_erc55 + i
+                ),
+                self.nodes[0].transferdomain,
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ],
+            )
+
     def run_test(self):
         self.setup()
 
         # Multiple mempool fee replacement
-        self.mempool_block_limit()
+        self.block_size_gas_limit()
 
-        # Test invalid tx in block creation
+        # # Test invalid tx in block creation
         self.invalid_evm_tx_in_block_creation()
 
-        # Test for block size overflow from fee mismatch between tx queue and block
+        # # Test for block size overflow from fee mismatch between tx queue and block
         self.state_dependent_txs_in_block_and_queue()
+
+        # Test for multiple expensive evm txs and transferdomain txs in the same block
+        self.multiple_evm_and_transferdomain_txs()
+
+        # Test for multiple transferdomain txs in the same block
+        self.multiple_transferdomain_txs()
 
 
 if __name__ == "__main__":

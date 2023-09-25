@@ -5,7 +5,12 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    int_to_eth_u256,
+    get_solc_artifact_path,
+)
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 
@@ -37,6 +42,7 @@ class EVMTest(DefiTestFramework):
             "-txnotokens=0",
             "-amkheight=50",
             "-bayfrontheight=51",
+            "-dakotaheight=51",
             "-eunosheight=80",
             "-fortcanningheight=82",
             "-fortcanninghillheight=84",
@@ -63,6 +69,15 @@ class EVMTest(DefiTestFramework):
         )
         self.eth_address1 = self.nodes[0].getnewaddress("", "erc55")
         self.no_auth_eth_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
+        self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
+            "erc55"
+        ]
+        self.contract_address = "0xdF00000000000000000000000000000000000001"
+        self.abi = open(
+            get_solc_artifact_path("transfer_domain", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
 
         symbolDFI = "DFI"
         symbolBTC = "BTC"
@@ -142,14 +157,6 @@ class EVMTest(DefiTestFramework):
             {self.address: ["1@" + symbolBTC, "100@" + symbolDFI]}, self.address, []
         )
         self.nodes[0].generate(1)
-
-    def check_initial_balance(self):
-        # Check initial balances
-        self.dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
-        self.eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
-        assert_equal(self.dfi_balance, Decimal("101"))
-        assert_equal(self.eth_balance, int_to_eth_u256(0))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
 
     def invalid_before_fork_and_disabled(self):
         assert_raises_rpc_error(
@@ -256,7 +263,19 @@ class EVMTest(DefiTestFramework):
 
         self.start_height = self.nodes[0].getblockcount()
 
+    def check_initial_balance(self):
+        self.rollback_to(self.start_height)
+
+        # Check initial balances
+        self.dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
+        self.eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        assert_equal(self.dfi_balance, Decimal("101"))
+        assert_equal(self.eth_balance, int_to_eth_u256(0))
+        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
+
     def invalid_parameters(self):
+        self.rollback_to(self.start_height)
+
         # Check for invalid parameters in transferdomain rpc
         assert_raises_rpc_error(
             -8,
@@ -304,7 +323,7 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -8,
+            -1,
             "JSON value is not an integer as expected",
             self.nodes[0].transferdomain,
             [
@@ -323,7 +342,7 @@ class EVMTest(DefiTestFramework):
             ],
         )
         assert_raises_rpc_error(
-            -8,
+            -1,
             "JSON value is not an integer as expected",
             self.nodes[0].transferdomain,
             [
@@ -395,6 +414,8 @@ class EVMTest(DefiTestFramework):
         )
 
     def invalid_values_dvm_evm(self):
+        self.rollback_to(self.start_height)
+
         assert_raises_rpc_error(
             -1,
             "Invalid address",
@@ -450,6 +471,8 @@ class EVMTest(DefiTestFramework):
         )
 
     def valid_transfer_dvm_evm(self):
+        self.rollback_to(self.start_height)
+
         # Transfer 100 DFI from DVM to EVM
         tx1 = transfer_domain(
             self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
@@ -504,6 +527,8 @@ class EVMTest(DefiTestFramework):
         )
 
     def invalid_values_evm_dvm(self):
+        self.rollback_to(self.start_height)
+
         # Check for valid values EVM->DVM in transferdomain rpc
         assert_raises_rpc_error(
             -32600,
@@ -702,6 +727,8 @@ class EVMTest(DefiTestFramework):
         )
 
     def invalid_transfer_sc(self):
+        self.rollback_to(self.start_height)
+
         self.evm_key_pair = EvmKeyPair.from_node(self.nodes[0])
         self.nodes[0].transferdomain(
             [
@@ -761,6 +788,8 @@ class EVMTest(DefiTestFramework):
         )
 
     def invalid_transfer_no_auth(self):
+        self.rollback_to(self.start_height)
+
         assert_raises_rpc_error(
             -5,
             "no full public key for address " + self.address1,
@@ -788,6 +817,34 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                }
+            ],
+        )
+
+    def invalid_transfer_dvm_evm_insufficient_balance(self):
+        self.rollback_to(self.start_height)
+
+        # drain account balance
+        balance_before = self.nodes[0].getaccount(self.address, {}, True)["0"]
+        transfer_amount = str(int(balance_before - 1)) + "@DFI"
+        self.nodes[0].accounttoutxos(self.address, {self.address: transfer_amount})
+        self.nodes[0].generate(1)
+        balance_after = Decimal(self.nodes[0].getaccount(self.address, {}, True)["0"])
+        assert_equal(balance_after, Decimal(1.00000000))
+
+        # Invalid transfer domain, insufficient account balance
+        assert_raises_rpc_error(
+            -32600,
+            "amount 1.00000000 is less than 100.00000000",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
                 }
             ],
         )
@@ -976,24 +1033,226 @@ class EVMTest(DefiTestFramework):
         tx1 = self.nodes[0].evmtx(
             self.eth_address, 0, 21, 21001, erc55_address, 50
         )  # Spend half balance
-
-        assert_raises_rpc_error(
-            -26,
-            "evm-low-fee",
-            transfer_domain,
-            self.nodes[0],
-            self.eth_address,
-            self.address,
-            "100@DFI",
-            3,
-            2,
-        )
         self.nodes[0].generate(1)
 
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(len(block["transactions"]), 1)
         evm_tx = self.nodes[0].vmmap(tx1, 0)["output"]
         assert_equal(block["transactions"][0], evm_tx)
+
+    def conflicting_transferdomain_evmtx(self):
+        self.rollback_to(self.start_height)
+
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
+        self.nodes[0].generate(1)
+
+        burn_address = self.nodes[0].w3.to_checksum_address(
+            "0x0000000000000000000000000000000000000000"
+        )
+        self.nodes[0].eth_sendTransaction(
+            {
+                "nonce": self.nodes[0].w3.to_hex(
+                    self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+                ),
+                "from": self.address_erc55,
+                "to": burn_address,
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+        self.nodes[0].generate(1)
+
+        burn_balance = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        sender_nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+
+        self.nodes[0].eth_sendTransaction(
+            {
+                "nonce": self.nodes[0].w3.to_hex(nonce),
+                "from": self.address_erc55,
+                "to": "0x0000000000000000000000000000000000000000",
+                "value": "0x1",
+                "gas": "0x100000",
+                "gasPrice": "0x4e3b29200",
+            }
+        )
+        tx = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "nonce": nonce,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        burn_balance_after = Decimal(self.nodes[0].w3.eth.get_balance(burn_address))
+        sender_nonce_after = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+
+        # transferdomain should take precedence, evmtx should be discarded
+        assert_equal(sender_nonce + 1, sender_nonce_after)
+        assert_equal(burn_balance_after, burn_balance)
+        result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
+        assert_equal(result["src"]["address"], self.address)
+        assert_equal(result["src"]["amount"], "100.00000000@0")
+        assert_equal(result["src"]["domain"], "DVM")
+        assert_equal(result["dst"]["address"], self.address_erc55)
+        assert_equal(result["dst"]["amount"], "100.00000000@0")
+        assert_equal(result["dst"]["domain"], "EVM")
+
+    def should_find_empty_nonce(self):
+        self.rollback_to(self.start_height)
+
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
+        self.nodes[0].generate(1)
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        evm_nonces = [nonce, nonce + 2, nonce + 3]
+
+        # send evmtxs with nonces
+        for nonce in evm_nonces:
+            self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": self.nodes[0].w3.to_hex(nonce),
+                    "from": self.address_erc55,
+                    "to": "0x0000000000000000000000000000000000000000",
+                    "value": "0x1",
+                    "gas": "0x100000",
+                    "gasPrice": "0x4e3b29200",
+                }
+            )
+
+        # send transferdomain without specifying nonce
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        balance_before = self.nodes[0].w3.eth.get_balance(self.address_erc55)
+        self.nodes[0].generate(1)
+        balance_after = self.nodes[0].w3.eth.get_balance(self.address_erc55)
+
+        assert_equal(
+            len(self.nodes[0].getrawmempool()), 0
+        )  # all TXs should make it through
+        assert balance_after > balance_before  # transferdomain should succeed
+
+    def invalid_transfer_invalid_nonce(self):
+        self.rollback_to(self.start_height)
+
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.address_erc55)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "nonce": nonce,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        assert_raises_rpc_error(
+            -32600,
+            "transferdomain evm tx failed to pre-validate : Invalid nonce. Account nonce 1, signed_tx nonce 0",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "nonce": nonce,
+                }
+            ],
+        )
+
+    def test_contract_methods(self):
+        self.rollback_to(self.start_height)
+
+        contract = self.nodes[0].w3.eth.contract(
+            address=self.contract_address, abi=self.abi
+        )
+
+        assert_equal(contract.functions.name().call(), "TransferDomain")
+        assert_equal(contract.functions.symbol().call(), "DFI")
+        assert_equal(contract.functions.totalSupply().call(), 0)
+        assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
+
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        self.nodes[0].generate(1)
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        assert_equal(
+            contract.functions.totalSupply().call(),
+            self.nodes[0].w3.to_wei(100, "ether"),
+        )
+        assert_equal(
+            contract.functions.balanceOf(self.address_erc55).call(),
+            self.nodes[0].w3.to_wei(0, "ether"),
+        )  # Don't track balance per address
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.address_erc55,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "100@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        assert_equal(contract.functions.totalSupply().call(), 0)
+        assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
 
     def run_test(self):
         self.setup()
@@ -1016,9 +1275,20 @@ class EVMTest(DefiTestFramework):
         # Invalid authorisation
         self.invalid_transfer_no_auth()
 
+        # Invalid DVM account insufficient balance
+        self.invalid_transfer_dvm_evm_insufficient_balance()
+
         self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
         self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+
+        self.conflicting_transferdomain_evmtx()
+
+        self.should_find_empty_nonce()
+
+        self.invalid_transfer_invalid_nonce()
+
+        self.test_contract_methods()
 
 
 if __name__ == "__main__":

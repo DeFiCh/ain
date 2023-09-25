@@ -349,7 +349,8 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex* pindex, const Consens
 static void LimitMempoolSize(CTxMemPool& pool, size_t limit, unsigned long age, unsigned long evmAge)
     EXCLUSIVE_LOCKS_REQUIRED(pool.cs, ::cs_main)
 {
-    int expired = pool.Expire(GetTime() - age);
+    const auto time = GetTime();
+    int expired = pool.Expire(time - age, time - evmAge);
     if (expired != 0) {
         LogPrint(BCLog::MEMPOOL, "Expired %i transactions from the memory pool\n", expired);
     }
@@ -453,7 +454,7 @@ static void UpdateMempoolForReorg(DisconnectedBlockTransactions& disconnectpool,
     // We also need to remove any now-immature transactions
     mempool.removeForReorg(&::ChainstateActive().CoinsTip(), ::ChainActive().Tip()->nHeight + 1, STANDARD_LOCKTIME_VERIFY_FLAGS);
     // Re-limit mempool size, in case we added any transactions
-    LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60, gArgs.GetArg("-mempoolevmexpiry", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60);
+    LimitMempoolSize(mempool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60, gArgs.GetArg("-mempoolexpiryevm", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60);
 }
 
 // Used to avoid mempool polluting consensus critical paths if CCoinsViewMempool
@@ -650,8 +651,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        uint64_t gasUsed{};
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, gasUsed, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock, true);
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock, true);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -945,7 +945,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
 
-            const auto prePayFee = isEVMTx ? txResult.prepay_fee : 0;
+            const auto prePayFee = isEVMTx ? txResult.prepay_fee : std::numeric_limits<uint64_t>::max();
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
             entry.SetEVMPrePayFee(prePayFee);
@@ -994,7 +994,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         // trim mempool and check if tx was trimmed
         if (!bypass_limits) {
-            LimitMempoolSize(pool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60, gArgs.GetArg("-mempoolevmexpiry", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60);
+            LimitMempoolSize(pool, gArgs.GetArg("-maxmempool", DEFAULT_MAX_MEMPOOL_SIZE) * 1000000, gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60, gArgs.GetArg("-mempoolexpiryevm", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60);
             if (!pool.exists(hash))
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INSUFFICIENTFEE, "mempool full");
         }
@@ -2430,8 +2430,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, 0, false, false);
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, 0, false, false);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2714,8 +2713,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            uint64_t gasUsed{};
-            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, gasUsed, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock, false);
+            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock, false);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -6105,7 +6103,7 @@ bool LoadMempool(CTxMemPool& pool)
 {
     const CChainParams& chainparams = Params();
     int64_t nExpiryTimeout = gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_DVM_EXPIRY) * 60 * 60;
-    int64_t nExpiryEVMTimeout = gArgs.GetArg("-mempoolevmexpiry", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60;
+    int64_t nExpiryEVMTimeout = gArgs.GetArg("-mempoolexpiryevm", DEFAULT_MEMPOOL_EVM_EXPIRY) * 60 * 60;
     FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat", "rb");
     CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
     if (file.IsNull()) {

@@ -25,6 +25,7 @@ class addressmapTests(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=51",
+                "-dakotaheight=51",
                 "-eunosheight=80",
                 "-fortcanningheight=82",
                 "-fortcanninghillheight=84",

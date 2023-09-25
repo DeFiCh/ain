@@ -91,6 +91,7 @@ impl EVMBackend {
         storage.into_iter().for_each(|(k, v)| {
             debug!("Apply::Modify storage, key: {:x} value: {:x}", k, v);
             let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
+            storage_trie.commit();
         });
 
         let code_hash = match code {
@@ -120,6 +121,7 @@ impl EVMBackend {
         self.state
             .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
             .map_err(|e| BackendError::TrieError(format!("{e}")))?;
+        self.state.commit();
 
         Ok(new_account)
     }
@@ -212,7 +214,7 @@ impl EVMBackend {
         let state = self
             .trie_store
             .trie_db
-            .trie_restore(contract.clone().as_ref(), None, account.storage_root.into())
+            .trie_restore(contract.as_ref(), None, account.storage_root.into())
             .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(U256::from(
@@ -362,7 +364,7 @@ impl ApplyBackend for EVMBackend {
                         .expect("Error applying state");
 
                     if is_empty_account(&new_account) && delete_empty {
-                        debug!("Deleting empty address {}", address);
+                        debug!("Deleting empty address {:x?}", address);
                         self.trie_store.trie_db.trie_remove(address.as_bytes());
                         self.state
                             .remove(address.as_bytes())
@@ -370,7 +372,7 @@ impl ApplyBackend for EVMBackend {
                     }
                 }
                 Apply::Delete { address } => {
-                    debug!("Deleting address {}", address);
+                    debug!("Deleting address {:x?}", address);
                     self.trie_store.trie_db.trie_remove(address.as_bytes());
                     self.state
                         .remove(address.as_bytes())

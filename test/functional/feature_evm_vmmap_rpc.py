@@ -28,6 +28,7 @@ class VMMapTests(DefiTestFramework):
             "-txnotokens=0",
             "-amkheight=50",
             "-bayfrontheight=51",
+            "-dakotaheight=51",
             "-eunosheight=80",
             "-fortcanningheight=82",
             "-fortcanninghillheight=84",
@@ -139,7 +140,17 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res["type"], "TxHashDVMToEVM")
             assert_equal(res["output"], item[1])
 
+            res = self.nodes[0].vmmap(item[0])
+            assert_equal(res["input"], item[0])
+            assert_equal(res["type"], "TxHashDVMToEVM")
+            assert_equal(res["output"], item[1])
+
             res = self.nodes[0].vmmap(item[1], VMMapType.Auto)
+            assert_equal(res["input"], item[1])
+            assert_equal(res["type"], "TxHashEVMToDVM")
+            assert_equal(res["output"], item[0])
+
+            res = self.nodes[0].vmmap(item[1])
             assert_equal(res["input"], item[1])
             assert_equal(res["type"], "TxHashEVMToDVM")
             assert_equal(res["output"], item[0])
@@ -206,7 +217,17 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res["type"], "BlockHashDVMToEVM")
             assert_equal(res["output"], item[1])
 
+            res = self.nodes[0].vmmap(item[0])
+            assert_equal(res["input"], item[0])
+            assert_equal(res["type"], "BlockHashDVMToEVM")
+            assert_equal(res["output"], item[1])
+
             res = self.nodes[0].vmmap(item[1], VMMapType.Auto)
+            assert_equal(res["input"], item[1])
+            assert_equal(res["type"], "BlockHashEVMToDVM")
+            assert_equal(res["output"], item[0])
+
+            res = self.nodes[0].vmmap(item[1])
             assert_equal(res["input"], item[1])
             assert_equal(res["type"], "BlockHashEVMToDVM")
             assert_equal(res["output"], item[0])
@@ -251,12 +272,24 @@ class VMMapTests(DefiTestFramework):
             assert_equal(res["type"], "BlockNumberDVMToEVM")
             assert_equal(res["output"], item[1])
 
+            res = self.nodes[0].vmmap(item[0])
+            assert_equal(res["input"], item[0])
+            assert_equal(res["type"], "BlockNumberDVMToEVM")
+            assert_equal(res["output"], item[1])
+
             assert_raises_rpc_error(
                 -8,
                 "Automatic detection not viable for input",
                 self.nodes[0].vmmap,
                 item[1],
                 VMMapType.Auto,
+            )
+
+            assert_raises_rpc_error(
+                -8,
+                "Automatic detection not viable for input",
+                self.nodes[0].vmmap,
+                item[1]
             )
 
     def vmmap_invalid_block_number_should_fail(self):
@@ -275,6 +308,12 @@ class VMMapTests(DefiTestFramework):
             self.nodes[0].vmmap,
             "test",
             VMMapType.Auto,
+        )
+        assert_raises_rpc_error(
+            -8,
+            "Automatic detection not viable for input",
+            self.nodes[0].vmmap,
+            "test"
         )
 
     def vmmap_rollback_should_succeed(self):

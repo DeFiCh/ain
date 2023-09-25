@@ -16,6 +16,7 @@
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
 #include <ffi/cxx.h>
+#include <ffi/ffihelpers.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -34,19 +35,19 @@
 #include <util/system.h>
 #include <util/validation.h>
 #include <wallet/wallet.h>
-#include <ffi/ffihelpers.h>
 
 #include <algorithm>
 #include <random>
 #include <utility>
 
 struct EvmTxPreApplyContext {
-    CTxMemPool::txiter& txIter;
+    const CTxMemPool::txiter& txIter;
     std::vector<unsigned char>& txMetadata;
     CustomTxType txType;
     int height;
     uint64_t evmQueueId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
+    std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
 };
 
@@ -606,6 +607,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     const auto& height = ctx.height;
     const auto& failedTxSet = ctx.failedTxEntries;
     auto& failedNonces = ctx.failedNonces;
+    auto& failedNoncesLookup = ctx.failedNoncesLookup;
 
     if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
         return false;
@@ -616,13 +618,14 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
         const auto obj = std::get<CEvmTxMessage>(txMessage);
 
         ValidateTxCompletion txResult;
-        txResult = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+        txResult = evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
             return false;
         }
         if (txResult.higher_nonce) {
             if (!failedTxSet.count(txIter)) {
-                failedNonces.emplace(txResult.nonce, txIter);
+                auto it = failedNonces.emplace(txResult.nonce, txIter);
+                failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
             }
             return false;
         }
@@ -633,11 +636,13 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
         }
 
         std::string evmTx;
-        if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-            evmTx = HexStr(obj.transfers[0].second.data);
-        }
-        else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-            evmTx = HexStr(obj.transfers[0].first.data);
+        {
+            auto& [src, dest] = obj.transfers[0];
+            if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dest.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                evmTx = HexStr(dest.data);
+            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dest.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                evmTx = HexStr(src.data);
+            }
         }
         auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, evmTx);
         if (!result.ok) {
@@ -651,7 +656,8 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
             return false;
         } else if (senderInfo.nonce > expectedNonce) {
             if (!failedTxSet.count(txIter)) {
-                failedNonces.emplace(senderInfo.nonce, txIter);
+                auto it = failedNonces.emplace(senderInfo.nonce, txIter);
+                failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
             }
             return false;
         }
@@ -700,14 +706,11 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // Copy of the view
     CCoinsViewCache coinsView(&::ChainstateActive().CoinsTip());
 
-    // Track mempool time order
-    std::multimap<int64_t, CTxMemPool::txiter> mempoolTimeOrder{};
-
     // Keep track of EVM entries that failed nonce check
     std::multimap<uint64_t, CTxMemPool::txiter> failedNonces;
 
-    // Variable to tally total gas used in the block
-    uint64_t totalGas{};
+    // Quick lookup for failedNonces entries
+    std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
@@ -726,6 +729,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             const auto it = failedNonces.begin();
             iter = it->second;
             failedNonces.erase(it);
+            failedNoncesLookup.erase(iter->GetTx().GetHash());
         } else if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTxSet
             iter = modit->iter;
@@ -811,9 +815,16 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         // Account check
         bool customTxPassed{true};
 
+        // Temporary views
+        CCoinsViewCache coinsCache(&coinsView);
+        CCustomCSView cache(view);
+
+        // Track failed custom TX. Used for removing EVM TXs from the queue.
+        uint256 failedCustomTx;
+
         // Apply and check custom TXs in order
-        for (size_t i = 0; i < sortedEntries.size(); ++i) {
-            const CTransaction& tx = sortedEntries[i]->GetTx();
+        for (const auto& entry : sortedEntries) {
+            const CTransaction& tx = entry->GetTx();
 
             // Do not double check already checked custom TX. This will be an ancestor of current TX.
             if (checkedDfTxHashSet.find(tx.GetHash()) != checkedDfTxHashSet.end()) {
@@ -822,7 +833,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
 
             // temporary view to ensure failed tx
             // to not be kept in parent view
-            CCoinsViewCache coins(&coinsView);
+            CCoinsViewCache coins(&coinsCache);
 
             // allow coin override, tx with same inputs
             // will be removed for block while we connect it
@@ -839,38 +850,35 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         break;
                     }
                     auto evmTxCtx = EvmTxPreApplyContext{
-                        sortedEntries[i],
+                        entry,
                         metadata,
                         txType,
                         nHeight,
                         evmQueueId,
                         failedNonces,
+                        failedNoncesLookup,
                         failedTxSet,
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
                     if (res) {
                         customTxPassed = true;
                     } else {
-                        failedTxSet.insert(sortedEntries[i]);
+                        failedTxSet.insert(entry);
+                        failedCustomTx = tx.GetHash();
                         customTxPassed = false;
                         break;
                     }
                 }
 
-                uint64_t gasUsed{};
-                const auto res = ApplyCustomTx(view, coins, tx, chainparams.GetConsensus(), nHeight, gasUsed, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
+                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
+                    failedTxSet.insert(entry);
+                    failedCustomTx = tx.GetHash();
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
                 }
-
-                if (totalGas + gasUsed > MAX_BLOCK_GAS_LIMIT) {
-                    customTxPassed = false;
-                    break;
-                }
-                totalGas += gasUsed;
 
                 // Track checked TXs to avoid double applying
                 checkedDfTxHashSet.insert(tx.GetHash());
@@ -883,15 +891,56 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             if (fUsingModified) {
                 mapModifiedTxSet.get<ancestor_score>().erase(modit);
             }
-            failedTxSet.insert(iter);
+
+            // Remove from checked TX set
+            for (const auto& entry : sortedEntries) {
+                checkedDfTxHashSet.erase(entry->GetTx().GetHash());
+            }
+
+            if (sortedEntries.size() <= 1) {
+                continue;
+            }
+
+            // Remove entries from queue if first EVM TX is not the failed TX.
+            for (const auto& entry : sortedEntries) {
+                auto entryTxType = entry->GetCustomTxType();
+                auto entryHash = entry->GetTx().GetHash();
+
+                if (entryTxType == CustomTxType::EvmTx || entryTxType == CustomTxType::TransferDomain) {
+                    // If the first TX in a failed set is not the failed TX
+                    // then remove from queue, otherwise it has not been added.
+                    if (entryHash != failedCustomTx) {
+                        CrossBoundaryResult result;
+                        evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
+                        if (!result.ok) {
+                            LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
+                        }
+                    }
+                    break;
+                } else if (entryHash == failedCustomTx) {
+                    // Failed before getting to an EVM TX. Break out.
+                    break;
+                }
+            }
+
             continue;
         }
 
-        for (size_t i = 0; i < sortedEntries.size(); ++i) {
-            txFees.emplace(sortedEntries[i]->GetTx().GetHash(), sortedEntries[i]->GetFee());
-            AddToBlock(sortedEntries[i]);
+        // Flush the views now that add sortedEntries are confirmed successful
+        cache.Flush();
+        coinsCache.Flush();
+
+        for (const auto& entry : sortedEntries) {
+            auto& hash = entry->GetTx().GetHash();
+            if (failedNoncesLookup.count(hash)) {
+                auto& it = failedNoncesLookup.at(hash);
+                failedNonces.erase(it);
+                failedNoncesLookup.erase(hash);
+            }
+            txFees.emplace(hash, entry->GetFee());
+            AddToBlock(entry);
             // Erase from the modified set, if present
-            mapModifiedTxSet.erase(sortedEntries[i]);
+            mapModifiedTxSet.erase(entry);
         }
 
         ++nPackagesSelected;

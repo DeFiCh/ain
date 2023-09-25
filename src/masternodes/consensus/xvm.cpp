@@ -188,10 +188,10 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     auto attributes = mnview.GetAttributes();
     auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
     std::string evmTxHash;
+    CrossBoundaryResult result;
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
-        CrossBoundaryResult result;
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             CTxDestination dest;
             if (!ExtractDestination(dst.address, dest)) {
@@ -211,33 +211,36 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
-            const auto evmTx = HexStr(dst.data);
-            auto hash = evm_try_get_tx_hash(result, evmTx);
-            if (!result.ok) {
-                return Res::Err("Error bridging DFI: %s", result.reason);
-            }
-            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
-            if (!res)
+            if (!res) {
                 return res;
+            }
             stats.dvmEvmTotal.Add(src.amount);
             stats.dvmOut.Add(src.amount);
             stats.dvmCurrent.Sub(src.amount);
 
-            // Add balance to ERC55 address
-            auto tokenId = dst.amount.nTokenId;
+            if (dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
+            }
+            const auto evmTx = HexStr(dst.data);
             evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
-                return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
+                return Res::Err("transferdomain evm tx failed to pre-validate : %s", result.reason);
             }
-
             if (evmPreValidate) {
                 return Res::Ok();
             }
 
+            auto hash = evm_try_get_tx_hash(result, evmTx);
+            if (!result.ok) {
+                return Res::Err("Error getting tx hash: %s", result.reason);
+            }
+            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
+
+            // Add balance to ERC55 address
+            auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
                 evm_unsafe_try_add_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex());
                 if (!result.ok) {
@@ -272,25 +275,27 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractSourceAddress();
             }
 
-            const auto evmTx = HexStr(src.data);
-            auto hash = evm_try_get_tx_hash(result, evmTx);
-            if (!result.ok) {
-                return Res::Err("Error bridging DFI: %s", result.reason);
+            if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
-            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
-            // Subtract balance from ERC55 address
-            auto tokenId = dst.amount.nTokenId;
+            const auto evmTx = HexStr(src.data);
             evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
-
             if (evmPreValidate) {
                 return Res::Ok();
             }
 
+            auto hash = evm_try_get_tx_hash(result, evmTx);
+            if (!result.ok) {
+                return Res::Err("Error getting tx hash: %s", result.reason);
+            }
+            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
+
+            // Subtract balance from ERC55 address
+            auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
                 if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
@@ -311,18 +316,16 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
-            if (!res)
+            if (!res) {
+                evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
                 return res;
+            }
             stats.evmDvmTotal.Add(dst.amount);
             stats.dvmIn.Add(dst.amount);
             stats.dvmCurrent.Add(dst.amount);
         }
         else {
             return DeFiErrors::TransferDomainInvalidDomain();
-        }
-
-        if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN || dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
-            return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
         }
     }
 
@@ -337,7 +340,12 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     }
 
     attributes->SetValue(CTransferDomainStatsLive::Key, stats);
-    return mnview.SetVariable(*attributes);
+    res = mnview.SetVariable(*attributes);
+    if (!res) {
+        evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
+        return res;
+    }
+    return Res::Ok();
 }
 
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
@@ -349,9 +357,8 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx size too large");
 
     CrossBoundaryResult result;
-    ValidateTxCompletion validateResults;
     if (evmPreValidate) {
-        validateResults = evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+        evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
             LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to pre-validate %s", result.reason);
@@ -359,11 +366,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-    if (validateResults.higher_nonce) {
-        return Res::Ok();
-    }
-
+    const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s\n", result.reason);
@@ -385,5 +388,6 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
     if (!res) {
         LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash);
     }
+
     return Res::Ok();
 }

@@ -12,9 +12,12 @@ use log::{debug, trace};
 use crate::{
     backend::EVMBackend,
     bytes::Bytes,
-    contract::{bridge_dst20, dst20_contract, DST20BridgeInfo, DeployContractInfo},
+    contract::{
+        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_contract,
+        dst20_deploy_contract_tx, DST20BridgeInfo, DeployContractInfo,
+    },
     core::EVMCoreService,
-    evm::{dst20_deploy_contract_tx, ReceiptAndOptionalContractAddress},
+    evm::ReceiptAndOptionalContractAddress,
     fee::{calculate_gas_fee, calculate_prepay_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
@@ -122,7 +125,12 @@ impl<'backend> AinExecutor<'backend> {
     }
 
     /// Update state
-    pub fn exec(&mut self, signed_tx: &SignedTx, prepay_gas: U256) -> (TxResponse, ReceiptV3) {
+    pub fn exec(
+        &mut self,
+        signed_tx: &SignedTx,
+        gas_limit: U256,
+        prepay_gas: U256,
+    ) -> (TxResponse, ReceiptV3) {
         self.backend.update_vicinity_from_tx(signed_tx);
         trace!(
             "[Executor] Executing EVM TX with vicinity : {:?}",
@@ -133,7 +141,7 @@ impl<'backend> AinExecutor<'backend> {
             to: signed_tx.to(),
             value: signed_tx.value(),
             data: signed_tx.data(),
-            gas_limit: signed_tx.gas_limit().as_u64(),
+            gas_limit: u64::try_from(gas_limit).unwrap_or(u64::MAX), // Sets to u64 if overflows
             access_list: signed_tx.access_list(),
         };
 
@@ -208,10 +216,22 @@ impl<'backend> AinExecutor<'backend> {
     pub fn apply_queue_tx(&mut self, tx: QueueTx, base_fee: U256) -> Result<ApplyTxResult> {
         match tx {
             QueueTx::SignedTx(signed_tx) => {
+                // Validate nonce
+                let nonce = self.backend.get_nonce(&signed_tx.sender);
+                if nonce != signed_tx.nonce() {
+                    return Err(format_err!(
+                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        nonce,
+                        signed_tx.nonce(),
+                    )
+                    .into());
+                }
+
                 let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
-                let (tx_response, receipt) = self.exec(&signed_tx, prepay_gas);
+                let (tx_response, receipt) =
+                    self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas);
                 debug!(
-                    "[apply_queue_tx]receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash()
@@ -232,6 +252,17 @@ impl<'backend> AinExecutor<'backend> {
                 signed_tx,
                 direction,
             })) => {
+                // Validate nonce
+                let nonce = self.backend.get_nonce(&signed_tx.sender);
+                if nonce != signed_tx.nonce() {
+                    return Err(format_err!(
+                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        nonce,
+                        signed_tx.nonce(),
+                    )
+                    .into());
+                }
+
                 let to = signed_tx.to().unwrap();
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[68..100]);
@@ -256,11 +287,13 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 if direction == TransferDirection::EvmIn {
+                    let storage = bridge_dfi(self.backend, amount, direction)?;
+                    self.update_storage(fixed_address, storage)?;
                     self.add_balance(fixed_address, amount)?;
                     self.commit();
                 }
 
-                let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] Transfer domain failed VM execution {:?}",
@@ -271,7 +304,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash(),
@@ -279,6 +312,8 @@ impl<'backend> AinExecutor<'backend> {
                 );
 
                 if direction == TransferDirection::EvmOut {
+                    let storage = bridge_dfi(self.backend, amount, direction)?;
+                    self.update_storage(fixed_address, storage)?;
                     self.sub_balance(signed_tx.sender, amount)?;
                 }
 
@@ -304,22 +339,27 @@ impl<'backend> AinExecutor<'backend> {
             );
 
                 if direction == TransferDirection::EvmIn {
-                    let DST20BridgeInfo { address, storage } = bridge_dst20(
-                        self.backend,
-                        contract_address,
-                        signed_tx.sender,
-                        amount,
-                        direction,
-                    )?;
+                    let DST20BridgeInfo { address, storage } =
+                        bridge_dst20_in(self.backend, contract_address, amount)?;
                     self.update_storage(address, storage)?;
                     self.commit();
                 }
 
-                let (tx_response, receipt) = self.exec(&signed_tx, U256::zero());
+                let allowance = dst20_allowance(direction, signed_tx.sender, amount);
+                self.update_storage(contract_address, allowance)?;
+                self.commit();
+
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
                 if !tx_response.exit_reason.is_succeed() {
+                    debug!(
+                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {}",
+                        tx_response.exit_reason,
+                        hex::encode(&tx_response.data)
+                    );
                     return Err(format_err!(
-                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}",
-                        tx_response.exit_reason
+                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {:?}",
+                        tx_response.exit_reason,
+                        tx_response.data
                     )
                     .into());
                 }
@@ -327,7 +367,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:#?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.transaction.hash(),
@@ -335,13 +375,8 @@ impl<'backend> AinExecutor<'backend> {
                 );
 
                 if direction == TransferDirection::EvmOut {
-                    let DST20BridgeInfo { address, storage } = bridge_dst20(
-                        self.backend,
-                        contract_address,
-                        signed_tx.sender,
-                        amount,
-                        direction,
-                    )?;
+                    let DST20BridgeInfo { address, storage } =
+                        bridge_dst20_out(self.backend, contract_address, amount)?;
                     self.update_storage(address, storage)?;
                 }
 

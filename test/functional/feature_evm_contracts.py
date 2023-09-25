@@ -23,6 +23,7 @@ class EVMTest(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=51",
+                "-dakotaheight=51",
                 "-eunosheight=80",
                 "-fortcanningheight=82",
                 "-fortcanninghillheight=84",
@@ -339,7 +340,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_web3_error(
             -32001,
-            "Test EvmTxTx execution failed:\nevm tx size too large",
+            "Test EvmTx execution failed:\nevm tx size too large",
             self.node.w3.eth.send_raw_transaction,
             signed.rawTransaction,
         )
