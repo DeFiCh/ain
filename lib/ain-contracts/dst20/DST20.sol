@@ -4,7 +4,7 @@
 pragma solidity ^0.8.0;
 
 /**
- * Note: DST20 public facing contract is just a facade that delegates all calls to it's intenral implementation
+ * Note: DST20 public facing contract is just a facade that delegates all calls to it's internal implementation
  * through a proxy. This is an internal impl detail and may be changed by the node at any time, but 
  * primarily used for seamless future updates.
 
