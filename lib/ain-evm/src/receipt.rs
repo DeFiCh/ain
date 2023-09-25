@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3};
+use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use keccak_hash::keccak;
 use rlp::RlpStream;
@@ -26,6 +26,7 @@ pub struct Receipt {
     pub contract_address: Option<H160>,
     pub logs_index: usize,
     pub cumulative_gas: U256,
+    pub effective_gas_price: U256,
 }
 
 pub struct ReceiptService {
@@ -59,6 +60,7 @@ impl ReceiptService {
         receipts_and_contract_address: Vec<ReceiptAndOptionalContractAddress>,
         block_hash: H256,
         block_number: U256,
+        base_fee: U256,
     ) -> Vec<Receipt> {
         let mut logs_size = 0;
         let mut cumulative_gas = U256::zero();
@@ -77,6 +79,8 @@ impl ReceiptService {
                 logs_size += logs_len;
                 cumulative_gas += receipt_data.used_gas;
 
+                let effective_gas_price = self.calculate_effective_gas_price(base_fee, signed_tx);
+
                 Receipt {
                     receipt,
                     block_hash,
@@ -93,6 +97,7 @@ impl ReceiptService {
                     }),
                     logs_index: logs_size - logs_len,
                     cumulative_gas,
+                    effective_gas_price,
                 }
             })
             .collect()
@@ -100,6 +105,19 @@ impl ReceiptService {
 
     pub fn put_receipts(&self, receipts: Vec<Receipt>) -> Result<()> {
         self.storage.put_receipts(receipts)
+    }
+
+    pub fn calculate_effective_gas_price(&self, base_fee: U256, tx: &SignedTx) -> U256 {
+        match &tx.transaction {
+            TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => tx.gas_price(),
+            TransactionV2::EIP1559(t) => {
+                if base_fee + t.max_priority_fee_per_gas <= t.max_fee_per_gas {
+                    base_fee + t.max_priority_fee_per_gas
+                } else {
+                    t.max_fee_per_gas
+                }
+            }
+        }
     }
 }
 
