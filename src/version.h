@@ -14,7 +14,7 @@ static const int INIT_PROTO_VERSION = 209;
 
 // TODO: Alias this to the latest network upgrade height that the node supports 
 // as they are synonymous.
-static const int PROTOCOL_VERSION = 70037;
+static const int PROTOCOL_VERSION = 70038;
 
 // TODO: Set this as the previous successful network upgrade height 
 // pre-node release. Each version can supports connecting from 
