@@ -188,10 +188,10 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     auto attributes = mnview.GetAttributes();
     auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
     std::string evmTxHash;
+    CrossBoundaryResult result;
 
     // Iterate over array of transfers
     for (const auto &[src, dst] : obj.transfers) {
-        CrossBoundaryResult result;
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             CTxDestination dest;
             if (!ExtractDestination(dst.address, dest)) {
@@ -211,6 +211,15 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
+            // Subtract balance from DFI address
+            res = mnview.SubBalance(src.address, src.amount);
+            if (!res) {
+                return res;
+            }
+            stats.dvmEvmTotal.Add(src.amount);
+            stats.dvmOut.Add(src.amount);
+            stats.dvmCurrent.Sub(src.amount);
+
             if (dst.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
@@ -229,14 +238,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Err("Error getting tx hash: %s", result.reason);
             }
             evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
-            // Subtract balance from DFI address
-            res = mnview.SubBalance(src.address, src.amount);
-            if (!res)
-                return res;
-            stats.dvmEvmTotal.Add(src.amount);
-            stats.dvmOut.Add(src.amount);
-            stats.dvmCurrent.Sub(src.amount);
 
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
@@ -315,8 +316,10 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
-            if (!res)
+            if (!res) {
+                evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
                 return res;
+            }
             stats.evmDvmTotal.Add(dst.amount);
             stats.dvmIn.Add(dst.amount);
             stats.dvmCurrent.Add(dst.amount);
@@ -337,7 +340,12 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     }
 
     attributes->SetValue(CTransferDomainStatsLive::Key, stats);
-    return mnview.SetVariable(*attributes);
+    res = mnview.SetVariable(*attributes);
+    if (!res) {
+        evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
+        return res;
+    }
+    return Res::Ok();
 }
 
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {

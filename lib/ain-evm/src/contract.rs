@@ -208,12 +208,10 @@ pub fn dst20_contract(
     })
 }
 
-pub fn bridge_dst20(
+pub fn bridge_dst20_in(
     backend: &EVMBackend,
     contract: H160,
-    from: H160,
     amount: U256,
-    direction: TransferDirection,
 ) -> Result<DST20BridgeInfo> {
     // check if code of address matches DST20 bytecode
     let account = backend
@@ -228,41 +226,79 @@ pub fn bridge_dst20(
     }
 
     // balance has slot 0
-    let balance_storage_index = get_address_storage_index(H256::zero(), from);
-    let balance = backend.get_contract_storage(contract, balance_storage_index.as_bytes())?;
-
-    // allowance has slot 1
-    let allowance_storage_index = get_address_storage_index(H256::from_low_u64_be(1), from);
-    let address_allowance_storage_index =
-        get_address_storage_index(allowance_storage_index, fixed_address);
+    let contract_balance_storage_index = get_address_storage_index(H256::zero(), fixed_address);
 
     let total_supply_index = H256::from_low_u64_be(2);
     let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
 
-    let (new_balance, new_total_supply) = if direction == TransferDirection::EvmOut {
-        (
-            balance.checked_sub(amount),
-            total_supply.checked_sub(amount),
-        )
-    } else {
-        (
-            balance.checked_add(amount),
-            total_supply.checked_add(amount),
-        )
-    };
-
-    let new_balance = new_balance.ok_or_else(|| format_err!("Balance overflow/underflow"))?;
-    let new_total_supply =
-        new_total_supply.ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
+    let new_total_supply = total_supply
+        .checked_add(amount)
+        .ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
 
     Ok(DST20BridgeInfo {
         address: contract,
         storage: vec![
-            (balance_storage_index, u256_to_h256(new_balance)),
+            (contract_balance_storage_index, u256_to_h256(amount)),
             (total_supply_index, u256_to_h256(new_total_supply)),
-            (address_allowance_storage_index, u256_to_h256(amount)),
         ],
     })
+}
+
+pub fn bridge_dst20_out(
+    backend: &EVMBackend,
+    contract: H160,
+    amount: U256,
+) -> Result<DST20BridgeInfo> {
+    // check if code of address matches DST20 bytecode
+    let account = backend
+        .get_account(&contract)
+        .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
+
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+
+    let Contract { codehash, .. } = get_dst20_contract();
+    if account.code_hash != codehash {
+        return Err(format_err!("DST20 token code is not valid").into());
+    }
+
+    let contract_balance_storage_index = get_address_storage_index(H256::zero(), fixed_address);
+
+    let total_supply_index = H256::from_low_u64_be(2);
+    let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
+
+    let new_total_supply = total_supply
+        .checked_sub(amount)
+        .ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
+
+    Ok(DST20BridgeInfo {
+        address: contract,
+        storage: vec![
+            (contract_balance_storage_index, u256_to_h256(U256::zero())), // Reset contract balance to 0
+            (total_supply_index, u256_to_h256(new_total_supply)),
+        ],
+    })
+}
+
+pub fn dst20_allowance(
+    direction: TransferDirection,
+    from: H160,
+    amount: U256,
+) -> Vec<(H256, H256)> {
+    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+
+    // allowance has slot 1
+    let allowance_storage_index = get_address_storage_index(
+        H256::from_low_u64_be(1),
+        if direction == TransferDirection::EvmIn {
+            fixed_address
+        } else {
+            from
+        },
+    );
+    let address_allowance_storage_index =
+        get_address_storage_index(allowance_storage_index, fixed_address);
+
+    vec![(address_allowance_storage_index, u256_to_h256(amount))]
 }
 
 pub fn bridge_dfi(

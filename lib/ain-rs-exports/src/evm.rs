@@ -112,14 +112,16 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let FixedContract { fixed_address, .. } = get_transferdomain_proxy();
     let action = TransactionAction::Call(fixed_address);
 
+    let Ok(sender) = ctx.from.parse::<H160>() else {
+        return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
+    };
+
     let (from_address, to_address) = if ctx.direction {
         let Ok(to_address) = ctx.to.parse() else {
             return cross_boundary_error_return(result, format!("Invalid address {}", ctx.to));
         };
-        let Ok(from_address) = ctx.from.parse::<H160>() else {
-            return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
-        };
-        (from_address, to_address)
+        // Send EvmIn from contract address
+        (fixed_address, to_address)
     } else {
         let Ok(from_address) = ctx.from.parse() else {
             return cross_boundary_error_return(result, format!("Invalid address {}", ctx.from));
@@ -236,14 +238,10 @@ pub fn evm_try_create_and_sign_transfer_domain_tx(
     let nonce = if ctx.use_nonce {
         U256::from(ctx.nonce)
     } else {
-        let Ok(nonce) = SERVICES
-            .evm
-            .core
-            .get_next_account_nonce(from_address, state_root)
-        else {
+        let Ok(nonce) = SERVICES.evm.core.get_next_account_nonce(sender, state_root) else {
             return cross_boundary_error_return(
                 result,
-                format!("Could not get nonce for {from_address:x?}"),
+                format!("Could not get nonce for {sender:x?}"),
             );
         };
         nonce
