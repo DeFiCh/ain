@@ -3,6 +3,7 @@
 #include <masternodes/mn_rpc.h>
 #include <key_io.h>
 #include <logging.h>
+#include <clientversion.h>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -250,6 +251,11 @@ rust::string getStateInputJSON() {
 int getHighestBlock() {
     return pindexBestHeader ? pindexBestHeader->nHeight
                             : (int) ::ChainActive().Height(); // return current block count if no peers
+}
+
+// Returns Major, Minor, Revision in format: "X.Y.Z"
+rust::string getClientVersion() {
+    return rust::String(FormatVersion(CLIENT_VERSION));
 }
 
 int getCurrentHeight() {
