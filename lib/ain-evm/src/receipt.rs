@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::sync::Arc;
 
 use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3, TransactionV2};
@@ -111,11 +112,7 @@ impl ReceiptService {
         match &tx.transaction {
             TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => tx.gas_price(),
             TransactionV2::EIP1559(t) => {
-                if base_fee + t.max_priority_fee_per_gas <= t.max_fee_per_gas {
-                    base_fee + t.max_priority_fee_per_gas
-                } else {
-                    t.max_fee_per_gas
-                }
+                min(base_fee + t.max_priority_fee_per_gas, t.max_fee_per_gas)
             }
         }
     }
