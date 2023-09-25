@@ -417,7 +417,7 @@ public:
         consensus.FortCanningEpilogueHeight = 1244000;
         consensus.GrandCentralHeight = 1366000;
         consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = 1913900;
+        consensus.NextNetworkUpgradeHeight = 1912500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
