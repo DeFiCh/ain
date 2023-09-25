@@ -289,7 +289,7 @@ class VMMapTests(DefiTestFramework):
                 -8,
                 "Automatic detection not viable for input",
                 self.nodes[0].vmmap,
-                item[1]
+                item[1],
             )
 
     def vmmap_invalid_block_number_should_fail(self):
@@ -310,10 +310,7 @@ class VMMapTests(DefiTestFramework):
             VMMapType.Auto,
         )
         assert_raises_rpc_error(
-            -8,
-            "Automatic detection not viable for input",
-            self.nodes[0].vmmap,
-            "test"
+            -8, "Automatic detection not viable for input", self.nodes[0].vmmap, "test"
         )
 
     def vmmap_rollback_should_succeed(self):

@@ -4,10 +4,14 @@
 pragma solidity ^0.8.0;
 
 /**
+ * Note: DST20 public facing contract is just a facade that delegates all calls to it's intenral implementation
+ * through a proxy. This is an internal impl detail and may be changed by the node at any time, but 
+ * primarily used for seamless future updates.
+
  * Copied and modified from here: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Proxy.sol
  * following unstructured pattern
  */
-contract TransferDomain {
+contract DST20 {
 
     /**
      * @dev Storage slot with the address of the current implementation.

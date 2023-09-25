@@ -1,8 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
-    get_instrinics_registry, get_intrinsic_contract_v1, get_transferdomain_contract_v1,
-    get_transferdomain_proxy, FixedContract,
+    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract,
+    get_transfer_domain_contract, get_transfer_domain_v1_contract, FixedContract,
 };
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
@@ -10,8 +10,8 @@ use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
 use crate::contract::{
-    deploy_contract_tx, dst20_implementation, intrinsics_contract_v1, intrinsics_registry,
-    transfer_domain_contract_v1, transfer_domain_proxy,
+    deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
+    dst20_v1_deploy_info, transfer_domain_deploy_info, transfer_domain_v1_contract_deploy_info,
 };
 use crate::{
     backend::{EVMBackend, Vicinity},
@@ -193,15 +193,19 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = intrinsics_registry(get_intrinsic_contract_v1().fixed_address);
+            } = dfi_intrinsics_registry_deploy_info(get_dfi_intrinsics_v1_contract().fixed_address);
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
 
             // DFIIntrinsicsRegistry contract deployment TX
-            let (tx, receipt) =
-                deploy_contract_tx(get_instrinics_registry().contract.init_bytecode, &base_fee)?;
+            let (tx, receipt) = deploy_contract_tx(
+                get_dfi_instrinics_registry_contract()
+                    .contract
+                    .init_bytecode,
+                &base_fee,
+            )?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
 
@@ -210,7 +214,7 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = intrinsics_contract_v1(dvm_block_number, current_block_number)?;
+            } = dfi_intrinsics_v1_deploy_info(dvm_block_number, current_block_number)?;
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -218,7 +222,7 @@ impl EVMServices {
 
             // DFIIntrinsics contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
-                get_intrinsic_contract_v1().contract.init_bytecode,
+                get_dfi_intrinsics_v1_contract().contract.init_bytecode,
                 &base_fee,
             )?;
             all_transactions.push(Box::new(tx));
@@ -229,13 +233,13 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_contract_v1();
+            } = transfer_domain_v1_contract_deploy_info();
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
             let (tx, receipt) = deploy_contract_tx(
-                get_transferdomain_contract_v1().contract.init_bytecode,
+                get_transfer_domain_v1_contract().contract.init_bytecode,
                 &base_fee,
             )?;
 
@@ -247,14 +251,16 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_proxy(get_transferdomain_contract_v1().fixed_address)?;
+            } = transfer_domain_deploy_info(get_transfer_domain_v1_contract().fixed_address)?;
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
 
             // transfer domain proxy deployment TX
-            let (tx, receipt) =
-                deploy_contract_tx(get_transferdomain_proxy().contract.init_bytecode, &base_fee)?;
+            let (tx, receipt) = deploy_contract_tx(
+                get_transfer_domain_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
 
@@ -263,7 +269,7 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = dst20_implementation();
+            } = dst20_v1_deploy_info();
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
@@ -271,7 +277,7 @@ impl EVMServices {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = intrinsics_contract_v1(dvm_block_number, current_block_number)?;
+            } = dfi_intrinsics_v1_deploy_info(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
             executor.commit();
         }
@@ -476,7 +482,7 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                let FixedContract { contract, .. } = get_transferdomain_proxy();
+                let FixedContract { contract, .. } = get_transfer_domain_contract();
                 if account.code_hash == contract.codehash {
                     return Ok(true);
                 }

@@ -1,7 +1,8 @@
 use ain_contracts::{
-    get_dst20_implementation_contract, get_dst20_proxy, get_instrinics_registry,
-    get_intrinsic_contract_v1, get_reserved_contract, get_transferdomain_contract_v1,
-    get_transferdomain_proxy, Contract, FixedContract, IMPLEMENTATION_SLOT,
+    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract,
+    get_dfi_reserved_contract, get_dst20_contract, get_dst20_v1_contract,
+    get_transfer_domain_contract, get_transfer_domain_v1_contract, Contract, FixedContract,
+    IMPLEMENTATION_SLOT,
 };
 use anyhow::format_err;
 use ethbloom::Bloom;
@@ -91,35 +92,24 @@ pub struct DST20BridgeInfo {
     pub storage: Vec<(H256, H256)>,
 }
 
-pub fn transfer_domain_proxy(implementation_address: H160) -> Result<DeployContractInfo> {
+pub fn dfi_intrinsics_registry_deploy_info(v1_address: H160) -> DeployContractInfo {
     let FixedContract {
         contract,
         fixed_address,
-        ..
-    } = get_transferdomain_proxy();
-
-    Ok(DeployContractInfo {
-        address: fixed_address,
-        bytecode: Bytes::from(contract.runtime_bytecode),
-        storage: vec![(*IMPLEMENTATION_SLOT, h160_to_h256(implementation_address))],
-    })
-}
-
-pub fn dst20_implementation() -> DeployContractInfo {
-    let FixedContract {
-        contract,
-        fixed_address,
-    } = get_dst20_implementation_contract();
+    } = get_dfi_instrinics_registry_contract();
 
     DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
-        storage: Vec::new(),
+        storage: vec![(
+            get_uint_storage_index(H256::from_low_u64_be(0), 0),
+            h160_to_h256(v1_address),
+        )],
     }
 }
 
 /// Returns address, bytecode and storage with incremented count for the counter contract
-pub fn intrinsics_contract_v1(
+pub fn dfi_intrinsics_v1_deploy_info(
     dvm_block_number: u64,
     evm_block_number: U256,
 ) -> Result<DeployContractInfo> {
@@ -127,7 +117,7 @@ pub fn intrinsics_contract_v1(
         contract,
         fixed_address,
         ..
-    } = get_intrinsic_contract_v1();
+    } = get_dfi_intrinsics_v1_contract();
 
     Ok(DeployContractInfo {
         address: fixed_address,
@@ -143,28 +133,26 @@ pub fn intrinsics_contract_v1(
     })
 }
 
-pub fn intrinsics_registry(v1_address: H160) -> DeployContractInfo {
+pub fn transfer_domain_deploy_info(implementation_address: H160) -> Result<DeployContractInfo> {
     let FixedContract {
         contract,
         fixed_address,
-    } = get_instrinics_registry();
+        ..
+    } = get_transfer_domain_contract();
 
-    DeployContractInfo {
+    Ok(DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
-        storage: vec![(
-            get_uint_storage_index(H256::from_low_u64_be(0), 0),
-            h160_to_h256(v1_address),
-        )],
-    }
+        storage: vec![(*IMPLEMENTATION_SLOT, h160_to_h256(implementation_address))],
+    })
 }
 
 /// Returns transfer domain address, bytecode and null storage
-pub fn transfer_domain_contract_v1() -> DeployContractInfo {
+pub fn transfer_domain_v1_contract_deploy_info() -> DeployContractInfo {
     let FixedContract {
         contract,
         fixed_address,
-    } = get_transferdomain_contract_v1();
+    } = get_transfer_domain_v1_contract();
 
     DeployContractInfo {
         address: fixed_address,
@@ -173,16 +161,17 @@ pub fn transfer_domain_contract_v1() -> DeployContractInfo {
     }
 }
 
-pub fn dst20_contract(
+pub fn dst20_deploy_info(
     backend: &EVMBackend,
     address: H160,
     name: &str,
     symbol: &str,
 ) -> Result<DeployContractInfo> {
+    // TODO: Move checks outside of the deploy_info
     match backend.get_account(&address) {
         None => {}
         Some(account) => {
-            let Contract { codehash, .. } = get_reserved_contract();
+            let Contract { codehash, .. } = get_dfi_reserved_contract();
             if account.code_hash != codehash {
                 return Err(format_err!("Token {symbol} address is already in use").into());
             }
@@ -191,13 +180,13 @@ pub fn dst20_contract(
 
     let Contract {
         runtime_bytecode, ..
-    } = get_dst20_proxy();
+    } = get_dst20_contract();
     let storage = vec![
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
         (
             *IMPLEMENTATION_SLOT,
-            h160_to_h256(get_dst20_implementation_contract().fixed_address),
+            h160_to_h256(get_dst20_v1_contract().fixed_address),
         ),
     ];
 
@@ -206,6 +195,19 @@ pub fn dst20_contract(
         bytecode: Bytes::from(runtime_bytecode),
         storage,
     })
+}
+
+pub fn dst20_v1_deploy_info() -> DeployContractInfo {
+    let FixedContract {
+        contract,
+        fixed_address,
+    } = get_dst20_v1_contract();
+
+    DeployContractInfo {
+        address: fixed_address,
+        bytecode: Bytes::from(contract.runtime_bytecode),
+        storage: Vec::new(),
+    }
 }
 
 pub fn bridge_dst20_in(
@@ -218,9 +220,9 @@ pub fn bridge_dst20_in(
         .get_account(&contract)
         .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
 
-    let FixedContract { fixed_address, .. } = get_transferdomain_proxy();
+    let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
 
-    let Contract { codehash, .. } = get_dst20_proxy();
+    let Contract { codehash, .. } = get_dst20_contract();
     if account.code_hash != codehash {
         return Err(format_err!("DST20 token code is not valid").into());
     }
@@ -254,7 +256,7 @@ pub fn bridge_dst20_out(
         .get_account(&contract)
         .ok_or_else(|| format_err!("DST20 token address is not a contract"))?;
 
-    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+    let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
 
     let Contract { codehash, .. } = get_dst20_contract();
     if account.code_hash != codehash {
@@ -284,7 +286,7 @@ pub fn dst20_allowance(
     from: H160,
     amount: U256,
 ) -> Vec<(H256, H256)> {
-    let FixedContract { fixed_address, .. } = get_transferdomain_contract();
+    let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
 
     // allowance has slot 1
     let allowance_storage_index = get_address_storage_index(
@@ -306,7 +308,7 @@ pub fn bridge_dfi(
     amount: U256,
     direction: TransferDirection,
 ) -> Result<Vec<(H256, H256)>> {
-    let FixedContract { fixed_address, .. } = get_transferdomain_proxy();
+    let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
 
     let total_supply_index = H256::from_low_u64_be(1);
     let total_supply =
@@ -327,7 +329,7 @@ pub fn bridge_dfi(
 pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
-    } = get_reserved_contract();
+    } = get_dfi_reserved_contract();
     let addresses = (0..1024)
         .map(|token_id| ain_contracts::dst20_address_from_token_id(token_id).unwrap())
         .collect::<Vec<H160>>();
@@ -346,7 +348,7 @@ pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
 pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
-    } = get_reserved_contract();
+    } = get_dfi_reserved_contract();
     let addresses = (0..128)
         .map(|token_id| ain_contracts::intrinsics_address_from_id(token_id).unwrap())
         .collect::<Vec<H160>>();
@@ -372,7 +374,7 @@ pub fn dst20_deploy_contract_tx(
         gas_limit: U256::from(u64::MAX),
         action: TransactionAction::Create,
         value: U256::zero(),
-        input: get_transferdomain_proxy().contract.init_bytecode,
+        input: get_transfer_domain_contract().contract.init_bytecode,
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })

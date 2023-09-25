@@ -1,4 +1,4 @@
-use ain_contracts::{get_transferdomain_proxy, FixedContract};
+use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
@@ -13,8 +13,8 @@ use crate::{
     backend::EVMBackend,
     bytes::Bytes,
     contract::{
-        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_contract,
-        dst20_deploy_contract_tx, DST20BridgeInfo, DeployContractInfo,
+        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
+        dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
@@ -276,7 +276,7 @@ impl<'backend> AinExecutor<'backend> {
                     contract,
                     fixed_address,
                     ..
-                } = get_transferdomain_proxy();
+                } = get_transfer_domain_contract();
                 let mismatch = match self.backend.get_account(&fixed_address) {
                     None => true,
                     Some(account) => account.code_hash != contract.codehash,
@@ -403,7 +403,7 @@ impl<'backend> AinExecutor<'backend> {
                     address,
                     bytecode,
                     storage,
-                } = dst20_contract(self.backend, address, &name, &symbol)?;
+                } = dst20_deploy_info(self.backend, address, &name, &symbol)?;
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
