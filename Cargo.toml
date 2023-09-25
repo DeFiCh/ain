@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "ain-*",
-    "cli",
-    "labs-grpc2",
+    "lib/ain-*",
+    "lib/cli",
+    "lib/labs-grpc2",
 ]
 
 default-members = [
-    "ain-*",
+    "lib/ain-*",
 ]
 
 resolver = "2"

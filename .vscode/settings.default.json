@@ -12,7 +12,7 @@
     ],
     "rust-analyzer.workspace.symbol.search.kind": "all_symbols",
     "rust-analyzer.linkedProjects": [
-        "./lib/Cargo.toml"
+        "./Cargo.toml"
     ],
     "[python]": {
         "editor.defaultFormatter": "ms-python.autopep8"
@@ -20,5 +20,5 @@
     "cmake.configureOnOpen": false,
     "cmake.configureOnEdit": false,
     "cmake.automaticReconfigure": false,
-    "cmake.ignoreCMakeListsMissing": true,
+    "cmake.ignoreCMakeListsMissing": true
 }
