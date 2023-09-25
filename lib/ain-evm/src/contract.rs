@@ -143,7 +143,7 @@ pub fn transfer_domain_deploy_info(implementation_address: H160) -> Result<Deplo
     Ok(DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
-        storage: vec![(*IMPLEMENTATION_SLOT, h160_to_h256(implementation_address))],
+        storage: vec![(IMPLEMENTATION_SLOT, h160_to_h256(implementation_address))],
     })
 }
 
@@ -185,7 +185,7 @@ pub fn dst20_deploy_info(
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
         (
-            *IMPLEMENTATION_SLOT,
+            IMPLEMENTATION_SLOT,
             h160_to_h256(get_dst20_v1_contract().fixed_address),
         ),
     ];
