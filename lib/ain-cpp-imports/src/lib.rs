@@ -89,7 +89,7 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getClientVersion() -> String {
-        unimplemented("{}", UNIMPL_MSG)
+        unimplemented!("{}", UNIMPL_MSG)
     }
 }
 
