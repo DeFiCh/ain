@@ -43,7 +43,7 @@ impl From<Receipt> for ReceiptResult {
             block_number: b.block_number,
             contract_address: b.contract_address,
             cumulative_gas_used: b.cumulative_gas,
-            effective_gas_price: U256::default(),
+            effective_gas_price: b.effective_gas_price,
             from: b.from,
             gas_used: data.used_gas,
             logs: {

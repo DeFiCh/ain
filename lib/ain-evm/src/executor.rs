@@ -130,6 +130,7 @@ impl<'backend> AinExecutor<'backend> {
         signed_tx: &SignedTx,
         gas_limit: U256,
         prepay_gas: U256,
+        base_fee: Option<U256>,
     ) -> (TxResponse, ReceiptV3) {
         self.backend.update_vicinity_from_tx(signed_tx);
         trace!(
@@ -187,7 +188,10 @@ impl<'backend> AinExecutor<'backend> {
                 signed_tx.sender,
                 signed_tx.gas_limit(),
                 U256::from(used_gas),
-                signed_tx.gas_price(),
+                match base_fee {
+                    Some(base_fee) => signed_tx.effective_gas_price(base_fee),
+                    None => signed_tx.gas_price(),
+                },
             );
         }
 
@@ -228,8 +232,12 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
-                let (tx_response, receipt) =
-                    self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas);
+                let (tx_response, receipt) = self.exec(
+                    &signed_tx,
+                    signed_tx.gas_limit(),
+                    prepay_gas,
+                    Some(base_fee),
+                );
                 debug!(
                     "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
@@ -293,7 +301,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.commit();
                 }
 
-                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero(), None);
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] Transfer domain failed VM execution {:?}",
@@ -349,7 +357,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.update_storage(contract_address, allowance)?;
                 self.commit();
 
-                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero());
+                let (tx_response, receipt) = self.exec(&signed_tx, U256::MAX, U256::zero(), None);
                 if !tx_response.exit_reason.is_succeed() {
                     debug!(
                         "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {}",
