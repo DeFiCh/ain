@@ -155,7 +155,11 @@ impl EVMBackend {
         debug!(target: "backend", "[deduct_prepay_gas] Deducting {:#x} from {:#x}", prepay_gas, sender);
 
         let basic = self.basic(sender);
-        let balance = basic.balance.saturating_sub(prepay_gas);
+        let balance = basic.balance.checked_sub(prepay_gas).ok_or_else(|| {
+            BackendError::DeductPrepayGasFailed(String::from(
+                "failed checked sub prepay gas with account balance",
+            ))
+        })?;
         let new_basic = Basic { balance, ..basic };
 
         self.apply(sender, Some(new_basic), None, Vec::new(), false)
@@ -171,16 +175,23 @@ impl EVMBackend {
         used_gas: U256,
         base_fee: U256,
     ) -> Result<()> {
-        let refund_gas = signed_tx.gas_limit().saturating_sub(used_gas);
+        let refund_gas = signed_tx.gas_limit().checked_sub(used_gas).ok_or_else(|| {
+            BackendError::RefundUnusedGasFailed(String::from(
+                "failed checked sub used gas with gas limit",
+            ))
+        })?;
         let refund_amount = calculate_gas_fee(signed_tx, refund_gas, base_fee)?;
 
         debug!(target: "backend", "[refund_unused_gas] Refunding {:#x} to {:#x}", refund_amount, signed_tx.sender);
 
         let basic = self.basic(signed_tx.sender);
-        let new_basic = Basic {
-            balance: basic.balance.saturating_add(refund_amount),
-            ..basic
-        };
+        let balance = basic.balance.checked_add(refund_amount).ok_or_else(|| {
+            BackendError::RefundUnusedGasFailed(String::from(
+                "failed checked add refund amount with account balance",
+            ))
+        })?;
+
+        let new_basic = Basic { balance, ..basic };
 
         self.apply(signed_tx.sender, Some(new_basic), None, Vec::new(), false)
             .map_err(|e| BackendError::RefundUnusedGasFailed(e.to_string()))?;
