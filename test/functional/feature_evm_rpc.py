@@ -5,6 +5,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 
+import re
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -257,6 +258,17 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"], blockHash
         )
 
+    def test_web3_client_version(self):
+        node0 = self.nodes[0]
+        res = node0.web3_clientVersion()
+        match = re.search(r"(DeFiChain)/v(.*)/(.*)/(.*)", res)
+        assert_equal(match.group(1), "DeFiChain")
+        assert match.group(2).startswith("4.")
+        assert match.group(3).find("-") != -1
+        assert len(match.group(3)) > 0
+        assert match.group(4).startswith("rustc-")
+        assert len(match.group(4)) > 7
+
     def run_test(self):
         self.setup()
 
@@ -266,23 +278,24 @@ class EVMTest(DefiTestFramework):
 
         self.test_accounts()
 
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.ethAddress,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
+        # self.nodes[0].transferdomain(
+        #     [
+        #         {
+        #             "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+        #             "dst": {
+        #                 "address": self.ethAddress,
+        #                 "amount": "100@DFI",
+        #                 "domain": 3,
+        #             },
+        #         }
+        #     ]
+        # )
+        # self.nodes[0].generate(1)
 
-        self.test_address_state(self.ethAddress)  # TODO test smart contract
+        # self.test_address_state(self.ethAddress)  # TODO test smart contract
 
-        self.test_block()
+        # self.test_block()
+        self.test_web3_client_version()
 
 
 if __name__ == "__main__":

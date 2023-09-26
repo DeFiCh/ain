@@ -34,7 +34,7 @@ impl MetachainWeb3RPCServer for MetachainWeb3RPCModule {
         let arch = std::env::consts::ARCH;
         let rust_version = rustc_version_runtime::version();
         Ok(format!(
-            "Metachain/{}/{}-{}/rustc{}",
+            "DeFiChain/{}/{}-{}/rustc-{}",
             version, os, arch, rust_version
         ))
     }

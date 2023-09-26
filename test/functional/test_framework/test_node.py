@@ -282,6 +282,8 @@ class TestNode:
         # debug
         "debug_feeEstimate",
         "debug_logqueues",
+        # web3
+        "web3_clientVersion",
     }
 
     def get_genesis_keys(self):
