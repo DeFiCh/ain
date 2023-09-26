@@ -36,7 +36,7 @@ impl From<SignedTx> for EthTransactionInfo {
             from: format_address(signed_tx.sender),
             to: signed_tx.to().map(format_address),
             gas: format_u256(signed_tx.gas_limit()),
-            gas_price: None,
+            gas_price: format_u256(signed_tx.gas_price()),
             value: format_u256(signed_tx.value()),
             input,
             nonce: format_u256(signed_tx.nonce()),

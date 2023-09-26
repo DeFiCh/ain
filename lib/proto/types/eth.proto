@@ -10,7 +10,7 @@ message EthTransactionInfo {
     optional string blockNumber = 2; // The block number. null when its pending block.
     string from = 3; // The address from which the transaction is sent
     string gas = 4; // The integer of gas provided for the transaction execution.
-    optional string gasPrice = 5; // The integer of gas price used for each paid gas encoded as hexadecimal
+    string gasPrice = 5; // The integer of gas price used for each paid gas encoded as hexadecimal
     string hash = 6; // Hash of the transaction.
     string input = 7; // The data sent along with the transaction.
     string nonce = 8; // The integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.

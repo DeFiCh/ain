@@ -514,7 +514,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     transaction_info.block_number = Some(format_u256(receipt.block_number));
                     transaction_info.transaction_index =
                         Some(format_u256(U256::from(receipt.tx_index)));
-                    transaction_info.gas_price = Some(format_u256(receipt.effective_gas_price))
+                    transaction_info.gas_price = format_u256(receipt.effective_gas_price)
                 }
 
                 Ok(Some(transaction_info))
