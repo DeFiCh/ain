@@ -257,9 +257,10 @@ impl SignedTx {
 
     pub fn effective_gas_price(&self, base_fee: U256) -> U256 {
         match &self.transaction {
-            TransactionV2::Legacy(_) | TransactionV2::EIP2930(_) => self.gas_price(),
-            TransactionV2::EIP1559(t) => {
-                base_fee + min(t.max_priority_fee_per_gas, t.max_fee_per_gas - base_fee)
+            TransactionV2::Legacy(tx) => tx.gas_price,
+            TransactionV2::EIP2930(tx) => tx.gas_price,
+            TransactionV2::EIP1559(tx) => {
+                min(tx.max_fee_per_gas, tx.max_priority_fee_per_gas + base_fee)
             }
         }
     }

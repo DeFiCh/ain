@@ -500,11 +500,14 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
 ) -> ffi::ValidateTxCompletion {
     debug!("[evm_unsafe_try_prevalidate_raw_tx_in_q]");
     unsafe {
-        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, true) {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_tx(raw_tx, queue_id, true, U256::zero())
+        {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -521,7 +524,6 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
-                        higher_nonce,
                     },
                 )
             }
@@ -564,19 +566,22 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
     raw_tx: &str,
 ) -> ffi::ValidateTxCompletion {
     debug!("[evm_unsafe_try_validate_raw_tx_in_q]");
-    match SERVICES.evm.verify_tx_fees(raw_tx) {
-        Ok(()) => (),
+    let block_fee = match SERVICES.evm.verify_tx_fees(raw_tx) {
+        Ok(fee) => fee,
         Err(e) => {
             debug!("evm_try_validate_raw_tx failed with error: {e}");
             return cross_boundary_error_return(result, e.to_string());
         }
-    }
+    };
     unsafe {
-        match SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id, false) {
+        match SERVICES
+            .evm
+            .core
+            .validate_raw_tx(raw_tx, queue_id, false, block_fee)
+        {
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -593,7 +598,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
-                        higher_nonce,
                     },
                 )
             }

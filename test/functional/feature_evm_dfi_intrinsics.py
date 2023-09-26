@@ -87,7 +87,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             encoding="utf8",
         ).read()
         abi = open(
-            get_solc_artifact_path("dfi_intrinsics", "abi.json"),
+            get_solc_artifact_path("dfi_intrinsics_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
