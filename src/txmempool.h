@@ -108,7 +108,7 @@ private:
 
     // EVM related data
     uint64_t evmPrePayFee{};
-    uint64_t evmGasUsed{};
+    arith_uint256 evmGasUsed{};
     EvmAddressWithNonce evmAddressAndNonce;
     CustomTxType customTxType{CustomTxType::None};
 
@@ -135,8 +135,8 @@ public:
     [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
     void SetEVMPrePayFee(const uint64_t prePayFee) { evmPrePayFee = prePayFee; }
     [[nodiscard]] uint64_t GetEVMPrePayFee() const { return evmPrePayFee; }
-    void SetEVMGasUsed(const uint64_t gasUsed) { evmGasUsed = gasUsed; }
-    [[nodiscard]] uint64_t GetEVMGasUsed() const { return evmGasUsed; }
+    void SetEVMGasUsed(const arith_uint256 gasUsed) { evmGasUsed = gasUsed; }
+    [[nodiscard]] arith_uint256 GetEVMGasUsed() const { return evmGasUsed; }
     void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }
     [[nodiscard]] const EvmAddressWithNonce& GetEVMAddrAndNonce() const { return evmAddressAndNonce; }
 

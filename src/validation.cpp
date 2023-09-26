@@ -949,6 +949,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
             entry.SetEVMPrePayFee(prePayFee);
+            entry.SetEVMGasUsed(txResult.used_gas);
 
             if (!pool.checkAddressNonceAndFee(entry)) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");

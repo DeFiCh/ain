@@ -331,7 +331,7 @@ impl EVMCoreService {
             .tx_queues
             .get_total_gas_used_in(queue_id)
             .unwrap_or_default();
-        res.to_string()
+        format!("{:064x}", res)
     }
 
     /// Validates a raw transfer domain tx.
