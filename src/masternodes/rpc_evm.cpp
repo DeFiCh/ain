@@ -75,7 +75,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
 
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
-    const auto from = fromEth.GetHex();
+    const auto from = HexStr(fromEth);
 
     CKey key;
     if (!pwallet->GetKey(keyId, key)) {
@@ -108,7 +108,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        to = toEth.GetHex();
+        to = HexStr(toEth);
     }
 
     rust::Vec<uint8_t> input{};

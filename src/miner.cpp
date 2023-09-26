@@ -1080,7 +1080,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
     if (pubKey.IsCompressed()) {
         pubKey.Decompress();
     }
-    const auto evmBeneficiary = pubKey.GetEthID().GetHex();
+    const auto evmBeneficiary = HexStr(pubKey.GetEthID());
     auto res = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey, blockTime, evmBeneficiary);
     if (!res) {
         LogPrintf("Error: WalletStaker: %s\n", res.msg);

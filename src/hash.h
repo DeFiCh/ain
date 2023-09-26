@@ -133,7 +133,6 @@ inline uint160 EthHash160(const std::vector<unsigned char>& vch) {
     sha3_256_safe(vch, result);
     const size_t ADDRESS_OFFSET{12};
     std::vector<unsigned char> output(result.begin() + ADDRESS_OFFSET, result.end());
-    std::reverse(output.begin(), output.end());
     return uint160(output);
 }
 

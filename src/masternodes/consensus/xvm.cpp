@@ -203,7 +203,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if destination address is a contract
-            auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress->GetHex(), evmQueueId);
+            auto isSmartContract = evm_is_smart_contract_in_q(result, HexStr(*toAddress), evmQueueId);
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -267,7 +267,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if source address is a contract
-            auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress->GetHex(), evmQueueId);
+            auto isSmartContract = evm_is_smart_contract_in_q(result, HexStr(*fromAddress), evmQueueId);
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }

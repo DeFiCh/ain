@@ -174,6 +174,7 @@ class EVMTest(DefiTestFramework):
         # Import Eth private key for:
         # Bech32: bcrt1q25m0h24ef4njmjznwwe85w99cn78k04te6w3qt
         # Eth: 0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E
+        eth_address_import = "0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E"
         self.nodes[0].importprivkey(
             "56c679ab38001e7d427e3fbc4363fcd2100e74d8ac650a2d2ff3a69254d4dae4"
         )
@@ -186,9 +187,7 @@ class EVMTest(DefiTestFramework):
             bech32_info["pubkey"],
             "02ed3add70f9d3fde074bc74310d5684f5e5d2836106a8286aef1324f9791658da",
         )
-        eth_info = self.nodes[0].getaddressinfo(
-            "0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E"
-        )
+        eth_info = self.nodes[0].getaddressinfo(eth_address_import)
         assert_equal(eth_info["ismine"], True)
         assert_equal(eth_info["solvable"], True)
         assert_equal(
@@ -222,18 +221,18 @@ class EVMTest(DefiTestFramework):
         )
 
         # Dump Eth address and import into node 1
-        priv_key = self.nodes[0].dumpprivkey(
-            "0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E"
-        )
+        priv_key = self.nodes[0].dumpprivkey(eth_address_import)
         assert_equal(
             priv_key, "56c679ab38001e7d427e3fbc4363fcd2100e74d8ac650a2d2ff3a69254d4dae4"
         )
         self.nodes[1].importprivkey(priv_key)
 
+        # Check that the script pubkey matches the order of the address
+        pubkey = self.nodes[1].getaddressinfo(eth_address_import)["scriptPubKey"][4:]
+        assert_equal(pubkey, eth_address_import[2:].lower())
+
         # Check key is now present in node 1
-        result = self.nodes[1].getaddressinfo(
-            "0xe5BBbf6eEDc1F217D72DD97E23049ab4B21AB84E"
-        )
+        result = self.nodes[1].getaddressinfo(eth_address_import)
         assert_equal(result["ismine"], True)
 
         # Check creation and private key dump of new Eth key
