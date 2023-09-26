@@ -413,8 +413,8 @@ class EVMTest(DefiTestFramework):
 
         assert_equal(receipt["status"], 0)  # tx should have failed
         assert_equal(
-            self.proxy_contract.functions.getCount().call(), 1
-        )  # fallback function must have been called
+            self.proxy_contract.functions.getCount().call(), 0
+        )  # fallback function should not have been called
         assert_equal(
             self.node.w3.eth.get_balance(self.proxy_contract.address), 0
         )  # proxy balance should be 0
@@ -434,15 +434,15 @@ class EVMTest(DefiTestFramework):
 
         self.should_deploy_contract_less_than_1KB()
 
-        # self.should_contract_get_set()
+        self.should_contract_get_set()
 
-        # self.failed_tx_should_increment_nonce()
+        self.failed_tx_should_increment_nonce()
 
-        # self.should_deploy_contract_with_different_sizes()
+        self.should_deploy_contract_with_different_sizes()
 
-        # self.fail_deploy_contract_extremely_large_runtime_code()
+        self.fail_deploy_contract_extremely_large_runtime_code()
 
-        # self.fail_deploy_contract_extremely_large_init_code()
+        self.fail_deploy_contract_extremely_large_init_code()
 
         self.non_payable_proxied_contract()
 
