@@ -278,23 +278,23 @@ class EVMTest(DefiTestFramework):
 
         self.test_accounts()
 
-        # self.nodes[0].transferdomain(
-        #     [
-        #         {
-        #             "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-        #             "dst": {
-        #                 "address": self.ethAddress,
-        #                 "amount": "100@DFI",
-        #                 "domain": 3,
-        #             },
-        #         }
-        #     ]
-        # )
-        # self.nodes[0].generate(1)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
 
-        # self.test_address_state(self.ethAddress)  # TODO test smart contract
+        self.test_address_state(self.ethAddress)  # TODO test smart contract
 
-        # self.test_block()
+        self.test_block()
         self.test_web3_client_version()
 
 
