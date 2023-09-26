@@ -46,5 +46,6 @@ pub mod ffi {
         fn getAttributeDefaults() -> Attributes;
         fn CppLogPrintf(message: String);
         fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
+        fn getClientVersion() -> String;
     }
 }

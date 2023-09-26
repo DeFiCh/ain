@@ -88,6 +88,9 @@ mod ffi {
     pub fn getDST20Tokens(_mnview_ptr: usize) -> Vec<DST20Token> {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getClientVersion() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -95,6 +98,10 @@ pub use ffi::Attributes;
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
     Ok(chain_id)
+}
+
+pub fn get_client_version() -> String {
+    ffi::getClientVersion()
 }
 
 pub fn is_mining() -> Result<bool, Box<dyn Error>> {
