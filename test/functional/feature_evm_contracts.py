@@ -63,6 +63,24 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(2)
 
+        self.node = self.nodes[0]
+
+        self.evm_key_pair = EvmKeyPair.from_node(self.node)
+
+        self.node.transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "50@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+
     def generate_contract(self, node: TestNode, num_functions: int, contract_name: str):
         contract_start = f"""
         pragma solidity ^0.8.0;
@@ -421,27 +439,9 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        self.node = self.nodes[0]
-
-        self.evm_key_pair = EvmKeyPair.from_node(self.node)
-
-        self.node.transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.evm_key_pair.address,
-                        "amount": "50@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.node.generate(1)
-
         self.should_deploy_contract_less_than_1KB()
 
-        self.start_height = self.nodes[0].getblockcount()
+        self.start_height = self.nodes[0].getblockcount() # start height after contract deployment
 
         self.should_contract_get_set()
 
