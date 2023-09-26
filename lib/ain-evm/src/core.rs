@@ -28,11 +28,40 @@ use crate::{
 
 pub type XHash = String;
 
+struct TxValidationCache {
+    cache: Mutex<HashMap<(H256, String, bool), ValidateTxInfo>>,
+}
+
+impl TxValidationCache {
+    pub fn new() -> Self {
+        Self {
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn get(&self, key: &(H256, String, bool)) -> Option<ValidateTxInfo> {
+        let cache = self.cache.lock().unwrap();
+        cache.get(key).cloned()
+    }
+
+    pub fn set(&self, key: (H256, String, bool), value: ValidateTxInfo) -> ValidateTxInfo {
+        let mut cache = self.cache.lock().unwrap();
+        cache.insert(key, value.clone());
+        value
+    }
+
+    pub fn clear(&self) {
+        let mut cache = self.cache.lock().unwrap();
+        cache.clear()
+    }
+}
+
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
+    tx_validation_cache: TxValidationCache,
 }
 pub struct EthCallArgs<'a> {
     pub caller: Option<H160>,
@@ -47,6 +76,7 @@ pub struct EthCallArgs<'a> {
     pub transaction_type: Option<U256>,
 }
 
+#[derive(Clone, Debug)]
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
@@ -68,6 +98,7 @@ impl EVMCoreService {
             trie_store: Arc::new(TrieDBStore::restore()),
             storage,
             nonce_store: Mutex::new(HashMap::new()),
+            tx_validation_cache: TxValidationCache::new(),
         }
     }
 
@@ -84,6 +115,7 @@ impl EVMCoreService {
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
             nonce_store: Mutex::new(HashMap::new()),
+            tx_validation_cache: TxValidationCache::new(),
         };
         let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
             &handler.trie_store,
@@ -225,14 +257,21 @@ impl EVMCoreService {
         pre_validate: bool,
         block_fee: U256,
     ) -> Result<ValidateTxInfo> {
+        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+
+        if let Some(tx_info) =
+            self.tx_validation_cache
+                .get(&(state_root, String::from(tx), pre_validate))
+        {
+            return Ok(tx_info);
+        }
+
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
         let signed_tx = SignedTx::try_from(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
-
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
-        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         let mut backend = self.get_backend(state_root)?;
 
@@ -286,10 +325,13 @@ impl EVMCoreService {
                 .into());
             }
 
-            return Ok(ValidateTxInfo {
-                signed_tx,
-                prepay_fee,
-            });
+            return Ok(self.tx_validation_cache.set(
+                (state_root, String::from(tx), pre_validate),
+                ValidateTxInfo {
+                    signed_tx,
+                    prepay_fee,
+                },
+            ));
         } else {
             // Validate tx prepay fees with account balance
             let balance = backend.get_balance(&signed_tx.sender);
@@ -320,10 +362,13 @@ impl EVMCoreService {
             }
         }
 
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-        })
+        Ok(self.tx_validation_cache.set(
+            (state_root, String::from(tx), pre_validate),
+            ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+            },
+        ))
     }
 
     /// Validates a raw transfer domain tx.
@@ -347,23 +392,35 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_transferdomain_tx(&self, tx: &str, queue_id: u64) -> Result<()> {
+    pub unsafe fn validate_raw_transferdomain_tx(
+        &self,
+        tx: &str,
+        queue_id: u64,
+    ) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
-        );
-        let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!(
-            "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
-            signed_tx
         );
 
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!(
             "[validate_raw_transferdomain_tx] state_root : {:#?}",
             state_root
+        );
+
+        if let Some(tx_info) = self
+            .tx_validation_cache
+            .get(&(state_root, String::from(tx), true))
+        {
+            return Ok(tx_info);
+        }
+
+        let signed_tx = SignedTx::try_from(tx)
+            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+        debug!(
+            "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
+            signed_tx
         );
 
         let backend = self.get_backend(state_root)?;
@@ -416,7 +473,13 @@ impl EVMCoreService {
             }
         }
 
-        Ok(())
+        Ok(self.tx_validation_cache.set(
+            (state_root, String::from(tx), true),
+            ValidateTxInfo {
+                signed_tx,
+                prepay_fee: U256::zero(),
+            },
+        ))
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
@@ -511,6 +574,10 @@ impl EVMCoreService {
             "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
         );
         Ok(nonce)
+    }
+
+    pub fn clear_transaction_cache(&self) {
+        self.tx_validation_cache.clear()
     }
 }
 

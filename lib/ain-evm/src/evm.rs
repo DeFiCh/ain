@@ -9,16 +9,14 @@ use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
-use crate::contract::{
-    deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
-    dst20_v1_deploy_info, transfer_domain_deploy_info, transfer_domain_v1_contract_deploy_info,
-};
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
     contract::{
-        get_dst20_migration_txs, reserve_dst20_namespace, reserve_intrinsics_namespace,
-        DeployContractInfo,
+        deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
+        dst20_v1_deploy_info, get_dst20_migration_txs, reserve_dst20_namespace,
+        reserve_intrinsics_namespace, transfer_domain_deploy_info,
+        transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
     executor::AinExecutor,
@@ -391,6 +389,7 @@ impl EVMServices {
         }
         self.core.tx_queues.remove(queue_id);
         self.core.clear_account_nonce();
+        self.core.clear_transaction_cache();
 
         Ok(())
     }

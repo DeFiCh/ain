@@ -643,7 +643,7 @@ pub fn evm_unsafe_try_validate_transferdomain_tx_in_q(
             .core
             .validate_raw_transferdomain_tx(raw_tx, queue_id)
         {
-            Ok(()) => cross_boundary_success(result),
+            Ok(_) => cross_boundary_success(result),
             Err(e) => {
                 debug!("validate_raw_transferdomain_tx failed with error: {e}");
                 cross_boundary_error_return(result, e.to_string())
