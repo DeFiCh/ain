@@ -499,11 +499,8 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_transaction_by_hash(&hash)
             .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
-                let signed_tx: SignedTx = tx.try_into().map_err(to_jsonrpsee_custom_error)?;
-                let mut transaction_info: EthTransactionInfo = signed_tx
-                    .clone()
-                    .try_into()
-                    .map_err(to_jsonrpsee_custom_error)?;
+                let mut transaction_info: EthTransactionInfo =
+                    tx.try_into().map_err(to_jsonrpsee_custom_error)?;
 
                 // TODO: Improve efficiency by indexing the block_hash, block_number, and transaction_index fields.
                 // Temporary workaround: Makes an additional call to get_receipt where these fields are available.
@@ -517,20 +514,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     transaction_info.block_number = Some(format_u256(receipt.block_number));
                     transaction_info.transaction_index =
                         Some(format_u256(U256::from(receipt.tx_index)));
-                    transaction_info.gas_price = Some(format_u256(
-                        signed_tx.effective_gas_price(
-                            self.handler
-                                .storage
-                                .get_block_by_hash(&receipt.block_hash)
-                                .map_err(to_jsonrpsee_custom_error)?
-                                .ok_or(to_jsonrpsee_custom_error(format!(
-                                    "Block with hash {} not found",
-                                    receipt.block_hash
-                                )))?
-                                .header
-                                .base_fee,
-                        ),
-                    ))
+                    transaction_info.gas_price = Some(format_u256(receipt.effective_gas_price))
                 }
 
                 Ok(Some(transaction_info))
