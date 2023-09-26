@@ -8,10 +8,13 @@ pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 pub const DST20_ADDR_PREFIX_BYTE: u8 = 0xff;
 pub const INTRINSICS_ADDR_PREFIX_BYTE: u8 = 0xdf;
+
+// Impl slots used for proxies: 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
 pub const IMPLEMENTATION_SLOT: H256 = H256([
     0x36, 0x08, 0x94, 0xa1, 0x3b, 0xa1, 0xa3, 0x21, 0x06, 0x67, 0xc8, 0x28, 0x49, 0x2d, 0xb9, 0x8d,
     0xca, 0x3e, 0x20, 0x76, 0xcc, 0x37, 0x35, 0xa9, 0x20, 0xa3, 0xca, 0x50, 0x5d, 0x38, 0x2b, 0xbc,
-]); // 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+]);
+
 macro_rules! solc_artifact_path {
     ($project_name:literal, $artifact:literal) => {
         concat!(
@@ -80,7 +83,6 @@ pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) 
 
 pub fn generate_intrinsic_addr(prefix_byte: u8, suffix_num: u64) -> Result<H160> {
     let s = format!("{prefix_byte:x}{suffix_num:0>38x}");
-
     Ok(H160::from_str(&s)?)
 }
 
