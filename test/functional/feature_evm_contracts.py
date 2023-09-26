@@ -345,6 +345,89 @@ class EVMTest(DefiTestFramework):
             signed.rawTransaction,
         )
 
+    def non_payable_proxied_contract(self):
+        abi, bytecode, _ = EVMContract.from_file(
+            "NonPayableFallback.sol", "NonPayableFallback"
+        ).compile()
+        compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.node.generate(1)
+
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        impl_address = receipt["contractAddress"]
+
+        proxy_abi, bytecode, _ = EVMContract.from_file("Proxy.sol", "Proxy").compile()
+        compiled = self.node.w3.eth.contract(abi=proxy_abi, bytecode=bytecode)
+
+        tx = compiled.constructor(impl_address).build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.node.generate(1)
+
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        self.proxy_contract = self.node.w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        balance_before = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        call_tx = self.node.w3.eth.send_transaction(
+            {
+                "to": self.proxy_contract.address,
+                "from": self.evm_key_pair.address,
+                "data": "0xffffffffffffffff",
+                "value": self.node.w3.to_hex(self.node.w3.to_wei("1", "ether")),
+            }
+        )
+        self.node.generate(1)
+
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(call_tx)
+
+        assert_equal(receipt["status"], 0)  # tx should have failed
+        assert_equal(
+            self.proxy_contract.functions.getCount().call(), 0
+        )  # fallback function should not have been called
+        assert_equal(
+            self.node.w3.eth.get_balance(self.proxy_contract.address), 0
+        )  # proxy balance should be 0
+        assert_equal(
+            self.node.w3.eth.get_balance(impl_address), 0
+        )  # implementation balance should be 0
+
+        balance_after = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        assert_equal(
+            balance_before - balance_after,
+            receipt["gasUsed"] * receipt["effectiveGasPrice"],
+        )
+
     def run_test(self):
         self.setup()
 
@@ -361,6 +444,8 @@ class EVMTest(DefiTestFramework):
         self.fail_deploy_contract_extremely_large_runtime_code()
 
         self.fail_deploy_contract_extremely_large_init_code()
+
+        self.non_payable_proxied_contract()
 
 
 if __name__ == "__main__":
