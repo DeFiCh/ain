@@ -326,6 +326,14 @@ impl EVMCoreService {
         })
     }
 
+    pub unsafe fn get_total_gas_used(&self, queue_id: u64) -> String {
+        let res = self
+            .tx_queues
+            .get_total_gas_used_in(queue_id)
+            .unwrap_or_default();
+        res.to_string()
+    }
+
     /// Validates a raw transfer domain tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:

@@ -1187,6 +1187,17 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
     )
 }
 
+pub fn evm_try_get_total_gas_used(result: &mut ffi::CrossBoundaryResult, queue_id: u64) -> String {
+    unsafe { cross_boundary_success_return(result, SERVICES.evm.core.get_total_gas_used(queue_id)) }
+}
+
+pub fn evm_try_get_block_limit(result: &mut ffi::CrossBoundaryResult) -> u64 {
+    match SERVICES.evm.get_block_limit() {
+        Ok(block_limit) => cross_boundary_success_return(result, block_limit),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

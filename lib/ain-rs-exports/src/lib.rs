@@ -262,5 +262,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         ) -> TxSenderInfo;
+        fn evm_try_get_block_limit(result: &mut CrossBoundaryResult) -> u64;
+        fn evm_try_get_total_gas_used(result: &mut CrossBoundaryResult, queue_id: u64) -> String;
     }
 }
