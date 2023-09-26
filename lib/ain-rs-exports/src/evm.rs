@@ -14,7 +14,7 @@ use ain_evm::{
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
-use ethereum_types::{H160, U256};
+use ethereum_types::{H160, H256, U256};
 use log::debug;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
@@ -1157,6 +1157,7 @@ pub fn evm_is_smart_contract_in_q(
         }
     }
 }
+
 pub fn evm_try_get_tx_sender_info_from_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     raw_tx: &str,
@@ -1169,7 +1170,16 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "nonce value overflow");
     };
 
-    let Ok(prepay_fee) = calculate_prepay_gas_fee(&signed_tx) else {
+    let parent_hash = match SERVICES.evm.storage.get_latest_block() {
+        Ok(block) => block.map_or_else(H256::zero, |b| b.header.hash()),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    };
+
+    let Ok(base_fee) = SERVICES.evm.block.calculate_base_fee(parent_hash) else {
+        return cross_boundary_error_return(result, "Error getting base fee");
+    };
+
+    let Ok(prepay_fee) = calculate_prepay_gas_fee(&signed_tx, base_fee) else {
         return cross_boundary_error_return(result, "failed to get fee from transaction");
     };
 

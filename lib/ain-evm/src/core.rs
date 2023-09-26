@@ -272,7 +272,7 @@ impl EVMCoreService {
             return Err(format_err!("gas limit higher than max_gas_per_block").into());
         }
 
-        let prepay_fee = calculate_prepay_gas_fee(&signed_tx)?;
+        let prepay_fee = calculate_prepay_gas_fee(&signed_tx, block_fee)?;
         debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         if pre_validate {
