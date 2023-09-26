@@ -129,7 +129,7 @@ pub trait MetachainRPC {
     fn get_transaction_by_block_hash_and_index(
         &self,
         hash: H256,
-        index: usize,
+        index: U256,
     ) -> RpcResult<Option<EthTransactionInfo>>;
 
     /// Retrieves a specific transaction, identified by the block number and transaction index.
@@ -137,7 +137,7 @@ pub trait MetachainRPC {
     fn get_transaction_by_block_number_and_index(
         &self,
         block_number: U256,
-        index: usize,
+        index: U256,
     ) -> RpcResult<Option<EthTransactionInfo>>;
 
     /// Retrieves the list of pending transactions.
@@ -514,6 +514,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     transaction_info.block_number = Some(format_u256(receipt.block_number));
                     transaction_info.transaction_index =
                         Some(format_u256(U256::from(receipt.tx_index)));
+                    transaction_info.gas_price = format_u256(receipt.effective_gas_price)
                 }
 
                 Ok(Some(transaction_info))
@@ -534,14 +535,32 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_transaction_by_block_hash_and_index(
         &self,
         hash: H256,
-        index: usize,
+        index: U256,
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_hash_and_index(&hash, index)
+            .get_transaction_by_block_hash_and_index(&hash, index.as_usize())
             .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
-                let transaction_info = tx.try_into().map_err(to_jsonrpsee_custom_error)?;
+                let tx_hash = &tx.hash();
+                let mut transaction_info: EthTransactionInfo =
+                    tx.try_into().map_err(to_jsonrpsee_custom_error)?;
+
+                // TODO: Improve efficiency by indexing the block_hash, block_number, and transaction_index fields.
+                // Temporary workaround: Makes an additional call to get_receipt where these fields are available.
+                if let Some(receipt) = self
+                    .handler
+                    .storage
+                    .get_receipt(tx_hash)
+                    .map_err(to_jsonrpsee_custom_error)?
+                {
+                    transaction_info.block_hash = Some(format_h256(receipt.block_hash));
+                    transaction_info.block_number = Some(format_u256(receipt.block_number));
+                    transaction_info.transaction_index =
+                        Some(format_u256(U256::from(receipt.tx_index)));
+                    transaction_info.gas_price = format_u256(receipt.effective_gas_price)
+                }
+
                 Ok(Some(transaction_info))
             })
     }
@@ -549,14 +568,32 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_transaction_by_block_number_and_index(
         &self,
         number: U256,
-        index: usize,
+        index: U256,
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_number_and_index(&number, index)
+            .get_transaction_by_block_number_and_index(&number, index.as_usize())
             .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
-                let transaction_info = tx.try_into().map_err(to_jsonrpsee_custom_error)?;
+                let tx_hash = &tx.hash();
+                let mut transaction_info: EthTransactionInfo =
+                    tx.try_into().map_err(to_jsonrpsee_custom_error)?;
+
+                // TODO: Improve efficiency by indexing the block_hash, block_number, and transaction_index fields.
+                // Temporary workaround: Makes an additional call to get_receipt where these fields are available.
+                if let Some(receipt) = self
+                    .handler
+                    .storage
+                    .get_receipt(tx_hash)
+                    .map_err(to_jsonrpsee_custom_error)?
+                {
+                    transaction_info.block_hash = Some(format_h256(receipt.block_hash));
+                    transaction_info.block_number = Some(format_u256(receipt.block_number));
+                    transaction_info.transaction_index =
+                        Some(format_u256(U256::from(receipt.tx_index)));
+                    transaction_info.gas_price = format_u256(receipt.effective_gas_price)
+                }
+
                 Ok(Some(transaction_info))
             })
     }
