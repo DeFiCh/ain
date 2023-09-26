@@ -938,7 +938,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
 
             CrossBoundaryResult result;
-            auto txResult = evm_try_get_tx_sender_info_from_raw_tx(result, rawEVMTx);
+            auto txResult = evm_try_get_tx_info_from_raw_tx(result, rawEVMTx);
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
             }

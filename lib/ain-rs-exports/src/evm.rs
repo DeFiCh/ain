@@ -1,7 +1,8 @@
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use ain_evm::{
-    core::{ValidateTxInfo, XHash},
+    core::{EthCallArgs, ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
+    executor::TxResponse,
     fee::calculate_prepay_gas_fee,
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
@@ -14,12 +15,12 @@ use ain_evm::{
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
 };
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::{H160, U256};
 use log::debug;
 use transaction::{LegacyUnsignedTransaction, TransactionError, LOWER_H256};
 
 use crate::{
-    ffi::{self, TxSenderInfo},
+    ffi::{self, TxInfo},
     prelude::*,
 };
 
@@ -1157,11 +1158,10 @@ pub fn evm_is_smart_contract_in_q(
         }
     }
 }
-
-pub fn evm_try_get_tx_sender_info_from_raw_tx(
+pub fn evm_try_get_tx_info_from_raw_tx(
     result: &mut ffi::CrossBoundaryResult,
     raw_tx: &str,
-) -> TxSenderInfo {
+) -> TxInfo {
     let Ok(signed_tx) = SignedTx::try_from(raw_tx) else {
         return cross_boundary_error_return(result, "Invalid raw tx");
     };
@@ -1170,8 +1170,8 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "nonce value overflow");
     };
 
-    let parent_hash = match SERVICES.evm.storage.get_latest_block() {
-        Ok(block) => block.map_or_else(H256::zero, |b| b.header.hash()),
+    let (parent_hash, parent_number) = match SERVICES.evm.block.get_latest_block_hash_and_number() {
+        Ok(data) => data.unwrap_or_default(),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     };
 
@@ -1187,12 +1187,28 @@ pub fn evm_try_get_tx_sender_info_from_raw_tx(
         return cross_boundary_error_return(result, "prepay fee value overflow");
     };
 
+    let Ok(TxResponse { used_gas, .. }) = SERVICES.evm.core.call(EthCallArgs {
+        caller: Some(signed_tx.sender),
+        to: signed_tx.to(),
+        value: signed_tx.value(),
+        data: &signed_tx.data(),
+        gas_limit: u64::try_from(signed_tx.gas_limit()).unwrap_or(u64::MAX),
+        gas_price: Some(signed_tx.effective_gas_price(base_fee)),
+        max_fee_per_gas: signed_tx.max_fee_per_gas(),
+        access_list: signed_tx.access_list(),
+        block_number: parent_number,
+        transaction_type: Some(signed_tx.get_tx_type()),
+    }) else {
+        return cross_boundary_error_return(result, "Error calling EVM");
+    };
+
     cross_boundary_success_return(
         result,
-        TxSenderInfo {
+        TxInfo {
             nonce,
             address: format!("{:?}", signed_tx.sender),
             prepay_fee,
+            used_gas,
         },
     )
 }

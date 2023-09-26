@@ -42,10 +42,11 @@ pub mod ffi {
     }
 
     #[derive(Default)]
-    pub struct TxSenderInfo {
+    pub struct TxInfo {
         pub address: String,
         pub nonce: u64,
         pub prepay_fee: u64,
+        pub used_gas: u64,
     }
 
     // ========== Governance Variable ==========
@@ -258,10 +259,10 @@ pub mod ffi {
             address: &str,
             queue_id: u64,
         ) -> bool;
-        fn evm_try_get_tx_sender_info_from_raw_tx(
+        fn evm_try_get_tx_info_from_raw_tx(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
-        ) -> TxSenderInfo;
+        ) -> TxInfo;
         fn evm_try_get_block_limit(result: &mut CrossBoundaryResult) -> u64;
         fn evm_try_get_total_gas_used(result: &mut CrossBoundaryResult, queue_id: u64) -> String;
     }
