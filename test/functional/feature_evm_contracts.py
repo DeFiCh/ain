@@ -435,15 +435,15 @@ class EVMTest(DefiTestFramework):
 
         self.should_deploy_contract_less_than_1KB()
 
-        # self.should_contract_get_set()
+        self.should_contract_get_set()
 
-        # self.failed_tx_should_increment_nonce()
+        self.failed_tx_should_increment_nonce()
 
-        # self.should_deploy_contract_with_different_sizes()
+        self.should_deploy_contract_with_different_sizes()
 
-        # self.fail_deploy_contract_extremely_large_runtime_code()
+        self.fail_deploy_contract_extremely_large_runtime_code()
 
-        # self.fail_deploy_contract_extremely_large_init_code()
+        self.fail_deploy_contract_extremely_large_init_code()
 
         self.non_payable_proxied_contract()
 
