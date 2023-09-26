@@ -136,10 +136,10 @@ impl EVMBackend {
         self.state.root().into()
     }
 
-    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
+    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx, base_fee: U256) {
         self.vicinity = Vicinity {
             origin: tx.sender,
-            gas_price: tx.gas_price(),
+            gas_price: tx.effective_gas_price(base_fee),
             gas_limit: tx.gas_limit(),
             ..self.vicinity
         };
@@ -261,7 +261,7 @@ impl EVMBackend {
 
 impl Backend for EVMBackend {
     fn gas_price(&self) -> U256 {
-        trace!(target: "backend", "[EVMBackend] Getting gas");
+        trace!(target: "backend", "[EVMBackend] Getting gas price");
         self.vicinity.gas_price
     }
 
