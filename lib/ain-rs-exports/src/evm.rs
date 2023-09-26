@@ -508,7 +508,6 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -525,7 +524,6 @@ pub fn evm_unsafe_try_prevalidate_raw_tx_in_q(
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
-                        higher_nonce,
                     },
                 )
             }
@@ -584,7 +582,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
             Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce,
             }) => {
                 let Ok(nonce) = u64::try_from(signed_tx.nonce()) else {
                     return cross_boundary_error_return(result, "nonce value overflow");
@@ -601,7 +598,6 @@ pub fn evm_unsafe_try_validate_raw_tx_in_q(
                         sender: format!("{:?}", signed_tx.sender),
                         tx_hash: format!("{:?}", signed_tx.hash()),
                         prepay_fee,
-                        higher_nonce,
                     },
                 )
             }

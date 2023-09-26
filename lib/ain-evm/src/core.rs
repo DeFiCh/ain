@@ -50,7 +50,6 @@ pub struct EthCallArgs<'a> {
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
-    pub higher_nonce: bool,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -287,11 +286,9 @@ impl EVMCoreService {
                 .into());
             }
 
-            let higher_nonce = nonce < signed_tx.nonce();
             return Ok(ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
-                higher_nonce,
             });
         } else {
             // Validate tx prepay fees with account balance
@@ -326,7 +323,6 @@ impl EVMCoreService {
         Ok(ValidateTxInfo {
             signed_tx,
             prepay_fee,
-            higher_nonce: false,
         })
     }
 

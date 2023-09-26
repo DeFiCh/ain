@@ -42,9 +42,6 @@
 
 struct EvmTxPreApplyContext {
     const CTxMemPool::txiter& txIter;
-    std::vector<unsigned char>& txMetadata;
-    CustomTxType txType;
-    int height;
     uint64_t evmQueueId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
     std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
@@ -599,69 +596,26 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 
 bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 {
-    const auto& txType = ctx.txType;
-    auto txMessage = customTypeToMessage(txType);
     const auto& txIter = ctx.txIter;
     const auto& evmQueueId = ctx.evmQueueId;
-    const auto& metadata = ctx.txMetadata;
-    const auto& height = ctx.height;
     const auto& failedTxSet = ctx.failedTxEntries;
     auto& failedNonces = ctx.failedNonces;
     auto& failedNoncesLookup = ctx.failedNoncesLookup;
+    auto& [txNonce, txSender] = txIter->GetEVMAddrAndNonce();
 
-    if (!CustomMetadataParse(height, Params().GetConsensus(), metadata, txMessage)) {
+    CrossBoundaryResult result;
+    const auto expectedNonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txSender);
+    if (!result.ok) {
         return false;
     }
 
-    CrossBoundaryResult result;
-    if (ctx.txType == CustomTxType::EvmTx) {
-        const auto obj = std::get<CEvmTxMessage>(txMessage);
-
-        ValidateTxCompletion txResult;
-        txResult = evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-        if (!result.ok) {
-            return false;
+    if (txNonce < expectedNonce) {
+        return false;
+    } else if (txNonce > expectedNonce) {
+        if (!failedTxSet.count(txIter)) {
+            auto it = failedNonces.emplace(txNonce, txIter);
+            failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
         }
-        if (txResult.higher_nonce) {
-            if (!failedTxSet.count(txIter)) {
-                auto it = failedNonces.emplace(txResult.nonce, txIter);
-                failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
-            }
-            return false;
-        }
-    } else if (ctx.txType == CustomTxType::TransferDomain) {
-        const auto obj = std::get<CTransferDomainMessage>(txMessage);
-        if (obj.transfers.size() != 1) {
-            return false;
-        }
-
-        std::string evmTx;
-        {
-            auto& [src, dest] = obj.transfers[0];
-            if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dest.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                evmTx = HexStr(dest.data);
-            } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dest.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                evmTx = HexStr(src.data);
-            }
-        }
-        auto senderInfo = evm_try_get_tx_sender_info_from_raw_tx(result, evmTx);
-        if (!result.ok) {
-            return false;
-        }
-        const auto expectedNonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, senderInfo.address);
-        if (!result.ok) {
-            return false;
-        }
-        if (senderInfo.nonce < expectedNonce) {
-            return false;
-        } else if (senderInfo.nonce > expectedNonce) {
-            if (!failedTxSet.count(txIter)) {
-                auto it = failedNonces.emplace(senderInfo.nonce, txIter);
-                failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
-            }
-            return false;
-        }
-    } else {
         return false;
     }
 
@@ -839,8 +793,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             // will be removed for block while we connect it
             AddCoins(coins, tx, nHeight, false); // do not check
 
-            std::vector<unsigned char> metadata;
-            CustomTxType txType = GuessCustomTxType(tx, metadata, true);
+            CustomTxType txType = entry->GetCustomTxType();
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
@@ -851,9 +804,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                     auto evmTxCtx = EvmTxPreApplyContext{
                         entry,
-                        metadata,
-                        txType,
-                        nHeight,
                         evmQueueId,
                         failedNonces,
                         failedNoncesLookup,
