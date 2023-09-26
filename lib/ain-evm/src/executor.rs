@@ -132,7 +132,7 @@ impl<'backend> AinExecutor<'backend> {
         prepay_gas: U256,
         base_fee: U256,
     ) -> Result<(TxResponse, ReceiptV3)> {
-        self.backend.update_vicinity_from_tx(signed_tx);
+        self.backend.update_vicinity_from_tx(signed_tx, base_fee);
         trace!(
             "[Executor] Executing EVM TX with vicinity : {:?}",
             self.backend.vicinity
@@ -225,7 +225,7 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                let prepay_gas = calculate_prepay_gas_fee(&signed_tx)?;
+                let prepay_gas = calculate_prepay_gas_fee(&signed_tx, base_fee)?;
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas, base_fee)?;
                 debug!(
