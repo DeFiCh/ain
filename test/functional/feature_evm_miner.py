@@ -272,9 +272,9 @@ class EVMTest(DefiTestFramework):
             signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append(signed.hash.hex().lower()[2:])
-        
+
         # Do valid RBF for nonce zero with incrementing fee
-        for  i in range(50):
+        for i in range(50):
             tx = contract.functions.loop(10_000).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
@@ -317,8 +317,12 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
-            assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx)
-            assert_equal(tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + idx])
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + idx]
+            )
             assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
 
         self.nodes[0].generate(1)
@@ -331,8 +335,14 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
-            assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + second_block_total_txs + idx)
-            assert_equal(tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + second_block_total_txs + idx])
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"],
+                start_nonce + first_block_total_txs + second_block_total_txs + idx,
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"],
+                hashes[first_block_total_txs + second_block_total_txs + idx],
+            )
             assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
 
         self.nodes[0].generate(1)
@@ -345,11 +355,30 @@ class EVMTest(DefiTestFramework):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
-            assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + second_block_total_txs + third_block_total_txs + idx)
-            assert_equal(tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + second_block_total_txs + third_block_total_txs + idx])
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"],
+                start_nonce
+                + first_block_total_txs
+                + second_block_total_txs
+                + third_block_total_txs
+                + idx,
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"],
+                hashes[
+                    first_block_total_txs
+                    + second_block_total_txs
+                    + third_block_total_txs
+                    + idx
+                ],
+            )
             assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
-        self.nodes[0].log.debug("[feature_evm_miner.py] Attack vector test took: {}".format(time() - start_time))
+        self.nodes[0].log.debug(
+            "[feature_evm_miner.py] Attack vector test took: {}".format(
+                time() - start_time
+            )
+        )
 
     def invalid_evm_tx_in_block_creation(self):
         self.rollback_to(self.start_height)

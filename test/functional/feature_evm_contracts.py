@@ -441,7 +441,9 @@ class EVMTest(DefiTestFramework):
 
         self.should_deploy_contract_less_than_1KB()
 
-        self.start_height = self.nodes[0].getblockcount() # start height after contract deployment
+        self.start_height = self.nodes[
+            0
+        ].getblockcount()  # start height after contract deployment
 
         self.should_contract_get_set()
 
@@ -454,6 +456,7 @@ class EVMTest(DefiTestFramework):
         self.fail_deploy_contract_extremely_large_init_code()
 
         self.non_payable_proxied_contract()
+
 
 if __name__ == "__main__":
     EVMTest().main()
