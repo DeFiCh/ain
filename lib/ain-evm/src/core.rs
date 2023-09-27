@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    num::NonZeroUsize,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -9,6 +10,7 @@ use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
+use lru::LruCache;
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
@@ -29,29 +31,45 @@ use crate::{
 pub type XHash = String;
 
 struct TxValidationCache {
-    cache: Mutex<HashMap<(H256, String, bool), ValidateTxInfo>>,
+    tx_info: Mutex<HashMap<(u64, H256, String, bool), ValidateTxInfo>>,
+    signed_tx: Mutex<LruCache<String, SignedTx>>,
 }
 
 impl TxValidationCache {
     pub fn new() -> Self {
         Self {
-            cache: Mutex::new(HashMap::new()),
+            tx_info: Mutex::new(HashMap::new()),
+            signed_tx: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
         }
     }
 
-    pub fn get(&self, key: &(H256, String, bool)) -> Option<ValidateTxInfo> {
-        let cache = self.cache.lock().unwrap();
-        cache.get(key).cloned()
+    pub fn get_tx_info(&self, key: &(u64, H256, String, bool)) -> Option<ValidateTxInfo> {
+        self.tx_info.lock().unwrap().get(key).cloned()
     }
 
-    pub fn set(&self, key: (H256, String, bool), value: ValidateTxInfo) -> ValidateTxInfo {
-        let mut cache = self.cache.lock().unwrap();
+    pub fn get_signed_tx(&self, key: &str) -> Option<SignedTx> {
+        self.signed_tx.lock().unwrap().get(key).cloned()
+    }
+
+    pub fn set_tx_info(
+        &self,
+        key: (u64, H256, String, bool),
+        value: ValidateTxInfo,
+    ) -> ValidateTxInfo {
+        let mut cache = self.tx_info.lock().unwrap();
         cache.insert(key, value.clone());
         value
     }
 
+    pub fn set_signed_tx(&self, key: String, value: SignedTx) -> SignedTx {
+        let mut cache = self.signed_tx.lock().unwrap();
+        cache.put(key, value.clone());
+        value
+    }
+
+    // Only clears tx_info cache. signed_tx cache is handled by LRU
     pub fn clear(&self) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.tx_info.lock().unwrap();
         cache.clear()
     }
 }
@@ -260,22 +278,30 @@ impl EVMCoreService {
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
-        if let Some(tx_info) =
-            self.tx_validation_cache
-                .get(&(state_root, String::from(tx), pre_validate))
-        {
+        if let Some(tx_info) = self.tx_validation_cache.get_tx_info(&(
+            queue_id,
+            state_root,
+            String::from(tx),
+            pre_validate,
+        )) {
             return Ok(tx_info);
         }
 
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
-        let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+
+        let signed_tx = if let Some(signed_tx) = self.tx_validation_cache.get_signed_tx(tx) {
+            signed_tx
+        } else {
+            let signed_tx = SignedTx::try_from(tx)
+                .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+            self.tx_validation_cache
+                .set_signed_tx(String::from(tx), signed_tx)
+        };
         debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
         let mut backend = self.get_backend(state_root)?;
 
-        let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
@@ -325,8 +351,8 @@ impl EVMCoreService {
                 .into());
             }
 
-            return Ok(self.tx_validation_cache.set(
-                (state_root, String::from(tx), pre_validate),
+            return Ok(self.tx_validation_cache.set_tx_info(
+                (queue_id, state_root, String::from(tx), pre_validate),
                 ValidateTxInfo {
                     signed_tx,
                     prepay_fee,
@@ -362,8 +388,8 @@ impl EVMCoreService {
             }
         }
 
-        Ok(self.tx_validation_cache.set(
-            (state_root, String::from(tx), pre_validate),
+        Ok(self.tx_validation_cache.set_tx_info(
+            (queue_id, state_root, String::from(tx), pre_validate),
             ValidateTxInfo {
                 signed_tx,
                 prepay_fee,
@@ -409,23 +435,25 @@ impl EVMCoreService {
             state_root
         );
 
-        if let Some(tx_info) = self
-            .tx_validation_cache
-            .get(&(state_root, String::from(tx), true))
+        if let Some(tx_info) =
+            self.tx_validation_cache
+                .get_tx_info(&(queue_id, state_root, String::from(tx), true))
         {
             return Ok(tx_info);
         }
 
-        let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!(
-            "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
+        let signed_tx = if let Some(signed_tx) = self.tx_validation_cache.get_signed_tx(tx) {
             signed_tx
-        );
+        } else {
+            let signed_tx = SignedTx::try_from(tx)
+                .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+            self.tx_validation_cache
+                .set_signed_tx(String::from(tx), signed_tx)
+        };
+        debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
         let backend = self.get_backend(state_root)?;
 
-        let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
@@ -473,8 +501,8 @@ impl EVMCoreService {
             }
         }
 
-        Ok(self.tx_validation_cache.set(
-            (state_root, String::from(tx), true),
+        Ok(self.tx_validation_cache.set_tx_info(
+            (queue_id, state_root, String::from(tx), true),
             ValidateTxInfo {
                 signed_tx,
                 prepay_fee: U256::zero(),
