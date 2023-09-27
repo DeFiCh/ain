@@ -179,12 +179,12 @@ UniValue vmmap(const JSONRPCRequest &request) {
           RPCArg::Optional::OMITTED,
           "Map types: \n\
                             0 - Auto (Default) \n\
-                            1 - Block Number: DFI -> EVM \n\
-                            2 - Block Number: EVM -> DFI \n\
-                            3 - Block Hash: DFI -> EVM \n\
-                            4 - Block Hash: EVM -> DFI \n\
-                            5 - Tx Hash: DFI -> EVM \n\
-                            6 - Tx Hash: EVM -> DFI \n"}},
+                            1 - Block Number: DVM -> EVM \n\
+                            2 - Block Number: EVM -> DVM \n\
+                            3 - Block Hash: DVM -> EVM \n\
+                            4 - Block Hash: EVM -> DVM \n\
+                            5 - Tx Hash: DVM -> EVM \n\
+                            6 - Tx Hash: EVM -> DVM \n"}},
         RPCResult{"\"input\"                  (string) The hex-encoded string for address, block or transaction\n\
                                             or (number) block number\n"},
         RPCExamples{HelpExampleCli("vmmap", R"('"<hash>"' 1)")},
