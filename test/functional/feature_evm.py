@@ -960,7 +960,7 @@ class EVMTest(DefiTestFramework):
         # Try and send an already sent transaction
         assert_raises_rpc_error(
             -26,
-            "evm tx failed to pre-validate Invalid nonce. Account nonce 6, signed_tx nonce 5",
+            "evm tx failed to pre-validate invalid nonce. Account nonce 6, signed_tx nonce 5",
             self.nodes[0].sendrawtransaction,
             raw_tx,
         )
