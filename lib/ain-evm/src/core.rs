@@ -300,13 +300,8 @@ impl EVMCoreService {
         };
         debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
-        let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
-
         let mut backend = self.get_backend(state_root)?;
 
-        let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_tx] signed_tx.sender : {:#?}",
@@ -459,7 +454,6 @@ impl EVMCoreService {
 
         let backend = self.get_backend(state_root)?;
 
-        let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
