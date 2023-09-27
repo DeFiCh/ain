@@ -1191,7 +1191,7 @@ pub fn evm_try_get_tx_info_from_raw_tx(
         caller: Some(signed_tx.sender),
         to: signed_tx.to(),
         value: signed_tx.value(),
-        data: &signed_tx.data(),
+        data: signed_tx.data(),
         gas_limit: u64::try_from(signed_tx.gas_limit()).unwrap_or(u64::MAX),
         gas_price: Some(signed_tx.effective_gas_price(base_fee)),
         max_fee_per_gas: signed_tx.max_fee_per_gas(),
