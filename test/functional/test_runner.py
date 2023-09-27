@@ -304,6 +304,7 @@ BASE_SCRIPTS = [
     "feature_evm_dfi_intrinsics.py",
     "feature_evm_logs.py",
     "feature_evm_fee.py",
+    "feature_evm_eip1559_fees.py",
     "feature_evm_genesis.py",
     "feature_evm_mempool.py",
     "feature_evm_rollback.py",

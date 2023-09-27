@@ -248,7 +248,7 @@ impl EVMCoreService {
     /// 5. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     ///
     /// The validation checks with state context of the tx before we consider it to be valid are:
-    /// 1. Nonce check: Returns flag if nonce is lower or higher than the current state account nonce.
+    /// 1. Nonce check: Verify that the tx nonce must equl to the current state account nonce.
     /// 2. Execute the tx with the state root from the txqueue.
     /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
     /// 4. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
@@ -344,7 +344,7 @@ impl EVMCoreService {
             // Validate tx nonce
             if nonce > signed_tx.nonce() {
                 return Err(format_err!(
-                    "Invalid nonce. Account nonce {}, signed_tx nonce {}",
+                    "invalid nonce. Account nonce {}, signed_tx nonce {}",
                     nonce,
                     signed_tx.nonce()
                 )
@@ -359,6 +359,15 @@ impl EVMCoreService {
                 },
             ));
         } else {
+            if nonce != signed_tx.nonce() {
+                return Err(format_err!(
+                    "invalid nonce. Account nonce {}, signed_tx nonce {}",
+                    nonce,
+                    signed_tx.nonce()
+                )
+                .into());
+            }
+
             // Validate tx prepay fees with account balance
             let balance = backend.get_balance(&signed_tx.sender);
             debug!("[validate_raw_tx] Account balance : {:x?}", balance);
