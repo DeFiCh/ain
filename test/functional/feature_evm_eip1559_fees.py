@@ -41,6 +41,14 @@ class EIP1559Fees(DefiTestFramework):
             ]
         ]
 
+    def send_tx(self, tx):
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.node.generate(1)
+        return self.node.w3.eth.wait_for_transaction_receipt(hash)
+
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.node = self.nodes[0]
@@ -106,24 +114,19 @@ class EIP1559Fees(DefiTestFramework):
 
     def no_priority_fee(self):
         self.rollback_to(self.rollback_height)
-        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
-        # send TX
-        tx = self.contract.functions.store(10).build_transaction(
-            {
-                "chainId": self.node.w3.eth.chain_id,
-                "nonce": self.node.w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
-                "maxPriorityFeePerGas": "0x0",
-            }
-        )
-        signed = self.node.w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        self.node.generate(1)
-        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
 
+        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        receipt = self.send_tx(
+            self.contract.functions.store(10).build_transaction(
+                {
+                    "chainId": self.node.w3.eth.chain_id,
+                    "nonce": self.node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
+                    "maxPriorityFeePerGas": "0x0",
+                }
+            )
+        )  # send TX
         after_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
         assert_equal(
             before_balance - after_balance,
@@ -136,25 +139,21 @@ class EIP1559Fees(DefiTestFramework):
     def low_priority_fee(self):
         self.rollback_to(self.rollback_height)
         priority_fee = self.node.w3.to_wei("10", "gwei")
-        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
-        # send TX
-        tx = self.contract.functions.store(10).build_transaction(
-            {
-                "chainId": self.node.w3.eth.chain_id,
-                "nonce": self.node.w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
-                "maxPriorityFeePerGas": priority_fee,
-            }
-        )
-        signed = self.node.w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        self.node.generate(1)
-        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
 
+        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        receipt = self.send_tx(
+            self.contract.functions.store(10).build_transaction(
+                {
+                    "chainId": self.node.w3.eth.chain_id,
+                    "nonce": self.node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
+                    "maxPriorityFeePerGas": priority_fee,
+                }
+            )
+        )  # send TX
         after_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+
         assert_equal(
             before_balance - after_balance,
             receipt["gasUsed"] * receipt["effectiveGasPrice"],
@@ -179,26 +178,22 @@ class EIP1559Fees(DefiTestFramework):
         max_fee = self.node.w3.to_wei(
             "15", "gwei"
         )  # we should pay 10 gwei base + 5 gwei priority
-        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
-        # send TX
-        tx = self.contract.functions.store(10).build_transaction(
-            {
-                "chainId": self.node.w3.eth.chain_id,
-                "nonce": self.node.w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
-                "maxPriorityFeePerGas": priority_fee,
-                "maxFeePerGas": max_fee,
-            }
-        )
-        signed = self.node.w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        self.node.generate(1)
-        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
 
+        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        receipt = self.send_tx(
+            self.contract.functions.store(10).build_transaction(
+                {
+                    "chainId": self.node.w3.eth.chain_id,
+                    "nonce": self.node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
+                    "maxPriorityFeePerGas": priority_fee,
+                    "maxFeePerGas": max_fee,
+                }
+            )
+        )  # send TX
         after_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+
         assert_equal(
             before_balance - after_balance,
             receipt["gasUsed"] * receipt["effectiveGasPrice"],
@@ -209,6 +204,59 @@ class EIP1559Fees(DefiTestFramework):
         base_fee = block["baseFeePerGas"]
         miner_balance = self.w3.eth.get_balance(miner)
 
+        assert_equal(
+            receipt["effectiveGasPrice"],
+            base_fee + min(max_fee - base_fee, priority_fee),
+        )
+        assert_equal(
+            before_balance - after_balance,
+            receipt["effectiveGasPrice"] * receipt["gasUsed"],
+        )
+        assert_equal(
+            miner_balance, (max_fee - base_fee) * receipt["gasUsed"]
+        )  # capped priority fee should be sent to miner
+        assert_equal(
+            before_balance - after_balance - miner_balance,
+            base_fee * receipt["gasUsed"],
+        )  # base fee should be burnt
+
+    def priority_fee_higher_max_fee(self):
+        # Tests case where priority fee is capped by maxFeePerGas
+        self.rollback_to(self.rollback_height)
+        priority_fee = self.node.w3.to_wei("20", "gwei")
+        max_fee = self.node.w3.to_wei(
+            "15", "gwei"
+        )  # we should pay 10 gwei base + 5 gwei priority
+
+        before_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        receipt = self.send_tx(
+            self.contract.functions.store(10).build_transaction(
+                {
+                    "chainId": self.node.w3.eth.chain_id,
+                    "nonce": self.node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
+                    "maxPriorityFeePerGas": priority_fee,
+                    "maxFeePerGas": max_fee,
+                }
+            )
+        )  # send TX
+        after_balance = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+
+        assert_equal(
+            before_balance - after_balance,
+            receipt["gasUsed"] * receipt["effectiveGasPrice"],
+        )
+
+        block = self.node.w3.eth.get_block("latest")
+        miner = block["miner"]
+        base_fee = block["baseFeePerGas"]
+        miner_balance = self.w3.eth.get_balance(miner)
+
+        assert_equal(
+            receipt["effectiveGasPrice"],
+            base_fee + min(max_fee - base_fee, priority_fee),
+        )
         assert_equal(
             before_balance - after_balance,
             receipt["effectiveGasPrice"] * receipt["gasUsed"],
@@ -229,6 +277,8 @@ class EIP1559Fees(DefiTestFramework):
         self.low_priority_fee()
 
         self.max_fee_cap()
+
+        self.priority_fee_higher_max_fee()
 
 
 if __name__ == "__main__":
