@@ -946,10 +946,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
 
             const auto prePayFee = isEVMTx ? txResult.prepay_fee : std::numeric_limits<uint64_t>::max();
+            const auto usedGas = isEVMTx ? txResult.used_gas : std::numeric_limits<uint64_t>::min();
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
             entry.SetEVMPrePayFee(prePayFee);
-            entry.SetEVMGasUsed(txResult.used_gas);
+            entry.SetEVMGasUsed(usedGas);
 
             if (!pool.checkAddressNonceAndFee(entry)) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");
