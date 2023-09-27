@@ -210,6 +210,10 @@ class EIP1559Fees(DefiTestFramework):
         miner_balance = self.w3.eth.get_balance(miner)
 
         assert_equal(
+            before_balance - after_balance,
+            receipt["effectiveGasPrice"] * receipt["gasUsed"],
+        )
+        assert_equal(
             miner_balance, (max_fee - base_fee) * receipt["gasUsed"]
         )  # capped priority fee should be sent to miner
         assert_equal(
