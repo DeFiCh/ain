@@ -326,6 +326,11 @@ impl EVMCoreService {
         })
     }
 
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless cs_main lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn get_total_gas_used(&self, queue_id: u64) -> String {
         let res = self
             .tx_queues
