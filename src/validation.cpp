@@ -16,7 +16,6 @@
 #include <consensus/validation.h>
 #include <core_io.h> /// ValueFromAmount
 #include <cuckoocache.h>
-#include <ffi/ffiexports.h>
 #include <flatfile.h>
 #include <hash.h>
 #include <index/txindex.h>
@@ -942,16 +941,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             auto txResult = evm_try_get_tx_info_from_raw_tx(result, rawEVMTx);
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
-            }
-
-            // Block gas limit
-            auto blockGasLimit = evm_try_get_block_limit(result);
-            if (!result.ok) {
-                blockGasLimit = DEFAULT_EVM_BLOCK_GAS_LIMIT;
-            }
-
-            if (txResult.used_gas > blockGasLimit) {
-                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx over block gas limit. Gas used: %d Limit: %d", txResult.used_gas, blockGasLimit), REJECT_INVALID, "evm-over-limit");
             }
 
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
