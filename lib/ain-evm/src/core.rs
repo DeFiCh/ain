@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    num::NonZeroUsize,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -9,6 +10,7 @@ use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
+use lru::LruCache;
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
@@ -28,11 +30,53 @@ use crate::{
 
 pub type XHash = String;
 
+struct TxValidationCache {
+    validated: Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
+    stateless: Mutex<LruCache<String, ValidateTxInfo>>,
+}
+
+impl TxValidationCache {
+    pub fn new() -> Self {
+        Self {
+            validated: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
+            stateless: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
+        }
+    }
+
+    pub fn get(&self, key: &(U256, H256, String, bool)) -> Option<ValidateTxInfo> {
+        self.validated.lock().unwrap().get(key).cloned()
+    }
+
+    pub fn get_stateless(&self, key: &str) -> Option<ValidateTxInfo> {
+        self.stateless.lock().unwrap().get(key).cloned()
+    }
+
+    pub fn set(&self, key: (U256, H256, String, bool), value: ValidateTxInfo) -> ValidateTxInfo {
+        let mut cache = self.validated.lock().unwrap();
+        cache.put(key, value.clone());
+        value
+    }
+
+    pub fn set_stateless(&self, key: String, value: ValidateTxInfo) -> ValidateTxInfo {
+        let mut cache = self.stateless.lock().unwrap();
+        cache.put(key, value.clone());
+        value
+    }
+
+    // To be used on new block or any known state changes. Only clears fully validated TX cache.
+    // Stateless cache can be kept across blocks and is handled by LRU itself
+    pub fn clear(&self) {
+        let mut cache = self.validated.lock().unwrap();
+        cache.clear()
+    }
+}
+
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
+    tx_validation_cache: TxValidationCache,
 }
 pub struct EthCallArgs<'a> {
     pub caller: Option<H160>,
@@ -47,6 +91,7 @@ pub struct EthCallArgs<'a> {
     pub transaction_type: Option<U256>,
 }
 
+#[derive(Clone, Debug)]
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
@@ -68,6 +113,7 @@ impl EVMCoreService {
             trie_store: Arc::new(TrieDBStore::restore()),
             storage,
             nonce_store: Mutex::new(HashMap::new()),
+            tx_validation_cache: TxValidationCache::new(),
         }
     }
 
@@ -84,6 +130,7 @@ impl EVMCoreService {
             trie_store: Arc::new(TrieDBStore::new()),
             storage: Arc::clone(&storage),
             nonce_store: Mutex::new(HashMap::new()),
+            tx_validation_cache: TxValidationCache::new(),
         };
         let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
             &handler.trie_store,
@@ -225,55 +272,87 @@ impl EVMCoreService {
         pre_validate: bool,
         block_fee: U256,
     ) -> Result<ValidateTxInfo> {
-        debug!("[validate_raw_tx] queue_id {}", queue_id);
-        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
-        let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
-
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
-        let mut backend = self.get_backend(state_root)?;
+        let total_current_gas_used = self
+            .tx_queues
+            .get_total_gas_used_in(queue_id)
+            .unwrap_or_default();
 
-        let signed_tx: SignedTx = tx.try_into()?;
+        if let Some(tx_info) = self.tx_validation_cache.get(&(
+            total_current_gas_used,
+            state_root,
+            String::from(tx),
+            pre_validate,
+        )) {
+            return Ok(tx_info);
+        }
+
+        debug!("[validate_raw_tx] queue_id {}", queue_id);
+        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
+
+        let ValidateTxInfo {
+            signed_tx,
+            prepay_fee,
+        } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
+            validate_info
+        } else {
+            let signed_tx = SignedTx::try_from(tx)
+                .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+            debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
+
+            debug!(
+                "[validate_raw_tx] signed_tx.sender : {:#?}",
+                signed_tx.sender
+            );
+
+            // Validate tx gas price with initial block base fee
+            let tx_gas_price = signed_tx.gas_price();
+            if tx_gas_price < INITIAL_BASE_FEE {
+                debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
+                return Err(
+                    format_err!("tx gas price is lower than initial block base fee").into(),
+                );
+            }
+
+            // Validate tx gas price and tx value within money range
+            if !WeiAmount(tx_gas_price).wei_range() || !WeiAmount(signed_tx.value()).wei_range() {
+                debug!("[validate_raw_tx] value more than money range");
+                return Err(format_err!("value more than money range").into());
+            }
+
+            // Validate tx gas limit with intrinsic gas
+            check_tx_intrinsic_gas(&signed_tx)?;
+
+            // Validate gas limit
+            let gas_limit = signed_tx.gas_limit();
+            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
+            if gas_limit > U256::from(block_gas_limit) {
+                debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
+                return Err(format_err!("gas limit higher than max_gas_per_block").into());
+            }
+
+            let prepay_fee = calculate_prepay_gas_fee(&signed_tx, block_fee)?;
+            debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
+
+            self.tx_validation_cache.set_stateless(
+                String::from(tx),
+                ValidateTxInfo {
+                    signed_tx,
+                    prepay_fee,
+                },
+            )
+        };
+
+        // Start of stateful checks
+        let mut backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&signed_tx.sender);
-        debug!(
-            "[validate_raw_tx] signed_tx.sender : {:#?}",
-            signed_tx.sender
-        );
         debug!(
             "[validate_raw_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-
-        // Validate tx gas price with initial block base fee
-        let tx_gas_price = signed_tx.gas_price();
-        if tx_gas_price < INITIAL_BASE_FEE {
-            debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
-            return Err(format_err!("tx gas price is lower than initial block base fee").into());
-        }
-
-        // Validate tx gas price and tx value within money range
-        if !WeiAmount(tx_gas_price).wei_range() || !WeiAmount(signed_tx.value()).wei_range() {
-            debug!("[validate_raw_tx] value more than money range");
-            return Err(format_err!("value more than money range").into());
-        }
-
-        // Validate tx gas limit with intrinsic gas
-        check_tx_intrinsic_gas(&signed_tx)?;
-
-        // Validate gas limit
-        let gas_limit = signed_tx.gas_limit();
-        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-        if gas_limit > U256::from(block_gas_limit) {
-            debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
-            return Err(format_err!("gas limit higher than max_gas_per_block").into());
-        }
-
-        let prepay_fee = calculate_prepay_gas_fee(&signed_tx, block_fee)?;
-        debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
         if pre_validate {
             // Validate tx nonce
@@ -286,10 +365,18 @@ impl EVMCoreService {
                 .into());
             }
 
-            return Ok(ValidateTxInfo {
-                signed_tx,
-                prepay_fee,
-            });
+            return Ok(self.tx_validation_cache.set(
+                (
+                    total_current_gas_used,
+                    state_root,
+                    String::from(tx),
+                    pre_validate,
+                ),
+                ValidateTxInfo {
+                    signed_tx,
+                    prepay_fee,
+                },
+            ));
         } else {
             if nonce != signed_tx.nonce() {
                 return Err(format_err!(
@@ -316,11 +403,6 @@ impl EVMCoreService {
 
             // Validate total gas usage in queued txs exceeds block size
             debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
-            let total_current_gas_used = self
-                .tx_queues
-                .get_total_gas_used_in(queue_id)
-                .unwrap_or_default();
-
             let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
             if total_current_gas_used + U256::from(tx_response.used_gas)
                 > U256::from(block_gas_limit)
@@ -329,10 +411,18 @@ impl EVMCoreService {
             }
         }
 
-        Ok(ValidateTxInfo {
-            signed_tx,
-            prepay_fee,
-        })
+        Ok(self.tx_validation_cache.set(
+            (
+                total_current_gas_used,
+                state_root,
+                String::from(tx),
+                pre_validate,
+            ),
+            ValidateTxInfo {
+                signed_tx,
+                prepay_fee,
+            },
+        ))
     }
 
     /// # Safety
@@ -369,17 +459,15 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_transferdomain_tx(&self, tx: &str, queue_id: u64) -> Result<()> {
+    pub unsafe fn validate_raw_transferdomain_tx(
+        &self,
+        tx: &str,
+        queue_id: u64,
+    ) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
-        );
-        let signed_tx = SignedTx::try_from(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        debug!(
-            "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
-            signed_tx
         );
 
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
@@ -388,9 +476,56 @@ impl EVMCoreService {
             state_root
         );
 
+        let ValidateTxInfo {
+            signed_tx,
+            prepay_fee,
+        } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
+            validate_info
+        } else {
+            let signed_tx = SignedTx::try_from(tx)
+                .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
+            debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
+
+            debug!(
+                "[validate_raw_tx] signed_tx.sender : {:#?}",
+                signed_tx.sender
+            );
+
+            // Validate tx value equal to zero
+            if signed_tx.value() != U256::zero() {
+                debug!("[validate_raw_transferdomain_tx] value not equal to zero");
+                return Err(format_err!("value not equal to zero").into());
+            }
+
+            // Verify transaction action and transferdomain contract address
+            let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
+            match signed_tx.action() {
+                TransactionAction::Call(address) => {
+                    if address != fixed_address {
+                        return Err(format_err!(
+                        "Invalid call address. Fixed address: {:#?}, signed_tx call address: {:#?}",
+                        fixed_address,
+                        address
+                    )
+                        .into());
+                    }
+                }
+                _ => {
+                    return Err(format_err!(
+                        "tx action not a call to transferdomain contract address"
+                    )
+                    .into())
+                }
+            }
+
+            ValidateTxInfo {
+                signed_tx,
+                prepay_fee: U256::zero(),
+            }
+        };
+
         let backend = self.get_backend(state_root)?;
 
-        let signed_tx: SignedTx = tx.try_into()?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
@@ -412,33 +547,10 @@ impl EVMCoreService {
             .into());
         }
 
-        // Validate tx value equal to zero
-        if signed_tx.value() != U256::zero() {
-            debug!("[validate_raw_transferdomain_tx] value not equal to zero");
-            return Err(format_err!("value not equal to zero").into());
-        }
-
-        // Verify transaction action and transferdomain contract address
-        let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
-        match signed_tx.action() {
-            TransactionAction::Call(address) => {
-                if address != fixed_address {
-                    return Err(format_err!(
-                        "Invalid call address. Fixed address: {:#?}, signed_tx call address: {:#?}",
-                        fixed_address,
-                        address
-                    )
-                    .into());
-                }
-            }
-            _ => {
-                return Err(
-                    format_err!("tx action not a call to transferdomain contract address").into(),
-                )
-            }
-        }
-
-        Ok(())
+        Ok(ValidateTxInfo {
+            signed_tx,
+            prepay_fee,
+        })
     }
 
     pub fn logs_bloom(logs: Vec<Log>, bloom: &mut Bloom) {
@@ -533,6 +645,10 @@ impl EVMCoreService {
             "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
         );
         Ok(nonce)
+    }
+
+    pub fn clear_transaction_cache(&self) {
+        self.tx_validation_cache.clear()
     }
 }
 
