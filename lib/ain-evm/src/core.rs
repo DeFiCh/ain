@@ -31,14 +31,14 @@ use crate::{
 pub type XHash = String;
 
 struct TxValidationCache {
-    validated: Mutex<HashMap<(U256, H256, String, bool), ValidateTxInfo>>,
+    validated: Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
     stateless: Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
 impl TxValidationCache {
     pub fn new() -> Self {
         Self {
-            validated: Mutex::new(HashMap::new()),
+            validated: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
             stateless: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
         }
     }
@@ -53,7 +53,7 @@ impl TxValidationCache {
 
     pub fn set(&self, key: (U256, H256, String, bool), value: ValidateTxInfo) -> ValidateTxInfo {
         let mut cache = self.validated.lock().unwrap();
-        cache.insert(key, value.clone());
+        cache.put(key, value.clone());
         value
     }
 
@@ -63,7 +63,8 @@ impl TxValidationCache {
         value
     }
 
-    // Only clears tx_info cache. stateless cache is handled by LRU
+    // To be used on new block or any known state changes. Only clears fully validated TX cache.
+    // Stateless cache can be kept across blocks and is handled by LRU itself
     pub fn clear(&self) {
         let mut cache = self.validated.lock().unwrap();
         cache.clear()
