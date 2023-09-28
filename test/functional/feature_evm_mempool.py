@@ -8,6 +8,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    hex_to_decimal,
 )
 
 
@@ -187,11 +188,213 @@ class EVMTest(DefiTestFramework):
             },
         )
 
+    def mempool_tx_limit(self):
+        self.rollback_to(self.start_height)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+
+        # Test max limit of TX from a specific sender
+        for i in range(64):
+            self.nodes[0].evmtx(
+                self.ethAddress, nonce + i, 21, 21001, self.toAddress, 1
+            )
+
+        # Test error at the 64th EVM TX
+        assert_raises_rpc_error(
+            -26,
+            "too-many-evm-txs-by-sender",
+            self.nodes[0].evmtx,
+            self.ethAddress,
+            nonce + 64,
+            21,
+            21001,
+            self.toAddress,
+            1,
+        )
+
+        # Mint a block
+        self.nodes[0].generate(1)
+        self.blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        block_txs = self.nodes[0].getblock(
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        )["tx"]
+        assert_equal(len(block_txs), 65)
+
+        # Check accounting of EVM fees
+        txLegacy = {
+            "nonce": "0x1",
+            "from": self.ethAddress,
+            "value": "0x1",
+            "gas": "0x5208",  # 21000
+            "gasPrice": "0x4e3b29200",  # 21_000_000_000,
+        }
+        fees = self.nodes[0].debug_feeEstimate(txLegacy)
+        burnt_fee = hex_to_decimal(fees["burnt_fee"])
+        priority_fee = hex_to_decimal(fees["priority_fee"])
+
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt"], burnt_fee * 64)
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_min"], burnt_fee * 64
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], burnt_fee * 64
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority"], priority_fee * 64
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_min"],
+            priority_fee * 64,
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
+            self.blockHash,
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_max"],
+            priority_fee * 64,
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
+            self.blockHash,
+        )
+
+        # Check Eth balances after transfer
+        assert_equal(
+            int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16),
+            35971776000000000000,
+        )
+        assert_equal(
+            int(self.nodes[0].eth_getBalance(self.toAddress)[2:], 16),
+            64000000000000000000,
+        )
+
+        # Try and send another TX to make sure mempool has removed entries
+        tx = self.nodes[0].evmtx(
+            self.ethAddress, nonce + 64, 21, 21001, self.toAddress, 1
+        )
+        self.nodes[0].generate(1)
+        self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+
+        # Check accounting of EVM fees
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt"], burnt_fee * 65)
+        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt_min"], burnt_fee)
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash1
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], burnt_fee * 64
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority"], priority_fee * 65
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_min"], priority_fee
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
+            self.blockHash1,
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_max"],
+            priority_fee * 64,
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
+            self.blockHash,
+        )
+
+        # Check TX is in block
+        block_txs = self.nodes[0].getblock(
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        )["tx"]
+        assert_equal(block_txs[1], tx)
+
+    def rbf_sender_mempool_limit(self):
+        self.rollback_to(self.start_height)
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        tx = self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        mempool_info = self.nodes[0].getrawmempool()
+        assert_equal(len(mempool_info), 1)
+        assert_equal(mempool_info.count(tx), True)
+
+        for i in range(40):
+            # Check evmtx RBF succeeds
+            tx = self.nodes[0].evmtx(
+                self.ethAddress, nonce, 22 + i, 21001, self.toAddress, 1
+            )
+            mempool_info = self.nodes[0].getrawmempool()
+            assert_equal(len(mempool_info), 1)
+            assert_equal(mempool_info.count(tx), True)
+
+        # Check mempool rejects the 41st RBF evmtx by the same sender
+        assert_raises_rpc_error(
+            -26,
+            "too-many-evm-rbf-txs-by-sender",
+            self.nodes[0].evmtx,
+            self.ethAddress,
+            nonce,
+            62,
+            21001,
+            self.toAddress,
+            1,
+        )
+
+        self.nodes[0].generate(1)
+        # Check TX is in block
+        block_txs = self.nodes[0].getblock(
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        )["tx"]
+        assert_equal(block_txs[1], tx)
+
+        # Check mempool allows sender to do RBF once sender's evm tx is minted
+        tx = self.nodes[0].evmtx(
+            self.ethAddress, nonce + 1, 21, 21001, self.toAddress, 1
+        )
+        for i in range(40):
+            # Check evmtx RBF succeeds
+            tx = self.nodes[0].evmtx(
+                self.ethAddress, nonce + 1, 22 + i, 21001, self.toAddress, 1
+            )
+            mempool_info = self.nodes[0].getrawmempool()
+            assert_equal(len(mempool_info), 1)
+            assert_equal(mempool_info.count(tx), True)
+
+        # Check mempool rejects the 41st RBF evmtx by the same sender
+        assert_raises_rpc_error(
+            -26,
+            "too-many-evm-rbf-txs-by-sender",
+            self.nodes[0].evmtx,
+            self.ethAddress,
+            nonce + 1,
+            62,
+            21001,
+            self.toAddress,
+            1,
+        )
+
     def run_test(self):
         self.setup()
 
-        # # Test for transferdomain and evmtx with same nonce
+        # Test for transferdomain and evmtx with same nonce
         self.same_nonce_transferdomain_and_evm_txs()
+
+        # Mempool limit of 64 TXs
+        self.mempool_tx_limit()
+
+        # Test for RBF sender mempool limit
+        self.rbf_sender_mempool_limit()
 
 
 if __name__ == "__main__":

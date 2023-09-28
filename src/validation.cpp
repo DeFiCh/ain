@@ -947,19 +947,24 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             const auto prePayFee = isEVMTx ? txResult.prepay_fee : std::numeric_limits<uint64_t>::max();
             const auto usedGas = isEVMTx ? txResult.used_gas : std::numeric_limits<uint64_t>::min();
+            const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
             entry.SetEVMPrePayFee(prePayFee);
             entry.SetEVMGasUsed(usedGas);
 
-            if (!pool.checkAddressNonceAndFee(entry)) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");
+            auto senderLimitFlag{false};
+            if (!pool.checkAddressNonceAndFee(entry, txResultSender, senderLimitFlag)) {
+                if (senderLimitFlag) {
+                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many replace-by-fee evm tx from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_RBF), REJECT_INVALID, "too-many-evm-rbf-txs-by-sender");
+                } else {
+                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");
+                }
             }
 
-            const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
-            const auto sender = pool.ethTxsBySender.find(txResultSender);
-            if (sender != pool.ethTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many Eth transaction from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-eth-txs-by-sender");
+            const auto sender = pool.evmTxsBySender.find(txResultSender);
+            if (sender != pool.evmTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many evm tx from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-evm-txs-by-sender");
             } else {
                 ethSender = txResultSender;
             }
