@@ -455,10 +455,6 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
             }
         }
 
-        if (!found) {
-            LogPrintf("XXX failed to remove evm replace by fee sender");
-        }
-
         if (reason != MemPoolRemovalReason::REPLACED) {
             evmReplaceByFeeBySender.erase(sender);
         }
