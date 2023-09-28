@@ -502,10 +502,11 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<ffi::Valid
 fn unsafe_validate_transferdomain_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
     debug!("[unsafe_validate_transferdomain_tx_in_q]");
     unsafe {
-        SERVICES
+        let _ = SERVICES
             .evm
             .core
-            .validate_raw_transferdomain_tx(raw_tx, queue_id)
+            .validate_raw_transferdomain_tx(raw_tx, queue_id)?;
+        Ok(())
     }
 }
 

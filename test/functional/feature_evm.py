@@ -1016,7 +1016,7 @@ class EVMTest(DefiTestFramework):
         for i in range(64):
             self.nodes[0].evmtx(self.eth_address, i, 21, 21001, self.to_address, 1)
 
-        # Test error at the 64th EVM TX
+        # Test error at the 65th EVM TX
         assert_raises_rpc_error(
             -26,
             "too-many-eth-txs-by-sender",
