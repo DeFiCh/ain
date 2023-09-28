@@ -26,6 +26,7 @@ ethereum-types.workspace = true
 serde_json.workspace = true
 statrs.workspace = true
 rustc-hex.workspace = true
+ethabi.workspace = true
 
 # Trie dependencies
 hash-db.workspace = true

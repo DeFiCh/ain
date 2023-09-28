@@ -254,7 +254,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     uint64_t evmQueueId{};
     if (isEvmEnabledForBlock) {
-        auto r = XResultValueLogged(evm_unsafe_try_create_queue(result));
+        auto r = XResultValueLogged(evm_try_unsafe_create_queue(result));
         if (!r) return Res::Err("Failed to create queue");
         evmQueueId = *r;
     }
@@ -269,9 +269,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
-        auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
+        auto r = XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
         if (!r) return Res::Err("Failed to remove queue");
 
         if (!res) return Res::Err("Failed to construct block");
@@ -611,7 +611,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     const auto& blockGasLimit = ctx.blockGasLimit;
 
     CrossBoundaryResult result;
-    const auto expectedNonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txSender);
+    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, evmQueueId, txSender);
     if (!result.ok) {
         return false;
     }
@@ -860,7 +860,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 }
 
                 if (evmType) {
-                    const auto totalGas = evm_try_get_total_gas_used(result, evmQueueId);
+                    const auto totalGas = evm_try_unsafe_get_total_gas_used(result, evmQueueId);
                     if (!result.ok) {
                         LogPrintf("Failed to get total gas used in queue %d\n", evmQueueId);
                     } else {
@@ -898,7 +898,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // If the first TX in a failed set is not the failed TX
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
-                        evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
+                        evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
                         }

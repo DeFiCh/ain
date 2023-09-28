@@ -2410,7 +2410,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     if (!xvmRes) return std::move(xvmRes);
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_unsafe_try_construct_block_in_q(result, evmQueueId, block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&cache)));
+    const auto blockResult = evm_try_unsafe_construct_block_in_q(result, evmQueueId, block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&cache)));
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
