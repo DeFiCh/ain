@@ -938,7 +938,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
 
             CrossBoundaryResult result;
-            auto txResult = evm_try_get_tx_sender_info_from_raw_tx(result, rawEVMTx);
+            auto txResult = evm_try_get_tx_info_from_raw_tx(result, rawEVMTx);
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
             }
@@ -946,9 +946,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
 
             const auto prePayFee = isEVMTx ? txResult.prepay_fee : std::numeric_limits<uint64_t>::max();
+            const auto usedGas = isEVMTx ? txResult.used_gas : std::numeric_limits<uint64_t>::min();
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
             entry.SetEVMPrePayFee(prePayFee);
+            entry.SetEVMGasUsed(usedGas);
 
             if (!pool.checkAddressNonceAndFee(entry)) {
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");
