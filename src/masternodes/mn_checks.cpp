@@ -456,7 +456,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     bool wipeQueue{};
     if (q == 0) {
         wipeQueue = true;
-        auto r = XResultValue(evm_unsafe_try_create_queue(result));
+        auto r = XResultValue(evm_try_unsafe_create_queue(result));
         if (r) { q = *r; } else { return r; }
     }
 
@@ -465,17 +465,17 @@ Res CustomTxVisit(CCustomCSView &mnview,
             CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, evmPreValidate),
             txMessage);
         if (wipeQueue) {
-            XResultStatusLogged(evm_unsafe_try_remove_queue(result, q));
+            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
         }
         return res;
     } catch (const std::bad_variant_access &e) {
         if (wipeQueue) {
-            XResultStatusLogged(evm_unsafe_try_remove_queue(result, q));
+            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
         }
         return Res::Err(e.what());
     } catch (...) {
         if (wipeQueue) {
-            XResultStatusLogged(evm_unsafe_try_remove_queue(result, q));
+            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
         }
         return Res::Err("%s unexpected error", __func__ );
     }

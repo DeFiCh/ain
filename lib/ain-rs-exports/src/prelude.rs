@@ -22,19 +22,3 @@ pub fn cross_boundary_success_return<T>(result: &mut ffi::CrossBoundaryResult, i
     cross_boundary_success(result);
     item
 }
-
-pub fn try_cross_boundary_return<T: Default, E: ToString>(
-    result: &mut ffi::CrossBoundaryResult,
-    item: Result<T, E>,
-) -> T {
-    match item {
-        Err(e) => {
-            cross_boundary_error(result, e.to_string());
-            Default::default()
-        }
-        Ok(v) => {
-            cross_boundary_success(result);
-            v
-        }
-    }
-}

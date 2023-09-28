@@ -114,6 +114,7 @@ dependencies = [
  "ain-cpp-imports",
  "anyhow",
  "bincode",
+ "ethabi",
  "ethbloom",
  "ethereum",
  "ethereum-types",
@@ -191,12 +192,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ain-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.37",
+]
+
+[[package]]
 name = "ain-rs-exports"
 version = "0.1.0"
 dependencies = [
  "ain-contracts",
  "ain-evm",
  "ain-grpc",
+ "ain-macros",
  "anyhow",
  "cxx",
  "cxx-gen",
