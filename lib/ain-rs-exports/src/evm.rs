@@ -367,7 +367,7 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
     }));
 
     unsafe {
-        let _ = SERVICES
+        SERVICES
             .evm
             .push_tx_in_queue(queue_id, queue_tx, native_hash)?;
         Ok(true)
