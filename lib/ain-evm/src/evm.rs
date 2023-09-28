@@ -362,6 +362,11 @@ impl EVMServices {
         })
     }
 
+    pub fn get_block_limit(&self) -> Result<u64> {
+        let res = self.storage.get_attributes_or_default()?;
+        Ok(res.block_gas_limit)
+    }
+
     ///
     /// # Safety
     ///
