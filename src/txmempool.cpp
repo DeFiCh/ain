@@ -434,9 +434,7 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     mapLinks.erase(it);
     mapTx.erase(it);
 
-    std::vector<unsigned char> metadata;
-    CustomTxType txType = GuessCustomTxType(tx, metadata, true);
-
+    const auto txType = it->GetCustomTxType();
     if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
         auto found{false};
         EvmAddressData sender{};
@@ -1245,15 +1243,8 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
     }
 
     if (result) {
-        auto sender = evmReplaceByFeeBySender.find(txSender);
-        if (sender == evmReplaceByFeeBySender.end()) {
-            evmReplaceByFeeBySender[txSender] = 1;
-        }
-        else {
-            sender->second++;
-        }
+        ++evmReplaceByFeeBySender[txSender];
     }
-
     return result;
 }
 
