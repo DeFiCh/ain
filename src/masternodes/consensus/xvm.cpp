@@ -203,7 +203,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if destination address is a contract
-            auto isSmartContract = evm_is_smart_contract_in_q(result, toAddress->GetHex(), evmQueueId);
+            auto isSmartContract = evm_try_unsafe_is_smart_contract_in_q(result, toAddress->GetHex(), evmQueueId);
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -224,7 +224,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(dst.data);
-            evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
+            evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate : %s", result.reason);
@@ -242,13 +242,13 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
-                evm_unsafe_try_add_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex());
+                evm_try_unsafe_add_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex());
                 if (!result.ok) {
                     return Res::Err("Error bridging DFI: %s", result.reason);
                 }
             }
             else {
-                evm_try_bridge_dst20(result, evmQueueId, evmTx, tx.GetHash().GetHex(), tokenId.v, true);
+                evm_try_unsafe_bridge_dst20(result, evmQueueId, evmTx, tx.GetHash().GetHex(), tokenId.v, true);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }
@@ -267,7 +267,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if source address is a contract
-            auto isSmartContract = evm_is_smart_contract_in_q(result, fromAddress->GetHex(), evmQueueId);
+            auto isSmartContract = evm_try_unsafe_is_smart_contract_in_q(result, fromAddress->GetHex(), evmQueueId);
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -279,7 +279,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(src.data);
-            evm_unsafe_try_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
+            evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
@@ -297,7 +297,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Subtract balance from ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
-                if (!evm_unsafe_try_sub_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex())) {
+                if (!evm_try_unsafe_sub_balance_in_q(result, evmQueueId, evmTx, tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
                 if (!result.ok) {
@@ -305,7 +305,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 }
             }
             else {
-                evm_try_bridge_dst20(result, evmQueueId, evmTx, tx.GetHash().GetHex(), tokenId.v, false);
+                evm_try_unsafe_bridge_dst20(result, evmQueueId, evmTx, tx.GetHash().GetHex(), tokenId.v, false);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }
@@ -317,7 +317,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
             if (!res) {
-                evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
+                evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
                 return res;
             }
             stats.evmDvmTotal.Add(dst.amount);
@@ -342,7 +342,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     attributes->SetValue(CTransferDomainStatsLive::Key, stats);
     res = mnview.SetVariable(*attributes);
     if (!res) {
-        evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
+        evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId, tx.GetHash().GetHex());
         return res;
     }
     return Res::Ok();
@@ -358,7 +358,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
 
     CrossBoundaryResult result;
     if (evmPreValidate) {
-        evm_unsafe_try_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+        evm_try_unsafe_prevalidate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
             LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to pre-validate %s", result.reason);
@@ -366,13 +366,13 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    const auto validateResults = evm_unsafe_try_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
+    const auto validateResults = evm_try_unsafe_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
     if (!result.ok) {
         LogPrintf("[evm_try_validate_raw_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to validate %s\n", result.reason);
     }
 
-    evm_unsafe_try_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
+    evm_try_unsafe_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {
         LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to queue %s\n", result.reason);

@@ -802,7 +802,7 @@ impl EVMCoreService {
 
     pub fn store_account_nonce(&self, address: H160, nonce: U256) -> bool {
         let mut nonce_store = self.nonce_store.lock().unwrap();
-        nonce_store.entry(address).or_insert_with(BTreeSet::new);
+        nonce_store.entry(address).or_default();
 
         match nonce_store.entry(address) {
             std::collections::hash_map::Entry::Occupied(mut e) => {

@@ -52,6 +52,14 @@ pub enum EVMError {
     JsonError(#[from] serde_json::Error),
     #[error("EVM: rocksdb error")]
     RocksDBError(#[from] rocksdb::Error),
+    #[error("EVM: ethabi error")]
+    EthAbiError(#[from] ethabi::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+impl From<&str> for EVMError {
+    fn from(s: &str) -> Self {
+        EVMError::Other(format_err!("{s}"))
+    }
 }
