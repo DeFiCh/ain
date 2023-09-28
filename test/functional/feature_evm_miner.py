@@ -11,6 +11,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 from decimal import Decimal
+from time import time
 
 
 class EVMTest(DefiTestFramework):
@@ -105,7 +106,7 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
 
-    def block_size_gas_limit(self):
+    def multiple_blocks_size_gas_limit(self):
         self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
@@ -129,8 +130,7 @@ class EVMTest(DefiTestFramework):
         hashes = []
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         for i in range(40):
-            # tx call actual used gas - 1_761_626.
-            # tx should always pass evm tx validation, but may return early in construct block.
+            # tx call actual used gas: 1_761_626
             tx = contract.functions.loop(10_000).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
@@ -234,6 +234,151 @@ class EVMTest(DefiTestFramework):
                 hashes[first_block_total_txs + second_block_total_txs + idx],
             )
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
+
+    def multiple_blocks_size_gas_limit_max_txs_with_rbf(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        hashes = []
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_time = time()
+        for i in range(64):
+            # tx call actual used gas: 1_761_626
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            hashes.append(signed.hash.hex().lower()[2:])
+
+        # Do valid RBF for nonce zero with incrementing fee
+        for i in range(50):
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce,
+                    "gasPrice": (25_000_000_000 + i),
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            hashes[0] = signed.hash.hex().lower()[2:]
+
+        # Accounting
+        first_block_total_txs = 17
+        second_block_total_txs = 17
+        third_block_total_txs = 17
+        fourth_block_total_txs = 13
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        # Check that the first 17 evm contract call txs is minted in the first block
+        assert_equal(len(block_info["tx"]) - 1, first_block_total_txs)
+        for idx, tx_info in enumerate(block_info["tx"][1:]):
+            if idx == 0:
+                continue
+            assert_equal(tx_info["vm"]["vmtype"], "evm")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + idx)
+            assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx])
+            assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        # Check that the next 17 evm contract call txs is minted in the second block
+        assert_equal(len(block_info["tx"]) - 1, second_block_total_txs)
+        for idx, tx_info in enumerate(block_info["tx"][1:]):
+            if idx == 0:
+                continue
+            assert_equal(tx_info["vm"]["vmtype"], "evm")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"], hashes[first_block_total_txs + idx]
+            )
+            assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        # Check that the next 17 evm contract call txs is minted in the third block
+        assert_equal(len(block_info["tx"]) - 1, third_block_total_txs)
+        for idx, tx_info in enumerate(block_info["tx"][1:]):
+            if idx == 0:
+                continue
+            assert_equal(tx_info["vm"]["vmtype"], "evm")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"],
+                start_nonce + first_block_total_txs + second_block_total_txs + idx,
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"],
+                hashes[first_block_total_txs + second_block_total_txs + idx],
+            )
+            assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        # Check that the remaining 13 evm contract call txs is minted in the fourth block
+        assert_equal(len(block_info["tx"]) - 1, fourth_block_total_txs)
+        for idx, tx_info in enumerate(block_info["tx"][1:]):
+            if idx == 0:
+                continue
+            assert_equal(tx_info["vm"]["vmtype"], "evm")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"],
+                start_nonce
+                + first_block_total_txs
+                + second_block_total_txs
+                + third_block_total_txs
+                + idx,
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"],
+                hashes[
+                    first_block_total_txs
+                    + second_block_total_txs
+                    + third_block_total_txs
+                    + idx
+                ],
+            )
+            assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        self.nodes[0].log.debug(
+            "[feature_evm_miner.py] Attack vector test took: {}".format(
+                time() - start_time
+            )
+        )
 
     def invalid_evm_tx_in_block_creation(self):
         self.rollback_to(self.start_height)
@@ -579,13 +724,16 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        # Multiple mempool fee replacement
-        self.block_size_gas_limit()
+        # Test mining multiple full blocks
+        self.multiple_blocks_size_gas_limit()
 
-        # # Test invalid tx in block creation
+        # Test mining multiple full blocks with max evm txs per sender and RBF
+        self.multiple_blocks_size_gas_limit_max_txs_with_rbf()
+
+        # Test invalid tx in block creation
         self.invalid_evm_tx_in_block_creation()
 
-        # # Test for block size overflow from fee mismatch between tx queue and block
+        # Test for block size overflow from fee mismatch between tx queue and block
         self.state_dependent_txs_in_block_and_queue()
 
         # Test for multiple expensive evm txs and transferdomain txs in the same block
