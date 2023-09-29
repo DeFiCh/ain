@@ -56,21 +56,21 @@ impl SignedTxCache {
 
     pub fn try_get_or_create(&self, key: &str) -> Result<SignedTx> {
         let mut guard = self.inner.lock().unwrap();
-        debug!("[signed-tx-cache]::get: {:?}", key);
+        debug!("[signed-tx-cache]::get: {}", key);
         let res = guard.try_get_or_insert(key.to_string(), || {
-            debug!("[signed-tx-cache]::create {:?}", key);
+            debug!("[signed-tx-cache]::create {}", key);
             SignedTx::try_from(key)
         })?;
         Ok(res.clone())
     }
 
     pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
-        let data = EnvelopedEncodable::encode_payload(tx).to_vec();
-        let key = String::from_utf8(data).map_err(|e| format_err!("{:?}", e))?;
+        let data = EnvelopedEncodable::encode(tx);
+        let key =  data.iter().map(|b: &u8| format!("{:02x}", b)).collect::<String>();
         let mut guard = self.inner.lock().unwrap();
-        debug!("[signed-tx-cache]::get from tx: {:?}", &key);
+        debug!("[signed-tx-cache]::get from tx: {}", &key);
         let res = guard.try_get_or_insert(key.clone(), || {
-            debug!("[signed-tx-cache]::create from tx {:?}", &key);
+            debug!("[signed-tx-cache]::create from tx {}", &key);
             SignedTx::try_from(key.as_str())
         })?;
         Ok(res.clone())
