@@ -225,6 +225,12 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             tx_hash: &str,
         ) -> EVMTransaction;
+
+        fn evm_try_parse_tx_from_raw(
+            result: &mut CrossBoundaryResult,
+            raw_tx: &str,
+        ) -> EVMTransaction;
+
         fn evm_try_get_tx_hash(result: &mut CrossBoundaryResult, raw_tx: &str) -> String;
 
         fn evm_try_create_dst20(

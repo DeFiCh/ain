@@ -790,6 +790,60 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
+fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
+    let tx = SignedTx::try_from(raw_tx)?;
+    let nonce = u64::try_from(tx.nonce())?;
+    let gas_limit = u64::try_from(tx.gas_limit())?;
+    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
+
+    let mut tx_type = 0u8;
+    let mut gas_price = 0u64;
+    let mut max_fee_per_gas = 0u64;
+    let mut max_priority_fee_per_gas = 0u64;
+    match &tx.transaction {
+        TransactionV2::Legacy(transaction) => {
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
+            gas_price = price;
+        }
+        TransactionV2::EIP2930(transaction) => {
+            tx_type = 1u8;
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
+            gas_price = price;
+        }
+        TransactionV2::EIP1559(transaction) => {
+            tx_type = 2u8;
+            let price = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi())?;
+            max_fee_per_gas = price;
+            let price =
+                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi())?;
+            max_priority_fee_per_gas = price;
+        }
+    }
+
+    let out = ffi::EVMTransaction {
+        tx_type,
+        hash: format!("{:?}", tx.hash()),
+        sender: format!("{:?}", tx.sender),
+        nonce,
+        gas_price,
+        gas_limit,
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+        create_tx: match tx.action() {
+            TransactionAction::Call(_) => false,
+            TransactionAction::Create => true,
+        },
+        to: match tx.to() {
+            Some(to) => format!("{to:?}"),
+            None => XHash::new(),
+        },
+        value,
+        data: tx.data().to_vec(),
+    };
+    Ok(out)
+}
+
+#[ffi_fallible]
 fn create_dst20(
     queue_id: u64,
     native_hash: &str,

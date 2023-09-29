@@ -224,6 +224,13 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(dst.data);
+            const auto parsedEvmTx = evm_try_parse_tx_from_raw(result, evmTx);
+            if (!result.ok) {
+                return DeFiErrors::EvmTxValidationFailure(std::string(result.reason));
+            }
+            if (parsedEvmTx.value != src.amount.nValue) {
+                return DeFiErrors::TransferDomainUnequalAmount();
+            }            
             evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
@@ -238,7 +245,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Err("Error getting tx hash: %s", result.reason);
             }
             evmTxHash = std::string(hash.data(), hash.length()).substr(2);
-
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
@@ -279,6 +285,13 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(src.data);
+            const auto parsedEvmTx = evm_try_parse_tx_from_raw(result, evmTx);
+            if (!result.ok) {
+                return DeFiErrors::EvmTxValidationFailure(std::string(result.reason));
+            }
+            if (parsedEvmTx.value != src.amount.nValue) {
+                return DeFiErrors::TransferDomainUnequalAmount();
+            }
             evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
             if (!result.ok) {
                 LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
