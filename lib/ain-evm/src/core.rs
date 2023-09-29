@@ -631,7 +631,7 @@ impl EVMCoreService {
 
                 // Validate function signature
                 let function_signature = function.short_signature();
-                if function_signature != &signed_tx.data()[..4] {
+                if function_signature != signed_tx.data()[..4] {
                     return Err(format_err!("invalid function signature input in evm tx").into());
                 }
 
