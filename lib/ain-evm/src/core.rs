@@ -38,7 +38,7 @@ use crate::{
 pub type XHash = String;
 
 pub struct SignedTxCache {
-    inner: Mutex<LruCache<String, SignedTx>>,
+    inner: spin::Mutex<LruCache<String, SignedTx>>,
 }
 
 const DEFAULT_CACHE_SIZE: usize = 10000;
@@ -52,7 +52,7 @@ impl Default for SignedTxCache {
 impl SignedTxCache {
     pub fn new(capacity: usize) -> Self {
         Self {
-            inner: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            inner: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
         }
     }
 
@@ -80,8 +80,8 @@ impl SignedTxCache {
 }
 
 struct TxValidationCache {
-    validated: Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
-    stateless: Mutex<LruCache<String, ValidateTxInfo>>,
+    validated: spin::Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
+    stateless: spin::Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
 impl Default for TxValidationCache {
@@ -93,8 +93,8 @@ impl Default for TxValidationCache {
 impl TxValidationCache {
     pub fn new(capacity: usize) -> Self {
         Self {
-            validated: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
-            stateless: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            validated: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            stateless: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
         }
     }
 
