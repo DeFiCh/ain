@@ -759,7 +759,11 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 
 #[ffi_fallible]
 fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
-    let tx = SignedTx::try_from(raw_tx)?;
+    let tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
     let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
