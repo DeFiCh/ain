@@ -1,4 +1,5 @@
-use ain_contracts::{get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
+use ain_contracts::{
+    get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
