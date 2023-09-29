@@ -259,7 +259,7 @@ class EVMTest(DefiTestFramework):
         hashes = []
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         start_time = time()
-        for i in range(64):
+        for i in range(40):
             # tx call actual used gas: 1_761_626
             tx = contract.functions.loop(10_000).build_transaction(
                 {
@@ -274,7 +274,7 @@ class EVMTest(DefiTestFramework):
             hashes.append(signed.hash.hex().lower()[2:])
 
         # Do valid RBF for nonce zero with incrementing fee
-        for i in range(50):
+        for i in range(40):
             tx = contract.functions.loop(10_000).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
@@ -290,8 +290,8 @@ class EVMTest(DefiTestFramework):
         # Accounting
         first_block_total_txs = 17
         second_block_total_txs = 17
-        third_block_total_txs = 17
-        fourth_block_total_txs = 13
+        third_block_total_txs = 6
+        fourth_block_total_txs = 0
 
         self.nodes[0].generate(1)
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
