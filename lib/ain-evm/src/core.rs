@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ain_contracts::{get_transfer_domain_contract, FixedContract};
+use ain_contracts::{dst20_address_from_token_id, get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
@@ -24,7 +24,7 @@ use crate::{
     transaction::SignedTx,
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     txqueue::TransactionQueueMap,
-    weiamount::WeiAmount,
+    weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
 
@@ -95,6 +95,15 @@ pub struct EthCallArgs<'a> {
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
     pub prepay_fee: U256,
+}
+
+pub struct TransferDomainTxInfo {
+    pub from: String,
+    pub to: String,
+    pub native_address: String,
+    pub direction: bool,
+    pub value: u64,
+    pub token_id: u32,
 }
 
 fn init_vsdb(path: PathBuf) {
@@ -441,9 +450,29 @@ impl EVMCoreService {
     /// Validates a raw transfer domain tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:
-    /// 1. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
-    /// 2. tx value check: verify that amount is set to zero.
-    /// 3. Verify that transaction action is a call to the transferdomain contract address.
+    /// 1. Verify that transferdomain tx is of legacy transaction type.
+    /// 2. Verify that tx sender matches transferdomain from address.
+    /// 3. Verify that tx value is set to zero.
+    /// 4. Verify that gas price is set to zero.
+    /// 5. Verify that gas limit is set to zero.
+    /// 6. Verify that transaction action is a call to the transferdomain contract address.
+    ///
+    /// 7. If native token transfer:
+    /// - Verify that tx function signature is transfer.
+    /// - Verify that from address specified matches transferdomain tx information
+    /// - Verify that to address specified matches transferdomain tx information
+    /// - Verify that value specified matches transferdomain tx information
+    /// - Verify that native address specified matches transferdomain tx information
+    ///
+    /// 8. If DST20 token transfer:
+    /// - Verify that tx function signature is transferDST20.
+    /// - Verify that contract address specified matches DST20 token ID address.
+    /// - Verify that from address specified matches transferdomain tx information
+    /// - Verify that to address specified matches transferdomain tx information
+    /// - Verify that value specified matches transferdomain tx information
+    /// - Verify that native address specified matches transferdomain tx information
+    ///
+    /// 9. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     ///
     /// # Arguments
     ///
@@ -463,6 +492,7 @@ impl EVMCoreService {
         &self,
         tx: &str,
         queue_id: u64,
+        context: TransferDomainTxInfo,
     ) -> Result<ValidateTxInfo> {
         debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
         debug!(
@@ -484,17 +514,42 @@ impl EVMCoreService {
         } else {
             let signed_tx = SignedTx::try_from(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-            debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
+            debug!("[validate_raw_transferdomain_tx] signed_tx : {:#?}", signed_tx);
 
-            debug!(
-                "[validate_raw_tx] signed_tx.sender : {:#?}",
-                signed_tx.sender
-            );
+            // Validate tx is legacy tx
+            if signed_tx.get_tx_type() != U256::zero() {
+                return Err(format_err!(
+                    "[validate_raw_transferdomain_tx] invalid evm tx type {:#?}",
+                    signed_tx.get_tx_type()
+                ).into());
+            }
+
+            // Validate tx sender with transferdomain sender
+            let sender = context.from.parse::<H160>().map_err(|_| "Invalid address")?;
+            if signed_tx.sender != sender {
+                return Err(format_err!(
+                    "[validate_raw_transferdomain_tx] invalid sender, signed_tx.sender : {:#?}, transferdomain sender : {:#?}",
+                    signed_tx.sender,
+                    sender
+                ).into());
+            }
 
             // Validate tx value equal to zero
             if signed_tx.value() != U256::zero() {
                 debug!("[validate_raw_transferdomain_tx] value not equal to zero");
                 return Err(format_err!("value not equal to zero").into());
+            }
+
+            // Validate tx gas price equal to zero
+            if signed_tx.gas_price() != U256::zero() {
+                debug!("[validate_raw_transferdomain_tx] gas price not equal to zero");
+                return Err(format_err!("gas price not equal to zero").into());
+            }
+
+            // Validate tx gas limit equal to zero
+            if signed_tx.gas_limit() != U256::zero() {
+                debug!("[validate_raw_transferdomain_tx] gas limit not equal to zero");
+                return Err(format_err!("gas limit not equal to zero").into());
             }
 
             // Verify transaction action and transferdomain contract address
@@ -503,9 +558,9 @@ impl EVMCoreService {
                 TransactionAction::Call(address) => {
                     if address != fixed_address {
                         return Err(format_err!(
-                        "Invalid call address. Fixed address: {:#?}, signed_tx call address: {:#?}",
-                        fixed_address,
-                        address
+                            "invalid call address. Fixed address: {:#?}, signed_tx call address: {:#?}",
+                            fixed_address,
+                            address
                     )
                         .into());
                     }
@@ -513,6 +568,216 @@ impl EVMCoreService {
                 _ => {
                     return Err(format_err!(
                         "tx action not a call to transferdomain contract address"
+                    )
+                    .into())
+                }
+            }
+
+            let (from_address, to_address) = if context.direction {
+                // EvmIn
+                let to_address = context.to.parse::<H160>().map_err(|_| "failed to parse to address")?;
+                (fixed_address, to_address)
+            } else {
+                // EvmOut
+                let from_address = context.from.parse::<H160>().map_err(|_| "failed to parse from address")?;
+                (from_address, fixed_address)
+            };
+            let value = try_from_satoshi(U256::from(context.value))?.0;
+
+            let is_native_token_transfer = context.token_id == 0;
+            if is_native_token_transfer {
+                #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+                let function = ethabi::Function {
+                    name: String::from("transfer"),
+                    inputs: vec![
+                        ethabi::Param {
+                            name: String::from("from"),
+                            kind: ethabi::ParamType::Address,
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("to"),
+                            kind: ethabi::ParamType::Address,
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("amount"),
+                            kind: ethabi::ParamType::Uint(256),
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("vmAddress"),
+                            kind: ethabi::ParamType::String,
+                            internal_type: None,
+                        },
+                    ],
+                    outputs: vec![],
+                    constant: None,
+                    state_mutability: ethabi::StateMutability::NonPayable,
+                };
+
+                // Validate function signature
+                let token_inputs = function.decode_input(signed_tx.data())?;
+
+                // Validate from address input
+                let ethabi::Token::Address(input_from_address) = token_inputs[0] else {
+                    return Err(format_err!(
+                        "invalid from address input in evm tx"
+                    )
+                    .into())
+                };
+                if input_from_address != from_address {
+                    return Err(format_err!(
+                        "invalid from address input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate to address input
+                let ethabi::Token::Address(input_to_address) = token_inputs[1] else {
+                    return Err(format_err!(
+                        "invalid to address input in evm tx"
+                    )
+                    .into())
+                };
+                if input_to_address != to_address {
+                    return Err(format_err!(
+                        "invalid to address input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate value input
+                let ethabi::Token::Uint(input_value) = token_inputs[2] else {
+                    return Err(format_err!(
+                        "invalid value input in evm tx"
+                    )
+                    .into())
+                };
+                if input_value != value {
+                    return Err(format_err!(
+                        "invalid value input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate native address input
+                let ethabi::Token::String(ref input_native_address) = token_inputs[3] else {
+                    return Err(format_err!(
+                        "invalid native address input in evm tx"
+                    )
+                    .into())
+                };
+                if context.native_address != *input_native_address {
+                    return Err(format_err!(
+                        "invalid native address input in evm tx"
+                    )
+                    .into())
+                }
+            } else {
+                let contract_address = {
+                    let address = dst20_address_from_token_id(u64::from(context.token_id))?;
+                    ethabi::Token::Address(address)
+                };
+
+                #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+                let function = ethabi::Function {
+                    name: String::from("transferDST20"),
+                    inputs: vec![
+                        ethabi::Param {
+                            name: String::from("contractAddress"),
+                            kind: ethabi::ParamType::Address,
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("from"),
+                            kind: ethabi::ParamType::Address,
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("to"),
+                            kind: ethabi::ParamType::Address,
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("amount"),
+                            kind: ethabi::ParamType::Uint(256),
+                            internal_type: None,
+                        },
+                        ethabi::Param {
+                            name: String::from("vmAddress"),
+                            kind: ethabi::ParamType::String,
+                            internal_type: None,
+                        },
+                    ],
+                    outputs: vec![],
+                    constant: None,
+                    state_mutability: ethabi::StateMutability::NonPayable,
+                };
+
+                // Validate function signature
+                let token_inputs = function.decode_input(signed_tx.data())?;
+
+                // Validate contract address input
+                if token_inputs[0] != contract_address {
+                    return Err(format_err!(
+                        "invalid contract address input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate from address input
+                let ethabi::Token::Address(input_from_address) = token_inputs[1] else {
+                    return Err(format_err!(
+                        "invalid from address input in evm tx"
+                    )
+                    .into())
+                };
+                if input_from_address != from_address {
+                    return Err(format_err!(
+                        "invalid from address input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate to address input
+                let ethabi::Token::Address(input_to_address) = token_inputs[2] else {
+                    return Err(format_err!(
+                        "invalid to address input in evm tx"
+                    )
+                    .into())
+                };
+                if input_to_address != to_address {
+                    return Err(format_err!(
+                        "invalid to address input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate value input
+                let ethabi::Token::Uint(input_value) = token_inputs[3] else {
+                    return Err(format_err!(
+                        "invalid value input in evm tx"
+                    )
+                    .into())
+                };
+                if input_value != value {
+                    return Err(format_err!(
+                        "invalid value input in evm tx"
+                    )
+                    .into())
+                }
+
+                // Validate native address input
+                let ethabi::Token::String(ref input_native_address) = token_inputs[4] else {
+                    return Err(format_err!(
+                        "invalid native address input in evm tx"
+                    )
+                    .into())
+                };
+                if context.native_address != *input_native_address {
+                    return Err(format_err!(
+                        "invalid native address input in evm tx"
                     )
                     .into())
                 }

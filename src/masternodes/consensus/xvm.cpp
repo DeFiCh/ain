@@ -39,7 +39,11 @@ static XVmAddressFormatTypes FromTxDestType(const size_t index) {
     }
 }
 
-static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript &destScript, VMDomainEdge edge, const TransferDomainConfig &config) {
+static Res ValidateTransferDomainScripts(const CScript &srcScript,
+                                         const CScript &destScript,
+                                         VMDomainEdge edge,
+                                         const TransferDomainConfig &config,
+                                         TransferDomainInfo &context) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
     if (!res) return DeFiErrors::ScriptUnexpected(srcScript);
@@ -50,6 +54,8 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
     const auto srcType = FromTxDestType(src.index());
     const auto destType = FromTxDestType(dest.index());
 
+    context.to = "";
+    context.native_address = "";
     if (edge == VMDomainEdge::DVMToEVM) {
         if (!config.dvmToEvmSrcAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
@@ -57,6 +63,8 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
         if (!config.dvmToEvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
+        context.to = EncodeDestination(dest);
+        context.native_address = EncodeDestination(src);
         return Res::Ok();
 
     } else if (edge == VMDomainEdge::EVMToDVM) {
@@ -66,6 +74,8 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript, const CScript
         if (!config.evmToDvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
+        context.from = EncodeDestination(src);
+        context.native_address = EncodeDestination(dest);
         return Res::Ok();
     }
 
@@ -79,7 +89,8 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
                                       const CCoinsViewCache &coins,
                                       const Consensus::Params &consensus,
                                       CTransferDomainItem src,
-                                      CTransferDomainItem dst) {
+                                      CTransferDomainItem dst,
+                                      TransferDomainInfo &context) {
 
     if (src.domain == dst.domain)
         return DeFiErrors::TransferDomainSameDomain();
@@ -96,6 +107,8 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
         return DeFiErrors::TransferDomainInvalid();
 
     auto tokenId = src.amount.nTokenId;
+    context.token_id = tokenId.v;
+    context.value = dst.amount.nValue;
 
     if (tokenId != DCT_ID{0}) {
         auto token = mnview.GetToken(tokenId);
@@ -114,8 +127,18 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
             return DeFiErrors::TransferDomainDVMToEVMDATNotEnabled();
 
         // DVM to EVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, config);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, config, context);
         if (!res) return res;
+        context.direction = true;
+
+        CScript from;
+        res = GetERC55AddressFromAuth(tx, coins, from);
+        if (!res) return res;
+        CTxDestination dest;
+        if (!ExtractDestination(from, dest)) {
+            return DeFiErrors::ScriptUnexpected(from);
+        }
+        context.from = EncodeDestination(dest);
 
         return HasAuth(tx, coins, src.address);
 
@@ -130,8 +153,9 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
             return DeFiErrors::TransferDomainEVMToDVMDATNotEnabled();
 
         // EVM to DVM
-        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, config);
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, config, context);
         if (!res) return res;
+        context.direction = false;
 
         auto authType = AuthFlags::None;
         for (const auto &value : config.evmToDvmAuthFormats) {
@@ -153,7 +177,8 @@ static Res ValidateTransferDomain(const CTransaction &tx,
                            CCustomCSView &mnview,
                            const Consensus::Params &consensus,
                            const CTransferDomainMessage &obj,
-                           const bool isEvmEnabledForBlock)
+                           const bool isEvmEnabledForBlock,
+                           std::vector<TransferDomainInfo> &contexts)
 {
     if (!IsTransferDomainEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainNotEnabled();
@@ -174,15 +199,18 @@ static Res ValidateTransferDomain(const CTransaction &tx,
     auto config = TransferDomainConfig::From(mnview);
 
     for (const auto &[src, dst] : obj.transfers) {
-        auto res = ValidateTransferDomainEdge(tx, config, mnview, height, coins, consensus, src, dst);
+        TransferDomainInfo context;
+        auto res = ValidateTransferDomainEdge(tx, config, mnview, height, coins, consensus, src, dst, context);
         if (!res) return res;
+        contexts.push_back(context);
     }
 
     return Res::Ok();
 }
 
 Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
-    auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock);
+    std::vector<TransferDomainInfo> contexts;
+    auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock, contexts);
     if (!res) { return res; }
 
     auto attributes = mnview.GetAttributes();
@@ -191,6 +219,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     CrossBoundaryResult result;
 
     // Iterate over array of transfers
+    auto idx = 0;
     for (const auto &[src, dst] : obj.transfers) {
         if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
             CTxDestination dest;
@@ -224,16 +253,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(dst.data);
-            const auto parsedEvmTx = evm_try_parse_tx_from_raw(result, evmTx);
+            evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx, contexts[idx]);
             if (!result.ok) {
-                return DeFiErrors::EvmTxValidationFailure(std::string(result.reason));
-            }
-            if (parsedEvmTx.value != src.amount.nValue) {
-                return DeFiErrors::TransferDomainUnequalAmount();
-            }            
-            evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
-            if (!result.ok) {
-                LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
+                LogPrintf("[evm_try_validate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate : %s", result.reason);
             }
             if (evmPreValidate) {
@@ -285,16 +307,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(src.data);
-            const auto parsedEvmTx = evm_try_parse_tx_from_raw(result, evmTx);
+            evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx, contexts[idx]);
             if (!result.ok) {
-                return DeFiErrors::EvmTxValidationFailure(std::string(result.reason));
-            }
-            if (parsedEvmTx.value != src.amount.nValue) {
-                return DeFiErrors::TransferDomainUnequalAmount();
-            }
-            evm_try_unsafe_validate_transferdomain_tx_in_q(result, evmQueueId, evmTx);
-            if (!result.ok) {
-                LogPrintf("[evm_try_prevalidate_transferdomain_tx] failed, reason : %s\n", result.reason);
+                LogPrintf("[evm_try_validate_transferdomain_tx] failed, reason : %s\n", result.reason);
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
             if (evmPreValidate) {
@@ -340,6 +355,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
         else {
             return DeFiErrors::TransferDomainInvalidDomain();
         }
+
+        ++idx;
     }
 
     auto txHash = tx.GetHash().GetHex();

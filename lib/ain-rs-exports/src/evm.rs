@@ -1,6 +1,6 @@
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use ain_evm::{
-    core::{EthCallArgs, ValidateTxInfo, XHash},
+    core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::TxResponse,
     fee::calculate_prepay_gas_fee,
@@ -499,13 +499,25 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<ffi::Valid
 ///
 /// Returns the valiadtion result.
 #[ffi_fallible]
-fn unsafe_validate_transferdomain_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
+fn unsafe_validate_transferdomain_tx_in_q(
+    queue_id: u64,
+    raw_tx: &str,
+    context: ffi::TransferDomainInfo,
+) -> Result<()> {
     debug!("[unsafe_validate_transferdomain_tx_in_q]");
     unsafe {
-        let _ = SERVICES
-            .evm
-            .core
-            .validate_raw_transferdomain_tx(raw_tx, queue_id)?;
+        let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
+            raw_tx,
+            queue_id,
+            TransferDomainTxInfo {
+                from: context.from,
+                to: context.to,
+                native_address: context.native_address,
+                direction: context.direction,
+                value: context.value,
+                token_id: context.token_id,
+            },
+        )?;
         Ok(())
     }
 }

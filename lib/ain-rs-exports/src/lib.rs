@@ -104,6 +104,15 @@ pub mod ffi {
         pub nonce: u64,
     }
 
+    pub struct TransferDomainInfo {
+        pub from: String,
+        pub to: String,
+        pub native_address: String,
+        pub direction: bool,
+        pub value: u64,
+        pub token_id: u32,
+    }
+
     #[derive(Default)]
     pub struct CreateTxResult {
         pub tx: Vec<u8>,
@@ -175,6 +184,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
+            context: TransferDomainInfo,
         );
         fn evm_try_unsafe_push_tx_in_q(
             result: &mut CrossBoundaryResult,
