@@ -54,8 +54,6 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
     const auto srcType = FromTxDestType(src.index());
     const auto destType = FromTxDestType(dest.index());
 
-    context.to = "";
-    context.native_address = "";
     if (edge == VMDomainEdge::DVMToEVM) {
         if (!config.dvmToEvmSrcAddresses.count(srcType)) {
             return DeFiErrors::TransferDomainDVMSourceAddress();
