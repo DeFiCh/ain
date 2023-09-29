@@ -1,4 +1,6 @@
-use ain_contracts::{get_transfer_domain_contract, FixedContract};
+use ain_contracts::{get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
+    get_transferdomain_native_transfer_function, FixedContract,
+};
 use ain_evm::{
     core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
@@ -118,78 +120,14 @@ fn create_and_sign_transfer_domain_tx(
 
         let is_native_token_transfer = ctx.token_id == 0;
         if is_native_token_transfer {
-            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-            let function = ethabi::Function {
-                name: String::from("transfer"),
-                inputs: vec![
-                    ethabi::Param {
-                        name: String::from("from"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("to"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("amount"),
-                        kind: ethabi::ParamType::Uint(256),
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("vmAddress"),
-                        kind: ethabi::ParamType::String,
-                        internal_type: None,
-                    },
-                ],
-                outputs: vec![],
-                constant: None,
-                state_mutability: ethabi::StateMutability::NonPayable,
-            };
-
+            let function = get_transferdomain_native_transfer_function();
             function.encode_input(&[from_address, to_address, value, native_address])
         } else {
             let contract_address = {
                 let address = ain_contracts::dst20_address_from_token_id(u64::from(ctx.token_id))?;
                 ethabi::Token::Address(address)
             };
-
-            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-            let function = ethabi::Function {
-                name: String::from("transferDST20"),
-                inputs: vec![
-                    ethabi::Param {
-                        name: String::from("contractAddress"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("from"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("to"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("amount"),
-                        kind: ethabi::ParamType::Uint(256),
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("vmAddress"),
-                        kind: ethabi::ParamType::String,
-                        internal_type: None,
-                    },
-                ],
-                outputs: vec![],
-                constant: None,
-                state_mutability: ethabi::StateMutability::NonPayable,
-            };
-
+            let function = get_transferdomain_dst20_transfer_function();
             function.encode_input(&[
                 contract_address,
                 from_address,

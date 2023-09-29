@@ -5,7 +5,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ain_contracts::{dst20_address_from_token_id, get_transfer_domain_contract, FixedContract};
+use ain_contracts::{
+    dst20_address_from_token_id, get_transfer_domain_contract,
+    get_transferdomain_dst20_transfer_function, get_transferdomain_native_transfer_function,
+    FixedContract,
+};
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
@@ -599,37 +603,8 @@ impl EVMCoreService {
 
             let is_native_token_transfer = context.token_id == 0;
             if is_native_token_transfer {
-                #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-                let function = ethabi::Function {
-                    name: String::from("transfer"),
-                    inputs: vec![
-                        ethabi::Param {
-                            name: String::from("from"),
-                            kind: ethabi::ParamType::Address,
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("to"),
-                            kind: ethabi::ParamType::Address,
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("amount"),
-                            kind: ethabi::ParamType::Uint(256),
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("vmAddress"),
-                            kind: ethabi::ParamType::String,
-                            internal_type: None,
-                        },
-                    ],
-                    outputs: vec![],
-                    constant: None,
-                    state_mutability: ethabi::StateMutability::NonPayable,
-                };
-
                 // Validate function signature
+                let function = get_transferdomain_native_transfer_function();
                 let function_signature = function.short_signature();
                 if function_signature != signed_tx.data()[..4] {
                     return Err(format_err!("invalid function signature input in evm tx").into());
@@ -674,42 +649,8 @@ impl EVMCoreService {
                     ethabi::Token::Address(address)
                 };
 
-                #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-                let function = ethabi::Function {
-                    name: String::from("transferDST20"),
-                    inputs: vec![
-                        ethabi::Param {
-                            name: String::from("contractAddress"),
-                            kind: ethabi::ParamType::Address,
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("from"),
-                            kind: ethabi::ParamType::Address,
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("to"),
-                            kind: ethabi::ParamType::Address,
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("amount"),
-                            kind: ethabi::ParamType::Uint(256),
-                            internal_type: None,
-                        },
-                        ethabi::Param {
-                            name: String::from("vmAddress"),
-                            kind: ethabi::ParamType::String,
-                            internal_type: None,
-                        },
-                    ],
-                    outputs: vec![],
-                    constant: None,
-                    state_mutability: ethabi::StateMutability::NonPayable,
-                };
-
                 // Validate function signature
+                let function = get_transferdomain_dst20_transfer_function();
                 let function_signature = function.short_signature();
                 if function_signature != signed_tx.data()[..4] {
                     return Err(format_err!("invalid function signature input in evm tx").into());
