@@ -259,9 +259,10 @@ impl EVMCoreService {
     /// 6. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     ///
     /// The validation checks with state context of the tx before we consider it to be valid are:
-    /// 1. Nonce check: Verify that the tx nonce must equl to the current state account nonce.
-    /// 2. Execute the tx with the state root from the txqueue.
-    /// 3. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
+    /// 1. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 2. Nonce check: Verify that the tx nonce must equl to the current state account nonce.
+    /// 3. Execute the tx with the state root from the txqueue.
+    /// 4. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
     ///
     /// # Arguments
     ///
