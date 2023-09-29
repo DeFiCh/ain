@@ -53,6 +53,32 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script) {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        if (coin.IsSpent()) continue;
+
+        std::vector<TBytes> vRet;
+        const auto solution = Solver(coin.out.scriptPubKey, vRet);
+        if (solution == txnouttype::TX_PUBKEYHASH) {
+            auto it = input.scriptSig.begin();
+            CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+            if (pubkey.Decompress()) {
+                script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                return Res::Ok();
+            }
+        } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
+            CPubKey pubkey(input.scriptWitness.stack[1]);
+            const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
+            if (pubkey.Decompress()) {
+                script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                return Res::Ok();
+            }
+        }
+    }
+    return DeFiErrors::InvalidAuth();
+}
+
 CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
