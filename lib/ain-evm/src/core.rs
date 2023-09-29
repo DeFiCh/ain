@@ -289,6 +289,7 @@ impl EVMCoreService {
             return Ok(tx_info);
         }
 
+        let mut backend = self.get_backend(state_root)?;
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
@@ -354,7 +355,6 @@ impl EVMCoreService {
         };
 
         // Start of stateful checks
-        let mut backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_tx] signed_tx nonce : {:#?}",
