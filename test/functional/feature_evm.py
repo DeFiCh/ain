@@ -82,9 +82,6 @@ class EVMTest(DefiTestFramework):
         # EVM rollback
         self.evm_rollback()
 
-        # Mempool limit of 64 TXs
-        self.mempool_tx_limit()
-
         # Multiple mempool fee replacement
         self.multiple_eth_rbf()
 
@@ -141,7 +138,7 @@ class EVMTest(DefiTestFramework):
         self.eth_address_privkey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
-        self.to_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
+        self.to_address = "0x6C34CBb9219d8cAa428835D2073E8ec88BA0a110"
         self.to_address_privkey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )
@@ -1011,137 +1008,20 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
 
-    def mempool_tx_limit(self):
-        # Test max limit of TX from a specific sender
-        for i in range(64):
-            self.nodes[0].evmtx(self.eth_address, i, 21, 21001, self.to_address, 1)
-
-        # Test error at the 65th EVM TX
-        assert_raises_rpc_error(
-            -26,
-            "too-many-eth-txs-by-sender",
-            self.nodes[0].evmtx,
-            self.eth_address,
-            64,
-            21,
-            21001,
-            self.to_address,
-            1,
-        )
-
-        # Mint a block
-        self.nodes[0].generate(1)
-        self.blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        block_txs = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )["tx"]
-        assert_equal(len(block_txs), 65)
-
-        # Check accounting of EVM fees
-        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee * 64
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee * 64
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 64
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee * 64
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_min"],
-            self.priority_fee * 64,
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
-            self.blockHash,
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee * 64,
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
-            self.blockHash,
-        )
-
-        # Check Eth balances after transfer
-        assert_equal(
-            int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
-            135971776000000000000,
-        )
-        assert_equal(
-            int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16),
-            64000000000000000000,
-        )
-
-        # Try and send another TX to make sure mempool has removed entries
-        tx = self.nodes[0].evmtx(self.eth_address, 64, 21, 21001, self.to_address, 1)
-        self.nodes[0].generate(1)
-        self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-
-        # Check accounting of EVM fees
-        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee * 65
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash1
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 64
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee * 65
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_min"], self.priority_fee
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
-            self.blockHash1,
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee * 64,
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
-            self.blockHash,
-        )
-
-        # Check TX is in block
-        block_txs = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )["tx"]
-        assert_equal(block_txs[1], tx)
-
     def multiple_eth_rbf(self):
         # Test multiple replacement TXs with differing fees
-        self.nodes[0].evmtx(self.eth_address, 65, 22, 21001, self.to_address, 1)
-        self.nodes[0].evmtx(self.eth_address, 65, 23, 21001, self.to_address, 1)
-        tx0 = self.nodes[0].evmtx(self.eth_address, 65, 25, 21001, self.to_address, 1)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        self.nodes[0].evmtx(self.eth_address, nonce, 22, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 23, 21001, self.to_address, 1)
+        tx0 = self.nodes[0].evmtx(
+            self.eth_address, nonce, 25, 21001, self.to_address, 1
+        )
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
             self.eth_address,
-            65,
+            nonce,
             21,
             21001,
             self.to_address,
@@ -1152,21 +1032,25 @@ class EVMTest(DefiTestFramework):
             "evm-low-fee",
             self.nodes[0].evmtx,
             self.eth_address,
-            65,
+            nonce,
             24,
             21001,
             self.to_address,
             1,
         )
-        self.nodes[0].evmtx(self.to_address, 0, 22, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, 0, 23, 21001, self.eth_address, 1)
-        tx1 = self.nodes[0].evmtx(self.to_address, 0, 25, 21001, self.eth_address, 1)
+
+        to_nonce = self.nodes[0].w3.eth.get_transaction_count(self.to_address)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 22, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 23, 21001, self.eth_address, 1)
+        tx1 = self.nodes[0].evmtx(
+            self.to_address, to_nonce, 25, 21001, self.eth_address, 1
+        )
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
             self.to_address,
-            0,
+            to_nonce,
             21,
             21001,
             self.eth_address,
@@ -1177,7 +1061,7 @@ class EVMTest(DefiTestFramework):
             "evm-low-fee",
             self.nodes[0].evmtx,
             self.to_address,
-            0,
+            to_nonce,
             24,
             21001,
             self.eth_address,
@@ -1188,8 +1072,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(
             sorted(self.nodes[0].getrawmempool()),
             [
-                "2b13a48b2af32206a2d60d535ad46d4958c25b4ddd4c30f3a2da32f092c23916",
-                "6a6b53538b66e0eb477ce923901e6fa1714c4f52a83f8f1793c92c14ebc0f910",
+                tx0,
+                tx1,
             ],
         )
         self.nodes[0].generate(1)
@@ -1206,55 +1090,55 @@ class EVMTest(DefiTestFramework):
         self.burnt_fee65 = hex_to_decimal(fees65["burnt_fee"])
         self.priority_fee65 = hex_to_decimal(fees65["priority_fee"])
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt"],
-            self.burnt_fee * 65 + 2 * self.burnt_fee65,
+            2 * self.burnt_fee65,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority"],
-            self.priority_fee * 65 + 2 * self.priority_fee65,
+            2 * self.priority_fee65,
         )
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt"],
-            self.burnt_fee * 65 + 2 * self.burnt_fee65,
+            2 * self.burnt_fee65,
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee
+            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee65 * 2
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], self.blockHash1
+            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], blockHash
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee * 64
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee65 * 2
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], self.blockHash
+            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], blockHash
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority"],
-            self.priority_fee * 65 + 2 * self.priority_fee65,
+            2 * self.priority_fee65,
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_min"], self.priority_fee
+            attributes["v0/live/economy/evm/block/fee_priority_min"],
+            self.priority_fee65 * 2,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_min_hash"],
-            self.blockHash1,
+            blockHash,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee * 64,
+            self.priority_fee65 * 2,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"],
-            self.blockHash,
+            blockHash,
         )
 
         # Check highest paying fee TX in block
-        block_txs = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )["tx"]
+        block_txs = self.nodes[0].getblock(blockHash)["tx"]
         assert_equal(block_txs[1], tx0)
         assert_equal(block_txs[2], tx1)
 

@@ -571,7 +571,8 @@ public:
     mutable RecursiveMutex cs;
     indexed_transaction_set mapTx GUARDED_BY(cs);
 
-    std::map<EvmAddressData, std::set<uint256>> ethTxsBySender;
+    std::map<EvmAddressData, std::set<uint256>> evmTxsBySender;
+    std::map<EvmAddressData, int> evmReplaceByFeeBySender;
 
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter>> vTxHashes GUARDED_BY(cs); //!< All tx witness hashes/entries in mapTx, in random order
@@ -637,7 +638,7 @@ public:
     // and any other callers may break wallet's in-mempool tracking (due to
     // lack of CValidationInterface::TransactionAddedToMempool callbacks).
     void addUnchecked(const CTxMemPoolEntry& entry, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
-    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true, const std::optional<EvmAddressData> ethSender = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
+    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true, const std::optional<EvmAddressData> evmSender = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
 
     void removeRecursive(const CTransaction& tx, MemPoolRemovalReason reason) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForReorg(const CCoinsViewCache* pcoins, unsigned int nMemPoolHeight, int flags) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
@@ -769,7 +770,7 @@ public:
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
 
-    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry);
+    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag);
 
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update
