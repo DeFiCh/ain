@@ -302,7 +302,6 @@ impl EVMCoreService {
             return Ok(tx_info);
         }
 
-        let mut backend = self.get_backend(state_root)?;
         debug!("[validate_raw_tx] queue_id {}", queue_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
@@ -350,14 +349,6 @@ impl EVMCoreService {
             let prepay_fee = calculate_prepay_gas_fee(&signed_tx, block_fee)?;
             debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
-            // Validate tx prepay fees with account balance
-            let balance = backend.get_balance(&signed_tx.sender);
-            debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-            if balance < prepay_fee {
-                debug!("[validate_raw_tx] insufficient balance to pay fees");
-                return Err(format_err!("insufficient balance to pay fees").into());
-            }
-
             self.tx_validation_cache.set_stateless(
                 String::from(tx),
                 ValidateTxInfo {
@@ -368,12 +359,21 @@ impl EVMCoreService {
         };
 
         // Start of stateful checks
+        let mut backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
             "[validate_raw_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
+
+        // Validate tx prepay fees with account balance
+        let balance = backend.get_balance(&signed_tx.sender);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+        if balance < prepay_fee {
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(format_err!("insufficient balance to pay fees").into());
+        }
 
         if pre_validate {
             // Validate tx nonce with account nonce
