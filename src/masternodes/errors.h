@@ -526,6 +526,14 @@ public:
         return Res::Err("TransferDomain EVM destination is a smart contract");
     }
 
+    static Res EvmTxValidationFailure(const std::string &str = "") {
+        std::string msg = "Failed to validate EVM Tx";
+        if (!str.empty()) {
+            msg += ": " + str;
+        }
+        return Res::Err(msg);
+    }
+
     static Res SettingEVMAttributeFailure() {
         return Res::Err("Failed to set EVM attribute");
     }

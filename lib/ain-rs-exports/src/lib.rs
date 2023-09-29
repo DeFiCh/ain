@@ -104,6 +104,15 @@ pub mod ffi {
         pub nonce: u64,
     }
 
+    pub struct TransferDomainInfo {
+        pub from: String,
+        pub to: String,
+        pub native_address: String,
+        pub direction: bool,
+        pub value: u64,
+        pub token_id: u32,
+    }
+
     #[derive(Default)]
     pub struct CreateTxResult {
         pub tx: Vec<u8>,
@@ -175,6 +184,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
             raw_tx: &str,
+            context: TransferDomainInfo,
         );
         fn evm_try_unsafe_push_tx_in_q(
             result: &mut CrossBoundaryResult,
@@ -225,6 +235,12 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             tx_hash: &str,
         ) -> EVMTransaction;
+
+        fn evm_try_parse_tx_from_raw(
+            result: &mut CrossBoundaryResult,
+            raw_tx: &str,
+        ) -> EVMTransaction;
+
         fn evm_try_get_tx_hash(result: &mut CrossBoundaryResult, raw_tx: &str) -> String;
 
         fn evm_try_create_dst20(

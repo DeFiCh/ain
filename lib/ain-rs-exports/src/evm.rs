@@ -1,6 +1,9 @@
-use ain_contracts::{get_transfer_domain_contract, FixedContract};
+use ain_contracts::{
+    get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
+    get_transferdomain_native_transfer_function, FixedContract,
+};
 use ain_evm::{
-    core::{EthCallArgs, ValidateTxInfo, XHash},
+    core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::TxResponse,
     fee::calculate_prepay_gas_fee,
@@ -118,78 +121,14 @@ fn create_and_sign_transfer_domain_tx(
 
         let is_native_token_transfer = ctx.token_id == 0;
         if is_native_token_transfer {
-            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-            let function = ethabi::Function {
-                name: String::from("transfer"),
-                inputs: vec![
-                    ethabi::Param {
-                        name: String::from("from"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("to"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("amount"),
-                        kind: ethabi::ParamType::Uint(256),
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("vmAddress"),
-                        kind: ethabi::ParamType::String,
-                        internal_type: None,
-                    },
-                ],
-                outputs: vec![],
-                constant: None,
-                state_mutability: ethabi::StateMutability::NonPayable,
-            };
-
+            let function = get_transferdomain_native_transfer_function();
             function.encode_input(&[from_address, to_address, value, native_address])
         } else {
             let contract_address = {
                 let address = ain_contracts::dst20_address_from_token_id(u64::from(ctx.token_id))?;
                 ethabi::Token::Address(address)
             };
-
-            #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
-            let function = ethabi::Function {
-                name: String::from("transferDST20"),
-                inputs: vec![
-                    ethabi::Param {
-                        name: String::from("contractAddress"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("from"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("to"),
-                        kind: ethabi::ParamType::Address,
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("amount"),
-                        kind: ethabi::ParamType::Uint(256),
-                        internal_type: None,
-                    },
-                    ethabi::Param {
-                        name: String::from("vmAddress"),
-                        kind: ethabi::ParamType::String,
-                        internal_type: None,
-                    },
-                ],
-                outputs: vec![],
-                constant: None,
-                state_mutability: ethabi::StateMutability::NonPayable,
-            };
-
+            let function = get_transferdomain_dst20_transfer_function();
             function.encode_input(&[
                 contract_address,
                 from_address,
@@ -499,13 +438,25 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<ffi::Valid
 ///
 /// Returns the valiadtion result.
 #[ffi_fallible]
-fn unsafe_validate_transferdomain_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
+fn unsafe_validate_transferdomain_tx_in_q(
+    queue_id: u64,
+    raw_tx: &str,
+    context: ffi::TransferDomainInfo,
+) -> Result<()> {
     debug!("[unsafe_validate_transferdomain_tx_in_q]");
     unsafe {
-        let _ = SERVICES
-            .evm
-            .core
-            .validate_raw_transferdomain_tx(raw_tx, queue_id)?;
+        let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
+            raw_tx,
+            queue_id,
+            TransferDomainTxInfo {
+                from: context.from,
+                to: context.to,
+                native_address: context.native_address,
+                direction: context.direction,
+                value: context.value,
+                token_id: context.token_id,
+            },
+        )?;
         Ok(())
     }
 }
@@ -738,6 +689,60 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
         .ok_or("Unable to get evm tx from tx hash")?;
 
     let tx = SignedTx::try_from(tx)?;
+    let nonce = u64::try_from(tx.nonce())?;
+    let gas_limit = u64::try_from(tx.gas_limit())?;
+    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
+
+    let mut tx_type = 0u8;
+    let mut gas_price = 0u64;
+    let mut max_fee_per_gas = 0u64;
+    let mut max_priority_fee_per_gas = 0u64;
+    match &tx.transaction {
+        TransactionV2::Legacy(transaction) => {
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
+            gas_price = price;
+        }
+        TransactionV2::EIP2930(transaction) => {
+            tx_type = 1u8;
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
+            gas_price = price;
+        }
+        TransactionV2::EIP1559(transaction) => {
+            tx_type = 2u8;
+            let price = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi())?;
+            max_fee_per_gas = price;
+            let price =
+                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi())?;
+            max_priority_fee_per_gas = price;
+        }
+    }
+
+    let out = ffi::EVMTransaction {
+        tx_type,
+        hash: format!("{:?}", tx.hash()),
+        sender: format!("{:?}", tx.sender),
+        nonce,
+        gas_price,
+        gas_limit,
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+        create_tx: match tx.action() {
+            TransactionAction::Call(_) => false,
+            TransactionAction::Create => true,
+        },
+        to: match tx.to() {
+            Some(to) => format!("{to:?}"),
+            None => XHash::new(),
+        },
+        value,
+        data: tx.data().to_vec(),
+    };
+    Ok(out)
+}
+
+#[ffi_fallible]
+fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
+    let tx = SignedTx::try_from(raw_tx)?;
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
     let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
