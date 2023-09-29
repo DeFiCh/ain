@@ -123,7 +123,7 @@ impl EVMServices {
         mnview_ptr: usize,
     ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
-        let mut queue = tx_queue.data.lock().unwrap();
+        let mut queue = tx_queue.data.lock();
 
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
@@ -376,7 +376,7 @@ impl EVMServices {
     pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<()> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
-            let queue = tx_queue.data.lock().unwrap();
+            let queue = tx_queue.data.lock();
             let Some(BlockData { block, receipts }) = queue.block_data.clone() else {
                 return Err(format_err!("no constructed EVM block exist in queue id").into());
             };
