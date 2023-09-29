@@ -332,8 +332,8 @@ impl SignedTx {
     }
 }
 
-use std::cmp::min;
 use std::{
+    cmp::min,
     convert::{TryFrom, TryInto},
     fmt,
 };
