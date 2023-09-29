@@ -414,6 +414,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
 {
     const auto& tx = it->GetTx();
+    const auto txType = it->GetCustomTxType();
     NotifyEntryRemoved(it->GetSharedTx(), reason);
     const uint256 hash = tx.GetHash();
     for (const CTxIn& txin : tx.vin)
@@ -434,7 +435,6 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     mapLinks.erase(it);
     mapTx.erase(it);
 
-    const auto txType = it->GetCustomTxType();
     if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
         auto found{false};
         EvmAddressData sender{};

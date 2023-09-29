@@ -572,7 +572,7 @@ public:
     indexed_transaction_set mapTx GUARDED_BY(cs);
 
     std::map<EvmAddressData, std::set<uint256>> evmTxsBySender;
-    std::map<EvmAddressData, int> evmReplaceByFeeBySender;
+    std::map<EvmAddressData, uint32_t> evmReplaceByFeeBySender;
 
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter>> vTxHashes GUARDED_BY(cs); //!< All tx witness hashes/entries in mapTx, in random order
