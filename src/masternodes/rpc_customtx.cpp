@@ -580,37 +580,39 @@ public:
         if (auto evmTxHash =  mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
             CrossBoundaryResult result;
             auto txInfo = evm_try_get_tx_by_hash(result, *evmTxHash);
-            if (result.ok) {
-                std::string tx_type;
-                switch (txInfo.tx_type) {
-                    case CEVMTxType::LegacyTransaction: {
-                        tx_type = "legacy";
-                        break;
-                    }
-                    case CEVMTxType::EIP2930Transaction: {
-                        tx_type = "eip2930";
-                        break;
-                    }
-                    case CEVMTxType::EIP1559Transaction: {
-                        tx_type = "eip1559";
-                        break;
-                    }
-                    default: {
-                        break;
-                    }
-                }
-                rpcInfo.pushKV("type", tx_type);
-                rpcInfo.pushKV("hash", *evmTxHash);
-                rpcInfo.pushKV("sender", std::string(txInfo.sender.data(), txInfo.sender.length()));
-                rpcInfo.pushKV("nonce", txInfo.nonce);
-                rpcInfo.pushKV("gasPrice", txInfo.gas_price);
-                rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
-                rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
-                rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
-                rpcInfo.pushKV("createTx", txInfo.create_tx);
-                rpcInfo.pushKV("to", std::string(txInfo.to.data(), txInfo.to.length()));
-                rpcInfo.pushKV("value", txInfo.value);
+            if (!result.ok) {
+                LogPrintf("Failed to get EVM tx info for tx %s: %s\n", txHash, result.reason.c_str());
+                return;
             }
+            std::string tx_type;
+            switch (txInfo.tx_type) {
+                case CEVMTxType::LegacyTransaction: {
+                    tx_type = "legacy";
+                    break;
+                }
+                case CEVMTxType::EIP2930Transaction: {
+                    tx_type = "eip2930";
+                    break;
+                }
+                case CEVMTxType::EIP1559Transaction: {
+                    tx_type = "eip1559";
+                    break;
+                }
+                default: {
+                    break;
+                }
+            }
+            rpcInfo.pushKV("type", tx_type);
+            rpcInfo.pushKV("hash", *evmTxHash);
+            rpcInfo.pushKV("sender", std::string(txInfo.sender.data(), txInfo.sender.length()));
+            rpcInfo.pushKV("nonce", txInfo.nonce);
+            rpcInfo.pushKV("gasPrice", txInfo.gas_price);
+            rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
+            rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
+            rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
+            rpcInfo.pushKV("createTx", txInfo.create_tx);
+            rpcInfo.pushKV("to", std::string(txInfo.to.data(), txInfo.to.length()));
+            rpcInfo.pushKV("value", txInfo.value);
         }
     }
 
