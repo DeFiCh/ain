@@ -514,18 +514,25 @@ impl EVMCoreService {
         } else {
             let signed_tx = SignedTx::try_from(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-            debug!("[validate_raw_transferdomain_tx] signed_tx : {:#?}", signed_tx);
+            debug!(
+                "[validate_raw_transferdomain_tx] signed_tx : {:#?}",
+                signed_tx
+            );
 
             // Validate tx is legacy tx
             if signed_tx.get_tx_type() != U256::zero() {
                 return Err(format_err!(
                     "[validate_raw_transferdomain_tx] invalid evm tx type {:#?}",
                     signed_tx.get_tx_type()
-                ).into());
+                )
+                .into());
             }
 
             // Validate tx sender with transferdomain sender
-            let sender = context.from.parse::<H160>().map_err(|_| "Invalid address")?;
+            let sender = context
+                .from
+                .parse::<H160>()
+                .map_err(|_| "Invalid address")?;
             if signed_tx.sender != sender {
                 return Err(format_err!(
                     "[validate_raw_transferdomain_tx] invalid sender, signed_tx.sender : {:#?}, transferdomain sender : {:#?}",
@@ -575,11 +582,17 @@ impl EVMCoreService {
 
             let (from_address, to_address) = if context.direction {
                 // EvmIn
-                let to_address = context.to.parse::<H160>().map_err(|_| "failed to parse to address")?;
+                let to_address = context
+                    .to
+                    .parse::<H160>()
+                    .map_err(|_| "failed to parse to address")?;
                 (fixed_address, to_address)
             } else {
                 // EvmOut
-                let from_address = context.from.parse::<H160>().map_err(|_| "failed to parse from address")?;
+                let from_address = context
+                    .from
+                    .parse::<H160>()
+                    .map_err(|_| "failed to parse from address")?;
                 (from_address, fixed_address)
             };
             let value = try_from_satoshi(U256::from(context.value))?.0;
@@ -621,58 +634,34 @@ impl EVMCoreService {
 
                 // Validate from address input
                 let ethabi::Token::Address(input_from_address) = token_inputs[0] else {
-                    return Err(format_err!(
-                        "invalid from address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid from address input in evm tx").into());
                 };
                 if input_from_address != from_address {
-                    return Err(format_err!(
-                        "invalid from address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid from address input in evm tx").into());
                 }
 
                 // Validate to address input
                 let ethabi::Token::Address(input_to_address) = token_inputs[1] else {
-                    return Err(format_err!(
-                        "invalid to address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid to address input in evm tx").into());
                 };
                 if input_to_address != to_address {
-                    return Err(format_err!(
-                        "invalid to address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid to address input in evm tx").into());
                 }
 
                 // Validate value input
                 let ethabi::Token::Uint(input_value) = token_inputs[2] else {
-                    return Err(format_err!(
-                        "invalid value input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid value input in evm tx").into());
                 };
                 if input_value != value {
-                    return Err(format_err!(
-                        "invalid value input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid value input in evm tx").into());
                 }
 
                 // Validate native address input
                 let ethabi::Token::String(ref input_native_address) = token_inputs[3] else {
-                    return Err(format_err!(
-                        "invalid native address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid native address input in evm tx").into());
                 };
                 if context.native_address != *input_native_address {
-                    return Err(format_err!(
-                        "invalid native address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid native address input in evm tx").into());
                 }
             } else {
                 let contract_address = {
@@ -720,66 +709,39 @@ impl EVMCoreService {
 
                 // Validate contract address input
                 if token_inputs[0] != contract_address {
-                    return Err(format_err!(
-                        "invalid contract address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid contract address input in evm tx").into());
                 }
 
                 // Validate from address input
                 let ethabi::Token::Address(input_from_address) = token_inputs[1] else {
-                    return Err(format_err!(
-                        "invalid from address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid from address input in evm tx").into());
                 };
                 if input_from_address != from_address {
-                    return Err(format_err!(
-                        "invalid from address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid from address input in evm tx").into());
                 }
 
                 // Validate to address input
                 let ethabi::Token::Address(input_to_address) = token_inputs[2] else {
-                    return Err(format_err!(
-                        "invalid to address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid to address input in evm tx").into());
                 };
                 if input_to_address != to_address {
-                    return Err(format_err!(
-                        "invalid to address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid to address input in evm tx").into());
                 }
 
                 // Validate value input
                 let ethabi::Token::Uint(input_value) = token_inputs[3] else {
-                    return Err(format_err!(
-                        "invalid value input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid value input in evm tx").into());
                 };
                 if input_value != value {
-                    return Err(format_err!(
-                        "invalid value input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid value input in evm tx").into());
                 }
 
                 // Validate native address input
                 let ethabi::Token::String(ref input_native_address) = token_inputs[4] else {
-                    return Err(format_err!(
-                        "invalid native address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid native address input in evm tx").into());
                 };
                 if context.native_address != *input_native_address {
-                    return Err(format_err!(
-                        "invalid native address input in evm tx"
-                    )
-                    .into())
+                    return Err(format_err!("invalid native address input in evm tx").into());
                 }
             }
 
