@@ -7,6 +7,7 @@ use std::{
 
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
+use ethereum::EnvelopedEncodable;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
@@ -30,16 +31,56 @@ use crate::{
 
 pub type XHash = String;
 
+pub struct SignedTxCache {
+    inner: Mutex<LruCache<String, SignedTx>>,
+}
+
+const DEFAULT_CACHE_SIZE: usize = 10000;
+
+impl Default for SignedTxCache {
+    fn default() -> Self {
+        Self::new(DEFAULT_CACHE_SIZE)
+    }
+}
+
+impl SignedTxCache {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            inner: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+        }
+    }
+
+    pub fn try_get_or_create(&self, key: &str) -> Result<SignedTx> {
+        let mut c = self.inner.lock().unwrap();
+        let res = c.try_get_or_insert(key.to_string(), || SignedTx::try_from(key))?;
+        Ok(res.clone())
+    }
+
+    pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
+        let data = EnvelopedEncodable::encode_payload(tx).to_vec();
+        let key = String::from_utf8(data).map_err(|e| format_err!("{:?}", e))?;
+        let mut guard = self.inner.lock().unwrap();
+        let res = guard.try_get_or_insert(key.clone(), || SignedTx::try_from(key.as_str()))?;
+        Ok(res.clone())
+    }
+}
+
 struct TxValidationCache {
     validated: Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
     stateless: Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
+impl Default for TxValidationCache {
+    fn default() -> Self {
+        Self::new(DEFAULT_CACHE_SIZE)
+    }
+}
+
 impl TxValidationCache {
-    pub fn new() -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
-            validated: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
-            stateless: Mutex::new(LruCache::new(NonZeroUsize::new(10000).unwrap())),
+            validated: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            stateless: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
         }
     }
 
@@ -74,6 +115,7 @@ impl TxValidationCache {
 pub struct EVMCoreService {
     pub tx_queues: Arc<TransactionQueueMap>,
     pub trie_store: Arc<TrieDBStore>,
+    pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
     tx_validation_cache: TxValidationCache,
@@ -111,9 +153,10 @@ impl EVMCoreService {
         Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
+            signed_tx_cache: SignedTxCache::default(),
             storage,
             nonce_store: Mutex::new(HashMap::new()),
-            tx_validation_cache: TxValidationCache::new(),
+            tx_validation_cache: TxValidationCache::default(),
         }
     }
 
@@ -128,9 +171,10 @@ impl EVMCoreService {
         let handler = Self {
             tx_queues: Arc::new(TransactionQueueMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
+            signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
             nonce_store: Mutex::new(HashMap::new()),
-            tx_validation_cache: TxValidationCache::new(),
+            tx_validation_cache: TxValidationCache::default(),
         };
         let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
             &handler.trie_store,
@@ -298,7 +342,9 @@ impl EVMCoreService {
         } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
             validate_info
         } else {
-            let signed_tx = SignedTx::try_from(tx)
+            let signed_tx = self
+                .signed_tx_cache
+                .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
             debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
@@ -482,7 +528,9 @@ impl EVMCoreService {
         } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
             validate_info
         } else {
-            let signed_tx = SignedTx::try_from(tx)
+            let signed_tx = self
+                .signed_tx_cache
+                .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
             debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 

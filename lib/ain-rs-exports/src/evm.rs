@@ -9,7 +9,6 @@ use ain_evm::{
     transaction::{
         self,
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
-        SignedTx,
     },
     txqueue::QueueTx,
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
@@ -322,7 +321,11 @@ fn unsafe_remove_txs_above_hash_in_q(queue_id: u64, target_hash: String) -> Resu
 /// * `hash` - The hash value as a byte array.
 #[ffi_fallible]
 fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
-    let signed_tx = SignedTx::try_from(raw_tx)?;
+    let signed_tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
     let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
@@ -358,7 +361,11 @@ fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
 #[ffi_fallible]
 fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<bool> {
-    let signed_tx = SignedTx::try_from(raw_tx)?;
+    let signed_tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
     let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
@@ -551,7 +558,12 @@ fn unsafe_push_tx_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result
     let native_hash = native_hash.to_string();
 
     unsafe {
-        let signed_tx = SignedTx::try_from(raw_tx)?;
+        let signed_tx = SERVICES
+            .evm
+            .core
+            .signed_tx_cache
+            .try_get_or_create(raw_tx)?;
+
         SERVICES
             .evm
             .push_tx_in_queue(queue_id, signed_tx.into(), native_hash)
@@ -737,7 +749,12 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
         .get_transaction_by_hash(&tx_hash)?
         .ok_or("Unable to get evm tx from tx hash")?;
 
-    let tx = SignedTx::try_from(tx)?;
+    let tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create_from_tx(&tx)?;
+
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
     let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
@@ -825,7 +842,11 @@ fn unsafe_bridge_dst20(
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
     let contract_address = ain_contracts::dst20_address_from_token_id(token_id)?;
-    let signed_tx = SignedTx::try_from(raw_tx)?;
+    let signed_tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
     let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         signed_tx: Box::new(signed_tx),
         contract_address,
@@ -849,7 +870,11 @@ fn unsafe_bridge_dst20(
 /// Returns the transaction's hash
 #[ffi_fallible]
 fn get_tx_hash(raw_tx: &str) -> Result<String> {
-    let signed_tx = SignedTx::try_from(raw_tx)?;
+    let signed_tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
     Ok(format!("{:?}", signed_tx.hash()))
 }
 
@@ -886,7 +911,11 @@ fn unsafe_is_smart_contract_in_q(address: &str, queue_id: u64) -> Result<bool> {
 
 #[ffi_fallible]
 fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
-    let signed_tx = SignedTx::try_from(raw_tx)?;
+    let signed_tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
 
     let nonce = u64::try_from(signed_tx.nonce())?;
 

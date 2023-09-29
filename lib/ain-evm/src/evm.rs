@@ -454,7 +454,10 @@ impl EVMServices {
 
     pub fn verify_tx_fees(&self, tx: &str) -> Result<U256> {
         trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let signed_tx = SignedTx::try_from(tx)
+        let signed_tx = self
+            .core
+            .signed_tx_cache
+            .try_get_or_create(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         trace!("[verify_tx_fees] signed_tx : {:#?}", signed_tx);
 
