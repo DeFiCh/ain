@@ -710,7 +710,12 @@ impl EVMCoreService {
                 };
 
                 // Validate function signature
-                let token_inputs = function.decode_input(signed_tx.data())?;
+                let function_signature = function.short_signature();
+                if function_signature != signed_tx.data()[..4] {
+                    return Err(format_err!("invalid function signature input in evm tx").into());
+                }
+
+                let token_inputs = function.decode_input(&signed_tx.data()[4..])?;
 
                 // Validate contract address input
                 if token_inputs[0] != contract_address {
