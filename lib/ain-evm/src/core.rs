@@ -307,12 +307,13 @@ impl EVMCoreService {
     /// 2. Gas price and tx value check: verify that amount is within money range.
     /// 3. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
     /// 4. Gas limit check: verify that the tx gas limit is not higher than the maximum gas per block.
-    /// 5. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
+    /// 5. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 6. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     ///
     /// The validation checks with state context of the tx before we consider it to be valid are:
-    /// 1. Nonce check: Verify that the tx nonce must equl to the current state account nonce.
-    /// 2. Execute the tx with the state root from the txqueue.
-    /// 3. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 1. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
+    /// 2. Nonce check: Verify that the tx nonce must equl to the current state account nonce.
+    /// 3. Execute the tx with the state root from the txqueue.
     /// 4. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
     ///
     /// # Arguments
@@ -421,8 +422,16 @@ impl EVMCoreService {
         );
         debug!("[validate_raw_tx] nonce : {:#?}", nonce);
 
+        // Validate tx prepay fees with account balance
+        let balance = backend.get_balance(&signed_tx.sender);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+        if balance < prepay_fee {
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            return Err(format_err!("insufficient balance to pay fees").into());
+        }
+
         if pre_validate {
-            // Validate tx nonce
+            // Validate tx nonce with account nonce
             if nonce > signed_tx.nonce() {
                 return Err(format_err!(
                     "invalid nonce. Account nonce {}, signed_tx nonce {}",
@@ -452,15 +461,6 @@ impl EVMCoreService {
                     signed_tx.nonce()
                 )
                 .into());
-            }
-
-            // Validate tx prepay fees with account balance
-            let balance = backend.get_balance(&signed_tx.sender);
-            debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-
-            if balance < prepay_fee {
-                debug!("[validate_raw_tx] insufficient balance to pay fees");
-                return Err(format_err!("insufficient balance to pay fees").into());
             }
 
             // Execute tx
