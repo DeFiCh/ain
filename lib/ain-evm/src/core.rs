@@ -630,7 +630,12 @@ impl EVMCoreService {
                 };
 
                 // Validate function signature
-                let token_inputs = function.decode_input(signed_tx.data())?;
+                let function_signature = function.short_signature();
+                if function_signature != &signed_tx.data()[..4] {
+                    return Err(format_err!("invalid function signature input in evm tx").into());
+                }
+
+                let token_inputs = function.decode_input(&signed_tx.data()[4..])?;
 
                 // Validate from address input
                 let ethabi::Token::Address(input_from_address) = token_inputs[0] else {
