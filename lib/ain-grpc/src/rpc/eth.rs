@@ -719,7 +719,11 @@ impl MetachainRPCServer for MetachainRPCModule {
         match ain_cpp_imports::publish_eth_transaction(hex) {
             Ok(res_string) => {
                 if res_string.is_empty() {
-                    let signed_tx = SignedTx::try_from(raw_tx)
+                    let signed_tx: SignedTx = self
+                        .handler
+                        .core
+                        .signed_tx_cache
+                        .try_get_or_create(raw_tx)
                         .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
 
                     debug!(target:"rpc",
