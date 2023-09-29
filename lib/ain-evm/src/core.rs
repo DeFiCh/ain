@@ -66,7 +66,7 @@ impl SignedTxCache {
 
     pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
         let data = EnvelopedEncodable::encode(tx);
-        let key =  data.iter().map(|b: &u8| format!("{:02x}", b)).collect::<String>();
+        let key =  hex::encode(&data);
         let mut guard = self.inner.lock().unwrap();
         debug!("[signed-tx-cache]::get from tx: {}", &key);
         let res = guard.try_get_or_insert(key.clone(), || {
