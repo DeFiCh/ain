@@ -1097,7 +1097,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
 
                 if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                         subNodesBlockTime, timelock, ctxState)) {
-                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                    LogPrintf("MakeStake: kernel found\n");
 
                     found = true;
                     break;
