@@ -270,7 +270,6 @@ class EVMTest(DefiTestFramework):
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             evmtx_hashes.append(signed.hash.hex().lower()[2:])
 
-
         first_block_total_evm_txs = 17
         second_block_total_evm_txs = 1
         total_transferdomain_txs = 10
