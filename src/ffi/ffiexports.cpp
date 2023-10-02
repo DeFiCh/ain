@@ -285,3 +285,8 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
     }, DCT_ID{1});  // start from non-DFI
     return tokens;
 }
+
+int32_t getNumCores() {
+    const auto n = GetNumCores() - 1;
+    return std::max(1, n);
+}
