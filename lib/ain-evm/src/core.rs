@@ -11,8 +11,10 @@ use ain_contracts::{
     FixedContract,
 };
 use anyhow::format_err;
-use ethereum::EnvelopedEncodable;
-use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
+use ethereum::{
+    AccessList, Account, Block, EnvelopedEncodable, Log, PartialHeader, TransactionAction,
+    TransactionV2,
+};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
 use lru::LruCache;
@@ -805,12 +807,15 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create_queue(&self) -> Result<u64> {
+    pub unsafe fn create_queue(&self, timestamp: u64) -> Result<u64> {
         let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
             None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis queue
             Some(block) => (block.header.number + 1, block.header.state_root),
         };
-        let queue_id = self.tx_queues.create(target_block, initial_state_root);
+
+        let queue_id = self
+            .tx_queues
+            .create(target_block, initial_state_root, timestamp);
         Ok(queue_id)
     }
 

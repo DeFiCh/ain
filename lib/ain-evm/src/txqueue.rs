@@ -44,7 +44,7 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(&self, target_block: U256, state_root: H256) -> u64 {
+    pub unsafe fn create(&self, target_block: U256, state_root: H256, timestamp: u64) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let queue_id = rng.gen();
@@ -55,7 +55,11 @@ impl TransactionQueueMap {
             let mut write_guard = self.queues.write().unwrap();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(Arc::new(TransactionQueue::new(target_block, state_root)));
+                e.insert(Arc::new(TransactionQueue::new(
+                    target_block,
+                    state_root,
+                    timestamp,
+                )));
                 return queue_id;
             }
         }
@@ -181,6 +185,15 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
+    pub unsafe fn get_timestamp_in(&self, queue_id: u64) -> Result<u64> {
+        self.with_transaction_queue(queue_id, TransactionQueue::get_timestamp)
+    }
+
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<H256> {
         self.with_transaction_queue(queue_id, TransactionQueue::get_latest_state_root)
     }
@@ -235,16 +248,18 @@ pub struct TransactionQueueData {
     pub total_gas_used: U256,
     pub target_block: U256,
     pub initial_state_root: H256,
+    pub timestamp: u64,
 }
 
 impl TransactionQueueData {
-    pub fn new(target_block: U256, state_root: H256) -> Self {
+    pub fn new(target_block: U256, state_root: H256, timestamp: u64) -> Self {
         Self {
             transactions: Vec::new(),
             total_gas_used: U256::zero(),
             block_data: None,
             target_block,
             initial_state_root: state_root,
+            timestamp,
         }
     }
 }
@@ -255,9 +270,13 @@ pub struct TransactionQueue {
 }
 
 impl TransactionQueue {
-    fn new(target_block: U256, state_root: H256) -> Self {
+    fn new(target_block: U256, state_root: H256, timestamp: u64) -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new(target_block, state_root)),
+            data: Mutex::new(TransactionQueueData::new(
+                target_block,
+                state_root,
+                timestamp,
+            )),
         }
     }
 
@@ -315,6 +334,10 @@ impl TransactionQueue {
 
     pub fn get_target_block(&self) -> U256 {
         self.data.lock().unwrap().target_block
+    }
+
+    pub fn get_timestamp(&self) -> u64 {
+        self.data.lock().unwrap().timestamp
     }
 
     pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {

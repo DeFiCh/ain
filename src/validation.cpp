@@ -2369,7 +2369,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, uint64_t evmQueueId, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2445,7 +2445,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
-        XResultThrowOnErr(evm_try_unsafe_remove_queue(result, evmQueueId));
         return true;
     }
 
@@ -2649,6 +2648,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     const auto consensus = chainparams.GetConsensus();
     auto isEvmEnabledForBlock = IsEVMEnabled(pindex->nHeight, mnview, consensus);
+
+    uint64_t evmQueueId{};
+    if (isEvmEnabledForBlock) {
+        auto r = XResultValueLogged(evm_try_unsafe_create_queue(result, pindex->GetBlockTime()));
+        if (!r) return Res::Err("Failed to create queue");
+        evmQueueId = *r;
+    }
 
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -3376,8 +3382,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        auto invalidStateReturn = [&](CValidationState& s, CBlockIndex* p, CCustomCSView& m, uint64_t q) {
-            XResultThrowOnErr(evm_try_unsafe_remove_queue(result, q));
+        auto invalidStateReturn = [&](CValidationState& s, CBlockIndex* p, CCustomCSView& m) {
             if (s.IsInvalid()) {
                 InvalidBlockFound(p, s);
             }
@@ -3385,13 +3390,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             return error("ConnectBlock %s failed, %s", p->GetBlockHash().ToString(), FormatStateMessage(s));
         };
 
-        auto r = XResultValue(evm_try_unsafe_create_queue(result));
-        if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
-        uint64_t evmQueueId = *r;
-
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmQueueId, false);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false);
         GetMainSignals().BlockChecked(blockConnecting, state);
-        if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
+        if (!rv) { return invalidStateReturn(state, pindexNew, mnview); }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
@@ -4927,31 +4928,23 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.phashBlock = &block_hash;
     CheckContextState ctxState;
 
-    auto r = XResultValue(evm_try_unsafe_create_queue(result));
-    if (!r) { return error("%s: Consensus::ContextualCheckBlockHeader: error creating EVM queue", __func__); }
-    uint64_t evmQueueId = *r;
-
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
     auto res = ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime());
     if (!res) {
-        XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
     }
 
     res = CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot);
     if (!res) {
-        XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
     res = ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev);
     if (!res) {
-        XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
-    res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true);
-    XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
+    res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true);
     if (!res) return false;
 
     assert(state.IsValid());
@@ -5418,11 +5411,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
 
             bool dummyRewardedAnchors{};
-            auto r = XResultValue(evm_try_unsafe_create_queue(result));
-            if (!r) { return error("VerifyDB(): *** evm_try_unsafe_create_queue failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString()); }
-            uint64_t evmQueueId = *r;
-            auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId);
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
+            auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors);
             if (!res)
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;

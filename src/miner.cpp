@@ -254,7 +254,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     uint64_t evmQueueId{};
     if (isEvmEnabledForBlock) {
-        auto r = XResultValueLogged(evm_try_unsafe_create_queue(result));
+        auto r = XResultValueLogged(evm_try_unsafe_create_queue(result, blockTime));
         if (!r) return Res::Err("Failed to create queue");
         evmQueueId = *r;
     }
