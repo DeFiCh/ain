@@ -414,15 +414,8 @@ impl EVMCoreService {
         };
 
         // Start of stateful checks
-        let mut backend = self.get_backend(state_root)?;
-        let nonce = backend.get_nonce(&signed_tx.sender);
-        debug!(
-            "[validate_raw_tx] signed_tx nonce : {:#?}",
-            signed_tx.nonce()
-        );
-        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-
         // Validate tx prepay fees with account balance
+        let mut backend = self.get_backend(state_root)?;
         let balance = backend.get_balance(&signed_tx.sender);
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         if balance < prepay_fee {
@@ -430,6 +423,12 @@ impl EVMCoreService {
             return Err(format_err!("insufficient balance to pay fees").into());
         }
 
+        let nonce = backend.get_nonce(&signed_tx.sender);
+        debug!(
+            "[validate_raw_tx] signed_tx nonce : {:#?}",
+            signed_tx.nonce()
+        );
+        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
         if pre_validate {
             // Validate tx nonce with account nonce
             if nonce > signed_tx.nonce() {
@@ -454,6 +453,7 @@ impl EVMCoreService {
                 },
             ));
         } else {
+            // Validate tx nonce equal to account nonce
             if nonce != signed_tx.nonce() {
                 return Err(format_err!(
                     "invalid nonce. Account nonce {}, signed_tx nonce {}",
