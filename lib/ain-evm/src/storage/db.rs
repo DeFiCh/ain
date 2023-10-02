@@ -17,8 +17,9 @@ fn get_db_options() -> Options {
     let mut options = Options::default();
     options.create_if_missing(true);
     options.create_missing_column_families(true);
-    // A good value for this is the number of cores on the machine // TODO fetch via ffi
-    options.increase_parallelism(2);
+
+    let n = ain_cpp_imports::get_num_cores();
+    options.increase_parallelism(n);
 
     let mut env = rocksdb::Env::new().unwrap();
 

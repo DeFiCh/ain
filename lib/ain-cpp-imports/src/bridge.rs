@@ -47,5 +47,6 @@ pub mod ffi {
         fn CppLogPrintf(message: String);
         fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
         fn getClientVersion() -> String;
+        fn getNumCores() -> i32;
     }
 }
