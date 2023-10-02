@@ -22,7 +22,7 @@ use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
     executor::{AinExecutor, ExecutorContext, TxResponse},
-    fee::calculate_prepay_gas_fee,
+    fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
@@ -401,7 +401,7 @@ impl EVMCoreService {
                 return Err(format_err!("gas limit higher than max_gas_per_block").into());
             }
 
-            let prepay_fee = calculate_prepay_gas_fee(&signed_tx, block_fee)?;
+            let prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
             debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
             self.tx_validation_cache.set_stateless(

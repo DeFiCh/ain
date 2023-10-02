@@ -107,7 +107,7 @@ private:
     int64_t nSigOpCostWithAncestors;
 
     // EVM related data
-    uint64_t evmPrePayFee{};
+    uint64_t evmMaxPromisedTipFee{};
     arith_uint256 evmGasUsed{};
     EvmAddressWithNonce evmAddressAndNonce;
     CustomTxType customTxType{CustomTxType::None};
@@ -133,8 +133,8 @@ public:
     // Getter / Setter for EVM related data
     void SetCustomTxType(const CustomTxType type) { customTxType = type; }
     [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
-    void SetEVMPrePayFee(const uint64_t prePayFee) { evmPrePayFee = prePayFee; }
-    [[nodiscard]] uint64_t GetEVMPrePayFee() const { return evmPrePayFee; }
+    void SetEVMPomisedTipFee(const uint64_t maxPromisedTipFee) { evmMaxPromisedTipFee = maxPromisedTipFee; }
+    [[nodiscard]] uint64_t GetEVMPromisedTipFee() const { return evmMaxPromisedTipFee; }
     void SetEVMGasUsed(const arith_uint256 gasUsed) { evmGasUsed = gasUsed; }
     [[nodiscard]] arith_uint256 GetEVMGasUsed() const { return evmGasUsed; }
     void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }

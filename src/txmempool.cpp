@@ -1205,7 +1205,7 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
     for (auto it = range.first; it != range.second; ++it) {
         const auto& entry = *it;
 
-        if (pendingEntry.GetEVMPrePayFee() > entry.GetEVMPrePayFee()) {
+        if (pendingEntry.GetEVMPromisedTipFee() > entry.GetEVMPromisedTipFee()) {
             if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
                 auto txIter = mapTx.project<0>(it);
                 itersToRemove.insert(txIter);
