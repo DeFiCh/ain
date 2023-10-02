@@ -8,7 +8,7 @@ use std::{
 use bincode;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
-use rocksdb::{ColumnFamily, ColumnFamilyDescriptor, Options, DB};
+use rocksdb::{BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, Options, DB};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{log::LogIndex, receipt::Receipt, Result};
@@ -17,8 +17,9 @@ fn get_db_options() -> Options {
     let mut options = Options::default();
     options.create_if_missing(true);
     options.create_missing_column_families(true);
-    // A good value for this is the number of cores on the machine // TODO fetch via ffi
-    options.increase_parallelism(2);
+
+    let n = ain_cpp_imports::get_num_cores();
+    options.increase_parallelism(n);
 
     let mut env = rocksdb::Env::new().unwrap();
 
@@ -31,6 +32,12 @@ fn get_db_options() -> Options {
 
     // Set max total wal size to 4G.
     options.set_max_total_wal_size(4 * 1024 * 1024 * 1024);
+
+    let cache = Cache::new_lru_cache(512 * 1024 * 1024);
+    let mut block_opts = BlockBasedOptions::default();
+    block_opts.set_block_cache(&cache);
+    block_opts.set_bloom_filter(10.0, false);
+    options.set_block_based_table_factory(&block_opts);
 
     options
 }
