@@ -1071,7 +1071,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
             for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
                 if (ShutdownRequested()) break;
 
-                blockTime = ((uint32_t)currentTime - t);
+                blockTime = (static_cast<uint32_t>(currentTime) - t);
 
                 if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                         subNodesBlockTime, timelock, ctxState)) {
@@ -1093,7 +1093,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
             for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
                 if (ShutdownRequested()) break;
 
-                blockTime = ((uint32_t)searchTime + t);
+                blockTime = (static_cast<uint32_t>(searchTime) + t);
 
                 if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                         subNodesBlockTime, timelock, ctxState)) {
