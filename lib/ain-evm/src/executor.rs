@@ -180,11 +180,7 @@ impl<'backend> AinExecutor<'backend> {
             ),
         };
 
-        let used_gas = if system_tx {
-            0u64
-        } else  {
-            executor.used_gas()
-        };
+        let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
 
@@ -233,8 +229,13 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let prepay_gas = calculate_prepay_gas_fee(&signed_tx, base_fee)?;
-                let (tx_response, receipt) =
-                    self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas, base_fee, false)?;
+                let (tx_response, receipt) = self.exec(
+                    &signed_tx,
+                    signed_tx.gas_limit(),
+                    prepay_gas,
+                    base_fee,
+                    false,
+                )?;
                 debug!(
                     "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
