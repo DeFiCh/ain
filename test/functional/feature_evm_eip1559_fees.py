@@ -337,8 +337,8 @@ class EIP1559Fees(DefiTestFramework):
         )
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
-        # send higher max fee tx but lower priority fee tx, RBF should not happen
-        priority_fee3 = self.node.w3.to_wei("25", "gwei")
+        # send same priority fees, RBF should not happen
+        priority_fee3 = self.node.w3.to_wei("30", "gwei")
         max_fee3 = self.node.w3.to_wei("100", "gwei")
         tx = self.contract.functions.store(10).build_transaction(
             {
@@ -348,6 +348,29 @@ class EIP1559Fees(DefiTestFramework):
                 ),
                 "maxPriorityFeePerGas": priority_fee3,
                 "maxFeePerGas": max_fee3,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        assert_raises_web3_error(
+            -32001,
+            "evm-low-fee",
+            self.node.w3.eth.send_raw_transaction,
+            signed.rawTransaction,
+        )
+
+        # send higher max fee tx but lower priority fee tx, RBF should not happen
+        priority_fee4 = self.node.w3.to_wei("25", "gwei")
+        max_fee4 = self.node.w3.to_wei("100", "gwei")
+        tx = self.contract.functions.store(10).build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxPriorityFeePerGas": priority_fee4,
+                "maxFeePerGas": max_fee4,
             }
         )
         signed = self.node.w3.eth.account.sign_transaction(
