@@ -129,7 +129,7 @@ impl<'backend> AinExecutor<'backend> {
         &mut self,
         signed_tx: &SignedTx,
         gas_limit: U256,
-        prepay_gas: U256,
+        prepay_fee: U256,
         base_fee: U256,
         system_tx: bool,
     ) -> Result<(TxResponse, ReceiptV3)> {
@@ -147,9 +147,9 @@ impl<'backend> AinExecutor<'backend> {
             access_list: signed_tx.access_list(),
         };
 
-        if prepay_gas != U256::zero() && !system_tx {
+        if prepay_fee != U256::zero() && !system_tx {
             self.backend
-                .deduct_prepay_gas(signed_tx.sender, prepay_gas)?;
+                .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
         }
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
@@ -187,9 +187,9 @@ impl<'backend> AinExecutor<'backend> {
         ApplyBackend::apply(self.backend, values, logs.clone(), true);
         self.backend.commit();
 
-        if prepay_gas != U256::zero() && !system_tx {
+        if prepay_fee != U256::zero() && !system_tx {
             self.backend
-                .refund_unused_gas(signed_tx, U256::from(used_gas), base_fee)?;
+                .refund_unused_gas_fee(signed_tx, U256::from(used_gas), base_fee)?;
         }
 
         let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
@@ -228,11 +228,11 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                let prepay_gas = calculate_prepay_gas_fee(&signed_tx, base_fee)?;
+                let prepay_fee = calculate_prepay_gas_fee(&signed_tx, base_fee)?;
                 let (tx_response, receipt) = self.exec(
                     &signed_tx,
                     signed_tx.gas_limit(),
-                    prepay_gas,
+                    prepay_fee,
                     base_fee,
                     false,
                 )?;
