@@ -173,6 +173,7 @@ pub fn get_state_input_json() -> Option<String> {
     }
 }
 
+/// Returns current DVM block height and highest DVM block header seen
 pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     let current_block = ffi::getCurrentHeight();
     let highest_block = ffi::getHighestBlock();

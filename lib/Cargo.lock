@@ -178,6 +178,7 @@ dependencies = [
  "prost",
  "prost-build",
  "quote",
+ "rand 0.8.5",
  "regex",
  "rlp",
  "rustc_version_runtime",

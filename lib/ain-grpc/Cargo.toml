@@ -29,6 +29,7 @@ rlp.workspace = true
 sha3.workspace = true
 serde_with.workspace = true
 anyhow.workspace = true
+rand.workspace = true
 
 [build-dependencies]
 cxx-gen.workspace = true

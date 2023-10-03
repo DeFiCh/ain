@@ -40,7 +40,7 @@ use crate::rpc::{
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
     web3::{MetachainWeb3RPCModule, MetachainWeb3RPCServer},
 };
-use crate::subscription::{MetachainPubSubModule, MetachainPubSubServer};
+use crate::subscription::{MetachainPubSubModule, MetachainPubSubServer, MetachainSubIdProvider};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.
@@ -112,6 +112,7 @@ pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Res
         ServerBuilder::default()
             .max_subscriptions_per_connection(max_connections)
             .custom_tokio_runtime(handle)
+            .set_id_provider(MetachainSubIdProvider)
             .build(addr),
     )?;
     let mut methods: Methods = Methods::new();

@@ -1,11 +1,10 @@
-use anyhow::format_err;
 use std::sync::Arc;
 
 use ain_evm::{
     evm::EVMServices,
     storage::traits::{BlockStorage, ReceiptStorage},
 };
-use ethereum_types::H256;
+use ethereum_types::{H256, U256};
 use log::debug;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -48,10 +47,10 @@ impl Eq for PubSubSyncStatus {}
 #[serde(rename_all = "camelCase")]
 pub struct SyncStatusMetadata {
     pub syncing: bool,
-    pub starting_block: u64,
-    pub current_block: u64,
+    pub starting_block: U256,
+    pub current_block: U256,
     #[serde(default = "Default::default", skip_serializing_if = "Option::is_none")]
-    pub highest_block: Option<u64>,
+    pub highest_block: Option<U256>,
 }
 
 impl Serialize for PubSubResult {
@@ -118,9 +117,19 @@ impl<'a> Deserialize<'a> for Params {
 
 use crate::block::RpcBlockHeader;
 use ain_evm::log::Notification;
+use jsonrpsee::core::traits::IdProvider;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 
 use crate::receipt::{LogResult, ReceiptResult};
+
+#[derive(Debug, Default)]
+pub struct MetachainSubIdProvider;
+
+impl IdProvider for MetachainSubIdProvider {
+    fn next_id(&self) -> jsonrpsee::types::SubscriptionId<'static> {
+        format!("0x{}", hex::encode(rand::random::<u128>().to_le_bytes())).into()
+    }
+}
 
 /// Metachain WebSockets interface.
 #[rpc(server)]
@@ -156,11 +165,6 @@ impl MetachainPubSubServer for MetachainPubSubModule {
         sink.accept()?;
 
         let handler = self.handler.clone();
-        let starting_block = handler
-            .storage
-            .get_latest_block()
-            .map_err(|e| format_err!(e.to_string()))?
-            .map_or(0, |b| b.header.number.as_u64());
 
         let fut = async move {
             match kind {
@@ -177,78 +181,84 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                         debug!(target: "pubsub", "Received block hash in newHeads: {:x?}", hash);
                     }
                 }
-                _ => {} // Kind::Logs => {
-                        //     while let Some(notification) = handler.channel.1.write().await.recv().await {
-                        //         let Notification::Block(hash) = notification else { continue };
-                        //         let Some(block) = handler.storage.get_block_by_hash(&hash) else { continue };
-                        //
-                        //         debug!(target: "pubsub", "Received block hash in logs: {:x?}", hash);
-                        //         for tx in block.transactions {
-                        //             if let Some(receipt) = handler.storage.get_receipt(&tx.hash()) {
-                        //                 let receipt_result = ReceiptResult::from(receipt);
-                        //                 for log in receipt_result.logs {
-                        //                     let _ = sink.send(&PubSubResult::Log(Box::new(log)));
-                        //                 }
-                        //             }
-                        //         }
-                        //     }
-                        // }
-                        // Kind::NewPendingTransactions => {
-                        //     while let Some(notification) = handler.channel.1.write().await.recv().await {
-                        //         let Notification::Transaction(hash) = notification else { continue };
-                        //         debug!(target: "pubsub",
-                        //             "Received transaction hash in newPendingTransactions: {:x?}",
-                        //             hash
-                        //         );
-                        //         let _ = sink.send(&PubSubResult::TransactionHash(hash));
-                        //     }
-                        // }
-                        // Kind::Syncing => {
-                        //     let is_syncing = || -> PubSubSyncStatus {
-                        //         match ain_cpp_imports::get_sync_status() {
-                        //             Ok(is_syncing) => {
-                        //                 if is_syncing.syncing {
-                        //                     // Convert to EVM block number
-                        //                     let (current_block, highest_block) =
-                        //                         handler.storage.get_latest_block().map_or(
-                        //                             (is_syncing.current_block, is_syncing.highest_block),
-                        //                             |block| {
-                        //                                 let diff = is_syncing.highest_block
-                        //                                     - is_syncing.current_block;
-                        //                                 (
-                        //                                     block.header.number.as_u64(),
-                        //                                     block.header.number.as_u64() + diff,
-                        //                                 )
-                        //                             },
-                        //                         );
-                        //
-                        //                     PubSubSyncStatus::Detailed(SyncStatusMetadata {
-                        //                         syncing: is_syncing.syncing,
-                        //                         starting_block,
-                        //                         current_block: current_block,
-                        //                         highest_block: Some(highest_block),
-                        //                     })
-                        //                 } else {
-                        //                     PubSubSyncStatus::Simple(false)
-                        //                 }
-                        //             }
-                        //             Err(_) => PubSubSyncStatus::Simple(false),
-                        //         }
-                        //     };
-                        //
-                        //     let mut last_syncing_status = is_syncing();
-                        //     let _ = sink.send(&PubSubResult::SyncState(last_syncing_status.clone()));
-                        //     while let Some(notification) = handler.channel.1.write().await.recv().await {
-                        //         let Notification::Block(_) = notification else { continue };
-                        //
-                        //         debug!(target: "pubsub", "Received message in sync");
-                        //         let sync_status = is_syncing();
-                        //         if sync_status != last_syncing_status {
-                        //             let _ = sink.send(&PubSubResult::SyncState(sync_status.clone()));
-                        //             last_syncing_status = sync_status;
-                        //         }
-                        //     }
-                        // }
+                Kind::Logs => {
+                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                        let Notification::Block(hash) = notification else {
+                            continue;
+                        };
+                        let Some(block) = handler.storage.get_block_by_hash(&hash).unwrap() else {
+                            continue;
+                        };
+
+                        debug!(target: "pubsub", "Received block hash in logs: {:x?}", hash);
+                        for tx in block.transactions {
+                            if let Some(receipt) = handler.storage.get_receipt(&tx.hash()).unwrap()
+                            {
+                                let receipt_result = ReceiptResult::from(receipt);
+                                for log in receipt_result.logs {
+                                    let _ = sink.send(&PubSubResult::Log(Box::new(log)));
+                                }
+                            }
+                        }
+                    }
+                }
+                Kind::NewPendingTransactions => {
+                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                        let Notification::Transaction(hash) = notification else {
+                            continue;
+                        };
+                        debug!(target: "pubsub",
+                            "Received transaction hash in newPendingTransactions: {:x?}",
+                            hash
+                        );
+                        let _ = sink.send(&PubSubResult::TransactionHash(hash));
+                    }
+                }
+                Kind::Syncing => {
+                    let is_syncing = || -> PubSubSyncStatus {
+                        match ain_cpp_imports::get_sync_status() {
+                            Ok((current, highest)) => {
+                                if current != highest {
+                                    // Convert to EVM block number
+                                    let current_block = handler
+                                        .storage
+                                        .get_latest_block()
+                                        .unwrap()
+                                        .unwrap()
+                                        .header
+                                        .number;
+                                    let starting_block = handler.block.get_starting_block_number();
+                                    let highest_block = current_block + (highest - current);
+
+                                    PubSubSyncStatus::Detailed(SyncStatusMetadata {
+                                        syncing: current != highest,
+                                        starting_block,
+                                        current_block,
+                                        highest_block: Some(highest_block),
+                                    })
+                                } else {
+                                    PubSubSyncStatus::Simple(false)
+                                }
+                            }
+                            Err(_) => PubSubSyncStatus::Simple(false),
+                        }
+                    };
+
+                    let mut last_syncing_status = is_syncing();
+                    let _ = sink.send(&PubSubResult::SyncState(last_syncing_status.clone()));
+                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                        let Notification::Block(_) = notification else {
+                            continue;
+                        };
+
+                        debug!(target: "pubsub", "Received message in sync");
+                        let sync_status = is_syncing();
+                        if sync_status != last_syncing_status {
+                            let _ = sink.send(&PubSubResult::SyncState(sync_status.clone()));
+                            last_syncing_status = sync_status;
+                        }
+                    }
+                }
             }
         };
         tokio::task::spawn(fut);
