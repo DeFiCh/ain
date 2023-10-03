@@ -1,4 +1,3 @@
-
 [build]
 # We set this so that Makefile based
 # builds and ad-hoc cargo invocations all
@@ -16,9 +15,11 @@ rustflags = [
 [target.x86_64-apple-darwin]
 rustflags = [
   "-C", "link-arg=-undefined", 
-  "-C", "link-arg=dynamic_lookup"]
+  "-C", "link-arg=dynamic_lookup",
+]
 
 [target.aarch64-apple-darwin]
 rustflags = [
   "-C", "link-arg=-undefined", 
-  "-C", "link-arg=dynamic_lookup"]
+  "-C", "link-arg=dynamic_lookup",
+]
