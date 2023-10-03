@@ -175,8 +175,6 @@ class EVMTest(DefiTestFramework):
         # Check that the first 17 evm contract call txs is minted in the current block
         assert_equal(len(block_info["tx"]) - 1, first_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
-            if idx == 0:
-                continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
@@ -234,6 +232,133 @@ class EVMTest(DefiTestFramework):
                 hashes[first_block_total_txs + second_block_total_txs + idx],
             )
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
+
+    def blocks_size_gas_limit_with_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        evmtx_hashes = []
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(18):
+            # tx call actual used gas: 1_761_626
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            evmtx_hashes.append(signed.hash.hex().lower()[2:])
+
+        first_block_total_evm_txs = 17
+        second_block_total_evm_txs = 1
+        total_transferdomain_txs = 10
+
+        # Send transferdomain txs to be included in the first block
+        transferdomaintx_hashes = []
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+        for i in range(total_transferdomain_txs):
+            hash = self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+            transferdomaintx_hashes.append(hash)
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        evmtx_id = 0
+        tdtx_id = 0
+
+        for tx_info in block_info["tx"][1:]:
+            if tx_info["vm"]["txtype"] == "TransferDomain":
+                # Check that all transferdomain txs are minted in the first block
+                assert_equal(tx_info["hash"], transferdomaintx_hashes[tdtx_id])
+                tdtx_id += 1
+
+            elif tx_info["vm"]["txtype"] == "Evm":
+                # Check that the first 17 evm contract call txs is minted in the current block
+                assert_equal(tx_info["vm"]["vmtype"], "evm")
+                assert_equal(tx_info["vm"]["txtype"], "Evm")
+                assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+                assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + evmtx_id)
+                assert_equal(tx_info["vm"]["msg"]["hash"], evmtx_hashes[evmtx_id])
+                assert_equal(
+                    tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower()
+                )
+                evmtx_id += 1
+
+        assert_equal(evmtx_id, first_block_total_evm_txs)
+        assert_equal(tdtx_id, total_transferdomain_txs)
+
+        coinbase_xvm = block_info["tx"][0]["vm"]
+        assert_equal(coinbase_xvm["vmtype"], "coinbase")
+        assert_equal(coinbase_xvm["txtype"], "coinbase")
+        gas_used = coinbase_xvm["xvmHeader"]["gasUsed"]
+
+        # Get correct gas used
+        total_gas_used = 0
+        for idx in range(first_block_total_evm_txs):
+            tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(
+                evmtx_hashes[idx]
+            )
+            assert_equal(tx_receipt["gasUsed"], 1_761_626)
+            total_gas_used += tx_receipt["gasUsed"]
+
+        # Gas used accounting
+        assert_equal(gas_used, total_gas_used)
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        # Check that the remaining evm tx is minted into the next block
+        assert_equal(len(block_info["tx"]) - 1, second_block_total_evm_txs)
+        for idx, tx_info in enumerate(block_info["tx"][1:]):
+            assert_equal(tx_info["vm"]["vmtype"], "evm")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(
+                tx_info["vm"]["msg"]["nonce"],
+                start_nonce + first_block_total_evm_txs + idx,
+            )
+            assert_equal(
+                tx_info["vm"]["msg"]["hash"],
+                evmtx_hashes[first_block_total_evm_txs + idx],
+            )
+            assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
 
     def multiple_blocks_size_gas_limit_max_txs_with_rbf(self):
         self.rollback_to(self.start_height)
@@ -298,8 +423,6 @@ class EVMTest(DefiTestFramework):
         # Check that the first 17 evm contract call txs is minted in the first block
         assert_equal(len(block_info["tx"]) - 1, first_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
-            if idx == 0:
-                continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
@@ -350,8 +473,6 @@ class EVMTest(DefiTestFramework):
         # Check that the remaining 13 evm contract call txs is minted in the fourth block
         assert_equal(len(block_info["tx"]) - 1, fourth_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
-            if idx == 0:
-                continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
@@ -726,6 +847,9 @@ class EVMTest(DefiTestFramework):
 
         # Test mining multiple full blocks
         self.multiple_blocks_size_gas_limit()
+
+        # Test mining full block with transferdomain txs
+        self.blocks_size_gas_limit_with_transferdomain_txs()
 
         # Test mining multiple full blocks with max evm txs per sender and RBF
         self.multiple_blocks_size_gas_limit_max_txs_with_rbf()
