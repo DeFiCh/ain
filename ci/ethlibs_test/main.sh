@@ -83,10 +83,7 @@ setup_fixtures() {
                     "v0/transferdomain/evm-dvm/enabled": "true",
                     "v0/transferdomain/evm-dvm/src-formats": ["erc55"],
                     "v0/transferdomain/evm-dvm/auth-formats": ["bech32-erc55"],
-                    "v0/transferdomain/evm-dvm/dest-formats": ["p2pkh", "bech32"],
-                    "v0/rules/tx/core_op_return_max_size_bytes": 20000,
-                    "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
-                    "v0/rules/tx/dvm_op_return_max_size_bytes": 20000}}'
+                    "v0/transferdomain/evm-dvm/dest-formats": ["p2pkh", "bech32"]}}'
     $DEFI_CLI_BIN -regtest generatetoaddress 2 "$OWNERAUTHADDR"
 
     $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"200@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"200@DFI", "domain":3}}]'
