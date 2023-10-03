@@ -384,6 +384,55 @@ class EVMTest(DefiTestFramework):
             1,
         )
 
+    def flush_invalid_txs(self):
+        self.rollback_to(self.start_height)
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+
+        # Check ethAddress balance
+        assert_equal(
+            int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16),
+            100000000000000000000,
+        )
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, nonce + 1, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, nonce + 2, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, nonce + 3, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, nonce + 4, 21, 21001, self.toAddress, 1)
+        assert_equal(len(self.nodes[0].getrawmempool()), 5)
+
+        # send a transferdomain to drain eth address of balance
+        tdtx = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.ethAddress,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "100@DFI",
+                        "domain": 2,
+                    },
+                    "nonce": nonce,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        # Check that only transferdomain tx and the autoauth tx gets mined into the block
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"]) - 1, 2)
+        tx_info = block_info["tx"][2]
+        assert_equal(tx_info["vm"]["txtype"], "TransferDomain")
+        assert_equal(tx_info["txid"], tdtx)
+
+        # Check that all evm txs are now invalid from prepay gas fee check as account
+        # balance is drained, and should be evicted from mempool
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+
     def run_test(self):
         self.setup()
 
@@ -395,6 +444,9 @@ class EVMTest(DefiTestFramework):
 
         # Test for RBF sender mempool limit
         self.rbf_sender_mempool_limit()
+
+        # Test for flushing invalid evm tx out of mempool
+        self.flush_invalid_txs()
 
 
 if __name__ == "__main__":

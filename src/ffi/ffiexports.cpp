@@ -149,7 +149,7 @@ rust::vec<TransactionData> getPoolTransactions() {
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
-            poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+            poolTransactionsByFee.emplace(mi->GetEVMPromisedTipFee(), TransactionData{
                 static_cast<uint8_t>(TransactionDataTxType::EVM),
                 HexStr(obj.evmTx),
                 static_cast<uint8_t>(TransactionDataDirection::None),
@@ -168,13 +168,13 @@ rust::vec<TransactionData> getPoolTransactions() {
             }
 
             if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                poolTransactionsByFee.emplace(mi->GetEVMPromisedTipFee(), TransactionData{
                     static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
                     HexStr(obj.transfers[0].second.data),
                     static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
                 });
             } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                poolTransactionsByFee.emplace(mi->GetEVMPromisedTipFee(), TransactionData{
                     static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
                     HexStr(obj.transfers[0].first.data),
                     static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),

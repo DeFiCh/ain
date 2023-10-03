@@ -27,6 +27,8 @@ serde_json.workspace = true
 statrs.workspace = true
 rustc-hex.workspace = true
 ethabi.workspace = true
+parking_lot.workspace = true
+spin.workspace = true
 
 # Trie dependencies
 hash-db.workspace = true
