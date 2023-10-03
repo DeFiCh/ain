@@ -52,7 +52,6 @@ setup_vars() {
     MAKE_CONF_ARGS="$(get_default_conf_args) ${MAKE_CONF_ARGS:-}"
     if [[ "${MAKE_DEBUG}" == "1" ]]; then
       MAKE_CONF_ARGS="${MAKE_CONF_ARGS} --enable-debug";
-      MAKE_CONF_ARGS="${MAKE_CONF_ARGS} CXXFLAGS=-fno-omit-frame-pointer";
     fi
 
     MAKE_CONF_ARGS_OVERRIDE="${MAKE_CONF_ARGS_OVERRIDE:-}"
