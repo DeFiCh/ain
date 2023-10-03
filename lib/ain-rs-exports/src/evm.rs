@@ -6,7 +6,7 @@ use ain_evm::{
     core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::TxResponse,
-    fee::calculate_prepay_gas_fee,
+    fee::calculate_max_tip_gas_fee,
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     transaction::{
@@ -934,12 +934,11 @@ fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
         .get_latest_block_hash_and_number()?
         .unwrap_or_default();
 
+    let initial_base_fee = SERVICES.evm.block.calculate_base_fee(H256::zero())?;
+    let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
+    let tip_fee = u64::try_from(tip_fee)?;
+
     let base_fee = SERVICES.evm.block.calculate_base_fee(parent_hash)?;
-
-    let prepay_fee = calculate_prepay_gas_fee(&signed_tx, base_fee)?;
-
-    let prepay_fee = u64::try_from(prepay_fee)?;
-
     let TxResponse { used_gas, .. } = SERVICES.evm.core.call(EthCallArgs {
         caller: Some(signed_tx.sender),
         to: signed_tx.to(),
@@ -956,7 +955,7 @@ fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
     Ok(TxInfo {
         nonce,
         address: format!("{:?}", signed_tx.sender),
-        prepay_fee,
+        tip_fee,
         used_gas,
     })
 }

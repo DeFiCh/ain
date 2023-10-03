@@ -18,7 +18,7 @@ use crate::{
     },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
-    fee::{calculate_gas_fee, calculate_prepay_gas_fee},
+    fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
@@ -225,7 +225,7 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                let prepay_gas = calculate_prepay_gas_fee(&signed_tx, base_fee)?;
+                let prepay_gas = calculate_current_prepay_gas_fee(&signed_tx, base_fee)?;
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas, base_fee)?;
                 debug!(
