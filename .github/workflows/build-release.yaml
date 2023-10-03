@@ -10,6 +10,8 @@ env:
   DOCKER_HUB_USER: defi
   MAKE_DEBUG: 0
   GIT_VERSION: 1
+  # Disable incremental build
+  CARGO_INCREMENTAL: 0
 
 jobs:
   linux-x64:

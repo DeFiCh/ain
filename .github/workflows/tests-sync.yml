@@ -21,6 +21,10 @@ concurrency:
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
+env:
+  # Disable incremental build
+  CARGO_INCREMENTAL: 0
+
 jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'

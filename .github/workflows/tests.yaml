@@ -14,7 +14,11 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
-      
+
+env:
+  # Disable incremental build
+  CARGO_INCREMENTAL: 0
+
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest

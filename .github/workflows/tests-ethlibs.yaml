@@ -15,7 +15,9 @@ concurrency:
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
-
+  # Disable incremental build
+  CARGO_INCREMENTAL: 0
+  
 jobs:
   build:
     runs-on: ubuntu-latest

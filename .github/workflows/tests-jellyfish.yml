@@ -12,6 +12,8 @@ concurrency:
 
 env:
   BUILD_VERSION: latest # Computed
+  # Disable incremental build
+  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
