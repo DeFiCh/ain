@@ -23,6 +23,10 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib -> ../build/lib/target
+
     - name: Setup dependencies
       run: sudo ./make.sh ci-setup-deps
 
