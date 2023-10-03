@@ -2415,7 +2415,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
         return Res::Err(result.reason.c_str());
     }
     if (!blockResult.failed_transactions.empty()) {
-        return Res::Err("Failed EVM transaction, block size limit exceeded");
+        return Res::Err("Failed EVM transactions, block size limit exceeded");
     }
     if (block.vtx[0]->vout.size() < 2) {
         return Res::Err("Not enough outputs in coinbase TX");
