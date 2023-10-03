@@ -18,7 +18,6 @@ use crate::{
     },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
-    EVMError,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
@@ -26,7 +25,7 @@ use crate::{
         SignedTx,
     },
     txqueue::QueueTx,
-    Result,
+    EVMError, Result,
 };
 
 #[derive(Debug)]
@@ -186,7 +185,9 @@ impl<'backend> AinExecutor<'backend> {
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
         if total_gas_used + U256::from(used_gas) > block_gas_limit {
-            return Err(EVMError::BlockSizeLimit("Block size limit exceeded, tx cannot make it into the block".to_string()));
+            return Err(EVMError::BlockSizeLimit(
+                "Block size limit exceeded, tx cannot make it into the block".to_string(),
+            ));
         }
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();

@@ -309,7 +309,7 @@ impl Backend for EVMBackend {
     }
 
     fn block_gas_limit(&self) -> U256 {
-        self.vicinity.gas_limit
+        self.vicinity.block_gas_limit
     }
 
     fn block_base_fee_per_gas(&self) -> U256 {

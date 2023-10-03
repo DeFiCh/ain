@@ -996,9 +996,11 @@ impl EVMCoreService {
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             Vicinity {
-                block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                block_gas_limit: U256::from(
+                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                ),
                 ..Vicinity::default()
-            }
+            },
         )
     }
 
@@ -1009,9 +1011,11 @@ impl EVMCoreService {
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             Vicinity {
-                block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                block_gas_limit: U256::from(
+                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                ),
                 ..Vicinity::default()
-            }
+            },
         )
     }
 

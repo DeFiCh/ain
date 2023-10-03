@@ -19,7 +19,6 @@ use crate::{
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
-    EVMError,
     executor::AinExecutor,
     filters::FilterService,
     log::LogService,
@@ -31,7 +30,7 @@ use crate::{
     },
     trie::GENESIS_STATE_ROOT,
     txqueue::{BlockData, QueueTx},
-    Result,
+    EVMError, Result,
 };
 
 pub struct EVMServices {
@@ -150,7 +149,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
-                    block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 H256::zero(),
@@ -161,7 +162,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
-                    block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 hash,
@@ -446,7 +449,9 @@ impl EVMServices {
             Vicinity {
                 timestamp: U256::from(timestamp),
                 block_number: target_block,
-                block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                block_gas_limit: U256::from(
+                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                ),
                 ..Vicinity::default()
             },
         )?;
