@@ -945,12 +945,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
 
-            const auto prePayFee = isEVMTx ? txResult.prepay_fee : std::numeric_limits<uint64_t>::max();
+            const auto tipFee = isEVMTx ? txResult.tip_fee : std::numeric_limits<uint64_t>::max();
             const auto usedGas = isEVMTx ? txResult.used_gas : std::numeric_limits<uint64_t>::min();
             const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
-            entry.SetEVMPrePayFee(prePayFee);
+            entry.SetEVMPomisedTipFee(tipFee);
             entry.SetEVMGasUsed(usedGas);
 
             auto senderLimitFlag{false};

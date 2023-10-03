@@ -22,7 +22,7 @@ use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
     executor::{AinExecutor, ExecutorContext, TxResponse},
-    fee::calculate_prepay_gas_fee,
+    fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
@@ -401,7 +401,7 @@ impl EVMCoreService {
                 return Err(format_err!("gas limit higher than max_gas_per_block").into());
             }
 
-            let prepay_fee = calculate_prepay_gas_fee(&signed_tx, block_fee)?;
+            let prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
             debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
 
             self.tx_validation_cache.set_stateless(
@@ -414,15 +414,8 @@ impl EVMCoreService {
         };
 
         // Start of stateful checks
-        let mut backend = self.get_backend(state_root)?;
-        let nonce = backend.get_nonce(&signed_tx.sender);
-        debug!(
-            "[validate_raw_tx] signed_tx nonce : {:#?}",
-            signed_tx.nonce()
-        );
-        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-
         // Validate tx prepay fees with account balance
+        let mut backend = self.get_backend(state_root)?;
         let balance = backend.get_balance(&signed_tx.sender);
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         if balance < prepay_fee {
@@ -430,6 +423,12 @@ impl EVMCoreService {
             return Err(format_err!("insufficient balance to pay fees").into());
         }
 
+        let nonce = backend.get_nonce(&signed_tx.sender);
+        debug!(
+            "[validate_raw_tx] signed_tx nonce : {:#?}",
+            signed_tx.nonce()
+        );
+        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
         if pre_validate {
             // Validate tx nonce with account nonce
             if nonce > signed_tx.nonce() {
@@ -454,6 +453,7 @@ impl EVMCoreService {
                 },
             ));
         } else {
+            // Validate tx nonce equal to account nonce
             if nonce != signed_tx.nonce() {
                 return Err(format_err!(
                     "invalid nonce. Account nonce {}, signed_tx nonce {}",

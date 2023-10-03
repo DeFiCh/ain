@@ -45,7 +45,7 @@ pub mod ffi {
     pub struct TxInfo {
         pub address: String,
         pub nonce: u64,
-        pub prepay_fee: u64,
+        pub tip_fee: u64,
         pub used_gas: u64,
     }
 
