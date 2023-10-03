@@ -408,7 +408,7 @@ impl EVMServices {
             let queue = self.core.tx_queues.get(queue_id)?;
 
             let state_root = queue.get_latest_state_root();
-            let data = queue.data.lock().unwrap();
+            let data = queue.data.lock();
 
             (
                 data.target_block,

@@ -335,7 +335,7 @@ impl TransactionQueue {
     }
 
     pub fn get_timestamp(&self) -> u64 {
-        self.data.lock().unwrap().timestamp
+        self.data.lock().timestamp
     }
 
     pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
