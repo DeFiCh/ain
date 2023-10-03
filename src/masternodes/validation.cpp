@@ -2414,7 +2414,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
-    if (!blockResult.failed_transaction.empty()) {
+    if (!blockResult.failed_transactions.empty()) {
         return Res::Err("Failed EVM transaction, block size limit exceeded");
     }
     if (block.vtx[0]->vout.size() < 2) {

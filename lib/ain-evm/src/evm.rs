@@ -44,7 +44,7 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: XHash,
-    pub failed_transaction: Option<XHash>,
+    pub failed_transactions: Vec<XHash>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
@@ -128,7 +128,7 @@ impl EVMServices {
 
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
-        let mut failed_transaction = None;
+        let mut failed_transactions = Vec::with_capacity(queue_txs_len);
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
             Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
@@ -303,9 +303,24 @@ impl EVMServices {
             let apply_result = match executor.apply_queue_tx(queue_item.tx, base_fee) {
                 Ok(result) => result,
                 Err(EVMError::BlockSizeLimit(message)) => {
-                    failed_transaction = Some(queue_item.tx_hash);
                     debug!("[construct_block] {}", message);
-                    break;
+                    if let Some(index) = queue
+                        .transactions
+                        .iter()
+                        .position(|item| item.tx_hash == queue_item.tx_hash)
+                    {
+                        failed_transactions = queue
+                            .transactions
+                            .drain(index..)
+                            .map(|item| item.tx_hash)
+                            .collect();
+                        break;
+                    } else {
+                        return Err(format_err!(
+                            "exceed block size limit but unable to get failed transaction from queue"
+                        )
+                        .into());
+                    }
                 }
                 Err(e) => {
                     return Err(e);
@@ -375,7 +390,7 @@ impl EVMServices {
 
         Ok(FinalizedBlockInfo {
             block_hash,
-            failed_transaction,
+            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,

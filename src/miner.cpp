@@ -272,35 +272,28 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
-        if (!blockResult.failed_transaction.empty()) {
+        if (!blockResult.failed_transactions.empty()) {
             LogPrintf("%s: Construct block exceeded block size limit\n", __func__);
-            auto failedTxHash = std::string(blockResult.failed_transaction.data(), blockResult.failed_transaction.length());
-            auto res = XResultValueLogged(evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId, failedTxHash));
-            if (!res.ok) {
-                LogPrintf("%s: Unable to get txs to be removed from queue. Will result in a block hash mismatch.\n", __func__);
+            auto failedTxHashes = *res;
+            std::set<uint256> evmTxsToUndo;
+            for (const auto &txStr : blockResult.failed_transactions) {
+                auto txHash = std::string(txStr.data(), txStr.length());
+                evmTxsToUndo.insert(uint256S(txHash));
             }
-            else {
-                auto failedTxHashes = *res;
-                std::set<uint256> evmTxsToUndo;
-                for (const auto &txStr : failedTxHashes) {
-                    auto txHash = std::string(txStr.data(), txStr.length());
-                    evmTxsToUndo.insert(uint256S(txHash));
-                }
 
-                // Get all EVM Txs
-                CTxMemPool::setEntries failedEVMTxs;
-                for (const auto& iter : inBlock) {
-                    if (!evmTxsToUndo.count(iter->GetTx().GetHash()))
-                        continue;
-                    const auto txType = iter->GetCustomTxType();
-                    if (txType == CustomTxType::EvmTx) {
-                        failedEVMTxs.insert(iter);
-                    } else {
-                        LogPrintf("%s: Unable to remove from block, not EVM tx. Will result in a block hash mismatch.\n", __func__);
-                    }
+            // Get all EVM Txs
+            CTxMemPool::setEntries failedEVMTxs;
+            for (const auto& iter : inBlock) {
+                if (!evmTxsToUndo.count(iter->GetTx().GetHash()))
+                    continue;
+                const auto txType = iter->GetCustomTxType();
+                if (txType == CustomTxType::EvmTx) {
+                    failedEVMTxs.insert(iter);
+                } else {
+                    LogPrintf("%s: Unable to remove from block, not EVM tx. Will result in a block hash mismatch.\n", __func__);
                 }
-                RemoveFromBlock(failedEVMTxs, true);
             }
+            RemoveFromBlock(failedEVMTxs, true);
         }
 
         auto r = XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
