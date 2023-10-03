@@ -472,7 +472,13 @@ impl EVMCoreService {
             // Execute tx and validate total gas usage in queued txs do not exceed block size
             let mut executor = AinExecutor::new(&mut backend);
             executor.update_total_gas_used(total_current_gas_used);
-            executor.exec(&signed_tx, signed_tx.gas_limit(), prepay_fee, block_fee, false)?;
+            executor.exec(
+                &signed_tx,
+                signed_tx.gas_limit(),
+                prepay_fee,
+                block_fee,
+                false,
+            )?;
         }
 
         Ok(self.tx_validation_cache.set(
