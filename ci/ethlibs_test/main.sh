@@ -87,7 +87,7 @@ setup_fixtures() {
                     "v0/rules/tx/core_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/dvm_op_return_max_size_bytes": 20000}}'
-    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+    $DEFI_CLI_BIN -regtest generatetoaddress 2 "$OWNERAUTHADDR"
 
     $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"200@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"200@DFI", "domain":3}}]'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
