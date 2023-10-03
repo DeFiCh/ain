@@ -122,6 +122,7 @@ pub mod ffi {
     #[derive(Default)]
     pub struct FinalizeBlockCompletion {
         pub block_hash: String,
+        pub failed_transaction: String,
         pub total_burnt_fees: u64,
         pub total_priority_fees: u64,
         pub block_number: u64,

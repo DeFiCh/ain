@@ -18,6 +18,7 @@ use crate::{
     },
     core::EVMCoreService,
     evm::ReceiptAndOptionalContractAddress,
+    EVMError,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
@@ -66,6 +67,10 @@ impl<'backend> AinExecutor<'backend> {
 
     pub fn update_storage(&mut self, address: H160, storage: Vec<(H256, H256)>) -> Result<()> {
         self.backend.update_storage(&address, storage)
+    }
+
+    pub fn update_total_gas_used(&mut self, gas_used: U256) {
+        self.backend.update_vicinity_with_gas_used(gas_used)
     }
 
     pub fn commit(&mut self) -> H256 {
@@ -178,6 +183,11 @@ impl<'backend> AinExecutor<'backend> {
         };
 
         let used_gas = executor.used_gas();
+        let total_gas_used = self.backend.vicinity.total_gas_used;
+        let block_gas_limit = self.backend.vicinity.block_gas_limit;
+        if total_gas_used + U256::from(used_gas) > block_gas_limit {
+            return Err(EVMError::BlockSizeLimit("Block size limit exceeded, tx cannot make it into the block".to_string()));
+        }
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
 

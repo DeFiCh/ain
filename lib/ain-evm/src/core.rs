@@ -274,6 +274,8 @@ impl EVMCoreService {
             block_number,
             origin: caller.unwrap_or_default(),
             gas_limit: U256::from(gas_limit),
+            total_gas_used: U256::zero(),
+            block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
             gas_price: if transaction_type == Some(U256::from(2)) {
                 max_fee_per_gas.unwrap_or_default()
             } else {
@@ -467,19 +469,10 @@ impl EVMCoreService {
                 .into());
             }
 
-            // Execute tx
+            // Execute tx and validate total gas usage in queued txs do not exceed block size
             let mut executor = AinExecutor::new(&mut backend);
-            let (tx_response, ..) =
-                executor.exec(&signed_tx, signed_tx.gas_limit(), prepay_fee, block_fee)?;
-
-            // Validate total gas usage in queued txs exceeds block size
-            debug!("[validate_raw_tx] used_gas: {:#?}", tx_response.used_gas);
-            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-            if total_current_gas_used + U256::from(tx_response.used_gas)
-                > U256::from(block_gas_limit)
-            {
-                return Err(format_err!("Tx can't make it in block. Block size limit {}, pending block gas used : {:x?}, tx used gas : {:x?}, total : {:x?}", block_gas_limit, total_current_gas_used, U256::from(tx_response.used_gas), total_current_gas_used + U256::from(tx_response.used_gas)).into());
-            }
+            executor.update_total_gas_used(total_current_gas_used);
+            executor.exec(&signed_tx, signed_tx.gas_limit(), prepay_fee, block_fee)?;
         }
 
         Ok(self.tx_validation_cache.set(
@@ -1002,7 +995,10 @@ impl EVMCoreService {
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            Vicinity::default(),
+            Vicinity {
+                block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                ..Vicinity::default()
+            }
         )
     }
 
@@ -1012,7 +1008,10 @@ impl EVMCoreService {
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            Vicinity::default(),
+            Vicinity {
+                block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
+                ..Vicinity::default()
+            }
         )
     }
 

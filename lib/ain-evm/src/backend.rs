@@ -31,6 +31,8 @@ pub struct Vicinity {
     pub block_number: U256,
     pub timestamp: U256,
     pub gas_limit: U256,
+    pub total_gas_used: U256,
+    pub block_gas_limit: U256,
     pub block_base_fee_per_gas: U256,
     pub block_randomness: Option<H256>,
 }
@@ -141,6 +143,13 @@ impl EVMBackend {
             origin: tx.sender,
             gas_price: tx.effective_gas_price(base_fee),
             gas_limit: tx.gas_limit(),
+            ..self.vicinity
+        };
+    }
+
+    pub fn update_vicinity_with_gas_used(&mut self, gas_used: U256) {
+        self.vicinity = Vicinity {
+            total_gas_used: gas_used,
             ..self.vicinity
         };
     }

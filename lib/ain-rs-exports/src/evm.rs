@@ -549,6 +549,7 @@ fn unsafe_construct_block_in_q(
     unsafe {
         let FinalizedBlockInfo {
             block_hash,
+            failed_transaction,
             total_burnt_fees,
             total_priority_fees,
             block_number,
@@ -562,9 +563,14 @@ fn unsafe_construct_block_in_q(
         )?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi())?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi())?;
+        let failed_transaction = match failed_transaction {
+            Some(hash) => hash,
+            None => String::new(),
+        };
 
         Ok(ffi::FinalizeBlockCompletion {
             block_hash,
+            failed_transaction,
             total_burnt_fees,
             total_priority_fees,
             block_number: block_number.as_u64(),
