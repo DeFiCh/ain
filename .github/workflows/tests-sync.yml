@@ -21,10 +21,6 @@ concurrency:
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
-env:
-  # Disable incremental build
-  CARGO_INCREMENTAL: 0
-
 jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
@@ -35,15 +31,16 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: lib -> ../build/lib/target
-
     - name: Setup dependencies
       run: sudo ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
       # TODO: Switch this to a docker build later and this builds on the native
       # VM toolchain and loses disparity with the CI release builds
@@ -53,7 +50,7 @@ jobs:
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
-        name: defibins
+        name: defi-bins
         path: |
          build/src/defid
          build/src/defi-cli
@@ -131,7 +128,7 @@ jobs:
     - name: Download Binaries
       uses: actions/download-artifact@v3
       with:
-        name: defibins
+        name: defi-bins
 
     - name: Download Shell Commands
       uses: actions/download-artifact@v3

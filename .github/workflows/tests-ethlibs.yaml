@@ -15,9 +15,7 @@ concurrency:
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
-  # Disable incremental build
-  CARGO_INCREMENTAL: 0
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,15 +26,16 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: lib -> ../build/lib/target
-
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
     - name: Build binaries
       run: ./make.sh build
@@ -44,7 +43,7 @@ jobs:
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
-        name: defibins
+        name: defi-bins
         path: |
           build/src/defid
           build/src/defi-cli
@@ -63,7 +62,7 @@ jobs:
     - name: Download binaries
       uses: actions/download-artifact@v3
       with:
-        name: defibins
+        name: defi-bins
 
     - name: Download shell commands
       uses: actions/download-artifact@v3

@@ -12,8 +12,6 @@ concurrency:
 
 env:
   BUILD_VERSION: latest # Computed
-  # Disable incremental build
-  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
@@ -35,10 +33,6 @@ jobs:
 
       - name: Populate environment
         run: cd defichain && GIT_VERSION=1 ./make.sh ci-export-vars
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: defichain/lib -> ../build/lib/target
 
       - name: Build and setup
         run: "cd defichain && docker build -t test-build-container

@@ -15,10 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
-env:
-  # Disable incremental build
-  CARGO_INCREMENTAL: 0
-
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
@@ -41,15 +37,16 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: lib -> ../build/lib/target
-
     - name: Install dependencies
       run: ./make.sh ci-setup-deps
     
     - name: Install dependencies for target
       run: ./make.sh ci-setup-deps-target
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
     - name: Build deps and configure
       run: ./make.sh build
@@ -72,6 +69,11 @@ jobs:
 
     - name: Setup dependencies for target
       run: ./make.sh ci-setup-deps-target
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
     - name: Build deps and configure
       run: ./make.sh build-deps && ./make.sh build-conf

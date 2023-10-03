@@ -1075,6 +1075,7 @@ ci_export_vars() {
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
+        echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
     fi
 }
 

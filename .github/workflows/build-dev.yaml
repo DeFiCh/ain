@@ -23,8 +23,6 @@ env:
   # make.sh still defaults to debug for local builds
   MAKE_DEBUG: 0
   GIT_VERSION: 1
-  # Disable incremental build
-  CARGO_INCREMENTAL: 0
 
 jobs:
   linux-x64:
@@ -37,10 +35,6 @@ jobs:
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
-
-    - uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: lib -> ../build/lib/target
 
     - name: Build and package
       run: ./make.sh docker-release
