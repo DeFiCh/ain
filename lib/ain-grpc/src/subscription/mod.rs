@@ -5,7 +5,6 @@ use ain_evm::{
     evm::EVMServices,
     storage::traits::{BlockStorage, ReceiptStorage},
 };
-use ethereum::Header;
 use ethereum_types::H256;
 use log::debug;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -15,7 +14,7 @@ use serde_json::Value;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PubSubResult {
     /// New block header.
-    Header(Box<Header>),
+    Header(Box<RpcBlockHeader>),
     /// Log
     Log(Box<LogResult>),
     /// Transaction hash
@@ -100,7 +99,7 @@ impl Default for Params {
 }
 
 impl<'a> Deserialize<'a> for Params {
-    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Params, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Params, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -117,12 +116,13 @@ impl<'a> Deserialize<'a> for Params {
     }
 }
 
+use crate::block::RpcBlockHeader;
 use ain_evm::log::Notification;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 
 use crate::receipt::{LogResult, ReceiptResult};
 
-/// Metachain PUB-SUB rpc interface.
+/// Metachain WebSockets interface.
 #[rpc(server)]
 pub trait MetachainPubSub {
     /// Subscribe to Eth subscription.
@@ -165,7 +165,6 @@ impl MetachainPubSubServer for MetachainPubSubModule {
         let fut = async move {
             match kind {
                 Kind::NewHeads => {
-                    debug!("WRITING NEW NOTIFICATION");
                     while let Some(notification) = handler.channel.1.write().await.recv().await {
                         let Notification::Block(hash) = notification else {
                             continue;
@@ -174,7 +173,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             continue;
                         };
 
-                        let _ = sink.send(&PubSubResult::Header(Box::new(block.header)));
+                        let _ = sink.send(&PubSubResult::Header(Box::new(block.header.into())));
                         debug!(target: "pubsub", "Received block hash in newHeads: {:x?}", hash);
                     }
                 }
