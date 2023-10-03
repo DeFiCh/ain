@@ -6,17 +6,19 @@
 target-dir = "./build/lib/target"
 
 rustflags = [
-  "-C",
-  "link-arg=-z",
-  "-C",
-  "link-arg=undefs",
+  "-C", "link-arg=-z",
+  "-C", "link-arg=undefs",
   ## Enable below for debug when needed to force frame pointers
   # "-C", "force-frame-pointers=y",
   # "-C", "force-unwind-tables=y",
 ]
 
 [target.x86_64-apple-darwin]
-rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+rustflags = [
+  "-C", "link-arg=-undefined", 
+  "-C", "link-arg=dynamic_lookup"]
 
 [target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+rustflags = [
+  "-C", "link-arg=-undefined", 
+  "-C", "link-arg=dynamic_lookup"]
