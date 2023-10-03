@@ -307,7 +307,7 @@ class EVMTest(DefiTestFramework):
         for tx_info in block_info["tx"][1:]:
             if tx_info["vm"]["txtype"] == "TransferDomain":
                 # Check that all transferdomain txs are minted in the first block
-                assert_equal(tx_info["hash"], transferdomaintx_hashes[tdtx_id])
+                assert_equal(tx_info["txid"], transferdomaintx_hashes[tdtx_id])
                 tdtx_id += 1
 
             elif tx_info["vm"]["txtype"] == "Evm":
@@ -435,8 +435,6 @@ class EVMTest(DefiTestFramework):
         # Check that the next 17 evm contract call txs is minted in the second block
         assert_equal(len(block_info["tx"]) - 1, second_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
-            if idx == 0:
-                continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
@@ -453,8 +451,6 @@ class EVMTest(DefiTestFramework):
         # Check that the next 17 evm contract call txs is minted in the third block
         assert_equal(len(block_info["tx"]) - 1, third_block_total_txs)
         for idx, tx_info in enumerate(block_info["tx"][1:]):
-            if idx == 0:
-                continue
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
