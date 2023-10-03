@@ -147,7 +147,7 @@ impl<'backend> AinExecutor<'backend> {
             access_list: signed_tx.access_list(),
         };
 
-        if prepay_fee != U256::zero() && !system_tx {
+        if !system_tx && prepay_fee != U256::zero() {
             self.backend
                 .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
         }
@@ -187,7 +187,7 @@ impl<'backend> AinExecutor<'backend> {
         ApplyBackend::apply(self.backend, values, logs.clone(), true);
         self.backend.commit();
 
-        if prepay_fee != U256::zero() && !system_tx {
+        if !system_tx && prepay_fee != U256::zero() {
             self.backend
                 .refund_unused_gas_fee(signed_tx, U256::from(used_gas), base_fee)?;
         }
