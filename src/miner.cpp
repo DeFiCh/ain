@@ -290,14 +290,12 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
                 // Get all EVM Txs
                 CTxMemPool::setEntries failedEVMTxs;
                 for (const auto& iter : inBlock) {
-                    auto tx = iter->GetTx();
-                    if (!evmTxsToUndo.count(tx.GetHash()))
+                    if (!evmTxsToUndo.count(iter->GetTx().GetHash()))
                         continue;
-                    std::vector<unsigned char> metadata;
-                    const auto txType = GuessCustomTxType(tx, metadata, false);
+                    const auto txType = iter->GetCustomTxType();
                     if (txType == CustomTxType::EvmTx) {
                         failedEVMTxs.insert(iter);
-                    }else {
+                    } else {
                         LogPrintf("%s: Unable to remove from block, not EVM tx. Will result in a block hash mismatch.\n", __func__);
                     }
                 }
