@@ -5,7 +5,10 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM contract"""
 
-from test_framework.util import assert_equal
+from test_framework.util import (
+    assert_equal,
+    int_to_eth_u256,
+)
 from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
@@ -140,12 +143,32 @@ class EVMTestLogs(DefiTestFramework):
         event_data = get_event_data(node.w3.codec, self.event_abi, logs[0])
         assert_equal(event_data["event"], "NumberStored")
 
+    def transferdomain_receipt_gas_used(self):
+        dvmHash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "50@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        evmHash = self.nodes[0].vmmap(dvmHash, 5)["output"]
+        receipt = self.nodes[0].eth_getTransactionReceipt(evmHash)
+        assert_equal(receipt["gasUsed"], int_to_eth_u256(0))
+
     def run_test(self):
         self.setup()
 
         self.should_create_contract()
 
         self.should_contract_store_and_emit_logs()
+
+        self.transferdomain_receipt_gas_used()
 
 
 if __name__ == "__main__":

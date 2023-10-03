@@ -133,8 +133,9 @@ impl<'backend> AinExecutor<'backend> {
         &mut self,
         signed_tx: &SignedTx,
         gas_limit: U256,
-        prepay_gas: U256,
+        prepay_fee: U256,
         base_fee: U256,
+        system_tx: bool,
     ) -> Result<(TxResponse, ReceiptV3)> {
         self.backend.update_vicinity_from_tx(signed_tx, base_fee);
         trace!(
@@ -150,8 +151,10 @@ impl<'backend> AinExecutor<'backend> {
             access_list: signed_tx.access_list(),
         };
 
-        self.backend
-            .deduct_prepay_gas(signed_tx.sender, prepay_gas)?;
+        if prepay_fee != U256::zero() && !system_tx {
+            self.backend
+                .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
+        }
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
@@ -181,7 +184,7 @@ impl<'backend> AinExecutor<'backend> {
             ),
         };
 
-        let used_gas = executor.used_gas();
+        let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
         if total_gas_used + U256::from(used_gas) > block_gas_limit {
@@ -195,9 +198,9 @@ impl<'backend> AinExecutor<'backend> {
         ApplyBackend::apply(self.backend, values, logs.clone(), true);
         self.backend.commit();
 
-        if prepay_gas != U256::zero() {
+        if prepay_fee != U256::zero() && !system_tx {
             self.backend
-                .refund_unused_gas(signed_tx, U256::from(used_gas), base_fee)?;
+                .refund_unused_gas_fee(signed_tx, U256::from(used_gas), base_fee)?;
         }
 
         let receipt = ReceiptV3::EIP1559(EIP658ReceiptData {
@@ -236,9 +239,15 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                let prepay_gas = calculate_current_prepay_gas_fee(&signed_tx, base_fee)?;
-                let (tx_response, receipt) =
-                    self.exec(&signed_tx, signed_tx.gas_limit(), prepay_gas, base_fee)?;
+                let prepay_fee = calculate_current_prepay_gas_fee(&signed_tx, base_fee)?;
+                let (tx_response, receipt) = self.exec(
+                    &signed_tx,
+                    signed_tx.gas_limit(),
+                    prepay_fee,
+                    base_fee,
+                    false,
+                )?;
+
                 debug!(
                     "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
@@ -303,7 +312,7 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let (tx_response, receipt) =
-                    self.exec(&signed_tx, U256::MAX, U256::zero(), U256::zero())?;
+                    self.exec(&signed_tx, U256::MAX, U256::zero(), U256::zero(), true)?;
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[apply_queue_tx] Transfer domain failed VM execution {:?}",
@@ -360,7 +369,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 let (tx_response, receipt) =
-                    self.exec(&signed_tx, U256::MAX, U256::zero(), U256::zero())?;
+                    self.exec(&signed_tx, U256::MAX, U256::zero(), U256::zero(), true)?;
                 if !tx_response.exit_reason.is_succeed() {
                     debug!(
                         "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {}",
