@@ -79,6 +79,8 @@ rocksdb = { version = "0.21", default-features = false }
 statrs = "0.16"
 rustc-hex = "2.1"
 rustc_version_runtime = "0.2.1"
+parking_lot = "0.12.1"
+spin = "0.9.8"
 
 ### eth
 
