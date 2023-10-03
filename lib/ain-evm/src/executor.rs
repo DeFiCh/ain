@@ -228,11 +228,11 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                let prepay_gas = calculate_current_prepay_gas_fee(&signed_tx, base_fee)?;
+                let prepay_fee = calculate_current_prepay_gas_fee(&signed_tx, base_fee)?;
                 let (tx_response, receipt) = self.exec(
                     &signed_tx,
                     signed_tx.gas_limit(),
-                    prepay_gas,
+                    prepay_fee,
                     base_fee,
                     false,
                 )?;
