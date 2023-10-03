@@ -12,6 +12,9 @@ rustflags = [
   # "-C", "force-unwind-tables=y",
 ]
 
+[profile.dev]
+debug = 1
+
 [target.x86_64-apple-darwin]
 rustflags = [
   "-C", "link-arg=-undefined",
