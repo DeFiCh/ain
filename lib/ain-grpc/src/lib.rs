@@ -118,7 +118,7 @@ pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Res
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    *runtime.ws_handle.lock().unwrap() = Some(server.start(methods)?);
+    *runtime.ws_handle.lock() = Some(server.start(methods)?);
     Ok(())
 }
 
