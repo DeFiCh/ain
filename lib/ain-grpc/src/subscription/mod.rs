@@ -130,7 +130,7 @@ pub struct MetachainSubIdProvider;
 
 impl IdProvider for MetachainSubIdProvider {
     fn next_id(&self) -> jsonrpsee::types::SubscriptionId<'static> {
-        format!("{:#?}", hex::encode(rand::random::<u128>().to_le_bytes())).into()
+        format!("0x{}", hex::encode(rand::random::<u128>().to_le_bytes())).into()
     }
 }
 
