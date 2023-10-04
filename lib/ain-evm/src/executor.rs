@@ -188,6 +188,9 @@ impl<'backend> AinExecutor<'backend> {
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
         if !system_tx && total_gas_used + U256::from(used_gas) > block_gas_limit {
+            if !prepay_fee != U256::zero() {
+                self.backend.refund_unused_gas_fee(signed_tx, U256::zero(), base_fee)?;
+            }
             return Err(EVMError::BlockSizeLimit(
                 "Block size limit exceeded, tx cannot make it into the block".to_string(),
             ));
