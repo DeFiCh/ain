@@ -2,8 +2,10 @@ use std::{
     collections::{BTreeSet, HashMap},
     num::NonZeroUsize,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
+
+use parking_lot::Mutex;
 
 use ain_contracts::{
     dst20_address_from_token_id, get_transfer_domain_contract,
@@ -36,7 +38,7 @@ use crate::{
 pub type XHash = String;
 
 pub struct SignedTxCache {
-    inner: Mutex<LruCache<String, SignedTx>>,
+    inner: spin::Mutex<LruCache<String, SignedTx>>,
 }
 
 const DEFAULT_CACHE_SIZE: usize = 10000;
@@ -50,12 +52,12 @@ impl Default for SignedTxCache {
 impl SignedTxCache {
     pub fn new(capacity: usize) -> Self {
         Self {
-            inner: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            inner: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
         }
     }
 
     pub fn try_get_or_create(&self, key: &str) -> Result<SignedTx> {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock();
         debug!("[signed-tx-cache]::get: {}", key);
         let res = guard.try_get_or_insert(key.to_string(), || {
             debug!("[signed-tx-cache]::create {}", key);
@@ -67,7 +69,7 @@ impl SignedTxCache {
     pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
         let data = EnvelopedEncodable::encode(tx);
         let key = hex::encode(&data);
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock();
         debug!("[signed-tx-cache]::get from tx: {}", &key);
         let res = guard.try_get_or_insert(key.clone(), || {
             debug!("[signed-tx-cache]::create from tx {}", &key);
@@ -78,8 +80,8 @@ impl SignedTxCache {
 }
 
 struct TxValidationCache {
-    validated: Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
-    stateless: Mutex<LruCache<String, ValidateTxInfo>>,
+    validated: spin::Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
+    stateless: spin::Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
 impl Default for TxValidationCache {
@@ -91,27 +93,27 @@ impl Default for TxValidationCache {
 impl TxValidationCache {
     pub fn new(capacity: usize) -> Self {
         Self {
-            validated: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
-            stateless: Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            validated: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
+            stateless: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
         }
     }
 
     pub fn get(&self, key: &(U256, H256, String, bool)) -> Option<ValidateTxInfo> {
-        self.validated.lock().unwrap().get(key).cloned()
+        self.validated.lock().get(key).cloned()
     }
 
     pub fn get_stateless(&self, key: &str) -> Option<ValidateTxInfo> {
-        self.stateless.lock().unwrap().get(key).cloned()
+        self.stateless.lock().get(key).cloned()
     }
 
     pub fn set(&self, key: (U256, H256, String, bool), value: ValidateTxInfo) -> ValidateTxInfo {
-        let mut cache = self.validated.lock().unwrap();
+        let mut cache = self.validated.lock();
         cache.put(key, value.clone());
         value
     }
 
     pub fn set_stateless(&self, key: String, value: ValidateTxInfo) -> ValidateTxInfo {
-        let mut cache = self.stateless.lock().unwrap();
+        let mut cache = self.stateless.lock();
         cache.put(key, value.clone());
         value
     }
@@ -119,7 +121,7 @@ impl TxValidationCache {
     // To be used on new block or any known state changes. Only clears fully validated TX cache.
     // Stateless cache can be kept across blocks and is handled by LRU itself
     pub fn clear(&self) {
-        let mut cache = self.validated.lock().unwrap();
+        let mut cache = self.validated.lock();
         cache.clear()
     }
 }
@@ -1011,7 +1013,7 @@ impl EVMCoreService {
 
     pub fn get_next_account_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
         let state_root_nonce = self.get_nonce_from_state_root(address, state_root)?;
-        let mut nonce_store = self.nonce_store.lock().unwrap();
+        let mut nonce_store = self.nonce_store.lock();
         match nonce_store.entry(address) {
             std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
             std::collections::hash_map::Entry::Occupied(e) => {
@@ -1035,7 +1037,7 @@ impl EVMCoreService {
     }
 
     pub fn store_account_nonce(&self, address: H160, nonce: U256) -> bool {
-        let mut nonce_store = self.nonce_store.lock().unwrap();
+        let mut nonce_store = self.nonce_store.lock();
         nonce_store.entry(address).or_default();
 
         match nonce_store.entry(address) {
@@ -1048,7 +1050,7 @@ impl EVMCoreService {
     }
 
     pub fn clear_account_nonce(&self) {
-        let mut nonce_store = self.nonce_store.lock().unwrap();
+        let mut nonce_store = self.nonce_store.lock();
         nonce_store.clear()
     }
 }
