@@ -36,6 +36,11 @@ use crate::{
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::RwLock;
 
+pub struct NotificationChannel<T> {
+    pub sender: UnboundedSender<T>,
+    pub receiver: RwLock<UnboundedReceiver<T>>,
+}
+
 pub struct EVMServices {
     pub core: EVMCoreService,
     pub block: BlockService,
@@ -43,10 +48,7 @@ pub struct EVMServices {
     pub logs: LogService,
     pub filters: FilterService,
     pub storage: Arc<Storage>,
-    pub channel: (
-        UnboundedSender<Notification>,
-        RwLock<UnboundedReceiver<Notification>>,
-    ),
+    pub channel: NotificationChannel<Notification>,
 }
 
 pub struct FinalizedBlockInfo {
@@ -101,7 +103,10 @@ impl EVMServices {
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
-                channel: (sender, RwLock::new(receiver)),
+                channel: NotificationChannel {
+                    sender,
+                    receiver: RwLock::new(receiver),
+                },
             })
         } else {
             let storage = Arc::new(Storage::restore(&path)?);
@@ -112,7 +117,10 @@ impl EVMServices {
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
-                channel: (sender, RwLock::new(receiver)),
+                channel: NotificationChannel {
+                    sender,
+                    receiver: RwLock::new(receiver),
+                },
             })
         }
     }
@@ -403,7 +411,7 @@ impl EVMServices {
             self.filters.add_block_to_filters(block.header.hash());
 
             self.channel
-                .0
+                .sender
                 .send(Notification::Block(block.header.hash()))
                 .map_err(|e| format_err!(e.to_string()))?;
         }
@@ -465,7 +473,7 @@ impl EVMServices {
         self.filters.add_tx_to_filters(signed_tx.transaction.hash());
 
         self.channel
-            .0
+            .sender
             .send(Notification::Transaction(signed_tx.transaction.hash()))
             .map_err(|e| format_err!(e.to_string()))?;
 

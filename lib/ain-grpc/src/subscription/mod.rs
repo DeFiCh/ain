@@ -173,7 +173,9 @@ impl MetachainPubSubServer for MetachainPubSubModule {
         let fut = async move {
             match kind {
                 Kind::NewHeads => {
-                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                    while let Some(notification) =
+                        handler.channel.receiver.write().await.recv().await
+                    {
                         if let Notification::Block(hash) = notification {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
                                 let _ =
@@ -184,7 +186,9 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                     }
                 }
                 Kind::Logs => {
-                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                    while let Some(notification) =
+                        handler.channel.receiver.write().await.recv().await
+                    {
                         if let Notification::Block(hash) = notification {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
                                 let logs = match &params {
@@ -206,7 +210,9 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                     }
                 }
                 Kind::NewPendingTransactions => {
-                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                    while let Some(notification) =
+                        handler.channel.receiver.write().await.recv().await
+                    {
                         if let Notification::Transaction(hash) = notification {
                             debug!(target: "pubsub",
                                 "Received transaction hash in newPendingTransactions: {:x?}",
@@ -247,7 +253,9 @@ impl MetachainPubSubServer for MetachainPubSubModule {
 
                     let mut last_syncing_status = is_syncing()?;
                     let _ = sink.send(&PubSubResult::SyncState(last_syncing_status.clone()));
-                    while let Some(notification) = handler.channel.1.write().await.recv().await {
+                    while let Some(notification) =
+                        handler.channel.receiver.write().await.recv().await
+                    {
                         let Notification::Block(_) = notification else {
                             continue;
                         };
