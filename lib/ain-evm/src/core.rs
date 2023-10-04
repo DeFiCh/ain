@@ -5,8 +5,6 @@ use std::{
     sync::Arc,
 };
 
-use parking_lot::Mutex;
-
 use ain_contracts::{
     dst20_address_from_token_id, get_transfer_domain_contract,
     get_transferdomain_dst20_transfer_function, get_transferdomain_native_transfer_function,
@@ -20,6 +18,7 @@ use ethereum::{
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
 use lru::LruCache;
+use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
@@ -82,7 +81,7 @@ impl SignedTxCache {
 }
 
 struct TxValidationCache {
-    validated: spin::Mutex<LruCache<(U256, H256, String, bool), ValidateTxInfo>>,
+    validated: spin::Mutex<LruCache<(U256, H256, String), ValidateTxInfo>>,
     stateless: spin::Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
@@ -100,7 +99,7 @@ impl TxValidationCache {
         }
     }
 
-    pub fn get(&self, key: &(U256, H256, String, bool)) -> Option<ValidateTxInfo> {
+    pub fn get(&self, key: &(U256, H256, String)) -> Option<ValidateTxInfo> {
         self.validated.lock().get(key).cloned()
     }
 
@@ -108,7 +107,7 @@ impl TxValidationCache {
         self.stateless.lock().get(key).cloned()
     }
 
-    pub fn set(&self, key: (U256, H256, String, bool), value: ValidateTxInfo) -> ValidateTxInfo {
+    pub fn set(&self, key: (U256, H256, String), value: ValidateTxInfo) -> ValidateTxInfo {
         let mut cache = self.validated.lock();
         cache.put(key, value.clone());
         value
@@ -337,32 +336,24 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(
-        &self,
-        tx: &str,
-        queue_id: u64,
-        pre_validate: bool,
-        block_fee: U256,
-    ) -> Result<ValidateTxInfo> {
+    pub unsafe fn prevalidate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
-        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+        debug!("[prevalidate_raw_tx] state_root : {:#?}", state_root);
 
         let total_current_gas_used = self
             .tx_queues
             .get_total_gas_used_in(queue_id)
             .unwrap_or_default();
 
-        if let Some(tx_info) = self.tx_validation_cache.get(&(
-            total_current_gas_used,
-            state_root,
-            String::from(tx),
-            pre_validate,
-        )) {
+        if let Some(tx_info) =
+            self.tx_validation_cache
+                .get(&(total_current_gas_used, state_root, String::from(tx)))
+        {
             return Ok(tx_info);
         }
 
-        debug!("[validate_raw_tx] queue_id {}", queue_id);
-        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
+        debug!("[prevalidate_raw_tx] queue_id {}", queue_id);
+        debug!("[prevalidate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
             signed_tx,
@@ -374,17 +365,17 @@ impl EVMCoreService {
                 .signed_tx_cache
                 .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-            debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
+            debug!("[prevalidate_raw_tx] signed_tx : {:#?}", signed_tx);
 
             debug!(
-                "[validate_raw_tx] signed_tx.sender : {:#?}",
+                "[prevalidate_raw_tx] signed_tx.sender : {:#?}",
                 signed_tx.sender
             );
 
             // Validate tx gas price with initial block base fee
             let tx_gas_price = signed_tx.gas_price();
             if tx_gas_price < INITIAL_BASE_FEE {
-                debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
+                debug!("[prevalidate_raw_tx] tx gas price is lower than initial block base fee");
                 return Err(
                     format_err!("tx gas price is lower than initial block base fee").into(),
                 );
@@ -392,7 +383,7 @@ impl EVMCoreService {
 
             // Validate tx gas price and tx value within money range
             if !WeiAmount(tx_gas_price).wei_range() || !WeiAmount(signed_tx.value()).wei_range() {
-                debug!("[validate_raw_tx] value more than money range");
+                debug!("[prevalidate_raw_tx] value more than money range");
                 return Err(format_err!("value more than money range").into());
             }
 
@@ -403,12 +394,15 @@ impl EVMCoreService {
             let gas_limit = signed_tx.gas_limit();
             let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
             if gas_limit > U256::from(block_gas_limit) {
-                debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
+                debug!("[prevalidate_raw_tx] gas limit higher than max_gas_per_block");
                 return Err(format_err!("gas limit higher than max_gas_per_block").into());
             }
 
             let max_prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
-            debug!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
+            debug!(
+                "[prevalidate_raw_tx] max_prepay_fee : {:x?}",
+                max_prepay_fee
+            );
 
             self.tx_validation_cache.set_stateless(
                 String::from(tx),
@@ -421,67 +415,32 @@ impl EVMCoreService {
 
         // Start of stateful checks
         // Validate tx prepay fees with account balance
-        let mut backend = self.get_backend(state_root)?;
+        let backend = self.get_backend(state_root)?;
         let balance = backend.get_balance(&signed_tx.sender);
-        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
+        debug!("[prevalidate_raw_tx] Account balance : {:x?}", balance);
         if balance < max_prepay_fee {
-            debug!("[validate_raw_tx] insufficient balance to pay fees");
+            debug!("[prevalidate_raw_tx] insufficient balance to pay fees");
             return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
-            "[validate_raw_tx] signed_tx nonce : {:#?}",
+            "[prevalidate_raw_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
-        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
-        if pre_validate {
-            // Validate tx nonce with account nonce
-            if nonce > signed_tx.nonce() {
-                return Err(format_err!(
-                    "invalid nonce. Account nonce {}, signed_tx nonce {}",
-                    nonce,
-                    signed_tx.nonce()
-                )
-                .into());
-            }
-
-            return Ok(self.tx_validation_cache.set(
-                (
-                    total_current_gas_used,
-                    state_root,
-                    String::from(tx),
-                    pre_validate,
-                ),
-                ValidateTxInfo {
-                    signed_tx,
-                    max_prepay_fee,
-                },
-            ));
-        } else {
-            // Validate tx nonce equal to account nonce
-            if nonce != signed_tx.nonce() {
-                return Err(format_err!(
-                    "invalid nonce. Account nonce {}, signed_tx nonce {}",
-                    nonce,
-                    signed_tx.nonce()
-                )
-                .into());
-            }
-
-            // Execute tx and validate total gas usage in queued txs do not exceed block size
-            let mut executor = AinExecutor::new(&mut backend);
-            executor.update_total_gas_used(total_current_gas_used);
-            executor.exec(&signed_tx, signed_tx.gas_limit(), block_fee, false)?;
+        debug!("[prevalidate_raw_tx] nonce : {:#?}", nonce);
+        // Validate tx nonce with account nonce
+        if nonce > signed_tx.nonce() {
+            return Err(format_err!(
+                "invalid nonce. Account nonce {}, signed_tx nonce {}",
+                nonce,
+                signed_tx.nonce()
+            )
+            .into());
         }
 
         Ok(self.tx_validation_cache.set(
-            (
-                total_current_gas_used,
-                state_root,
-                String::from(tx),
-                pre_validate,
-            ),
+            (total_current_gas_used, state_root, String::from(tx)),
             ValidateTxInfo {
                 signed_tx,
                 max_prepay_fee,

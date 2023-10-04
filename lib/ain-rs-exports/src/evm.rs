@@ -352,51 +352,7 @@ fn unsafe_prevalidate_raw_tx_in_q(
     debug!("[unsafe_prevalidate_raw_tx_in_q]");
     unsafe {
         let ValidateTxInfo { signed_tx, .. } =
-            SERVICES
-                .evm
-                .core
-                .validate_raw_tx(raw_tx, queue_id, true, U256::zero())?;
-
-        Ok(ffi::ValidateTxCompletion {
-            tx_hash: format!("{:?}", signed_tx.hash()),
-        })
-    }
-}
-
-/// Validates a raw EVM transaction.
-///
-/// # Arguments
-///
-/// * `result` - Result object
-/// * `queue_id` - The EVM queue ID
-/// * `tx` - The raw transaction string.
-///
-/// # Errors
-///
-/// Returns an Error if:
-/// - The hex data is invalid
-/// - The EVM transaction is invalid
-/// - The EVM transaction fee is lower than the next block's base fee
-/// - Could not fetch the underlying EVM account
-/// - Account's nonce does not match raw tx's nonce
-/// - The EVM transaction prepay gas is invalid
-/// - The EVM transaction gas limit is lower than the transaction intrinsic gas
-/// - The EVM transaction cannot be added into the transaction queue as it exceeds the block size limit
-///
-/// # Returns
-///
-/// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
-/// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
-/// object otherwise.
-#[ffi_fallible]
-fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<ffi::ValidateTxCompletion> {
-    debug!("[unsafe_validate_raw_tx_in_q]");
-    let block_fee = SERVICES.evm.verify_tx_fees(raw_tx)?;
-    unsafe {
-        let ValidateTxInfo { signed_tx, .. } = SERVICES
-            .evm
-            .core
-            .validate_raw_tx(raw_tx, queue_id, false, block_fee)?;
+            SERVICES.evm.core.prevalidate_raw_tx(raw_tx, queue_id)?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", signed_tx.hash()),
@@ -487,7 +443,11 @@ fn unsafe_remove_queue(queue_id: u64) -> Result<()> {
 /// - The queue does not exists.
 ///
 #[ffi_fallible]
-fn unsafe_push_tx_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
+fn unsafe_push_tx_in_q(
+    queue_id: u64,
+    raw_tx: &str,
+    native_hash: &str,
+) -> Result<ffi::ValidateTxCompletion> {
     let native_hash = native_hash.to_string();
 
     unsafe {
@@ -497,9 +457,14 @@ fn unsafe_push_tx_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result
             .signed_tx_cache
             .try_get_or_create(raw_tx)?;
 
+        let tx_hash = signed_tx.hash();
         SERVICES
             .evm
-            .push_tx_in_queue(queue_id, signed_tx.into(), native_hash)
+            .push_tx_in_queue(queue_id, signed_tx.into(), native_hash)?;
+
+        Ok(ffi::ValidateTxCompletion {
+            tx_hash: format!("{:?}", tx_hash),
+        })
     }
 }
 

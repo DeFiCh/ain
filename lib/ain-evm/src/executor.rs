@@ -349,6 +349,17 @@ impl<'backend> AinExecutor<'backend> {
                 contract_address,
                 direction,
             })) => {
+                // Validate nonce
+                let nonce = self.backend.get_nonce(&signed_tx.sender);
+                if nonce != signed_tx.nonce() {
+                    return Err(format_err!(
+                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        nonce,
+                        signed_tx.nonce(),
+                    )
+                    .into());
+                }
+
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[100..132]);
 
