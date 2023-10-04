@@ -419,14 +419,35 @@ impl EVMServices {
         queue_id: u64,
         tx: QueueTx,
     ) -> Result<(SignedTx, U256, H256)> {
-        let state_root = self.core.tx_queues.get_latest_state_root_in(queue_id)?;
+        let (target_block, state_root, timestamp, is_first_tx) = {
+            let queue = self.core.tx_queues.get(queue_id)?;
+
+            let state_root = queue.get_latest_state_root();
+            let data = queue.data.lock();
+
+            (
+                data.target_block,
+                state_root,
+                data.timestamp,
+                data.transactions.is_empty(),
+            )
+        };
         debug!(
             "[update_queue_state_from_tx] state_root : {:#?}",
             state_root
         );
 
-        // Has to be mutable to obtain new state root
-        let mut backend = self.core.get_backend(state_root)?;
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.core.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity {
+                timestamp: U256::from(timestamp),
+                block_number: target_block,
+                ..Vicinity::default()
+            },
+        )?;
+
         let mut executor = AinExecutor::new(&mut backend);
 
         let (parent_hash, _) = self
@@ -434,6 +455,16 @@ impl EVMServices {
             .get_latest_block_hash_and_number()?
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
         let base_fee = self.block.calculate_base_fee(parent_hash)?;
+
+        // Update instrinsics contract to reproduce construct_block behaviour
+        if is_first_tx {
+            let (current_native_height, _) = ain_cpp_imports::get_sync_status().unwrap();
+            let DeployContractInfo {
+                address, storage, ..
+            } = dfi_intrinsics_v1_deploy_info((current_native_height + 1) as u64, target_block)?;
+            executor.update_storage(address, storage)?;
+            executor.commit();
+        }
 
         let apply_tx = executor.apply_queue_tx(tx, base_fee)?;
 
