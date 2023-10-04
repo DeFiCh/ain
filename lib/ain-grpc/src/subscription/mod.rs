@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use std::sync::Arc;
 
 use crate::block::RpcBlockHeader;
@@ -173,88 +174,78 @@ impl MetachainPubSubServer for MetachainPubSubModule {
             match kind {
                 Kind::NewHeads => {
                     while let Some(notification) = handler.channel.1.write().await.recv().await {
-                        let Notification::Block(hash) = notification else {
-                            continue;
-                        };
-                        let Some(block) = handler.storage.get_block_by_hash(&hash).unwrap() else {
-                            continue;
-                        };
-
-                        let _ = sink.send(&PubSubResult::Header(Box::new(block.header.into())));
-                        debug!(target: "pubsub", "Received block hash in newHeads: {:x?}", hash);
+                        if let Notification::Block(hash) = notification {
+                            if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
+                                let _ =
+                                    sink.send(&PubSubResult::Header(Box::new(block.header.into())));
+                                debug!(target: "pubsub", "Received block hash in newHeads: {:x?}", hash);
+                            }
+                        }
                     }
                 }
                 Kind::Logs => {
                     while let Some(notification) = handler.channel.1.write().await.recv().await {
-                        let Notification::Block(hash) = notification else {
-                            continue;
-                        };
-                        let Some(block) = handler.storage.get_block_by_hash(&hash).unwrap() else {
-                            continue;
-                        };
+                        if let Notification::Block(hash) = notification {
+                            if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
+                                let logs = match &params {
+                                    Some(Params::Logs(p)) => handler.logs.get_logs(
+                                        &p.address,
+                                        &p.topics,
+                                        block.header.number,
+                                    )?,
+                                    _ => {
+                                        handler.logs.get_logs(&None, &None, block.header.number)?
+                                    }
+                                };
 
-                        let logs = match params.clone() {
-                            None => handler
-                                .logs
-                                .get_logs(&None, &None, block.header.number)
-                                .unwrap(),
-                            Some(Params::Logs(p)) => handler
-                                .logs
-                                .get_logs(&p.address, &p.topics, block.header.number)
-                                .unwrap(),
-                            _ => {
-                                unreachable!()
+                                for log in logs {
+                                    let _ = sink.send(&PubSubResult::Log(Box::new(log.into())));
+                                }
                             }
-                        };
-
-                        for log in logs {
-                            let _ = sink.send(&PubSubResult::Log(Box::new(log.into())));
                         }
                     }
                 }
                 Kind::NewPendingTransactions => {
                     while let Some(notification) = handler.channel.1.write().await.recv().await {
-                        let Notification::Transaction(hash) = notification else {
-                            continue;
-                        };
-                        debug!(target: "pubsub",
-                            "Received transaction hash in newPendingTransactions: {:x?}",
-                            hash
-                        );
-                        let _ = sink.send(&PubSubResult::TransactionHash(hash));
+                        if let Notification::Transaction(hash) = notification {
+                            debug!(target: "pubsub",
+                                "Received transaction hash in newPendingTransactions: {:x?}",
+                                hash
+                            );
+                            let _ = sink.send(&PubSubResult::TransactionHash(hash));
+                        }
                     }
                 }
                 Kind::Syncing => {
-                    let is_syncing = || -> PubSubSyncStatus {
+                    let is_syncing = || -> Result<PubSubSyncStatus, anyhow::Error> {
                         match ain_cpp_imports::get_sync_status() {
                             Ok((current, highest)) => {
                                 if current != highest {
                                     // Convert to EVM block number
                                     let current_block = handler
                                         .storage
-                                        .get_latest_block()
-                                        .unwrap()
-                                        .unwrap()
+                                        .get_latest_block()?
+                                        .ok_or(format_err!("Unable to find latest block"))?
                                         .header
                                         .number;
                                     let starting_block = handler.block.get_starting_block_number();
                                     let highest_block = current_block + (highest - current);
 
-                                    PubSubSyncStatus::Detailed(SyncStatusMetadata {
+                                    Ok(PubSubSyncStatus::Detailed(SyncStatusMetadata {
                                         syncing: current != highest,
                                         starting_block,
                                         current_block,
                                         highest_block: Some(highest_block),
-                                    })
+                                    }))
                                 } else {
-                                    PubSubSyncStatus::Simple(false)
+                                    Ok(PubSubSyncStatus::Simple(false))
                                 }
                             }
-                            Err(_) => PubSubSyncStatus::Simple(false),
+                            Err(_) => Ok(PubSubSyncStatus::Simple(false)),
                         }
                     };
 
-                    let mut last_syncing_status = is_syncing();
+                    let mut last_syncing_status = is_syncing()?;
                     let _ = sink.send(&PubSubResult::SyncState(last_syncing_status.clone()));
                     while let Some(notification) = handler.channel.1.write().await.recv().await {
                         let Notification::Block(_) = notification else {
@@ -262,7 +253,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                         };
 
                         debug!(target: "pubsub", "Received message in sync");
-                        let sync_status = is_syncing();
+                        let sync_status = is_syncing()?;
                         if sync_status != last_syncing_status {
                             let _ = sink.send(&PubSubResult::SyncState(sync_status.clone()));
                             last_syncing_status = sync_status;
@@ -270,6 +261,8 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                     }
                 }
             }
+
+            Ok::<(), anyhow::Error>(())
         };
         tokio::task::spawn(fut);
         Ok(())
