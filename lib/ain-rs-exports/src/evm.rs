@@ -549,6 +549,7 @@ fn unsafe_construct_block_in_q(
     unsafe {
         let FinalizedBlockInfo {
             block_hash,
+            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number,
@@ -565,6 +566,7 @@ fn unsafe_construct_block_in_q(
 
         Ok(ffi::FinalizeBlockCompletion {
             block_hash,
+            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: block_number.as_u64(),

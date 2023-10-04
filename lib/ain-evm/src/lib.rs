@@ -38,6 +38,8 @@ pub enum EVMError {
     QueueError(#[from] QueueError),
     #[error("EVM: Queue invalid nonce error {0:?}")]
     QueueInvalidNonce((Box<transaction::SignedTx>, ethereum_types::U256)),
+    #[error("EVM: Exceed block size limit")]
+    BlockSizeLimit(String),
     #[error("EVM: IO error")]
     IoError(#[from] std::io::Error),
     #[error("EVM: Hex error")]

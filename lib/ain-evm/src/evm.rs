@@ -31,7 +31,7 @@ use crate::{
     },
     trie::GENESIS_STATE_ROOT,
     txqueue::{BlockData, QueueTx},
-    Result,
+    EVMError, Result,
 };
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::sync::RwLock;
@@ -53,6 +53,7 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: XHash,
+    pub failed_transactions: Vec<XHash>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
@@ -145,6 +146,7 @@ impl EVMServices {
 
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
+        let mut failed_transactions = Vec::with_capacity(queue_txs_len);
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
             Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
@@ -165,6 +167,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 H256::zero(),
@@ -175,6 +180,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 hash,
@@ -309,7 +317,33 @@ impl EVMServices {
         );
 
         for queue_item in queue.transactions.clone() {
-            let apply_result = executor.apply_queue_tx(queue_item.tx, base_fee)?;
+            executor.update_total_gas_used(U256::from(total_gas_used));
+            let apply_result = match executor.apply_queue_tx(queue_item.tx, base_fee) {
+                Ok(result) => result,
+                Err(EVMError::BlockSizeLimit(message)) => {
+                    debug!("[construct_block] {}", message);
+                    if let Some(index) = queue
+                        .transactions
+                        .iter()
+                        .position(|item| item.tx_hash == queue_item.tx_hash)
+                    {
+                        failed_transactions = queue
+                            .transactions
+                            .drain(index..)
+                            .map(|item| item.tx_hash)
+                            .collect();
+                        break;
+                    } else {
+                        return Err(format_err!(
+                            "exceed block size limit but unable to get failed transaction from queue"
+                        )
+                        .into());
+                    }
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            };
 
             all_transactions.push(apply_result.tx);
             EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
@@ -374,6 +408,7 @@ impl EVMServices {
 
         Ok(FinalizedBlockInfo {
             block_hash,
+            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
@@ -452,6 +487,9 @@ impl EVMServices {
             Vicinity {
                 timestamp: U256::from(timestamp),
                 block_number: target_block,
+                block_gas_limit: U256::from(
+                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                ),
                 ..Vicinity::default()
             },
         )?;
