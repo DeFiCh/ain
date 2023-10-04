@@ -152,7 +152,7 @@ pub struct EthCallArgs<'a> {
 #[derive(Clone, Debug)]
 pub struct ValidateTxInfo {
     pub signed_tx: SignedTx,
-    pub prepay_fee: U256,
+    pub max_prepay_fee: U256,
 }
 
 pub struct TransferDomainTxInfo {
@@ -366,7 +366,7 @@ impl EVMCoreService {
 
         let ValidateTxInfo {
             signed_tx,
-            prepay_fee,
+            max_prepay_fee,
         } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
             validate_info
         } else {
@@ -407,14 +407,14 @@ impl EVMCoreService {
                 return Err(format_err!("gas limit higher than max_gas_per_block").into());
             }
 
-            let prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
-            debug!("[validate_raw_tx] prepay_fee : {:x?}", prepay_fee);
+            let max_prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
+            debug!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
 
             self.tx_validation_cache.set_stateless(
                 String::from(tx),
                 ValidateTxInfo {
                     signed_tx,
-                    prepay_fee,
+                    max_prepay_fee,
                 },
             )
         };
@@ -424,7 +424,7 @@ impl EVMCoreService {
         let mut backend = self.get_backend(state_root)?;
         let balance = backend.get_balance(&signed_tx.sender);
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
-        if balance < prepay_fee {
+        if balance < max_prepay_fee {
             debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(format_err!("insufficient balance to pay fees").into());
         }
@@ -455,7 +455,7 @@ impl EVMCoreService {
                 ),
                 ValidateTxInfo {
                     signed_tx,
-                    prepay_fee,
+                    max_prepay_fee,
                 },
             ));
         } else {
@@ -472,13 +472,7 @@ impl EVMCoreService {
             // Execute tx and validate total gas usage in queued txs do not exceed block size
             let mut executor = AinExecutor::new(&mut backend);
             executor.update_total_gas_used(total_current_gas_used);
-            executor.exec(
-                &signed_tx,
-                signed_tx.gas_limit(),
-                prepay_fee,
-                block_fee,
-                false,
-            )?;
+            executor.exec(&signed_tx, signed_tx.gas_limit(), block_fee, false)?;
         }
 
         Ok(self.tx_validation_cache.set(
@@ -490,7 +484,7 @@ impl EVMCoreService {
             ),
             ValidateTxInfo {
                 signed_tx,
-                prepay_fee,
+                max_prepay_fee,
             },
         ))
     }
@@ -569,7 +563,7 @@ impl EVMCoreService {
 
         let ValidateTxInfo {
             signed_tx,
-            prepay_fee,
+            max_prepay_fee,
         } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
             validate_info
         } else {
@@ -757,7 +751,7 @@ impl EVMCoreService {
 
             ValidateTxInfo {
                 signed_tx,
-                prepay_fee: U256::zero(),
+                max_prepay_fee: U256::zero(),
             }
         };
 
@@ -786,7 +780,7 @@ impl EVMCoreService {
 
         Ok(ValidateTxInfo {
             signed_tx,
-            prepay_fee,
+            max_prepay_fee,
         })
     }
 

@@ -298,6 +298,7 @@ impl EVMServices {
             queue.transactions.len()
         );
 
+        let mut exceed_block_limit = false;
         for queue_item in queue.transactions.clone() {
             executor.update_total_gas_used(U256::from(total_gas_used));
             let apply_result = match executor.apply_queue_tx(queue_item.tx, base_fee) {
@@ -305,10 +306,16 @@ impl EVMServices {
                 Err(EVMError::BlockSizeLimit(message)) => {
                     debug!("[construct_block] {}", message);
                     failed_transactions.push(queue_item.tx_hash);
+                    exceed_block_limit = true;
                     continue;
                 }
                 Err(e) => {
-                    return Err(e);
+                    if exceed_block_limit {
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
                 }
             };
 
