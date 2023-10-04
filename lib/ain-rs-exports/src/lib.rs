@@ -133,7 +133,7 @@ pub mod ffi {
         pub nonce: u64,
         pub sender: String,
         pub tx_hash: String,
-        pub prepay_fee: u64,
+        pub max_prepay_fee: u64,
     }
 
     extern "Rust" {
