@@ -353,20 +353,20 @@ fn unsafe_prevalidate_raw_tx_in_q(
     unsafe {
         let ValidateTxInfo {
             signed_tx,
-            prepay_fee,
+            max_prepay_fee,
         } = SERVICES
             .evm
             .core
             .validate_raw_tx(raw_tx, queue_id, true, U256::zero())?;
 
         let nonce = u64::try_from(signed_tx.nonce())?;
-        let prepay_fee = u64::try_from(prepay_fee)?;
+        let max_prepay_fee = u64::try_from(max_prepay_fee)?;
 
         Ok(ffi::ValidateTxCompletion {
             nonce,
             sender: format!("{:?}", signed_tx.sender),
             tx_hash: format!("{:?}", signed_tx.hash()),
-            prepay_fee,
+            max_prepay_fee,
         })
     }
 }
@@ -403,7 +403,7 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<ffi::Valid
     unsafe {
         let ValidateTxInfo {
             signed_tx,
-            prepay_fee,
+            max_prepay_fee,
         } = SERVICES
             .evm
             .core
@@ -411,13 +411,13 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<ffi::Valid
 
         let nonce = u64::try_from(signed_tx.nonce())?;
 
-        let prepay_fee = u64::try_from(prepay_fee)?;
+        let max_prepay_fee = u64::try_from(max_prepay_fee)?;
 
         Ok(ffi::ValidateTxCompletion {
             nonce,
             sender: format!("{:?}", signed_tx.sender),
             tx_hash: format!("{:?}", signed_tx.hash()),
-            prepay_fee,
+            max_prepay_fee,
         })
     }
 }
