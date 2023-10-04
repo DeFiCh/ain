@@ -151,11 +151,11 @@ impl EVMBackend {
         self.state.ro_handle(root)
     }
 
-    pub fn deduct_prepay_gas(&mut self, sender: H160, prepay_gas: U256) -> Result<()> {
-        debug!(target: "backend", "[deduct_prepay_gas] Deducting {:#x} from {:#x}", prepay_gas, sender);
+    pub fn deduct_prepay_gas_fee(&mut self, sender: H160, prepay_fee: U256) -> Result<()> {
+        debug!(target: "backend", "[deduct_prepay_gas_fee] Deducting {:#x} from {:#x}", prepay_fee, sender);
 
         let basic = self.basic(sender);
-        let balance = basic.balance.checked_sub(prepay_gas).ok_or_else(|| {
+        let balance = basic.balance.checked_sub(prepay_fee).ok_or_else(|| {
             BackendError::DeductPrepayGasFailed(String::from(
                 "failed checked sub prepay gas with account balance",
             ))
@@ -169,7 +169,7 @@ impl EVMBackend {
         Ok(())
     }
 
-    pub fn refund_unused_gas(
+    pub fn refund_unused_gas_fee(
         &mut self,
         signed_tx: &SignedTx,
         used_gas: U256,
@@ -182,7 +182,7 @@ impl EVMBackend {
         })?;
         let refund_amount = calculate_gas_fee(signed_tx, refund_gas, base_fee)?;
 
-        debug!(target: "backend", "[refund_unused_gas] Refunding {:#x} to {:#x}", refund_amount, signed_tx.sender);
+        debug!(target: "backend", "[refund_unused_gas_fee] Refunding {:#x} to {:#x}", refund_amount, signed_tx.sender);
 
         let basic = self.basic(signed_tx.sender);
         let balance = basic.balance.checked_add(refund_amount).ok_or_else(|| {

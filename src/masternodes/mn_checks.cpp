@@ -456,7 +456,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     bool wipeQueue{};
     if (q == 0) {
         wipeQueue = true;
-        auto r = XResultValue(evm_try_unsafe_create_queue(result));
+        auto r = XResultValue(evm_try_unsafe_create_queue(result, time));
         if (r) { q = *r; } else { return r; }
     }
 
