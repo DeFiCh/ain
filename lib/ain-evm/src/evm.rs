@@ -304,23 +304,8 @@ impl EVMServices {
                 Ok(result) => result,
                 Err(EVMError::BlockSizeLimit(message)) => {
                     debug!("[construct_block] {}", message);
-                    if let Some(index) = queue
-                        .transactions
-                        .iter()
-                        .position(|item| item.tx_hash == queue_item.tx_hash)
-                    {
-                        failed_transactions = queue
-                            .transactions
-                            .drain(index..)
-                            .map(|item| item.tx_hash)
-                            .collect();
-                        break;
-                    } else {
-                        return Err(format_err!(
-                            "exceed block size limit but unable to get failed transaction from queue"
-                        )
-                        .into());
-                    }
+                    failed_transactions.push(queue_item.tx_hash);
+                    continue;
                 }
                 Err(e) => {
                     return Err(e);
