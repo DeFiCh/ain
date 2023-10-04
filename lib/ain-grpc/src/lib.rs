@@ -64,10 +64,14 @@ pub fn init_services() {
     let _ = &*SERVICES;
 }
 
-pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<()> {
+pub fn init_network_services(
+    json_addr: &str,
+    grpc_addr: &str,
+    websockets_addr: &str,
+) -> Result<()> {
     init_network_json_rpc_service(&SERVICES, json_addr)?;
     init_network_grpc_service(&SERVICES, grpc_addr)?;
-    init_network_subscriptions_service(&SERVICES, "127.0.0.1:8000")?;
+    init_network_subscriptions_service(&SERVICES, websockets_addr)?;
     Ok(())
 }
 

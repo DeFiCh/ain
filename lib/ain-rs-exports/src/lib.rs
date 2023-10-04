@@ -74,6 +74,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             json_addr: &str,
             grpc_addr: &str,
+            websockets_addr: &str,
         );
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
