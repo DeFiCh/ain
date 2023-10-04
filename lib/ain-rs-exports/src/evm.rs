@@ -474,8 +474,8 @@ fn unsafe_validate_transferdomain_tx_in_q(
 ///
 /// Returns the EVM queue ID as a `u64`.
 #[ffi_fallible]
-fn unsafe_create_queue() -> Result<u64> {
-    unsafe { SERVICES.evm.core.create_queue() }
+fn unsafe_create_queue(timestamp: u64) -> Result<u64> {
+    unsafe { SERVICES.evm.core.create_queue(timestamp) }
 }
 
 /// /// Discards an EVM queue.

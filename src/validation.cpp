@@ -3385,7 +3385,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             return error("ConnectBlock %s failed, %s", p->GetBlockHash().ToString(), FormatStateMessage(s));
         };
 
-        auto r = XResultValue(evm_try_unsafe_create_queue(result));
+        auto r = XResultValue(evm_try_unsafe_create_queue(result, pindexNew->GetBlockTime()));
         if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
         uint64_t evmQueueId = *r;
 
@@ -4927,7 +4927,7 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.phashBlock = &block_hash;
     CheckContextState ctxState;
 
-    auto r = XResultValue(evm_try_unsafe_create_queue(result));
+    auto r = XResultValue(evm_try_unsafe_create_queue(result, indexDummy.GetBlockTime()));
     if (!r) { return error("%s: Consensus::ContextualCheckBlockHeader: error creating EVM queue", __func__); }
     uint64_t evmQueueId = *r;
 
@@ -5418,7 +5418,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
 
             bool dummyRewardedAnchors{};
-            auto r = XResultValue(evm_try_unsafe_create_queue(result));
+            auto r = XResultValue(evm_try_unsafe_create_queue(result, pindex->GetBlockTime()));
             if (!r) { return error("VerifyDB(): *** evm_try_unsafe_create_queue failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString()); }
             uint64_t evmQueueId = *r;
             auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId);
