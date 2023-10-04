@@ -1,13 +1,18 @@
 use std::sync::Arc;
 
-use ain_evm::{
-    evm::EVMServices,
-    storage::traits::{BlockStorage, ReceiptStorage},
-};
-use ethereum_types::{H256, U256};
+use crate::block::RpcBlockHeader;
+use ain_evm::log::Notification;
+use ain_evm::{evm::EVMServices, storage::traits::BlockStorage};
+use ethereum_types::{H160, H256, U256};
+use jsonrpsee::core::traits::IdProvider;
+use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 use log::debug;
+use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+use serde_json::{from_value, Value};
+use serde_with::{serde_as, OneOrMany};
+
+use crate::receipt::LogResult;
 
 /// Subscription result.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -82,19 +87,24 @@ pub enum Kind {
     Syncing,
 }
 
-/// Subscription kind.
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Params {
-    /// No parameters passed.
-    None,
-    // Log parameters.
-    // Logs(Filter),
+#[serde_as]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct LogsSubscriptionParams {
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub address: Option<Vec<H160>>,
+    pub topics: Option<Vec<Option<H256>>>,
 }
 
-impl Default for Params {
-    fn default() -> Self {
-        Params::None
-    }
+/// Subscription kind.
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
+pub enum Params {
+    /// No parameters passed.
+    #[default]
+    None,
+    // Log parameters.
+    Logs(LogsSubscriptionParams),
 }
 
 impl<'a> Deserialize<'a> for Params {
@@ -107,27 +117,19 @@ impl<'a> Deserialize<'a> for Params {
         if v.is_null() {
             return Ok(Params::None);
         }
-        Ok(Params::None)
 
-        // from_value(v)
-        //     .map(Params::Logs)
-        //     .map_err(|e| D::Error::custom(format!("Invalid Pub-Sub parameters: {}", e)))
+        from_value(v)
+            .map(Params::Logs)
+            .map_err(|e| Error::custom(format!("Invalid logs parameters: {}", e)))
     }
 }
-
-use crate::block::RpcBlockHeader;
-use ain_evm::log::Notification;
-use jsonrpsee::core::traits::IdProvider;
-use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
-
-use crate::receipt::{LogResult, ReceiptResult};
 
 #[derive(Debug, Default)]
 pub struct MetachainSubIdProvider;
 
 impl IdProvider for MetachainSubIdProvider {
     fn next_id(&self) -> jsonrpsee::types::SubscriptionId<'static> {
-        format!("0x{}", hex::encode(rand::random::<u128>().to_le_bytes())).into()
+        format!("{:#?}", hex::encode(rand::random::<u128>().to_le_bytes())).into()
     }
 }
 
@@ -159,9 +161,10 @@ impl MetachainPubSubServer for MetachainPubSubModule {
         &self,
         mut sink: SubscriptionSink,
         kind: Kind,
-        _params: Option<Params>,
+        params: Option<Params>,
     ) -> Result<(), SubscriptionEmptyError> {
         debug!(target: "pubsub", "subscribing to {:#?}", kind);
+        debug!(target: "pubsub", "params {:?}", params);
         sink.accept()?;
 
         let handler = self.handler.clone();
@@ -190,15 +193,22 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             continue;
                         };
 
-                        debug!(target: "pubsub", "Received block hash in logs: {:x?}", hash);
-                        for tx in block.transactions {
-                            if let Some(receipt) = handler.storage.get_receipt(&tx.hash()).unwrap()
-                            {
-                                let receipt_result = ReceiptResult::from(receipt);
-                                for log in receipt_result.logs {
-                                    let _ = sink.send(&PubSubResult::Log(Box::new(log)));
-                                }
+                        let logs = match params.clone() {
+                            None => handler
+                                .logs
+                                .get_logs(&None, &None, block.header.number)
+                                .unwrap(),
+                            Some(Params::Logs(p)) => handler
+                                .logs
+                                .get_logs(&p.address, &p.topics, block.header.number)
+                                .unwrap(),
+                            _ => {
+                                unreachable!()
                             }
+                        };
+
+                        for log in logs {
+                            let _ = sink.send(&PubSubResult::Log(Box::new(log.into())));
                         }
                     }
                 }
