@@ -86,8 +86,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const uint64_t time,
                                    const uint32_t txn,
-                                   const uint64_t evmQueueId,
-                                   const bool isEvmEnabledForBlock,
+                                   const CScopedQueueID &evmQueueId,
                                    const bool evmPreValidate)
         : height(height),
           mnview(mnview),
@@ -97,7 +96,6 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          isEvmEnabledForBlock(isEvmEnabledForBlock),
           evmPreValidate(evmPreValidate) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {

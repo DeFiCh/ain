@@ -2327,13 +2327,15 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
         govVarValue.reserve(govVarVec.size());
         std::copy(govVarVec.begin(), govVarVec.end(), govVarValue.begin());
 
-        CrossBoundaryResult result;
-        const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
-        if (!evm_try_handle_attribute_apply(result, evmQueueId, rustKey, govVarValue)) {
-            return DeFiErrors::SettingEVMAttributeFailure();
-        }
-        if (!result.ok) {
-            return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
+        if (evmQueueId) {
+            CrossBoundaryResult result;
+            const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
+            if (!evm_try_handle_attribute_apply(result, *evmQueueId, rustKey, govVarValue)) {
+                return DeFiErrors::SettingEVMAttributeFailure();
+            }
+            if (!result.ok) {
+                return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
+            }
         }
     }
 

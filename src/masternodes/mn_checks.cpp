@@ -329,8 +329,7 @@ class CCustomTxApplyVisitor {
     const Consensus::Params& consensus;
     uint64_t time;
     uint32_t txn;
-    uint64_t evmQueueId;
-    bool isEvmEnabledForBlock;
+    const CScopedQueueID &evmQueueId;
     bool evmPreValidate;
 
     template<typename T, typename T1, typename ...Args>
@@ -339,7 +338,7 @@ class CCustomTxApplyVisitor {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>)
-            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate}(obj);
+            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, evmPreValidate}(obj);
         else if constexpr (sizeof...(Args) != 0)
             return ConsensusHandler<T, Args...>(obj);
         else
@@ -356,8 +355,7 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmQueueId,
-                          const bool isEvmEnabledForBlock,
+                          const CScopedQueueID &evmQueueId,
                           const bool evmPreValidate)
 
         : tx(tx),
@@ -368,7 +366,6 @@ public:
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
-          isEvmEnabledForBlock(isEvmEnabledForBlock),
           evmPreValidate(evmPreValidate) {}
 
     template<typename T>
@@ -445,38 +442,29 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  const uint64_t evmQueueId,
+                  CScopedQueueID &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    auto q = evmQueueId;
-    bool wipeQueue{};
-    if (q == 0) {
-        wipeQueue = true;
-        auto r = XResultValue(evm_try_unsafe_create_queue(result, time));
-        if (r) { q = *r; } else { return r; }
+    if (!evmQueueId && isEvmEnabledForBlock) {
+        CScopedQueueID queueID(time);
+        if (!queueID) {
+            return Res::Err("Failed to create queue");
+        }
+        evmQueueId = queueID;
     }
 
     try {
         auto res = std::visit(
-            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, evmPreValidate),
-            txMessage);
-        if (wipeQueue) {
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
-        }
+                CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmQueueId, evmPreValidate),
+                txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
-        if (wipeQueue) {
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
-        }
         return Res::Err(e.what());
     } catch (...) {
-        if (wipeQueue) {
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
-        }
         return Res::Err("%s unexpected error", __func__ );
     }
 }
@@ -559,7 +547,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId,
+                  CScopedQueueID &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     auto res = Res::Ok();

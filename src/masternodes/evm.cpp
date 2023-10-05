@@ -1,3 +1,4 @@
+#include <ain_rs_exports.h>
 #include <masternodes/evm.h>
 #include <masternodes/errors.h>
 #include <masternodes/res.h>
@@ -45,4 +46,36 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(std::function<bool(const std::pa
                 auto k = std::make_pair(static_cast<VMDomainEdge>(key.first), key.second);
                 return callback(k, val);
             }, std::make_pair(static_cast<uint8_t>(start.first), start.second));
+}
+
+CScopedQueueID::CScopedQueueID() : evmQueueId{}, isValid(false) {}
+
+CScopedQueueID::CScopedQueueID(const uint64_t timestamp) : isValid(false) {
+    CrossBoundaryResult result;
+    uint64_t queueId = evm_try_unsafe_create_queue(result, timestamp);
+    if (result.ok) {
+        evmQueueId = std::make_shared<uint64_t>(queueId);
+        isValid = true;
+    }
+}
+
+CScopedQueueID::~CScopedQueueID() {
+    if (isValid && evmQueueId.use_count() == 1) {
+        CrossBoundaryResult result;
+        evm_try_unsafe_remove_queue(result, *evmQueueId);
+        if (!result.ok) {
+            LogPrintf("Failed to destroy queue %d\n", *evmQueueId);
+        }
+    }
+}
+
+CScopedQueueID::operator bool() const {
+    return isValid;
+}
+
+uint64_t CScopedQueueID::operator*() const {
+    if (!isValid) {
+        throw std::runtime_error("evmQueueId is not valid");
+    }
+    return *evmQueueId;
 }

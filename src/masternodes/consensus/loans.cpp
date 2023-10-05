@@ -231,7 +231,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
     token.flags |=
             static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-    auto tokenId = mnview.CreateToken(token, false, isEvmEnabledForBlock, evmQueueId);
+    auto tokenId = mnview.CreateToken(token, false, evmQueueId);
     Require(tokenId);
 
     if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {

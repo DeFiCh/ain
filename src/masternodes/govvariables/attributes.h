@@ -7,6 +7,7 @@
 
 #include <amount.h>
 #include <masternodes/balances.h>
+#include <masternodes/evm.h>
 #include <masternodes/gv.h>
 #include <masternodes/oracles.h>
 
@@ -543,7 +544,7 @@ public:
     }
 
     uint32_t time{0};
-    uint64_t evmQueueId{};
+    CScopedQueueID evmQueueId;
 
     // For formatting in export
     static const std::map<uint8_t, std::string> &displayVersions();

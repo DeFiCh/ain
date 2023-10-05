@@ -43,13 +43,13 @@
 
 struct EvmTxPreApplyContext {
     const CTxMemPool::txiter& txIter;
-    uint64_t evmQueueId;
+    const CScopedQueueID& evmQueueId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
     std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
-    arith_uint256& sortedGasUsed;
-    arith_uint256& blockGasUsed;
-    arith_uint256& blockGasLimit;
+    const arith_uint256& sortedGasUsed;
+    const arith_uint256& blockGasUsed;
+    const arith_uint256& blockGasLimit;
 };
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
@@ -252,12 +252,15 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         timeOrdering = false;
     }
 
-    uint64_t evmQueueId{};
+    CScopedQueueID evmQueueId;
     if (isEvmEnabledForBlock) {
-        auto r = XResultValueLogged(evm_try_unsafe_create_queue(result, blockTime));
-        if (!r) return Res::Err("Failed to create queue");
-        evmQueueId = *r;
+        CScopedQueueID queueId(blockTime);
+        if (!queueId) {
+            return Res::Err("Failed to create queue");
+        }
+        evmQueueId = queueId;
     }
+
 
     std::map<uint256, CAmount> txFees;
 
@@ -268,8 +271,8 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     }
 
     XVM xvm{};
-    if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+    if (evmQueueId) {
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, *evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
         if (!blockResult.failed_transactions.empty()) {
@@ -296,8 +299,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             RemoveFromBlock(failedEVMTxs, true);
         }
 
-        auto r = XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
-        if (!r) return Res::Err("Failed to remove queue");
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
     }
 
@@ -632,7 +633,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     const auto& blockGasLimit = ctx.blockGasLimit;
 
     CrossBoundaryResult result;
-    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, evmQueueId, txSender);
+    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, *evmQueueId, txSender);
     if (!result.ok) {
         return false;
     }
@@ -666,7 +667,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, CScopedQueueID &evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -845,7 +846,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             if (txType != CustomTxType::None) {
                 const auto evmType = txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain;
                 if (evmType) {
-                    if (!isEvmEnabledForBlock) {
+                    if (!evmQueueId) {
                         customTxPassed = false;
                         break;
                     }
@@ -881,9 +882,9 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                 }
 
                 if (evmType) {
-                    const auto totalGas = evm_try_unsafe_get_total_gas_used(result, evmQueueId);
+                    const auto totalGas = evm_try_unsafe_get_total_gas_used(result, *evmQueueId);
                     if (!result.ok) {
-                        LogPrintf("Failed to get total gas used in queue %d\n", evmQueueId);
+                        LogPrintf("Failed to get total gas used in queue %d\n", *evmQueueId);
                     } else {
                         sortedGasUsed = UintToArith256(uint256S({totalGas.begin(), totalGas.end()}));
                     }
@@ -919,7 +920,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // If the first TX in a failed set is not the failed TX
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
-                        evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
+                        evm_try_unsafe_remove_txs_above_hash_in_q(result, *evmQueueId, entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
                         }

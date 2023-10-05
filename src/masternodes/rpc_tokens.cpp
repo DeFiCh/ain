@@ -607,7 +607,8 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         auto consensus = Params().GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(nHeight, mnview, consensus);
 
-        auto res = ApplyCustomTx(mnview, view, *tx, consensus, nHeight, 0, nullptr, 0, 0, isEvmEnabledForBlock, false);
+        CScopedQueueID evmQueueId;
+        auto res = ApplyCustomTx(mnview, view, *tx, consensus, nHeight, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
 
         result.pushKV("valid", res.ok);
     } else {
