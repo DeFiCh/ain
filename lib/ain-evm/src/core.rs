@@ -307,7 +307,7 @@ impl EVMCoreService {
 
     /// Validates a raw tx.
     ///
-    /// The pre-validation checks of the tx before we consider it to be valid are:
+    /// The validation checks of the tx before we consider it to be valid are:
     /// 1. Gas price check: verify that the maximum gas price is minimally of the block initial base fee.
     /// 2. Gas price and tx value check: verify that amount is within money range.
     /// 3. Intrinsic gas limit check: verify that the tx intrinsic gas is within the tx gas limit.
@@ -315,17 +315,10 @@ impl EVMCoreService {
     /// 5. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
     /// 6. Account nonce check: verify that the tx nonce must be more than or equal to the account nonce.
     ///
-    /// The validation checks with state context of the tx before we consider it to be valid are:
-    /// 1. Account balance check: verify that the account balance must minimally have the tx prepay gas fee.
-    /// 2. Nonce check: Verify that the tx nonce must equl to the current state account nonce.
-    /// 3. Execute the tx with the state root from the txqueue.
-    /// 4. Check the total gas used in the queue with the addition of the tx do not exceed the block size limit.
-    ///
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
     /// * `queue_id` - The queue_id queue number.
-    /// * `pre_validate` - Validate the raw tx with or without state context.
     ///
     /// # Returns
     ///
@@ -336,9 +329,9 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn prevalidate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
+    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
-        debug!("[prevalidate_raw_tx] state_root : {:#?}", state_root);
+        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         let total_current_gas_used = self
             .tx_queues
@@ -352,8 +345,8 @@ impl EVMCoreService {
             return Ok(tx_info);
         }
 
-        debug!("[prevalidate_raw_tx] queue_id {}", queue_id);
-        debug!("[prevalidate_raw_tx] raw transaction : {:#?}", tx);
+        debug!("[validate_raw_tx] queue_id {}", queue_id);
+        debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
             signed_tx,
@@ -365,17 +358,17 @@ impl EVMCoreService {
                 .signed_tx_cache
                 .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-            debug!("[prevalidate_raw_tx] signed_tx : {:#?}", signed_tx);
+            debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
 
             debug!(
-                "[prevalidate_raw_tx] signed_tx.sender : {:#?}",
+                "[validate_raw_tx] signed_tx.sender : {:#?}",
                 signed_tx.sender
             );
 
             // Validate tx gas price with initial block base fee
             let tx_gas_price = signed_tx.gas_price();
             if tx_gas_price < INITIAL_BASE_FEE {
-                debug!("[prevalidate_raw_tx] tx gas price is lower than initial block base fee");
+                debug!("[validate_raw_tx] tx gas price is lower than initial block base fee");
                 return Err(
                     format_err!("tx gas price is lower than initial block base fee").into(),
                 );
@@ -383,7 +376,7 @@ impl EVMCoreService {
 
             // Validate tx gas price and tx value within money range
             if !WeiAmount(tx_gas_price).wei_range() || !WeiAmount(signed_tx.value()).wei_range() {
-                debug!("[prevalidate_raw_tx] value more than money range");
+                debug!("[validate_raw_tx] value more than money range");
                 return Err(format_err!("value more than money range").into());
             }
 
@@ -394,15 +387,12 @@ impl EVMCoreService {
             let gas_limit = signed_tx.gas_limit();
             let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
             if gas_limit > U256::from(block_gas_limit) {
-                debug!("[prevalidate_raw_tx] gas limit higher than max_gas_per_block");
+                debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
                 return Err(format_err!("gas limit higher than max_gas_per_block").into());
             }
 
             let max_prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
-            debug!(
-                "[prevalidate_raw_tx] max_prepay_fee : {:x?}",
-                max_prepay_fee
-            );
+            debug!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
 
             self.tx_validation_cache.set_stateless(
                 String::from(tx),
@@ -417,18 +407,18 @@ impl EVMCoreService {
         // Validate tx prepay fees with account balance
         let backend = self.get_backend(state_root)?;
         let balance = backend.get_balance(&signed_tx.sender);
-        debug!("[prevalidate_raw_tx] Account balance : {:x?}", balance);
+        debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         if balance < max_prepay_fee {
-            debug!("[prevalidate_raw_tx] insufficient balance to pay fees");
+            debug!("[validate_raw_tx] insufficient balance to pay fees");
             return Err(format_err!("insufficient balance to pay fees").into());
         }
 
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
-            "[prevalidate_raw_tx] signed_tx nonce : {:#?}",
+            "[validate_raw_tx] signed_tx nonce : {:#?}",
             signed_tx.nonce()
         );
-        debug!("[prevalidate_raw_tx] nonce : {:#?}", nonce);
+        debug!("[validate_raw_tx] nonce : {:#?}", nonce);
         // Validate tx nonce with account nonce
         if nonce > signed_tx.nonce() {
             return Err(format_err!(

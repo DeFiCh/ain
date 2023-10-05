@@ -364,9 +364,9 @@ impl<'backend> AinExecutor<'backend> {
                 let amount = U256::from_big_endian(&input[100..132]);
 
                 debug!(
-                "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
-                signed_tx.sender, contract_address, amount, direction
-            );
+                    "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
+                    signed_tx.sender, contract_address, amount, direction
+                );
 
                 if direction == TransferDirection::EvmIn {
                     let DST20BridgeInfo { address, storage } =

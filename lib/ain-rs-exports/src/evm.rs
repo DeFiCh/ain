@@ -320,7 +320,7 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
     }
 }
 
-/// Pre-validates a raw EVM transaction.
+/// Validates a raw EVM transaction.
 ///
 /// # Arguments
 ///
@@ -333,10 +333,11 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 /// Returns an Error if:
 /// - The hex data is invalid
 /// - The EVM transaction is invalid
-/// - The EVM transaction fee is lower than the next block's base fee
+/// - The EVM transaction fee is lower than the initial block base fee
+/// - The EVM transaction values exceed money range.
 /// - Could not fetch the underlying EVM account
 /// - Account's nonce is more than raw tx's nonce
-/// - The EVM transaction prepay gas is invalid
+/// - The EVM transaction max prepay gas is invalid
 /// - The EVM transaction gas limit is lower than the transaction intrinsic gas
 ///
 /// # Returns
@@ -352,7 +353,7 @@ fn unsafe_prevalidate_raw_tx_in_q(
     debug!("[unsafe_prevalidate_raw_tx_in_q]");
     unsafe {
         let ValidateTxInfo { signed_tx, .. } =
-            SERVICES.evm.core.prevalidate_raw_tx(raw_tx, queue_id)?;
+            SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", signed_tx.hash()),
