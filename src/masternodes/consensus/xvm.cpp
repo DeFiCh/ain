@@ -394,13 +394,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    const auto validateResults = evm_try_unsafe_validate_raw_tx_in_q(result, evmQueueId, HexStr(obj.evmTx));
-    if (!result.ok) {
-        LogPrintf("[evm_try_validate_raw_tx_in_q] failed, reason : %s\n", result.reason);
-        return Res::Err("evm tx failed to validate %s\n", result.reason);
-    }
-
-    evm_try_unsafe_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
+    const auto validateResults = evm_try_unsafe_push_tx_in_q(result, evmQueueId, HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {
         LogPrintf("[evm_try_push_tx_in_q] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to queue %s\n", result.reason);
