@@ -173,11 +173,6 @@ pub mod ffi {
             queue_id: u64,
             raw_tx: &str,
         ) -> ValidateTxCompletion;
-        fn evm_try_unsafe_validate_raw_tx_in_q(
-            result: &mut CrossBoundaryResult,
-            queue_id: u64,
-            raw_tx: &str,
-        ) -> ValidateTxCompletion;
         fn evm_try_unsafe_validate_transferdomain_tx_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
@@ -189,7 +184,7 @@ pub mod ffi {
             queue_id: u64,
             raw_tx: &str,
             native_hash: &str,
-        );
+        ) -> ValidateTxCompletion;
         fn evm_try_unsafe_construct_block_in_q(
             result: &mut CrossBoundaryResult,
             queue_id: u64,
