@@ -236,6 +236,7 @@ package() {
 
     _ensure_enter_dir "${versioned_build_dir}"
     _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -1165,7 +1166,7 @@ get_rust_triplet() {
 }
 
 _sign() {
-    # TODO: generate sha sums and sign
+    # TODO: sign
     :
 }
 
