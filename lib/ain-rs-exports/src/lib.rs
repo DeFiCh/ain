@@ -131,10 +131,7 @@ pub mod ffi {
 
     #[derive(Default)]
     pub struct ValidateTxCompletion {
-        pub nonce: u64,
-        pub sender: String,
         pub tx_hash: String,
-        pub prepay_fee: u64,
     }
 
     extern "Rust" {

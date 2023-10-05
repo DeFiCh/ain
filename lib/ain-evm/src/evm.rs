@@ -316,32 +316,24 @@ impl EVMServices {
             queue.transactions.len()
         );
 
+        let mut exceed_block_limit = false;
         for queue_item in queue.transactions.clone() {
             executor.update_total_gas_used(U256::from(total_gas_used));
             let apply_result = match executor.apply_queue_tx(queue_item.tx, base_fee) {
                 Ok(result) => result,
                 Err(EVMError::BlockSizeLimit(message)) => {
                     debug!("[construct_block] {}", message);
-                    if let Some(index) = queue
-                        .transactions
-                        .iter()
-                        .position(|item| item.tx_hash == queue_item.tx_hash)
-                    {
-                        failed_transactions = queue
-                            .transactions
-                            .drain(index..)
-                            .map(|item| item.tx_hash)
-                            .collect();
-                        break;
-                    } else {
-                        return Err(format_err!(
-                            "exceed block size limit but unable to get failed transaction from queue"
-                        )
-                        .into());
-                    }
+                    failed_transactions.push(queue_item.tx_hash);
+                    exceed_block_limit = true;
+                    continue;
                 }
                 Err(e) => {
-                    return Err(e);
+                    if exceed_block_limit {
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
                 }
             };
 
