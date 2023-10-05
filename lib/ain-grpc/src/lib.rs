@@ -40,7 +40,10 @@ use crate::rpc::{
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
     web3::{MetachainWeb3RPCModule, MetachainWeb3RPCServer},
 };
-use crate::subscription::{MetachainPubSubModule, MetachainPubSubServer, MetachainSubIdProvider};
+use crate::subscription::{
+    eth::{MetachainPubSubModule, MetachainPubSubServer},
+    MetachainSubIdProvider,
+};
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.
