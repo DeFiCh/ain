@@ -13,12 +13,18 @@ pub const MAX_MONEY_SATS: U256 = U256([120_000_000_000_000_000, 0, 0, 0]);
 pub const MAX_MONEY_SATS_DOUBLE: f64 = 120_000_000_000_000_000.0;
 
 impl WeiAmount {
-    pub fn to_gwei(&self) -> U256 {
-        self.0 / WEI_TO_GWEI
+    pub fn to_gwei(&self) -> Result<U256> {
+        if !self.wei_range() {
+            return Err(format_err!("value more than money range").into());
+        }
+        Ok(self.0 / WEI_TO_GWEI)
     }
 
-    pub fn to_satoshi(&self) -> U256 {
-        self.0 / WEI_TO_SATS
+    pub fn to_satoshi(&self) -> Result<U256> {
+        if !self.wei_range() {
+            return Err(format_err!("value more than money range").into());
+        }
+        Ok(self.0 / WEI_TO_SATS)
     }
 
     pub fn to_satoshi_double(&self) -> Result<f64> {
@@ -26,7 +32,7 @@ impl WeiAmount {
             return Err(format_err!("value more than money range").into());
         }
 
-        let sats_q = u64::try_from(self.to_satoshi())? as f64;
+        let sats_q = u64::try_from(self.to_satoshi()?)? as f64;
         let wei_r = u64::try_from(self.0.checked_rem(WEI_TO_SATS).unwrap_or(U256::zero()))? as f64;
         let sats_r = wei_r / WEI_TO_SATS_DOUBLE;
         Ok(sats_q + sats_r)
@@ -57,7 +63,9 @@ pub fn try_from_satoshi(satoshi: U256) -> Result<WeiAmount> {
 
 #[cfg(test)]
 mod tests {
-    use crate::weiamount::{try_from_satoshi, WeiAmount, MAX_MONEY_SATS, MAX_MONEY_SATS_DOUBLE};
+    use crate::weiamount::{
+        try_from_satoshi, WeiAmount, MAX_MONEY_SATS, MAX_MONEY_SATS_DOUBLE, WEI_TO_SATS,
+    };
     use ethereum_types::U256;
     use std::error::Error;
 
@@ -74,10 +82,28 @@ mod tests {
     #[test]
     fn test_max_satoshi_conversion() -> Result<(), Box<dyn Error>> {
         let max_sats = try_from_satoshi(MAX_MONEY_SATS)?;
-        let max_sats_res = max_sats.to_satoshi();
+        let max_sats_res = max_sats.to_satoshi()?;
         let max_sats_dbl_res = max_sats.to_satoshi_double()?;
         assert_eq!(MAX_MONEY_SATS, max_sats_res);
         assert_eq!(MAX_MONEY_SATS_DOUBLE, max_sats_dbl_res);
+        Ok(())
+    }
+
+    #[test]
+    fn test_above_max_satoshi_conversion() -> Result<(), Box<dyn Error>> {
+        let above_max_sats_in_wei = try_from_satoshi(MAX_MONEY_SATS + U256::one())?;
+        let above_max_sats = above_max_sats_in_wei.to_satoshi();
+        assert!(above_max_sats.is_err());
+
+        let above_max_sats_in_wei = WeiAmount(
+            MAX_MONEY_SATS
+                .checked_mul(WEI_TO_SATS)
+                .unwrap()
+                .checked_add(U256::one())
+                .unwrap(),
+        );
+        let above_max_sats_double = above_max_sats_in_wei.to_satoshi_double();
+        assert!(above_max_sats_double.is_err());
         Ok(())
     }
 }

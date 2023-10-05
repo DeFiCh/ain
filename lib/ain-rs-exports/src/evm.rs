@@ -204,7 +204,7 @@ fn get_balance(address: &str) -> Result<u64> {
         .evm
         .core
         .get_balance(address, latest_block_number)?;
-    let amount = WeiAmount(balance).to_satoshi().try_into()?;
+    let amount = WeiAmount(balance).to_satoshi()?.try_into()?;
 
     Ok(amount)
 }
@@ -509,8 +509,8 @@ fn unsafe_construct_block_in_q(
             dvm_block_number,
             mnview_ptr,
         )?;
-        let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi())?;
-        let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi())?;
+        let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
+        let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 
         Ok(ffi::FinalizeBlockCompletion {
             block_hash,
