@@ -20,7 +20,7 @@ pub mod ffi {
         pub extra_data: Vec<u8>,
         pub mix_hash: String,
         pub nonce: u64,
-        pub base_fee: u64,
+        pub base_fee: f64,
     }
 
     // ========== Transaction ==========
@@ -31,13 +31,13 @@ pub mod ffi {
         pub hash: String,
         pub sender: String,
         pub nonce: u64,
-        pub gas_price: u64,
+        pub gas_price: f64,
         pub gas_limit: u64,
-        pub max_fee_per_gas: u64,
-        pub max_priority_fee_per_gas: u64,
+        pub max_fee_per_gas: f64,
+        pub max_priority_fee_per_gas: f64,
         pub create_tx: bool,
         pub to: String,
-        pub value: u64,
+        pub value: f64,
         pub data: Vec<u8>,
     }
 
@@ -45,7 +45,7 @@ pub mod ffi {
     pub struct TxInfo {
         pub address: String,
         pub nonce: u64,
-        pub tip_fee: u64,
+        pub tip_fee: f64,
         pub used_gas: u64,
     }
 

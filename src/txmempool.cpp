@@ -1204,8 +1204,14 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
     auto result{true};
     for (auto it = range.first; it != range.second; ++it) {
         const auto& entry = *it;
+        const auto currTipFee = entry.GetEVMPromisedTipFee();
+        if (currTipFee > static_cast<double>(MAX_MONEY)) {
+            result = false;
+            continue;
+        }
 
-        if (pendingEntry.GetEVMPromisedTipFee() > entry.GetEVMPromisedTipFee()) {
+        const auto minReplaceFee = currTipFee * MEMPOOL_ETH_MINIMUM_INCREMENT_FEE_FOR_RBF;
+        if (pendingEntry.GetEVMPromisedTipFee() > minReplaceFee || std::fabs(pendingEntry.GetEVMPromisedTipFee() - minReplaceFee) < MONEY_EPSILON) {
             if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
                 auto txIter = mapTx.project<0>(it);
                 itersToRemove.insert(txIter);

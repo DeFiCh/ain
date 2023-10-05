@@ -10,6 +10,7 @@ from test_framework.util import (
     assert_raises_rpc_error,
     hex_to_decimal,
 )
+import math
 
 
 class EVMTest(DefiTestFramework):
@@ -323,29 +324,34 @@ class EVMTest(DefiTestFramework):
     def rbf_sender_mempool_limit(self):
         self.rollback_to(self.start_height)
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        value = 21
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        tx = self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        tx = self.nodes[0].evmtx(
+            self.ethAddress, nonce, value, 21001, self.toAddress, 1
+        )
         mempool_info = self.nodes[0].getrawmempool()
         assert_equal(len(mempool_info), 1)
         assert_equal(mempool_info.count(tx), True)
 
         for i in range(40):
             # Check evmtx RBF succeeds
+            value = math.ceil(value * 1.1)
             tx = self.nodes[0].evmtx(
-                self.ethAddress, nonce, 22 + i, 21001, self.toAddress, 1
+                self.ethAddress, nonce, value, 21001, self.toAddress, 1
             )
             mempool_info = self.nodes[0].getrawmempool()
             assert_equal(len(mempool_info), 1)
             assert_equal(mempool_info.count(tx), True)
 
         # Check mempool rejects the 41st RBF evmtx by the same sender
+        value = math.ceil(value * 1.1)
         assert_raises_rpc_error(
             -26,
             "too-many-evm-rbf-txs-by-sender",
             self.nodes[0].evmtx,
             self.ethAddress,
             nonce,
-            62,
+            value,
             21001,
             self.toAddress,
             1,
@@ -359,13 +365,15 @@ class EVMTest(DefiTestFramework):
         assert_equal(block_txs[1], tx)
 
         # Check mempool allows sender to do RBF once sender's evm tx is minted
+        value = 21
         tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce + 1, 21, 21001, self.toAddress, 1
+            self.ethAddress, nonce + 1, value, 21001, self.toAddress, 1
         )
         for i in range(40):
             # Check evmtx RBF succeeds
+            value = math.ceil(value * 1.1)
             tx = self.nodes[0].evmtx(
-                self.ethAddress, nonce + 1, 22 + i, 21001, self.toAddress, 1
+                self.ethAddress, nonce + 1, value, 21001, self.toAddress, 1
             )
             mempool_info = self.nodes[0].getrawmempool()
             assert_equal(len(mempool_info), 1)
