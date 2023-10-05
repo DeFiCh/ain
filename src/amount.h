@@ -209,7 +209,7 @@ inline std::ostream& operator << (std::ostream &os, const CTokenAmount &ta)
  * for the creation of coins out of thin air modification could lead to a fork.
  * */
 static const CAmount MAX_MONEY = 1200000000 * COIN; // (1.2B) - old 21000000 * 4
-static const double MONEY_EPSILON = 0.00001;
+static const double MONEY_EPSILON = 0.000001;
 inline bool MoneyRange(CAmount nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 
 #endif //  DEFI_AMOUNT_H
