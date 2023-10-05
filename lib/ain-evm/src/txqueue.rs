@@ -1,9 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
-use parking_lot::{Mutex, RwLock};
-
 use ethereum::{Block, TransactionV2};
 use ethereum_types::{H256, U256};
+use parking_lot::{Mutex, RwLock};
 use rand::Rng;
 
 use crate::{

@@ -349,13 +349,24 @@ impl<'backend> AinExecutor<'backend> {
                 contract_address,
                 direction,
             })) => {
+                // Validate nonce
+                let nonce = self.backend.get_nonce(&signed_tx.sender);
+                if nonce != signed_tx.nonce() {
+                    return Err(format_err!(
+                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        nonce,
+                        signed_tx.nonce(),
+                    )
+                    .into());
+                }
+
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[100..132]);
 
                 debug!(
-                "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
-                signed_tx.sender, contract_address, amount, direction
-            );
+                    "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
+                    signed_tx.sender, contract_address, amount, direction
+                );
 
                 if direction == TransferDirection::EvmIn {
                     let DST20BridgeInfo { address, storage } =

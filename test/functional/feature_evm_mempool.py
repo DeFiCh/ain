@@ -441,6 +441,37 @@ class EVMTest(DefiTestFramework):
         # balance is drained, and should be evicted from mempool
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
+    def pending_out_of_order_nonces(self):
+        # Rollback chain
+        self.rollback_to(self.start_height)
+
+        # Create out-of-order pending nonces
+        self.nodes[0].evmtx(self.ethAddress, 5, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 3, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 4, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 2, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.ethAddress, 1, 21, 21000, self.toAddress, 1)
+
+        # Check number of TXs in mempool
+        assert_equal(len(self.nodes[0].getrawmempool()), 5)
+
+        # Generate a block
+        self.nodes[0].generate(1)
+
+        # None have been minted due to missing nonce 0
+        assert_equal(len(self.nodes[0].getrawmempool()), 5)
+
+        # Create missing nonce TX
+        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].generate(1)
+
+        # All TXs are now minted
+        assert_equal(len(self.nodes[0].getrawmempool()), 0)
+
+        # Check block height
+        block_height = self.nodes[0].getblockcount()
+        assert_equal(block_height, self.start_height + 2)
+
     def run_test(self):
         self.setup()
 
@@ -455,6 +486,9 @@ class EVMTest(DefiTestFramework):
 
         # Test for flushing invalid evm tx out of mempool
         self.flush_invalid_txs()
+
+        # Mint pending TXs out of order
+        self.pending_out_of_order_nonces()
 
 
 if __name__ == "__main__":

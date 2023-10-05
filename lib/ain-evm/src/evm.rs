@@ -431,7 +431,7 @@ impl EVMServices {
         queue_id: u64,
         tx: QueueTx,
     ) -> Result<(SignedTx, U256, H256)> {
-        let (target_block, state_root, timestamp, is_first_tx) = {
+        let (target_block, state_root, timestamp, total_gas_used, is_first_tx) = {
             let queue = self.core.tx_queues.get(queue_id)?;
 
             let state_root = queue.get_latest_state_root();
@@ -441,6 +441,7 @@ impl EVMServices {
                 data.target_block,
                 state_root,
                 data.timestamp,
+                data.total_gas_used,
                 data.transactions.is_empty(),
             )
         };
@@ -481,6 +482,7 @@ impl EVMServices {
             executor.commit();
         }
 
+        executor.update_total_gas_used(total_gas_used);
         let apply_tx = executor.apply_queue_tx(tx, base_fee)?;
 
         Ok((
