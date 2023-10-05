@@ -450,11 +450,10 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     if (!evmQueueId && isEvmEnabledForBlock) {
-        CScopedQueueID queueID(time);
-        if (!queueID) {
+        evmQueueId = CScopedQueueID(time);
+        if (!evmQueueId) {
             return Res::Err("Failed to create queue");
         }
-        evmQueueId = queueID;
     }
 
     try {

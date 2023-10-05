@@ -2653,11 +2653,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     CScopedQueueID evmQueueId;
     if (isEvmEnabledForBlock) {
-        CScopedQueueID queueId(pindex->GetBlockTime());
-        if (!queueId) {
+        evmQueueId = CScopedQueueID(pindex->GetBlockTime());
+        if (!evmQueueId) {
             return Res::Err("Failed to create queue");
         }
-        evmQueueId = queueId;
     }
 
     // Execute TXs

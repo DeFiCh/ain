@@ -254,11 +254,10 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     CScopedQueueID evmQueueId;
     if (isEvmEnabledForBlock) {
-        CScopedQueueID queueId(blockTime);
-        if (!queueId) {
+        evmQueueId = CScopedQueueID(blockTime);
+        if (!evmQueueId) {
             return Res::Err("Failed to create queue");
         }
-        evmQueueId = queueId;
     }
 
 
