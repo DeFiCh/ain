@@ -3,9 +3,8 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
-    core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
+    core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
-    executor::TxResponse,
     fee::calculate_max_tip_gas_fee,
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
@@ -342,22 +341,13 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
-/// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
-/// object otherwise.
+/// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_prevalidate_raw_tx_in_q(
-    queue_id: u64,
-    raw_tx: &str,
-) -> Result<ffi::ValidateTxCompletion> {
-    debug!("[unsafe_prevalidate_raw_tx_in_q]");
+fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
+    debug!("[unsafe_validate_raw_tx_in_q]");
     unsafe {
-        let ValidateTxInfo { signed_tx, .. } =
-            SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
-
-        Ok(ffi::ValidateTxCompletion {
-            tx_hash: format!("{:?}", signed_tx.hash()),
-        })
+        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
+        Ok(())
     }
 }
 
@@ -382,7 +372,7 @@ fn unsafe_prevalidate_raw_tx_in_q(
 ///
 /// # Returns
 ///
-/// Returns the valiadtion result.
+/// Returns the validation result.
 #[ffi_fallible]
 fn unsafe_validate_transferdomain_tx_in_q(
     queue_id: u64,
@@ -877,36 +867,14 @@ fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
         .try_get_or_create(raw_tx)?;
 
     let nonce = u64::try_from(signed_tx.nonce())?;
-
-    let (parent_hash, parent_number) = SERVICES
-        .evm
-        .block
-        .get_latest_block_hash_and_number()?
-        .unwrap_or_default();
-
     let initial_base_fee = SERVICES.evm.block.calculate_base_fee(H256::zero())?;
     let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
     let tip_fee = u64::try_from(tip_fee)?;
-
-    let base_fee = SERVICES.evm.block.calculate_base_fee(parent_hash)?;
-    let TxResponse { used_gas, .. } = SERVICES.evm.core.call(EthCallArgs {
-        caller: Some(signed_tx.sender),
-        to: signed_tx.to(),
-        value: signed_tx.value(),
-        data: signed_tx.data(),
-        gas_limit: u64::try_from(signed_tx.gas_limit()).unwrap_or(u64::MAX),
-        gas_price: Some(signed_tx.effective_gas_price(base_fee)),
-        max_fee_per_gas: signed_tx.max_fee_per_gas(),
-        access_list: signed_tx.access_list(),
-        block_number: parent_number,
-        transaction_type: Some(signed_tx.get_tx_type()),
-    })?;
 
     Ok(TxInfo {
         nonce,
         address: format!("{:?}", signed_tx.sender),
         tip_fee,
-        used_gas,
     })
 }
 

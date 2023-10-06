@@ -116,7 +116,7 @@ void CHistoryWriters::EraseHistory(uint32_t height, std::vector<AccountHistoryKe
         historyView->EraseAccountHistoryHeight(height);
     }
 
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().FortCanningHeight)) {
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().DF11FortCanningHeight)) {
         // erase auction fee history
         if (historyView) {
             historyView->EraseAuctionHistoryHeight(height);
@@ -135,13 +135,13 @@ void CHistoryWriters::EraseHistory(uint32_t height, std::vector<AccountHistoryKe
             burnView->EraseAccountHistory(entries);
         }
 
-        if (height == static_cast<uint32_t>(Params().GetConsensus().EunosHeight)) {
+        if (height == static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight)) {
             // Make sure to initialize lastTxOut, otherwise it never finds the block and
             // ends up looping through uninitialized garbage value.
             uint32_t firstTxOut{}, lastTxOut{};
             auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
             {
-                if (key.owner != Params().GetConsensus().burnAddress || key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().EunosHeight)) {
+                if (key.owner != Params().GetConsensus().burnAddress || key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight)) {
                     return false;
                 }
 
@@ -153,13 +153,13 @@ void CHistoryWriters::EraseHistory(uint32_t height, std::vector<AccountHistoryKe
                 return true;
             };
 
-            AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), std::numeric_limits<uint32_t>::max()});
+            AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight), std::numeric_limits<uint32_t>::max()});
             burnView->ForEachAccountHistory(shouldContinueToNextAccountHistory,
                                             Params().GetConsensus().burnAddress,
-                                            Params().GetConsensus().EunosHeight);
+                                            Params().GetConsensus().DF8EunosHeight);
 
             for (auto i = firstTxOut; i <= lastTxOut; ++i) {
-                burnView->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().EunosHeight), i});
+                burnView->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight), i});
             }
         }
     }

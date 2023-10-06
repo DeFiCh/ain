@@ -139,7 +139,7 @@ static Res PaybackWithCollateral(CCustomCSView &view,
 }
 
 bool CLoansConsensus::IsTokensMigratedToGovVar() const {
-    return static_cast<int>(height) > consensus.FortCanningCrunchHeight + 1;
+    return static_cast<int>(height) > consensus.DF16FortCanningCrunchHeight + 1;
 }
 
 Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const {
@@ -147,7 +147,7 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
 
     Require(HasFoundationAuth(), "tx not from foundation member!");
 
-    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
+    if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &tokenId = obj.idToken.v;
 
         auto attributes  = mnview.GetAttributes();
@@ -214,7 +214,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
 
     Require(HasFoundationAuth(), "tx not from foundation member!");
 
-    if (height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+    if (height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
         Require(obj.interest >= 0, "interest rate cannot be less than 0!");
     }
 
@@ -234,7 +234,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
     auto tokenId = mnview.CreateToken(token, false, evmQueueId);
     Require(tokenId);
 
-    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
+    if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &id = tokenId.val->v;
 
         auto attributes  = mnview.GetAttributes();
@@ -292,7 +292,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
 
     Require(HasFoundationAuth(), "tx not from foundation member!");
 
-    if (height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+    if (height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
         Require(obj.interest >= 0, "interest rate cannot be less than 0!");
     }
 
@@ -300,7 +300,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
     Require(pair, "Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
     auto loanToken =
-            (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
+            (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
             ? mnview.GetLoanTokenByID(pair->first)
             : mnview.GetLoanToken(obj.tokenTx);
 
@@ -323,7 +323,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
 
     Require(mnview.UpdateToken(pair->second));
 
-    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
+    if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &id = pair->first.v;
 
         auto attributes  = mnview.GetAttributes();
@@ -495,13 +495,13 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
     auto hasDUSDLoans = false;
 
     std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
-    if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+    if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
 
     uint64_t totalLoansActivePrice = 0, totalLoansNextPrice = 0;
     for (const auto &[tokenId, tokenAmount] : obj.amounts.balances) {
-        if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+        if (height >= static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
             Require(tokenAmount > 0, "Valid loan amount required (input: %d@%d)", tokenAmount, tokenId.v);
         }
 
@@ -654,12 +654,12 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
 
     if (!HasAuth(obj.from)) return DeFiErrors::TXMissingInput();
 
-    if (static_cast<int>(height) < consensus.FortCanningRoadHeight) {
+    if (static_cast<int>(height) < consensus.DF15FortCanningRoadHeight) {
         if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
     }
 
     // Handle payback with collateral special case
-    if (static_cast<int>(height) >= consensus.FortCanningEpilogueHeight &&
+    if (static_cast<int>(height) >= consensus.DF19FortCanningEpilogueHeight &&
         IsPaybackWithCollateral(mnview, obj.loans)) {
         return PaybackWithCollateral(mnview, *vault, obj.vaultId, height, time);
     }
@@ -676,7 +676,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
             const auto &paybackTokenId = kv.first;
             auto paybackAmount         = kv.second;
 
-            if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+            if (height >= static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
                 if (paybackAmount <= 0) return DeFiErrors::LoanPaymentAmountInvalid(paybackAmount, paybackTokenId.v);
             }
 
@@ -793,8 +793,8 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
             if (!res)
                 return res;
 
-            if (height >= static_cast<uint32_t>(consensus.FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
-                height < static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+            if (height >= static_cast<uint32_t>(consensus.DF12FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
+                height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
                 auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
                 if (!newRate) return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
 
@@ -812,7 +812,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                     return res;
 
                 // If interest was negative remove it from sub amount
-                if (height >= static_cast<uint32_t>(consensus.FortCanningEpilogueHeight) && subInterest < 0)
+                if (height >= static_cast<uint32_t>(consensus.DF19FortCanningEpilogueHeight) && subInterest < 0)
                     subLoan += subInterest;
 
                 // Do not sub balance if negative interest fully negates the current loan amount

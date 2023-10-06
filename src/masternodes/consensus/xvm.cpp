@@ -16,7 +16,7 @@
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
 static bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
-    if (height < consensus.NextNetworkUpgradeHeight) {
+    if (height < consensus.DF22NextHeight) {
         return false;
     }
 
@@ -386,9 +386,9 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
 
     CrossBoundaryResult result;
     if (evmPreValidate) {
-        evm_try_unsafe_prevalidate_raw_tx_in_q(result, *evmQueueId, HexStr(obj.evmTx));
+        evm_try_unsafe_validate_raw_tx_in_q(result, *evmQueueId, HexStr(obj.evmTx));
         if (!result.ok) {
-            LogPrintf("[evm_try_prevalidate_raw_tx] failed, reason : %s\n", result.reason);
+            LogPrintf("[evm_try_validate_raw_tx] failed, reason : %s\n", result.reason);
             return Res::Err("evm tx failed to pre-validate %s", result.reason);
         }
         return Res::Ok();

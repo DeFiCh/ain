@@ -131,9 +131,9 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
 }
 
 Res CCustomTxVisitor::CheckCustomTx() const {
-    if (static_cast<int>(height) < consensus.EunosPayaHeight)
+    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
         Require(tx.vout.size() == 2, "malformed tx vouts ((wrong number of vouts)");
-    if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+    if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight)
         Require(tx.vout[0].nValue == 0, "malformed tx vouts, first vout must be OP_RETURN vout with value 0");
     return Res::Ok();
 }
@@ -228,7 +228,7 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
                        const CVaultAssets &vaultAssets,
                        const uint32_t ratio) const {
     std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
-    if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+    if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
 
@@ -260,12 +260,12 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
     }
 
     // Height checks
-    auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
-    auto isPreFCH  = static_cast<int>(height) < consensus.FortCanningHillHeight;
-    auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
-    auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
-    auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
-    auto isPostNext =  static_cast<int>(height) >= consensus.NextNetworkUpgradeHeight;
+    auto isPostFCH = static_cast<int>(height) >= consensus.DF14FortCanningHillHeight;
+    auto isPreFCH  = static_cast<int>(height) < consensus.DF14FortCanningHillHeight;
+    auto isPostFCE = static_cast<int>(height) >= consensus.DF19FortCanningEpilogueHeight;
+    auto isPostFCR = static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight;
+    auto isPostGC  = static_cast<int>(height) >= consensus.DF20GrandCentralHeight;
+    auto isPostNext =  static_cast<int>(height) >= consensus.DF22NextHeight;
 
     if(isPostNext) {
         const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};

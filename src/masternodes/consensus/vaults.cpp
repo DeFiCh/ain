@@ -122,7 +122,7 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
                     return std::move(collateralsLoans);
             }
         }
-        if (height >= static_cast<uint32_t>(consensus.FortCanningGreatWorldHeight)) {
+        if (height >= static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
             if (const auto loanTokens = mnview.GetLoanTokens(obj.vaultId)) {
                 for (const auto &[tokenId, tokenAmount] : loanTokens->balances) {
                     const auto loanToken = mnview.GetLoanTokenByID(tokenId);
@@ -203,7 +203,7 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
     auto hasDUSDLoans = false;
 
     std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
-    if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+    if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
 
@@ -259,7 +259,7 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
         }
     }
 
-    if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF22NextHeight)) {
         mnview.CalculateOwnerRewards(obj.to, height);
     }
 
@@ -294,14 +294,14 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
                 "First bid should include liquidation penalty of %d%%",
                 data->liquidationPenalty * 100 / COIN);
 
-        if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight && data->liquidationPenalty &&
+        if (static_cast<int>(height) >= consensus.DF12FortCanningMuseumHeight && data->liquidationPenalty &&
             obj.amount.nValue == batch->loanAmount.nValue)
             return Res::Err("First bid should be higher than batch one");
     } else {
         auto amount = MultiplyAmounts(bid->second.nValue, COIN + (COIN / 100));
         Require(amount <= obj.amount.nValue, "Bid override should be at least 1%% higher than current one");
 
-        if (static_cast<int>(height) >= consensus.FortCanningMuseumHeight &&
+        if (static_cast<int>(height) >= consensus.DF12FortCanningMuseumHeight &&
             obj.amount.nValue == bid->second.nValue)
             return Res::Err("Bid override should be higher than last one");
 
