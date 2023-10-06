@@ -4,6 +4,7 @@ pub mod bytes;
 mod contract;
 pub mod core;
 mod ecrecover;
+mod eventlistener;
 pub mod evm;
 pub mod executor;
 pub mod fee;
@@ -20,7 +21,6 @@ pub mod transaction;
 mod trie;
 pub mod txqueue;
 pub mod weiamount;
-mod eventlistener;
 
 pub use anyhow::{format_err, Ok};
 use backend::BackendError;

@@ -570,11 +570,11 @@ impl EVMCoreService {
         )
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
 
-        let config = Config::shanghai();
-        let metadata = StackSubstateMetadata::new(gas_limit, &config);
+        static CONFIG: Config = Config::shanghai();
+        let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
         let state = MemoryStackState::new(metadata, &backend);
         let precompiles = BTreeMap::new(); // TODO Add precompile crate
-        let mut executor = StackExecutor::new_with_precompiles(state, &config, &precompiles);
+        let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
 
         let mut runtime = evm::Runtime::new(
             Rc::new(match to {
@@ -594,13 +594,22 @@ impl EVMCoreService {
             usize::MAX,
         );
 
-        let gasometer = evm::gasometer::Gasometer::new(gas_limit, &config);
+        let gasometer = evm::gasometer::Gasometer::new(gas_limit, &CONFIG);
         let mut listener = crate::eventlistener::Listener::new(gasometer);
 
         let (execution_success, return_value) = using(&mut listener, move || {
             runtime.run(&mut executor);
 
-            (runtime.machine().position().clone().err().expect("Execution not completed").is_succeed(), runtime.machine().return_value())
+            (
+                runtime
+                    .machine()
+                    .position()
+                    .clone()
+                    .err()
+                    .expect("Execution not completed")
+                    .is_succeed(),
+                runtime.machine().return_value(),
+            )
         });
 
         Ok((
