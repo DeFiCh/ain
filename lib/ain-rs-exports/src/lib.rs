@@ -46,7 +46,6 @@ pub mod ffi {
         pub address: String,
         pub nonce: u64,
         pub tip_fee: u64,
-        pub used_gas: u64,
     }
 
     // ========== Governance Variable ==========

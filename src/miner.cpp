@@ -47,9 +47,6 @@ struct EvmTxPreApplyContext {
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
     std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
-    arith_uint256& sortedGasUsed;
-    arith_uint256& blockGasUsed;
-    arith_uint256& blockGasLimit;
 };
 
 int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
@@ -627,9 +624,6 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     auto& failedNonces = ctx.failedNonces;
     auto& failedNoncesLookup = ctx.failedNoncesLookup;
     auto& [txNonce, txSender] = txIter->GetEVMAddrAndNonce();
-    const auto& sortedGasUsed = ctx.sortedGasUsed;
-    const auto& blockGasUsed = ctx.blockGasUsed;
-    const auto& blockGasLimit = ctx.blockGasLimit;
 
     CrossBoundaryResult result;
     const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, evmQueueId, txSender);
@@ -644,10 +638,6 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
             auto it = failedNonces.emplace(txNonce, txIter);
             failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
         }
-        return false;
-    }
-
-    if (blockGasUsed + sortedGasUsed + txIter->GetEVMGasUsed() > blockGasLimit) {
         return false;
     }
 
@@ -699,16 +689,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
     // Block gas limit
-    CrossBoundaryResult result;
-    auto blockGasLimitInt = evm_try_get_block_limit(result);
-    if (!result.ok) {
-        blockGasLimitInt = DEFAULT_EVM_BLOCK_GAS_LIMIT;
-    }
-    arith_uint256 blockGasLimit{blockGasLimitInt};
-
-    // Gas used in the block
-    arith_uint256 blockGasUsed{};
-
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -819,9 +799,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         // Track failed custom TX. Used for removing EVM TXs from the queue.
         uint256 failedCustomTx;
 
-        // Gas used for the sorted entries
-        arith_uint256 sortedGasUsed{};
-
         // Apply and check custom TXs in order
         for (const auto& entry : sortedEntries) {
             const CTransaction& tx = entry->GetTx();
@@ -855,9 +832,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         failedNonces,
                         failedNoncesLookup,
                         failedTxSet,
-                        sortedGasUsed,
-                        blockGasUsed,
-                        blockGasLimit,
                     };
                     auto res = EvmTxPreapply(evmTxCtx);
                     if (res) {
@@ -878,15 +852,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     customTxPassed = false;
                     LogPrintf("%s: Failed %s TX %s: %s\n", __func__, ToString(txType), tx.GetHash().GetHex(), res.msg);
                     break;
-                }
-
-                if (evmType) {
-                    const auto totalGas = evm_try_unsafe_get_total_gas_used(result, evmQueueId);
-                    if (!result.ok) {
-                        LogPrintf("Failed to get total gas used in queue %d\n", evmQueueId);
-                    } else {
-                        sortedGasUsed = UintToArith256(uint256S({totalGas.begin(), totalGas.end()}));
-                    }
                 }
 
                 // Track checked TXs to avoid double applying
@@ -919,6 +884,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // If the first TX in a failed set is not the failed TX
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
+                        CrossBoundaryResult result;
                         evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
@@ -937,9 +903,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
         // Flush the views now that add sortedEntries are confirmed successful
         cache.Flush();
         coinsCache.Flush();
-
-        // Set block gas used to sorted gas used
-        blockGasUsed = sortedGasUsed;
 
         for (const auto& entry : sortedEntries) {
             auto& hash = entry->GetTx().GetHash();
