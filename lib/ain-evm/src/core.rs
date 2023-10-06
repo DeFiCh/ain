@@ -14,7 +14,9 @@ use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
 use evm::Capture::Exit;
 use evm::{Capture, Config};
+use evm_runtime::tracing::using;
 use log::{debug, trace};
+use std::borrow::BorrowMut;
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::opcode;
@@ -592,84 +594,20 @@ impl EVMCoreService {
             usize::MAX,
         );
 
-        let mut trace: Vec<ExecutionStep> = Vec::new();
+        let gasometer = evm::gasometer::Gasometer::new(gas_limit, &config);
+        let mut listener = crate::eventlistener::Listener::new(gasometer);
 
-        let (opcode, stack) = runtime.machine().inspect().unwrap();
-        let mut al = Vec::new();
-        let _ = access_list
-            .into_iter()
-            .map(|x| al.push((x.clone().address, x.clone().storage_keys)));
+        let (execution_success, return_value) = using(&mut listener, move || {
+            runtime.run(&mut executor);
 
-        let mut gasometer = evm::gasometer::Gasometer::new(gas_limit, &config);
-        let base_cost = match to {
-            Some(_) => evm::gasometer::call_transaction_cost(data, al.as_slice()),
-            None => evm::gasometer::create_transaction_cost(data, al.as_slice()),
-        };
-
-        gasometer.record_transaction(base_cost).unwrap();
-        let gas_before = gasometer.gas();
-        opcode::record_cost(opcode, &mut gasometer, to, stack, &mut executor, &config);
-
-        // Record initial state
-        trace.push(ExecutionStep {
-            pc: 0,
-            op: format!("{}", opcode::opcode_to_string(opcode)),
-            gas: gas_before,
-            gas_cost: gas_before - gasometer.gas(),
-            stack: stack.data().to_vec(),
-            memory: vec![],
+            (runtime.machine().position().clone().err().expect("Execution not completed").is_succeed(), runtime.machine().return_value())
         });
 
-        loop {
-            let t = runtime.step(&mut executor);
-            match t {
-                Ok(_) => {
-                    let (opcode, stack) = runtime.machine().inspect().unwrap();
-                    println!("opcode : {:#?}", opcode);
-                    println!("stack : {:#?}", stack);
-
-                    let gas_before = gasometer.gas();
-                    opcode::record_cost(opcode, &mut gasometer, to, stack, &mut executor, &config);
-
-                    trace.push(ExecutionStep {
-                        pc: runtime.machine().position().clone().unwrap(),
-                        op: format!("{}", opcode::opcode_to_string(opcode)),
-                        gas: gas_before,
-                        gas_cost: gas_before - gasometer.gas(),
-                        stack: stack.data().to_vec(),
-                        memory: runtime.machine().memory().data().to_vec(),
-                    });
-                }
-                Err(e) => match e {
-                    Exit(_) => {
-                        debug!("Errored",);
-                        break;
-                    }
-                    Capture::Trap(_) => {
-                        debug!("Trapped");
-                        debug!(
-                            "Next opcode: {:#x?}",
-                            runtime.machine().inspect().unwrap().0.as_u8()
-                        );
-                        break;
-                    }
-                },
-            }
-        }
-
-        println!("trace : {:#?}", trace);
-
         Ok((
-            trace,
-            runtime
-                .machine()
-                .position()
-                .clone()
-                .err()
-                .expect("Execution not completed")
-                .is_succeed(),
-            runtime.machine().return_value(),
-            gasometer.total_used_gas(),
+            listener.trace,
+            execution_success,
+            return_value,
+            listener.gasometer.total_used_gas(),
         ))
     }
 }

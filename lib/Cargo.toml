@@ -81,7 +81,8 @@ rustc-hex = "2.1"
 
 ### eth
 
-evm = { version = "0.39", default-features = false, features = ["with-serde"] }
+evm = { version = "0.39", default-features = false, features = ["with-serde", "tracing"] }
+evm-runtime = "0.39.0"
 
 ethereum = "0.14"
 ethereum-types = "0.14"

@@ -20,6 +20,7 @@ pub mod transaction;
 mod trie;
 pub mod txqueue;
 pub mod weiamount;
+mod eventlistener;
 
 pub use anyhow::{format_err, Ok};
 use backend::BackendError;
