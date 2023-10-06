@@ -82,11 +82,7 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
         );
         let cors = CorsLayer::new()
             .allow_methods([Method::POST, Method::GET, Method::OPTIONS])
-            .allow_origin(
-                ain_cpp_imports::get_cors_allowed_origin()
-                    .parse::<HeaderValue>()
-                    .unwrap(),
-            )
+            .allow_origin(ain_cpp_imports::get_cors_allowed_origin().parse::<HeaderValue>()?)
             .allow_headers([hyper::header::CONTENT_TYPE, hyper::header::AUTHORIZATION])
             .allow_credentials(true);
 
