@@ -107,7 +107,7 @@ private:
     int64_t nSigOpCostWithAncestors;
 
     // EVM related data
-    double evmMaxPromisedTipFee{};
+    uint64_t evmRbfMinTipFee{};
     arith_uint256 evmGasUsed{};
     EvmAddressWithNonce evmAddressAndNonce;
     CustomTxType customTxType{CustomTxType::None};
@@ -133,8 +133,8 @@ public:
     // Getter / Setter for EVM related data
     void SetCustomTxType(const CustomTxType type) { customTxType = type; }
     [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
-    void SetEVMPomisedTipFee(const double maxPromisedTipFee) { evmMaxPromisedTipFee = maxPromisedTipFee; }
-    [[nodiscard]] double GetEVMPromisedTipFee() const { return evmMaxPromisedTipFee; }
+    void SetEVMRbfMinTipFee(const uint64_t rbfMinTipFee) { evmRbfMinTipFee = rbfMinTipFee; }
+    [[nodiscard]] uint64_t GetEVMRbfMinTipFee() const { return evmRbfMinTipFee; }
     void SetEVMGasUsed(const arith_uint256 gasUsed) { evmGasUsed = gasUsed; }
     [[nodiscard]] arith_uint256 GetEVMGasUsed() const { return evmGasUsed; }
     void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }
@@ -770,7 +770,7 @@ public:
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
 
-    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag);
+    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const uint64_t &entryFee, const EvmAddressData &txSender, bool &senderLimitFlag);
 
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update

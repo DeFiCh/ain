@@ -85,8 +85,6 @@ static const unsigned int DEFAULT_MEMPOOL_EVM_EXPIRY = 3;
 static const unsigned int MEMPOOL_MAX_ETH_TXS = 64;
 /** Limit in the number of Eth TX RBF from the same sender that is allowed in the mempool */
 static const unsigned int MEMPOOL_MAX_ETH_RBF = 40;
-/** Minimum increase in Eth TX tip fees from the same sender and transaction nonce for RBF in the mempool  */
-static const double MEMPOOL_ETH_MINIMUM_INCREMENT_FEE_FOR_RBF = 1.1;
 /** Maximum kilobytes for transactions to store for processing during reorg */
 static const unsigned int MAX_DISCONNECTED_TX_POOL_SIZE = 20000;
 /** The maximum size of a blk?????.dat file (since 0.8) */

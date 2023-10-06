@@ -42,10 +42,11 @@ pub mod ffi {
     }
 
     #[derive(Default)]
-    pub struct TxInfo {
+    pub struct TxMinerInfo {
         pub address: String,
         pub nonce: u64,
-        pub tip_fee: f64,
+        pub tip_fee: u64,
+        pub min_rbf_tip_fee: u64,
         pub used_gas: u64,
     }
 
@@ -268,10 +269,10 @@ pub mod ffi {
             address: &str,
             queue_id: u64,
         ) -> bool;
-        fn evm_try_get_tx_info_from_raw_tx(
+        fn evm_try_get_tx_miner_info_from_raw_tx(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
-        ) -> TxInfo;
+        ) -> TxMinerInfo;
         fn evm_try_get_block_limit(result: &mut CrossBoundaryResult) -> u64;
         fn evm_try_unsafe_get_total_gas_used(
             result: &mut CrossBoundaryResult,

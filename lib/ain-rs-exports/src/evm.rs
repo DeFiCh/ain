@@ -6,7 +6,7 @@ use ain_evm::{
     core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::TxResponse,
-    fee::calculate_max_tip_gas_fee,
+    fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     transaction::{
@@ -24,7 +24,7 @@ use log::debug;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{
-    ffi::{self, TxInfo},
+    ffi::{self, TxMinerInfo},
     prelude::*,
 };
 
@@ -867,7 +867,7 @@ fn unsafe_is_smart_contract_in_q(address: &str, queue_id: u64) -> Result<bool> {
 }
 
 #[ffi_fallible]
-fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
+fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -884,9 +884,12 @@ fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
 
     let initial_base_fee = SERVICES.evm.block.calculate_base_fee(H256::zero())?;
     let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
-    let tip_fee = WeiAmount(tip_fee).to_satoshi_double()?;
+    let min_rbf_tip_fee = calculate_min_rbf_tip_gas_fee(&signed_tx, tip_fee)?;
 
     let base_fee = SERVICES.evm.block.calculate_base_fee(parent_hash)?;
+    let tip_fee = u64::try_from(WeiAmount(tip_fee).to_satoshi()?)?;
+    let min_rbf_tip_fee = u64::try_from(WeiAmount(min_rbf_tip_fee).to_satoshi()?)?;
+
     let TxResponse { used_gas, .. } = SERVICES.evm.core.call(EthCallArgs {
         caller: Some(signed_tx.sender),
         to: signed_tx.to(),
@@ -900,10 +903,11 @@ fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
         transaction_type: Some(signed_tx.get_tx_type()),
     })?;
 
-    Ok(TxInfo {
+    Ok(TxMinerInfo {
         nonce,
         address: format!("{:?}", signed_tx.sender),
         tip_fee,
+        min_rbf_tip_fee,
         used_gas,
     })
 }

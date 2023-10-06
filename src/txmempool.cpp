@@ -1179,7 +1179,7 @@ bool CTxMemPool::getAccountViewDirty() const {
     return accountsViewDirty;
 }
 
-bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag) {
+bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const uint64_t &entryFee, const EvmAddressData &txSender, bool &senderLimitFlag) {
     if (pendingEntry.GetCustomTxType() != CustomTxType::EvmTx &&
         pendingEntry.GetCustomTxType() != CustomTxType::TransferDomain) {
         return true;
@@ -1197,38 +1197,14 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
         return true;
     }
 
-    CTxMemPool::setEntries itersToRemove;
-    std::set<CTransactionRef> txsToRemove;
-    auto& txidIndex = mapTx.get<txid_tag>();
-
     auto result{true};
+    CTxMemPool::setEntries itersToRemove;
     for (auto it = range.first; it != range.second; ++it) {
         const auto& entry = *it;
-        const auto currTipFee = entry.GetEVMPromisedTipFee();
-        if (currTipFee > static_cast<double>(MAX_MONEY)) {
-            result = false;
-            continue;
-        }
-
-        const auto minReplaceFee = currTipFee * MEMPOOL_ETH_MINIMUM_INCREMENT_FEE_FOR_RBF;
-        if (pendingEntry.GetEVMPromisedTipFee() > minReplaceFee || std::fabs(pendingEntry.GetEVMPromisedTipFee() - minReplaceFee) < MONEY_EPSILON) {
-            if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
-                auto txIter = mapTx.project<0>(it);
-                itersToRemove.insert(txIter);
-            } else {
-                const auto &tx = entry.GetSharedTx();
-                for (const auto &vin : tx->vin) {
-                    auto hashEntry = txidIndex.find(vin.prevout.hash);
-                    if (hashEntry != txidIndex.end() &&
-                        hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
-                        txsToRemove.insert(hashEntry->GetSharedTx());
-                        // Add auto auth and continue, this will remove the transfer
-                        // domain TX in the removeRecursive function.
-                        continue;
-                    }
-                }
-                txsToRemove.insert(tx);
-            }
+        const auto entryType = entry.GetCustomTxType();
+        if (entryType == CustomTxType::EvmTx && entryFee >= entry.GetEVMRbfMinTipFee()) {
+            auto txIter = mapTx.project<0>(it);
+            itersToRemove.insert(txIter);
 
             // We might want to set accountsViewDirty to true here but
             // then we would trigger a rebuild on every EVM RBF TX.
@@ -1242,10 +1218,6 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
 
     for (const auto& txIter : itersToRemove) {
         removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
-    }
-
-    for (const auto& tx : txsToRemove) {
-        removeRecursive(*tx, MemPoolRemovalReason::REPLACED);
     }
 
     if (result) {

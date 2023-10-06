@@ -1,7 +1,7 @@
 use anyhow::format_err;
 use ethereum_types::U256;
 
-use crate::Result;
+use crate::{EVMError, Result};
 
 pub struct WeiAmount(pub U256);
 
@@ -15,21 +15,27 @@ pub const MAX_MONEY_SATS_DOUBLE: f64 = 120_000_000_000_000_000.0;
 impl WeiAmount {
     pub fn to_gwei(&self) -> Result<U256> {
         if !self.wei_range() {
-            return Err(format_err!("value more than money range").into());
+            return Err(EVMError::MoneyRangeError(
+                "value more than money range".to_string(),
+            ));
         }
         Ok(self.0 / WEI_TO_GWEI)
     }
 
     pub fn to_satoshi(&self) -> Result<U256> {
         if !self.wei_range() {
-            return Err(format_err!("value more than money range").into());
+            return Err(EVMError::MoneyRangeError(
+                "value more than money range".to_string(),
+            ));
         }
         Ok(self.0 / WEI_TO_SATS)
     }
 
     pub fn to_satoshi_double(&self) -> Result<f64> {
         if !self.wei_range() {
-            return Err(format_err!("value more than money range").into());
+            return Err(EVMError::MoneyRangeError(
+                "value more than money range".to_string(),
+            ));
         }
 
         let sats_q = u64::try_from(self.to_satoshi()?)? as f64;

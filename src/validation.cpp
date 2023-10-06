@@ -938,23 +938,24 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             }
 
             CrossBoundaryResult result;
-            auto txResult = evm_try_get_tx_info_from_raw_tx(result, rawEVMTx);
+            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(result, rawEVMTx);
             if (!result.ok) {
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
             }
 
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
 
-            const auto tipFee = isEVMTx ? txResult.tip_fee : std::numeric_limits<double>::max();
+            const auto entryTipFee = isEVMTx ? txResult.tip_fee : std::numeric_limits<uint64_t>::max();
+            const auto minRbfFee = isEVMTx ? txResult.min_rbf_tip_fee : std::numeric_limits<uint64_t>::max();
             const auto usedGas = isEVMTx ? txResult.used_gas : std::numeric_limits<uint64_t>::min();
             const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
-            entry.SetEVMPomisedTipFee(tipFee);
+            entry.SetEVMRbfMinTipFee(minRbfFee);
             entry.SetEVMGasUsed(usedGas);
 
             auto senderLimitFlag{false};
-            if (!pool.checkAddressNonceAndFee(entry, txResultSender, senderLimitFlag)) {
+            if (!pool.checkAddressNonceAndFee(entry, entryTipFee, txResultSender, senderLimitFlag)) {
                 if (senderLimitFlag) {
                     return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many replace-by-fee evm tx from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_RBF), REJECT_INVALID, "too-many-evm-rbf-txs-by-sender");
                 } else {
