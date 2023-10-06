@@ -3,7 +3,7 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
-    core::{EthCallArgs, TransferDomainTxInfo, ValidateTxInfo, XHash},
+    core::{EthCallArgs, TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::TxResponse,
     fee::calculate_max_tip_gas_fee,
@@ -342,22 +342,16 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// # Returns
 ///
-/// Returns the transaction nonce, sender address, transaction hash, transaction prepay fees,
-/// gas used, higher nonce flag and lower nonce flag. Logs and set the error reason to result
-/// object otherwise.
+/// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_prevalidate_raw_tx_in_q(
+fn unsafe_validate_raw_tx_in_q(
     queue_id: u64,
     raw_tx: &str,
-) -> Result<ffi::ValidateTxCompletion> {
-    debug!("[unsafe_prevalidate_raw_tx_in_q]");
+) -> Result<()> {
+    debug!("[unsafe_validate_raw_tx_in_q]");
     unsafe {
-        let ValidateTxInfo { signed_tx, .. } =
-            SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
-
-        Ok(ffi::ValidateTxCompletion {
-            tx_hash: format!("{:?}", signed_tx.hash()),
-        })
+        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
+        Ok(())
     }
 }
 
@@ -382,7 +376,7 @@ fn unsafe_prevalidate_raw_tx_in_q(
 ///
 /// # Returns
 ///
-/// Returns the valiadtion result.
+/// Returns the validation result.
 #[ffi_fallible]
 fn unsafe_validate_transferdomain_tx_in_q(
     queue_id: u64,
