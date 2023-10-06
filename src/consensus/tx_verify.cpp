@@ -183,7 +183,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough, 
         // that it's propagated.
         CScopedQueueID evmQueueId;
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, evmQueueId, false, false);
+        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, evmQueueId, false);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

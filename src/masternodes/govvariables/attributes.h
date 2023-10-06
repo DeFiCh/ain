@@ -442,7 +442,8 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
 void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
+bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
 enum GovVarsFilter {

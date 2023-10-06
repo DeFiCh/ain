@@ -910,15 +910,18 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
     mnview.SetVariable(*attributes);
 }
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
-    if (height < consensus.NextNetworkUpgradeHeight) {
-        return false;
-    }
+bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
+    if (!attributes) return false;
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    return attributes->GetValue(enabledKey, false);
+}
+
+bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus) {
     auto attributes = view.GetAttributes();
     assert(attributes);
-    return attributes->GetValue(enabledKey, false);
+
+    return IsEVMEnabled(attributes);
 }
 
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {

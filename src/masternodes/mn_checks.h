@@ -174,7 +174,6 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint256 *canSpend,
                   uint32_t txn,
                   CScopedQueueID &evmQueueId,
-                  const bool isEvmEnabledForBlock,
                   const bool evmPreValidate);
 
 Res CustomTxVisit(CCustomCSView &mnview,
@@ -186,7 +185,6 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const uint64_t time,
                   const uint32_t txn,
                   CScopedQueueID &evmQueueId,
-                  const bool isEvmEnabledForBlock,
                   const bool evmPreValidate);
 
 
