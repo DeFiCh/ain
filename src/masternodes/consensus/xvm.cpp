@@ -16,7 +16,7 @@
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
 static bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
-    if (height < consensus.NextNetworkUpgradeHeight) {
+    if (height < consensus.DF22NextHeight) {
         return false;
     }
 
