@@ -344,10 +344,7 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_raw_tx_in_q(
-    queue_id: u64,
-    raw_tx: &str,
-) -> Result<()> {
+fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_q]");
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
