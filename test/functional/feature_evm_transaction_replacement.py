@@ -176,7 +176,6 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(block["transactions"]), 1)
         assert_equal(block["transactions"][0]["gasPrice"], gasPrices[-1])
 
-
     def run_test(self):
         self.setup()
 
