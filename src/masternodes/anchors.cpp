@@ -759,14 +759,14 @@ bool ValidateAnchor(const CAnchor &anchor) {
         // Post-fork anchor, will be added to pending anchors to validate in chain context
         if (GetAnchorEmbeddedData(teamData, anchorCreationHeight, prefix)) {
             // Make sure anchor created after fork.
-            if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().DakotaHeight)) {
+            if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().DF6DakotaHeight)) {
                 return true;
             } else {
                 LogPrint(BCLog::ANCHORING,
                          "%s: Post fork anchor created before fork height. Anchor %ld fork %d\n",
                          __func__,
                          anchorCreationHeight,
-                         Params().GetConsensus().DakotaHeight);
+                         Params().GetConsensus().DF6DakotaHeight);
                 return false;
             }
         }
@@ -875,7 +875,7 @@ bool ContextualValidateAnchor(const CAnchorData &anchor, CBlockIndex &anchorBloc
     }
 
     // Recreate deeper anchor depth
-    if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().FortCanningHeight)) {
+    if (anchorCreationHeight >= static_cast<uint64_t>(Params().GetConsensus().DF11FortCanningHeight)) {
         timeDepth += Params().GetConsensus().mn.anchoringAdditionalTimeDepth;
         while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > anchorCreationBlock->nTime) {
             --anchorHeight;
@@ -1147,7 +1147,7 @@ const PendingOrderType PendingOrder =
     PendingOrderType([](const CAnchorIndex::AnchorRec &a, const CAnchorIndex::AnchorRec &b) {
         if (a.btcHeight == b.btcHeight) {
             if (a.anchor.height == b.anchor.height) {
-                if (a.anchor.height >= static_cast<THeight>(Params().GetConsensus().EunosHeight)) {
+                if (a.anchor.height >= static_cast<THeight>(Params().GetConsensus().DF8EunosHeight)) {
                     const auto blockHash = panchors->ReadBlockHash(a.btcHeight);
                     auto aHash           = Hash(a.txHash.begin(), a.txHash.end(), blockHash.begin(), blockHash.end());
                     auto bHash           = Hash(b.txHash.begin(), b.txHash.end(), blockHash.begin(), blockHash.end());

@@ -1210,10 +1210,10 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     if (Params().NetworkIDString() != CBaseChainParams::REGTEST ||
             (Params().NetworkIDString() == CBaseChainParams::REGTEST && gArgs.GetBoolArg("-subsidytest", false)))
     {
-        if (nHeight >= consensusParams.EunosHeight)
+        if (nHeight >= consensusParams.DF8EunosHeight)
         {
             nSubsidy = consensusParams.newBaseBlockSubsidy;
-            const size_t reductions = (nHeight - consensusParams.EunosHeight) / consensusParams.emissionReductionPeriod;
+            const size_t reductions = (nHeight - consensusParams.DF8EunosHeight) / consensusParams.emissionReductionPeriod;
 
             // See if we already have this reduction calculated and return if found.
             if (subsidyReductions.find(reductions) != subsidyReductions.end())
@@ -1849,7 +1849,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
                 mnview.SetTeam(finMsg.currentTeam);
 
-                if (pindex->nHeight >= Params().GetConsensus().AMKHeight) {
+                if (pindex->nHeight >= Params().GetConsensus().DF1AMKHeight) {
                     mnview.AddCommunityBalance(CommunityAccountType::AnchorReward, tx.GetValueOut()); // or just 'Set..'
                     LogPrint(BCLog::ANCHORING, "%s: post AMK logic, add community balance %d\n", __func__, tx.GetValueOut());
                 }
@@ -1905,7 +1905,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // one time downgrade to revert CInterestRateV2 structure
-    if (pindex->nHeight == consensus.FortCanningHillHeight) {
+    if (pindex->nHeight == consensus.DF14FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate reverting ...\n");
         mnview.RevertInterestRateToV1();
@@ -1913,7 +1913,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
     }
 
     // one time downgrade to revert CInterestRateV3 structure
-    if (pindex->nHeight == consensus.FortCanningGreatWorldHeight) {
+    if (pindex->nHeight == consensus.DF18FortCanningGreatWorldHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate reverting ...\n");
         mnview.RevertInterestRateToV2();
@@ -1927,7 +1927,7 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock& block, const CBlockI
 
     if (!fIsFakeNet) {
         mnview.DecrementMintedBy(*nodeId);
-        if (pindex->nHeight >= consensus.EunosPayaHeight) {
+        if (pindex->nHeight >= consensus.DF10EunosPayaHeight) {
             mnview.EraseSubNodesLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
         } else {
             mnview.EraseMasternodeLastBlockTime(*nodeId, static_cast<uint32_t>(pindex->nHeight));
@@ -2095,14 +2095,14 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
         return Res::ErrDbg("bad-cb-wrong-tokens", "coinbase should pay only Defi coins");
 
 
-    if (height >= consensus.AMKHeight)
+    if (height >= consensus.DF1AMKHeight)
     {
         CAmount foundationReward{0};
-        if (height >= consensus.GrandCentralHeight)
+        if (height >= consensus.DF20GrandCentralHeight)
         {
             // no foundation utxo reward check anymore
         }
-        else if (height >= consensus.EunosHeight)
+        else if (height >= consensus.DF8EunosHeight)
         {
             foundationReward = CalculateCoinbaseReward(blockReward, consensus.dist.community);
         }
@@ -2136,13 +2136,13 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
 
         // count and subtract for non-UTXO community rewards
         CAmount nonUtxoTotal = 0;
-        if (height >= consensus.EunosHeight)
+        if (height >= consensus.DF8EunosHeight)
         {
             CAmount subsidy;
             for (const auto& kv : consensus.blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < consensus.GrandCentralHeight) {
+                    if (height < consensus.DF20GrandCentralHeight) {
                         continue;
                     }
                 }
@@ -2152,8 +2152,8 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 Res res = Res::Ok();
 
                 // Loan below FC and Options are unused and all go to Unallocated (burnt) pot.
-                if ((height < consensus.FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
-                    (height < consensus.GrandCentralHeight && kv.first == CommunityAccountType::Options))
+                if ((height < consensus.DF11FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
+                    (height < consensus.DF20GrandCentralHeight && kv.first == CommunityAccountType::Options))
                 {
                     res = mnview.AddCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                     if (res)
@@ -2161,7 +2161,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                 }
                 else
                 {
-                    if (height >= consensus.GrandCentralHeight)
+                    if (height >= consensus.DF20GrandCentralHeight)
                     {
                         const auto attributes = mnview.GetAttributes();
                         assert(attributes);
@@ -2244,14 +2244,14 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
 {
     CAmount blockReward = GetBlockSubsidy(height, Params().GetConsensus());
 
-    if (height >= Params().GetConsensus().AMKHeight)
+    if (height >= Params().GetConsensus().DF1AMKHeight)
     {
-        if (height >= Params().GetConsensus().EunosHeight)
+        if (height >= Params().GetConsensus().DF8EunosHeight)
         {
             for (const auto& kv : Params().GetConsensus().blockTokenRewards)
             {
                 if (kv.first == CommunityAccountType::CommunityDevFunds) {
-                    if (height < Params().GetConsensus().GrandCentralHeight) {
+                    if (height < Params().GetConsensus().DF20GrandCentralHeight) {
                         continue;
                     }
                 }
@@ -2259,14 +2259,14 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                 CAmount subsidy = CalculateCoinbaseReward(blockReward, kv.second);
 
                 // Remove Loan and Options balances from Unallocated
-                if ((height < Params().GetConsensus().FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
-                    (height < consensus.GrandCentralHeight && kv.first == CommunityAccountType::Options))
+                if ((height < Params().GetConsensus().DF11FortCanningHeight && kv.first == CommunityAccountType::Loan) ||
+                    (height < consensus.DF20GrandCentralHeight && kv.first == CommunityAccountType::Options))
                 {
                     mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                 }
                 else
                 {
-                    if (height >= consensus.GrandCentralHeight)
+                    if (height >= consensus.DF20GrandCentralHeight)
                     {
                         const auto attributes = mnview.GetAttributes();
                         assert(attributes);
@@ -2451,14 +2451,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // one time upgrade to convert the old CInterestRate data structure
     // we don't neeed it in undos
-    if (pindex->nHeight == chainparams.GetConsensus().FortCanningHillHeight) {
+    if (pindex->nHeight == chainparams.GetConsensus().DF14FortCanningHillHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
         mnview.MigrateInterestRateToV2(mnview, static_cast<uint32_t>(pindex->nHeight));
         LogPrint(BCLog::BENCH, "    - Interest rate migration took: %dms\n", GetTimeMillis() - time);
     }
 
-    if (pindex->nHeight == chainparams.GetConsensus().FortCanningGreatWorldHeight) {
+    if (pindex->nHeight == chainparams.GetConsensus().DF18FortCanningGreatWorldHeight) {
         auto time = GetTimeMillis();
         LogPrintf("Interest rate migration ...\n");
         mnview.MigrateInterestRateToV3(mnview, static_cast<uint32_t>(pindex->nHeight));
@@ -2724,7 +2724,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-                if (pindex->nHeight >= consensus.EunosHeight) {
+                if (pindex->nHeight >= consensus.DF8EunosHeight) {
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("%s: ApplyCustomTx on %s failed with %s",
                                                __func__, tx.GetHash().ToString(), res.msg), REJECT_CUSTOMTX, "bad-custom-tx");
@@ -2869,8 +2869,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         return accountsView.Flush(); // keeps compatibility
 
     // validates account changes as well
-    if (pindex->nHeight >= consensus.EunosHeight
-    && pindex->nHeight < consensus.EunosKampungHeight) {
+    if (pindex->nHeight >= consensus.DF8EunosHeight
+    && pindex->nHeight < consensus.DF9EunosKampungHeight) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
@@ -2917,9 +2917,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         mnview.IncrementMintedBy(*nodeId);
 
         // Store block staker height for use in coinage
-        if (pindex->nHeight >= consensus.EunosPayaHeight) {
+        if (pindex->nHeight >= consensus.DF10EunosPayaHeight) {
             mnview.SetSubNodesBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), ctxState.subNode, pindex->GetBlockTime());
-        } else if (pindex->nHeight >= consensus.DakotaCrescentHeight) {
+        } else if (pindex->nHeight >= consensus.DF7DakotaCrescentHeight) {
             mnview.SetMasternodeLastBlockTime(minterKey, static_cast<uint32_t>(pindex->nHeight), pindex->GetBlockTime());
         }
     }
@@ -2952,7 +2952,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             LogPrint(BCLog::BENCH, "    - Pruning undo data takes: %dms\n", GetTimeMillis() - time);
         }
         // we can safety delete old interest keys
-        if (it->first > consensus.FortCanningHillHeight) {
+        if (it->first > consensus.DF14FortCanningHillHeight) {
             CCustomCSView view(mnview);
             mnview.ForEachVaultInterest([&](const CVaultId& vaultId, DCT_ID tokenId, CInterestRate) {
                 view.EraseBy<CLoanView::LoanInterestByVault>(std::make_pair(vaultId, tokenId));
@@ -3428,7 +3428,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
     UpdateTip(pindexNew, chainparams);
 
     // Update teams every anchoringTeamChange number of blocks
-    if (pindexNew->nHeight >= Params().GetConsensus().DakotaHeight &&
+    if (pindexNew->nHeight >= Params().GetConsensus().DF6DakotaHeight &&
             pindexNew->nHeight % Params().GetConsensus().mn.anchoringTeamChange == 0) {
         pcustomcsview->CalcAnchoringTeams(blockConnecting.stakeModifier, pindexNew);
 
@@ -3605,7 +3605,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                     fContinue = false;
                     if (state.GetRejectReason() == "high-hash"
                     || (pindexConnect == pindexMostWork
-                    && pindexConnect->nHeight >= chainparams.GetConsensus().FortCanningParkHeight
+                    && pindexConnect->nHeight >= chainparams.GetConsensus().DF13FortCanningParkHeight
                     && state.GetRejectCode() == REJECT_CUSTOMTX)) {
                         UpdateMempoolForReorg(disconnectpool, false);
                         return false;
@@ -3613,7 +3613,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                     fInvalidFound = true;
                     InvalidChainFound(vpindexToConnect.front());
                     if (state.GetReason() == ValidationInvalidReason::BLOCK_MUTATED) {
-                        // prior EunosHeight we shoutdown node on mutated block
+                        // prior DF8EunosHeight we shoutdown node on mutated block
                         if (ShutdownRequested()) {
                             return false;
                         }
@@ -3628,7 +3628,7 @@ bool CChainState::ActivateBestChainStep(CValidationState& state, const CChainPar
                         }
                     }
                     if (pindexConnect == pindexMostWork
-                    && (pindexConnect->nHeight < chainparams.GetConsensus().EunosHeight
+                    && (pindexConnect->nHeight < chainparams.GetConsensus().DF8EunosHeight
                     || state.GetRejectCode() == REJECT_CUSTOMTX)) {
                         // NOTE: Invalidate blocks back to last checkpoint
                         auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
@@ -4202,8 +4202,8 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
 
     // Check the merkle root.
     // block merkle root is delayed to ConnectBlock to ensure account changes
-    if (fCheckMerkleRoot && (height < consensusParams.EunosHeight
-    || height >= consensusParams.EunosKampungHeight)) {
+    if (fCheckMerkleRoot && (height < consensusParams.DF8EunosHeight
+    || height >= consensusParams.DF9EunosKampungHeight)) {
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != hashMerkleRoot2)
@@ -4235,9 +4235,9 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         TBytes dummy;
         for (unsigned int i = 1; i < block.vtx.size(); i++) {
             if (block.vtx[i]->IsCoinBase() &&
-                !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
-                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.FortCanningHeight) &&
-                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.FortCanningCrunchHeight))
+                !IsAnchorRewardTx(*block.vtx[i], dummy, height >= consensusParams.DF11FortCanningHeight) &&
+                !IsAnchorRewardTxPlus(*block.vtx[i], dummy, height >= consensusParams.DF11FortCanningHeight) &&
+                !IsTokenSplitTx(*block.vtx[i], dummy, height >= consensusParams.DF16FortCanningCrunchHeight))
                 return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-cb-multiple", "more than one coinbase");
         }
     }
@@ -4251,7 +4251,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
                                      strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), state.GetDebugMessage()));
     }
 
-    if (!fIsFakeNet && fCheckPOS && height >= consensusParams.FortCanningHeight) {
+    if (!fIsFakeNet && fCheckPOS && height >= consensusParams.DF11FortCanningHeight) {
         CKeyID minter;
         // this is safe cause pos::ContextualCheckProofOfStake checked
         block.ExtractMinterKey(minter);
@@ -4259,7 +4259,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
-            if (height < consensusParams.NextNetworkUpgradeHeight) {
+            if (height < consensusParams.DF22NextHeight) {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);
@@ -4361,7 +4361,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     assert(pindexPrev != nullptr);
     const int nHeight = pindexPrev->nHeight + 1;
 
-    if (nHeight >= params.GetConsensus().FortCanningMuseumHeight && static_cast<uint64_t>(nHeight) != block.deprecatedHeight) {
+    if (nHeight >= params.GetConsensus().DF12FortCanningMuseumHeight && static_cast<uint64_t>(nHeight) != block.deprecatedHeight) {
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "incorrect-height", "incorrect height set in block header");
     }
 
@@ -4383,7 +4383,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
         return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER, false, REJECT_INVALID, "time-too-old", strprintf("block's timestamp is too early. Block time: %d Min time: %d", block.GetBlockTime(), pindexPrev->GetMedianTimePast()));
 
     // Check timestamp
-    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && nHeight >= consensusParams.EunosPayaHeight) {
+    if (Params().NetworkIDString() != CBaseChainParams::REGTEST && nHeight >= consensusParams.DF10EunosPayaHeight) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_EUNOSPAYA));
     }
@@ -4391,7 +4391,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationSta
     if (block.GetBlockTime() > nAdjustedTime + MAX_FUTURE_BLOCK_TIME)
         return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", "block timestamp too far in the future");
 
-    if (nHeight >= consensusParams.DakotaCrescentHeight) {
+    if (nHeight >= consensusParams.DF7DakotaCrescentHeight) {
         if (block.GetBlockTime() > GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT)
             return state.Invalid(ValidationInvalidReason::BLOCK_TIME_FUTURE, false, REJECT_INVALID, "time-too-new", strprintf("block timestamp too far in the future. Block time: %d Max time: %d", block.GetBlockTime(), GetTime() + MAX_FUTURE_BLOCK_TIME_DAKOTACRESCENT));
     }
@@ -4781,7 +4781,7 @@ void ProcessAuthsIfTipChanged(CBlockIndex const * oldTip, CBlockIndex const * ti
         }
 
         // Select a block further back to avoid Anchor too new error.
-        if (pindex->nHeight >= consensus.FortCanningHeight) {
+        if (pindex->nHeight >= consensus.DF11FortCanningHeight) {
             timeDepth += consensus.mn.anchoringAdditionalTimeDepth;
             while (anchorHeight > 0 && ::ChainActive()[anchorHeight]->nTime + timeDepth > pindex->nTime) {
                 --anchorHeight;
@@ -4905,7 +4905,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
     {
         ProcessAuthsIfTipChanged(oldTip, tip, chainparams.GetConsensus());
 
-        if (tip->nHeight >= chainparams.GetConsensus().DakotaHeight) {
+        if (tip->nHeight >= chainparams.GetConsensus().DF6DakotaHeight) {
             panchors->CheckPendingAnchors();
         }
     }

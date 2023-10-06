@@ -169,7 +169,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     // Skip on main as fix to avoid merkle root error. Allow on other networks for testing.
     if (Params().NetworkIDString() != CBaseChainParams::MAIN ||
-        (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().EunosKampungHeight)) {
+        (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().DF9EunosKampungHeight)) {
         CTeamView::CTeam currentTeam;
         if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
             currentTeam = *team;
@@ -180,7 +180,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         bool createAnchorReward{false};
 
         // No new anchors until we hit fork height, no new confirms should be found before fork.
-        if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
+        if (pindexPrev->nHeight >= consensus.DF6DakotaHeight && confirms.size() > 0) {
             // Make sure anchor block height and hash exist in chain.
             CBlockIndex* anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
             if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
@@ -199,7 +199,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < consensus.NextNetworkUpgradeHeight) {
+            if (nHeight < consensus.DF22NextHeight) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
             } else {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
@@ -302,7 +302,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     }
 
     // TXs for the creationTx field in new tokens created via token split
-    if (nHeight >= chainparams.GetConsensus().FortCanningCrunchHeight) {
+    if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
         const auto attributes = mnview.GetAttributes();
         if (attributes) {
             CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
@@ -358,9 +358,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     CAmount blockReward = GetBlockSubsidy(nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
-    if (nHeight >= consensus.EunosHeight) {
+    if (nHeight >= consensus.DF8EunosHeight) {
         auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-        if (nHeight < consensus.GrandCentralHeight) {
+        if (nHeight < consensus.DF20GrandCentralHeight) {
             coinbaseTx.vout.resize(2);
             // Community payment always expected
             coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
@@ -368,7 +368,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         }
 
         // Explicitly set miner reward
-        if (nHeight >= consensus.FortCanningHeight) {
+        if (nHeight >= consensus.DF11FortCanningHeight) {
             coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         } else {
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
@@ -386,7 +386,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
             __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
-    } else if (nHeight >= consensus.AMKHeight) {
+    } else if (nHeight >= consensus.DF1AMKHeight) {
         // assume community non-utxo funding:
         for (const auto& kv : consensus.blockTokenRewardsLegacy) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
@@ -441,7 +441,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     int64_t nTime2 = GetTimeMicros();
 
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-    if (nHeight >= chainparams.GetConsensus().EunosHeight && nHeight < chainparams.GetConsensus().EunosKampungHeight) {
+    if (nHeight >= chainparams.GetConsensus().DF8EunosHeight && nHeight < chainparams.GetConsensus().DF9EunosKampungHeight) {
         // includes coinbase account changes
         ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
         pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
@@ -1039,7 +1039,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         mintedBlocks = nodePtr->mintedBlocks;
         if (args.coinbaseScript.empty()) {
             // this is safe because MN was found
-            if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
+            if (tip->nHeight >= chainparams.GetConsensus().DF11FortCanningHeight && nodePtr->rewardAddressType != 0) {
                 scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, TxDestTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
             } else {
                 scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, TxDestTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
@@ -1190,7 +1190,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
 template <typename F>
 void Staker::withSearchInterval(F&& f, int64_t height)
 {
-    if (height >= Params().GetConsensus().EunosPayaHeight) {
+    if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
         // Mine up to max future minus 1 second buffer
         nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
     } else {

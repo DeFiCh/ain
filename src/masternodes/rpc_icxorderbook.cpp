@@ -447,7 +447,7 @@ UniValue icxmakeoffer(const JSONRPCRequest& request) {
 
         targetHeight = ::ChainActive().Height() + 1;
 
-        if (targetHeight < Params().GetConsensus().EunosPayaHeight)
+        if (targetHeight < Params().GetConsensus().DF10EunosPayaHeight)
             makeoffer.expiry = CICXMakeOffer::DEFAULT_EXPIRY;
         else
             makeoffer.expiry = CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
@@ -579,14 +579,14 @@ UniValue icxsubmitdfchtlc(const JSONRPCRequest& request) {
             authScript = order->ownerAddress;
 
             if (!submitdfchtlc.timeout)
-                submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+                submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().DF10EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
         }
         else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
         {
             authScript = offer->ownerAddress;
 
             if (!submitdfchtlc.timeout)
-            submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+            submitdfchtlc.timeout = (targetHeight < Params().GetConsensus().DF10EunosPayaHeight) ? CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT : CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
 
             CTokenAmount balance = pcustomcsview->GetBalance(offer->ownerAddress,order->idToken);
             if (balance.nValue < offer->amount)

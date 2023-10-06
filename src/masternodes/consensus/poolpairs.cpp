@@ -26,7 +26,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     Require(HasFoundationAuth());
     Require(obj.commission >= 0 && obj.commission <= COIN, "wrong commission");
 
-    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight)) {
         Require(obj.pairSymbol.find('/') == std::string::npos, "token symbol should not contain '/'");
     }
 
@@ -44,7 +44,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     auto tokenB = mnview.GetToken(poolPair.idTokenB);
     Require(tokenB, "token %s does not exist!", poolPair.idTokenB.ToString());
 
-    const auto symbolLength = height >= static_cast<uint32_t>(consensus.FortCanningHeight)
+    const auto symbolLength = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight)
                               ? CToken::MAX_TOKEN_POOLPAIR_LENGTH
                               : CToken::MAX_TOKEN_SYMBOL_LENGTH;
     if (pairSymbol.empty()) {
@@ -134,7 +134,7 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
     if (amountA.first != pool.idTokenA)
         std::swap(amountA, amountB);
 
-    bool slippageProtection = static_cast<int>(height) >= consensus.BayfrontMarinaHeight;
+    bool slippageProtection = static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight;
     Require(pool.AddLiquidity(
             amountA.second,
             amountB.second,

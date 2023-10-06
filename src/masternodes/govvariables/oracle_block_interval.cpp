@@ -24,7 +24,7 @@ UniValue ORACLE_BLOCK_INTERVAL::Export() const {
 }
 
 Res ORACLE_BLOCK_INTERVAL::Validate(const CCustomCSView &view) const {
-    Require(view.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
+    Require(view.GetLastHeight() >= Params().GetConsensus().DF11FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
     Require(blockInterval > 0, []{ return "Block interval cannot be less than 1"; });
 
     return Res::Ok();
