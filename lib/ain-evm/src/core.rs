@@ -333,9 +333,9 @@ impl EVMCoreService {
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
-        if let Some(tx_info) =
-            self.tx_validation_cache
-                .get(&(state_root, String::from(tx)))
+        if let Some(tx_info) = self
+            .tx_validation_cache
+            .get(&(state_root, String::from(tx)))
         {
             return Ok(tx_info);
         }
