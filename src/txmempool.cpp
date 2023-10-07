@@ -1272,7 +1272,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        CScopedQueueID evmQueueId;
+        std::shared_ptr<CScopedQueueID> evmQueueId;
         auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, Params().GetConsensus(), height, 0, nullptr, 0, evmQueueId, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());

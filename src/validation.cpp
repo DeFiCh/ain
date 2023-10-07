@@ -651,7 +651,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
         const auto& consensus = chainparams.GetConsensus();
 
-        CScopedQueueID evmQueueId;
+        std::shared_ptr<CScopedQueueID> evmQueueId;
         auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, evmQueueId, true);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
@@ -2436,7 +2436,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                CScopedQueueID evmQueueId;
+                std::shared_ptr<CScopedQueueID> evmQueueId;
                 const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, false);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
@@ -2648,9 +2648,9 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     const auto& consensus = chainparams.GetConsensus();
 
-    CScopedQueueID evmQueueId;
+    std::shared_ptr<CScopedQueueID> evmQueueId;
     if (IsEVMEnabled(attributes)) {
-        evmQueueId = CScopedQueueID(pindex->GetBlockTime());
+        evmQueueId = CScopedQueueID::Create(pindex->GetBlockTime());
         if (!evmQueueId) {
             return Res::Err("Failed to create queue");
         }
@@ -2974,7 +2974,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Finalize items
     if (evmQueueId) {
-        XResultThrowOnErr(evm_try_unsafe_commit_queue(result, *evmQueueId));
+        XResultThrowOnErr(evm_try_unsafe_commit_queue(result, evmQueueId->GetQueueID()));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;

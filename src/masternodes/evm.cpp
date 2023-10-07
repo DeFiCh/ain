@@ -48,34 +48,25 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(std::function<bool(const std::pa
             }, std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedQueueID::CScopedQueueID() : evmQueueId{}, isValid(false) {}
+CScopedQueueID::CScopedQueueID(uint64_t id) : evmQueueId(id) {}
 
-CScopedQueueID::CScopedQueueID(const uint64_t timestamp) : isValid(false) {
+std::shared_ptr<CScopedQueueID> CScopedQueueID::Create(const uint64_t timestamp) {
     CrossBoundaryResult result;
     uint64_t queueId = evm_try_unsafe_create_queue(result, timestamp);
     if (result.ok) {
-        evmQueueId = std::make_shared<uint64_t>(queueId);
-        isValid = true;
+        return std::shared_ptr<CScopedQueueID>(new CScopedQueueID(queueId));
     }
+    return nullptr;
 }
 
 CScopedQueueID::~CScopedQueueID() {
-    if (isValid && evmQueueId.use_count() == 1) {
-        CrossBoundaryResult result;
-        evm_try_unsafe_remove_queue(result, *evmQueueId);
-        if (!result.ok) {
-            LogPrintf("Failed to destroy queue %d\n", *evmQueueId);
-        }
+    CrossBoundaryResult result;
+    evm_try_unsafe_remove_queue(result, evmQueueId);
+    if (!result.ok) {
+        LogPrintf("Failed to destroy queue %d\n", evmQueueId);
     }
 }
 
-CScopedQueueID::operator bool() const {
-    return isValid;
-}
-
-uint64_t CScopedQueueID::operator*() const {
-    if (!isValid) {
-        throw std::runtime_error("evmQueueId is not valid");
-    }
-    return *evmQueueId;
+uint64_t CScopedQueueID::GetQueueID() const {
+    return evmQueueId;
 }

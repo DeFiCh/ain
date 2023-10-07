@@ -53,17 +53,15 @@ public:
 };
 
 class CScopedQueueID {
-private:
-    std::shared_ptr<uint64_t> evmQueueId;
-    bool isValid;
+    explicit CScopedQueueID(uint64_t id);
+
+    uint64_t evmQueueId;
 
 public:
-    CScopedQueueID();
-    explicit CScopedQueueID(uint64_t timestamp);
+    static std::shared_ptr<CScopedQueueID> Create(const uint64_t timestamp);
     ~CScopedQueueID();
 
-    explicit operator bool() const;
-    uint64_t operator*() const;
+    uint64_t GetQueueID() const;
 };
 
 #endif // DEFI_MASTERNODES_EVM_H

@@ -194,7 +194,7 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, const CScopedQueueID &evmQueueId = {});
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, const std::shared_ptr<CScopedQueueID> &evmQueueId = {});
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

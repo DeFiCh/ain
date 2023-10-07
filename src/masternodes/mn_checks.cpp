@@ -329,7 +329,7 @@ class CCustomTxApplyVisitor {
     const Consensus::Params& consensus;
     uint64_t time;
     uint32_t txn;
-    const CScopedQueueID &evmQueueId;
+    const std::shared_ptr<CScopedQueueID> &evmQueueId;
     bool evmPreValidate;
 
     template<typename T, typename T1, typename ...Args>
@@ -355,7 +355,7 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const CScopedQueueID &evmQueueId,
+                          const std::shared_ptr<CScopedQueueID> &evmQueueId,
                           const bool evmPreValidate)
 
         : tx(tx),
@@ -442,14 +442,14 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  CScopedQueueID &evmQueueId,
+                  std::shared_ptr<CScopedQueueID> &evmQueueId,
                   const bool evmPreValidate) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
     if (!evmQueueId && IsEVMEnabled(mnview, consensus)) {
-        evmQueueId = CScopedQueueID(time);
+        evmQueueId = CScopedQueueID::Create(time);
         if (!evmQueueId) {
             return Res::Err("Failed to create queue");
         }
@@ -545,7 +545,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  CScopedQueueID &evmQueueId,
+                  std::shared_ptr<CScopedQueueID> &evmQueueId,
                   const bool evmPreValidate) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs

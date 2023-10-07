@@ -86,7 +86,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const uint64_t time,
                                    const uint32_t txn,
-                                   const CScopedQueueID &evmQueueId,
+                                   const std::shared_ptr<CScopedQueueID> &evmQueueId,
                                    const bool evmPreValidate)
         : height(height),
           mnview(mnview),

@@ -604,7 +604,7 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         CCustomCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        CScopedQueueID evmQueueId;
+        std::shared_ptr<CScopedQueueID> evmQueueId;
         auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, 0, nullptr, 0, evmQueueId, false);
 
         result.pushKV("valid", res.ok);
