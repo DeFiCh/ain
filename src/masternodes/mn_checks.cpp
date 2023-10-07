@@ -559,8 +559,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId,
-                  const bool isEvmEnabledForBlock,
+                  BlockContext &blockCtx,
                   const bool evmPreValidate) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
@@ -572,6 +571,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 
     auto attributes = mnview.GetAttributes();
     assert(attributes);
+
+    auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
 
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
@@ -600,7 +601,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, blockCtx, evmPreValidate);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {

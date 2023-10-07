@@ -258,10 +258,15 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     std::map<uint256, CAmount> txFees;
 
+    auto blockCtx = BlockContext {
+        isEvmEnabledForBlock,
+        evmQueueId,
+    };
+
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, txFees, blockCtx);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, txFees, blockCtx);
     }
 
     XVM xvm{};
@@ -656,7 +661,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::map<uint256, CAmount>& txFees, const BlockContext& blockCtx)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -687,6 +692,9 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
 
     // Quick lookup for failedNonces entries
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
+
+    const isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
+    const evmQueueId = blockCtx.evmQueueId;
 
     // Block gas limit
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
@@ -844,7 +852,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
+                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, blockCtx, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     failedTxSet.insert(entry);

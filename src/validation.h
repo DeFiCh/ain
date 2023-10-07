@@ -61,6 +61,12 @@ enum TxOrderings {
     ENTRYTIME_ORDERING
 };
 
+
+struct BlockContext {
+    bool isEvmEnabledForBlock;
+    uint64_t evmQueueId;
+};
+
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
 /** Default for -limitancestorcount, max number of in-mempool ancestors */

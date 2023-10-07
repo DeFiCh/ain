@@ -634,6 +634,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         const auto& consensus = chainparams.GetConsensus();
         auto isEvmEnabledForBlock = IsEVMEnabled(height, mnview, consensus);
 
+        const auto blockCtx = BlockContext {
+            isEvmEnabledForBlock,
+            0,
+        };
+
         // rebuild accounts view if dirty
         pool.rebuildAccountsView(height, view);
 
@@ -651,7 +656,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock, true);
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, blockCtx, true);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2435,7 +2440,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, 0, false, false);
+                const auto genesisBlockCtx = BlockContext {
+                    false, evmQueueId,
+                };
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, genesisBlockCtx, false);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2648,6 +2656,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto consensus = chainparams.GetConsensus();
     auto isEvmEnabledForBlock = IsEVMEnabled(pindex->nHeight, mnview, consensus);
 
+    auto blockCtx = BlockContext {
+        isEvmEnabledForBlock, 
+        evmQueueId,
+    };
+
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
@@ -2718,7 +2731,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock, false);
+            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, blockCtx, false);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
