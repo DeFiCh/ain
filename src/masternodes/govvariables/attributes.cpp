@@ -910,15 +910,18 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
     mnview.SetVariable(*attributes);
 }
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
-    if (height < consensus.DF22NextHeight) {
-        return false;
-    }
+bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
+    if (!attributes) return false;
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
+    return attributes->GetValue(enabledKey, false);
+}
+
+bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus) {
     auto attributes = view.GetAttributes();
     assert(attributes);
-    return attributes->GetValue(enabledKey, false);
+
+    return IsEVMEnabled(attributes);
 }
 
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
@@ -2327,13 +2330,15 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
         govVarValue.reserve(govVarVec.size());
         std::copy(govVarVec.begin(), govVarVec.end(), govVarValue.begin());
 
-        CrossBoundaryResult result;
-        const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
-        if (!evm_try_handle_attribute_apply(result, evmQueueId, rustKey, govVarValue)) {
-            return DeFiErrors::SettingEVMAttributeFailure();
-        }
-        if (!result.ok) {
-            return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
+        if (evmQueueId) {
+            CrossBoundaryResult result;
+            const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
+            if (!evm_try_handle_attribute_apply(result, evmQueueId->GetQueueID(), rustKey, govVarValue)) {
+                return DeFiErrors::SettingEVMAttributeFailure();
+            }
+            if (!result.ok) {
+                return DeFiErrors::SettingEVMAttributeFailure(result.reason.c_str());
+            }
         }
     }
 

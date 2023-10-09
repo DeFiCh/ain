@@ -13,6 +13,7 @@ from test_framework.util import (
     int_to_eth_u256,
     hex_to_decimal,
 )
+from decimal import Decimal
 
 
 class EVMTest(DefiTestFramework):
@@ -173,7 +174,7 @@ class EVMTest(DefiTestFramework):
         )
         # Note: This will fail. Re-evaluate
         assert_equal(res["results"]["sender"].lower(), self.ethAddress)
-        assert_equal(res["results"]["gasPrice"], 2)
+        assert_equal(res["results"]["gasPrice"], Decimal("2"))
         assert_equal(res["results"]["gasLimit"], 21000)
         assert_equal(res["results"]["createTx"], False)
         assert_equal(res["results"]["to"].lower(), self.toAddress)

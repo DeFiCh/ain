@@ -982,7 +982,7 @@ static void ProcessFutures(const CBlockIndex* pindex, CCustomCSView& cache, cons
     cache.SetVariable(*attributes);
 }
 
-static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
+static void ProcessGovEvents(const CBlockIndex* pindex, CCustomCSView& cache, const CChainParams& chainparams, const std::shared_ptr<CScopedQueueID> &evmQueueId) {
     if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
         return;
     }
@@ -1270,7 +1270,7 @@ static Res PoolSplits(CCustomCSView& view, CAmount& totalBalance, ATTRIBUTES& at
                 throw std::runtime_error(res.msg);
             }
 
-            auto resVal = view.CreateToken(newPoolToken, false, false);
+            auto resVal = view.CreateToken(newPoolToken, false);
             if (!resVal) {
                 throw std::runtime_error(resVal.msg);
             }
@@ -1810,7 +1810,7 @@ static void ProcessTokenSplits(const CBlock& block, const CBlockIndex* pindex, C
         }
 
         // TODO: Pass this on, once we add support for EVM splits
-        auto resVal = view.CreateToken(newToken, false, false, 0);
+        auto resVal = view.CreateToken(newToken, false);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
@@ -2369,7 +2369,7 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
     return Res::Ok();
 }
 
-static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const uint64_t evmQueueId) {
+static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams& chainparams, const std::shared_ptr<CScopedQueueID> &evmQueueId) {
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -2410,7 +2410,7 @@ static Res ProcessEVMQueue(const CBlock &block, const CBlockIndex *pindex, CCust
     if (!xvmRes) return std::move(xvmRes);
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_unsafe_construct_block_in_q(result, evmQueueId, block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&cache)));
+    const auto blockResult = evm_try_unsafe_construct_block_in_q(result, evmQueueId->GetQueueID(), block.nBits, xvmRes->evm.beneficiary, block.GetBlockTime(), pindex->nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&cache)));
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
@@ -2488,7 +2488,7 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const uint64_t evmQueueId, const bool isEvmEnabledForBlock) {
+Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const std::shared_ptr<CScopedQueueID> &evmQueueId, const bool isEvmEnabledForBlock) {
     CCustomCSView cache(mnview);
 
     if (isEvmEnabledForBlock) {
@@ -2503,7 +2503,7 @@ Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCu
     return Res::Ok();
 }
 
-void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const uint64_t evmQueueId) {
+void ProcessDeFiEvent(const CBlock &block, const CBlockIndex* pindex, CCustomCSView& mnview, const CCoinsViewCache& view, const CChainParams& chainparams, const CreationTxs &creationTxs, const std::shared_ptr<CScopedQueueID> &evmQueueId) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block

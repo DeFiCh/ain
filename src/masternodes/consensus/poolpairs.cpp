@@ -62,7 +62,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     token.creationTx     = tx.GetHash();
     token.creationHeight = height;
 
-    auto tokenId = mnview.CreateToken(token, false, false, evmQueueId);
+    auto tokenId = mnview.CreateToken(token, false);
     Require(tokenId);
 
     rewards = obj.rewards;

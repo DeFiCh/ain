@@ -300,7 +300,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
             return {};
         }
         auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
-        if (!isEvmEnabledForBlock || tx1ScriptPubKey.size() == 0) return {};
+        if (!isEvmEnabledForBlock || tx1ScriptPubKey.empty()) return {};
         auto xvm = XVM::TryFrom(tx1ScriptPubKey);
         if (!xvm) return {};
         UniValue result(UniValue::VOBJ);
@@ -348,7 +348,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(blockindex->nHeight, *pcustomcsview, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview, consensus);
 
     auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);

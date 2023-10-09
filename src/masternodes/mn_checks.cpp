@@ -329,7 +329,7 @@ class CCustomTxApplyVisitor {
     const Consensus::Params& consensus;
     uint64_t time;
     uint32_t txn;
-    uint64_t evmQueueId;
+    const std::shared_ptr<CScopedQueueID> &evmQueueId;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
@@ -356,7 +356,7 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const uint64_t evmQueueId,
+                          const std::shared_ptr<CScopedQueueID> &evmQueueId,
                           const bool isEvmEnabledForBlock,
                           const bool evmPreValidate)
 
@@ -445,38 +445,28 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  const uint64_t evmQueueId,
+                  std::shared_ptr<CScopedQueueID> &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    auto q = evmQueueId;
-    bool wipeQueue{};
-    if (q == 0) {
-        wipeQueue = true;
-        auto r = XResultValue(evm_try_unsafe_create_queue(result, time));
-        if (r) { q = *r; } else { return r; }
+    if (!evmQueueId && isEvmEnabledForBlock) {
+        evmQueueId = CScopedQueueID::Create(time);
+        if (!evmQueueId) {
+            return Res::Err("Failed to create queue");
+        }
     }
 
     try {
         auto res = std::visit(
-            CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, evmPreValidate),
-            txMessage);
-        if (wipeQueue) {
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
-        }
+                CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate),
+                txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
-        if (wipeQueue) {
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
-        }
         return Res::Err(e.what());
     } catch (...) {
-        if (wipeQueue) {
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
-        }
         return Res::Err("%s unexpected error", __func__ );
     }
 }
@@ -559,7 +549,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  const uint64_t evmQueueId,
+                  std::shared_ptr<CScopedQueueID> &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     auto res = Res::Ok();
