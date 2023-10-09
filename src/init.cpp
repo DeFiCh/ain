@@ -1596,8 +1596,6 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
             std::string host;
             SplitHostPort(strETHRPCBind, port, host);
             ethEndpoints.emplace_back(host, port);
-            
-            SplitHostPort(strETHRPCBind, ws_port, host);
             ethEndpoints.emplace_back(host, ws_port);
         }
     }
