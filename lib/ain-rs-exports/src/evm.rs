@@ -660,8 +660,10 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
             (1u8, price, 0u64, 0u64)
         }
         TransactionV2::EIP1559(transaction) => {
-            let max_fee_per_gas = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
-            let max_priority_fee_per_gas = u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
+            let max_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
+            let max_priority_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
             (2u8, 0u64, max_fee_per_gas, max_priority_fee_per_gas)
         }
     };
@@ -710,8 +712,10 @@ fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
             (1u8, price, 0u64, 0u64)
         }
         TransactionV2::EIP1559(transaction) => {
-            let max_fee_per_gas = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
-            let max_priority_fee_per_gas = u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
+            let max_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
+            let max_priority_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
             (2u8, 0u64, max_fee_per_gas, max_priority_fee_per_gas)
         }
     };
