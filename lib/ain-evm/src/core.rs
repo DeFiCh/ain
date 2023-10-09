@@ -20,7 +20,7 @@ use std::borrow::BorrowMut;
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::opcode;
-use crate::precompiles::Context;
+use crate::precompiles::{Context, MetachainPrecompiles};
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
@@ -573,7 +573,7 @@ impl EVMCoreService {
         static CONFIG: Config = Config::shanghai();
         let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
         let state = MemoryStackState::new(metadata, &backend);
-        let precompiles = BTreeMap::new(); // TODO Add precompile crate
+        let precompiles = MetachainPrecompiles;
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
 
         let mut runtime = evm::Runtime::new(
@@ -587,7 +587,7 @@ impl EVMCoreService {
             Rc::new(data.to_vec()),
             Context {
                 caller,
-                address: caller,
+                address: to.unwrap(),
                 apparent_value: U256::default(),
             },
             1024,
