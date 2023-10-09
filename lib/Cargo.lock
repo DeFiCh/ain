@@ -1568,13 +1568,15 @@ dependencies = [
 [[package]]
 name = "ethereum"
 version = "0.14.0"
-source = "git+https://github.com/defich/ethereum.git#74f937c09606b4c2b2c9ff9e3d93dc191fa6cc39"
+source = "git+https://github.com/defich/ethereum.git#47e8b686263014095148d486b7e649b3ba8b9c64"
 dependencies = [
  "bytes",
  "ethereum-types",
  "hash-db 0.15.2",
  "hash256-std-hasher",
+ "lru",
  "parity-scale-codec",
+ "parking_lot",
  "rlp",
  "scale-info",
  "serde",
@@ -3137,9 +3139,9 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "lru"
-version = "0.11.1"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a83fb7698b3643a0e34f9ae6f2e8f0178c0fd42f8b59d493aa271ff3a5bf21"
+checksum = "1efa59af2ddfad1854ae27d75009d538d0998b4b2fd47083e743ac1a10e46c60"
 dependencies = [
  "hashbrown 0.14.0",
 ]
