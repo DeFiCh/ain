@@ -242,7 +242,7 @@ fn unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> R
 #[ffi_fallible]
 fn unsafe_remove_txs_above_hash_in_template(
     template_id: u64,
-    target_hash: String
+    target_hash: String,
 ) -> Result<Vec<String>> {
     unsafe {
         SERVICES
@@ -265,7 +265,7 @@ fn unsafe_add_balance_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    mnview_ptr: usize
+    mnview_ptr: usize,
 ) -> Result<()> {
     let signed_tx = SERVICES
         .evm
@@ -310,7 +310,7 @@ fn unsafe_sub_balance_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    mnview_ptr: usize
+    mnview_ptr: usize,
 ) -> Result<bool> {
     let signed_tx = SERVICES
         .evm
@@ -476,7 +476,7 @@ fn unsafe_push_tx_in_template(
             template_id,
             signed_tx.into(),
             native_hash,
-            mnview_ptr
+            mnview_ptr,
         )?;
 
         Ok(ffi::ValidateTxCompletion {

@@ -142,7 +142,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             dvm_block: u64,
             miner_address: &str,
-            timestamp: u64
+            timestamp: u64,
         ) -> u64;
         fn evm_try_unsafe_remove_template(result: &mut CrossBoundaryResult, template_id: u64);
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
