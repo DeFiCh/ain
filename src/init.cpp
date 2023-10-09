@@ -1575,7 +1575,7 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
     // By default, we will take the first address, if multiple addresses are specified.
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
-    int websockets_port = gArgs.GetArg("-websocketsport", BaseParams().WSPort());
+    int websockets_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
 
     // Determine which addresses to bind to ETH RPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
@@ -1595,8 +1595,6 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
             std::string host;
             SplitHostPort(strETHRPCBind, port, host);
             ethEndpoints.emplace_back(host, port);
-
-            SplitHostPort(strETHRPCBind, ws_port, host);
             ethEndpoints.emplace_back(host, ws_port);
         }
     }

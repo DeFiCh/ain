@@ -29,7 +29,7 @@ from .util import (
     delete_cookie_file,
     get_rpc_proxy,
     rpc_url,
-    eth_rpc_url,
+    get_conf_data,
     wait_until,
     p2p_port,
 )
@@ -407,8 +407,11 @@ class TestNode:
                     )
                 )
             try:
+                self.log.debug(self.index)
+                self.log.debug(self.args)
+                self.log.debug(get_conf_data(self.datadir))
                 rpc = get_rpc_proxy(
-                    rpc_url(self.datadir, self.index, self.chain, self.rpchost),
+                    rpc_url(self.datadir, self.index, 1, self.chain, self.rpchost),
                     self.index,
                     timeout=self.rpc_timeout,
                     coveragedir=self.coverage_dir,
@@ -418,7 +421,7 @@ class TestNode:
                 self.log.debug("RPC successfully started")
 
                 evm_rpc = get_rpc_proxy(
-                    eth_rpc_url(self.datadir, self.index, self.chain, self.evm_rpchost),
+                    rpc_url(self.datadir, self.index, 2, self.chain, self.evm_rpchost),
                     self.index,
                     timeout=self.rpc_timeout,
                     coveragedir=self.coverage_dir,

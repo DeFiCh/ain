@@ -392,40 +392,18 @@ def p2p_port(n):
     return PORT_MIN + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
 
 
-def rpc_port(n):
+def rpc_port(n, i):
     return (
         PORT_MIN
-        + PORT_RANGE
+        + (PORT_RANGE * i)
         + n
         + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
     )
 
-
-def grpc_port(n):
-    return (
-        PORT_MIN
-        + PORT_RANGE
-        + PORT_RANGE
-        + n
-        + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
-    )
-
-
-def eth_rpc_port(n):
-    return (
-        PORT_MIN
-        + PORT_RANGE
-        + PORT_RANGE
-        + PORT_RANGE
-        + n
-        + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
-    )
-
-
-def rpc_url(datadir, i, chain, rpchost):
+def rpc_url(datadir, n, i, chain, rpchost):
     rpc_u, rpc_p = get_auth_cookie(datadir, chain)
     host = "127.0.0.1"
-    port = rpc_port(i)
+    port = rpc_port(n, i)
     if rpchost:
         parts = rpchost.split(":")
         if len(parts) == 2:
@@ -433,34 +411,6 @@ def rpc_url(datadir, i, chain, rpchost):
         else:
             host = rpchost
     return "http://%s:%s@%s:%d" % (rpc_u, rpc_p, host, int(port))
-
-
-def grpc_url(datadir, i, chain, grpchost):
-    grpc_u, grpc_p = get_auth_cookie(datadir, chain)
-    host = "127.0.0.1"
-    port = grpc_port(i * 2)
-    if grpchost:
-        parts = grpchost.split(":")
-        if len(parts) == 2:
-            host, port = parts
-        else:
-            host = grpchost
-
-    return "http://%s:%s@%s:%d" % (grpc_u, grpc_p, host, int(port))
-
-
-def eth_rpc_url(datadir, i, chain, ethrpchost):
-    ethrpc_u, ethrpc_p = get_auth_cookie(datadir, chain)
-    host = "127.0.0.1"
-    port = eth_rpc_port(i)
-    if ethrpchost:
-        parts = ethrpchost.split(":")
-        if len(parts) == 2:
-            host, port = parts
-        else:
-            host = ethrpchost
-
-    return "http://%s:%s@%s:%d" % (ethrpc_u, ethrpc_p, host, int(port))
 
 
 # Node functions
@@ -475,9 +425,10 @@ def initialize_datadir(dirname, n, chain):
         f.write("{}=1\n".format(chain))
         f.write("[{}]\n".format(chain))
         f.write("port=" + str(p2p_port(n)) + "\n")
-        f.write("rpcport=" + str(rpc_port(n)) + "\n")
-        f.write("grpcport=" + str(grpc_port(n * 2)) + "\n")  # GRPC will use two ports
-        f.write("ethrpcport=" + str(eth_rpc_port(n)) + "\n")
+        f.write("rpcport=" + str(rpc_port(n, 1)) + "\n")
+        f.write("grpcport=" + str(rpc_port(n, 2)) + "\n")  # GRPC will use two ports
+        f.write("ethrpcport=" + str(rpc_port(n, 3)) + "\n")
+        f.write("wsport=" + str(rpc_port(n, 4)) + "\n")
         f.write("server=1\n")
         f.write("keypool=1\n")
         f.write("discover=0\n")
@@ -525,6 +476,10 @@ def get_auth_cookie(datadir, chain):
         raise ValueError("No RPC credentials")
     return user, password
 
+def get_conf_data(datadir):
+    if os.path.isfile(os.path.join(datadir, "defi.conf")):
+        with open(os.path.join(datadir, "defi.conf"), "r", encoding="utf8") as f:
+            return f.read()
 
 def delete_cookie_file(datadir, chain):
     """
