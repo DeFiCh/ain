@@ -16,6 +16,8 @@ mod transaction_log;
 mod transaction_request;
 mod utils;
 
+mod subscription;
+
 #[cfg(test)]
 mod tests;
 
@@ -30,7 +32,7 @@ use anyhow::{format_err, Result};
 use hyper::header::HeaderValue;
 use hyper::Method;
 use jsonrpsee::core::server::rpc_module::Methods;
-use jsonrpsee_server::ServerBuilder as HttpServerBuilder;
+use jsonrpsee_server::ServerBuilder;
 use log::info;
 use logging::CppLogTarget;
 use tower_http::cors::CorsLayer;
@@ -40,6 +42,10 @@ use crate::rpc::{
     eth::{MetachainRPCModule, MetachainRPCServer},
     net::{MetachainNetRPCModule, MetachainNetRPCServer},
     web3::{MetachainWeb3RPCModule, MetachainWeb3RPCServer},
+};
+use crate::subscription::{
+    eth::{MetachainPubSubModule, MetachainPubSubServer},
+    MetachainSubIdProvider,
 };
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
@@ -64,9 +70,14 @@ pub fn init_services() {
     let _ = &*SERVICES;
 }
 
-pub fn init_network_services(json_addr: &str, grpc_addr: &str) -> Result<()> {
+pub fn init_network_services(
+    json_addr: &str,
+    grpc_addr: &str,
+    websockets_addr: &str,
+) -> Result<()> {
     init_network_json_rpc_service(&SERVICES, json_addr)?;
     init_network_grpc_service(&SERVICES, grpc_addr)?;
+    init_network_subscriptions_service(&SERVICES, websockets_addr)?;
     Ok(())
 }
 
@@ -93,7 +104,7 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
 
     let handle = runtime.tokio_runtime.clone();
     let server = runtime.tokio_runtime.block_on(
-        HttpServerBuilder::default()
+        ServerBuilder::default()
             .set_middleware(middleware)
             .max_connections(max_connections)
             .custom_tokio_runtime(handle)
@@ -115,6 +126,26 @@ pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<()>
     // runtime
     //     .rt_handle
     // .spawn(Server::builder().serve(addr.parse()?));
+    Ok(())
+}
+
+pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Result<()> {
+    info!("Starting WebSockets server at {}", addr);
+    let addr = addr.parse::<SocketAddr>()?;
+    let max_connections = ain_cpp_imports::get_max_connections();
+
+    let handle = runtime.ws_rt_handle.clone();
+    let server = runtime.ws_rt_handle.block_on(
+        ServerBuilder::default()
+            .max_subscriptions_per_connection(max_connections)
+            .custom_tokio_runtime(handle)
+            .set_id_provider(MetachainSubIdProvider)
+            .build(addr),
+    )?;
+    let mut methods: Methods = Methods::new();
+    methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
+
+    *runtime.ws_handle.lock() = Some(server.start(methods)?);
     Ok(())
 }
 

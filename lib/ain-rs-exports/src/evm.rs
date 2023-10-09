@@ -2,6 +2,7 @@ use ain_contracts::{
     get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
     get_transferdomain_native_transfer_function, FixedContract,
 };
+use ain_evm::log::Notification;
 use ain_evm::{
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
@@ -17,6 +18,7 @@ use ain_evm::{
     Result,
 };
 use ain_macros::ffi_fallible;
+use anyhow::format_err;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
@@ -877,6 +879,26 @@ fn unsafe_get_total_gas_used(queue_id: u64) -> Result<String> {
 #[ffi_fallible]
 fn get_block_limit() -> Result<u64> {
     SERVICES.evm.get_block_limit()
+}
+
+#[ffi_fallible]
+fn dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
+    let signed_tx = SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .try_get_or_create(raw_tx)?;
+
+    debug!(
+        "[evm_try_dispatch_pending_transactions_event] {:#?}",
+        signed_tx.hash()
+    );
+    Ok(SERVICES
+        .evm
+        .channel
+        .sender
+        .send(Notification::Transaction(signed_tx.hash()))
+        .map_err(|e| format_err!(e.to_string()))?)
 }
 
 #[cfg(test)]

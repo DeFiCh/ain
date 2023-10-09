@@ -26,14 +26,16 @@ public:
     int RPCPort() const { return nRPCPort; }
     int GRPCPort() const { return nGRPCPort; }
     int ETHRPCPort() const { return nETHRPCPort; }
+    int WSPort() const { return nWSPort; }
 
     CBaseChainParams() = delete;
-    CBaseChainParams(const std::string& data_dir, int rpc_port, int grpc_port, int ethrpc_port) : nRPCPort(rpc_port), nGRPCPort(grpc_port), nETHRPCPort(ethrpc_port), strDataDir(data_dir) {}
+    CBaseChainParams(const std::string& data_dir, int rpc_port, int grpc_port, int ethrpc_port, int ws_port) : nRPCPort(rpc_port), nGRPCPort(grpc_port), nETHRPCPort(ethrpc_port), nWSPort(ws_port), strDataDir(data_dir) {}
 
 private:
     int nRPCPort;
     int nGRPCPort;
     int nETHRPCPort;
+    int nWSPort;
     std::string strDataDir;
 };
 

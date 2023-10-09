@@ -9,6 +9,7 @@ use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
+use crate::log::Notification;
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
@@ -32,6 +33,13 @@ use crate::{
     txqueue::{BlockData, QueueTx},
     EVMError, Result,
 };
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::RwLock;
+
+pub struct NotificationChannel<T> {
+    pub sender: UnboundedSender<T>,
+    pub receiver: RwLock<UnboundedReceiver<T>>,
+}
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -40,6 +48,7 @@ pub struct EVMServices {
     pub logs: LogService,
     pub filters: FilterService,
     pub storage: Arc<Storage>,
+    pub channel: NotificationChannel<Notification>,
 }
 
 pub struct FinalizedBlockInfo {
@@ -69,6 +78,7 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self> {
+        let (sender, receiver) = mpsc::unbounded_channel();
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {
@@ -94,6 +104,10 @@ impl EVMServices {
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
+                channel: NotificationChannel {
+                    sender,
+                    receiver: RwLock::new(receiver),
+                },
             })
         } else {
             let storage = Arc::new(Storage::restore(&path)?);
@@ -104,6 +118,10 @@ impl EVMServices {
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
+                channel: NotificationChannel {
+                    sender,
+                    receiver: RwLock::new(receiver),
+                },
             })
         }
     }
@@ -418,6 +436,11 @@ impl EVMServices {
                 .generate_logs_from_receipts(&receipts, block.header.number)?;
             self.receipt.put_receipts(receipts)?;
             self.filters.add_block_to_filters(block.header.hash());
+
+            self.channel
+                .sender
+                .send(Notification::Block(block.header.hash()))
+                .map_err(|e| format_err!(e.to_string()))?;
         }
         self.core.tx_queues.remove(queue_id);
         self.core.clear_account_nonce();
@@ -510,7 +533,7 @@ impl EVMServices {
             .tx_queues
             .push_in(queue_id, tx, hash, gas_used, state_root)?;
 
-        self.filters.add_tx_to_filters(signed_tx.transaction.hash());
+        self.filters.add_tx_to_filters(signed_tx.hash());
 
         Ok(())
     }

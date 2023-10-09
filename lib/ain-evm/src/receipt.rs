@@ -83,7 +83,7 @@ impl ReceiptService {
                     receipt,
                     block_hash,
                     block_number,
-                    tx_hash: signed_tx.transaction.hash(),
+                    tx_hash: signed_tx.hash(),
                     from: signed_tx.sender,
                     to: signed_tx.to(),
                     tx_index: index,

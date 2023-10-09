@@ -969,6 +969,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             } else {
                 ethSender = txResultSender;
             }
+
+
+            evm_try_dispatch_pending_transactions_event(result, rawEVMTx);
+            if (!result.ok) {
+                LogPrint(BCLog::MEMPOOL, "evm tx failed to generate events %s\n", result.reason.c_str());
+            }
         }
 
         if (test_accept) {
