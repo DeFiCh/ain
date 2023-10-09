@@ -1575,10 +1575,12 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
     // By default, we will take the first address, if multiple addresses are specified.
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
+    int websockets_port = gArgs.GetArg("-websocketsport", BaseParams().WSPort());
 
     // Determine which addresses to bind to ETH RPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
         ethEndpoints.emplace_back("127.0.0.1", eth_rpc_port);
+        ethEndpoints.emplace_back("127.0.0.1", websockets_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
         }
@@ -1588,9 +1590,14 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
     } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
         for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
             int port = eth_rpc_port;
+            int ws_port = websockets_port;
+
             std::string host;
             SplitHostPort(strETHRPCBind, port, host);
             ethEndpoints.emplace_back(host, port);
+
+            SplitHostPort(strETHRPCBind, ws_port, host);
+            ethEndpoints.emplace_back(host, ws_port);
         }
     }
 
@@ -2270,8 +2277,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         SetupRPCPorts(eth_endpoints, g_endpoints);
         // Default to using the first address passed to bind
         auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
+        auto websockets_endpoint = eth_endpoints[1].first + ":" + std::to_string(eth_endpoints[1].second);
         auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
-        auto res = XResultStatusLogged(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint));
+        auto res = XResultStatusLogged(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint, websockets_endpoint));
         if (!res) return false;
     }
     uiInterface.InitMessage(_("Done loading").translated);

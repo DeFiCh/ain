@@ -1,7 +1,7 @@
 use std::fmt;
 
 use ain_evm::bytes::Bytes;
-use ethereum::{BlockAny, TransactionV2};
+use ethereum::{BlockAny, Header, TransactionV2};
 use ethereum_types::{H160, H256, H64, U256};
 use rlp::Encodable;
 use serde::{
@@ -349,6 +349,61 @@ impl From<FeeHistoryData> for RpcFeeHistory {
             base_fee_per_gas: value.base_fee_per_gas,
             gas_used_ratio: value.gas_used_ratio,
             reward: value.reward,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcBlockHeader {
+    pub number: U256,
+    pub hash: H256,
+    pub mix_hash: H256,
+    pub parent_hash: H256,
+    pub sha3_uncles: H256,
+    pub logs_bloom: String,
+    pub transactions_root: H256,
+    pub state_root: H256,
+    pub receipts_root: H256,
+    pub miner: H160,
+    pub difficulty: U256,
+    pub extra_data: Bytes,
+    pub gas_used: U256,
+    pub gas_limit: U256,
+    pub timestamp: U256,
+    pub base_fee_per_gas: U256,
+    pub total_difficulty: U256,
+    pub seal_fields: Vec<Vec<u8>>,
+    pub nonce: H64,
+    pub size: String,
+}
+
+impl From<Header> for RpcBlockHeader {
+    fn from(header: Header) -> Self {
+        let header_size = header.rlp_bytes().len();
+        RpcBlockHeader {
+            hash: header.hash(),
+            mix_hash: header.hash(),
+            number: header.number,
+            parent_hash: header.parent_hash,
+            transactions_root: header.transactions_root,
+            state_root: header.state_root,
+            receipts_root: header.receipts_root,
+            miner: header.beneficiary,
+            difficulty: header.difficulty,
+            total_difficulty: U256::zero(),
+            seal_fields: vec![],
+            gas_limit: header.gas_limit,
+            gas_used: header.gas_used,
+            timestamp: header.timestamp.into(),
+            nonce: header.nonce,
+            extra_data: Bytes::from(header.extra_data),
+            sha3_uncles: H256::from_slice(&sha3::Keccak256::digest(
+                &rlp::RlpStream::new_list(0).out(),
+            )),
+            logs_bloom: format!("{:#x}", header.logs_bloom),
+            size: format!("{header_size:#x}"),
+            base_fee_per_gas: header.base_fee,
         }
     }
 }

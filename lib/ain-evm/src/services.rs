@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Result;
-use jsonrpsee_server::ServerHandle as HttpServerHandle;
+use jsonrpsee_server::ServerHandle;
 use parking_lot::Mutex;
 use tokio::{
     runtime::{Builder, Handle as AsyncHandle},
@@ -39,7 +39,9 @@ pub struct Services {
     pub tokio_runtime: AsyncHandle,
     pub tokio_runtime_channel_tx: Sender<()>,
     pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
-    pub json_rpc: Mutex<Option<HttpServerHandle>>,
+    pub json_rpc: Mutex<Option<ServerHandle>>,
+    pub ws_rt_handle: AsyncHandle,
+    pub ws_handle: Mutex<Option<ServerHandle>>,
     pub evm: Arc<EVMServices>,
 }
 
@@ -57,6 +59,7 @@ impl Services {
         Services {
             tokio_runtime_channel_tx: tx,
             tokio_runtime: r.handle().clone(),
+            ws_rt_handle: r.handle().clone(),
             tokio_worker: Mutex::new(Some(thread::spawn(move || {
                 log::info!("Starting tokio waiter");
                 r.block_on(async move {
@@ -64,6 +67,7 @@ impl Services {
                 });
             }))),
             json_rpc: Mutex::new(None),
+            ws_handle: Mutex::new(None),
             evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
     }
