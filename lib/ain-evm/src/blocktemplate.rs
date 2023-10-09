@@ -1,40 +1,43 @@
 use std::{collections::HashMap, sync::Arc};
 
-use ethereum::{Block, TransactionV2};
-use ethereum_types::{H256, U256};
+use ethereum::{Block, ReceiptV3, TransactionV2};
+use ethereum_types::{Bloom, H160, H256, U256};
 use parking_lot::{Mutex, RwLock};
 use rand::Rng;
 
 use crate::{
+    backend::Vicinity,
     core::XHash,
     receipt::Receipt,
     transaction::{system::SystemTx, SignedTx},
 };
 
-type Result<T> = std::result::Result<T, QueueError>;
+type Result<T> = std::result::Result<T, BlockTemplateError>;
+
+pub type ReceiptAndOptionalContractAddress = (ReceiptV3, Option<H160>);
 
 #[derive(Debug)]
-pub struct TransactionQueueMap {
-    queues: RwLock<HashMap<u64, Arc<TransactionQueue>>>,
+pub struct BlockTemplateMap {
+    templates: RwLock<HashMap<u64, Arc<BlockTemplate>>>,
 }
 
-impl Default for TransactionQueueMap {
+impl Default for BlockTemplateMap {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Holds multiple `TransactionQueue`s, each associated with a unique queue ID.
+/// Holds multiple `BlockTemplate`s, each associated with a unique template ID.
 ///
-/// Queue IDs are randomly generated and used to access distinct transaction queues.
-impl TransactionQueueMap {
+/// Template IDs are randomly generated and used to access distinct transaction templates.
+impl BlockTemplateMap {
     pub fn new() -> Self {
-        TransactionQueueMap {
-            queues: RwLock::new(HashMap::new()),
+        BlockTemplateMap {
+            templates: RwLock::new(HashMap::new()),
         }
     }
 
-    /// `get_queue_id` generates a unique random ID, creates a new `TransactionQueue` for that ID,
+    /// `create` generates a unique random ID, creates a new `BlockTemplate` for that ID,
     /// and then returns the ID.
     ///
     /// # Safety
@@ -42,74 +45,84 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(&self, target_block: U256, state_root: H256, timestamp: u64) -> u64 {
+    pub unsafe fn create(
+        &self,
+        target_block: U256,
+        dvm_block: u64,
+        state_root: H256,
+        beneficiary: H160,
+        timestamp: u64,
+        block_gas_limit: u64,
+    ) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
-            let queue_id = rng.gen();
-            // Safety check to disallow 0 as it's equivalent to no queue_id
-            if queue_id == 0 {
+            let template_id = rng.gen();
+            // Safety check to disallow 0 as it's equivalent to no template_id
+            if template_id == 0 {
                 continue;
             };
-            let mut write_guard = self.queues.write();
+            let mut write_guard = self.templates.write();
 
-            if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(Arc::new(TransactionQueue::new(
+            if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(template_id) {
+                e.insert(Arc::new(BlockTemplate::new(
                     target_block,
+                    dvm_block,
                     state_root,
+                    beneficiary,
                     timestamp,
+                    block_gas_limit,
                 )));
-                return queue_id;
+                return template_id;
             }
         }
     }
 
-    /// Try to remove and return the `TransactionQueue` associated with the provided
-    /// queue ID.
+    /// Try to remove and return the `BlockTemplate` associated with the provided
+    /// template ID.
     ///
     /// # Safety
     ///
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove(&self, queue_id: u64) -> Option<Arc<TransactionQueue>> {
-        self.queues.write().remove(&queue_id)
+    pub unsafe fn remove(&self, template_id: u64) -> Option<Arc<BlockTemplate>> {
+        self.templates.write().remove(&template_id)
     }
 
-    /// Returns an atomic reference counting pointer of the `TransactionQueue` associated with the provided queue ID.
-    /// Note that the `TransactionQueue` instance contains the mutex of the `TransactionQueueData`, and this method
-    /// should be used if multiple read/write operations on the tx queue is required within the pipeline. This is to
-    /// ensure the atomicity and functionality of the client, and to maintain the integrity of the transaction queue.
+    /// Returns an atomic reference counting pointer of the `BlockTemplate` associated with the provided template ID.
+    /// Note that the `BlockTemplate` instance contains the mutex of the `BlockTemplateData`, and this method
+    /// should be used if multiple read/write operations on the block template is required within the pipeline. This is
+    /// to ensure the atomicity and functionality of the client, and to maintain the integrity of the block template.
     ///
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    /// Returns `BlockTemplateError::NoSuchTemplate` if no block template is associated with the given template ID.
     ///
     /// # Safety
     ///
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get(&self, queue_id: u64) -> Result<Arc<TransactionQueue>> {
+    pub unsafe fn get(&self, template_id: u64) -> Result<Arc<BlockTemplate>> {
         Ok(Arc::clone(
-            self.queues
+            self.templates
                 .read()
-                .get(&queue_id)
-                .ok_or(QueueError::NoSuchQueue)?,
+                .get(&template_id)
+                .ok_or(BlockTemplateError::NoSuchTemplate)?,
         ))
     }
 
-    /// Attempts to add a new transaction to the `TransactionQueue` associated with the provided queue ID. If the
-    /// transaction is a `SignedTx`, it also updates the corresponding account's nonce.
-    /// Nonces for each account's transactions must be in strictly increasing order. This means that if the last
+    /// Attempts to add a new transaction to the `BlockTemplate` associated with the provided template ID.
+    /// Nonces for each account's transactions_queue must be in strictly increasing order. This means that if the last
     /// queued transaction for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a
     /// nonce that is not one more than the previous nonce is added, an error is returned. This helps to ensure
-    /// the integrity of the transaction queue and enforce correct nonce usage.
+    /// the integrity of the block template and enforce correct nonce usage.
     ///
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
-    /// previous nonce of transactions from the same sender in the queue.
+    /// Returns `BlockTemplateError::NoSuchTemplate` if no block template is associated with the given template ID.
+    /// Returns `BlockTemplateError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
+    /// previous nonce of transactions_queue from the same sender in the template.
     ///
     /// # Safety
     ///
@@ -118,22 +131,22 @@ impl TransactionQueueMap {
     ///
     pub unsafe fn push_in(
         &self,
-        queue_id: u64,
+        template_id: u64,
         tx: QueueTx,
         hash: XHash,
         gas_used: U256,
         state_root: H256,
     ) -> Result<()> {
-        self.with_transaction_queue(queue_id, |queue| {
-            queue.queue_tx(tx, hash, gas_used, state_root)
+        self.with_block_template(template_id, |template| {
+            template.queue_tx(tx, hash, gas_used, state_root)
         })
         .and_then(|res| res)
     }
 
-    /// Removes all transactions in the queue whose sender matches the provided sender address.
+    /// Removes all transactions_queue in the queue whose sender matches the provided sender address.
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
+    /// Returns `BlockTemplateError::NoSuchTemplate` if no template is associated with the given template ID.
     ///
     /// # Safety
     ///
@@ -142,11 +155,13 @@ impl TransactionQueueMap {
     ///
     pub unsafe fn remove_txs_above_hash_in(
         &self,
-        queue_id: u64,
+        template_id: u64,
         target_hash: XHash,
     ) -> Result<Vec<XHash>> {
-        self.with_transaction_queue(queue_id, |queue| queue.remove_txs_above_hash(target_hash))
-            .and_then(|res| res)
+        self.with_block_template(template_id, |template| {
+            template.remove_txs_above_hash(target_hash)
+        })
+        .and_then(|res| res)
     }
 
     ///
@@ -155,8 +170,8 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_txs_cloned_in(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_queue_txs_cloned)
+    pub unsafe fn get_txs_cloned_in(&self, template_id: u64) -> Result<Vec<QueueTxItem>> {
+        self.with_block_template(template_id, BlockTemplate::get_queue_txs_cloned)
     }
 
     /// # Safety
@@ -164,8 +179,8 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_total_gas_used_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_total_gas_used)
+    pub unsafe fn get_total_gas_used_in(&self, template_id: u64) -> Result<U256> {
+        self.with_block_template(template_id, BlockTemplate::get_total_gas_used)
     }
 
     /// # Safety
@@ -173,8 +188,8 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_target_block)
+    pub unsafe fn get_target_block_in(&self, template_id: u64) -> Result<U256> {
+        self.with_block_template(template_id, BlockTemplate::get_target_block)
     }
 
     /// # Safety
@@ -182,8 +197,8 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_timestamp_in(&self, queue_id: u64) -> Result<u64> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_timestamp)
+    pub unsafe fn get_timestamp_in(&self, template_id: u64) -> Result<u64> {
+        self.with_block_template(template_id, BlockTemplate::get_timestamp)
     }
 
     /// # Safety
@@ -191,21 +206,21 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<H256> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_latest_state_root)
+    pub unsafe fn get_latest_state_root_in(&self, template_id: u64) -> Result<H256> {
+        self.with_block_template(template_id, BlockTemplate::get_latest_state_root)
     }
 
-    /// Apply the closure to the queue associated with the queue ID.
+    /// Apply the closure to the template associated with the template ID.
     /// # Errors
     ///
-    /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    unsafe fn with_transaction_queue<T, F>(&self, queue_id: u64, f: F) -> Result<T>
+    /// Returns `BlockTemplateError::NoSuchTemplate` if no block template is associated with the given template ID.
+    unsafe fn with_block_template<T, F>(&self, template_id: u64, f: F) -> Result<T>
     where
-        F: FnOnce(&TransactionQueue) -> T,
+        F: FnOnce(&BlockTemplate) -> T,
     {
-        match self.queues.read().get(&queue_id) {
-            Some(queue) => Ok(f(queue)),
-            None => Err(QueueError::NoSuchQueue),
+        match self.templates.read().get(&template_id) {
+            Some(template) => Ok(f(template)),
+            None => Err(BlockTemplateError::NoSuchTemplate),
         }
     }
 }
@@ -230,49 +245,88 @@ pub struct BlockData {
     pub receipts: Vec<Receipt>,
 }
 
-/// The `TransactionQueueData` contains:
-/// 1. Queue of validated transactions
-/// 2. Map of the account nonces
-/// 3. Block data
-/// 4. Total gas used by all queued transactions
+/// The `BlockTemplateData` contains:
+/// 1. Queue of validated transactions_queue
+/// 2. Block data
+/// 3. All transactions_queue added into the block template
+/// 4. All transaction receipts added into the block template
+/// 5. Logs bloom
+/// 6. Total gas used by all transactions_queue in the block
+/// 7. Total gas fees of all transactions_queue in the block
+/// 8. Backend vicinity
+/// 9. DVM block number
+/// 10. Initial state root
 ///
-/// It's used to manage and process transactions for different accounts.
+/// The template is used to construct a valid EVM block.
 ///
 #[derive(Clone, Debug, Default)]
-pub struct TransactionQueueData {
-    pub transactions: Vec<QueueTxItem>,
+pub struct BlockTemplateData {
+    pub transactions_queue: Vec<QueueTxItem>,
     pub block_data: Option<BlockData>,
+    pub all_transactions: Vec<Box<SignedTx>>,
+    pub receipts_v3: Vec<ReceiptAndOptionalContractAddress>,
+    pub logs_bloom: Bloom,
     pub total_gas_used: U256,
-    pub target_block: U256,
-    pub initial_state_root: H256,
+    pub total_gas_fees: U256,
+    pub vicinity: Vicinity,
     pub timestamp: u64,
+    pub dvm_block: u64,
+    pub initial_state_root: H256,
 }
 
-impl TransactionQueueData {
-    pub fn new(target_block: U256, state_root: H256, timestamp: u64) -> Self {
+impl BlockTemplateData {
+    pub fn new(
+        target_block: U256,
+        dvm_block: u64,
+        state_root: H256,
+        beneficiary: H160,
+        timestamp: u64,
+        block_gas_limit: u64,
+    ) -> Self {
         Self {
-            transactions: Vec::new(),
-            total_gas_used: U256::zero(),
+            transactions_queue: Vec::new(),
             block_data: None,
-            target_block,
-            initial_state_root: state_root,
+            all_transactions: Vec::new(),
+            receipts_v3: Vec::new(),
+            logs_bloom: Bloom::default(),
+            total_gas_used: U256::zero(),
+            total_gas_fees: U256::zero(),
+            vicinity: Vicinity {
+                beneficiary,
+                timestamp: U256::from(timestamp),
+                block_number: target_block,
+                block_gas_limit: U256::from(block_gas_limit),
+                ..Vicinity::default()
+            },
             timestamp,
+            dvm_block,
+            initial_state_root: state_root,
         }
     }
 }
 
 #[derive(Debug, Default)]
-pub struct TransactionQueue {
-    pub data: Mutex<TransactionQueueData>,
+pub struct BlockTemplate {
+    pub data: Mutex<BlockTemplateData>,
 }
 
-impl TransactionQueue {
-    fn new(target_block: U256, state_root: H256, timestamp: u64) -> Self {
+impl BlockTemplate {
+    fn new(
+        target_block: U256,
+        dvm_block: u64,
+        state_root: H256,
+        beneficiary: H160,
+        timestamp: u64,
+        block_gas_limit: u64,
+    ) -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new(
+            data: Mutex::new(BlockTemplateData::new(
                 target_block,
+                dvm_block,
                 state_root,
+                beneficiary,
                 timestamp,
+                block_gas_limit,
             )),
         }
     }
@@ -288,7 +342,7 @@ impl TransactionQueue {
 
         data.total_gas_used += gas_used;
 
-        data.transactions.push(QueueTxItem {
+        data.transactions_queue.push(QueueTxItem {
             tx,
             tx_hash,
             gas_used,
@@ -302,18 +356,18 @@ impl TransactionQueue {
         let mut removed_txs = Vec::new();
 
         if let Some(index) = data
-            .transactions
+            .transactions_queue
             .iter()
             .position(|item| item.tx_hash == target_hash)
         {
             removed_txs = data
-                .transactions
+                .transactions_queue
                 .drain(index..)
                 .map(|tx_item| tx_item.tx_hash)
                 .collect();
 
             data.total_gas_used = data
-                .transactions
+                .transactions_queue
                 .iter()
                 .fold(U256::zero(), |acc, tx| acc + tx.gas_used)
         }
@@ -322,7 +376,7 @@ impl TransactionQueue {
     }
 
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
-        self.data.lock().transactions.clone()
+        self.data.lock().transactions_queue.clone()
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
@@ -330,7 +384,7 @@ impl TransactionQueue {
     }
 
     pub fn get_target_block(&self) -> U256 {
-        self.data.lock().target_block
+        self.data.lock().vicinity.block_number
     }
 
     pub fn get_timestamp(&self) -> u64 {
@@ -340,7 +394,7 @@ impl TransactionQueue {
     pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
         self.data
             .lock()
-            .transactions
+            .transactions_queue
             .iter()
             .find(|tx_item| tx_item.tx_hash == hash)
             .map(|tx_item| tx_item.state_root)
@@ -348,7 +402,7 @@ impl TransactionQueue {
 
     pub fn get_latest_state_root(&self) -> H256 {
         let data = self.data.lock();
-        data.transactions
+        data.transactions_queue
             .last()
             .map_or(data.initial_state_root, |tx_item| tx_item.state_root)
     }
@@ -356,7 +410,7 @@ impl TransactionQueue {
     pub fn is_queued(&self, tx: &QueueTx) -> bool {
         self.data
             .lock()
-            .transactions
+            .transactions_queue
             .iter()
             .any(|queued| &queued.tx == tx)
     }
@@ -369,21 +423,21 @@ impl From<SignedTx> for QueueTx {
 }
 
 #[derive(Debug)]
-pub enum QueueError {
-    NoSuchQueue,
+pub enum BlockTemplateError {
+    NoSuchTemplate,
     InvalidNonce((Box<SignedTx>, U256)),
 }
 
-impl std::fmt::Display for QueueError {
+impl std::fmt::Display for BlockTemplateError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            QueueError::NoSuchQueue => write!(f, "No transaction queue for this queue"),
-            QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
+            BlockTemplateError::NoSuchTemplate => write!(f, "No block template for this id"),
+            BlockTemplateError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
         }
     }
 }
 
-impl std::error::Error for QueueError {}
+impl std::error::Error for BlockTemplateError {}
 
 #[cfg(test_off)]
 mod tests {
@@ -395,8 +449,8 @@ mod tests {
     use crate::transaction::bridge::BalanceUpdate;
 
     #[test]
-    fn test_invalid_nonce_order() -> Result<(), QueueError> {
-        let queue = TransactionQueue::new();
+    fn test_invalid_nonce_order() -> Result<(), BlockTemplateError> {
+        let template = BlockTemplate::new();
 
         // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
@@ -407,32 +461,35 @@ mod tests {
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx3 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
 
-        queue.queue_tx(
+        template.queue_tx(
             tx1,
             H256::from_low_u64_be(1).into(),
             U256::zero(),
             U256::zero(),
         )?;
-        queue.queue_tx(
+        template.queue_tx(
             tx2,
             H256::from_low_u64_be(2).into(),
             U256::zero(),
             U256::zero(),
         )?;
         // Should fail as nonce 2 is already queued for this sender
-        let queued = queue.queue_tx(
+        let queued = template.queue_tx(
             tx3,
             H256::from_low_u64_be(3).into(),
             U256::zero(),
             U256::zero(),
         );
-        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
+        assert!(matches!(
+            queued,
+            Err(BlockTemplateError::InvalidNonce { .. }),
+        ));
         Ok(())
     }
 
     #[test]
-    fn test_invalid_nonce_order_with_transfer_domain() -> Result<(), QueueError> {
-        let queue = TransactionQueue::new();
+    fn test_invalid_nonce_order_with_transfer_domain() -> Result<(), BlockTemplateError> {
+        let template = BlockTemplate::new();
 
         // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
@@ -449,38 +506,41 @@ mod tests {
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
 
-        queue.queue_tx(
+        template.queue_tx(
             tx1,
             H256::from_low_u64_be(1).into(),
             U256::zero(),
             U256::zero(),
         )?;
-        queue.queue_tx(
+        template.queue_tx(
             tx2,
             H256::from_low_u64_be(2).into(),
             U256::zero(),
             U256::zero(),
         )?;
-        queue.queue_tx(
+        template.queue_tx(
             tx3,
             H256::from_low_u64_be(3).into(),
             U256::zero(),
             U256::zero(),
         )?;
         // Should fail as nonce 2 is already queued for this sender
-        let queued = queue.queue_tx(
+        let queued = template.queue_tx(
             tx4,
             H256::from_low_u64_be(4).into(),
             U256::zero(),
             U256::zero(),
         );
-        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
+        assert!(matches!(
+            queued,
+            Err(BlockTemplateError::InvalidNonce { .. }),
+        ));
         Ok(())
     }
 
     #[test]
-    fn test_valid_nonce_order() -> Result<(), QueueError> {
-        let queue = TransactionQueue::new();
+    fn test_valid_nonce_order() -> Result<(), BlockTemplateError> {
+        let template = BlockTemplate::new();
 
         // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
         let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
@@ -494,25 +554,25 @@ mod tests {
         // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
         let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
 
-        queue.queue_tx(
+        template.queue_tx(
             tx1,
             H256::from_low_u64_be(1).into(),
             U256::zero(),
             U256::zero(),
         )?;
-        queue.queue_tx(
+        template.queue_tx(
             tx2,
             H256::from_low_u64_be(2).into(),
             U256::zero(),
             U256::zero(),
         )?;
-        queue.queue_tx(
+        template.queue_tx(
             tx3,
             H256::from_low_u64_be(3).into(),
             U256::zero(),
             U256::zero(),
         )?;
-        queue.queue_tx(
+        template.queue_tx(
             tx4,
             H256::from_low_u64_be(4).into(),
             U256::zero(),

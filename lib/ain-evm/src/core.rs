@@ -24,6 +24,7 @@ use vsdb_core::vsdb_set_base_dir;
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
+    blocktemplate::BlockTemplateMap,
     executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
@@ -31,7 +32,6 @@ use crate::{
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
-    txqueue::TransactionQueueMap,
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
@@ -128,7 +128,7 @@ impl TxValidationCache {
 }
 
 pub struct EVMCoreService {
-    pub tx_queues: Arc<TransactionQueueMap>,
+    pub block_templates: Arc<BlockTemplateMap>,
     pub trie_store: Arc<TrieDBStore>,
     pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
@@ -175,7 +175,7 @@ impl EVMCoreService {
         init_vsdb(path);
 
         Self {
-            tx_queues: Arc::new(TransactionQueueMap::new()),
+            block_templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
             signed_tx_cache: SignedTxCache::default(),
             storage,
@@ -193,7 +193,7 @@ impl EVMCoreService {
         init_vsdb(evm_datadir);
 
         let handler = Self {
-            tx_queues: Arc::new(TransactionQueueMap::new()),
+            block_templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
@@ -318,7 +318,7 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The template_id template number.
     ///
     /// # Returns
     ///
@@ -329,8 +329,8 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+    pub unsafe fn validate_raw_tx(&self, tx: &str, template_id: u64) -> Result<ValidateTxInfo> {
+        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         if let Some(tx_info) = self
@@ -340,7 +340,7 @@ impl EVMCoreService {
             return Ok(tx_info);
         }
 
-        debug!("[validate_raw_tx] queue_id {}", queue_id);
+        debug!("[validate_raw_tx] template_id {}", template_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
@@ -438,10 +438,10 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_total_gas_used(&self, queue_id: u64) -> String {
+    pub unsafe fn get_total_gas_used(&self, template_id: u64) -> String {
         let res = self
-            .tx_queues
-            .get_total_gas_used_in(queue_id)
+            .block_templates
+            .get_total_gas_used_in(template_id)
             .unwrap_or_default();
         format!("{:064x}", res)
     }
@@ -476,7 +476,7 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The template_id template number.
     ///
     /// # Returns
     ///
@@ -490,16 +490,19 @@ impl EVMCoreService {
     pub unsafe fn validate_raw_transferdomain_tx(
         &self,
         tx: &str,
-        queue_id: u64,
+        template_id: u64,
         context: TransferDomainTxInfo,
     ) -> Result<ValidateTxInfo> {
-        debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
+        debug!(
+            "[validate_raw_transferdomain_tx] template_id {}",
+            template_id
+        );
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
         );
 
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
         debug!(
             "[validate_raw_transferdomain_tx] state_root : {:#?}",
             state_root
@@ -738,7 +741,7 @@ impl EVMCoreService {
     }
 }
 
-// Transaction queue methods
+// Block template methods
 impl EVMCoreService {
     ///
     /// # Safety
@@ -746,16 +749,27 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create_queue(&self, timestamp: u64) -> Result<u64> {
+    pub unsafe fn create_block_template(
+        &self,
+        dvm_block: u64,
+        beneficiary: H160,
+        timestamp: u64,
+    ) -> Result<u64> {
         let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
-            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis queue
+            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis block
             Some(block) => (block.header.number + 1, block.header.state_root),
         };
 
-        let queue_id = self
-            .tx_queues
-            .create(target_block, initial_state_root, timestamp);
-        Ok(queue_id)
+        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
+        let template_id = self.block_templates.create(
+            target_block,
+            dvm_block,
+            initial_state_root,
+            beneficiary,
+            timestamp,
+            block_gas_limit,
+        );
+        Ok(template_id)
     }
 
     ///
@@ -764,8 +778,8 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_queue(&self, queue_id: u64) {
-        self.tx_queues.remove(queue_id);
+    pub unsafe fn remove_block_template(&self, template_id: u64) {
+        self.block_templates.remove(template_id);
     }
 
     ///
@@ -774,14 +788,14 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_txs_above_hash_in(
+    pub unsafe fn remove_txs_above_hash_in_block_template(
         &self,
-        queue_id: u64,
+        template_id: u64,
         target_hash: XHash,
     ) -> Result<Vec<XHash>> {
         let hashes = self
-            .tx_queues
-            .remove_txs_above_hash_in(queue_id, target_hash)?;
+            .block_templates
+            .remove_txs_above_hash_in(template_id, target_hash)?;
         Ok(hashes)
     }
 
@@ -791,15 +805,15 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        let target_block = self.tx_queues.get_target_block_in(queue_id)?;
+    pub unsafe fn get_target_block_in(&self, template_id: u64) -> Result<U256> {
+        let target_block = self.block_templates.get_target_block_in(template_id)?;
         Ok(target_block)
     }
 
-    /// Retrieves the next valid nonce for the specified account within a particular queue.
+    /// Retrieves the next valid nonce for the specified account within a particular block template.
     /// # Arguments
     ///
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The template_id template number.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
@@ -811,16 +825,16 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_next_valid_nonce_in_queue(
+    pub unsafe fn get_next_valid_nonce_in_block_template(
         &self,
-        queue_id: u64,
+        template_id: u64,
         address: H160,
     ) -> Result<U256> {
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
         let backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
         trace!(
-            "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
+            "[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?} in template_id {template_id}"
         );
         Ok(nonce)
     }

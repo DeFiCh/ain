@@ -16,13 +16,13 @@ use sha3::{Digest, Keccak256};
 
 use crate::{
     backend::EVMBackend,
+    blocktemplate::{QueueTx, QueueTxItem},
     bytes::Bytes,
     executor::AinExecutor,
     transaction::{
         system::{DeployContractData, SystemTx, TransferDirection},
         SignedTx, LOWER_H256,
     },
-    txqueue::{QueueTx, QueueTxItem},
     Result,
 };
 

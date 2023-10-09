@@ -34,9 +34,9 @@ pub trait MetachainDebugRPC {
     #[method(name = "logaccountstates")]
     fn log_account_states(&self) -> RpcResult<()>;
 
-    // Log txqueue state
-    #[method(name = "logqueues")]
-    fn log_queues(&self) -> RpcResult<()>;
+    // Log block template state
+    #[method(name = "logblocktemplates")]
+    fn log_block_templates(&self) -> RpcResult<()>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -191,9 +191,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         })
     }
 
-    fn log_queues(&self) -> RpcResult<()> {
-        let queues = &self.handler.core.tx_queues;
-        debug!("queues : {:#?}", queues);
+    fn log_block_templates(&self) -> RpcResult<()> {
+        let templates = &self.handler.core.block_templates;
+        debug!("templates : {:#?}", templates);
         Ok(())
     }
 }

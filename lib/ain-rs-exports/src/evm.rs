@@ -3,6 +3,7 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
+    blocktemplate::QueueTx,
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
@@ -12,7 +13,6 @@ use ain_evm::{
         self,
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
     },
-    txqueue::QueueTx,
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
     Result,
 };
@@ -208,44 +208,47 @@ fn get_balance(address: &str) -> Result<u64> {
     Ok(amount)
 }
 
-/// Retrieves the next valid nonce of an EVM account in a specific queue_id
+/// Retrieves the next valid nonce of an EVM account in a specific template_id
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 /// * `address` - The EVM address of the account.
 ///
 /// # Returns
 ///
-/// Returns the next valid nonce of the account in a specific queue_id as a `u64`
+/// Returns the next valid nonce of the account in a specific template_id as a `u64`
 #[ffi_fallible]
-fn unsafe_get_next_valid_nonce_in_q(queue_id: u64, address: &str) -> Result<u64> {
+fn unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe {
         let next_nonce = SERVICES
             .evm
             .core
-            .get_next_valid_nonce_in_queue(queue_id, address)?;
+            .get_next_valid_nonce_in_block_template(template_id, address)?;
 
         let nonce = u64::try_from(next_nonce)?;
         Ok(nonce)
     }
 }
 
-/// Removes all transactions in the queue above a native hash
+/// Removes all transactions in the block template above a native hash
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 /// * `address` - The EVM address of the account.
 #[ffi_fallible]
-fn unsafe_remove_txs_above_hash_in_q(queue_id: u64, target_hash: String) -> Result<Vec<String>> {
+fn unsafe_remove_txs_above_hash_in_template(
+    template_id: u64,
+    target_hash: String
+) -> Result<Vec<String>> {
     unsafe {
         SERVICES
             .evm
             .core
-            .remove_txs_above_hash_in(queue_id, target_hash)
+            .remove_txs_above_hash_in_block_template(template_id, target_hash)
     }
 }
 
@@ -253,12 +256,17 @@ fn unsafe_remove_txs_above_hash_in_q(queue_id: u64, target_hash: String) -> Resu
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 /// * `address` - The EVM address of the account.
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 #[ffi_fallible]
-fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
+fn unsafe_add_balance_in_template(
+    template_id: u64,
+    raw_tx: &str,
+    native_hash: &str,
+    mnview_ptr: usize
+) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -274,7 +282,7 @@ fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_queue(queue_id, queue_tx, native_hash)
+            .push_tx_in_block_template(template_id, queue_tx, native_hash, mnview_ptr)
     }
 }
 
@@ -282,7 +290,7 @@ fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 /// * `address` - The EVM address of the account.
 /// * `amount` - The amount to subtract as a byte array.
 /// * `hash` - The hash value as a byte array.
@@ -290,7 +298,7 @@ fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 /// # Errors
 ///
 /// Returns an Error if:
-/// - the `queue_id` does not match any existing queue
+/// - the `template_id` does not match any existing template
 /// - the address is not a valid EVM address
 /// - the account has insufficient balance.
 ///
@@ -298,7 +306,12 @@ fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
 #[ffi_fallible]
-fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<bool> {
+fn unsafe_sub_balance_in_template(
+    template_id: u64,
+    raw_tx: &str,
+    native_hash: &str,
+    mnview_ptr: usize
+) -> Result<bool> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -314,7 +327,7 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_queue(queue_id, queue_tx, native_hash)?;
+            .push_tx_in_block_template(template_id, queue_tx, native_hash, mnview_ptr)?;
         Ok(true)
     }
 }
@@ -324,7 +337,7 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 /// # Arguments
 ///
 /// * `result` - Result object
-/// * `queue_id` - The EVM queue ID
+/// * `template_id` - The EVM template ID
 /// * `tx` - The raw transaction string.
 ///
 /// # Errors
@@ -343,10 +356,10 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
-    debug!("[unsafe_validate_raw_tx_in_q]");
+fn unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) -> Result<()> {
+    debug!("[unsafe_validate_raw_tx_in_template]");
     unsafe {
-        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
+        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, template_id)?;
         Ok(())
     }
 }
@@ -356,7 +369,7 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
 /// # Arguments
 ///
 /// * `result` - Result object
-/// * `queue_id` - The EVM queue ID
+/// * `template_id` - The EVM template ID
 /// * `tx` - The raw transaction string.
 ///
 /// # Errors
@@ -374,16 +387,16 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_transferdomain_tx_in_q(
-    queue_id: u64,
+fn unsafe_validate_transferdomain_tx_in_template(
+    template_id: u64,
     raw_tx: &str,
     context: ffi::TransferDomainInfo,
 ) -> Result<()> {
-    debug!("[unsafe_validate_transferdomain_tx_in_q]");
+    debug!("[unsafe_validate_transferdomain_tx_in_template]");
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
             raw_tx,
-            queue_id,
+            template_id,
             TransferDomainTxInfo {
                 from: context.from,
                 to: context.to,
@@ -397,33 +410,42 @@ fn unsafe_validate_transferdomain_tx_in_q(
     }
 }
 
-/// Retrieves the EVM queue ID.
+/// Retrieves the EVM template ID.
 ///
 /// # Returns
 ///
-/// Returns the EVM queue ID as a `u64`.
+/// Returns the EVM template ID as a `u64`.
 #[ffi_fallible]
-fn unsafe_create_queue(timestamp: u64) -> Result<u64> {
-    unsafe { SERVICES.evm.core.create_queue(timestamp) }
+fn unsafe_create_template(dvm_block: u64, miner_address: &str, timestamp: u64) -> Result<u64> {
+    let eth_address = miner_address
+        .parse::<H160>()
+        .map_err(|_| "Invalid address")?;
+
+    unsafe {
+        SERVICES
+            .evm
+            .core
+            .create_block_template(dvm_block, eth_address, timestamp)
+    }
 }
 
-/// /// Discards an EVM queue.
+/// /// Discards an EVM block template.
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 ///
 #[ffi_fallible]
-fn unsafe_remove_queue(queue_id: u64) -> Result<()> {
-    unsafe { SERVICES.evm.core.remove_queue(queue_id) }
+fn unsafe_remove_template(template_id: u64) -> Result<()> {
+    unsafe { SERVICES.evm.core.remove_block_template(template_id) }
     Ok(())
 }
 
-/// Add an EVM transaction to a specific queue.
+/// Add an EVM transaction to a specific block template.
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 /// * `raw_tx` - The raw transaction string.
 /// * `hash` - The native transaction hash.
 ///
@@ -431,13 +453,14 @@ fn unsafe_remove_queue(queue_id: u64) -> Result<()> {
 ///
 /// Returns an Error if:
 /// - The `raw_tx` is in invalid format
-/// - The queue does not exists.
+/// - The block template does not exists.
 ///
 #[ffi_fallible]
-fn unsafe_push_tx_in_q(
-    queue_id: u64,
+fn unsafe_push_tx_in_template(
+    template_id: u64,
     raw_tx: &str,
     native_hash: &str,
+    mnview_ptr: usize,
 ) -> Result<ffi::ValidateTxCompletion> {
     let native_hash = native_hash.to_string();
 
@@ -449,9 +472,12 @@ fn unsafe_push_tx_in_q(
             .try_get_or_create(raw_tx)?;
 
         let tx_hash = signed_tx.hash();
-        SERVICES
-            .evm
-            .push_tx_in_queue(queue_id, signed_tx.into(), native_hash)?;
+        SERVICES.evm.push_tx_in_block_template(
+            template_id,
+            signed_tx.into(),
+            native_hash,
+            mnview_ptr
+        )?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", tx_hash),
@@ -463,7 +489,7 @@ fn unsafe_push_tx_in_q(
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 /// * `difficulty` - The block's difficulty.
 /// * `miner_address` - The miner's EVM address as a byte array.
 /// * `timestamp` - The block's timestamp.
@@ -472,39 +498,24 @@ fn unsafe_push_tx_in_q(
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 #[ffi_fallible]
-fn unsafe_construct_block_in_q(
-    queue_id: u64,
+fn unsafe_construct_block_in_template(
+    template_id: u64,
     difficulty: u32,
-    miner_address: &str,
-    timestamp: u64,
-    dvm_block_number: u64,
-    mnview_ptr: usize,
 ) -> Result<ffi::FinalizeBlockCompletion> {
-    let eth_address = miner_address
-        .parse::<H160>()
-        .map_err(|_| "Invalid address")?;
-
     unsafe {
         let FinalizedBlockInfo {
             block_hash,
-            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number,
-        } = SERVICES.evm.construct_block_in_queue(
-            queue_id,
-            difficulty,
-            eth_address,
-            timestamp,
-            dvm_block_number,
-            mnview_ptr,
-        )?;
+        } = SERVICES
+            .evm
+            .construct_block_in_template(template_id, difficulty)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 
         Ok(ffi::FinalizeBlockCompletion {
             block_hash,
-            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: block_number.as_u64(),
@@ -513,8 +524,8 @@ fn unsafe_construct_block_in_q(
 }
 
 #[ffi_fallible]
-fn unsafe_commit_queue(queue_id: u64) -> Result<()> {
-    unsafe { SERVICES.evm.commit_queue(queue_id) }
+fn unsafe_commit_block(template_id: u64) -> Result<()> {
+    unsafe { SERVICES.evm.commit_block(template_id) }
 }
 
 #[ffi_fallible]
@@ -525,7 +536,7 @@ fn disconnect_latest_block() -> Result<()> {
 
 #[ffi_fallible]
 fn handle_attribute_apply(
-    _queue_id: u64,
+    _template_id: u64,
     _attribute_type: ffi::GovVarKeyDataStructure,
     _value: Vec<u8>,
 ) -> Result<bool> {
@@ -618,7 +629,7 @@ fn get_block_count() -> Result<u64> {
 
 #[ffi_fallible]
 fn is_dst20_deployed_or_queued(
-    queue_id: u64,
+    template_id: u64,
     name: &str,
     symbol: &str,
     token_id: u64,
@@ -626,7 +637,7 @@ fn is_dst20_deployed_or_queued(
     unsafe {
         SERVICES
             .evm
-            .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
+            .is_dst20_deployed_or_queued(template_id, name, symbol, token_id)
     }
 }
 
@@ -745,11 +756,12 @@ fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
 
 #[ffi_fallible]
 fn create_dst20(
-    queue_id: u64,
+    template_id: u64,
     native_hash: &str,
     name: &str,
     symbol: &str,
     token_id: u64,
+    mnview_ptr: usize,
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
     let address = ain_contracts::dst20_address_from_token_id(token_id)?;
@@ -765,17 +777,18 @@ fn create_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_queue(queue_id, system_tx, native_hash)
+            .push_tx_in_block_template(template_id, system_tx, native_hash, mnview_ptr)
     }
 }
 
 #[ffi_fallible]
 fn unsafe_bridge_dst20(
-    queue_id: u64,
+    template_id: u64,
     raw_tx: &str,
     native_hash: &str,
     token_id: u64,
     out: bool,
+    mnview_ptr: usize,
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
     let contract_address = ain_contracts::dst20_address_from_token_id(token_id)?;
@@ -793,7 +806,7 @@ fn unsafe_bridge_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_queue(queue_id, system_tx, native_hash)
+            .push_tx_in_block_template(template_id, system_tx, native_hash, mnview_ptr)
     }
 }
 
@@ -815,18 +828,18 @@ fn get_tx_hash(raw_tx: &str) -> Result<String> {
     Ok(format!("{:?}", signed_tx.hash()))
 }
 
-/// Retrieves the queue target block
+/// Retrieves the block template's target block
 ///
 /// # Arguments
 ///
-/// * `queue_id` - The queue ID.
+/// * `template_id` - The template ID.
 ///
 /// # Returns
 ///
-/// Returns the target block for a specific `queue_id` as a `u64`
+/// Returns the target block for a specific `template_id` as a `u64`
 #[ffi_fallible]
-fn unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
-    let target_block = unsafe { SERVICES.evm.core.get_target_block_in(queue_id)? };
+fn unsafe_get_target_block_in_template(template_id: u64) -> Result<u64> {
+    let target_block = unsafe { SERVICES.evm.core.get_target_block_in(template_id)? };
     Ok(target_block.as_u64())
 }
 
@@ -840,10 +853,14 @@ fn unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
 ///
 /// Returns `true` if the address is a contract, `false` otherwise
 #[ffi_fallible]
-fn unsafe_is_smart_contract_in_q(address: &str, queue_id: u64) -> Result<bool> {
+fn unsafe_is_smart_contract_in_template(address: &str, template_id: u64) -> Result<bool> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
-    unsafe { SERVICES.evm.is_smart_contract_in_queue(address, queue_id) }
+    unsafe {
+        SERVICES
+            .evm
+            .is_smart_contract_in_block_template(address, template_id)
+    }
 }
 
 #[ffi_fallible]
@@ -870,8 +887,8 @@ fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
 }
 
 #[ffi_fallible]
-fn unsafe_get_total_gas_used(queue_id: u64) -> Result<String> {
-    unsafe { Ok(SERVICES.evm.core.get_total_gas_used(queue_id)) }
+fn unsafe_get_total_gas_used(template_id: u64) -> Result<String> {
+    unsafe { Ok(SERVICES.evm.core.get_total_gas_used(template_id)) }
 }
 
 #[ffi_fallible]

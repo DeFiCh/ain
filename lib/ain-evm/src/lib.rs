@@ -1,5 +1,6 @@
 mod backend;
 pub mod block;
+pub mod blocktemplate;
 pub mod bytes;
 mod contract;
 pub mod core;
@@ -17,14 +18,13 @@ pub mod services;
 pub mod storage;
 pub mod transaction;
 mod trie;
-pub mod txqueue;
 pub mod weiamount;
 
 pub use anyhow::{format_err, Ok};
 use backend::BackendError;
+use blocktemplate::BlockTemplateError;
 use thiserror::Error;
 use transaction::TransactionError;
-use txqueue::QueueError;
 pub type Result<T> = std::result::Result<T, EVMError>;
 
 pub type MaybeBlockAny = Option<ethereum::Block<ethereum::TransactionAny>>;
@@ -35,7 +35,7 @@ pub enum EVMError {
     #[error("EVM: Backend error: {0:?}")]
     TrieCreationFailed(#[from] BackendError),
     #[error("EVM: Queue error {0:?}")]
-    QueueError(#[from] QueueError),
+    BlockTemplateError(#[from] BlockTemplateError),
     #[error("EVM: Queue invalid nonce error {0:?}")]
     QueueInvalidNonce((Box<transaction::SignedTx>, ethereum_types::U256)),
     #[error("EVM: Exceed block size limit")]

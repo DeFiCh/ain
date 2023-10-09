@@ -23,7 +23,7 @@ fn is_empty_account(account: &Account) -> bool {
     account.balance.is_zero() && account.nonce.is_zero() && account.code_hash.is_zero()
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Vicinity {
     pub gas_price: U256,
     pub origin: H160,

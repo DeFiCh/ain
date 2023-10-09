@@ -11,20 +11,19 @@ use log::{debug, trace};
 
 use crate::{
     backend::EVMBackend,
+    blocktemplate::{QueueTx, ReceiptAndOptionalContractAddress},
     bytes::Bytes,
     contract::{
         bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
         dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
-    evm::ReceiptAndOptionalContractAddress,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
         SignedTx,
     },
-    txqueue::QueueTx,
     EVMError, Result,
 };
 
@@ -192,8 +191,6 @@ impl<'backend> AinExecutor<'backend> {
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
         if !system_tx && total_gas_used + U256::from(used_gas) > block_gas_limit {
-            self.backend
-                .refund_unused_gas_fee(signed_tx, U256::zero(), base_fee)?;
             return Err(EVMError::BlockSizeLimit(
                 "Block size limit exceeded, tx cannot make it into the block".to_string(),
             ));
