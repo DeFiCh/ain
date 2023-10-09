@@ -135,7 +135,7 @@ class RPCBindTest(DefiTestFramework):
         if self.non_loopback_ip is None and self.options.run_nonloopback:
             raise SkipTest("This test requires a non-loopback ip address.")
 
-        self.defaultport = rpc_port(0)
+        self.defaultport = rpc_port(0, 1)
 
         if not self.options.run_nonloopback:
             self._run_loopback_tests()
