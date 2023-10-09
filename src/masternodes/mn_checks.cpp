@@ -330,6 +330,7 @@ class CCustomTxApplyVisitor {
     uint64_t time;
     uint32_t txn;
     const std::shared_ptr<CScopedQueueID> &evmQueueId;
+    bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
     template<typename T, typename T1, typename ...Args>
@@ -338,7 +339,7 @@ class CCustomTxApplyVisitor {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>)
-            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, evmPreValidate}(obj);
+            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate}(obj);
         else if constexpr (sizeof...(Args) != 0)
             return ConsensusHandler<T, Args...>(obj);
         else
@@ -356,6 +357,7 @@ public:
                           uint64_t time,
                           uint32_t txn,
                           const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                          const bool isEvmEnabledForBlock,
                           const bool evmPreValidate)
 
         : tx(tx),
@@ -366,6 +368,7 @@ public:
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
+          isEvmEnabledForBlock(isEvmEnabledForBlock),
           evmPreValidate(evmPreValidate) {}
 
     template<typename T>
@@ -443,12 +446,13 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const uint64_t time,
                   const uint32_t txn,
                   std::shared_ptr<CScopedQueueID> &evmQueueId,
+                  const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    if (!evmQueueId && IsEVMEnabled(mnview, consensus)) {
+    if (!evmQueueId && isEvmEnabledForBlock) {
         evmQueueId = CScopedQueueID::Create(time);
         if (!evmQueueId) {
             return Res::Err("Failed to create queue");
@@ -457,7 +461,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
 
     try {
         auto res = std::visit(
-                CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmQueueId, evmPreValidate),
+                CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate),
                 txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
@@ -546,6 +550,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint256 *canSpend,
                   uint32_t txn,
                   std::shared_ptr<CScopedQueueID> &evmQueueId,
+                  const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
@@ -558,7 +563,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     auto attributes = mnview.GetAttributes();
     assert(attributes);
 
-    if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !IsEVMEnabled(attributes)) {
+    if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
     }
 
@@ -585,7 +590,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, evmPreValidate);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {

@@ -53,6 +53,7 @@ protected:
     const uint64_t time;
     const uint32_t txn;
     const std::shared_ptr<CScopedQueueID> &evmQueueId;
+    bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
 public:
@@ -64,6 +65,7 @@ public:
                      const uint64_t time,
                      const uint32_t txn,
                      const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                     const bool isEvmEnabledForBlock,
                      const bool evmPreValidate);
 
 protected:

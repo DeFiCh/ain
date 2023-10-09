@@ -604,8 +604,11 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         CCustomCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        std::shared_ptr<CScopedQueueID> evmQueueId;
-        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, 0, nullptr, 0, evmQueueId, false);
+        const auto& consensus = Params().GetConsensus();
+        const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
+
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
 
         result.pushKV("valid", res.ok);
     } else {

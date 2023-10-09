@@ -87,6 +87,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const uint64_t time,
                                    const uint32_t txn,
                                    const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                                   const bool isEvmEnabledForBlock,
                                    const bool evmPreValidate)
         : height(height),
           mnview(mnview),
@@ -96,6 +97,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
           time(time),
           txn(txn),
           evmQueueId(evmQueueId),
+          isEvmEnabledForBlock(isEvmEnabledForBlock),
           evmPreValidate(evmPreValidate) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {

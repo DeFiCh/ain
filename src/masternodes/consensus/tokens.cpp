@@ -101,7 +101,7 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         }
     }
 
-    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, evmQueueId);
+    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, isEvmEnabledForBlock, evmQueueId);
     return tokenId;
 }
 

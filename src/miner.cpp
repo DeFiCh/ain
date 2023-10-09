@@ -249,9 +249,10 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     }
 
     const auto attributes = mnview.GetAttributes();
+    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
 
-    std::shared_ptr<CScopedQueueID> evmQueueId;
-    if (IsEVMEnabled(attributes)) {
+    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    if (isEvmEnabledForBlock) {
         evmQueueId = CScopedQueueID::Create(blockTime);
         if (!evmQueueId) {
             return Res::Err("Failed to create queue");
@@ -261,13 +262,13 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
     }
 
     XVM xvm{};
-    if (evmQueueId) {
+    if (isEvmEnabledForBlock) {
         auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId->GetQueueID(), pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
@@ -370,7 +371,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         }
 
-        if (evmQueueId) {
+        if (isEvmEnabledForBlock) {
             if (xvm.evm.blockHash.empty()) {
                 return Res::Err("EVM block hash is null");
             }
@@ -655,7 +656,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::shared_ptr<CScopedQueueID> &evmQueueId, std::map<uint256, CAmount>& txFees)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::shared_ptr<CScopedQueueID> &evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -821,7 +822,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
             if (txType != CustomTxType::None) {
                 const auto evmType = txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain;
                 if (evmType) {
-                    if (!evmQueueId) {
+                    if (!isEvmEnabledForBlock) {
                         customTxPassed = false;
                         break;
                     }
@@ -843,7 +844,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, false);
+                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     failedTxSet.insert(entry);

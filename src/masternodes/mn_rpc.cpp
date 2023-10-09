@@ -457,8 +457,9 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
             AddCoins(coins, *optAuthTx, height);
         CCustomCSView view(*pcustomcsview);
         auto consensus = Params().GetConsensus();
-        std::shared_ptr<CScopedQueueID> evmQueueId;
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, evmQueueId, true);
+        const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, evmQueueId, isEvmEnabledForBlock, true);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

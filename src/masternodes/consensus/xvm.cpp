@@ -176,13 +176,14 @@ static Res ValidateTransferDomain(const CTransaction &tx,
                            const Consensus::Params &consensus,
                            const CTransferDomainMessage &obj,
                            const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                           const bool isEvmEnabledForBlock,
                            std::vector<TransferDomainInfo> &contexts)
 {
     if (!IsTransferDomainEnabled(height, mnview, consensus)) {
         return DeFiErrors::TransferDomainNotEnabled();
     }
 
-    if (!evmQueueId) {
+    if (!isEvmEnabledForBlock) {
         return DeFiErrors::TransferDomainEVMNotEnabled();
     }
 
@@ -208,7 +209,7 @@ static Res ValidateTransferDomain(const CTransaction &tx,
 
 Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     std::vector<TransferDomainInfo> contexts;
-    auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, evmQueueId, contexts);
+    auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, evmQueueId, isEvmEnabledForBlock, contexts);
     if (!res) { return res; }
 
     auto attributes = mnview.GetAttributes();
@@ -377,7 +378,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 }
 
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
-    if (!evmQueueId) {
+    if (!isEvmEnabledForBlock) {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
 

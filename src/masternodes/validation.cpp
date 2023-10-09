@@ -2488,10 +2488,10 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex, CCustomCSView &mnvie
     }
 }
 
-Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const std::shared_ptr<CScopedQueueID> &evmQueueId) {
+Res ProcessDeFiEventFallible(const CBlock &block, const CBlockIndex *pindex, CCustomCSView &mnview, const CChainParams& chainparams, const std::shared_ptr<CScopedQueueID> &evmQueueId, const bool isEvmEnabledForBlock) {
     CCustomCSView cache(mnview);
 
-    if (evmQueueId) {
+    if (isEvmEnabledForBlock) {
         // Process EVM block
         auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
         if (!res) return res;

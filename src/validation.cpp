@@ -650,9 +650,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         const auto& consensus = chainparams.GetConsensus();
+        const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        std::shared_ptr<CScopedQueueID> evmQueueId;
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, evmQueueId, true);
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, true);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2436,8 +2437,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                std::shared_ptr<CScopedQueueID> evmQueueId;
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, false);
+                std::shared_ptr<CScopedQueueID> evmQueueId{};
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, false, false);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2647,9 +2648,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     const auto& consensus = chainparams.GetConsensus();
+    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
+    std::shared_ptr<CScopedQueueID> evmQueueId{};
 
-    std::shared_ptr<CScopedQueueID> evmQueueId;
-    if (IsEVMEnabled(attributes)) {
+    if (isEvmEnabledForBlock) {
         evmQueueId = CScopedQueueID::Create(pindex->GetBlockTime());
         if (!evmQueueId) {
             return Res::Err("Failed to create queue");
@@ -2726,7 +2728,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, false);
+            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, isEvmEnabledForBlock, false);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -2894,7 +2896,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -2973,7 +2975,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     }
 
     // Finalize items
-    if (evmQueueId) {
+    if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_try_unsafe_commit_queue(result, evmQueueId->GetQueueID()));
     }
 
