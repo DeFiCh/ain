@@ -310,7 +310,7 @@ class EIP1559Fees(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
         # send lower priority fee tx, RBF should not happen
@@ -382,6 +382,47 @@ class EIP1559Fees(DefiTestFramework):
             self.node.w3.eth.send_raw_transaction,
             signed.rawTransaction,
         )
+
+        # send less than 10% increase in priority fees, RBF should not happen
+        priority_fee5 = self.node.w3.to_wei("32", "gwei")
+        max_fee5 = self.node.w3.to_wei("100", "gwei")
+        tx = self.contract.functions.store(10).build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxPriorityFeePerGas": priority_fee5,
+                "maxFeePerGas": max_fee5,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        assert_raises_web3_error(
+            -32001,
+            "evm-low-fee",
+            self.node.w3.eth.send_raw_transaction,
+            signed.rawTransaction,
+        )
+
+        # send exactly 10% increase in priority fees, RBF should happen
+        priority_fee6 = self.node.w3.to_wei("33", "gwei")
+        max_fee6 = self.node.w3.to_wei("100", "gwei")
+        tx = self.contract.functions.store(10).build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxPriorityFeePerGas": priority_fee6,
+                "maxFeePerGas": max_fee6,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
         self.nodes[0].generate(1)
@@ -395,14 +436,14 @@ class EIP1559Fees(DefiTestFramework):
 
         assert_equal(
             receipt["effectiveGasPrice"],
-            base_fee + min(max_fee1 - base_fee, priority_fee1),
+            base_fee + min(max_fee6 - base_fee, priority_fee6),
         )
         assert_equal(
             before_balance - after_balance,
             receipt["effectiveGasPrice"] * receipt["gasUsed"],
         )
         assert_equal(
-            miner_balance, min(max_fee1 - base_fee, priority_fee1) * receipt["gasUsed"]
+            miner_balance, min(max_fee6 - base_fee, priority_fee6) * receipt["gasUsed"]
         )  # priority fee should be sent to miner
         assert_equal(
             before_balance - after_balance - miner_balance,

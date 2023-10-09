@@ -12,6 +12,7 @@ from test_framework.util import (
 )
 from decimal import Decimal
 from time import time
+import math
 
 
 class EVMTest(DefiTestFramework):
@@ -384,13 +385,14 @@ class EVMTest(DefiTestFramework):
         hashes = []
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         start_time = time()
+        gas_price = 25_000_000_000
         for i in range(64):
             # tx call actual used gas: 1_761_626
             tx = contract.functions.loop(10_000).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
                     "nonce": start_nonce + i,
-                    "gasPrice": 25_000_000_000,
+                    "gasPrice": gas_price,
                     "gas": 30_000_000,
                 }
             )
@@ -400,11 +402,12 @@ class EVMTest(DefiTestFramework):
 
         # Do valid RBF for nonce zero with incrementing fee
         for i in range(40):
+            gas_price = math.ceil(gas_price * 1.1)
             tx = contract.functions.loop(10_000).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
                     "nonce": start_nonce,
-                    "gasPrice": (25_000_000_000 + i),
+                    "gasPrice": gas_price,
                     "gas": 30_000_000,
                 }
             )

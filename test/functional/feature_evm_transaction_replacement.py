@@ -7,6 +7,7 @@
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, assert_raises_rpc_error, int_to_eth_u256
+import math
 
 
 # pragma solidity ^0.8.2;
@@ -119,8 +120,9 @@ class EVMTest(DefiTestFramework):
             }
         )
 
-    def should_prioritize_transaction_with_the_higher_gas_price(self):
-        gasPrices = [
+    def should_not_replace_transaction_with_gas_price_lower_than_mininum_rbf_fee(self):
+        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
+        invalidGasPrices = [
             "0x2540be401",
             "0x2540be402",
             "0x2540be403",
@@ -130,128 +132,56 @@ class EVMTest(DefiTestFramework):
             "0x2540be407",
         ]
 
-        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
-        for gasPrice in gasPrices:
-            self.send_transaction(gasPrice, count)
+        # Send minimum gas fee tx (initial block base fee)
+        self.send_transaction("0x2540be400", count)
+        assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
-        assert_raises_rpc_error(
-            -32001,
-            "evm-low-fee",
-            self.send_transaction,
-            gasPrices[0],
-            count,
-        )
-
-        self.nodes[0].generate(1)
-
-        block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(len(block["transactions"]), 1)
-        assert_equal(block["transactions"][0]["gasPrice"], "0x2540be407")
-
-    def should_replace_pending_transaction_0(self):
-        gasPrices = [
-            "0x2540be400",
-            "0x2540be401",
-            # '0x2540be404',
-            # '0x2540be406',
-            # '0x2540be401',
-            # '0x2540be407',
-            # '0x2540be402',
-            # '0x2540be405',
-            # '0x2540be403',
-        ]
-
-        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
-        for gasPrice in gasPrices:
-            self.send_transaction(gasPrice, count)
+        # Test for edge case tx in mempool with 0 promised tip fees should not be replaced
+        # with txs that have tip fee increment lower than 1000 wei per gas
+        for gasPrice in invalidGasPrices:
+            assert_raises_rpc_error(
+                -32001,
+                "evm-low-fee",
+                self.send_transaction,
+                gasPrice,
+                count,
+            )
 
         self.nodes[0].generate(1)
-
         block = self.nodes[0].eth_getBlockByNumber("latest", True)
         assert_equal(len(block["transactions"]), 1)
-        assert_equal(block["transactions"][0]["gasPrice"], "0x2540be401")
+        assert_equal(block["transactions"][0]["gasPrice"], "0x2540be400")
 
-    def should_replace_pending_transaction_1(self):
-        gasPrices = [
-            # '0x2540be401',
-            "0x2540be400",
-            "0x2540be404",
-            # '0x2540be406',
-            # '0x2540be401',
-            # '0x2540be407',
-            # '0x2540be402',
-            # '0x2540be405',
-            # '0x2540be403',
-        ]
-
+    def should_prioritize_transaction_with_the_higher_gas_price(self):
+        gasPrice = 10_000_000_000
+        gasPrices = []
         count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
-        for gasPrice in gasPrices:
-            self.send_transaction(gasPrice, count)
+        for i in range(10):
+            hexGasPrice = self.nodes[0].w3.to_hex(gasPrice)
+            gasPrices.append(hexGasPrice)
+            self.send_transaction(hexGasPrice, count)
+            gasPrice = math.ceil(gasPrice * 1.1)
+
+        for price in gasPrices[:-1]:
+            assert_raises_rpc_error(
+                -32001,
+                "evm-low-fee",
+                self.send_transaction,
+                price,
+                count,
+            )
 
         self.nodes[0].generate(1)
-
         block = self.nodes[0].eth_getBlockByNumber("latest", True)
         assert_equal(len(block["transactions"]), 1)
-        assert_equal(block["transactions"][0]["gasPrice"], "0x2540be404")
-
-    def should_replace_pending_transaction_2(self):
-        gasPrices = [
-            # '0x2540be401',
-            "0x2540be400",
-            "0x2540be404",
-            "0x2540be406",
-            # '0x2540be401',
-            # '0x2540be407',
-            # '0x2540be402',
-            # '0x2540be405',
-            # '0x2540be403',
-        ]
-
-        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
-        for gasPrice in gasPrices:
-            self.send_transaction(gasPrice, count)
-
-        self.nodes[0].generate(1)
-
-        block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(len(block["transactions"]), 1)
-        assert_equal(block["transactions"][0]["gasPrice"], "0x2540be406")
-
-    def should_replace_pending_transaction_3(self):
-        gasPrices = [
-            # '0x2540be401',
-            "0x2540be400",
-            "0x2540be401",
-            "0x2540be404",
-            "0x2540be406",
-            # '0x2540be407',
-            # '0x2540be402',
-            # '0x2540be405',
-            # '0x2540be403',
-        ]
-
-        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
-        for gasPrice in gasPrices:
-            self.send_transaction(gasPrice, count)
-
-        self.nodes[0].generate(1)
-
-        block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(len(block["transactions"]), 1)
-        assert_equal(block["transactions"][0]["gasPrice"], "0x2540be406")
+        assert_equal(block["transactions"][0]["gasPrice"], gasPrices[-1])
 
     def run_test(self):
         self.setup()
 
+        self.should_not_replace_transaction_with_gas_price_lower_than_mininum_rbf_fee()
+
         self.should_prioritize_transaction_with_the_higher_gas_price()
-
-        self.should_replace_pending_transaction_0()
-
-        self.should_replace_pending_transaction_1()
-
-        self.should_replace_pending_transaction_2()
-
-        self.should_replace_pending_transaction_3()
 
 
 if __name__ == "__main__":

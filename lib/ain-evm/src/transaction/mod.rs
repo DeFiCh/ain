@@ -110,6 +110,7 @@ impl fmt::Debug for SignedTx {
             .field("to", &self.to())
             .field("action", &self.action())
             .field("value", &self.value())
+            .field("gas_price", &self.gas_price())
             .field("gas_limit", &self.gas_limit())
             .field("max_fee_per_gas", &self.max_fee_per_gas())
             .field("max_priority_fee_per_gas", &self.max_priority_fee_per_gas())
