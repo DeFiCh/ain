@@ -53,7 +53,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
     if (!res)
         return DeFiErrors::ScriptUnexpected(destScript);
 
-    const auto srcType  = FromTxDestType(src.index());
+    const auto srcType = FromTxDestType(src.index());
     const auto destType = FromTxDestType(dest.index());
 
     if (edge == VMDomainEdge::DVMToEVM) {
@@ -63,7 +63,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
         if (!config.dvmToEvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
-        context.to             = EncodeDestination(dest);
+        context.to = EncodeDestination(dest);
         context.native_address = EncodeDestination(src);
         return Res::Ok();
 
@@ -74,7 +74,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
         if (!config.evmToDvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
-        context.from           = EncodeDestination(src);
+        context.from = EncodeDestination(src);
         context.native_address = EncodeDestination(dest);
         return Res::Ok();
     }
@@ -105,9 +105,9 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
     if (src.amount.nValue < 0)
         return DeFiErrors::TransferDomainInvalid();
 
-    auto tokenId     = src.amount.nTokenId;
+    auto tokenId = src.amount.nTokenId;
     context.token_id = tokenId.v;
-    context.value    = dst.amount.nValue;
+    context.value = dst.amount.nValue;
 
     if (tokenId != DCT_ID{0}) {
         auto token = mnview.GetToken(tokenId);
@@ -218,7 +218,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     }
 
     auto attributes = mnview.GetAttributes();
-    auto stats      = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
     std::string evmTxHash;
     CrossBoundaryResult result;
 
@@ -364,7 +364,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     }
 
     auto txHash = tx.GetHash().GetHex();
-    res         = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+    res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
     if (!res) {
         LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash);
     }
@@ -406,9 +406,9 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("evm tx failed to queue %s\n", result.reason);
     }
 
-    auto txHash    = tx.GetHash().GetHex();
+    auto txHash = tx.GetHash().GetHex();
     auto evmTxHash = std::string(validateResults.tx_hash.data(), validateResults.tx_hash.length()).substr(2);
-    auto res       = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
+    auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
     if (!res) {
         LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash);
     }
