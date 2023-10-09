@@ -337,9 +337,10 @@ impl SignedTx {
 }
 
 use std::{
+    cell::Cell,
     cmp::min,
     convert::{TryFrom, TryInto},
-    fmt, cell::Cell,
+    fmt,
 };
 
 #[derive(Debug)]
