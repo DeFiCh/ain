@@ -277,5 +277,9 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             queue_id: u64,
         ) -> String;
+        fn evm_try_dispatch_pending_transactions_event(
+            result: &mut CrossBoundaryResult,
+            raw_tx: &str,
+        );
     }
 }

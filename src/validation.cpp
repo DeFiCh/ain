@@ -966,6 +966,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             } else {
                 ethSender = txResultSender;
             }
+
+
+            evm_try_dispatch_pending_transactions_event(result, rawEVMTx);
+            if (!result.ok) {
+                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to generate events %s", result.reason.c_str()), REJECT_INVALID, "evm-events");
+            }
         }
 
         if (test_accept) {

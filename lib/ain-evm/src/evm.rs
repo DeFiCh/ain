@@ -535,11 +535,6 @@ impl EVMServices {
 
         self.filters.add_tx_to_filters(signed_tx.transaction.hash());
 
-        self.channel
-            .sender
-            .send(Notification::Transaction(signed_tx.transaction.hash()))
-            .map_err(|e| format_err!(e.to_string()))?;
-
         Ok(())
     }
 
