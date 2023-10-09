@@ -18,6 +18,7 @@ class CCustomCSView;
 struct CLoanSchemeData;
 class CPoolPair;
 class CScript;
+class CScopedQueueID;
 class CTokenImplementation;
 class CTransaction;
 class CVaultAssets;
@@ -51,7 +52,7 @@ protected:
     const Consensus::Params &consensus;
     const uint64_t time;
     const uint32_t txn;
-    uint64_t evmQueueId;
+    const std::shared_ptr<CScopedQueueID> &evmQueueId;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
@@ -63,7 +64,7 @@ public:
                      const Consensus::Params &consensus,
                      const uint64_t time,
                      const uint32_t txn,
-                     const uint64_t evmQueueId,
+                     const std::shared_ptr<CScopedQueueID> &evmQueueId,
                      const bool isEvmEnabledForBlock,
                      const bool evmPreValidate);
 

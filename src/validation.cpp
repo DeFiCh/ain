@@ -631,8 +631,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         view.GetBestBlock();
 
         const auto height = GetSpendHeight(view);
-        const auto& consensus = chainparams.GetConsensus();
-        auto isEvmEnabledForBlock = IsEVMEnabled(height, mnview, consensus);
 
         // rebuild accounts view if dirty
         pool.rebuildAccountsView(height, view);
@@ -651,7 +649,11 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "bad-txns-inputs-below-tx-fee");
         }
 
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, 0, isEvmEnabledForBlock, true);
+        const auto& consensus = chainparams.GetConsensus();
+        const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
+
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, true);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2368,7 +2370,7 @@ static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
  *  Validity checks that depend on the UTXO set are also done; ConnectBlock ()
  *  can fail if those validity checks fail (among other reasons). */
 bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, uint64_t evmQueueId, bool fJustCheck)
+                  CCoinsViewCache& view, CCustomCSView& mnview, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck)
 {
     AssertLockHeld(cs_main);
     assert(pindex);
@@ -2436,7 +2438,8 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, 0, false, false);
+                std::shared_ptr<CScopedQueueID> evmQueueId{};
+                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmQueueId, false, false);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2444,7 +2447,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                 AddCoins(view, *block.vtx[i], 0);
             }
         }
-        XResultThrowOnErr(evm_try_unsafe_remove_queue(result, evmQueueId));
         return true;
     }
 
@@ -2646,8 +2648,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    const auto consensus = chainparams.GetConsensus();
-    auto isEvmEnabledForBlock = IsEVMEnabled(pindex->nHeight, mnview, consensus);
+    const auto& consensus = chainparams.GetConsensus();
+    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
+    std::shared_ptr<CScopedQueueID> evmQueueId{};
+
+    if (isEvmEnabledForBlock) {
+        evmQueueId = CScopedQueueID::Create(pindex->GetBlockTime());
+        if (!evmQueueId) {
+            return Res::Err("Failed to create queue");
+        }
+    }
 
     // Execute TXs
     for (unsigned int i = 0; i < block.vtx.size(); i++)
@@ -2967,9 +2977,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Finalize items
     if (isEvmEnabledForBlock) {
-        XResultThrowOnErr(evm_try_unsafe_commit_queue(result, evmQueueId));
-    } else {
-        XResultThrowOnErr(evm_try_unsafe_remove_queue(result, evmQueueId));
+        XResultThrowOnErr(evm_try_unsafe_commit_queue(result, evmQueueId->GetQueueID()));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -3375,8 +3383,7 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
         CCoinsViewCache view(&CoinsTip());
         CCustomCSView mnview(*pcustomcsview, paccountHistoryDB.get(), pburnHistoryDB.get(), pvaultHistoryDB.get());
         bool rewardedAnchors{};
-        auto invalidStateReturn = [&](CValidationState& s, CBlockIndex* p, CCustomCSView& m, uint64_t q) {
-            XResultThrowOnErr(evm_try_unsafe_remove_queue(result, q));
+        auto invalidStateReturn = [&](CValidationState& s, CBlockIndex* p, CCustomCSView& m) {
             if (s.IsInvalid()) {
                 InvalidBlockFound(p, s);
             }
@@ -3384,13 +3391,9 @@ bool CChainState::ConnectTip(CValidationState& state, const CChainParams& chainp
             return error("ConnectBlock %s failed, %s", p->GetBlockHash().ToString(), FormatStateMessage(s));
         };
 
-        auto r = XResultValue(evm_try_unsafe_create_queue(result, pindexNew->GetBlockTime()));
-        if (!r) { return invalidStateReturn(state, pindexNew, mnview, 0); }
-        uint64_t evmQueueId = *r;
-
-        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, evmQueueId, false);
+        bool rv = ConnectBlock(blockConnecting, state, pindexNew, view, mnview, chainparams, rewardedAnchors, false);
         GetMainSignals().BlockChecked(blockConnecting, state);
-        if (!rv) { return invalidStateReturn(state, pindexNew, mnview, evmQueueId); }
+        if (!rv) { return invalidStateReturn(state, pindexNew, mnview); }
 
         nTime3 = GetTimeMicros(); nTimeConnectTotal += nTime3 - nTime2;
         LogPrint(BCLog::BENCH, "  - Connect total: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime3 - nTime2) * MILLI, nTimeConnectTotal * MICRO, nTimeConnectTotal * MILLI / nBlocksTotal);
@@ -4926,32 +4929,20 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     indexDummy.phashBlock = &block_hash;
     CheckContextState ctxState;
 
-    auto r = XResultValue(evm_try_unsafe_create_queue(result, indexDummy.GetBlockTime()));
-    if (!r) { return error("%s: Consensus::ContextualCheckBlockHeader: error creating EVM queue", __func__); }
-    uint64_t evmQueueId = *r;
-
     // NOTE: ContextualCheckProofOfStake is called by CheckBlock
-    auto res = ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime());
-    if (!res) {
-        XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
+    if (!ContextualCheckBlockHeader(block, state, chainparams, pindexPrev, GetAdjustedTime())) {
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
     }
 
-    res = CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot);
-    if (!res) {
-        XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
+    if (!CheckBlock(block, state, chainparams.GetConsensus(), ctxState, false, indexDummy.nHeight, fCheckMerkleRoot)) {
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
-    res = ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev);
-    if (!res) {
-        XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
+    if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev)) {
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
     }
 
-    res = ::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, evmQueueId, true);
-    XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
-    if (!res) return false;
+    if (!::ChainstateActive().ConnectBlock(block, state, &indexDummy, viewNew, mnview, chainparams, dummyRewardedAnchors, true)) return false;
 
     assert(state.IsValid());
 
@@ -5417,11 +5408,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
 
             bool dummyRewardedAnchors{};
-            auto r = XResultValue(evm_try_unsafe_create_queue(result, pindex->GetBlockTime()));
-            if (!r) { return error("VerifyDB(): *** evm_try_unsafe_create_queue failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString()); }
-            uint64_t evmQueueId = *r;
-            auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors, evmQueueId);
-            XResultStatusLogged(evm_try_unsafe_remove_queue(result, evmQueueId));
+            auto res = ::ChainstateActive().ConnectBlock(block, state, pindex, coins, mnview, chainparams, dummyRewardedAnchors);
             if (!res)
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), FormatStateMessage(state));
             if (ShutdownRequested()) return true;

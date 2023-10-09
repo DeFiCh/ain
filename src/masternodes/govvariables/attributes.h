@@ -7,6 +7,7 @@
 
 #include <amount.h>
 #include <masternodes/balances.h>
+#include <masternodes/evm.h>
 #include <masternodes/gv.h>
 #include <masternodes/oracles.h>
 
@@ -441,7 +442,8 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
 void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
-bool IsEVMEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
+bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
 enum GovVarsFilter {
@@ -543,7 +545,7 @@ public:
     }
 
     uint32_t time{0};
-    uint64_t evmQueueId{};
+    std::shared_ptr<CScopedQueueID> evmQueueId{};
 
     // For formatting in export
     static const std::map<uint8_t, std::string> &displayVersions();
