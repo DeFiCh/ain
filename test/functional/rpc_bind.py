@@ -91,7 +91,7 @@ class RPCBindTest(DefiTestFramework):
         # connect to node through non-loopback interface
         node = get_rpc_proxy(
             rpc_url(
-                self.nodes[0].datadir, 1, 0, self.chain, "%s:%d" % (rpchost, rpcport)
+                self.nodes[0].datadir, 0, 1, self.chain, "%s:%d" % (rpchost, rpcport)
             ),
             0,
             coveragedir=self.options.coveragedir,
