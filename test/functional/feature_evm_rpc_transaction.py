@@ -548,7 +548,7 @@ class EVMTest(DefiTestFramework):
         # assert all 6 txs are minted (including 2 auto-auth tx and coinbase)
         assert_equal(len(block_tx_info), 9)
         # test 2nd evm tx
-        assert_equal(block_tx_info[4]["vm"]["txtype"], "EvmTx")
+        assert_equal(block_tx_info[4]["vm"]["txtype"], "Evm")
         assert_equal(block_tx_info[4]["vm"]["msg"]["hash"], hash[2:])
         # test 5th transfer domain
         assert_equal(block_tx_info[7]["vm"]["txtype"], "TransferDomain")

@@ -26,6 +26,7 @@ pub struct Receipt {
     pub contract_address: Option<H160>,
     pub logs_index: usize,
     pub cumulative_gas: U256,
+    pub effective_gas_price: U256,
 }
 
 pub struct ReceiptService {
@@ -59,6 +60,7 @@ impl ReceiptService {
         receipts_and_contract_address: Vec<ReceiptAndOptionalContractAddress>,
         block_hash: H256,
         block_number: U256,
+        base_fee: U256,
     ) -> Vec<Receipt> {
         let mut logs_size = 0;
         let mut cumulative_gas = U256::zero();
@@ -93,6 +95,7 @@ impl ReceiptService {
                     }),
                     logs_index: logs_size - logs_len,
                     cumulative_gas,
+                    effective_gas_price: signed_tx.effective_gas_price(base_fee),
                 }
             })
             .collect()

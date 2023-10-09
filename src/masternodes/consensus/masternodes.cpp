@@ -21,10 +21,10 @@ Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
 Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const {
     Require(CheckMasternodeCreationTx());
 
-    if (height >= static_cast<uint32_t>(consensus.EunosHeight))
+    if (height >= static_cast<uint32_t>(consensus.DF8EunosHeight))
         Require(HasAuth(tx.vout[1].scriptPubKey), "masternode creation needs owner auth");
 
-    if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight)) {
         switch (obj.timelock) {
             case CMasternode::ZEROYEAR:
             case CMasternode::FIVEYEAR:
@@ -52,7 +52,7 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
     node.operatorAuthAddress = obj.operatorAuthAddress;
 
     // Set masternode version2 after FC for new serialisation
-    if (height >= static_cast<uint32_t>(consensus.FortCanningHeight))
+    if (height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight))
         node.version = CMasternode::VERSION0;
 
     bool duplicate{};
@@ -80,11 +80,11 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
     Require(mnview.CreateMasternode(tx.GetHash(), node, obj.timelock));
     // Build coinage from the point of masternode creation
 
-    if (height >= static_cast<uint32_t>(consensus.EunosPayaHeight))
+    if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight))
         for (uint8_t i{0}; i < SUBNODE_COUNT; ++i)
             mnview.SetSubNodesBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), i, time);
 
-    else if (height >= static_cast<uint32_t>(consensus.DakotaCrescentHeight))
+    else if (height >= static_cast<uint32_t>(consensus.DF7DakotaCrescentHeight))
         mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
 
     return Res::Ok();
@@ -220,7 +220,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             }
             rewardType = true;
 
-            if (height < static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+            if (height < static_cast<uint32_t>(consensus.DF22NextHeight)) {
                 if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                     return Res::Err("Reward address must be P2PKH or P2WPKH type");
                 }

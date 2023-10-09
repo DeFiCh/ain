@@ -1,13 +1,14 @@
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
     thread::{self, JoinHandle},
 };
 
 use anyhow::Result;
 use jsonrpsee_server::ServerHandle as HttpServerHandle;
+use parking_lot::Mutex;
 use tokio::{
     runtime::{Builder, Handle as AsyncHandle},
     sync::mpsc::{self, Sender},
@@ -68,7 +69,7 @@ impl Services {
     }
 
     pub fn stop_network(&self) -> Result<()> {
-        let mut json_rpc_handle = self.json_rpc.lock().unwrap();
+        let mut json_rpc_handle = self.json_rpc.lock();
         if (json_rpc_handle).is_none() {
             // Server was never started
             return Ok(());
@@ -88,7 +89,6 @@ impl Services {
 
         self.tokio_worker
             .lock()
-            .unwrap()
             .take()
             .expect("runtime terminated?")
             .join()

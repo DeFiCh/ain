@@ -1,88 +1,84 @@
-// File: @openzeppelin/contracts@4.9.2/token/ERC20/IERC20.sol
-
-// OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/IERC20.sol)
+// SPDX-License-Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.6.0) (proxy/Proxy.sol)
 
 pragma solidity ^0.8.0;
 
-interface IERC20 {
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
-}
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity >=0.8.2 <0.9.0;
-
 /**
- * @title TransferDomain
+ * Note: TransferDomain's public facing contract is just a facade that delegates all calls to it's 
+ * internal implementation through a proxy. This is an internal impl detail and may be changed by
+ * the node at any time, but primarily used for seamless future updates.
+ 
+ * Copied and modified from here: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.9.3/contracts/proxy/Proxy.sol
+ * following unstructured pattern
  */
 contract TransferDomain {
-    event Transfer(address indexed from, address indexed to, uint256 amount);
-    event NativeAddress(string nativeAddress);
-
-    function transfer(
-        address from,
-        address payable to,
-        uint256 amount,
-        string memory nativeAddress
-    ) external {
-        if (to != address(this)) {
-            require(
-                address(this).balance >= amount,
-                "Insufficient contract balance"
-            );
-            to.transfer(amount);
-        }
-
-        emit Transfer(from, to, amount);
-        emit NativeAddress(nativeAddress);
-    }
 
     /**
-     * @dev Returns the name of the token.
+     * @dev Storage slot with the address of the current implementation.
+     * This is the keccak-256 hash of "eip1967.proxy.implementation" subtracted by 1.
      */
-    function name() public view virtual returns (string memory) {
-        return "DFI";
-    }
+    // solhint-disable-next-line private-vars-leading-underscore
+    bytes32 internal constant IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
-    function symbol() public view virtual returns (string memory) {
-        return "DFI";
-    }
-
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
+     * @dev Delegates the current call to `implementation`.
      *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the default value returned by this function, unless
-     * it's overridden.
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
+     * This function does not return to its internal call site, it will return directly to the external caller.
      */
-    function decimals() public view virtual returns (uint8) {
-        return 18;
+    function _delegate(address implementation) internal {
+        assembly {
+        // Copy msg.data. We take full control of memory in this inline assembly
+        // block because it will not return to Solidity code. We overwrite the
+        // Solidity scratch pad at memory position 0.
+            calldatacopy(0, 0, calldatasize())
+
+        // Call the implementation.
+        // out and outsize are 0 because we don't know the size yet.
+            let result := delegatecall(gas(), implementation, 0, calldatasize(), 0, 0)
+
+        // Copy the returned data.
+            returndatacopy(0, 0, returndatasize())
+
+            switch result
+            // delegatecall returns 0 on error.
+            case 0 {
+                revert(0, returndatasize())
+            }
+            default {
+                return(0, returndatasize())
+            }
+        }
     }
 
-    function bridgeDST20(
-        address contractAddress,
-        address from,
-        address payable to,
-        uint256 amount,
-        string memory nativeAddress
-    ) external {
-        if (to != address(this)) {
-            IERC20(contractAddress).transferFrom(from, to, amount);
+    function _implementation() internal view returns (address res) {
+        assembly {
+            res := sload(IMPLEMENTATION_SLOT)
         }
-        emit NativeAddress(nativeAddress);
     }
+
+    /**
+     * @dev Delegates the current call to the address returned by `_implementation()`.
+     *
+     * This function does not return to its internal call site, it will return directly to the external caller.
+     */
+    function _fallback() internal {       
+         _delegate(_implementation());
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
+     * function in the contract matches the call data.
+     */
+    fallback() external payable {
+        _fallback();
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
+     * is empty.
+     */
+    receive() external payable {
+        _fallback();
+    }
+
 }

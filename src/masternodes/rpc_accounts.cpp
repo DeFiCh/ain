@@ -142,7 +142,7 @@ static void onPoolRewards(CCustomCSView &view,
                           uint32_t end,
                           std::function<void(uint32_t, DCT_ID, RewardType, CTokenAmount)> onReward) {
     CCustomCSView mnview(view);
-    static const uint32_t eunosHeight = Params().GetConsensus().EunosHeight;
+    static const uint32_t eunosHeight = Params().GetConsensus().DF8EunosHeight;
     view.ForEachPoolId([&] (DCT_ID const & poolId) {
         auto height = view.GetShare(poolId, owner);
         if (!height || *height >= end) {
@@ -1848,7 +1848,7 @@ UniValue listcommunitybalances(const JSONRPCRequest& request) {
         }
 
         if (kv.first == CommunityAccountType::Loan) {
-            if (::ChainActive().Height() >= Params().GetConsensus().FortCanningHeight) {
+            if (::ChainActive().Height() >= Params().GetConsensus().DF11FortCanningHeight) {
                 burnt += pcustomcsview->GetCommunityBalance(kv.first);
             }
             continue;
@@ -2143,17 +2143,18 @@ UniValue transferdomain(const JSONRPCRequest& request) {
         if (useNonce) {
             nonce = nonceObj.get_int64();
         }
-        const auto createResult = evm_try_create_and_sign_transfer_domain_tx(result, CreateTransferDomainContext{from,
-                                                                                                                to,
-                                                                                                                nativeAddress,
-                                                                                                                isEVMIn,
-                                                                                                                static_cast<uint64_t>(dst.amount.nValue),
-                                                                                                                dst.amount.nTokenId.v,
-                                                                                                                Params().GetConsensus().evmChainId,
-                                                                                                                privKey,
-                                                                                                                useNonce,
-                                                                                                                nonce
-                                                                                                                });
+        const auto createResult = evm_try_create_and_sign_transfer_domain_tx(
+            result,
+            CreateTransferDomainContext{from,
+                                        to,
+                                        nativeAddress,
+                                        isEVMIn,
+                                        static_cast<uint64_t>(dst.amount.nValue),
+                                        dst.amount.nTokenId.v,
+                                        Params().GetConsensus().evmChainId,
+                                        privKey,
+                                        useNonce,
+                                        nonce});
         if (!result.ok) {
             throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
         }
@@ -2259,7 +2260,7 @@ UniValue getburninfo(const JSONRPCRequest& request) {
 
     auto height = ::ChainActive().Height();
     auto hash = ::ChainActive().Tip()->GetBlockHash();
-    auto fortCanningHeight = Params().GetConsensus().FortCanningHeight;
+    auto fortCanningHeight = Params().GetConsensus().DF11FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
     auto view = *pcustomcsview;
     auto attributes = view.GetAttributes();

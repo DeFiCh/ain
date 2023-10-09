@@ -107,7 +107,7 @@ private:
     int64_t nSigOpCostWithAncestors;
 
     // EVM related data
-    uint64_t evmPrePayFee{};
+    uint64_t evmMaxPromisedTipFee{};
     EvmAddressWithNonce evmAddressAndNonce;
     CustomTxType customTxType{CustomTxType::None};
 
@@ -132,8 +132,8 @@ public:
     // Getter / Setter for EVM related data
     void SetCustomTxType(const CustomTxType type) { customTxType = type; }
     [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
-    void SetEVMPrePayFee(const uint64_t prePayFee) { evmPrePayFee = prePayFee; }
-    [[nodiscard]] uint64_t GetEVMPrePayFee() const { return evmPrePayFee; }
+    void SetEVMPomisedTipFee(const uint64_t maxPromisedTipFee) { evmMaxPromisedTipFee = maxPromisedTipFee; }
+    [[nodiscard]] uint64_t GetEVMPromisedTipFee() const { return evmMaxPromisedTipFee; }
     void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }
     [[nodiscard]] const EvmAddressWithNonce& GetEVMAddrAndNonce() const { return evmAddressAndNonce; }
 
@@ -568,10 +568,14 @@ public:
     mutable RecursiveMutex cs;
     indexed_transaction_set mapTx GUARDED_BY(cs);
 
-    std::map<EvmAddressData, std::set<uint256>> ethTxsBySender;
+    std::map<EvmAddressData, std::set<uint256>> evmTxsBySender;
+    std::map<EvmAddressData, uint32_t> evmReplaceByFeeBySender;
 
     using txiter = indexed_transaction_set::nth_index<0>::type::const_iterator;
     std::vector<std::pair<uint256, txiter>> vTxHashes GUARDED_BY(cs); //!< All tx witness hashes/entries in mapTx, in random order
+
+    /** Map iterator for tracking failed nonces */
+    using FailedNonceIterator = std::multimap<uint64_t, txiter>::iterator;
 
     struct CompareIteratorByHash {
         bool operator()(const txiter &a, const txiter &b) const {
@@ -631,7 +635,7 @@ public:
     // and any other callers may break wallet's in-mempool tracking (due to
     // lack of CValidationInterface::TransactionAddedToMempool callbacks).
     void addUnchecked(const CTxMemPoolEntry& entry, bool validFeeEstimate = true) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
-    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true, const std::optional<EvmAddressData> ethSender = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
+    void addUnchecked(const CTxMemPoolEntry& entry, setEntries& setAncestors, bool validFeeEstimate = true, const std::optional<EvmAddressData> evmSender = std::nullopt) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
 
     void removeRecursive(const CTransaction& tx, MemPoolRemovalReason reason) EXCLUSIVE_LOCKS_REQUIRED(cs);
     void removeForReorg(const CCoinsViewCache* pcoins, unsigned int nMemPoolHeight, int flags) EXCLUSIVE_LOCKS_REQUIRED(cs, cs_main);
@@ -717,8 +721,7 @@ public:
     void TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpendsRemaining = nullptr) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** Expire all transaction (and their dependencies) in the mempool older than time. Return the number of removed transactions. */
-    int Expire(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
-    int ExpireEVM(int64_t time) EXCLUSIVE_LOCKS_REQUIRED(cs);
+    int Expire(int64_t time, int64_t evmTime) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /**
      * Calculate the ancestor and descendant count for the given transaction.
@@ -764,7 +767,7 @@ public:
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
 
-    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry);
+    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag);
 
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update

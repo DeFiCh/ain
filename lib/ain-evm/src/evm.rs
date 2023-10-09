@@ -1,6 +1,9 @@
 use std::{path::PathBuf, sync::Arc};
 
-use ain_contracts::{get_dst20_contract, Contract};
+use ain_contracts::{
+    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
+    get_transfer_domain_contract, get_transfer_domain_v1_contract, FixedContract,
+};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
@@ -10,9 +13,10 @@ use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
     contract::{
-        get_dst20_migration_txs, intrinsics_contract, reserve_dst20_namespace,
-        reserve_intrinsics_namespace, transfer_domain_contract, transfer_domain_deploy_contract_tx,
-        DeployContractInfo,
+        deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
+        dst20_v1_deploy_info, get_dst20_migration_txs, reserve_dst20_namespace,
+        reserve_intrinsics_namespace, transfer_domain_deploy_info,
+        transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
     executor::AinExecutor,
@@ -26,7 +30,7 @@ use crate::{
     },
     trie::GENESIS_STATE_ROOT,
     txqueue::{BlockData, QueueTx},
-    Result,
+    EVMError, Result,
 };
 
 pub struct EVMServices {
@@ -40,6 +44,7 @@ pub struct EVMServices {
 
 pub struct FinalizedBlockInfo {
     pub block_hash: XHash,
+    pub failed_transactions: Vec<XHash>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
@@ -119,10 +124,11 @@ impl EVMServices {
         mnview_ptr: usize,
     ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
-        let mut queue = tx_queue.data.lock().unwrap();
+        let mut queue = tx_queue.data.lock();
 
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
+        let mut failed_transactions = Vec::with_capacity(queue_txs_len);
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
             Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
@@ -143,6 +149,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 H256::zero(),
@@ -153,6 +162,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 hash,
@@ -182,36 +194,101 @@ impl EVMServices {
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             queue.transactions.extend(migration_txs);
 
-            // Deploy counter contract on the first block
+            // Deploy DFIIntrinsicsRegistry contract
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = dfi_intrinsics_registry_deploy_info(get_dfi_intrinsics_v1_contract().fixed_address);
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
+
+            // DFIIntrinsicsRegistry contract deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_dfi_instrinics_registry_contract()
+                    .contract
+                    .init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // Deploy DFIIntrinsics contract
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dfi_intrinsics_v1_deploy_info(dvm_block_number, current_block_number)?;
+
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            // DFIIntrinsics contract deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_dfi_intrinsics_v1_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
 
             // Deploy transfer domain contract on the first block
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = transfer_domain_contract();
+            } = transfer_domain_v1_contract_deploy_info();
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
             executor.commit();
-            let (tx, receipt) = transfer_domain_deploy_contract_tx(&base_fee)?;
+            let (tx, receipt) = deploy_contract_tx(
+                get_transfer_domain_v1_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
 
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // Deploy transfer domain proxy
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = transfer_domain_deploy_info(get_transfer_domain_v1_contract().fixed_address)?;
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            // transfer domain proxy deployment TX
+            let (tx, receipt) = deploy_contract_tx(
+                get_transfer_domain_contract().contract.init_bytecode,
+                &base_fee,
+            )?;
+            all_transactions.push(Box::new(tx));
+            receipts_v3.push((receipt, Some(address)));
+
+            // deploy DST20 implementation contract
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dst20_v1_deploy_info();
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+            executor.commit();
+
+            let (tx, receipt) =
+                deploy_contract_tx(get_dst20_v1_contract().contract.init_bytecode, &base_fee)?;
             all_transactions.push(Box::new(tx));
             receipts_v3.push((receipt, Some(address)));
         } else {
             // Ensure that state root changes by updating counter contract storage
             let DeployContractInfo {
                 address, storage, ..
-            } = intrinsics_contract(executor.backend, dvm_block_number, current_block_number)?;
+            } = dfi_intrinsics_v1_deploy_info(dvm_block_number, current_block_number)?;
             executor.update_storage(address, storage)?;
             executor.commit();
         }
@@ -221,8 +298,26 @@ impl EVMServices {
             queue.transactions.len()
         );
 
+        let mut exceed_block_limit = false;
         for queue_item in queue.transactions.clone() {
-            let apply_result = executor.apply_queue_tx(queue_item.tx, base_fee)?;
+            executor.update_total_gas_used(U256::from(total_gas_used));
+            let apply_result = match executor.apply_queue_tx(queue_item.tx, base_fee) {
+                Ok(result) => result,
+                Err(EVMError::BlockSizeLimit(message)) => {
+                    debug!("[construct_block] {}", message);
+                    failed_transactions.push(queue_item.tx_hash);
+                    exceed_block_limit = true;
+                    continue;
+                }
+                Err(e) => {
+                    if exceed_block_limit {
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
             all_transactions.push(apply_result.tx);
             EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
@@ -281,15 +376,22 @@ impl EVMServices {
             receipts_v3,
             block.header.hash(),
             block.header.number,
+            base_fee,
         );
         queue.block_data = Some(BlockData { block, receipts });
 
         Ok(FinalizedBlockInfo {
             block_hash,
+            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
         })
+    }
+
+    pub fn get_block_limit(&self) -> Result<u64> {
+        let res = self.storage.get_attributes_or_default()?;
+        Ok(res.block_gas_limit)
     }
 
     ///
@@ -301,7 +403,7 @@ impl EVMServices {
     pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<()> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
-            let queue = tx_queue.data.lock().unwrap();
+            let queue = tx_queue.data.lock();
             let Some(BlockData { block, receipts }) = queue.block_data.clone() else {
                 return Err(format_err!("no constructed EVM block exist in queue id").into());
             };
@@ -319,6 +421,7 @@ impl EVMServices {
         }
         self.core.tx_queues.remove(queue_id);
         self.core.clear_account_nonce();
+        self.core.clear_transaction_cache();
 
         Ok(())
     }
@@ -328,14 +431,39 @@ impl EVMServices {
         queue_id: u64,
         tx: QueueTx,
     ) -> Result<(SignedTx, U256, H256)> {
-        let state_root = self.core.tx_queues.get_latest_state_root_in(queue_id)?;
+        let (target_block, state_root, timestamp, total_gas_used, is_first_tx) = {
+            let queue = self.core.tx_queues.get(queue_id)?;
+
+            let state_root = queue.get_latest_state_root();
+            let data = queue.data.lock();
+
+            (
+                data.target_block,
+                state_root,
+                data.timestamp,
+                data.total_gas_used,
+                data.transactions.is_empty(),
+            )
+        };
         debug!(
             "[update_queue_state_from_tx] state_root : {:#?}",
             state_root
         );
 
-        // Has to be mutable to obtain new state root
-        let mut backend = self.core.get_backend(state_root)?;
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.core.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity {
+                timestamp: U256::from(timestamp),
+                block_number: target_block,
+                block_gas_limit: U256::from(
+                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                ),
+                ..Vicinity::default()
+            },
+        )?;
+
         let mut executor = AinExecutor::new(&mut backend);
 
         let (parent_hash, _) = self
@@ -344,6 +472,17 @@ impl EVMServices {
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
         let base_fee = self.block.calculate_base_fee(parent_hash)?;
 
+        // Update instrinsics contract to reproduce construct_block behaviour
+        if is_first_tx {
+            let (current_native_height, _) = ain_cpp_imports::get_sync_status().unwrap();
+            let DeployContractInfo {
+                address, storage, ..
+            } = dfi_intrinsics_v1_deploy_info((current_native_height + 1) as u64, target_block)?;
+            executor.update_storage(address, storage)?;
+            executor.commit();
+        }
+
+        executor.update_total_gas_used(total_gas_used);
         let apply_tx = executor.apply_queue_tx(tx, base_fee)?;
 
         Ok((
@@ -376,9 +515,12 @@ impl EVMServices {
         Ok(())
     }
 
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<()> {
+    pub fn verify_tx_fees(&self, tx: &str) -> Result<U256> {
         trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let signed_tx = SignedTx::try_from(tx)
+        let signed_tx = self
+            .core
+            .signed_tx_cache
+            .try_get_or_create(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         trace!("[verify_tx_fees] signed_tx : {:#?}", signed_tx);
 
@@ -389,7 +531,7 @@ impl EVMServices {
             return Err(format_err!("tx gas price is lower than block base fee").into());
         }
 
-        Ok(())
+        Ok(block_fee)
     }
 
     ///
@@ -416,8 +558,8 @@ impl EVMServices {
         match backend.get_account(&address) {
             None => {}
             Some(account) => {
-                let Contract { codehash, .. } = get_dst20_contract();
-                if account.code_hash == codehash {
+                let FixedContract { contract, .. } = get_transfer_domain_contract();
+                if account.code_hash == contract.codehash {
                     return Ok(true);
                 }
             }

@@ -152,7 +152,6 @@ class TestNode:
         self.rpc = None
         self.evm_rpc = None
         self.url = None
-        self.evm_url = None
         self.log = logging.getLogger("TestFramework.node%d" % i)
         self.cleanup_on_exit = (
             True  # Whether to kill the node when this object goes away
@@ -282,6 +281,8 @@ class TestNode:
         # debug
         "debug_feeEstimate",
         "debug_logqueues",
+        # web3
+        "web3_clientVersion",
     }
 
     def get_genesis_keys(self):
@@ -509,9 +510,6 @@ class TestNode:
 
     def wait_until_stopped(self, timeout=DEFID_PROC_WAIT_TIMEOUT):
         wait_until(self.is_node_stopped, timeout=timeout)
-
-    def get_evm_rpc(self) -> str:
-        return self.evm_url
 
     @contextlib.contextmanager
     def assert_debug_log(self, expected_msgs, timeout=2):

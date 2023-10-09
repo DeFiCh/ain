@@ -10,6 +10,7 @@ use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher};
 use vsdb_trie_db::{MptOnce, MptRo};
 
 use crate::{
+    fee::calculate_gas_fee,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
     trie::TrieDBStore,
@@ -30,6 +31,8 @@ pub struct Vicinity {
     pub block_number: U256,
     pub timestamp: U256,
     pub gas_limit: U256,
+    pub total_gas_used: U256,
+    pub block_gas_limit: U256,
     pub block_base_fee_per_gas: U256,
     pub block_randomness: Option<H256>,
 }
@@ -135,11 +138,18 @@ impl EVMBackend {
         self.state.root().into()
     }
 
-    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
+    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx, base_fee: U256) {
         self.vicinity = Vicinity {
             origin: tx.sender,
-            gas_price: tx.gas_price(),
+            gas_price: tx.effective_gas_price(base_fee),
             gas_limit: tx.gas_limit(),
+            ..self.vicinity
+        };
+    }
+
+    pub fn update_vicinity_with_gas_used(&mut self, gas_used: U256) {
+        self.vicinity = Vicinity {
+            total_gas_used: gas_used,
             ..self.vicinity
         };
     }
@@ -150,39 +160,53 @@ impl EVMBackend {
         self.state.ro_handle(root)
     }
 
-    pub fn deduct_prepay_gas(&mut self, sender: H160, prepay_gas: U256) {
-        debug!(target: "backend", "[deduct_prepay_gas] Deducting {:#x} from {:#x}", prepay_gas, sender);
+    pub fn deduct_prepay_gas_fee(&mut self, sender: H160, prepay_fee: U256) -> Result<()> {
+        debug!(target: "backend", "[deduct_prepay_gas_fee] Deducting {:#x} from {:#x}", prepay_fee, sender);
 
         let basic = self.basic(sender);
-        let balance = basic.balance.saturating_sub(prepay_gas);
+        let balance = basic.balance.checked_sub(prepay_fee).ok_or_else(|| {
+            BackendError::DeductPrepayGasFailed(String::from(
+                "failed checked sub prepay gas with account balance",
+            ))
+        })?;
         let new_basic = Basic { balance, ..basic };
 
         self.apply(sender, Some(new_basic), None, Vec::new(), false)
-            .expect("Error deducting account balance");
+            .map_err(|e| BackendError::DeductPrepayGasFailed(e.to_string()))?;
         self.commit();
+
+        Ok(())
     }
 
-    pub fn refund_unused_gas(
+    pub fn refund_unused_gas_fee(
         &mut self,
-        sender: H160,
-        gas_limit: U256,
+        signed_tx: &SignedTx,
         used_gas: U256,
-        gas_price: U256,
-    ) {
-        let refund_gas = gas_limit.saturating_sub(used_gas);
-        let refund_amount = refund_gas.saturating_mul(gas_price);
+        base_fee: U256,
+    ) -> Result<()> {
+        let refund_gas = signed_tx.gas_limit().checked_sub(used_gas).ok_or_else(|| {
+            BackendError::RefundUnusedGasFailed(String::from(
+                "failed checked sub used gas with gas limit",
+            ))
+        })?;
+        let refund_amount = calculate_gas_fee(signed_tx, refund_gas, base_fee)?;
 
-        debug!(target: "backend", "[refund_unused_gas] Refunding {:#x} to {:#x}", refund_amount, sender);
+        debug!(target: "backend", "[refund_unused_gas_fee] Refunding {:#x} to {:#x}", refund_amount, signed_tx.sender);
 
-        let basic = self.basic(sender);
-        let new_basic = Basic {
-            balance: basic.balance.saturating_add(refund_amount),
-            ..basic
-        };
+        let basic = self.basic(signed_tx.sender);
+        let balance = basic.balance.checked_add(refund_amount).ok_or_else(|| {
+            BackendError::RefundUnusedGasFailed(String::from(
+                "failed checked add refund amount with account balance",
+            ))
+        })?;
 
-        self.apply(sender, Some(new_basic), None, Vec::new(), false)
-            .expect("Error refunding account balance");
+        let new_basic = Basic { balance, ..basic };
+
+        self.apply(signed_tx.sender, Some(new_basic), None, Vec::new(), false)
+            .map_err(|e| BackendError::RefundUnusedGasFailed(e.to_string()))?;
         self.commit();
+
+        Ok(())
     }
 }
 
@@ -214,7 +238,7 @@ impl EVMBackend {
         let state = self
             .trie_store
             .trie_db
-            .trie_restore(contract.clone().as_ref(), None, account.storage_root.into())
+            .trie_restore(contract.as_ref(), None, account.storage_root.into())
             .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
 
         Ok(U256::from(
@@ -246,7 +270,7 @@ impl EVMBackend {
 
 impl Backend for EVMBackend {
     fn gas_price(&self) -> U256 {
-        trace!(target: "backend", "[EVMBackend] Getting gas");
+        trace!(target: "backend", "[EVMBackend] Getting gas price");
         self.vicinity.gas_price
     }
 
@@ -285,7 +309,7 @@ impl Backend for EVMBackend {
     }
 
     fn block_gas_limit(&self) -> U256 {
-        self.vicinity.gas_limit
+        self.vicinity.block_gas_limit
     }
 
     fn block_base_fee_per_gas(&self) -> U256 {
@@ -434,6 +458,8 @@ pub enum BackendError {
     TrieError(String),
     NoSuchAccount(H160),
     InsufficientBalance(InsufficientBalance),
+    DeductPrepayGasFailed(String),
+    RefundUnusedGasFailed(String),
 }
 
 use std::fmt;
@@ -457,6 +483,12 @@ impl fmt::Display for BackendError {
                 amount,
             }) => {
                 write!(f, "BackendError: Insufficient balance for address {address}, trying to deduct {amount} but address has only {account_balance}")
+            }
+            BackendError::DeductPrepayGasFailed(e) => {
+                write!(f, "BackendError: Deduct prepay gas failed {e}")
+            }
+            BackendError::RefundUnusedGasFailed(e) => {
+                write!(f, "BackendError: Refund unused gas failed {e}")
             }
         }
     }

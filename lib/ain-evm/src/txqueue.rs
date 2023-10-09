@@ -1,10 +1,8 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex, RwLock},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use ethereum::{Block, TransactionV2};
 use ethereum_types::{H256, U256};
+use parking_lot::{Mutex, RwLock};
 use rand::Rng;
 
 use crate::{
@@ -44,7 +42,7 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(&self, target_block: U256, state_root: H256) -> u64 {
+    pub unsafe fn create(&self, target_block: U256, state_root: H256, timestamp: u64) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let queue_id = rng.gen();
@@ -52,10 +50,14 @@ impl TransactionQueueMap {
             if queue_id == 0 {
                 continue;
             };
-            let mut write_guard = self.queues.write().unwrap();
+            let mut write_guard = self.queues.write();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(queue_id) {
-                e.insert(Arc::new(TransactionQueue::new(target_block, state_root)));
+                e.insert(Arc::new(TransactionQueue::new(
+                    target_block,
+                    state_root,
+                    timestamp,
+                )));
                 return queue_id;
             }
         }
@@ -70,7 +72,7 @@ impl TransactionQueueMap {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove(&self, queue_id: u64) -> Option<Arc<TransactionQueue>> {
-        self.queues.write().unwrap().remove(&queue_id)
+        self.queues.write().remove(&queue_id)
     }
 
     /// Returns an atomic reference counting pointer of the `TransactionQueue` associated with the provided queue ID.
@@ -91,7 +93,6 @@ impl TransactionQueueMap {
         Ok(Arc::clone(
             self.queues
                 .read()
-                .unwrap()
                 .get(&queue_id)
                 .ok_or(QueueError::NoSuchQueue)?,
         ))
@@ -181,6 +182,15 @@ impl TransactionQueueMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
+    pub unsafe fn get_timestamp_in(&self, queue_id: u64) -> Result<u64> {
+        self.with_transaction_queue(queue_id, TransactionQueue::get_timestamp)
+    }
+
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
     pub unsafe fn get_latest_state_root_in(&self, queue_id: u64) -> Result<H256> {
         self.with_transaction_queue(queue_id, TransactionQueue::get_latest_state_root)
     }
@@ -193,7 +203,7 @@ impl TransactionQueueMap {
     where
         F: FnOnce(&TransactionQueue) -> T,
     {
-        match self.queues.read().unwrap().get(&queue_id) {
+        match self.queues.read().get(&queue_id) {
             Some(queue) => Ok(f(queue)),
             None => Err(QueueError::NoSuchQueue),
         }
@@ -235,16 +245,18 @@ pub struct TransactionQueueData {
     pub total_gas_used: U256,
     pub target_block: U256,
     pub initial_state_root: H256,
+    pub timestamp: u64,
 }
 
 impl TransactionQueueData {
-    pub fn new(target_block: U256, state_root: H256) -> Self {
+    pub fn new(target_block: U256, state_root: H256, timestamp: u64) -> Self {
         Self {
             transactions: Vec::new(),
             total_gas_used: U256::zero(),
             block_data: None,
             target_block,
             initial_state_root: state_root,
+            timestamp,
         }
     }
 }
@@ -255,9 +267,13 @@ pub struct TransactionQueue {
 }
 
 impl TransactionQueue {
-    fn new(target_block: U256, state_root: H256) -> Self {
+    fn new(target_block: U256, state_root: H256, timestamp: u64) -> Self {
         Self {
-            data: Mutex::new(TransactionQueueData::new(target_block, state_root)),
+            data: Mutex::new(TransactionQueueData::new(
+                target_block,
+                state_root,
+                timestamp,
+            )),
         }
     }
 
@@ -268,7 +284,7 @@ impl TransactionQueue {
         gas_used: U256,
         state_root: H256,
     ) -> Result<()> {
-        let mut data = self.data.lock().unwrap();
+        let mut data = self.data.lock();
 
         data.total_gas_used += gas_used;
 
@@ -282,7 +298,7 @@ impl TransactionQueue {
     }
 
     pub fn remove_txs_above_hash(&self, target_hash: XHash) -> Result<Vec<XHash>> {
-        let mut data = self.data.lock().unwrap();
+        let mut data = self.data.lock();
         let mut removed_txs = Vec::new();
 
         if let Some(index) = data
@@ -306,21 +322,24 @@ impl TransactionQueue {
     }
 
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
-        self.data.lock().unwrap().transactions.clone()
+        self.data.lock().transactions.clone()
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
-        self.data.lock().unwrap().total_gas_used
+        self.data.lock().total_gas_used
     }
 
     pub fn get_target_block(&self) -> U256 {
-        self.data.lock().unwrap().target_block
+        self.data.lock().target_block
+    }
+
+    pub fn get_timestamp(&self) -> u64 {
+        self.data.lock().timestamp
     }
 
     pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
         self.data
             .lock()
-            .unwrap()
             .transactions
             .iter()
             .find(|tx_item| tx_item.tx_hash == hash)
@@ -328,7 +347,7 @@ impl TransactionQueue {
     }
 
     pub fn get_latest_state_root(&self) -> H256 {
-        let data = self.data.lock().unwrap();
+        let data = self.data.lock();
         data.transactions
             .last()
             .map_or(data.initial_state_root, |tx_item| tx_item.state_root)
@@ -337,7 +356,6 @@ impl TransactionQueue {
     pub fn is_queued(&self, tx: &QueueTx) -> bool {
         self.data
             .lock()
-            .unwrap()
             .transactions
             .iter()
             .any(|queued| &queued.tx == tx)

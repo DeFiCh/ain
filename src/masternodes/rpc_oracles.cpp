@@ -487,7 +487,7 @@ UniValue setoracledata(const JSONRPCRequest &request) {
     }
 
     // timestamp is checked at consensus level
-    if (targetHeight < Params().GetConsensus().FortCanningHeight) {
+    if (targetHeight < Params().GetConsensus().DF11FortCanningHeight) {
         if (timestamp <= 0 || timestamp > GetSystemTimeInSeconds() + 300) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "timestamp cannot be negative, zero or over 5 minutes in the future");
         }

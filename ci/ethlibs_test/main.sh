@@ -30,6 +30,8 @@ start_node() {
         -printtoconsole \
         -rpcallowip=0.0.0.0/0 \
         -rpcbind=0.0.0.0 \
+        -grpcbind=0.0.0.0 \
+        -ethrpcbind=0.0.0.0 \
         -masternode_operator="$OPERATORAUTHADDR" \
         -masternode_owner="$OWNERAUTHADDR" \
         -dummypos=0 \
@@ -56,7 +58,7 @@ start_node() {
 }
 
 init_node() {
-    sleep 10
+    sleep 5
 }
 
 setup_fixtures() {
@@ -74,24 +76,17 @@ setup_fixtures() {
 
     $DEFI_CLI_BIN -regtest setgov '{"ATTRIBUTES": {
                     "v0/params/feature/evm": "true",
-                    "v0/params/feature/transferdomain": "true",
-                    "v0/rules/tx/core_op_return_max_size_bytes": 20000,
-                    "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
-                    "v0/rules/tx/dvm_op_return_max_size_bytes": 20000}}'
-    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
+                    "v0/params/feature/transferdomain": "true"}}'
+    $DEFI_CLI_BIN -regtest generatetoaddress 2 "$OWNERAUTHADDR"
 
     $DEFI_CLI_BIN -regtest transferdomain '[{"src":{"address":"'"$OWNERAUTHADDR"'", "amount":"200@DFI", "domain":2}, "dst":{"address":"'"$ALICE"'", "amount":"200@DFI", "domain":3}}]'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-    
-    $DEFI_CLI_BIN -regtest eth_sendTransaction '{"from":"'"$ALICE"'", "data":"'"$CONTRACT_COUNTER"'", "value":"'"0x00"'", "gas":"'"0x7a120"'", "gasPrice": "'"0x22ecb25c00"'"}'
-    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-    # contract address
-    # 0x966aaec51a95a737d086d21f015a6991dd5559ae
 
-    $DEFI_CLI_BIN -regtest eth_sendTransaction '{"from":"'"$ALICE"'", "data":"'"$CONTRACT_COUNTERCALLER"'", "value":"'"0x00"'", "gas":"'"0x7a120"'", "gasPrice": "'"0x22ecb25c00"'"}'
+    $DEFI_CLI_BIN -regtest eth_sendTransaction '{"from":"'"$ALICE"'", "data":"'"$CONTRACT_COUNTER"'", "value":"0x00", "gas":"0x7a120", "gasPrice": "0x22ecb25c00"}'
     $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
-    # contract address
-    # 0x007138e9d5bdb3f0b7f3abf2d46ad4f9184ef99d
+
+    $DEFI_CLI_BIN -regtest eth_sendTransaction '{"from":"'"$ALICE"'", "data":"'"$CONTRACT_COUNTERCALLER"'", "value":"0x00", "gas":"0x7a120", "gasPrice": "0x22ecb25c00"}'
+    $DEFI_CLI_BIN -regtest generatetoaddress 1 "$OWNERAUTHADDR"
 }
 
 main() {

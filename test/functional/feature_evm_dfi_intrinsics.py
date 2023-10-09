@@ -9,6 +9,8 @@ import json
 
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_solc_artifact_path
+from test_framework.evm_contract import EVMContract
+from test_framework.evm_key_pair import EvmKeyPair
 
 
 class DFIIntrinsicsTest(DefiTestFramework):
@@ -43,7 +45,14 @@ class DFIIntrinsicsTest(DefiTestFramework):
         node.generate(105)
 
         # Activate EVM
-        node.setgov({"ATTRIBUTES": {"v0/params/feature/evm": "true"}})
+        node.setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                    "v0/params/feature/transferdomain": "true",
+                }
+            }
+        )
         node.generate(2)
 
         # check reserved address space
@@ -55,7 +64,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             ).read()
         )["object"]
 
-        for i in range(2, 128):
+        for i in range(5, 128):
             address = node.w3.to_checksum_address(generate_formatted_string(i))
             code_at_addr = self.nodes[0].w3.to_hex(
                 self.nodes[0].w3.eth.get_code(address)
@@ -72,16 +81,27 @@ class DFIIntrinsicsTest(DefiTestFramework):
         )
 
         # check intrinsics contract
+        registry_abi = open(
+            get_solc_artifact_path("dfi_intrinsics_registry", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
         abi = open(
-            get_solc_artifact_path("dfi_intrinsics", "abi.json"),
+            get_solc_artifact_path("dfi_intrinsics_v1", "abi.json"),
             "r",
             encoding="utf8",
         ).read()
 
-        contract_0 = node.w3.eth.contract(
+        registry = node.w3.eth.contract(
             address=node.w3.to_checksum_address(
                 "0xdf00000000000000000000000000000000000000"
             ),
+            abi=registry_abi,
+        )
+        v1_address = registry.functions.get(0).call()
+
+        contract_0 = node.w3.eth.contract(
+            address=v1_address,
             abi=abi,
         )
 
@@ -107,6 +127,58 @@ class DFIIntrinsicsTest(DefiTestFramework):
             )
 
         assert_equal(len(state_roots), num_blocks)
+
+        # call check data via contract
+        node.utxostoaccount(
+            {self.nodes[0].get_genesis_keys().ownerAuthAddress: "50@DFI"}
+        )
+        node.generate(1)
+
+        self.evm_key_pair = EvmKeyPair.from_node(node)
+        node.transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.nodes[0].get_genesis_keys().ownerAuthAddress,
+                        "amount": "50@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "50@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        node.generate(1)
+
+        abi, bytecode, _ = EVMContract.from_file(
+            "ExampleDFIIntrinsicsIntegration.sol", "ExampleDFIIntrinsicsV1Integration"
+        ).compile()
+        compiled = node.w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor(
+            node.w3.to_checksum_address("0xdf00000000000000000000000000000000000000")
+        ).build_transaction(
+            {
+                "chainId": node.w3.eth.chain_id,
+                "nonce": node.w3.eth.get_transaction_count(self.evm_key_pair.address),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 10_000_000,
+            }
+        )
+        signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
+        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        node.generate(1)
+        receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        contract = node.w3.eth.contract(address=receipt["contractAddress"], abi=abi)
+
+        assert_equal(contract.functions.getVersion().call(), 1)
+        assert_equal(
+            contract.functions.getEvmBlockCount().call(), node.w3.eth.get_block_number()
+        )
+        assert_equal(contract.functions.getDvmBlockCount().call(), node.getblockcount())
 
 
 def generate_formatted_string(input_number):

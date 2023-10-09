@@ -179,17 +179,17 @@ class CCustomMetadataParseVisitor {
 
     Res IsHardforkEnabled(const uint32_t startHeight) const {
         const std::unordered_map<int, std::string> hardforks = {
-                { consensus.AMKHeight,                    "called before AMK height" },
-                { consensus.BayfrontHeight,               "called before Bayfront height" },
+                { consensus.DF1AMKHeight,                    "called before AMK height" },
+                { consensus.DF2BayfrontHeight,               "called before Bayfront height" },
                 { consensus.BayfrontGardensHeight,        "called before Bayfront Gardens height" },
-                { consensus.EunosHeight,                  "called before Eunos height" },
-                { consensus.EunosPayaHeight,              "called before EunosPaya height" },
-                { consensus.FortCanningHeight,            "called before FortCanning height" },
-                { consensus.FortCanningHillHeight,        "called before FortCanningHill height" },
-                { consensus.FortCanningRoadHeight,        "called before FortCanningRoad height" },
-                { consensus.FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
-                { consensus.GrandCentralHeight,           "called before GrandCentral height" },
-                { consensus.NextNetworkUpgradeHeight,     "called before NextNetworkUpgrade height" },
+                { consensus.DF8EunosHeight,                  "called before Eunos height" },
+                { consensus.DF10EunosPayaHeight,              "called before EunosPaya height" },
+                { consensus.DF11FortCanningHeight,            "called before FortCanning height" },
+                { consensus.DF14FortCanningHillHeight,        "called before FortCanningHill height" },
+                { consensus.DF15FortCanningRoadHeight,        "called before FortCanningRoad height" },
+                { consensus.DF19FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
+                { consensus.DF20GrandCentralHeight,           "called before GrandCentral height" },
+                { consensus.DF22NextHeight,     "called before NextNetworkUpgrade height" },
         };
         if (startHeight && height < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -217,7 +217,7 @@ public:
                 CAccountToUtxosMessage,
                 CAccountToAccountMessage,
                 CMintTokensMessage>())
-            return IsHardforkEnabled(consensus.AMKHeight);
+            return IsHardforkEnabled(consensus.DF1AMKHeight);
         else if constexpr (IsOneOf<T,
                 CUpdateTokenMessage,
                 CPoolSwapMessage,
@@ -226,7 +226,7 @@ public:
                 CCreatePoolPairMessage,
                 CUpdatePoolPairMessage,
                 CGovernanceMessage>())
-            return IsHardforkEnabled(consensus.BayfrontHeight);
+            return IsHardforkEnabled(consensus.DF2BayfrontHeight);
         else if constexpr (IsOneOf<T,
                 CAppointOracleMessage,
                 CRemoveOracleAppointMessage,
@@ -239,7 +239,7 @@ public:
                 CICXClaimDFCHTLCMessage,
                 CICXCloseOrderMessage,
                 CICXCloseOfferMessage>())
-            return IsHardforkEnabled(consensus.EunosHeight);
+            return IsHardforkEnabled(consensus.DF8EunosHeight);
         else if constexpr (IsOneOf<T,
                 CPoolSwapMessageV2,
                 CLoanSetCollateralTokenMessage,
@@ -257,31 +257,31 @@ public:
                 CLoanPaybackLoanMessage,
                 CAuctionBidMessage,
                 CGovernanceHeightMessage>())
-            return IsHardforkEnabled(consensus.FortCanningHeight);
+            return IsHardforkEnabled(consensus.DF11FortCanningHeight);
         else if constexpr (IsOneOf<T,
                 CAnyAccountsToAccountsMessage>())
             return IsHardforkEnabled(consensus.BayfrontGardensHeight);
         else if constexpr (IsOneOf<T,
                 CSmartContractMessage>())
-            return IsHardforkEnabled(consensus.FortCanningHillHeight);
+            return IsHardforkEnabled(consensus.DF14FortCanningHillHeight);
         else if constexpr (IsOneOf<T,
                 CLoanPaybackLoanV2Message,
                 CFutureSwapMessage>())
-            return IsHardforkEnabled(consensus.FortCanningRoadHeight);
+            return IsHardforkEnabled(consensus.DF15FortCanningRoadHeight);
         else if constexpr (IsOneOf<T,
                 CPaybackWithCollateralMessage>())
-            return IsHardforkEnabled(consensus.FortCanningEpilogueHeight);
+            return IsHardforkEnabled(consensus.DF19FortCanningEpilogueHeight);
         else if constexpr (IsOneOf<T,
                 CUpdateMasterNodeMessage,
                 CBurnTokensMessage,
                 CCreateProposalMessage,
                 CProposalVoteMessage,
                 CGovernanceUnsetMessage>())
-            return IsHardforkEnabled(consensus.GrandCentralHeight);
+            return IsHardforkEnabled(consensus.DF20GrandCentralHeight);
         else if constexpr (IsOneOf<T,
                 CTransferDomainMessage,
                 CEvmTxMessage>())
-            return IsHardforkEnabled(consensus.NextNetworkUpgradeHeight);
+            return IsHardforkEnabled(consensus.DF22NextHeight);
         else if constexpr (IsOneOf<T,
                 CCreateMasterNodeMessage,
                 CResignMasterNodeMessage>())
@@ -293,7 +293,7 @@ public:
     template<typename T>
     Res DisabledAfter() const {
         if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
-            return IsHardforkEnabled(consensus.BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
+            return IsHardforkEnabled(consensus.DF2BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
 
         return Res::Ok();
     }
@@ -408,8 +408,8 @@ Res CustomMetadataParse(uint32_t height,
 
 bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &consensus) {
     // All the heights that are involved in disabled Txs
-    auto fortCanningParkHeight = static_cast<uint32_t>(consensus.FortCanningParkHeight);
-    auto fortCanningHillHeight = static_cast<uint32_t>(consensus.FortCanningHillHeight);
+    auto fortCanningParkHeight = static_cast<uint32_t>(consensus.DF13FortCanningParkHeight);
+    auto fortCanningHillHeight = static_cast<uint32_t>(consensus.DF14FortCanningHillHeight);
 
     if (height < fortCanningParkHeight)
         return false;
@@ -456,7 +456,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     bool wipeQueue{};
     if (q == 0) {
         wipeQueue = true;
-        auto r = XResultValue(evm_unsafe_try_create_queue(result));
+        auto r = XResultValue(evm_try_unsafe_create_queue(result, time));
         if (r) { q = *r; } else { return r; }
     }
 
@@ -465,17 +465,17 @@ Res CustomTxVisit(CCustomCSView &mnview,
             CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, q, isEvmEnabledForBlock, evmPreValidate),
             txMessage);
         if (wipeQueue) {
-            XResultStatusLogged(evm_unsafe_try_remove_queue(result, q));
+            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
         }
         return res;
     } catch (const std::bad_variant_access &e) {
         if (wipeQueue) {
-            XResultStatusLogged(evm_unsafe_try_remove_queue(result, q));
+            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
         }
         return Res::Err(e.what());
     } catch (...) {
         if (wipeQueue) {
-            XResultStatusLogged(evm_unsafe_try_remove_queue(result, q));
+            XResultStatusLogged(evm_try_unsafe_remove_queue(result, q));
         }
         return Res::Err("%s unexpected error", __func__ );
     }
@@ -567,7 +567,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
         return res;
     }
     std::vector<unsigned char> metadata;
-    const auto metadataValidation = height >= static_cast<uint32_t>(consensus.FortCanningHeight);
+    const auto metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
     auto attributes = mnview.GetAttributes();
@@ -649,7 +649,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             }
             res.code |= CustomTxErrCodes::Fatal;
         }
-        if (height >= static_cast<uint32_t>(consensus.DakotaHeight)) {
+        if (height >= static_cast<uint32_t>(consensus.DF6DakotaHeight)) {
             res.code |= CustomTxErrCodes::Fatal;
         }
         return res;
@@ -673,7 +673,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const uint256 &prevStakeModifier,
                                     const std::vector<unsigned char> &metadata,
                                     const Consensus::Params &consensusParams) {
-    Require(height < consensusParams.DakotaHeight, "Old anchor TX type after Dakota fork. Height %d", height);
+    Require(height < consensusParams.DF6DakotaHeight, "Old anchor TX type after Dakota fork. Height %d", height);
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessage finMsg;
@@ -699,7 +699,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
     }
 
     // check reward sum
-    if (height >= consensusParams.AMKHeight) {
+    if (height >= consensusParams.DF1AMKHeight) {
         const auto cbValues = tx.GetValuesOut();
         if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
             return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
@@ -732,7 +732,7 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         return Res::ErrDbg("bad-ar-nextteam", "anchor wrong next team");
     }
     mnview.SetTeam(finMsg.nextTeam);
-    if (height >= consensusParams.AMKHeight) {
+    if (height >= consensusParams.DF1AMKHeight) {
         LogPrint(BCLog::ACCOUNTCHANGE,
                  "AccountChange: hash=%s fund=%s change=%s\n",
                  tx.GetHash().ToString(),
@@ -751,7 +751,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
                                         int height,
                                         const std::vector<unsigned char> &metadata,
                                         const Consensus::Params &consensusParams) {
-    Require(height >= consensusParams.DakotaHeight, "New anchor TX type before Dakota fork. Height %d", height);
+    Require(height >= consensusParams.DF6DakotaHeight, "New anchor TX type before Dakota fork. Height %d", height);
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessagePlus finMsg;
@@ -803,7 +803,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             anchorReward);
 
     CTxDestination destination;
-    if (height < consensusParams.NextNetworkUpgradeHeight) {
+    if (height < consensusParams.DF22NextHeight) {
         destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     } else {
         destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
@@ -953,13 +953,13 @@ std::vector<std::vector<DCT_ID> > CPoolSwap::CalculatePoolPaths(CCustomCSView &v
 Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, const Consensus::Params &consensus, bool testOnly) {
     Res poolResult = Res::Ok();
     // No composite swap allowed before Fort Canning
-    if (height < static_cast<uint32_t>(consensus.FortCanningHeight) && !poolIDs.empty()) {
+    if (height < static_cast<uint32_t>(consensus.DF11FortCanningHeight) && !poolIDs.empty()) {
         poolIDs.clear();
     }
 
     Require(obj.amountFrom > 0, "Input amount should be positive");
 
-    if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) &&
+    if (height >= static_cast<uint32_t>(consensus.DF14FortCanningHillHeight) &&
         poolIDs.size() > MAX_POOL_SWAPS) {
         return Res::Err(
             strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
@@ -1014,7 +1014,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
 
         const auto swapAmount = swapAmountResult;
 
-        if (height >= static_cast<uint32_t>(consensus.FortCanningHillHeight) && lastSwap) {
+        if (height >= static_cast<uint32_t>(consensus.DF14FortCanningHillHeight) && lastSwap) {
             Require(obj.idTokenTo != swapAmount.nTokenId,
                     "Final swap should have idTokenTo as destination, not source");
 
@@ -1085,7 +1085,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
                 intermediateView.Flush();
 
                 auto &addView = lastSwap ? view : intermediateView;
-                if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
+                if (height >= static_cast<uint32_t>(consensus.DF20GrandCentralHeight)) {
                     res = addView.AddBalance(lastSwap ? (obj.to.empty() ? obj.from : obj.to) : obj.from,
                                              swapAmountResult);
                 } else {
@@ -1132,14 +1132,14 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
         }
     }
 
-    if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF20GrandCentralHeight)) {
         if (swapAmountResult.nTokenId != obj.idTokenTo) {
             return Res::Err("Final swap output is not same as idTokenTo");
         }
     }
 
     // Reject if price paid post-swap above max price provided
-    if (height >= static_cast<uint32_t>(consensus.FortCanningHeight) && !obj.maxPrice.isAboveValid()) {
+    if (height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight) && !obj.maxPrice.isAboveValid()) {
         if (swapAmountResult.nValue != 0) {
             const auto userMaxPrice = arith_uint256(obj.maxPrice.integer) * COIN + obj.maxPrice.fraction;
             if (arith_uint256(obj.amountFrom) * COIN / swapAmountResult.nValue > userMaxPrice) {
@@ -1355,7 +1355,7 @@ struct OpReturnLimitsKeys {
 OpReturnLimits OpReturnLimits::From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
-    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.NextNetworkUpgradeHeight);
+    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.DF22NextHeight);
     item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
     item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
     item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);

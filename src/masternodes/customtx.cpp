@@ -200,7 +200,7 @@ std::string ToString(CustomTxType type) {
         case CustomTxType::TransferDomain:
             return "TransferDomain";
         case CustomTxType::EvmTx:
-            return "EvmTx";
+            return "Evm";
         case CustomTxType::None:
             return "None";
     }
@@ -277,6 +277,6 @@ CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
 
 // it's disabled after Dakota height
 bool IsBelowDakotaMintTokenOrAccountToUtxos(CustomTxType txType, int height) {
-    return (height < Params().GetConsensus().DakotaHeight &&
+    return (height < Params().GetConsensus().DF6DakotaHeight &&
             (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
 }

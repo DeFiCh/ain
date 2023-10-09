@@ -1197,7 +1197,7 @@ UniValue paybackloan(const JSONRPCRequest& request) {
         LOCK(cs_main);
         targetHeight = ::ChainActive().Height() + 1;
     }
-    bool isFCR = targetHeight >= Params().GetConsensus().FortCanningRoadHeight;
+    bool isFCR = targetHeight >= Params().GetConsensus().DF15FortCanningRoadHeight;
     CBalances amounts;
     if (hasAmounts){
         if(hasLoans)
@@ -1526,9 +1526,9 @@ UniValue getinterest(const JSONRPCRequest& request) {
         return true;
     };
 
-    if (height >= Params().GetConsensus().FortCanningGreatWorldHeight) {
+    if (height >= Params().GetConsensus().DF18FortCanningGreatWorldHeight) {
         pcustomcsview->ForEachVaultInterestV3(vaultInterest);
-    } else if (height >= Params().GetConsensus().FortCanningHillHeight) {
+    } else if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
         pcustomcsview->ForEachVaultInterestV2([&](const CVaultId& vaultId, DCT_ID tokenId, const CInterestRateV2 &rate) {
             return vaultInterest(vaultId, tokenId, ConvertInterestRateToV3(rate));
         });
@@ -1551,7 +1551,7 @@ UniValue getinterest(const JSONRPCRequest& request) {
         obj.pushKV("token", token->CreateSymbolKey(tokenId));
         obj.pushKV("totalInterest", ValueFromAmount(totalInterest));
         obj.pushKV("interestPerBlock", ValueFromAmount(interestPerBlock));
-        if (height >= Params().GetConsensus().FortCanningHillHeight)
+        if (height >= Params().GetConsensus().DF14FortCanningHillHeight)
         {
             obj.pushKV("realizedInterestPerBlock", UniValue(UniValue::VNUM, GetInterestPerBlockHighPrecisionString(totalInterestPerBlock)));
         }

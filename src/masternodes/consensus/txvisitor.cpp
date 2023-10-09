@@ -53,6 +53,32 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
     return DeFiErrors::InvalidAuth();
 }
 
+Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script) {
+    for (const auto &input : tx.vin) {
+        const Coin &coin = coins.AccessCoin(input.prevout);
+        if (coin.IsSpent()) continue;
+
+        std::vector<TBytes> vRet;
+        const auto solution = Solver(coin.out.scriptPubKey, vRet);
+        if (solution == txnouttype::TX_PUBKEYHASH) {
+            auto it = input.scriptSig.begin();
+            CPubKey pubkey(input.scriptSig.begin() + *it + 2, input.scriptSig.end());
+            if (pubkey.Decompress()) {
+                script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                return Res::Ok();
+            }
+        } else if (solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
+            CPubKey pubkey(input.scriptWitness.stack[1]);
+            const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
+            if (pubkey.Decompress()) {
+                script = GetScriptForDestination(WitnessV16EthHash(pubkey));
+                return Res::Ok();
+            }
+        }
+    }
+    return DeFiErrors::InvalidAuth();
+}
+
 CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    uint32_t height,
                                    const CCoinsViewCache &coins,
@@ -107,9 +133,9 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
 }
 
 Res CCustomTxVisitor::CheckCustomTx() const {
-    if (static_cast<int>(height) < consensus.EunosPayaHeight)
+    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
         Require(tx.vout.size() == 2, "malformed tx vouts ((wrong number of vouts)");
-    if (static_cast<int>(height) >= consensus.EunosPayaHeight)
+    if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight)
         Require(tx.vout[0].nValue == 0, "malformed tx vouts, first vout must be OP_RETURN vout with value 0");
     return Res::Ok();
 }
@@ -204,7 +230,7 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
                        const CVaultAssets &vaultAssets,
                        const uint32_t ratio) const {
     std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
-    if (static_cast<int>(height) >= consensus.FortCanningRoadHeight) {
+    if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
 
@@ -236,12 +262,12 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
     }
 
     // Height checks
-    auto isPostFCH = static_cast<int>(height) >= consensus.FortCanningHillHeight;
-    auto isPreFCH  = static_cast<int>(height) < consensus.FortCanningHillHeight;
-    auto isPostFCE = static_cast<int>(height) >= consensus.FortCanningEpilogueHeight;
-    auto isPostFCR = static_cast<int>(height) >= consensus.FortCanningRoadHeight;
-    auto isPostGC  = static_cast<int>(height) >= consensus.GrandCentralHeight;
-    auto isPostNext =  static_cast<int>(height) >= consensus.NextNetworkUpgradeHeight;
+    auto isPostFCH = static_cast<int>(height) >= consensus.DF14FortCanningHillHeight;
+    auto isPreFCH  = static_cast<int>(height) < consensus.DF14FortCanningHillHeight;
+    auto isPostFCE = static_cast<int>(height) >= consensus.DF19FortCanningEpilogueHeight;
+    auto isPostFCR = static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight;
+    auto isPostGC  = static_cast<int>(height) >= consensus.DF20GrandCentralHeight;
+    auto isPostNext =  static_cast<int>(height) >= consensus.DF22NextHeight;
 
     if(isPostNext) {
         const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};

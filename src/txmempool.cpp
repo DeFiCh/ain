@@ -366,7 +366,7 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
     mapLinks.insert(make_pair(newit, TxLinks()));
 
     if (ethSender) {
-        ethTxsBySender[*ethSender].insert(entry.GetTx().GetHash());
+        evmTxsBySender[*ethSender].insert(entry.GetTx().GetHash());
     }
 
     // Update transaction for any feeDelta created by PrioritiseTransaction
@@ -413,9 +413,11 @@ void CTxMemPool::addUnchecked(const CTxMemPoolEntry &entry, setEntries &setAnces
 
 void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
 {
+    const auto& tx = it->GetTx();
+    const auto txType = it->GetCustomTxType();
     NotifyEntryRemoved(it->GetSharedTx(), reason);
-    const uint256 hash = it->GetTx().GetHash();
-    for (const CTxIn& txin : it->GetTx().vin)
+    const uint256 hash = tx.GetHash();
+    for (const CTxIn& txin : tx.vin)
         mapNextTx.erase(txin.prevout);
 
     if (vTxHashes.size() > 1) {
@@ -432,14 +434,30 @@ void CTxMemPool::removeUnchecked(txiter it, MemPoolRemovalReason reason)
     cachedInnerUsage -= memusage::DynamicUsage(mapLinks[it].parents) + memusage::DynamicUsage(mapLinks[it].children);
     mapLinks.erase(it);
     mapTx.erase(it);
-    for (auto it = ethTxsBySender.begin(); it != ethTxsBySender.end();) {
-        it->second.erase(hash);
-        if (it->second.empty()) {
-            it = ethTxsBySender.erase(it);
-        } else {
-            ++it;
+
+    if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+        auto found{false};
+        EvmAddressData sender{};
+        for (auto ethiter = evmTxsBySender.begin(); (!found && ethiter != evmTxsBySender.end());) {
+            auto hashiter = ethiter->second.find(hash);
+            if (hashiter != ethiter->second.end()) {
+                sender = ethiter->first;
+                ethiter->second.erase(hashiter);
+                found = true;
+            }
+
+            if (ethiter->second.empty()) {
+                ethiter = evmTxsBySender.erase(ethiter);
+            } else {
+                ++ethiter;
+            }
+        }
+
+        if (reason != MemPoolRemovalReason::REPLACED) {
+            evmReplaceByFeeBySender.erase(sender);
         }
     }
+
     nTransactionsUpdated++;
     if (minerPolicyEstimator) {minerPolicyEstimator->removeTx(hash, false);}
 }
@@ -646,7 +664,8 @@ void CTxMemPool::_clear()
     mapTx.clear();
     vTxHashes.clear();
     mapNextTx.clear();
-    ethTxsBySender.clear();
+    evmTxsBySender.clear();
+    evmReplaceByFeeBySender.clear();
     totalTxSize = 0;
     cachedInnerUsage = 0;
     lastRollingFeeUpdate = GetTime();
@@ -996,30 +1015,30 @@ void CTxMemPool::RemoveStaged(const setEntries &stage, bool updateDescendants, M
     forceRebuildForReorg |= reason == MemPoolRemovalReason::REORG;
 }
 
-int CTxMemPool::Expire(int64_t time) {
+int CTxMemPool::Expire(int64_t time, int64_t evmTime) {
     AssertLockHeld(cs);
     indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
+    auto& txidIndex = mapTx.get<txid_tag>();
     setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
-        toremove.insert(mapTx.project<0>(it));
-        it++;
-    }
-    setEntries stage;
-    for (txiter removeit : toremove) {
-        CalculateDescendants(removeit, stage);
-    }
-    RemoveStaged(stage, false, MemPoolRemovalReason::EXPIRY);
-    return stage.size();
-}
-
-int CTxMemPool::ExpireEVM(int64_t time) {
-    AssertLockHeld(cs);
-    indexed_transaction_set::index<entry_time>::type::iterator it = mapTx.get<entry_time>().begin();
-    setEntries toremove;
-    while (it != mapTx.get<entry_time>().end() && it->GetTime() < time) {
+    while (it != mapTx.get<entry_time>().end()) {
         std::vector<unsigned char> metadata;
         CustomTxType txType = GuessCustomTxType(it->GetTx(), metadata, true);
-        if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+        if (it->GetTime() < time) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        else if (txType == CustomTxType::EvmTx && it->GetTime() < evmTime) {
+            toremove.insert(mapTx.project<0>(it));
+        }
+        else if (txType == CustomTxType::TransferDomain && it->GetTime() < evmTime) {
+            const auto &tx = it->GetSharedTx();
+            for (const auto &vin : tx->vin) {
+                auto hashEntry = txidIndex.find(vin.prevout.hash);
+                if (hashEntry != txidIndex.end() &&
+                    hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
+                    toremove.insert(hashEntry);
+                    break;
+                }
+            }
             toremove.insert(mapTx.project<0>(it));
         }
         it++;
@@ -1160,7 +1179,7 @@ bool CTxMemPool::getAccountViewDirty() const {
     return accountsViewDirty;
 }
 
-bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
+bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag) {
     if (pendingEntry.GetCustomTxType() != CustomTxType::EvmTx &&
         pendingEntry.GetCustomTxType() != CustomTxType::TransferDomain) {
         return true;
@@ -1168,18 +1187,25 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
 
     auto& addressNonceIndex = mapTx.get<address_and_nonce>();
     auto range = addressNonceIndex.equal_range(pendingEntry.GetEVMAddrAndNonce());
+    if (range.first != range.second) {
+        auto sender = evmReplaceByFeeBySender.find(txSender);
+        if (sender != evmReplaceByFeeBySender.end() && sender->second >= MEMPOOL_MAX_ETH_RBF) {
+            senderLimitFlag = true;
+            return false;
+        }
+    } else {
+        return true;
+    }
 
     CTxMemPool::setEntries itersToRemove;
     std::set<CTransactionRef> txsToRemove;
-
     auto& txidIndex = mapTx.get<txid_tag>();
 
     auto result{true};
-
     for (auto it = range.first; it != range.second; ++it) {
         const auto& entry = *it;
 
-        if (pendingEntry.GetEVMPrePayFee() > entry.GetEVMPrePayFee()) {
+        if (pendingEntry.GetEVMPromisedTipFee() > entry.GetEVMPromisedTipFee()) {
             if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
                 auto txIter = mapTx.project<0>(it);
                 itersToRemove.insert(txIter);
@@ -1216,6 +1242,9 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry) {
         removeRecursive(*tx, MemPoolRemovalReason::REPLACED);
     }
 
+    if (result) {
+        ++evmReplaceByFeeBySender[txSender];
+    }
     return result;
 }
 

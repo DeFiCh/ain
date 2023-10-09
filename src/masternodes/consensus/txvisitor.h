@@ -40,6 +40,7 @@ namespace AuthFlags {
 }
 
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch, AuthFlags::Type flags = AuthFlags::None);
+Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script);
 
 class CCustomTxVisitor {
 protected:

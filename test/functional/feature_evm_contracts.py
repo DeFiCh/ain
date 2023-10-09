@@ -63,6 +63,24 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(2)
 
+        self.node = self.nodes[0]
+
+        self.evm_key_pair = EvmKeyPair.from_node(self.node)
+
+        self.node.transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "50@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.node.generate(1)
+
     def generate_contract(self, node: TestNode, num_functions: int, contract_name: str):
         contract_start = f"""
         pragma solidity ^0.8.0;
@@ -97,22 +115,6 @@ class EVMTest(DefiTestFramework):
         return compiled_contract, runtime_bytecode
 
     def should_deploy_contract_less_than_1KB(self):
-        self.evm_key_pair = EvmKeyPair.from_node(self.node)
-
-        self.node.transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.evm_key_pair.address,
-                        "amount": "50@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.node.generate(1)
-
         abi, bytecode, _ = EVMContract.from_file("SimpleStorage.sol", "Test").compile()
         compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
@@ -142,6 +144,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(size_of_runtime_bytecode, 323)
 
     def should_contract_get_set(self):
+        self.rollback_to(self.start_height)
         # set variable
         tx = self.contract.functions.store(10).build_transaction(
             {
@@ -165,6 +168,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(self.contract.functions.retrieve().call(), 10)
 
     def failed_tx_should_increment_nonce(self):
+        self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Reverter.sol", "Reverter").compile()
         compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
 
@@ -246,6 +250,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(before_tx_count + 1, after_tx_count)
 
     def should_deploy_contract_with_different_sizes(self):
+        self.rollback_to(self.start_height)
         test_data = [
             (128, "ContractSize1KBTo10KB", 6901),
             (256, "ContractSize10KBTo19KB", 13685),
@@ -284,6 +289,7 @@ class EVMTest(DefiTestFramework):
     # EIP 170, contract size is limited to 24576 bytes
     # this test deploys a smart contract with an estimated size larger than this number
     def fail_deploy_contract_extremely_large_runtime_code(self):
+        self.rollback_to(self.start_height)
         compiled_contract, compiler_runtime_bytecode = self.generate_contract(
             self.node, 2**9 - 1, "ContractLargeRunTimeCode"
         )
@@ -318,6 +324,7 @@ class EVMTest(DefiTestFramework):
     # However, because the current implementation of DMC limits the size of EVM transaction to 32768 bytes
     # the error returned is evm tx size too large
     def fail_deploy_contract_extremely_large_init_code(self):
+        self.rollback_to(self.start_height)
         compiled_contract, _ = self.generate_contract(
             self.node, 2**12 - 1, "ContractLargeInitCode"
         )
@@ -340,17 +347,102 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_web3_error(
             -32001,
-            "Test EvmTxTx execution failed:\nevm tx size too large",
+            "Test EvmTx execution failed:\nevm tx size too large",
             self.node.w3.eth.send_raw_transaction,
             signed.rawTransaction,
+        )
+
+    def non_payable_proxied_contract(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file(
+            "NonPayableFallback.sol", "NonPayableFallback"
+        ).compile()
+        compiled = self.node.w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.node.generate(1)
+
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        impl_address = receipt["contractAddress"]
+
+        proxy_abi, bytecode, _ = EVMContract.from_file("Proxy.sol", "Proxy").compile()
+        compiled = self.node.w3.eth.contract(abi=proxy_abi, bytecode=bytecode)
+
+        tx = compiled.constructor(impl_address).build_transaction(
+            {
+                "chainId": self.node.w3.eth.chain_id,
+                "nonce": self.node.w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.node.w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.node.generate(1)
+
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
+        self.proxy_contract = self.node.w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        balance_before = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        call_tx = self.node.w3.eth.send_transaction(
+            {
+                "to": self.proxy_contract.address,
+                "from": self.evm_key_pair.address,
+                "data": "0xffffffffffffffff",
+                "value": self.node.w3.to_hex(self.node.w3.to_wei("1", "ether")),
+            }
+        )
+        self.node.generate(1)
+
+        receipt = self.node.w3.eth.wait_for_transaction_receipt(call_tx)
+
+        assert_equal(receipt["status"], 0)  # tx should have failed
+        assert_equal(
+            self.proxy_contract.functions.getCount().call(), 0
+        )  # fallback function should not have been called
+        assert_equal(
+            self.node.w3.eth.get_balance(self.proxy_contract.address), 0
+        )  # proxy balance should be 0
+        assert_equal(
+            self.node.w3.eth.get_balance(impl_address), 0
+        )  # implementation balance should be 0
+
+        balance_after = self.node.w3.eth.get_balance(self.evm_key_pair.address)
+        assert_equal(
+            balance_before - balance_after,
+            receipt["gasUsed"] * receipt["effectiveGasPrice"],
         )
 
     def run_test(self):
         self.setup()
 
-        self.node = self.nodes[0]
-
         self.should_deploy_contract_less_than_1KB()
+
+        # start height after contract deployment
+        self.start_height = self.nodes[0].getblockcount()
 
         self.should_contract_get_set()
 
@@ -361,6 +453,8 @@ class EVMTest(DefiTestFramework):
         self.fail_deploy_contract_extremely_large_runtime_code()
 
         self.fail_deploy_contract_extremely_large_init_code()
+
+        self.non_payable_proxied_contract()
 
 
 if __name__ == "__main__":
