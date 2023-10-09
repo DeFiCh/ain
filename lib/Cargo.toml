@@ -17,7 +17,7 @@ lto = true
 [patch.crates-io]
 vsdb = { git = 'https://github.com/defich/vsdb.git' }
 vsdbsled = { git = 'https://github.com/defich/vsdbsled.git' }
-ethereum = { git = 'https://github.com/defich/ethereum.git' }
+ethereum = { git = 'https://github.com/defich/ethereum.git', branch = 'store-block-hash' }
 
 [workspace.dependencies]
 
@@ -89,7 +89,7 @@ spin = "0.9.8"
 
 evm = { version = "0.39", default-features = false, features = ["with-serde"] }
 
-ethereum = "0.14"
+ethereum = { git = 'https://github.com/defich/ethereum.git', branch = 'store-block-hash' }
 ethereum-types = "0.14"
 keccak-hash = "0.10"
 rlp = "0.5"

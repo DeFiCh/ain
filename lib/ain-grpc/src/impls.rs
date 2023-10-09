@@ -11,7 +11,7 @@ impl From<BlockAny> for EthBlockInfo {
     fn from(block: BlockAny) -> Self {
         EthBlockInfo {
             block_number: format!("{:#x}", block.header.number),
-            hash: format_h256(block.header.hash()),
+            hash: format_h256(block.hash),
             parent_hash: format_h256(block.header.parent_hash),
             nonce: format!("{:#x}", block.header.nonce),
             sha3_uncles: format_h256(block.header.ommers_hash),

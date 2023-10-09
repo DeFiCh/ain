@@ -79,19 +79,16 @@ fn should_get_block_by_hash() {
     handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
-    let block = handler
-        .block
-        .get_block_by_hash(block.header.hash())
-        .unwrap();
+    let block = handler.block.get_block_by_hash(block.hash).unwrap();
 
     let input = EthGetBlockByHashInput {
-        hash: format!("{:x}", block.header.hash()),
+        hash: format!("{:x}", block.hash),
         full_transaction: false,
     };
     let res = EthService::Eth_GetBlockByHash(handler.clone(), input.clone().into());
     assert_eq!(
         format!("{}", res.unwrap().hash),
-        format!("0x{:x}", block.header.hash())
+        format!("0x{:x}", block.hash)
     );
 }
 
@@ -176,7 +173,7 @@ fn should_get_transaction_by_block_hash_and_index() {
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByBlockHashAndIndexInput {
-        block_hash: format!("{:x}", block.header.hash()),
+        block_hash: format!("{:x}", block.hash),
         index: String::from("0"),
     };
 

@@ -116,7 +116,7 @@ impl BlockStorage for BlockStore {
         self.extend_transactions_from_block(block)?;
 
         let block_number = block.header.number;
-        let hash = block.header.hash();
+        let hash = block.hash;
         let blocks_cf = self.column::<columns::Blocks>();
         let blocks_map_cf = self.column::<columns::BlockMap>();
 
@@ -213,7 +213,7 @@ impl Rollback for BlockStore {
             blocks_cf.delete(&block.header.number)?;
 
             let blocks_map_cf = self.column::<columns::BlockMap>();
-            blocks_map_cf.delete(&block.header.hash())?;
+            blocks_map_cf.delete(&block.hash)?;
 
             if let Some(block) = self.get_block_by_hash(&block.header.parent_hash)? {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();

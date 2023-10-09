@@ -370,11 +370,11 @@ impl EVMServices {
                 .collect(),
             Vec::new(),
         );
-        let block_hash = format!("{:?}", block.header.hash());
+        let block_hash = format!("{:?}", block.hash);
         let receipts = self.receipt.generate_receipts(
             &all_transactions,
             receipts_v3,
-            block.header.hash(),
+            block.hash,
             block.header.number,
             base_fee,
         );
@@ -417,7 +417,7 @@ impl EVMServices {
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number)?;
             self.receipt.put_receipts(receipts)?;
-            self.filters.add_block_to_filters(block.header.hash());
+            self.filters.add_block_to_filters(block.hash);
         }
         self.core.tx_queues.remove(queue_id);
         self.core.clear_account_nonce();

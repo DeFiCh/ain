@@ -51,7 +51,7 @@ impl BlockService {
 
     pub fn get_latest_block_hash_and_number(&self) -> Result<Option<(H256, U256)>> {
         let opt_block = self.storage.get_latest_block()?;
-        let opt_hash_and_number = opt_block.map(|block| (block.header.hash(), block.header.number));
+        let opt_hash_and_number = opt_block.map(|block| (block.hash, block.header.number));
         Ok(opt_hash_and_number)
     }
 
@@ -261,9 +261,9 @@ impl BlockService {
                     .storage
                     .get_block_by_number(&first_block)?
                     .ok_or_else(|| format_err!("Block {} out of range", first_block))?;
-                self.calculate_base_fee(block.header.hash())?
+                self.calculate_base_fee(block.hash)?
             }
-            Some(block) => self.calculate_base_fee(block.header.hash())?,
+            Some(block) => self.calculate_base_fee(block.hash)?,
         };
 
         base_fee_per_gas.reverse();

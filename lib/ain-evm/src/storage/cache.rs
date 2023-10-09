@@ -62,7 +62,7 @@ impl BlockStorage for Cache {
         self.extend_transactions_from_block(block)?;
 
         let block_number = block.header.number;
-        let hash = block.header.hash();
+        let hash = block.hash;
         self.blocks
             .write()
             .unwrap()
@@ -154,7 +154,7 @@ impl Rollback for Cache {
                 transaction_cache.pop(&tx.hash());
             }
 
-            self.block_hashes.write().unwrap().pop(&block.header.hash());
+            self.block_hashes.write().unwrap().pop(&block.hash);
             self.blocks.write().unwrap().pop(&block.header.number);
 
             let previous_block = self.get_block_by_hash(&block.header.parent_hash)?;

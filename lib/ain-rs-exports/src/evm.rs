@@ -548,7 +548,7 @@ fn get_block_hash_by_number(height: u64) -> Result<XHash> {
         .storage
         .get_block_by_number(&U256::from(height))?
         .ok_or("Invalid block number")?;
-    Ok(format!("{:?}", block.header.hash()))
+    Ok(format!("{:?}", block.hash))
 }
 
 /// Return the block number for a given blockhash.

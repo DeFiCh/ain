@@ -41,8 +41,8 @@ impl RpcBlock {
     pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
         let header_size = block.header.rlp_bytes().len();
         RpcBlock {
-            hash: block.header.hash(),
-            mix_hash: block.header.hash(),
+            hash: block.hash,
+            mix_hash: block.hash,
             number: block.header.number,
             parent_hash: block.header.parent_hash,
             transactions_root: block.header.transactions_root,

@@ -103,7 +103,7 @@ impl EthTransactionInfo {
         let signed_tx: SignedTx = tx.clone().try_into()?;
 
         Ok(EthTransactionInfo {
-            block_hash: Some(format_h256(block.header.hash())),
+            block_hash: Some(format_h256(block.hash)),
             block_number: Some(format_u256(block.header.number)),
             transaction_index: Some(format_u256(U256::from(index))),
             gas_price: format_u256(signed_tx.effective_gas_price(block.header.base_fee)),

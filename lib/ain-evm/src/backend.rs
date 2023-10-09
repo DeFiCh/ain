@@ -284,7 +284,7 @@ impl Backend for EVMBackend {
         self.storage
             .get_block_by_number(&number)
             .expect("Could not get block by number")
-            .map_or(H256::zero(), |block| block.header.hash())
+            .map_or(H256::zero(), |block| block.hash)
     }
 
     fn block_number(&self) -> U256 {

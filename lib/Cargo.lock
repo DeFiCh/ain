@@ -1568,7 +1568,7 @@ dependencies = [
 [[package]]
 name = "ethereum"
 version = "0.14.0"
-source = "git+https://github.com/defich/ethereum.git#74f937c09606b4c2b2c9ff9e3d93dc191fa6cc39"
+source = "git+https://github.com/defich/ethereum.git?branch=store-block-hash#bdbaf4ae22c628eb7fe317364ea5fee79f0039ef"
 dependencies = [
  "bytes",
  "ethereum-types",
