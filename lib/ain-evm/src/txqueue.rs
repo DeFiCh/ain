@@ -108,8 +108,6 @@ impl TransactionQueueMap {
     /// # Errors
     ///
     /// Returns `QueueError::NoSuchQueue` if no queue is associated with the given queue ID.
-    /// Returns `QueueError::InvalidNonce` if a `SignedTx` is provided with a nonce that is not one more than the
-    /// previous nonce of transactions from the same sender in the queue.
     ///
     /// # Safety
     ///
@@ -371,14 +369,12 @@ impl From<SignedTx> for QueueTx {
 #[derive(Debug)]
 pub enum QueueError {
     NoSuchQueue,
-    InvalidNonce((Box<SignedTx>, U256)),
 }
 
 impl std::fmt::Display for QueueError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             QueueError::NoSuchQueue => write!(f, "No transaction queue for this queue"),
-            QueueError::InvalidNonce((tx, nonce)) => write!(f, "Invalid nonce {:x?} for tx {:x?}. Previous queued nonce is {}. TXs should be queued in increasing nonce order.", tx.nonce(), tx.transaction.hash(), nonce),
         }
     }
 }
@@ -393,90 +389,6 @@ mod tests {
 
     use super::*;
     use crate::transaction::bridge::BalanceUpdate;
-
-    #[test]
-    fn test_invalid_nonce_order() -> Result<(), QueueError> {
-        let queue = TransactionQueue::new();
-
-        // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
-
-        // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
-        let tx2 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
-
-        // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx3 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
-
-        queue.queue_tx(
-            tx1,
-            H256::from_low_u64_be(1).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        queue.queue_tx(
-            tx2,
-            H256::from_low_u64_be(2).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        // Should fail as nonce 2 is already queued for this sender
-        let queued = queue.queue_tx(
-            tx3,
-            H256::from_low_u64_be(3).into(),
-            U256::zero(),
-            U256::zero(),
-        );
-        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
-        Ok(())
-    }
-
-    #[test]
-    fn test_invalid_nonce_order_with_transfer_domain() -> Result<(), QueueError> {
-        let queue = TransactionQueue::new();
-
-        // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
-
-        // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
-        let tx2 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
-
-        // sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
-        let tx3 = QueueTx::BridgeTx(BridgeTx::EvmIn(BalanceUpdate {
-            address: H160::from_str("0x6bc42fd533d6cb9d973604155e1f7197a3b0e703").unwrap(),
-            amount: U256::one(),
-        }));
-
-        // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
-
-        queue.queue_tx(
-            tx1,
-            H256::from_low_u64_be(1).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        queue.queue_tx(
-            tx2,
-            H256::from_low_u64_be(2).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        queue.queue_tx(
-            tx3,
-            H256::from_low_u64_be(3).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        // Should fail as nonce 2 is already queued for this sender
-        let queued = queue.queue_tx(
-            tx4,
-            H256::from_low_u64_be(4).into(),
-            U256::zero(),
-            U256::zero(),
-        );
-        assert!(matches!(queued, Err(QueueError::InvalidNonce { .. })));
-        Ok(())
-    }
 
     #[test]
     fn test_valid_nonce_order() -> Result<(), QueueError> {
