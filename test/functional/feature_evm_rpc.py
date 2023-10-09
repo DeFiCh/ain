@@ -174,7 +174,7 @@ class EVMTest(DefiTestFramework):
         )
         # Note: This will fail. Re-evaluate
         assert_equal(res["results"]["sender"].lower(), self.ethAddress)
-        assert_equal(res["results"]["gasPrice"], Decimal("2.1"))
+        assert_equal(res["results"]["gasPrice"], Decimal("2"))
         assert_equal(res["results"]["gasLimit"], 21000)
         assert_equal(res["results"]["createTx"], False)
         assert_equal(res["results"]["to"].lower(), self.toAddress)
