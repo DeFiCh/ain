@@ -400,6 +400,7 @@ def rpc_port(n, i):
         + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
     )
 
+
 def rpc_url(datadir, n, i, chain, rpchost):
     rpc_u, rpc_p = get_auth_cookie(datadir, chain)
     host = "127.0.0.1"
@@ -476,10 +477,12 @@ def get_auth_cookie(datadir, chain):
         raise ValueError("No RPC credentials")
     return user, password
 
+
 def get_conf_data(datadir):
     if os.path.isfile(os.path.join(datadir, "defi.conf")):
         with open(os.path.join(datadir, "defi.conf"), "r", encoding="utf8") as f:
             return f.read()
+
 
 def delete_cookie_file(datadir, chain):
     """
