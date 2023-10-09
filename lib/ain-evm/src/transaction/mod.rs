@@ -319,16 +319,7 @@ impl SignedTx {
     }
 
     pub fn hash(&self) -> H256 {
-        let h = &self.hash_cache;
-        if h.get().is_none() {
-            let val = match &self.transaction {
-                TransactionV2::Legacy(tx) => tx.hash(),
-                TransactionV2::EIP2930(tx) => tx.hash(),
-                TransactionV2::EIP1559(tx) => tx.hash(),
-            };
-            h.set(Some(val));
-        }
-        h.get().unwrap()
+       self.hash
     }
 
     pub fn get_tx_type(&self) -> U256 {
