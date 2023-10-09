@@ -1205,12 +1205,6 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
         if (entryType == CustomTxType::EvmTx && entryFee >= entry.GetEVMRbfMinTipFee()) {
             auto txIter = mapTx.project<0>(it);
             itersToRemove.insert(txIter);
-
-            // We might want to set accountsViewDirty to true here but
-            // then we would trigger a rebuild on every EVM RBF TX.
-            // Imperfect mempool behaviour might be preferred over this
-            // performance cost. Account view will be rebuilt on each
-            // new block.
         } else {
             result = false;
         }
