@@ -178,9 +178,9 @@ impl TryFrom<TransactionV2> for SignedTx {
             }
         }?;
         Ok(SignedTx {
+            hash: src.hash(),
             transaction: src,
             sender: public_key_to_address(&pubkey),
-            hash_cache: Cell::new(None),
         })
     }
 }
