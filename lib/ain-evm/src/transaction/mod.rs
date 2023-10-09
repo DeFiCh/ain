@@ -319,7 +319,7 @@ impl SignedTx {
     }
 
     pub fn hash(&self) -> H256 {
-       self.hash
+        self.hash
     }
 
     pub fn get_tx_type(&self) -> U256 {
@@ -328,7 +328,6 @@ impl SignedTx {
 }
 
 use std::{
-    cell::Cell,
     cmp::min,
     convert::{TryFrom, TryInto},
     fmt,
