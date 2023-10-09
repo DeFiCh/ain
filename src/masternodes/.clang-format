@@ -46,9 +46,9 @@ BraceWrapping:
   BeforeLambdaBody: false
   BeforeWhile:     false
   IndentBraces:    false
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
-  SplitEmptyNamespace: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
 BreakBeforeBinaryOperators: None
 BreakBeforeConceptDeclarations: true
 BreakBeforeBraces: Attach
@@ -111,6 +111,7 @@ IndentRequires:  false
 IndentWidth:     4
 IndentWrappedFunctionNames: false
 InsertTrailingCommas: None
+InsertBraces: true
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
 KeepEmptyLinesAtTheStartOfBlocks: false

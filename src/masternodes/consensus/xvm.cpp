@@ -46,12 +46,14 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
                                          TransferDomainInfo &context) {
     CTxDestination src, dest;
     auto res = ExtractDestination(srcScript, src);
-    if (!res)
+    if (!res) {
         return DeFiErrors::ScriptUnexpected(srcScript);
+    }
 
     res = ExtractDestination(destScript, dest);
-    if (!res)
+    if (!res) {
         return DeFiErrors::ScriptUnexpected(destScript);
+    }
 
     const auto srcType = FromTxDestType(src.index());
     const auto destType = FromTxDestType(dest.index());
@@ -91,19 +93,23 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
                                       CTransferDomainItem src,
                                       CTransferDomainItem dst,
                                       TransferDomainInfo &context) {
-    if (src.domain == dst.domain)
+    if (src.domain == dst.domain) {
         return DeFiErrors::TransferDomainSameDomain();
+    }
 
-    if (src.amount.nValue != dst.amount.nValue)
+    if (src.amount.nValue != dst.amount.nValue) {
         return DeFiErrors::TransferDomainUnequalAmount();
+    }
 
-    if (src.amount.nTokenId != dst.amount.nTokenId)
+    if (src.amount.nTokenId != dst.amount.nTokenId) {
         return DeFiErrors::TransferDomainDifferentTokens();
+    }
 
     // We allow 0 here, just if we need to touch something
     // on either sides or special case later.
-    if (src.amount.nValue < 0)
+    if (src.amount.nValue < 0) {
         return DeFiErrors::TransferDomainInvalid();
+    }
 
     auto tokenId = src.amount.nTokenId;
     context.token_id = tokenId.v;
@@ -111,30 +117,36 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
 
     if (tokenId != DCT_ID{0}) {
         auto token = mnview.GetToken(tokenId);
-        if (!token || !token->IsDAT() || token->IsPoolShare())
+        if (!token || !token->IsDAT() || token->IsPoolShare()) {
             return DeFiErrors::TransferDomainIncorrectToken();
+        }
     }
 
     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) && dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-        if (!config.dvmToEvmEnabled)
+        if (!config.dvmToEvmEnabled) {
             return DeFiErrors::TransferDomainDVMEVMNotEnabled();
+        }
 
-        if (tokenId == DCT_ID{0} && !config.dvmToEvmNativeTokenEnabled)
+        if (tokenId == DCT_ID{0} && !config.dvmToEvmNativeTokenEnabled) {
             return DeFiErrors::TransferDomainDVMToEVMNativeTokenNotEnabled();
+        }
 
-        if (tokenId != DCT_ID{0} && !config.dvmToEvmDatEnabled)
+        if (tokenId != DCT_ID{0} && !config.dvmToEvmDatEnabled) {
             return DeFiErrors::TransferDomainDVMToEVMDATNotEnabled();
+        }
 
         // DVM to EVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::DVMToEVM, config, context);
-        if (!res)
+        if (!res) {
             return res;
+        }
         context.direction = true;
 
         CScript from;
         res = GetERC55AddressFromAuth(tx, coins, from);
-        if (!res)
+        if (!res) {
             return res;
+        }
         CTxDestination dest;
         if (!ExtractDestination(from, dest)) {
             return DeFiErrors::ScriptUnexpected(from);
@@ -144,19 +156,23 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
         return HasAuth(tx, coins, src.address);
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-        if (!config.evmToDvmEnabled)
+        if (!config.evmToDvmEnabled) {
             return DeFiErrors::TransferDomainEVMDVMNotEnabled();
+        }
 
-        if (tokenId == DCT_ID{0} && !config.evmToDvmNativeTokenEnabled)
+        if (tokenId == DCT_ID{0} && !config.evmToDvmNativeTokenEnabled) {
             return DeFiErrors::TransferDomainEVMToDVMNativeTokenNotEnabled();
+        }
 
-        if (tokenId != DCT_ID{0} && !config.evmToDvmDatEnabled)
+        if (tokenId != DCT_ID{0} && !config.evmToDvmDatEnabled) {
             return DeFiErrors::TransferDomainEVMToDVMDATNotEnabled();
+        }
 
         // EVM to DVM
         auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToDVM, config, context);
-        if (!res)
+        if (!res) {
             return res;
+        }
         context.direction = false;
 
         auto authType = AuthFlags::None;
@@ -202,8 +218,9 @@ static Res ValidateTransferDomain(const CTransaction &tx,
     for (const auto &[src, dst] : obj.transfers) {
         TransferDomainInfo context;
         auto res = ValidateTransferDomainEdge(tx, config, mnview, height, coins, consensus, src, dst, context);
-        if (!res)
+        if (!res) {
             return res;
+        }
         contexts.push_back(context);
     }
 
@@ -387,8 +404,9 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
 
-    if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE))
+    if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE)) {
         return Res::Err("evm tx size too large");
+    }
 
     CrossBoundaryResult result;
     if (evmPreValidate) {
