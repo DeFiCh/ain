@@ -100,7 +100,7 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
-    hash_cache: Cell<Option<H256>>,
+    hash: H256,
 }
 
 impl fmt::Debug for SignedTx {
