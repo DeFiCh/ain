@@ -221,6 +221,75 @@ lazy_static::lazy_static! {
     };
 }
 
+pub fn get_transferdomain_native_transfer_function() -> ethabi::Function {
+    #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+    ethabi::Function {
+        name: String::from("transfer"),
+        inputs: vec![
+            ethabi::Param {
+                name: String::from("from"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("to"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("amount"),
+                kind: ethabi::ParamType::Uint(256),
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("vmAddress"),
+                kind: ethabi::ParamType::String,
+                internal_type: None,
+            },
+        ],
+        outputs: vec![],
+        constant: None,
+        state_mutability: ethabi::StateMutability::NonPayable,
+    }
+}
+
+pub fn get_transferdomain_dst20_transfer_function() -> ethabi::Function {
+    #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+    ethabi::Function {
+        name: String::from("transferDST20"),
+        inputs: vec![
+            ethabi::Param {
+                name: String::from("contractAddress"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("from"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("to"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("amount"),
+                kind: ethabi::ParamType::Uint(256),
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("vmAddress"),
+                kind: ethabi::ParamType::String,
+                internal_type: None,
+            },
+        ],
+        outputs: vec![],
+        constant: None,
+        state_mutability: ethabi::StateMutability::NonPayable,
+    }
+}
+
 pub fn get_dfi_reserved_contract() -> Contract {
     DFI_RESERVED_CONTRACT.clone()
 }

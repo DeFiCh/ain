@@ -9,16 +9,15 @@ use ethereum::{Block, PartialHeader, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
 
-use crate::contract::{
-    deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
-    dst20_v1_deploy_info, transfer_domain_deploy_info, transfer_domain_v1_contract_deploy_info,
-};
+use crate::log::Notification;
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
     contract::{
-        get_dst20_migration_txs, reserve_dst20_namespace, reserve_intrinsics_namespace,
-        DeployContractInfo,
+        deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
+        dst20_v1_deploy_info, get_dst20_migration_txs, reserve_dst20_namespace,
+        reserve_intrinsics_namespace, transfer_domain_deploy_info,
+        transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
     executor::AinExecutor,
@@ -32,8 +31,15 @@ use crate::{
     },
     trie::GENESIS_STATE_ROOT,
     txqueue::{BlockData, QueueTx},
-    Result,
+    EVMError, Result,
 };
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::RwLock;
+
+pub struct NotificationChannel<T> {
+    pub sender: UnboundedSender<T>,
+    pub receiver: RwLock<UnboundedReceiver<T>>,
+}
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -42,10 +48,12 @@ pub struct EVMServices {
     pub logs: LogService,
     pub filters: FilterService,
     pub storage: Arc<Storage>,
+    pub channel: NotificationChannel<Notification>,
 }
 
 pub struct FinalizedBlockInfo {
     pub block_hash: XHash,
+    pub failed_transactions: Vec<XHash>,
     pub total_burnt_fees: U256,
     pub total_priority_fees: U256,
     pub block_number: U256,
@@ -70,6 +78,7 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self> {
+        let (sender, receiver) = mpsc::unbounded_channel();
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {
@@ -95,6 +104,10 @@ impl EVMServices {
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
+                channel: NotificationChannel {
+                    sender,
+                    receiver: RwLock::new(receiver),
+                },
             })
         } else {
             let storage = Arc::new(Storage::restore(&path)?);
@@ -105,6 +118,10 @@ impl EVMServices {
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(),
                 storage,
+                channel: NotificationChannel {
+                    sender,
+                    receiver: RwLock::new(receiver),
+                },
             })
         }
     }
@@ -125,10 +142,11 @@ impl EVMServices {
         mnview_ptr: usize,
     ) -> Result<FinalizedBlockInfo> {
         let tx_queue = self.core.tx_queues.get(queue_id)?;
-        let mut queue = tx_queue.data.lock().unwrap();
+        let mut queue = tx_queue.data.lock();
 
         let queue_txs_len = queue.transactions.len();
         let mut all_transactions = Vec::with_capacity(queue_txs_len);
+        let mut failed_transactions = Vec::with_capacity(queue_txs_len);
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
             Vec::with_capacity(queue_txs_len);
         let mut total_gas_used = 0u64;
@@ -149,6 +167,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: U256::zero(),
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 H256::zero(),
@@ -159,6 +180,9 @@ impl EVMServices {
                     beneficiary,
                     timestamp: U256::from(timestamp),
                     block_number: number + 1,
+                    block_gas_limit: U256::from(
+                        self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ),
                     ..Vicinity::default()
                 },
                 hash,
@@ -292,8 +316,26 @@ impl EVMServices {
             queue.transactions.len()
         );
 
+        let mut exceed_block_limit = false;
         for queue_item in queue.transactions.clone() {
-            let apply_result = executor.apply_queue_tx(queue_item.tx, base_fee)?;
+            executor.update_total_gas_used(U256::from(total_gas_used));
+            let apply_result = match executor.apply_queue_tx(queue_item.tx, base_fee) {
+                Ok(result) => result,
+                Err(EVMError::BlockSizeLimit(message)) => {
+                    debug!("[construct_block] {}", message);
+                    failed_transactions.push(queue_item.tx_hash);
+                    exceed_block_limit = true;
+                    continue;
+                }
+                Err(e) => {
+                    if exceed_block_limit {
+                        failed_transactions.push(queue_item.tx_hash);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
 
             all_transactions.push(apply_result.tx);
             EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
@@ -358,10 +400,16 @@ impl EVMServices {
 
         Ok(FinalizedBlockInfo {
             block_hash,
+            failed_transactions,
             total_burnt_fees,
             total_priority_fees,
             block_number: current_block_number,
         })
+    }
+
+    pub fn get_block_limit(&self) -> Result<u64> {
+        let res = self.storage.get_attributes_or_default()?;
+        Ok(res.block_gas_limit)
     }
 
     ///
@@ -373,7 +421,7 @@ impl EVMServices {
     pub unsafe fn commit_queue(&self, queue_id: u64) -> Result<()> {
         {
             let tx_queue = self.core.tx_queues.get(queue_id)?;
-            let queue = tx_queue.data.lock().unwrap();
+            let queue = tx_queue.data.lock();
             let Some(BlockData { block, receipts }) = queue.block_data.clone() else {
                 return Err(format_err!("no constructed EVM block exist in queue id").into());
             };
@@ -388,9 +436,15 @@ impl EVMServices {
                 .generate_logs_from_receipts(&receipts, block.header.number)?;
             self.receipt.put_receipts(receipts)?;
             self.filters.add_block_to_filters(block.header.hash());
+
+            self.channel
+                .sender
+                .send(Notification::Block(block.header.hash()))
+                .map_err(|e| format_err!(e.to_string()))?;
         }
         self.core.tx_queues.remove(queue_id);
         self.core.clear_account_nonce();
+        self.core.clear_transaction_cache();
 
         Ok(())
     }
@@ -400,14 +454,39 @@ impl EVMServices {
         queue_id: u64,
         tx: QueueTx,
     ) -> Result<(SignedTx, U256, H256)> {
-        let state_root = self.core.tx_queues.get_latest_state_root_in(queue_id)?;
+        let (target_block, state_root, timestamp, total_gas_used, is_first_tx) = {
+            let queue = self.core.tx_queues.get(queue_id)?;
+
+            let state_root = queue.get_latest_state_root();
+            let data = queue.data.lock();
+
+            (
+                data.target_block,
+                state_root,
+                data.timestamp,
+                data.total_gas_used,
+                data.transactions.is_empty(),
+            )
+        };
         debug!(
             "[update_queue_state_from_tx] state_root : {:#?}",
             state_root
         );
 
-        // Has to be mutable to obtain new state root
-        let mut backend = self.core.get_backend(state_root)?;
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.core.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity {
+                timestamp: U256::from(timestamp),
+                block_number: target_block,
+                block_gas_limit: U256::from(
+                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                ),
+                ..Vicinity::default()
+            },
+        )?;
+
         let mut executor = AinExecutor::new(&mut backend);
 
         let (parent_hash, _) = self
@@ -416,6 +495,17 @@ impl EVMServices {
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
         let base_fee = self.block.calculate_base_fee(parent_hash)?;
 
+        // Update instrinsics contract to reproduce construct_block behaviour
+        if is_first_tx {
+            let (current_native_height, _) = ain_cpp_imports::get_sync_status().unwrap();
+            let DeployContractInfo {
+                address, storage, ..
+            } = dfi_intrinsics_v1_deploy_info((current_native_height + 1) as u64, target_block)?;
+            executor.update_storage(address, storage)?;
+            executor.commit();
+        }
+
+        executor.update_total_gas_used(total_gas_used);
         let apply_tx = executor.apply_queue_tx(tx, base_fee)?;
 
         Ok((
@@ -443,14 +533,17 @@ impl EVMServices {
             .tx_queues
             .push_in(queue_id, tx, hash, gas_used, state_root)?;
 
-        self.filters.add_tx_to_filters(signed_tx.transaction.hash());
+        self.filters.add_tx_to_filters(signed_tx.hash());
 
         Ok(())
     }
 
     pub fn verify_tx_fees(&self, tx: &str) -> Result<U256> {
         trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let signed_tx = SignedTx::try_from(tx)
+        let signed_tx = self
+            .core
+            .signed_tx_cache
+            .try_get_or_create(tx)
             .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
         trace!("[verify_tx_fees] signed_tx : {:#?}", signed_tx);
 

@@ -32,7 +32,7 @@ UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
 }
 
 Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView &mnview) const {
-    Require(mnview.GetLastHeight() >= Params().GetConsensus().FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
+    Require(mnview.GetLastHeight() >= Params().GetConsensus().DF11FortCanningHeight, []{ return "Cannot be set before FortCanning"; });
 
     CAmount total{0};
     for (const auto &kv : splits) {

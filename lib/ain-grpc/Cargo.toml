@@ -29,6 +29,10 @@ rlp.workspace = true
 sha3.workspace = true
 serde_with.workspace = true
 anyhow.workspace = true
+tower-http.workspace = true
+tower.workspace = true
+hyper.workspace = true
+rand.workspace = true
 
 [build-dependencies]
 cxx-gen.workspace = true

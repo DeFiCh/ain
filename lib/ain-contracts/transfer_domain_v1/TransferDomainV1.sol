@@ -41,7 +41,7 @@ pragma solidity ^0.8.0;
 /**
  * @title TransferDomain
  */
-contract TransferDomainImplV1 is IERC20Metadata {
+contract TransferDomainV1 is IERC20Metadata {
     mapping(address => uint256) private _balances;
     uint256 private _totalSupply;
 

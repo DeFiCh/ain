@@ -4,6 +4,7 @@
 #include <key_io.h>
 #include <logging.h>
 #include <clientversion.h>
+#include <httprpc.h>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -149,7 +150,7 @@ rust::vec<TransactionData> getPoolTransactions() {
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
-            poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+            poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(), TransactionData{
                 static_cast<uint8_t>(TransactionDataTxType::EVM),
                 HexStr(obj.evmTx),
                 static_cast<uint8_t>(TransactionDataDirection::None),
@@ -168,13 +169,13 @@ rust::vec<TransactionData> getPoolTransactions() {
             }
 
             if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(), TransactionData{
                     static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
                     HexStr(obj.transfers[0].second.data),
                     static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
                 });
             } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMPrePayFee(), TransactionData{
+                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(), TransactionData{
                     static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
                     HexStr(obj.transfers[0].first.data),
                     static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
@@ -284,4 +285,13 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
         return true;
     }, DCT_ID{1});  // start from non-DFI
     return tokens;
+}
+
+int32_t getNumCores() {
+    const auto n = GetNumCores() - 1;
+    return std::max(1, n);
+}
+
+rust::string getCORSAllowedOrigin() {
+    return gArgs.GetArg("-rpcallowcors", "");
 }

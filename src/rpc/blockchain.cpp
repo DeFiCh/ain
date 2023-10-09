@@ -191,7 +191,7 @@ struct RewardInfo {
     TokenRewardItems TokenRewards{};
 
     static std::optional<RewardInfo> TryFrom(const CBlock& block, const CBlockIndex* blockindex, const Consensus::Params& consensus) {
-        if (blockindex->nHeight < consensus.AMKHeight)
+        if (blockindex->nHeight < consensus.DF1AMKHeight)
             return {};
 
         RewardInfo result{};
@@ -199,7 +199,7 @@ struct RewardInfo {
         CAmount blockReward = GetBlockSubsidy(blockindex->nHeight, consensus);
         result.BlockReward = blockReward;
 
-        if (blockindex->nHeight < consensus.EunosHeight) {
+        if (blockindex->nHeight < consensus.DF8EunosHeight) {
             for (const auto& [accountType, accountVal] : consensus.blockTokenRewardsLegacy)
             {
                 CAmount subsidy = blockReward * accountVal / COIN;
@@ -215,7 +215,7 @@ struct RewardInfo {
 
         for (const auto& [accountType, accountVal] : consensus.blockTokenRewards)
         {
-            if (blockindex->nHeight < consensus.GrandCentralHeight
+            if (blockindex->nHeight < consensus.DF20GrandCentralHeight
             && accountType == CommunityAccountType::CommunityDevFunds) {
                 continue;
             }
@@ -300,7 +300,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
             return {};
         }
         auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
-        if (!isEvmEnabledForBlock || tx1ScriptPubKey.size() == 0) return {};
+        if (!isEvmEnabledForBlock || tx1ScriptPubKey.empty()) return {};
         auto xvm = XVM::TryFrom(tx1ScriptPubKey);
         if (!xvm) return {};
         UniValue result(UniValue::VOBJ);
@@ -348,7 +348,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(blockindex->nHeight, *pcustomcsview, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview, consensus);
 
     auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
@@ -1527,25 +1527,25 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
 
     const Consensus::Params& consensusParams = Params().GetConsensus();
     UniValue softforks(UniValue::VOBJ);
-    BuriedForkDescPushBack(softforks, "amk", consensusParams.AMKHeight);
-    BuriedForkDescPushBack(softforks, "bayfront", consensusParams.BayfrontHeight);
-    BuriedForkDescPushBack(softforks, "clarkequay", consensusParams.ClarkeQuayHeight);
-    BuriedForkDescPushBack(softforks, "dakota", consensusParams.DakotaHeight);
-    BuriedForkDescPushBack(softforks, "dakotacrescent", consensusParams.DakotaCrescentHeight);
-    BuriedForkDescPushBack(softforks, "eunos", consensusParams.EunosHeight);
-    BuriedForkDescPushBack(softforks, "eunospaya", consensusParams.EunosPayaHeight);
-    BuriedForkDescPushBack(softforks, "fortcanning", consensusParams.FortCanningHeight);
-    BuriedForkDescPushBack(softforks, "fortcanningmuseum", consensusParams.FortCanningMuseumHeight);
-    BuriedForkDescPushBack(softforks, "fortcanningpark", consensusParams.FortCanningParkHeight);
-    BuriedForkDescPushBack(softforks, "fortcanninghill", consensusParams.FortCanningHillHeight);
-    BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.FortCanningRoadHeight);
-    BuriedForkDescPushBack(softforks, "fortcanningcrunch", consensusParams.FortCanningCrunchHeight);
-    BuriedForkDescPushBack(softforks, "fortcanningspring", consensusParams.FortCanningSpringHeight);
-    BuriedForkDescPushBack(softforks, "fortcanninggreatworld", consensusParams.FortCanningGreatWorldHeight);
-    BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.FortCanningEpilogueHeight);
-    BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.GrandCentralHeight);
-    BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.GrandCentralEpilogueHeight);
-    BuriedForkDescPushBack(softforks, "nextnetworkupgrade", consensusParams.NextNetworkUpgradeHeight);
+    BuriedForkDescPushBack(softforks, "amk", consensusParams.DF1AMKHeight);
+    BuriedForkDescPushBack(softforks, "bayfront", consensusParams.DF2BayfrontHeight);
+    BuriedForkDescPushBack(softforks, "clarkequay", consensusParams.DF5ClarkeQuayHeight);
+    BuriedForkDescPushBack(softforks, "dakota", consensusParams.DF6DakotaHeight);
+    BuriedForkDescPushBack(softforks, "dakotacrescent", consensusParams.DF7DakotaCrescentHeight);
+    BuriedForkDescPushBack(softforks, "eunos", consensusParams.DF8EunosHeight);
+    BuriedForkDescPushBack(softforks, "eunospaya", consensusParams.DF10EunosPayaHeight);
+    BuriedForkDescPushBack(softforks, "fortcanning", consensusParams.DF11FortCanningHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningmuseum", consensusParams.DF12FortCanningMuseumHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningpark", consensusParams.DF13FortCanningParkHeight);
+    BuriedForkDescPushBack(softforks, "fortcanninghill", consensusParams.DF14FortCanningHillHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningroad", consensusParams.DF15FortCanningRoadHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningcrunch", consensusParams.DF16FortCanningCrunchHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningspring", consensusParams.DF17FortCanningSpringHeight);
+    BuriedForkDescPushBack(softforks, "fortcanninggreatworld", consensusParams.DF18FortCanningGreatWorldHeight);
+    BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.DF19FortCanningEpilogueHeight);
+    BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.DF20GrandCentralHeight);
+    BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.DF21GrandCentralEpilogueHeight);
+    BuriedForkDescPushBack(softforks, "nextnetworkupgrade", consensusParams.DF22NextHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

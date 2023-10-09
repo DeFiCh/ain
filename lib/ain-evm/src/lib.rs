@@ -38,6 +38,10 @@ pub enum EVMError {
     QueueError(#[from] QueueError),
     #[error("EVM: Queue invalid nonce error {0:?}")]
     QueueInvalidNonce((Box<transaction::SignedTx>, ethereum_types::U256)),
+    #[error("EVM: Exceed block size limit")]
+    BlockSizeLimit(String),
+    #[error("EVM: Exceed money range")]
+    MoneyRangeError(String),
     #[error("EVM: IO error")]
     IoError(#[from] std::io::Error),
     #[error("EVM: Hex error")]
@@ -52,6 +56,14 @@ pub enum EVMError {
     JsonError(#[from] serde_json::Error),
     #[error("EVM: rocksdb error")]
     RocksDBError(#[from] rocksdb::Error),
+    #[error("EVM: ethabi error")]
+    EthAbiError(#[from] ethabi::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+impl From<&str> for EVMError {
+    fn from(s: &str) -> Self {
+        EVMError::Other(format_err!("{s}"))
+    }
 }

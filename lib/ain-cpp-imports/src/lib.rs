@@ -91,6 +91,12 @@ mod ffi {
     pub fn getClientVersion() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getNumCores() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getCORSAllowedOrigin() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -170,6 +176,7 @@ pub fn get_state_input_json() -> Option<String> {
     }
 }
 
+/// Returns current DVM block height and highest DVM block header seen
 pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     let current_block = ffi::getCurrentHeight();
     let highest_block = ffi::getHighestBlock();
@@ -187,6 +194,14 @@ pub fn log_print(message: &str) {
 
 pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
     ffi::getDST20Tokens(mnview_ptr)
+}
+
+pub fn get_num_cores() -> i32 {
+    ffi::getNumCores()
+}
+
+pub fn get_cors_allowed_origin() -> String {
+    ffi::getCORSAllowedOrigin()
 }
 
 #[cfg(test)]

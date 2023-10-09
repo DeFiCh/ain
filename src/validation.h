@@ -81,8 +81,10 @@ static const unsigned int EXTRA_DESCENDANT_TX_SIZE_LIMIT = 10000;
 static const unsigned int DEFAULT_MEMPOOL_DVM_EXPIRY = 336;
 /** Default for -mempoolexpiryevm, expiration time for mempool transactions in hours */
 static const unsigned int DEFAULT_MEMPOOL_EVM_EXPIRY = 3;
-/** Limit in the number of Eth TXs from the same sender allowed in the mempool */
+/** Limit in the number of Eth TXs from the same sender that is allowed in the mempool */
 static const unsigned int MEMPOOL_MAX_ETH_TXS = 64;
+/** Limit in the number of Eth TX RBF from the same sender that is allowed in the mempool */
+static const unsigned int MEMPOOL_MAX_ETH_RBF = 40;
 /** Maximum kilobytes for transactions to store for processing during reorg */
 static const unsigned int MAX_DISCONNECTED_TX_POOL_SIZE = 20000;
 /** The maximum size of a blk?????.dat file (since 0.8) */
@@ -738,7 +740,7 @@ public:
     // Block (dis)connection on a given view:
     DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex, CCoinsViewCache& view, CCustomCSView& cache, std::vector<CAnchorConfirmMessage> & disconnectedAnchorConfirms);
     bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex,
-                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, bool & rewardedAnchors, uint64_t evmQueueId, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+                      CCoinsViewCache& view, CCustomCSView& cache, const CChainParams& chainparams, bool & rewardedAnchors, bool fJustCheck = false) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
     // Apply the effects of a block disconnection on the UTXO set.
     bool DisconnectTip(CValidationState& state, const CChainParams& chainparams, DisconnectedBlockTransactions* disconnectpool) EXCLUSIVE_LOCKS_REQUIRED(cs_main, ::mempool.cs);

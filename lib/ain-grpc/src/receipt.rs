@@ -1,3 +1,4 @@
+use ain_evm::log::LogIndex;
 use ain_evm::receipt::Receipt;
 use ethereum::{EIP658ReceiptData, Log};
 use ethereum_types::{H160, H256, U256};
@@ -33,6 +34,22 @@ pub struct ReceiptResult {
     pub transaction_hash: H256,
     pub transaction_index: String,
     pub r#type: String,
+}
+
+impl From<LogIndex> for LogResult {
+    fn from(log: LogIndex) -> Self {
+        Self {
+            address: log.address,
+            topics: log.topics,
+            data: format!("0x{}", hex::encode(log.data)),
+            block_number: log.block_number,
+            block_hash: log.block_hash,
+            transaction_hash: log.transaction_hash,
+            transaction_index: format!("{:#x}", log.transaction_index),
+            log_index: format!("{:#x}", log.log_index),
+            removed: false,
+        }
+    }
 }
 
 impl From<Receipt> for ReceiptResult {

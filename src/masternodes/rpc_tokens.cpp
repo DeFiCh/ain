@@ -268,12 +268,12 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
 
-    if (targetHeight < Params().GetConsensus().BayfrontHeight) {
+    if (targetHeight < Params().GetConsensus().DF2BayfrontHeight) {
         if (metaObj.size() > 1 || !metaObj.exists("isDAT")) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Only 'isDAT' flag modification allowed before Bayfront fork (<" + std::to_string(Params().GetConsensus().BayfrontHeight) + ")");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Only 'isDAT' flag modification allowed before Bayfront fork (<" + std::to_string(Params().GetConsensus().DF2BayfrontHeight) + ")");
         }
 
-        // before BayfrontHeight it needs only founders auth
+        // before DF2BayfrontHeight it needs only founders auth
         rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
     }
     else
@@ -300,7 +300,7 @@ UniValue updatetoken(const JSONRPCRequest& request) {
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
 
     // tx type and serialized data differ:
-    if (targetHeight < Params().GetConsensus().BayfrontHeight) {
+    if (targetHeight < Params().GetConsensus().DF2BayfrontHeight) {
         metadata << static_cast<unsigned char>(CustomTxType::UpdateToken)
                  << tokenImpl.creationTx <<  metaObj["isDAT"].getBool();
     }
@@ -604,14 +604,15 @@ UniValue getcustomtx(const JSONRPCRequest& request)
         CCustomCSView mnview(*pcustomcsview);
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        auto consensus = Params().GetConsensus();
-        auto isEvmEnabledForBlock = IsEVMEnabled(nHeight, mnview, consensus);
+        const auto& consensus = Params().GetConsensus();
+        const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        auto res = ApplyCustomTx(mnview, view, *tx, consensus, nHeight, 0, nullptr, 0, 0, isEvmEnabledForBlock, false);
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
 
         result.pushKV("valid", res.ok);
     } else {
-        if (nHeight >= Params().GetConsensus().DakotaHeight) {
+        if (nHeight >= Params().GetConsensus().DF6DakotaHeight) {
             result.pushKV("valid", actualHeight);
         } else {
             result.pushKV("valid", !IsSkippedTx(tx->GetHash()));

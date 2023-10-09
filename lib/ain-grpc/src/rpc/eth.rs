@@ -719,7 +719,11 @@ impl MetachainRPCServer for MetachainRPCModule {
         match ain_cpp_imports::publish_eth_transaction(hex) {
             Ok(res_string) => {
                 if res_string.is_empty() {
-                    let signed_tx = SignedTx::try_from(raw_tx)
+                    let signed_tx: SignedTx = self
+                        .handler
+                        .core
+                        .signed_tx_cache
+                        .try_get_or_create(raw_tx)
                         .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
 
                     debug!(target:"rpc",
@@ -732,7 +736,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     );
                     debug!(target:"rpc",
                         "[send_raw_transaction] transaction hash : {:#x}",
-                        signed_tx.transaction.hash()
+                        signed_tx.hash()
                     );
 
                     if !self
@@ -747,7 +751,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                         )));
                     }
 
-                    Ok(format!("{:#x}", signed_tx.transaction.hash()))
+                    Ok(format!("{:#x}", signed_tx.hash()))
                 } else {
                     debug!(target:"rpc", "[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
                     Err(Error::Custom(format!(

@@ -119,28 +119,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 000000000000000004c2b624ed5d7756c508d90fd0da2c7c679febfa6c4735f0
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
-        consensus.AMKHeight = 356500; // Oct 12th, 2020.
-        consensus.BayfrontHeight = 405000; // Nov 2nd, 2020.
-        consensus.BayfrontMarinaHeight = 465150; // Nov 28th, 2020.
+        consensus.DF1AMKHeight = 356500; // Oct 12th, 2020.
+        consensus.DF2BayfrontHeight = 405000; // Nov 2nd, 2020.
+        consensus.DF3DF4BayfrontGardensHeight = 465150; // Nov 28th, 2020.
         consensus.BayfrontGardensHeight = 488300; // Dec 8th, 2020.
-        consensus.ClarkeQuayHeight = 595738; // Jan 24th, 2021.
-        consensus.DakotaHeight = 678000; // Mar 1st, 2021.
-        consensus.DakotaCrescentHeight = 733000; // Mar 25th, 2021.
-        consensus.EunosHeight = 894000; // Jun 3rd, 2021.
-        consensus.EunosKampungHeight = 895743; // Jun 4th, 2021.
-        consensus.EunosPayaHeight = 1072000; // Aug 5th, 2021.
-        consensus.FortCanningHeight = 1367000; // Nov 15th, 2021.
-        consensus.FortCanningMuseumHeight = 1430640; // Dec 7th, 2021.
-        consensus.FortCanningParkHeight = 1503143; // Jan 2nd, 2022.
-        consensus.FortCanningHillHeight = 1604999; // Feb 7th, 2022.
-        consensus.FortCanningRoadHeight = 1786000; // April 11th, 2022.
-        consensus.FortCanningCrunchHeight = 1936000; // June 2nd, 2022.
-        consensus.FortCanningSpringHeight = 2033000; // July 6th, 2022.
-        consensus.FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
-        consensus.FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
-        consensus.GrandCentralHeight = 2479000; // Dec 8th, 2022.
-        consensus.GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
-        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();
+        consensus.DF5ClarkeQuayHeight = 595738; // Jan 24th, 2021.
+        consensus.DF6DakotaHeight = 678000; // Mar 1st, 2021.
+        consensus.DF7DakotaCrescentHeight = 733000; // Mar 25th, 2021.
+        consensus.DF8EunosHeight = 894000; // Jun 3rd, 2021.
+        consensus.DF9EunosKampungHeight = 895743; // Jun 4th, 2021.
+        consensus.DF10EunosPayaHeight = 1072000; // Aug 5th, 2021.
+        consensus.DF11FortCanningHeight = 1367000; // Nov 15th, 2021.
+        consensus.DF12FortCanningMuseumHeight = 1430640; // Dec 7th, 2021.
+        consensus.DF13FortCanningParkHeight = 1503143; // Jan 2nd, 2022.
+        consensus.DF14FortCanningHillHeight = 1604999; // Feb 7th, 2022.
+        consensus.DF15FortCanningRoadHeight = 1786000; // April 11th, 2022.
+        consensus.DF16FortCanningCrunchHeight = 1936000; // June 2nd, 2022.
+        consensus.DF17FortCanningSpringHeight = 2033000; // July 6th, 2022.
+        consensus.DF18FortCanningGreatWorldHeight = 2212000; // Sep 7th, 2022.
+        consensus.DF19FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
+        consensus.DF20GrandCentralHeight = 2479000; // Dec 8th, 2022.
+        consensus.DF21GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
+        consensus.DF22NextHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -396,28 +396,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0; // 00000000007f6655f22f98e72ed80d8b06dc761d5da09df0fa1dc4be4f861eb6
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
-        consensus.AMKHeight = 150;
-        consensus.BayfrontHeight = 3000;
-        consensus.BayfrontMarinaHeight = 90470;
+        consensus.DF1AMKHeight = 150;
+        consensus.DF2BayfrontHeight = 3000;
+        consensus.DF3DF4BayfrontGardensHeight = 90470;
         consensus.BayfrontGardensHeight = 101342;
-        consensus.ClarkeQuayHeight = 155000;
-        consensus.DakotaHeight = 220680;
-        consensus.DakotaCrescentHeight = 287700;
-        consensus.EunosHeight = 354950;
-        consensus.EunosKampungHeight = consensus.EunosHeight;
-        consensus.EunosPayaHeight = 463300;
-        consensus.FortCanningHeight = 686200;
-        consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = 828800;
-        consensus.FortCanningHillHeight = 828900;
-        consensus.FortCanningRoadHeight = 893700;
-        consensus.FortCanningCrunchHeight = 1011600;
-        consensus.FortCanningSpringHeight = 1086000;
-        consensus.FortCanningGreatWorldHeight = 1223000;
-        consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = 1366000;
-        consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = std::numeric_limits<int>::max();;
+        consensus.DF5ClarkeQuayHeight = 155000;
+        consensus.DF6DakotaHeight = 220680;
+        consensus.DF7DakotaCrescentHeight = 287700;
+        consensus.DF8EunosHeight = 354950;
+        consensus.DF9EunosKampungHeight = consensus.DF8EunosHeight;
+        consensus.DF10EunosPayaHeight = 463300;
+        consensus.DF11FortCanningHeight = 686200;
+        consensus.DF12FortCanningMuseumHeight = 724000;
+        consensus.DF13FortCanningParkHeight = 828800;
+        consensus.DF14FortCanningHillHeight = 828900;
+        consensus.DF15FortCanningRoadHeight = 893700;
+        consensus.DF16FortCanningCrunchHeight = 1011600;
+        consensus.DF17FortCanningSpringHeight = 1086000;
+        consensus.DF18FortCanningGreatWorldHeight = 1223000;
+        consensus.DF19FortCanningEpilogueHeight = 1244000;
+        consensus.DF20GrandCentralHeight = 1366000;
+        consensus.DF21GrandCentralEpilogueHeight = 1438200;
+        consensus.DF22NextHeight = 1948000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -615,28 +615,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.AMKHeight = 150;
-        consensus.BayfrontHeight = 3000;
-        consensus.BayfrontMarinaHeight = 90470;
+        consensus.DF1AMKHeight = 150;
+        consensus.DF2BayfrontHeight = 3000;
+        consensus.DF3DF4BayfrontGardensHeight = 90470;
         consensus.BayfrontGardensHeight = 101342;
-        consensus.ClarkeQuayHeight = 155000;
-        consensus.DakotaHeight = 220680;
-        consensus.DakotaCrescentHeight = 287700;
-        consensus.EunosHeight = 354950;
-        consensus.EunosKampungHeight = consensus.EunosHeight;
-        consensus.EunosPayaHeight = 463300;
-        consensus.FortCanningHeight = 686200;
-        consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = 828800;
-        consensus.FortCanningHillHeight = 828900;
-        consensus.FortCanningRoadHeight = 893700;
-        consensus.FortCanningCrunchHeight = 1011600;
-        consensus.FortCanningSpringHeight = 1086000;
-        consensus.FortCanningGreatWorldHeight = 1223000;
-        consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = 1366000;
-        consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = 1586750;
+        consensus.DF5ClarkeQuayHeight = 155000;
+        consensus.DF6DakotaHeight = 220680;
+        consensus.DF7DakotaCrescentHeight = 287700;
+        consensus.DF8EunosHeight = 354950;
+        consensus.DF9EunosKampungHeight = consensus.DF8EunosHeight;
+        consensus.DF10EunosPayaHeight = 463300;
+        consensus.DF11FortCanningHeight = 686200;
+        consensus.DF12FortCanningMuseumHeight = 724000;
+        consensus.DF13FortCanningParkHeight = 828800;
+        consensus.DF14FortCanningHillHeight = 828900;
+        consensus.DF15FortCanningRoadHeight = 893700;
+        consensus.DF16FortCanningCrunchHeight = 1011600;
+        consensus.DF17FortCanningSpringHeight = 1086000;
+        consensus.DF18FortCanningGreatWorldHeight = 1223000;
+        consensus.DF19FortCanningEpilogueHeight = 1244000;
+        consensus.DF20GrandCentralHeight = 1366000;
+        consensus.DF21GrandCentralEpilogueHeight = 1438200;
+        consensus.DF22NextHeight = 1586750;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -831,28 +831,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 0;
         consensus.BIP66Height = 0;
-        consensus.AMKHeight = 150;
-        consensus.BayfrontHeight = 3000;
-        consensus.BayfrontMarinaHeight = 90470;
+        consensus.DF1AMKHeight = 150;
+        consensus.DF2BayfrontHeight = 3000;
+        consensus.DF3DF4BayfrontGardensHeight = 90470;
         consensus.BayfrontGardensHeight = 101342;
-        consensus.ClarkeQuayHeight = 155000;
-        consensus.DakotaHeight = 220680;
-        consensus.DakotaCrescentHeight = 287700;
-        consensus.EunosHeight = 354950;
-        consensus.EunosKampungHeight = consensus.EunosHeight;
-        consensus.EunosPayaHeight = 463300;
-        consensus.FortCanningHeight = 686200;
-        consensus.FortCanningMuseumHeight = 724000;
-        consensus.FortCanningParkHeight = 828800;
-        consensus.FortCanningHillHeight = 828900;
-        consensus.FortCanningRoadHeight = 893700;
-        consensus.FortCanningCrunchHeight = 1011600;
-        consensus.FortCanningSpringHeight = 1086000;
-        consensus.FortCanningGreatWorldHeight = 1223000;
-        consensus.FortCanningEpilogueHeight = 1244000;
-        consensus.GrandCentralHeight = 1366000;
-        consensus.GrandCentralEpilogueHeight = 1438200;
-        consensus.NextNetworkUpgradeHeight = 1586750;
+        consensus.DF5ClarkeQuayHeight = 155000;
+        consensus.DF6DakotaHeight = 220680;
+        consensus.DF7DakotaCrescentHeight = 287700;
+        consensus.DF8EunosHeight = 354950;
+        consensus.DF9EunosKampungHeight = consensus.DF8EunosHeight;
+        consensus.DF10EunosPayaHeight = 463300;
+        consensus.DF11FortCanningHeight = 686200;
+        consensus.DF12FortCanningMuseumHeight = 724000;
+        consensus.DF13FortCanningParkHeight = 828800;
+        consensus.DF14FortCanningHillHeight = 828900;
+        consensus.DF15FortCanningRoadHeight = 893700;
+        consensus.DF16FortCanningCrunchHeight = 1011600;
+        consensus.DF17FortCanningSpringHeight = 1086000;
+        consensus.DF18FortCanningGreatWorldHeight = 1223000;
+        consensus.DF19FortCanningEpilogueHeight = 1244000;
+        consensus.DF20GrandCentralHeight = 1366000;
+        consensus.DF21GrandCentralEpilogueHeight = 1438200;
+        consensus.DF22NextHeight = 1586750;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1050,28 +1050,28 @@ public:
         consensus.BIP34Hash = uint256();
         consensus.BIP65Height = 1351; // BIP65 activated on regtest (Used in functional tests)
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
-        consensus.AMKHeight = 10000000;
-        consensus.BayfrontHeight = 10000000;
-        consensus.BayfrontMarinaHeight = 10000000;
+        consensus.DF1AMKHeight = 10000000;
+        consensus.DF2BayfrontHeight = 10000000;
+        consensus.DF3DF4BayfrontGardensHeight = 10000000;
         consensus.BayfrontGardensHeight = 10000000;
-        consensus.ClarkeQuayHeight = 10000000;
-        consensus.DakotaHeight = 10000000;
-        consensus.DakotaCrescentHeight = 10000000;
-        consensus.EunosHeight = 10000000;
-        consensus.EunosKampungHeight = 10000000;
-        consensus.EunosPayaHeight = 10000000;
-        consensus.FortCanningHeight = 10000000;
-        consensus.FortCanningMuseumHeight = 10000000;
-        consensus.FortCanningParkHeight = 10000000;
-        consensus.FortCanningHillHeight = 10000000;
-        consensus.FortCanningRoadHeight = 10000000;
-        consensus.FortCanningCrunchHeight = 10000000;
-        consensus.FortCanningSpringHeight = 10000000;
-        consensus.FortCanningGreatWorldHeight = 10000000;
-        consensus.FortCanningEpilogueHeight = 10000000;
-        consensus.GrandCentralHeight = 10000000;
-        consensus.GrandCentralEpilogueHeight = 10000000;
-        consensus.NextNetworkUpgradeHeight = 10000000;
+        consensus.DF5ClarkeQuayHeight = 10000000;
+        consensus.DF6DakotaHeight = 10000000;
+        consensus.DF7DakotaCrescentHeight = 10000000;
+        consensus.DF8EunosHeight = 10000000;
+        consensus.DF9EunosKampungHeight = 10000000;
+        consensus.DF10EunosPayaHeight = 10000000;
+        consensus.DF11FortCanningHeight = 10000000;
+        consensus.DF12FortCanningMuseumHeight = 10000000;
+        consensus.DF13FortCanningParkHeight = 10000000;
+        consensus.DF14FortCanningHillHeight = 10000000;
+        consensus.DF15FortCanningRoadHeight = 10000000;
+        consensus.DF16FortCanningCrunchHeight = 10000000;
+        consensus.DF17FortCanningSpringHeight = 10000000;
+        consensus.DF18FortCanningGreatWorldHeight = 10000000;
+        consensus.DF19FortCanningEpilogueHeight = 10000000;
+        consensus.DF20GrandCentralHeight = 10000000;
+        consensus.DF21GrandCentralEpilogueHeight = 10000000;
+        consensus.DF22NextHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1315,30 +1315,30 @@ std::optional<int> UpdateHeightValidation(const std::string& argName, const std:
 
 void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
-    UpdateHeightValidation("AMK", "-amkheight", consensus.AMKHeight);
-    UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.BayfrontHeight);
+    UpdateHeightValidation("AMK", "-amkheight", consensus.DF1AMKHeight);
+    UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.DF2BayfrontHeight);
     UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight);
-    UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.ClarkeQuayHeight);
-    UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DakotaHeight);
-    UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DakotaCrescentHeight);
-    auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.EunosHeight);
+    UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.DF5ClarkeQuayHeight);
+    UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DF6DakotaHeight);
+    UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DF7DakotaCrescentHeight);
+    auto eunosHeight = UpdateHeightValidation("Eunos", "-eunosheight", consensus.DF8EunosHeight);
     if (eunosHeight.has_value()){
-        consensus.EunosKampungHeight = static_cast<int>(eunosHeight.value());
+        consensus.DF9EunosKampungHeight = static_cast<int>(eunosHeight.value());
     }
-    UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.EunosPayaHeight);
-    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.FortCanningHeight);
-    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.FortCanningMuseumHeight);
-    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.FortCanningParkHeight);
-    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.FortCanningHillHeight);
-    UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.FortCanningRoadHeight);
-    UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.FortCanningCrunchHeight);
-    UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.FortCanningSpringHeight);
-    UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.FortCanningGreatWorldHeight);
-    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.FortCanningGreatWorldHeight);
-    UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.FortCanningEpilogueHeight);
-    UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.GrandCentralHeight);
-    UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.GrandCentralEpilogueHeight);
-    UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.NextNetworkUpgradeHeight);
+    UpdateHeightValidation("Eunos Paya", "-eunospayaheight", consensus.DF10EunosPayaHeight);
+    UpdateHeightValidation("Fort Canning", "-fortcanningheight", consensus.DF11FortCanningHeight);
+    UpdateHeightValidation("Fort Canning Museum", "-fortcanningmuseumheight", consensus.DF12FortCanningMuseumHeight);
+    UpdateHeightValidation("Fort Canning Park", "-fortcanningparkheight", consensus.DF13FortCanningParkHeight);
+    UpdateHeightValidation("Fort Canning Hill", "-fortcanninghillheight", consensus.DF14FortCanningHillHeight);
+    UpdateHeightValidation("Fort Canning Road", "-fortcanningroadheight", consensus.DF15FortCanningRoadHeight);
+    UpdateHeightValidation("Fort Canning Crunch", "-fortcanningcrunchheight", consensus.DF16FortCanningCrunchHeight);
+    UpdateHeightValidation("Fort Canning Spring", "-fortcanningspringheight", consensus.DF17FortCanningSpringHeight);
+    UpdateHeightValidation("Fort Canning Great World", "-fortcanninggreatworldheight", consensus.DF18FortCanningGreatWorldHeight);
+    UpdateHeightValidation("Fort Canning Great World", "-greatworldheight", consensus.DF18FortCanningGreatWorldHeight);
+    UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.DF19FortCanningEpilogueHeight);
+    UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.DF20GrandCentralHeight);
+    UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.DF21GrandCentralEpilogueHeight);
+    UpdateHeightValidation("Next Network Upgrade", "-nextnetworkupgradeheight", consensus.DF22NextHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks

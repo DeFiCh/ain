@@ -18,6 +18,7 @@ class CCustomCSView;
 struct CLoanSchemeData;
 class CPoolPair;
 class CScript;
+class CScopedQueueID;
 class CTokenImplementation;
 class CTransaction;
 class CVaultAssets;
@@ -40,6 +41,7 @@ namespace AuthFlags {
 }
 
 Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch, AuthFlags::Type flags = AuthFlags::None);
+Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script);
 
 class CCustomTxVisitor {
 protected:
@@ -50,7 +52,7 @@ protected:
     const Consensus::Params &consensus;
     const uint64_t time;
     const uint32_t txn;
-    uint64_t evmQueueId;
+    const std::shared_ptr<CScopedQueueID> &evmQueueId;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
@@ -62,7 +64,7 @@ public:
                      const Consensus::Params &consensus,
                      const uint64_t time,
                      const uint32_t txn,
-                     const uint64_t evmQueueId,
+                     const std::shared_ptr<CScopedQueueID> &evmQueueId,
                      const bool isEvmEnabledForBlock,
                      const bool evmPreValidate);
 

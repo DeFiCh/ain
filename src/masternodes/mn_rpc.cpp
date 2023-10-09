@@ -457,8 +457,9 @@ void execTestTx(const CTransaction& tx, uint32_t height, CTransactionRef optAuth
             AddCoins(coins, *optAuthTx, height);
         CCustomCSView view(*pcustomcsview);
         auto consensus = Params().GetConsensus();
-        auto isEvmEnabledForBlock = IsEVMEnabled(height, view, consensus);
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, 0, isEvmEnabledForBlock, true);
+        const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, evmQueueId, isEvmEnabledForBlock, true);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -963,7 +964,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
-                    if (height >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                    if (height >= Params().GetConsensus().DF22NextHeight) {
                         if (auto attributes = dynamic_cast<ATTRIBUTES*>(var.get()); attributes) {
                             AddDefaultVars(height, Params(), *attributes);
                         }
@@ -1047,7 +1048,7 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
 
     // post Dakota it's not allowed tx to be skipped
     // so tx that can be found in a block is applyed
-    if (blockHeight >= Params().GetConsensus().DakotaHeight) {
+    if (blockHeight >= Params().GetConsensus().DF6DakotaHeight) {
         result.setBool(true);
     } else {
         result.setBool(!IsSkippedTx(tx->GetHash()));

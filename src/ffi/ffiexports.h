@@ -3,6 +3,7 @@
 
 #include <chainparams.h>
 #include <ffi/cxx.h>
+#include <httprpc.h>
 
 // Defaults for attributes relating to EVM functionality
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET = 15000000;
@@ -67,5 +68,7 @@ Attributes getAttributeDefaults();
 void CppLogPrintf(rust::string message);
 rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr);
 rust::string getClientVersion();
+int32_t getNumCores();
+rust::string getCORSAllowedOrigin();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

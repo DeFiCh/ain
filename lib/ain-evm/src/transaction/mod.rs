@@ -5,7 +5,6 @@ use ethereum::{
     TransactionSignature, TransactionV2,
 };
 use ethereum_types::{H160, H256, U256};
-use libsecp256k1::PublicKey;
 use rlp::RlpStream;
 use sha3::Digest;
 
@@ -101,7 +100,7 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
-    pub pubkey: PublicKey,
+    hash_cache: Cell<Option<H256>>,
 }
 
 impl fmt::Debug for SignedTx {
@@ -112,6 +111,7 @@ impl fmt::Debug for SignedTx {
             .field("to", &self.to())
             .field("action", &self.action())
             .field("value", &self.value())
+            .field("gas_price", &self.gas_price())
             .field("gas_limit", &self.gas_limit())
             .field("max_fee_per_gas", &self.max_fee_per_gas())
             .field("max_priority_fee_per_gas", &self.max_priority_fee_per_gas())
@@ -181,7 +181,7 @@ impl TryFrom<TransactionV2> for SignedTx {
         Ok(SignedTx {
             transaction: src,
             sender: public_key_to_address(&pubkey),
-            pubkey,
+            hash_cache: Cell::new(None),
         })
     }
 }
@@ -320,11 +320,16 @@ impl SignedTx {
     }
 
     pub fn hash(&self) -> H256 {
-        match &self.transaction {
-            TransactionV2::Legacy(tx) => tx.hash(),
-            TransactionV2::EIP2930(tx) => tx.hash(),
-            TransactionV2::EIP1559(tx) => tx.hash(),
+        let h = &self.hash_cache;
+        if h.get().is_none() {
+            let val = match &self.transaction {
+                TransactionV2::Legacy(tx) => tx.hash(),
+                TransactionV2::EIP2930(tx) => tx.hash(),
+                TransactionV2::EIP1559(tx) => tx.hash(),
+            };
+            h.set(Some(val));
         }
+        h.get().unwrap()
     }
 
     pub fn get_tx_type(&self) -> U256 {
@@ -332,8 +337,9 @@ impl SignedTx {
     }
 }
 
-use std::cmp::min;
 use std::{
+    cell::Cell,
+    cmp::min,
     convert::{TryFrom, TryInto},
     fmt,
 };
@@ -400,7 +406,6 @@ mod tests {
         // Legacy
         let signed_tx = crate::transaction::SignedTx::try_from("f86b8085689451eee18252089434c1ca09a2dc717d89baef2f30ff6a6b2975e17e872386f26fc10000802da0ae5c76f8073460cbc7a911d3cc1b367072db64848a9532343559ce6917c51a46a01d2e4928450c59acca3de8340eb15b7446b37936265a51ab35e63f749a048002").unwrap();
 
-        assert_eq!(hex::encode(signed_tx.pubkey.serialize()), "044c6412f7cd3ac0e2538c3c9843d27d1e03b422eaf655c6a699da22b57a89802989318dbaeea62f5fc751fa8cd1404e687d67b8ab8513fe0d37bafbf407aa6cf7");
         assert_eq!(
             hex::encode(signed_tx.sender.as_fixed_bytes()),
             "f829754bae400b679febefdcfc9944c323e1f94e"

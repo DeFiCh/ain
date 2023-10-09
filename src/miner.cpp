@@ -17,6 +17,7 @@
 #include <consensus/validation.h>
 #include <ffi/cxx.h>
 #include <ffi/ffihelpers.h>
+#include <ffi/ffiexports.h>
 #include <masternodes/anchors.h>
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
@@ -42,7 +43,7 @@
 
 struct EvmTxPreApplyContext {
     const CTxMemPool::txiter& txIter;
-    uint64_t evmQueueId;
+    const std::shared_ptr<CScopedQueueID>& evmQueueId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
     std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
@@ -165,7 +166,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     // Skip on main as fix to avoid merkle root error. Allow on other networks for testing.
     if (Params().NetworkIDString() != CBaseChainParams::MAIN ||
-        (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().EunosKampungHeight)) {
+        (Params().NetworkIDString() == CBaseChainParams::MAIN && nHeight >= chainparams.GetConsensus().DF9EunosKampungHeight)) {
         CTeamView::CTeam currentTeam;
         if (const auto team = pcustomcsview->GetConfirmTeam(pindexPrev->nHeight)) {
             currentTeam = *team;
@@ -176,7 +177,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         bool createAnchorReward{false};
 
         // No new anchors until we hit fork height, no new confirms should be found before fork.
-        if (pindexPrev->nHeight >= consensus.DakotaHeight && confirms.size() > 0) {
+        if (pindexPrev->nHeight >= consensus.DF6DakotaHeight && confirms.size() > 0) {
             // Make sure anchor block height and hash exist in chain.
             CBlockIndex* anchorIndex = ::ChainActive()[confirms[0].anchorHeight];
             if (anchorIndex && anchorIndex->GetBlockHash() == confirms[0].dfiBlockHash) {
@@ -195,7 +196,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < consensus.NextNetworkUpgradeHeight) {
+            if (nHeight < consensus.DF22NextHeight) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
             } else {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
@@ -230,7 +231,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
-    auto isEvmEnabledForBlock = IsEVMEnabled(nHeight, mnview, consensus);
 
     bool timeOrdering{false};
     if (txOrdering == MIXED_ORDERING) {
@@ -248,11 +248,15 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         timeOrdering = false;
     }
 
-    uint64_t evmQueueId{};
+    const auto attributes = mnview.GetAttributes();
+    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
+
+    std::shared_ptr<CScopedQueueID> evmQueueId{};
     if (isEvmEnabledForBlock) {
-        auto r = XResultValueLogged(evm_unsafe_try_create_queue(result));
-        if (!r) return Res::Err("Failed to create queue");
-        evmQueueId = *r;
+        evmQueueId = CScopedQueueID::Create(blockTime);
+        if (!evmQueueId) {
+            return Res::Err("Failed to create queue");
+        }
     }
 
     std::map<uint256, CAmount> txFees;
@@ -265,20 +269,38 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_unsafe_try_construct_block_in_q(result, evmQueueId, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
-
-        auto r = XResultStatusLogged(evm_unsafe_try_remove_queue(result, evmQueueId));
-        if (!r) return Res::Err("Failed to remove queue");
-
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId->GetQueueID(), pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
+        if (!blockResult.failed_transactions.empty()) {
+            LogPrintf("%s: Construct block exceeded block size limit\n", __func__);
+            auto failedTxHashes = *res;
+            std::set<uint256> evmTxsToUndo;
+            for (const auto &txStr : blockResult.failed_transactions) {
+                auto txHash = std::string(txStr.data(), txStr.length());
+                evmTxsToUndo.insert(uint256S(txHash));
+            }
+
+            // Get all EVM Txs
+            CTxMemPool::setEntries failedEVMTxs;
+            for (const auto& iter : inBlock) {
+                if (!evmTxsToUndo.count(iter->GetTx().GetHash()))
+                    continue;
+                const auto txType = iter->GetCustomTxType();
+                if (txType == CustomTxType::EvmTx) {
+                    failedEVMTxs.insert(iter);
+                } else {
+                    LogPrintf("%s: Unable to remove from block, not EVM tx. Will result in a block hash mismatch.\n", __func__);
+                }
+            }
+            RemoveFromBlock(failedEVMTxs, true);
+        }
 
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
     }
 
     // TXs for the creationTx field in new tokens created via token split
-    if (nHeight >= chainparams.GetConsensus().FortCanningCrunchHeight) {
-        const auto attributes = mnview.GetAttributes();
+    if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
         if (attributes) {
             CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
             const auto splits = attributes->GetValue(splitKey, OracleSplits{});
@@ -333,9 +355,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     CAmount blockReward = GetBlockSubsidy(nHeight, consensus);
     coinbaseTx.vout[0].nValue = nFees + blockReward;
 
-    if (nHeight >= consensus.EunosHeight) {
+    if (nHeight >= consensus.DF8EunosHeight) {
         auto foundationValue = CalculateCoinbaseReward(blockReward, consensus.dist.community);
-        if (nHeight < consensus.GrandCentralHeight) {
+        if (nHeight < consensus.DF20GrandCentralHeight) {
             coinbaseTx.vout.resize(2);
             // Community payment always expected
             coinbaseTx.vout[1].scriptPubKey = consensus.foundationShareScript;
@@ -343,7 +365,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         }
 
         // Explicitly set miner reward
-        if (nHeight >= consensus.FortCanningHeight) {
+        if (nHeight >= consensus.DF11FortCanningHeight) {
             coinbaseTx.vout[0].nValue = nFees + CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
         } else {
             coinbaseTx.vout[0].nValue = CalculateCoinbaseReward(blockReward, consensus.dist.masternode);
@@ -361,7 +383,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
         LogPrint(BCLog::STAKING, "%s: post Eunos logic. Block reward %d Miner share %d foundation share %d\n",
             __func__, blockReward, coinbaseTx.vout[0].nValue, foundationValue);
-    } else if (nHeight >= consensus.AMKHeight) {
+    } else if (nHeight >= consensus.DF1AMKHeight) {
         // assume community non-utxo funding:
         for (const auto& kv : consensus.blockTokenRewardsLegacy) {
             coinbaseTx.vout[0].nValue -= blockReward * kv.second / COIN;
@@ -416,7 +438,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     int64_t nTime2 = GetTimeMicros();
 
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
-    if (nHeight >= chainparams.GetConsensus().EunosHeight && nHeight < chainparams.GetConsensus().EunosKampungHeight) {
+    if (nHeight >= chainparams.GetConsensus().DF8EunosHeight && nHeight < chainparams.GetConsensus().DF9EunosKampungHeight) {
         // includes coinbase account changes
         ApplyGeneralCoinbaseTx(mnview, *(pblock->vtx[0]), nHeight, nFees, chainparams.GetConsensus());
         pblock->hashMerkleRoot = Hash2(pblock->hashMerkleRoot, mnview.MerkleRoot());
@@ -604,7 +626,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     auto& [txNonce, txSender] = txIter->GetEVMAddrAndNonce();
 
     CrossBoundaryResult result;
-    const auto expectedNonce = evm_unsafe_try_get_next_valid_nonce_in_q(result, evmQueueId, txSender);
+    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, evmQueueId->GetQueueID(), txSender);
     if (!result.ok) {
         return false;
     }
@@ -634,7 +656,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, const uint64_t evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::shared_ptr<CScopedQueueID> &evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -666,6 +688,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // Quick lookup for failedNonces entries
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
+    // Block gas limit
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
         // First try to find a new transaction in mapTx to evaluate.
         if (mi != mempool.mapTx.get<T>().end() &&
@@ -797,7 +820,8 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
 
             // Only check custom TXs
             if (txType != CustomTxType::None) {
-                if (txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) {
+                const auto evmType = txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain;
+                if (evmType) {
                     if (!isEvmEnabledForBlock) {
                         customTxPassed = false;
                         break;
@@ -861,7 +885,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
-                        evm_unsafe_try_remove_txs_above_hash_in_q(result, evmQueueId, entryHash.ToString());
+                        evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId->GetQueueID(), entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
                         }
@@ -978,7 +1002,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         mintedBlocks = nodePtr->mintedBlocks;
         if (args.coinbaseScript.empty()) {
             // this is safe because MN was found
-            if (tip->nHeight >= chainparams.GetConsensus().FortCanningHeight && nodePtr->rewardAddressType != 0) {
+            if (tip->nHeight >= chainparams.GetConsensus().DF11FortCanningHeight && nodePtr->rewardAddressType != 0) {
                 scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->rewardAddress, TxDestTypeToKeyType(nodePtr->rewardAddressType), KeyType::MNRewardKeyType));
             } else {
                 scriptPubKey = GetScriptForDestination(FromOrDefaultKeyIDToDestination(nodePtr->ownerAuthAddress, TxDestTypeToKeyType(nodePtr->ownerType), KeyType::MNOwnerKeyType));
@@ -1031,11 +1055,11 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
             for (uint32_t t = 0; t < currentTime - lastSearchTime; ++t) {
                 if (ShutdownRequested()) break;
 
-                blockTime = ((uint32_t)currentTime - t);
+                blockTime = (static_cast<uint32_t>(currentTime) - t);
 
                 if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                         subNodesBlockTime, timelock, ctxState)) {
-                    LogPrintf("MakeStake: kernel found\n");
+                    LogPrint(BCLog::STAKING, "MakeStake: kernel found. height: %d time: %d\n", blockHeight, blockTime);
 
                     found = true;
                     break;
@@ -1053,11 +1077,11 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
             for (uint32_t t = 1; t <= futureTime - searchTime; ++t) {
                 if (ShutdownRequested()) break;
 
-                blockTime = ((uint32_t)searchTime + t);
+                blockTime = (static_cast<uint32_t>(searchTime) + t);
 
                 if (pos::CheckKernelHash(stakeModifier, nBits, creationHeight, blockTime, blockHeight, masternodeID, chainparams.GetConsensus(),
                         subNodesBlockTime, timelock, ctxState)) {
-                    LogPrint(BCLog::STAKING, "MakeStake: kernel found\n");
+                    LogPrint(BCLog::STAKING, "MakeStake: kernel found. height: %d time: %d\n", blockHeight, blockTime);
 
                     found = true;
                     break;
@@ -1129,7 +1153,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
 template <typename F>
 void Staker::withSearchInterval(F&& f, int64_t height)
 {
-    if (height >= Params().GetConsensus().EunosPayaHeight) {
+    if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
         // Mine up to max future minus 1 second buffer
         nFutureTime = GetAdjustedTime() + (MAX_FUTURE_BLOCK_TIME_EUNOSPAYA - 1); // 29 seconds
     } else {

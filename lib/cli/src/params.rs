@@ -31,6 +31,7 @@ pub struct BaseChainParams {
     pub rpc_port: u16,
     pub grpc_port: u16,
     pub eth_rpc_port: u16,
+    pub websockets_port: u16,
 }
 
 impl BaseChainParams {
@@ -41,12 +42,14 @@ impl BaseChainParams {
                 rpc_port: 8554,
                 grpc_port: 8550,
                 eth_rpc_port: 8551,
+                websockets_port: 8553,
             },
             Chain::Testnet => Self {
                 data_dir: "testnet3".to_string(),
                 rpc_port: 18554,
                 grpc_port: 18550,
                 eth_rpc_port: 18551,
+                websockets_port: 18553,
             },
             Chain::Changi => {
                 if std::env::var("CHANGI_BOOTSTRAP").is_ok() {
@@ -55,6 +58,7 @@ impl BaseChainParams {
                         rpc_port: 18554,
                         grpc_port: 18550,
                         eth_rpc_port: 18551,
+                        websockets_port: 18553,
                     }
                 } else {
                     Self {
@@ -62,6 +66,7 @@ impl BaseChainParams {
                         rpc_port: 20554,
                         grpc_port: 20550,
                         eth_rpc_port: 20551,
+                        websockets_port: 20553,
                     }
                 }
             }
@@ -72,6 +77,7 @@ impl BaseChainParams {
                         rpc_port: 18554,
                         grpc_port: 18550,
                         eth_rpc_port: 18551,
+                        websockets_port: 18553,
                     }
                 } else {
                     Self {
@@ -79,6 +85,7 @@ impl BaseChainParams {
                         rpc_port: 21554,
                         grpc_port: 21550,
                         eth_rpc_port: 21551,
+                        websockets_port: 21553,
                     }
                 }
             }
@@ -87,6 +94,7 @@ impl BaseChainParams {
                 rpc_port: 19554,
                 grpc_port: 19550,
                 eth_rpc_port: 19551,
+                websockets_port: 19553,
             },
         }
     }

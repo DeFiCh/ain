@@ -13,6 +13,7 @@ crate-type = ["staticlib"]
 ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
 ain-contracts = { path = "../ain-contracts" }
+ain-macros = { path = "../ain-macros" }
 
 ethereum.workspace = true
 rlp.workspace = true

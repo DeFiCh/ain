@@ -15,9 +15,9 @@ resolver = "2"
 lto = true
 
 [patch.crates-io]
-vsdb = { git = 'https://github.com/defich/vsdb.git' }
-vsdbsled = { git = 'https://github.com/defich/vsdbsled.git' }
-ethereum = { git = 'https://github.com/defich/ethereum.git' }
+vsdb = { git = "https://github.com/defich/vsdb.git" }
+vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
+ethereum = { git = "https://github.com/defich/ethereum.git" }
 
 [workspace.dependencies]
 
@@ -67,6 +67,9 @@ hex-literal = "0.4"
 bincode = "1.3"
 serde_with = "3.0"
 heck = "0.4"
+tower-http = { version = "0.4.0", features = ["full"] }
+tower = "0.4.13"
+hyper = "0.14.20"
 
 jsonrpsee = { version = "0.16", features = ["server", "macros", "http-client"] }
 jsonrpsee-core = "0.16"
@@ -79,12 +82,14 @@ rocksdb = { version = "0.21", default-features = false }
 statrs = "0.16"
 rustc-hex = "2.1"
 rustc_version_runtime = "0.2.1"
+parking_lot = "0.12.1"
+spin = "0.9.8"
 
 ### eth
 
 evm = { version = "0.39", default-features = false, features = ["with-serde"] }
 
-ethereum = "0.14"
+ethereum = { git = "https://github.com/defich/ethereum.git" }
 ethereum-types = "0.14"
 keccak-hash = "0.10"
 rlp = "0.5"
@@ -104,7 +109,7 @@ vsdb_core = { version = "0.55", git = "https://github.com/defich/vsdb.git", feat
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 
 #### Cache dependencies
-lru = "0.11"
+lru = "0.12"
 
 #### Precompile dependencies
 sp-io = "24.0"
