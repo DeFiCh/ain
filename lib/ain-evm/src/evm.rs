@@ -510,7 +510,7 @@ impl EVMServices {
             .tx_queues
             .push_in(queue_id, tx, hash, gas_used, state_root)?;
 
-        self.filters.add_tx_to_filters(signed_tx.transaction.hash());
+        self.filters.add_tx_to_filters(signed_tx.hash());
 
         Ok(())
     }

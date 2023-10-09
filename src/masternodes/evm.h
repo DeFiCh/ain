@@ -52,4 +52,16 @@ public:
     };
 };
 
+class CScopedQueueID {
+    explicit CScopedQueueID(uint64_t id);
+
+    uint64_t evmQueueId;
+
+public:
+    static std::shared_ptr<CScopedQueueID> Create(const uint64_t timestamp);
+    ~CScopedQueueID();
+
+    uint64_t GetQueueID() const;
+};
+
 #endif // DEFI_MASTERNODES_EVM_H

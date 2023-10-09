@@ -841,8 +841,23 @@ class EVMTest(DefiTestFramework):
             "0x1876f296657bc56499cc6398617f97b2327fa87189c0a49fb671b4361876142a",
         )
 
+        # Create replacement tx for nonce 0 with less than 10% increase in fees
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            0,
+            22,
+            21001,
+            self.to_address,
+            1,
+        )
+
         # Create replacement for nonce 0 TX with higher fee
-        tx0 = self.nodes[0].evmtx(self.eth_address, 0, 22, 21001, self.to_address, 1)
+        tx0 = self.nodes[0].evmtx(self.eth_address, 0, 24, 21001, self.to_address, 1)
+        assert_equal(len(self.nodes[0].getrawmempool()), 6)
+
         self.sync_mempools()
 
         # Check mempools for TXs
@@ -867,7 +882,7 @@ class EVMTest(DefiTestFramework):
             "from": self.eth_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
-            "gasPrice": "0x51F4D5C00",  # 22_000_000_000,
+            "gasPrice": "0x59682F000",  # 24_000_000_000,
         }
 
         # Check accounting of EVM fees
@@ -929,7 +944,7 @@ class EVMTest(DefiTestFramework):
         # Check Eth balances after transfer
         assert_equal(
             int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
-            193997333000000000000,
+            193997291000000000000,
         )
         assert_equal(
             int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16),
@@ -945,7 +960,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(
             block["transactions"],
             [
-                "0xcffc5526b42c0defa7d90cc806e50e582a0339a3336c7e32de237fbe4d62263b",
+                "0xa90f94b4c73e2f9a22005bbf9d4072784764eb3ac887c0d3e1041ea7549ca176",
                 "0x66c380af8f76295bab799d1228af75bd3c436b7bbeb9d93acd8baac9377a851a",
                 "0x02b05a6646feb65bf9491f9551e02678263239dc2512d73c9ad6bc80dc1c13ff",
                 "0x1d4c8a49ad46d9362c805d6cdf9a8937ba115eec9def17b3efe23a09ee694e5c",
@@ -1018,11 +1033,30 @@ class EVMTest(DefiTestFramework):
 
         # Test multiple replacement TXs with differing fees
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
-        self.nodes[0].evmtx(self.eth_address, nonce, 22, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 21, 21001, self.to_address, 1)
+
+        # Send tx with less than 10% in increase fees
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            nonce,
+            22,
+            21001,
+            self.to_address,
+            1,
+        )
+
+        # Valid RBF
         self.nodes[0].evmtx(self.eth_address, nonce, 23, 21001, self.to_address, 1)
+
+        # Valid RBF
         tx0 = self.nodes[0].evmtx(
             self.eth_address, nonce, 25, 21001, self.to_address, 1
         )
+
+        # Below current fees
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
@@ -1034,6 +1068,8 @@ class EVMTest(DefiTestFramework):
             self.to_address,
             1,
         )
+
+        # Below current fees
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
@@ -1046,30 +1082,103 @@ class EVMTest(DefiTestFramework):
             1,
         )
 
-        to_nonce = self.nodes[0].w3.eth.get_transaction_count(self.to_address)
-        self.nodes[0].evmtx(self.to_address, to_nonce, 22, 21001, self.eth_address, 1)
-        self.nodes[0].evmtx(self.to_address, to_nonce, 23, 21001, self.eth_address, 1)
-        tx1 = self.nodes[0].evmtx(
-            self.to_address, to_nonce, 25, 21001, self.eth_address, 1
+        # Less than 10%
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            nonce,
+            26,
+            21001,
+            self.to_address,
+            1,
         )
+
+        to_nonce = self.nodes[0].w3.eth.get_transaction_count(self.to_address)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 30, 21001, self.eth_address, 1)
+
+        # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
             self.to_address,
             to_nonce,
-            21,
+            31,
             21001,
             self.eth_address,
             1,
         )
+
+        # Send tx with exactly 10% in increase fees, RBF should happen
+        self.nodes[0].evmtx(self.to_address, to_nonce, 32, 21001, self.eth_address, 1)
+
+        # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
             self.to_address,
             to_nonce,
-            24,
+            34,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Valid RBF
+        tx1 = self.nodes[0].evmtx(
+            self.to_address, to_nonce, 37, 21001, self.eth_address, 1
+        )
+
+        # Below current fees
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.to_address,
+            to_nonce,
+            31,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Below current fees
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.to_address,
+            to_nonce,
+            34,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Less than 10%
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.to_address,
+            to_nonce,
+            38,
+            21001,
+            self.eth_address,
+            1,
+        )
+
+        # Less than 10%
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.to_address,
+            to_nonce,
+            39,
             21001,
             self.eth_address,
             1,
@@ -1101,21 +1210,30 @@ class EVMTest(DefiTestFramework):
             "from": self.eth_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
-            "gasPrice": "0x5D21DBA00",  # 25_000_000_000,
+            "gasPrice": "0x89D5F3200",  # 25_000_000_000,
         }
         fees1 = self.nodes[0].debug_feeEstimate(txLegacy1)
         self.burnt_fee1 = hex_to_decimal(fees1["burnt_fee"])
         self.priority_fee1 = hex_to_decimal(fees1["priority_fee"])
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        txLegacy2 = {
+            "nonce": "0x0",
+            "from": self.to_address,
+            "value": "0x1",
+            "gas": "0x5208",  # 21000
+            "gasPrice": "0x5D21DBA00",  # 37_000_000_000,
+        }
+        fees2 = self.nodes[0].debug_feeEstimate(txLegacy2)
+        self.burnt_fee2 = hex_to_decimal(fees2["burnt_fee"])
+        self.priority_fee2 = hex_to_decimal(fees2["priority_fee"])
         blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt"],
-            2 * self.burnt_fee1 + self.burnt_fee,
+            self.burnt_fee + self.burnt_fee1 + self.burnt_fee2,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority"],
-            2 * self.priority_fee1 + 1 * self.priority_fee,
+            self.priority_fee + self.priority_fee1 + self.priority_fee2,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee
@@ -1124,7 +1242,8 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], blockHash
         )
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee1 * 2
+            attributes["v0/live/economy/evm/block/fee_burnt_max"],
+            self.burnt_fee1 + self.burnt_fee2,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], blockHash1
@@ -1139,7 +1258,7 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max"],
-            self.priority_fee1 * 2,
+            self.priority_fee1 + self.priority_fee2,
         )
         assert_equal(
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"],

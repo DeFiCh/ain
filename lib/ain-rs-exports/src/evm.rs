@@ -5,7 +5,7 @@ use ain_contracts::{
 use ain_evm::{
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
-    fee::calculate_max_tip_gas_fee,
+    fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     transaction::{
@@ -23,7 +23,7 @@ use log::debug;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{
-    ffi::{self, TxInfo},
+    ffi::{self, TxMinerInfo},
     prelude::*,
 };
 
@@ -203,7 +203,7 @@ fn get_balance(address: &str) -> Result<u64> {
         .evm
         .core
         .get_balance(address, latest_block_number)?;
-    let amount = WeiAmount(balance).to_satoshi().try_into()?;
+    let amount = WeiAmount(balance).to_satoshi()?.try_into()?;
 
     Ok(amount)
 }
@@ -499,8 +499,8 @@ fn unsafe_construct_block_in_q(
             dvm_block_number,
             mnview_ptr,
         )?;
-        let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi())?;
-        let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi())?;
+        let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
+        let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 
         Ok(ffi::FinalizeBlockCompletion {
             block_hash,
@@ -586,7 +586,7 @@ fn get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
     let number = u64::try_from(block.header.number)?;
     let gas_limit = u64::try_from(block.header.gas_limit)?;
     let gas_used = u64::try_from(block.header.gas_used)?;
-    let base_fee = u64::try_from(WeiAmount(block.header.base_fee).to_satoshi())?;
+    let base_fee = u64::try_from(WeiAmount(block.header.base_fee).to_satoshi()?)?;
 
     let out = ffi::EVMBlockHeader {
         parent_hash: format!("{:?}", block.header.parent_hash),
@@ -648,31 +648,25 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
-    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
+    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi()?)?;
 
-    let mut tx_type = 0u8;
-    let mut gas_price = 0u64;
-    let mut max_fee_per_gas = 0u64;
-    let mut max_priority_fee_per_gas = 0u64;
-    match &tx.transaction {
+    let (tx_type, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match &tx.transaction {
         TransactionV2::Legacy(transaction) => {
-            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
-            gas_price = price;
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()?)?;
+            (0u8, price, 0u64, 0u64)
         }
         TransactionV2::EIP2930(transaction) => {
-            tx_type = 1u8;
-            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
-            gas_price = price;
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()?)?;
+            (1u8, price, 0u64, 0u64)
         }
         TransactionV2::EIP1559(transaction) => {
-            tx_type = 2u8;
-            let price = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi())?;
-            max_fee_per_gas = price;
-            let price =
-                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi())?;
-            max_priority_fee_per_gas = price;
+            let max_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
+            let max_priority_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
+            (2u8, 0u64, max_fee_per_gas, max_priority_fee_per_gas)
         }
-    }
+    };
 
     let out = ffi::EVMTransaction {
         tx_type,
@@ -706,31 +700,25 @@ fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
         .try_get_or_create(raw_tx)?;
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
-    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi())?;
+    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi()?)?;
 
-    let mut tx_type = 0u8;
-    let mut gas_price = 0u64;
-    let mut max_fee_per_gas = 0u64;
-    let mut max_priority_fee_per_gas = 0u64;
-    match &tx.transaction {
+    let (tx_type, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match &tx.transaction {
         TransactionV2::Legacy(transaction) => {
-            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
-            gas_price = price;
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()?)?;
+            (0u8, price, 0u64, 0u64)
         }
         TransactionV2::EIP2930(transaction) => {
-            tx_type = 1u8;
-            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi())?;
-            gas_price = price;
+            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()?)?;
+            (1u8, price, 0u64, 0u64)
         }
         TransactionV2::EIP1559(transaction) => {
-            tx_type = 2u8;
-            let price = u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi())?;
-            max_fee_per_gas = price;
-            let price =
-                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi())?;
-            max_priority_fee_per_gas = price;
+            let max_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
+            let max_priority_fee_per_gas =
+                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
+            (2u8, 0u64, max_fee_per_gas, max_priority_fee_per_gas)
         }
-    }
+    };
 
     let out = ffi::EVMTransaction {
         tx_type,
@@ -859,7 +847,7 @@ fn unsafe_is_smart_contract_in_q(address: &str, queue_id: u64) -> Result<bool> {
 }
 
 #[ffi_fallible]
-fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
+fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -869,12 +857,15 @@ fn get_tx_info_from_raw_tx(raw_tx: &str) -> Result<TxInfo> {
     let nonce = u64::try_from(signed_tx.nonce())?;
     let initial_base_fee = SERVICES.evm.block.calculate_base_fee(H256::zero())?;
     let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
-    let tip_fee = u64::try_from(tip_fee)?;
+    let min_rbf_tip_fee = calculate_min_rbf_tip_gas_fee(&signed_tx, tip_fee)?;
 
-    Ok(TxInfo {
+    let tip_fee = u64::try_from(WeiAmount(tip_fee).to_satoshi()?)?;
+    let min_rbf_tip_fee = u64::try_from(WeiAmount(min_rbf_tip_fee).to_satoshi()?)?;
+    Ok(TxMinerInfo {
         nonce,
         address: format!("{:?}", signed_tx.sender),
         tip_fee,
+        min_rbf_tip_fee,
     })
 }
 
