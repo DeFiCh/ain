@@ -108,7 +108,6 @@ private:
 
     // EVM related data
     uint64_t evmRbfMinTipFee{};
-    arith_uint256 evmGasUsed{};
     EvmAddressWithNonce evmAddressAndNonce;
     CustomTxType customTxType{CustomTxType::None};
 
@@ -135,8 +134,6 @@ public:
     [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
     void SetEVMRbfMinTipFee(const uint64_t rbfMinTipFee) { evmRbfMinTipFee = rbfMinTipFee; }
     [[nodiscard]] uint64_t GetEVMRbfMinTipFee() const { return evmRbfMinTipFee; }
-    void SetEVMGasUsed(const arith_uint256 gasUsed) { evmGasUsed = gasUsed; }
-    [[nodiscard]] arith_uint256 GetEVMGasUsed() const { return evmGasUsed; }
     void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }
     [[nodiscard]] const EvmAddressWithNonce& GetEVMAddrAndNonce() const { return evmAddressAndNonce; }
 

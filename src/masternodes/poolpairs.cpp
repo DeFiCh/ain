@@ -217,7 +217,7 @@ auto InitPoolVars(CPoolPairView &view, PoolHeightKey poolKey, uint32_t end) {
     auto it     = view.LowerBound<By>(poolKey);
 
     auto height                       = poolKey.height;
-    static const uint32_t startHeight = Params().GetConsensus().GrandCentralHeight;
+    static const uint32_t startHeight = Params().GetConsensus().DF20GrandCentralHeight;
     poolKey.height                    = std::max(height, startHeight);
 
     while (!MatchPoolId(it, poolId) && poolKey.height < end) {
@@ -418,7 +418,7 @@ Res CPoolPair::Swap(CTokenAmount in,
 
     const auto maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
     // NOTE it has a bug prior Dakota hardfork
-    const auto price = height < Params().GetConsensus().DakotaHeight ? arith_uint256(reserveT) * PRECISION / reserveF
+    const auto price = height < Params().GetConsensus().DF6DakotaHeight ? arith_uint256(reserveT) * PRECISION / reserveF
                                                                      : arith_uint256(reserveF) * PRECISION / reserveT;
 
     Require(price <= maxPrice256, []{ return "Price is higher than indicated."; });
@@ -474,7 +474,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
         arith_uint256 unswappedA = arith_uint256(unswapped);
 
         swapped = poolT - (poolT * poolF / (poolF + unswappedA));
-        if (height >= Params().GetConsensus().FortCanningHillHeight && swapped != 0) {
+        if (height >= Params().GetConsensus().DF14FortCanningHillHeight && swapped != 0) {
             // floor the result
             --swapped;
         }
@@ -492,8 +492,8 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
     std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
     int nHeight) {
     bool newRewardCalc    = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
-    bool newRewardLogic   = nHeight >= Params().GetConsensus().EunosHeight;
-    bool newCustomRewards = nHeight >= Params().GetConsensus().ClarkeQuayHeight;
+    bool newRewardLogic   = nHeight >= Params().GetConsensus().DF8EunosHeight;
+    bool newCustomRewards = nHeight >= Params().GetConsensus().DF5ClarkeQuayHeight;
 
     constexpr const uint32_t PRECISION = 10000;  // (== 100%) just searching the way to avoid arith256 inflating
     CAmount totalDistributed           = 0;

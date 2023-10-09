@@ -963,7 +963,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
-                    if (height >= Params().GetConsensus().NextNetworkUpgradeHeight) {
+                    if (height >= Params().GetConsensus().DF22NextHeight) {
                         if (auto attributes = dynamic_cast<ATTRIBUTES*>(var.get()); attributes) {
                             AddDefaultVars(height, Params(), *attributes);
                         }
@@ -1047,7 +1047,7 @@ UniValue isappliedcustomtx(const JSONRPCRequest& request) {
 
     // post Dakota it's not allowed tx to be skipped
     // so tx that can be found in a block is applyed
-    if (blockHeight >= Params().GetConsensus().DakotaHeight) {
+    if (blockHeight >= Params().GetConsensus().DF6DakotaHeight) {
         result.setBool(true);
     } else {
         result.setBool(!IsSkippedTx(tx->GetHash()));

@@ -153,7 +153,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     }
 
     // Validate GovVariables before storing
-    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight) &&
+    if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) &&
         obj.govVar->GetName() == "ATTRIBUTES") {
         auto govVar = mnview.GetAttributes();
         if (!govVar) {
@@ -173,7 +173,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
         }
 
         // After GW exclude TokenSplit if split will have already been performed by startHeight
-        if (height >= static_cast<uint32_t>(consensus.GrandCentralHeight)) {
+        if (height >= static_cast<uint32_t>(consensus.DF20GrandCentralHeight)) {
             if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
                 const auto attrMap = attrVar->GetAttributesMap();
                 std::vector<CDataStructureV0> keysToErase;

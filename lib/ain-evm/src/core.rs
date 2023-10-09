@@ -81,7 +81,7 @@ impl SignedTxCache {
 }
 
 struct TxValidationCache {
-    validated: spin::Mutex<LruCache<(U256, H256, String), ValidateTxInfo>>,
+    validated: spin::Mutex<LruCache<(H256, String), ValidateTxInfo>>,
     stateless: spin::Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
@@ -99,7 +99,7 @@ impl TxValidationCache {
         }
     }
 
-    pub fn get(&self, key: &(U256, H256, String)) -> Option<ValidateTxInfo> {
+    pub fn get(&self, key: &(H256, String)) -> Option<ValidateTxInfo> {
         self.validated.lock().get(key).cloned()
     }
 
@@ -107,7 +107,7 @@ impl TxValidationCache {
         self.stateless.lock().get(key).cloned()
     }
 
-    pub fn set(&self, key: (U256, H256, String), value: ValidateTxInfo) -> ValidateTxInfo {
+    pub fn set(&self, key: (H256, String), value: ValidateTxInfo) -> ValidateTxInfo {
         let mut cache = self.validated.lock();
         cache.put(key, value.clone());
         value
@@ -333,14 +333,9 @@ impl EVMCoreService {
         let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
-        let total_current_gas_used = self
-            .tx_queues
-            .get_total_gas_used_in(queue_id)
-            .unwrap_or_default();
-
-        if let Some(tx_info) =
-            self.tx_validation_cache
-                .get(&(total_current_gas_used, state_root, String::from(tx)))
+        if let Some(tx_info) = self
+            .tx_validation_cache
+            .get(&(state_root, String::from(tx)))
         {
             return Ok(tx_info);
         }
@@ -430,7 +425,7 @@ impl EVMCoreService {
         }
 
         Ok(self.tx_validation_cache.set(
-            (total_current_gas_used, state_root, String::from(tx)),
+            (state_root, String::from(tx)),
             ValidateTxInfo {
                 signed_tx,
                 max_prepay_fee,
