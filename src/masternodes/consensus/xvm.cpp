@@ -175,7 +175,6 @@ static Res ValidateTransferDomain(const CTransaction &tx,
                            CCustomCSView &mnview,
                            const Consensus::Params &consensus,
                            const CTransferDomainMessage &obj,
-                           const std::shared_ptr<CScopedQueueID> &evmQueueId,
                            const bool isEvmEnabledForBlock,
                            std::vector<TransferDomainInfo> &contexts)
 {
@@ -209,7 +208,7 @@ static Res ValidateTransferDomain(const CTransaction &tx,
 
 Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     std::vector<TransferDomainInfo> contexts;
-    auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, evmQueueId, isEvmEnabledForBlock, contexts);
+    auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock, contexts);
     if (!res) { return res; }
 
     auto attributes = mnview.GetAttributes();
