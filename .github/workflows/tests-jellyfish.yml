@@ -41,4 +41,5 @@ jobs:
       - name: Run tests
         run: |
           npm ci
+          npm run compile
           DEFICHAIN_DOCKER_IMAGE=test-build-container npm run ci:test -- --testTimeout=600000
