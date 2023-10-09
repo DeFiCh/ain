@@ -970,7 +970,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
 
             evm_try_dispatch_pending_transactions_event(result, rawEVMTx);
             if (!result.ok) {
-                return state.Invalid(ValidationInvalidReason::CONSENSUS, error("evm tx failed to generate events %s", result.reason.c_str()), REJECT_INVALID, "evm-events");
+                LogPrint(BCLog::MEMPOOL, "evm tx failed to generate events %s\n", result.reason.c_str());
             }
         }
 
