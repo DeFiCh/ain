@@ -6,10 +6,9 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use parking_lot::Mutex;
-
 use anyhow::Result;
 use jsonrpsee_server::ServerHandle;
+use parking_lot::Mutex;
 use tokio::{
     runtime::{Builder, Handle as AsyncHandle},
     sync::mpsc::{self, Sender},

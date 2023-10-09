@@ -79,7 +79,7 @@ struct CLiquidityRewardsTest : public TestingSetup
 {
     CLiquidityRewardsTest()
     {
-        const_cast<int&>(Params().GetConsensus().FortCanningHillHeight) = 7;
+        const_cast<int&>(Params().GetConsensus().DF14FortCanningHillHeight) = 7;
     }
 };
 

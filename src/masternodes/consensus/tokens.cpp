@@ -30,7 +30,7 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
     // pre-bayfront logic:
-    if (static_cast<int>(height) < consensus.BayfrontHeight) {
+    if (static_cast<int>(height) < consensus.DF2BayfrontHeight) {
         if (id < CTokensView::DCT_ID_START) {
             return Res::Err("token %s is a 'stable coin', can't mint stable coin!", id.ToString());
         }
@@ -64,7 +64,7 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
 
     if (token.IsDAT()) {
         // Is a DAT, check founders auth
-        if (height < static_cast<uint32_t>(consensus.GrandCentralHeight) && !HasFoundationAuth()) {
+        if (height < static_cast<uint32_t>(consensus.DF20GrandCentralHeight) && !HasFoundationAuth()) {
             return Res::Err("token is DAT and tx not from foundation member");
         }
     } else {
@@ -95,13 +95,13 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         return Res::Err("tx not from foundation member");
     }
 
-    if (static_cast<int>(height) >= consensus.BayfrontHeight) {
+    if (static_cast<int>(height) >= consensus.DF2BayfrontHeight) {
         if (token.IsPoolShare()) {
             return Res::Err("Can't manually create 'Liquidity Pool Share' token; use poolpair creation");
         }
     }
 
-    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.BayfrontHeight, isEvmEnabledForBlock, evmQueueId);
+    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, isEvmEnabledForBlock, evmQueueId);
     return tokenId;
 }
 
@@ -156,7 +156,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         Require(HasCollateralAuth(token.creationTx));
 
     // Check for isDAT change in non-foundation token after set height
-    if (static_cast<int>(height) >= consensus.BayfrontMarinaHeight)
+    if (static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight)
         // check foundation auth
         Require(obj.token.IsDAT() == token.IsDAT() || HasFoundationAuth(),
                 "can't set isDAT to true, tx not from foundation member");
@@ -165,7 +165,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     updatedToken.creationTx        = token.creationTx;
     updatedToken.destructionTx     = token.destructionTx;
     updatedToken.destructionHeight = token.destructionHeight;
-    if (static_cast<int>(height) >= consensus.FortCanningHeight)
+    if (static_cast<int>(height) >= consensus.DF11FortCanningHeight)
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
     return mnview.UpdateToken(updatedToken);
@@ -173,8 +173,8 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
     const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
-    const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.FortCanningCrunchHeight);
-    const auto grandCentralHeight       = static_cast<uint32_t>(consensus.GrandCentralHeight);
+    const auto fortCanningCrunchHeight  = static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight);
+    const auto grandCentralHeight       = static_cast<uint32_t>(consensus.DF20GrandCentralHeight);
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
     const auto attributes = mnview.GetAttributes();

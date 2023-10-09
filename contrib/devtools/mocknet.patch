@@ -12,7 +12,7 @@ index 1ad8d066d..01b13b8aa 100644
 +    }
 +
      int nHeight{pindexLast->nHeight + 1};
-     bool newDifficultyAdjust{nHeight > params.EunosHeight};
+     bool newDifficultyAdjust{nHeight > params.DF8EunosHeight};
  
 diff --git a/src/version.h b/src/version.h
 index 3ab303d56..fb84cea92 100644

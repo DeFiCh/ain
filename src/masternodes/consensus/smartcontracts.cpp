@@ -44,7 +44,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
             "Only Bitcoin can be swapped in " + obj.name);
 
-    if (height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF22NextHeight)) {
         mnview.CalculateOwnerRewards(script, height);
     }
 
@@ -156,7 +156,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, economyKey};
     auto balances = attributes->GetValue(liveKey, CBalances{});
 
-    if (height >= static_cast<uint32_t>(consensus.FortCanningCrunchHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight)) {
         CalculateOwnerRewards(obj.owner);
     }
 

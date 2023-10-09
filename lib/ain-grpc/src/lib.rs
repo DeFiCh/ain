@@ -29,10 +29,13 @@ use std::{
 
 use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
 use anyhow::{format_err, Result};
+use hyper::header::HeaderValue;
+use hyper::Method;
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee_server::ServerBuilder;
 use log::info;
 use logging::CppLogTarget;
+use tower_http::cors::CorsLayer;
 
 use crate::rpc::{
     debug::{MetachainDebugRPCModule, MetachainDebugRPCServer},
@@ -83,9 +86,26 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
 
+    let middleware = if !ain_cpp_imports::get_cors_allowed_origin().is_empty() {
+        info!(
+            "Allowed origins: {}",
+            ain_cpp_imports::get_cors_allowed_origin()
+        );
+        let cors = CorsLayer::new()
+            .allow_methods([Method::POST, Method::GET, Method::OPTIONS])
+            .allow_origin(ain_cpp_imports::get_cors_allowed_origin().parse::<HeaderValue>()?)
+            .allow_headers([hyper::header::CONTENT_TYPE, hyper::header::AUTHORIZATION])
+            .allow_credentials(true);
+
+        tower::ServiceBuilder::new().layer(cors)
+    } else {
+        tower::ServiceBuilder::new().layer(CorsLayer::new())
+    };
+
     let handle = runtime.tokio_runtime.clone();
     let server = runtime.tokio_runtime.block_on(
         ServerBuilder::default()
+            .set_middleware(middleware)
             .max_connections(max_connections)
             .custom_tokio_runtime(handle)
             .build(addr),

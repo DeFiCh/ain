@@ -94,6 +94,9 @@ mod ffi {
     pub fn getNumCores() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getCORSAllowedOrigin() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -195,6 +198,10 @@ pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
 
 pub fn get_num_cores() -> i32 {
     ffi::getNumCores()
+}
+
+pub fn get_cors_allowed_origin() -> String {
+    ffi::getCORSAllowedOrigin()
 }
 
 #[cfg(test)]

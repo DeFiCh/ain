@@ -259,7 +259,7 @@ inline Res CTokenImplementation::IsValidSymbol() const {
     if (symbol.find('#') != std::string::npos) {
         return invalidTokenSymbol();
     }
-    if (creationHeight >= Params().GetConsensus().FortCanningCrunchHeight) {
+    if (creationHeight >= Params().GetConsensus().DF16FortCanningCrunchHeight) {
         if (symbol.find('/') != std::string::npos) {
             return invalidTokenSymbol();
         };

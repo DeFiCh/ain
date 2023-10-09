@@ -4,6 +4,7 @@
 #include <key_io.h>
 #include <logging.h>
 #include <clientversion.h>
+#include <httprpc.h>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -289,4 +290,8 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
 int32_t getNumCores() {
     const auto n = GetNumCores() - 1;
     return std::max(1, n);
+}
+
+rust::string getCORSAllowedOrigin() {
+    return gArgs.GetArg("-rpcallowcors", "");
 }

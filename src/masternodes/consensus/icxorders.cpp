@@ -9,14 +9,14 @@
 #include <masternodes/mn_checks.h>
 
 bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
-    if (height >= consensus.NextNetworkUpgradeHeight) {
+    if (height >= consensus.DF22NextHeight) {
         const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
         auto attributes = view.GetAttributes();
         assert(attributes);
         return attributes->GetValue(enabledKey, false);
     }
         // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
-    else if (height < consensus.FortCanningParkHeight || IsRegtestNetwork() || (IsTestNetwork() && static_cast<int>(height) >= 1250000))
+    else if (height < consensus.DF13FortCanningParkHeight || IsRegtestNetwork() || (IsTestNetwork() && static_cast<int>(height) >= 1250000))
         return true;
 
     // ICX transactions disabled in all other cases
@@ -99,7 +99,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
     auto order = mnview.GetICXOrderByCreationTx(makeoffer.orderTx);
     Require(order, "order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
 
-    auto expiry = static_cast<int>(height) < consensus.EunosPayaHeight ? CICXMakeOffer::DEFAULT_EXPIRY
+    auto expiry = static_cast<int>(height) < consensus.DF10EunosPayaHeight ? CICXMakeOffer::DEFAULT_EXPIRY
                                                                        : CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
 
     Require(makeoffer.expiry >= expiry, "offer expiry must be greater than %d!", expiry - 1);
@@ -156,7 +156,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
                 submitdfchtlc.offerTx.GetHex());
 
         uint32_t timeout;
-        if (static_cast<int>(height) < consensus.EunosPayaHeight)
+        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
             timeout = CICXSubmitDFCHTLC::MINIMUM_TIMEOUT;
         else
             timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
@@ -172,7 +172,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
 
         CAmount takerFee = offer->takerFee;
         // EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
-        if (static_cast<int>(height) >= consensus.EunosPayaHeight) {
+        if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
             if (calcAmount < offer->amount) {
                 auto BTCAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
                 takerFee       = (arith_uint256(BTCAmount) * offer->takerFee / offer->amount).GetLow64();
@@ -221,7 +221,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
                 exthtlc->hash.GetHex());
 
         uint32_t timeout, btcBlocksInDfi;
-        if (static_cast<int>(height) < consensus.EunosPayaHeight) {
+        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
             timeout        = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         } else {
@@ -279,7 +279,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
                 "Invalid hash, external htlc hash is different than dfc htlc hash");
 
         uint32_t timeout, btcBlocksInDfi;
-        if (static_cast<int>(height) < consensus.EunosPayaHeight) {
+        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
             timeout        = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         } else {
@@ -298,7 +298,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
                 submitexthtlc.offerTx.GetHex());
 
         uint32_t timeout;
-        if (static_cast<int>(height) < consensus.EunosPayaHeight)
+        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
             timeout = CICXSubmitEXTHTLC::MINIMUM_TIMEOUT;
         else
             timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
@@ -312,7 +312,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
 
         CAmount takerFee = offer->takerFee;
         // EunosPaya: calculating adjusted takerFee only if amount in htlc different than in offer
-        if (static_cast<int>(height) >= consensus.EunosPayaHeight) {
+        if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
             if (calcAmount < offer->amount) {
                 auto BTCAmount = DivideAmounts(offer->amount, order->orderPrice);
                 takerFee       = (arith_uint256(submitexthtlc.amount) * offer->takerFee / BTCAmount).GetLow64();
@@ -376,7 +376,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     Require(order, "order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
     auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
-    if (static_cast<int>(height) < consensus.EunosPayaHeight)
+    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
         Require(exthtlc, "cannot claim, external htlc for this offer does not exists or expired!");
 
     // claim DFC HTLC to receiveAddress
@@ -402,7 +402,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
         auto ICXBugPath = [&](uint32_t height) {
             if ((IsTestNetwork() && height >= 1250000) ||
                 IsRegtestNetwork() ||
-                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.NextNetworkUpgradeHeight)))
+                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22NextHeight)))
                 return false;
             return true;
         };
@@ -435,7 +435,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
 
     Require(mnview.ICXCloseDFCHTLC(*dfchtlc, CICXSubmitDFCHTLC::STATUS_CLAIMED));
 
-    if (static_cast<int>(height) >= consensus.EunosPayaHeight) {
+    if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
         if (exthtlc)
             return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
         else
@@ -504,7 +504,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage &obj) const {
     offer->closeTx     = closeoffer.creationTx;
     offer->closeHeight = closeoffer.creationHeight;
 
-    bool isPreEunosPaya = static_cast<int>(height) < consensus.EunosPayaHeight;
+    bool isPreEunosPaya = static_cast<int>(height) < consensus.DF10EunosPayaHeight;
 
     if (order->orderType == CICXOrder::TYPE_INTERNAL &&
         !mnview.ExistedICXSubmitDFCHTLC(offer->creationTx, isPreEunosPaya)) {

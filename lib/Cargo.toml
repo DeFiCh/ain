@@ -67,6 +67,9 @@ hex-literal = "0.4"
 bincode = "1.3"
 serde_with = "3.0"
 heck = "0.4"
+tower-http = { version = "0.4.0", features = ["full"] }
+tower = "0.4.13"
+hyper = "0.14.20"
 
 jsonrpsee = { version = "0.16", features = ["server", "macros", "http-client"] }
 jsonrpsee-core = "0.16"

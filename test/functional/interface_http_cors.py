@@ -18,6 +18,10 @@ class HTTPCorsTest(DefiTestFramework):
         self.extra_args = [["-rpcallowcors=" + self.cors_origin]]
 
     def run_test(self):
+        self.test_json_rpc_port()
+        self.test_eth_json_rpc_port()
+
+    def test_json_rpc_port(self):
         url = urllib.parse.urlparse(self.nodes[0].url)
         authpair = url.username + ":" + url.password
 
@@ -41,15 +45,45 @@ class HTTPCorsTest(DefiTestFramework):
         assert_equal(res.status, http.client.NO_CONTENT)
         res.close()
 
-    def check_cors_headers(self, res):
+    def test_eth_json_rpc_port(self):
+        url = urllib.parse.urlparse(self.nodes[0].evm_rpc.url)
+
+        # same should be if we add keep-alive because this should be the std. behaviour
+        headers = {
+            "Connection": "keep-alive",
+            "Content-Type": "application/json",
+        }
+
+        conn = http.client.HTTPConnection(url.hostname, url.port)
+        conn.connect()
+        conn.request("POST", "/", '{"method": "eth_syncing"}', headers)
+        res = conn.getresponse()
+        print(res.status)
+        print(res.headers)
+        self.check_cors_headers(res, False, False)
+        assert_equal(res.status, http.client.OK)
+        res.close()
+
+        conn.request("OPTIONS", "/", '{"method": "eth_syncing"}', headers)
+        res = conn.getresponse()
+        self.check_cors_headers(res, False, False)
+        assert_equal(res.status, http.client.OK)
+        res.close()
+
+    def check_cors_headers(
+        self, res, check_allow_methods=True, check_allow_headers=True
+    ):
         assert_equal(res.getheader("Access-Control-Allow-Origin"), self.cors_origin)
         assert_equal(res.getheader("Access-Control-Allow-Credentials"), "true")
-        assert_equal(
-            res.getheader("Access-Control-Allow-Methods"), "POST, GET, OPTIONS"
-        )
-        assert_equal(
-            res.getheader("Access-Control-Allow-Headers"), "Content-Type, Authorization"
-        )
+        if check_allow_methods:
+            assert_equal(
+                res.getheader("Access-Control-Allow-Methods"), "POST, GET, OPTIONS"
+            )
+        if check_allow_headers:
+            assert_equal(
+                res.getheader("Access-Control-Allow-Headers"),
+                "Content-Type, Authorization",
+            )
 
 
 if __name__ == "__main__":
