@@ -72,7 +72,7 @@ Res CAccountsConsensus::operator()(const CAnyAccountsToAccountsMessage &obj) con
 
     // compare
     const auto sumFrom = SumAllTransfers(obj.from);
-    const auto sumTo   = SumAllTransfers(obj.to);
+    const auto sumTo = SumAllTransfers(obj.to);
 
     Require(sumFrom == sumTo, "sum of inputs (from) != sum of outputs (to)");
 

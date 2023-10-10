@@ -24,23 +24,27 @@ class CTransaction;
 class CVaultAssets;
 
 namespace Consensus {
-    struct Params;
+struct Params;
 }
 
-enum AuthStrategy: uint32_t {
+enum AuthStrategy : uint32_t {
     DirectPubKeyMatch,
     Mapped,
 };
 
 namespace AuthFlags {
-    enum Type: uint32_t {
-        None = 0,
-        Bech32InSource = 1 << 1,
-        PKHashInSource = 1 << 2,
-    };
+enum Type : uint32_t {
+    None = 0,
+    Bech32InSource = 1 << 1,
+    PKHashInSource = 1 << 2,
+};
 }
 
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch, AuthFlags::Type flags = AuthFlags::None);
+Res HasAuth(const CTransaction &tx,
+            const CCoinsViewCache &coins,
+            const CScript &auth,
+            AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch,
+            AuthFlags::Type flags = AuthFlags::None);
 Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script);
 
 class CCustomTxVisitor {
@@ -84,7 +88,11 @@ protected:
     Res AddBalancesSetShares(const CAccounts &accounts) const;
     Res SubBalancesDelShares(const CAccounts &accounts) const;
     Res CollateralPctCheck(const bool hasDUSDLoans, const CVaultAssets &collateralsLoans, const uint32_t ratio) const;
-    ResVal<CVaultAssets> CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const;
+    ResVal<CVaultAssets> CheckCollateralRatio(const CVaultId &vaultId,
+                                              const CLoanSchemeData &scheme,
+                                              const CBalances &collaterals,
+                                              bool useNextPrice,
+                                              bool requireLivePrice) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_TXVISITOR_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_TXVISITOR_H

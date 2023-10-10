@@ -7,7 +7,7 @@
 
 enum class VMDomainRPCMapType {
     Unknown = -1,
-    Auto    = 0,
+    Auto = 0,
     BlockNumberDVMToEVM,
     BlockNumberEVMToDVM,
     BlockHashDVMToEVM,
@@ -97,7 +97,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const auto nonce = static_cast<uint64_t>(request.params[1].get_int64());
     const auto gasPrice = static_cast<uint64_t>(request.params[2].get_int64());  // Price as GWei
     const auto gasLimit = static_cast<uint64_t>(request.params[3].get_int64());
-    const uint64_t value = AmountFromValue(request.params[5]);   // Amount in CAmount
+    const uint64_t value = AmountFromValue(request.params[5]);  // Amount in CAmount
 
     const auto toStr = request.params[4].get_str();
     std::string to = "";
@@ -127,15 +127,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
     std::copy(key.begin(), key.end(), privKey.begin());
 
     CrossBoundaryResult result;
-    const auto createResult = evm_try_create_and_sign_tx(result,
-                                                     CreateTransactionContext{chainID,
-                                                                              nonce,
-                                                                              gasPrice,
-                                                                              gasLimit,
-                                                                              to,
-                                                                              value,
-                                                                              input,
-                                                                              privKey});
+    const auto createResult = evm_try_create_and_sign_tx(
+        result, CreateTransactionContext{chainID, nonce, gasPrice, gasLimit, to, value, input, privKey});
     if (!result.ok) {
         throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
     }
@@ -215,9 +208,10 @@ UniValue vmmap(const JSONRPCRequest &request) {
     const auto inputStr = request.params[0].get_str();
     const auto input = ensureEVMHashStripped(inputStr);
 
-
     int typeInt = 0;
-    if (!request.params[1].isNull()) typeInt = request.params[1].get_int();
+    if (!request.params[1].isNull()) {
+        typeInt = request.params[1].get_int();
+    }
     if (typeInt < 0 || typeInt >= VMDomainRPCMapTypeCount) {
         throwInvalidParam();
     }
@@ -226,20 +220,24 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
     auto tryResolveMapBlockOrTxResult = [](ResVal<std::string> &res, const std::string &input) {
         res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, input);
-        if (res)
+        if (res) {
             return VMDomainRPCMapType::TxHashDVMToEVM;
+        }
 
         res = pcustomcsview->GetVMDomainTxEdge(VMDomainEdge::EVMToDVM, input);
-        if (res)
+        if (res) {
             return VMDomainRPCMapType::TxHashEVMToDVM;
+        }
 
         res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, input);
-        if (res)
+        if (res) {
             return VMDomainRPCMapType::BlockHashDVMToEVM;
+        }
 
         res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, input);
-        if (res)
+        if (res) {
             return VMDomainRPCMapType::BlockHashEVMToDVM;
+        }
 
         return VMDomainRPCMapType::Unknown;
     };
@@ -258,28 +256,26 @@ UniValue vmmap(const JSONRPCRequest &request) {
 
         CrossBoundaryResult evmResult;
         evm_try_get_block_hash_by_number(evmResult, height);
-        CBlockIndex* dvmBlock = ::ChainActive()[static_cast<int>(height)];
+        CBlockIndex *dvmBlock = ::ChainActive()[static_cast<int>(height)];
         if (evmResult.ok && dvmBlock != nullptr) {
             return VMDomainRPCMapType::Unknown;
-        }
-        else if (evmResult.ok) {
+        } else if (evmResult.ok) {
             return VMDomainRPCMapType::BlockNumberEVMToDVM;
-        }
-        else if (dvmBlock != nullptr) {
+        } else if (dvmBlock != nullptr) {
             return VMDomainRPCMapType::BlockNumberDVMToEVM;
-        }
-        else {
+        } else {
             return VMDomainRPCMapType::Unknown;
         }
     };
 
-    auto type  = static_cast<VMDomainRPCMapType>(typeInt);
+    auto type = static_cast<VMDomainRPCMapType>(typeInt);
     ResVal res = ResVal<std::string>(std::string{}, Res::Ok());
 
     auto handleAutoInfer = [&]() -> std::tuple<VMDomainRPCMapType, bool> {
         auto mapType = tryResolveBlockNumberType(input);
-        if (mapType != VMDomainRPCMapType::Unknown)
+        if (mapType != VMDomainRPCMapType::Unknown) {
             return {mapType, false};
+        }
 
         auto inLength = input.length();
         if (inLength == 64 || inLength == 66) {
@@ -305,16 +301,16 @@ UniValue vmmap(const JSONRPCRequest &request) {
         }
     };
 
-    auto handleMapBlockNumberDVMToEVMRequest = [&throwInvalidParam,
-                                                &crossBoundaryOkOrThrow](const std::string &input) {
+    auto handleMapBlockNumberDVMToEVMRequest = [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
         uint64_t height;
         const int current_tip = ::ChainActive().Height();
-        bool success          = ParseUInt64(input, &height);
+        bool success = ParseUInt64(input, &height);
         if (!success || height < 0 || height > static_cast<uint64_t>(current_tip)) {
             throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
         }
         CBlockIndex *pindex = ::ChainActive()[static_cast<int>(height)];
-        auto evmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
+        auto evmBlockHash =
+            pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
         if (!evmBlockHash.val.has_value()) {
             throwInvalidParam(evmBlockHash.msg);
         }
@@ -324,26 +320,25 @@ UniValue vmmap(const JSONRPCRequest &request) {
         return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
     };
 
-    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam,
-                                                &ensureEVMHashStripped,
-                                                &crossBoundaryOkOrThrow](const std::string &input) {
-        uint64_t height;
-        bool success = ParseUInt64(input, &height);
-        if (!success || height < 0) {
-            throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
-        }
-        CrossBoundaryResult result;
-        auto evmHash = evm_try_get_block_hash_by_number(result, height);
-        auto evmBlockHash = ensureEVMHashStripped(std::string(evmHash.data(), evmHash.length()));
-        crossBoundaryOkOrThrow(result);
-        auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-        if (!dvmBlockHash.val.has_value()) {
-            throwInvalidParam(dvmBlockHash.msg);
-        }
-        CBlockIndex *pindex  = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
-        return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
-    };
+    auto handleMapBlockNumberEVMToDVMRequest =
+        [&throwInvalidParam, &ensureEVMHashStripped, &crossBoundaryOkOrThrow](const std::string &input) {
+            uint64_t height;
+            bool success = ParseUInt64(input, &height);
+            if (!success || height < 0) {
+                throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
+            }
+            CrossBoundaryResult result;
+            auto evmHash = evm_try_get_block_hash_by_number(result, height);
+            auto evmBlockHash = ensureEVMHashStripped(std::string(evmHash.data(), evmHash.length()));
+            crossBoundaryOkOrThrow(result);
+            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+            if (!dvmBlockHash.val.has_value()) {
+                throwInvalidParam(dvmBlockHash.msg);
+            }
+            CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+            uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
+            return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
+        };
 
     if (type == VMDomainRPCMapType::Auto) {
         auto [mapType, isResolved] = handleAutoInfer();
@@ -480,6 +475,7 @@ static const CRPCCommand commands[] = {
 };
 
 void RegisterEVMRPCCommands(CRPCTable &tableRPC) {
-    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++) {
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+    }
 }

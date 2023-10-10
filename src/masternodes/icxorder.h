@@ -23,14 +23,14 @@ public:
     static const std::string CHAIN_BTC;
     static const std::string TOKEN_BTC;  // name of BTC token on DFC
 
-    uint8_t orderType = 0;     // is maker buying or selling DFC asset to know which htlc to come first
-    DCT_ID idToken{UINT_MAX};  // used for DFT/BTC
-    CScript ownerAddress;      // address for DFI token for fees, and in case of DFC/BTC order for DFC asset
-    CPubKey receivePubkey;     // address of BTC pubkey in case of BTC/DFC order
-    CAmount amountFrom   = 0;  // amount of asset that is sold
-    CAmount amountToFill = 0;  // how much is left to fill the order
-    CAmount orderPrice   = 0;  // price of asset buying in asset selling
-    uint32_t expiry      = DEFAULT_EXPIRY;  // when the order exipres in number of blocks
+    uint8_t orderType = 0;             // is maker buying or selling DFC asset to know which htlc to come first
+    DCT_ID idToken{UINT_MAX};          // used for DFT/BTC
+    CScript ownerAddress;              // address for DFI token for fees, and in case of DFC/BTC order for DFC asset
+    CPubKey receivePubkey;             // address of BTC pubkey in case of BTC/DFC order
+    CAmount amountFrom = 0;            // amount of asset that is sold
+    CAmount amountToFill = 0;          // how much is left to fill the order
+    CAmount orderPrice = 0;            // price of asset buying in asset selling
+    uint32_t expiry = DEFAULT_EXPIRY;  // when the order exipres in number of blocks
 
     ADD_SERIALIZE_METHODS;
 
@@ -52,7 +52,7 @@ public:
     uint256 creationTx;
     uint256 closeTx;
     int32_t creationHeight = -1;
-    int32_t closeHeight    = -1;
+    int32_t closeHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -91,7 +91,7 @@ public:
     CAmount amount = 0;     // amount of asset to swap
     CScript ownerAddress;   // address for DFI token for fees, and in case of BTC/DFC order for DFC asset
     CPubKey receivePubkey;  // address or BTC pubkey in case of DFC/BTC order
-    uint32_t expiry  = 0;   // when the offer exipres in number of blocks
+    uint32_t expiry = 0;    // when the offer exipres in number of blocks
     CAmount takerFee = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -112,7 +112,7 @@ public:
     uint256 creationTx;
     uint256 closeTx;
     int32_t creationHeight = -1;
-    int32_t closeHeight    = -1;
+    int32_t closeHeight = -1;
 
     ADD_SERIALIZE_METHODS;
 
@@ -368,17 +368,17 @@ class CICXOrderView : public virtual CStorageView {
 public:
     static const CAmount DEFAULT_DFI_BTC_PRICE;
 
-    using OrderKey    = std::pair<DCT_ID, uint256>;
+    using OrderKey = std::pair<DCT_ID, uint256>;
     using TxidPairKey = std::pair<uint256, uint256>;
-    using StatusKey   = std::pair<uint32_t, uint256>;
+    using StatusKey = std::pair<uint32_t, uint256>;
 
-    using CICXOrderImpl         = CICXOrderImplemetation;
-    using CICXMakeOfferImpl     = CICXMakeOfferImplemetation;
+    using CICXOrderImpl = CICXOrderImplemetation;
+    using CICXMakeOfferImpl = CICXMakeOfferImplemetation;
     using CICXSubmitDFCHTLCImpl = CICXSubmitDFCHTLCImplemetation;
     using CICXSubmitEXTHTLCImpl = CICXSubmitEXTHTLCImplemetation;
-    using CICXClaimDFCHTLCImpl  = CICXClaimDFCHTLCImplemetation;
-    using CICXCloseOrderImpl    = CICXCloseOrderImplemetation;
-    using CICXCloseOfferImpl    = CICXCloseOfferImplemetation;
+    using CICXClaimDFCHTLCImpl = CICXClaimDFCHTLCImplemetation;
+    using CICXCloseOrderImpl = CICXCloseOrderImplemetation;
+    using CICXCloseOfferImpl = CICXCloseOfferImplemetation;
 
     // Order
     std::unique_ptr<CICXOrderImpl> GetICXOrderByCreationTx(const uint256 &txid) const;

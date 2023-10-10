@@ -10,15 +10,12 @@
 
 extern std::string ScriptToString(const CScript &script);
 
-
 CHistoryWriters::CHistoryWriters(CAccountHistoryStorage *historyView,
                                  CBurnHistoryStorage *burnView,
                                  CVaultHistoryStorage *vaultView)
-        : historyView(historyView),
-          burnView(burnView),
-          vaultView(vaultView) {}
-
-
+    : historyView(historyView),
+      burnView(burnView),
+      vaultView(vaultView) {}
 
 void CHistoryWriters::AddBalance(const CScript &owner, const CTokenAmount &amount, const uint256 &vaultID) {
     if (historyView) {
@@ -68,7 +65,7 @@ void CHistoryWriters::Flush(const uint32_t height,
                             const uint8_t type,
                             const uint256 &vaultID) {
     if (historyView) {
-        for (const auto& [owner, amounts] : diffs) {
+        for (const auto &[owner, amounts] : diffs) {
             LogPrint(BCLog::ACCOUNTCHANGE,
                      "AccountChange: hash=%s type=%s addr=%s change=%s\n",
                      txid.GetHex(),
@@ -79,15 +76,14 @@ void CHistoryWriters::Flush(const uint32_t height,
         }
     }
     if (burnView) {
-        for (const auto& [owner, amounts] : burnDiffs) {
+        for (const auto &[owner, amounts] : burnDiffs) {
             burnView->WriteAccountHistory({owner, height, txn}, {txid, type, amounts});
         }
     }
     if (vaultView) {
-        for (const auto& [vaultID, ownerMap] : vaultDiffs) {
-            for (const auto& [owner, amounts] : ownerMap) {
-                vaultView->WriteVaultHistory({height, vaultID, txn, owner},
-                                             {txid, type, amounts});
+        for (const auto &[vaultID, ownerMap] : vaultDiffs) {
+            for (const auto &[owner, amounts] : ownerMap) {
+                vaultView->WriteVaultHistory({height, vaultID, txn, owner}, {txid, type, amounts});
             }
         }
         if (!schemeID.empty()) {
@@ -131,7 +127,7 @@ void CHistoryWriters::EraseHistory(uint32_t height, std::vector<AccountHistoryKe
         burnView->EraseAccountHistoryHeight(height);
 
         // Erase any UTXO burns
-        for (const auto& entries : eraseBurnEntries) {
+        for (const auto &entries : eraseBurnEntries) {
             burnView->EraseAccountHistory(entries);
         }
 
@@ -139,9 +135,10 @@ void CHistoryWriters::EraseHistory(uint32_t height, std::vector<AccountHistoryKe
             // Make sure to initialize lastTxOut, otherwise it never finds the block and
             // ends up looping through uninitialized garbage value.
             uint32_t firstTxOut{}, lastTxOut{};
-            auto shouldContinueToNextAccountHistory = [&](AccountHistoryKey const & key, AccountHistoryValue const &) -> bool
-            {
-                if (key.owner != Params().GetConsensus().burnAddress || key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight)) {
+            auto shouldContinueToNextAccountHistory = [&](const AccountHistoryKey &key,
+                                                          const AccountHistoryValue &) -> bool {
+                if (key.owner != Params().GetConsensus().burnAddress ||
+                    key.blockHeight != static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight)) {
                     return false;
                 }
 
@@ -153,27 +150,31 @@ void CHistoryWriters::EraseHistory(uint32_t height, std::vector<AccountHistoryKe
                 return true;
             };
 
-            AccountHistoryKey startKey({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight), std::numeric_limits<uint32_t>::max()});
+            AccountHistoryKey startKey({Params().GetConsensus().burnAddress,
+                                        static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight),
+                                        std::numeric_limits<uint32_t>::max()});
             burnView->ForEachAccountHistory(shouldContinueToNextAccountHistory,
                                             Params().GetConsensus().burnAddress,
                                             Params().GetConsensus().DF8EunosHeight);
 
             for (auto i = firstTxOut; i <= lastTxOut; ++i) {
-                burnView->EraseAccountHistory({Params().GetConsensus().burnAddress, static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight), i});
+                burnView->EraseAccountHistory({Params().GetConsensus().burnAddress,
+                                               static_cast<uint32_t>(Params().GetConsensus().DF8EunosHeight),
+                                               i});
             }
         }
     }
 }
 
-CBurnHistoryStorage*& CHistoryWriters::GetBurnView() {
+CBurnHistoryStorage *&CHistoryWriters::GetBurnView() {
     return burnView;
 }
 
-CVaultHistoryStorage*& CHistoryWriters::GetVaultView() {
+CVaultHistoryStorage *&CHistoryWriters::GetVaultView() {
     return vaultView;
 }
 
-CAccountHistoryStorage*& CHistoryWriters::GetHistoryView() {
+CAccountHistoryStorage *&CHistoryWriters::GetHistoryView() {
     return historyView;
 }
 
@@ -195,7 +196,10 @@ void CHistoryWriters::WriteVaultHistory(const VaultHistoryKey &key, const VaultH
     }
 }
 
-void CHistoryWriters::WriteVaultState(CCustomCSView &mnview, const CBlockIndex &pindex, const uint256 &vaultID, const uint32_t ratio) {
+void CHistoryWriters::WriteVaultState(CCustomCSView &mnview,
+                                      const CBlockIndex &pindex,
+                                      const uint256 &vaultID,
+                                      const uint32_t ratio) {
     if (vaultView) {
         vaultView->WriteVaultState(mnview, pindex, vaultID, ratio);
     }

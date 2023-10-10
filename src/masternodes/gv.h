@@ -13,7 +13,7 @@
 class ATTRIBUTES;
 class CCustomCSView;
 
-using XVmAddressFormatItems          = std::set<uint8_t>;
+using XVmAddressFormatItems = std::set<uint8_t>;
 
 template <typename T>
 class GvOptional : public std::optional<T> {
@@ -42,19 +42,19 @@ public:
 
     virtual std::string GetName() const = 0;
 
-    virtual bool IsEmpty() const         = 0;
+    virtual bool IsEmpty() const = 0;
     virtual Res Import(const UniValue &) = 0;
-    virtual UniValue Export() const      = 0;
+    virtual UniValue Export() const = 0;
     /// @todo it looks like Validate+Apply may be redundant. refactor for one?
-    virtual Res Validate(const CCustomCSView &) const                              = 0;
-    virtual Res Apply(CCustomCSView &, uint32_t)                                   = 0;
+    virtual Res Validate(const CCustomCSView &) const = 0;
+    virtual Res Apply(CCustomCSView &, uint32_t) = 0;
     virtual Res Erase(CCustomCSView &, uint32_t, const std::vector<std::string> &) = 0;
 
     virtual void Serialize(CVectorWriter &s) const = 0;
-    virtual void Unserialize(VectorReader &s)      = 0;
+    virtual void Unserialize(VectorReader &s) = 0;
 
     virtual void Serialize(CDataStream &s) const = 0;
-    virtual void Unserialize(CDataStream &s)     = 0;
+    virtual void Unserialize(CDataStream &s) = 0;
 };
 
 struct CGovernanceMessage {
@@ -62,13 +62,15 @@ struct CGovernanceMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         std::string name;
-        while(!s.empty()) {
+        while (!s.empty()) {
             s >> name;
-            auto& gov = govs[name];
+            auto &gov = govs[name];
             auto var = GovVariable::Create(name);
-            if (!var) break;
+            if (!var) {
+                break;
+            }
             s >> *var;
             gov = std::move(var);
         }
@@ -82,7 +84,7 @@ struct CGovernanceHeightMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         if (!s.empty()) {
             s >> govName;
             if ((govVar = GovVariable::Create(govName))) {

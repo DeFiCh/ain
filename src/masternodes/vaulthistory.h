@@ -163,7 +163,10 @@ public:
     void EraseVaultHistory(const uint32_t height);
 
     void ForEachVaultHistory(std::function<bool(const VaultHistoryKey &, CLazySerialize<VaultHistoryValue>)> callback,
-                             const VaultHistoryKey &start = {std::numeric_limits<uint32_t>::max(), {}, std::numeric_limits<uint32_t>::max(), {}});
+                             const VaultHistoryKey &start = {std::numeric_limits<uint32_t>::max(),
+                                                             {},
+                                                             std::numeric_limits<uint32_t>::max(),
+                                                             {}});
     void ForEachVaultScheme(std::function<bool(const VaultSchemeKey &, CLazySerialize<VaultSchemeValue>)> callback,
                             const VaultSchemeKey &start = {{}, std::numeric_limits<uint32_t>::max()});
     void ForEachVaultState(std::function<bool(const VaultStateKey &, CLazySerialize<VaultStateValue>)> callback,

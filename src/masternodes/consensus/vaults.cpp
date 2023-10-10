@@ -8,7 +8,7 @@
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
 
-extern std::string ScriptToString(CScript const& script);
+extern std::string ScriptToString(const CScript &script);
 
 Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
     auto vaultCreationFee = consensus.vaultCreationFee;
@@ -65,16 +65,18 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
             }
 
             if (totalInterest < 0) {
-                TrackNegativeInterest(
-                        mnview, {tokenId, amount > std::abs(totalInterest) ? std::abs(totalInterest) : amount});
+                TrackNegativeInterest(mnview,
+                                      {tokenId, amount > std::abs(totalInterest) ? std::abs(totalInterest) : amount});
             }
         }
     }
 
     CalculateOwnerRewards(obj.to);
-    if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId))
-        for (const auto &col : collaterals->balances)
+    if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
+        for (const auto &col : collaterals->balances) {
             Require(mnview.AddBalance(obj.to, {col.first, col.second}));
+        }
+    }
 
     // delete all interest to vault
     Require(mnview.EraseInterest(obj.vaultId, height));
@@ -104,10 +106,8 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
 
     // loan scheme is not set to be destroyed
     auto destroyHeight = mnview.GetDestroyLoanScheme(obj.schemeId);
-    Require(!destroyHeight,
-            "Cannot set %s as loan scheme, set to be destroyed on block %d",
-            obj.schemeId,
-            *destroyHeight);
+    Require(
+        !destroyHeight, "Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *destroyHeight);
 
     Require(IsVaultPriceValid(mnview, obj.vaultId, height),
             "Cannot update vault while any of the asset's price is invalid");
@@ -117,9 +117,11 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
         if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
             for (int i = 0; i < 2; i++) {
                 bool useNextPrice = i > 0, requireLivePrice = true;
-                auto collateralsLoans = CheckCollateralRatio(obj.vaultId, *scheme, *collaterals, useNextPrice, requireLivePrice);
-                if (!collateralsLoans)
+                auto collateralsLoans =
+                    CheckCollateralRatio(obj.vaultId, *scheme, *collaterals, useNextPrice, requireLivePrice);
+                if (!collateralsLoans) {
                     return std::move(collateralsLoans);
+                }
             }
         }
         if (height >= static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
@@ -127,14 +129,14 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
                 for (const auto &[tokenId, tokenAmount] : loanTokens->balances) {
                     const auto loanToken = mnview.GetLoanTokenByID(tokenId);
                     assert(loanToken);
-                    Require(mnview.IncreaseInterest(
-                            height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0));
+                    Require(
+                        mnview.IncreaseInterest(height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0));
                 }
             }
         }
     }
 
-    vault->schemeId     = obj.schemeId;
+    vault->schemeId = obj.schemeId;
     vault->ownerAddress = obj.ownerAddress;
     return mnview.UpdateVault(obj.vaultId, *vault);
 }
@@ -154,12 +156,10 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
 
     // If collateral token exist make sure it is enabled.
     if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
-        CDataStructureV0 collateralKey{
-                AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
+        CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
         if (const auto attributes = mnview.GetAttributes()) {
-            Require(attributes->GetValue(collateralKey, false),
-                    "Collateral token (%d) is disabled",
-                    obj.amount.nTokenId.v);
+            Require(
+                attributes->GetValue(collateralKey, false), "Collateral token (%d) is disabled", obj.amount.nTokenId.v);
         }
     }
 
@@ -174,8 +174,7 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
     bool useNextPrice = false, requireLivePrice = false;
     auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
-    auto vaultAssets =
-            mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+    auto vaultAssets = mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
     Require(vaultAssets);
 
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
@@ -225,7 +224,7 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
             }
 
             const auto subAmount =
-                    currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount;
+                currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount;
 
             if (const auto token = mnview.GetToken("DUSD"); token && tokenId == token->first) {
                 TrackDUSDSub(mnview, {tokenId, subAmount});
@@ -243,8 +242,8 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
             for (int i = 0; i < 2; i++) {
                 // check collaterals for active and next price
                 bool useNextPrice = i > 0, requireLivePrice = true;
-                auto vaultAssets = mnview.GetVaultAssets(
-                        obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+                auto vaultAssets =
+                    mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
                 Require(vaultAssets);
 
                 Require(vaultAssets.val->ratio() >= scheme->ratio,
@@ -295,15 +294,17 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
                 data->liquidationPenalty * 100 / COIN);
 
         if (static_cast<int>(height) >= consensus.DF12FortCanningMuseumHeight && data->liquidationPenalty &&
-            obj.amount.nValue == batch->loanAmount.nValue)
+            obj.amount.nValue == batch->loanAmount.nValue) {
             return Res::Err("First bid should be higher than batch one");
+        }
     } else {
         auto amount = MultiplyAmounts(bid->second.nValue, COIN + (COIN / 100));
         Require(amount <= obj.amount.nValue, "Bid override should be at least 1%% higher than current one");
 
         if (static_cast<int>(height) >= consensus.DF12FortCanningMuseumHeight &&
-            obj.amount.nValue == bid->second.nValue)
+            obj.amount.nValue == bid->second.nValue) {
             return Res::Err("Bid override should be higher than last one");
+        }
 
         // immediate refund previous bid
         CalculateOwnerRewards(bid->first);

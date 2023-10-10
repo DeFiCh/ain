@@ -12,10 +12,11 @@
 
 inline CommunityAccountType CommunityAccountCodeToType(unsigned char ch) {
     const char types[] = "IACLOU";
-    if (memchr(types, ch, strlen(types)))
+    if (memchr(types, ch, strlen(types))) {
         return static_cast<CommunityAccountType>(ch);
-    else
+    } else {
         return CommunityAccountType::None;
+    }
 }
 
 inline const std::string GetCommunityAccountName(const CommunityAccountType t) {

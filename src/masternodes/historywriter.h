@@ -121,14 +121,17 @@ public:
                const uint8_t type,
                const uint256 &vaultID);
 
-    CBurnHistoryStorage*& GetBurnView();
-    CVaultHistoryStorage*& GetVaultView();
-    CAccountHistoryStorage*& GetHistoryView();
+    CBurnHistoryStorage *&GetBurnView();
+    CVaultHistoryStorage *&GetVaultView();
+    CAccountHistoryStorage *&GetHistoryView();
 
     void WriteAccountHistory(const AccountHistoryKey &key, const AccountHistoryValue &value);
     void WriteAuctionHistory(const AuctionHistoryKey &key, const AuctionHistoryValue &value);
     void WriteVaultHistory(const VaultHistoryKey &key, const VaultHistoryValue &value);
-    void WriteVaultState(CCustomCSView &mnview, const CBlockIndex &pindex, const uint256 &vaultID, const uint32_t ratio = 0);
+    void WriteVaultState(CCustomCSView &mnview,
+                         const CBlockIndex &pindex,
+                         const uint256 &vaultID,
+                         const uint32_t ratio = 0);
     void EraseHistory(uint32_t height, std::vector<AccountHistoryKey> &eraseBurnEntries);
 };
 

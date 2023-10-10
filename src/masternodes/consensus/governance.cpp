@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <masternodes/govvariables/attributes.h>
 #include <masternodes/consensus/governance.h>
+#include <masternodes/govvariables/attributes.h>
 #include <masternodes/masternodes.h>
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
@@ -71,13 +71,15 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 // Remove this key and apply any other changes
                 newVar->EraseKey(key);
                 if (!(res = govVar->Import(newVar->Export())) || !(res = govVar->Validate(mnview)) ||
-                    !(res = govVar->Apply(mnview, height)))
+                    !(res = govVar->Apply(mnview, height))) {
                     return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
             } else {
                 // Validate as complete set. Check for future conflicts between key pairs.
                 if (!(res = govVar->Import(var->Export())) || !(res = govVar->Validate(mnview)) ||
-                    !(res = govVar->Apply(mnview, height)))
+                    !(res = govVar->Apply(mnview, height))) {
                     return Res::Err("%s: %s", var->GetName(), res.msg);
+                }
             }
 
             var = govVar;
@@ -85,8 +87,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             // After GW, some ATTRIBUTES changes require the context of its map to validate,
             // moving this Validate() call to else statement from before this conditional.
             res = var->Validate(mnview);
-            if (!res)
+            if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
 
             if (var->GetName() == "ORACLE_BLOCK_INTERVAL") {
                 // Make sure ORACLE_BLOCK_INTERVAL only updates at end of interval
@@ -114,8 +117,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
 
 Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
     // check foundation auth
-    if (!HasFoundationAuth())
+    if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member");
+    }
 
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
@@ -126,15 +130,18 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
 
     for (const auto &gov : obj.govs) {
         auto var = mnview.GetVariable(gov.first);
-        if (!var)
+        if (!var) {
             return Res::Err("'%s': variable does not registered", gov.first);
+        }
 
         auto res = var->Erase(mnview, height, gov.second);
-        if (!res)
+        if (!res) {
             return Res::Err("%s: %s", var->GetName(), res.msg);
+        }
 
-        if (!(res = mnview.SetVariable(*var)))
+        if (!(res = mnview.SetVariable(*var))) {
             return Res::Err("%s: %s", var->GetName(), res.msg);
+        }
     }
     return Res::Ok();
 }
@@ -197,8 +204,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
         }
     } else {
         auto result = obj.govVar->Validate(mnview);
-        if (!result)
+        if (!result) {
             return Res::Err("%s: %s", obj.govVar->GetName(), result.msg);
+        }
     }
 
     // Store pending Gov var change

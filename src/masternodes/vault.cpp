@@ -23,7 +23,7 @@ Res CVaultView::StoreVault(const CVaultId &vaultId, const CVaultData &vault) {
 
 Res CVaultView::EraseVault(const CVaultId &vaultId) {
     auto vault = GetVault(vaultId);
-    Require(vault, [=]{ return strprintf("Vault <%s> not found", vaultId.GetHex()); });
+    Require(vault, [=] { return strprintf("Vault <%s> not found", vaultId.GetHex()); });
 
     EraseBy<VaultKey>(vaultId);
     EraseBy<CollateralKey>(vaultId);
@@ -37,12 +37,12 @@ std::optional<CVaultData> CVaultView::GetVault(const CVaultId &vaultId) const {
 
 Res CVaultView::UpdateVault(const CVaultId &vaultId, const CVaultMessage &newVault) {
     auto vault = GetVault(vaultId);
-    Require(vault, [=]{ return strprintf("Vault <%s> not found", vaultId.GetHex()); });
+    Require(vault, [=] { return strprintf("Vault <%s> not found", vaultId.GetHex()); });
 
     EraseBy<OwnerVaultKey>(std::make_pair(vault->ownerAddress, vaultId));
 
     vault->ownerAddress = newVault.ownerAddress;
-    vault->schemeId     = newVault.schemeId;
+    vault->schemeId = newVault.schemeId;
 
     return StoreVault(vaultId, *vault);
 }
@@ -73,7 +73,8 @@ Res CVaultView::AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount)
 
 Res CVaultView::SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
     auto amounts = GetVaultCollaterals(vaultId);
-    Require(amounts && amounts->Sub(amount), [=]{ return strprintf("Collateral for vault <%s> not found", vaultId.GetHex()); });
+    Require(amounts && amounts->Sub(amount),
+            [=] { return strprintf("Collateral for vault <%s> not found", vaultId.GetHex()); });
 
     if (amounts->balances.empty()) {
         EraseBy<CollateralKey>(vaultId);
@@ -116,7 +117,7 @@ std::optional<CAuctionData> CVaultView::GetAuction(const CVaultId &vaultId, uint
     auto it = LowerBound<AuctionHeightKey>(CAuctionKey{vaultId, height});
     for (; it.Valid(); it.Next()) {
         if (it.Key().vaultId == vaultId) {
-            CAuctionData data      = it.Value();
+            CAuctionData data = it.Value();
             data.liquidationHeight = it.Key().height;
             return data;
         }

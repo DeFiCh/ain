@@ -14,9 +14,9 @@ struct CGovernanceUnsetMessage;
 class CGovernanceConsensus : public CCustomTxVisitor {
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CGovernanceMessage& obj) const;
-    Res operator()(const CGovernanceHeightMessage& obj) const;
-    Res operator()(const CGovernanceUnsetMessage& obj) const;
+    Res operator()(const CGovernanceMessage &obj) const;
+    Res operator()(const CGovernanceHeightMessage &obj) const;
+    Res operator()(const CGovernanceUnsetMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_GOVERNANCE_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_GOVERNANCE_H

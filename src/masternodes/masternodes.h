@@ -52,9 +52,9 @@ CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCre
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet);
 
 enum class UpdateMasternodeType : uint8_t {
-    None             = 0x00,
-    OwnerAddress     = 0x01,
-    OperatorAddress  = 0x02,
+    None = 0x00,
+    OwnerAddress = 0x01,
+    OperatorAddress = 0x02,
     SetRewardAddress = 0x03,
     RemRewardAddress = 0x04
 };
@@ -76,7 +76,7 @@ public:
 
     enum Version : int32_t {
         PRE_FORT_CANNING = -1,
-        VERSION0         = 0,
+        VERSION0 = 0,
     };
 
     //! Minted blocks counter
@@ -418,8 +418,8 @@ public:
 class CSettingsView : public virtual CStorageView {
 public:
     const std::string DEX_STATS_LAST_HEIGHT = "DexStatsLastHeight";
-    const std::string DEX_STATS_ENABLED     = "DexStatsEnabled";
-    const std::string MN_REWARD_ADDRESSES   = "MNRewardAddresses";
+    const std::string DEX_STATS_ENABLED = "DexStatsEnabled";
+    const std::string MN_REWARD_ADDRESSES = "MNRewardAddresses";
 
     void SetDexStatsLastHeight(int32_t height);
     std::optional<int32_t> GetDexStatsLastHeight();
@@ -578,15 +578,15 @@ public:
 
     ResVal<CAmount> GetAmountInCurrency(CAmount amount,
                                         CTokenCurrencyPair priceFeedId,
-                                        bool useNextPrice     = false,
+                                        bool useNextPrice = false,
                                         bool requireLivePrice = true);
 
     ResVal<CVaultAssets> GetVaultAssets(const CVaultId &vaultId,
-                                                const CBalances &collaterals,
-                                                uint32_t height,
-                                                int64_t blockTime,
-                                                bool useNextPrice     = false,
-                                                bool requireLivePrice = true);
+                                        const CBalances &collaterals,
+                                        uint32_t height,
+                                        int64_t blockTime,
+                                        bool useNextPrice = false,
+                                        bool requireLivePrice = true);
 
     ResVal<CAmount> GetValidatedIntervalPrice(const CTokenCurrencyPair &priceFeedId,
                                               bool useNextPrice,
@@ -606,8 +606,8 @@ public:
 
     uint256 MerkleRoot();
 
-    //virtual CHistoryWriters& GetHistoryWriters() { return writers; }
-    virtual CHistoryWriters& GetHistoryWriters() { return writers; }
+    // virtual CHistoryWriters& GetHistoryWriters() { return writers; }
+    virtual CHistoryWriters &GetHistoryWriters() { return writers; }
 
     // we construct it as it
     CFlushableStorageKV &GetStorage() { return static_cast<CFlushableStorageKV &>(DB()); }

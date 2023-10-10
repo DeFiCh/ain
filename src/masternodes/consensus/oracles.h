@@ -14,12 +14,13 @@ struct CSetOracleDataMessage;
 
 class COraclesConsensus : public CCustomTxVisitor {
     [[nodiscard]] Res NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CAppointOracleMessage& obj) const;
-    Res operator()(const CUpdateOracleAppointMessage& obj) const;
-    Res operator()(const CRemoveOracleAppointMessage& obj) const;
-    Res operator()(const CSetOracleDataMessage& obj) const;
+    Res operator()(const CAppointOracleMessage &obj) const;
+    Res operator()(const CUpdateOracleAppointMessage &obj) const;
+    Res operator()(const CRemoveOracleAppointMessage &obj) const;
+    Res operator()(const CSetOracleDataMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_ORACLES_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_ORACLES_H
