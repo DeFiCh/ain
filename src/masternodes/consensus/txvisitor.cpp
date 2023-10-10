@@ -96,7 +96,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const uint64_t time,
                                    const uint32_t txn,
-                                   const std::shared_ptr<CScopedTemplateID> &evmQueueId,
+                                   const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
                                    const bool isEvmEnabledForBlock,
                                    const bool evmPreValidate)
     : height(height),
@@ -106,7 +106,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
       consensus(consensus),
       time(time),
       txn(txn),
-      evmQueueId(evmQueueId),
+      evmTemplateId(evmTemplateId),
       isEvmEnabledForBlock(isEvmEnabledForBlock),
       evmPreValidate(evmPreValidate) {}
 

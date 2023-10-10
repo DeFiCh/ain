@@ -197,7 +197,7 @@ public:
     ResVal<DCT_ID> CreateToken(const CTokenImpl &token,
                                bool isPreBayfront = false,
                                bool shouldCreateDst20 = false,
-                               const std::shared_ptr<CScopedTemplateID> &evmQueueId = {});
+                               const std::shared_ptr<CScopedTemplateID> &evmTemplateId = {});
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

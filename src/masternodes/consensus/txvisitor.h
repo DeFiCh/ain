@@ -56,7 +56,7 @@ protected:
     const Consensus::Params &consensus;
     const uint64_t time;
     const uint32_t txn;
-    const std::shared_ptr<CScopedTemplateID> &evmQueueId;
+    const std::shared_ptr<CScopedTemplateID> &evmTemplateId;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
@@ -68,7 +68,7 @@ public:
                      const Consensus::Params &consensus,
                      const uint64_t time,
                      const uint32_t txn,
-                     const std::shared_ptr<CScopedTemplateID> &evmQueueId,
+                     const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
                      const bool isEvmEnabledForBlock,
                      const bool evmPreValidate);
 
