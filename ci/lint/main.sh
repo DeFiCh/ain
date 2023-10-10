@@ -9,6 +9,9 @@ main() {
     cd "$_SCRIPT_DIR/../../"
     
     ./make.sh check-lints
+    ./make.sh check_sh
+    ./make.sh check_py
+    ./make.sh check_cpp
 }
 
 _setup_dir_env() {
