@@ -16,14 +16,15 @@ struct CRemoveLiquidityMessage;
 
 class CPoolPairsConsensus : public CCustomTxVisitor {
     [[nodiscard]] Res EraseEmptyBalances(TAmounts &balances) const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CCreatePoolPairMessage& obj) const;
-    Res operator()(const CUpdatePoolPairMessage& obj) const;
-    Res operator()(const CPoolSwapMessage& obj) const;
-    Res operator()(const CPoolSwapMessageV2& obj) const;
-    Res operator()(const CLiquidityMessage& obj) const;
-    Res operator()(const CRemoveLiquidityMessage& obj) const;
+    Res operator()(const CCreatePoolPairMessage &obj) const;
+    Res operator()(const CUpdatePoolPairMessage &obj) const;
+    Res operator()(const CPoolSwapMessage &obj) const;
+    Res operator()(const CPoolSwapMessageV2 &obj) const;
+    Res operator()(const CLiquidityMessage &obj) const;
+    Res operator()(const CRemoveLiquidityMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_POOLPAIRS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_POOLPAIRS_H

@@ -25,8 +25,8 @@ std::unique_ptr<CAnchorAuthIndex> panchorauths;
 std::unique_ptr<CAnchorIndex> panchors;
 std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 
-static const char DB_ANCHORS      = 'A';
-static const char DB_PENDING      = 'p';
+static const char DB_ANCHORS = 'A';
+static const char DB_PENDING = 'p';
 static const char DB_BITCOININDEX = 'Z';  // Bitcoin height to blockhash table
 
 uint256 CAnchorData::GetSignHash() const {
@@ -63,7 +63,8 @@ CKeyID CAnchorAuthMessage::GetSigner() const {
 
 CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> &auths, const CTxDestination &rewardDest) {
     // assumed here that all of the auths are uniform, were checked for sigs and consensus has been reached!
-    assert(rewardDest.index() == PKHashType || rewardDest.index() == WitV0KeyHashType || rewardDest.index() == ScriptHashType);
+    assert(rewardDest.index() == PKHashType || rewardDest.index() == WitV0KeyHashType ||
+           rewardDest.index() == ScriptHashType);
 
     if (auths.size() > 0) {
         CAnchor anchor(static_cast<const CAnchorData &>(auths.at(0)));
@@ -71,7 +72,7 @@ CAnchor CAnchor::Create(const std::vector<CAnchorAuthMessage> &auths, const CTxD
         for (size_t i = 0; i < auths.size(); ++i) {
             anchor.sigs.push_back(auths[i].GetSignature());
         }
-        anchor.rewardKeyID   = CKeyID::FromOrDefaultDestination(rewardDest, KeyType::MNRewardKeyType);
+        anchor.rewardKeyID = CKeyID::FromOrDefaultDestination(rewardDest, KeyType::MNRewardKeyType);
         anchor.rewardKeyType = rewardDest.index();
         return anchor;
     }
@@ -104,7 +105,7 @@ const CAnchorAuthIndex::Auth *CAnchorAuthIndex::GetAuth(const uint256 &msgHash) 
     AssertLockHeld(cs_main);
 
     const auto &list = auths.get<Auth::ByMsgHash>();
-    const auto it    = list.find(msgHash);
+    const auto it = list.find(msgHash);
     return it != list.end() ? &(*it) : nullptr;
 }
 
@@ -112,7 +113,7 @@ const CAnchorAuthIndex::Auth *CAnchorAuthIndex::GetVote(const uint256 &signHash,
     AssertLockHeld(cs_main);
 
     const auto &list = auths.get<Auth::ByVote>();
-    const auto it    = list.find(std::make_tuple(signHash, signer));
+    const auto it = list.find(std::make_tuple(signHash, signer));
     return it != list.end() ? &(*it) : nullptr;
 }
 
@@ -253,12 +254,12 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(const CTxDestination &rewardDest) con
     const KList &list = auths.get<Auth::ByKey>();
 
     const auto topAnchor = panchors->GetActiveAnchor();
-    uint32_t quorum      = 1 + (Params().GetConsensus().mn.anchoringTeamSize * 2) / 3;
+    uint32_t quorum = 1 + (Params().GetConsensus().mn.anchoringTeamSize * 2) / 3;
     const auto topHeight = topAnchor ? topAnchor->anchor.height : 0;
     LogPrint(BCLog::ANCHORING, "auths size: %d quorum: %d\n", list.size(), quorum);
 
     std::vector<Auth> freshestConsensus;
-    THeight curHeight   = 0;
+    THeight curHeight = 0;
     uint256 curSignHash = {};
 
     // get freshest consensus:
@@ -270,12 +271,13 @@ CAnchor CAnchorAuthIndex::CreateBestAnchor(const CTxDestination &rewardDest) con
                  it->blockHash.ToString(),
                  it->GetSignHash().ToString(),
                  it->GetHash().ToString());
-        if (topAnchor && topAnchor->txHash != it->previousAnchor)
+        if (topAnchor && topAnchor->txHash != it->previousAnchor) {
             continue;
+        }
 
         if (curHeight != it->height || curSignHash != it->GetSignHash()) {
             // got next group of auths
-            curHeight   = it->height;
+            curHeight = it->height;
             curSignHash = it->GetSignHash();
 
             if (it->nextTeam.size() == 1) {
@@ -343,9 +345,11 @@ void CAnchorAuthIndex::ForEachAnchorAuthByHeight(std::function<bool(const CAncho
 
     typedef Auths::index<Auth::ByKey>::type KList;
     const KList &list = auths.get<Auth::ByKey>();
-    for (auto it = list.rbegin(); it != list.rend(); ++it)
-        if (!callback(*it))
+    for (auto it = list.rbegin(); it != list.rend(); ++it) {
+        if (!callback(*it)) {
             break;
+        }
+    }
 }
 
 void CAnchorAuthIndex::PruneOlderThan(THeight height) {
@@ -390,9 +394,11 @@ bool CAnchorIndex::Load() {
 void CAnchorIndex::ForEachAnchorByBtcHeight(std::function<bool(const CAnchorIndex::AnchorRec &)> callback) const {
     typedef AnchorIndexImpl::index<AnchorRec::ByBtcHeight>::type KList;
     const KList &list = anchors.get<AnchorRec::ByBtcHeight>();
-    for (auto it = list.rbegin(); it != list.rend(); ++it)
-        if (!callback(*it))
+    for (auto it = list.rbegin(); it != list.rend(); ++it) {
+        if (!callback(*it)) {
             break;
+        }
+    }
 }
 
 const CAnchorIndex::AnchorRec *CAnchorIndex::GetActiveAnchor() const {
@@ -403,8 +409,8 @@ const CAnchorIndex::AnchorRec *CAnchorIndex::GetAnchorByTx(const uint256 &hash) 
     AssertLockHeld(cs_main);
 
     const AnchorIndexImpl &index = anchors;
-    auto &list                   = index.get<AnchorRec::ByBtcTxHash>();
-    auto it                      = list.find(hash);
+    auto &list = index.get<AnchorRec::ByBtcTxHash>();
+    auto it = list.find(hash);
     return it != list.end() ? &(*it) : nullptr;
 }
 
@@ -432,16 +438,17 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 &btcTxHash) {
     if (anchor) {
         // revert top if deleted anchor was in active chain (one of current top parents)
         for (auto it = top; it && it->btcHeight >= anchor->btcHeight;
-             it      = GetAnchorByBtcTx(it->anchor.previousAnchor)) {
+             it = GetAnchorByBtcTx(it->anchor.previousAnchor)) {
             if (anchor == it) {
-                top                  = GetAnchorByBtcTx(anchor->anchor.previousAnchor);
+                top = GetAnchorByBtcTx(anchor->anchor.previousAnchor);
                 possibleReActivation = true;
                 break;
             }
         }
         anchors.get<AnchorRec::ByBtcTxHash>().erase(btcTxHash);
-        if (DbExists(btcTxHash))
+        if (DbExists(btcTxHash)) {
             DbErase(btcTxHash);
+        }
         return true;
     }
     return false;
@@ -450,8 +457,9 @@ bool CAnchorIndex::DeleteAnchorByBtcTx(const uint256 &btcTxHash) {
 CAnchorData::CTeam CAnchorIndex::GetNextTeam(const uint256 &btcPrevTx) const {
     AssertLockHeld(cs_main);
 
-    if (btcPrevTx.IsNull())
+    if (btcPrevTx.IsNull()) {
         return Params().GetGenesisTeam();
+    }
 
     const AnchorRec *prev = GetAnchorByTx(btcPrevTx);
     if (!prev) {
@@ -477,8 +485,9 @@ CAnchorIndex::UnrewardedResult CAnchorIndex::GetUnrewarded() const {
 
     auto it = panchors->GetActiveAnchor();
     // skip unconfirmed
-    for (; it && GetAnchorConfirmations(it) < 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
+    for (; it && GetAnchorConfirmations(it) < 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
         ;
+    }
     // create confirmed set
     UnrewardedResult confirmed;
     for (; it; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
@@ -487,10 +496,11 @@ CAnchorIndex::UnrewardedResult CAnchorIndex::GetUnrewarded() const {
 
     // find unrewarded
     for (auto &&it = confirmed.begin(); it != confirmed.end(); /* no advance */) {
-        if (pcustomcsview->GetRewardForAnchor(*it))
+        if (pcustomcsview->GetRewardForAnchor(*it)) {
             it = confirmed.erase(it);
-        else
+        } else {
             it++;
+        }
     }
 
     return confirmed;
@@ -533,7 +543,7 @@ void CAnchorIndex::CheckPendingAnchors() {
         }
 
         const auto [blockHeight, timestamp] = spv::pspv->ReadTxHeightTime(rec.txHash);
-        const auto blockHash                = panchors->ReadBlockHash(rec.btcHeight);
+        const auto blockHash = panchors->ReadBlockHash(rec.btcHeight);
 
         // Do not delete, TX time still pending. If block height is set to max we cannot trust the timestamp.
         if (timestamp == 0 || blockHeight == std::numeric_limits<int32_t>::max() || blockHash == uint256()) {
@@ -588,8 +598,9 @@ void CAnchorIndex::CheckPendingAnchors() {
 
 void CAnchorIndex::CheckActiveAnchor(uint32_t height, bool forced) {
     // Only continue with context of chain
-    if (ShutdownRequested())
+    if (ShutdownRequested()) {
         return;
+    }
 
     {
         LOCK(cs_main);
@@ -600,10 +611,12 @@ void CAnchorIndex::CheckActiveAnchor(uint32_t height, bool forced) {
         // prune auths older than anchor with 6 confirmations. Warning! This constant are using for start confirming
         // reward too!
         auto it = panchors->GetActiveAnchor();
-        for (; it && GetAnchorConfirmations(it) < 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor))
+        for (; it && GetAnchorConfirmations(it) < 6; it = panchors->GetAnchorByBtcTx(it->anchor.previousAnchor)) {
             ;
-        if (it)
+        }
+        if (it) {
             panchorauths->PruneOlderThan(it->anchor.height + 1);
+        }
 
         /// @todo panchorAwaitingConfirms - optimize?
         /// @attention - 'it' depends on previous loop conditions (>=6).
@@ -620,10 +633,12 @@ void CAnchorIndex::UpdateLastHeight(uint32_t height) {
 
 // selects "best" of two anchors at the equal btc height (prevs must be checked before)
 const CAnchorIndex::AnchorRec *BestOfTwo(const CAnchorIndex::AnchorRec *a1, const CAnchorIndex::AnchorRec *a2) {
-    if (a1 == nullptr)
+    if (a1 == nullptr) {
         return a2;
-    if (a2 == nullptr)
+    }
+    if (a2 == nullptr) {
         return a1;
+    }
 
     return spv::PendingOrder(*a1, *a2) ? a1 : a2;
 }
@@ -632,8 +647,9 @@ const CAnchorIndex::AnchorRec *BestOfTwo(const CAnchorIndex::AnchorRec *a1, cons
 bool CAnchorIndex::ActivateBestAnchor(bool forced) {
     AssertLockHeld(cs_main);
 
-    if (!possibleReActivation && !forced)
+    if (!possibleReActivation && !forced) {
         return false;
+    }
 
     possibleReActivation = false;
 
@@ -641,8 +657,9 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced) {
     auto oldTop = top;
     // rollback if necessary. this should not happen in prod (w/o anchor tx deletion), but possible in test when
     // manually reduce height in btc chain
-    for (; top && GetAnchorConfirmations(top) < minConfirmations; top = GetAnchorByBtcTx(top->anchor.previousAnchor))
+    for (; top && GetAnchorConfirmations(top) < minConfirmations; top = GetAnchorByBtcTx(top->anchor.previousAnchor)) {
         ;
+    }
 
     THeight topHeight = top ? top->btcHeight : 0;
     // special case for the first iteration to reselect top
@@ -663,7 +680,7 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced) {
         }
 
         KList::iterator it0, it1;
-        std::tie(it0, it1)                        = list.equal_range(it->btcHeight);
+        std::tie(it0, it1) = list.equal_range(it->btcHeight);
         const CAnchorIndex::AnchorRec *choosenOne = nullptr;
         // at least one iteration here
         for (; it0 != it1; ++it0) {
@@ -674,7 +691,7 @@ bool CAnchorIndex::ActivateBestAnchor(bool forced) {
         }
 
         if (choosenOne) {
-            top  = choosenOne;
+            top = choosenOne;
             prev = top->txHash;
             // after the very first iteration, top acts as prev
         }
@@ -736,7 +753,7 @@ const CAnchorIndex::AnchorRec *CAnchorIndex::GetLatestAnchorUpToDeFiHeight(THeig
     AssertLockHeld(cs_main);
 
     auto &index = anchors.get<AnchorRec::ByDeFiHeight>();
-    auto it     = index.lower_bound(blockHeightDeFi);
+    auto it = index.lower_bound(blockHeightDeFi);
     return (it != index.begin()) ? &(*(--it)) : nullptr;
 }
 
@@ -980,7 +997,7 @@ const CAnchorConfirmMessage *CAnchorAwaitingConfirms::GetConfirm(const ConfirmMe
     AssertLockHeld(cs_main);
 
     const auto &list = confirms.get<Confirm::ByMsgHash>();
-    auto it          = list.find(msgHash);
+    auto it = list.find(msgHash);
     return it != list.end() ? &(*it) : nullptr;
 }
 
@@ -999,7 +1016,7 @@ bool CAnchorAwaitingConfirms::Validate(const CAnchorConfirmMessage &confirmMessa
     }
 
     const auto height = ::ChainActive().Height();
-    const auto team   = pcustomcsview->GetConfirmTeam(height);
+    const auto team = pcustomcsview->GetConfirmTeam(height);
     if (!team) {
         LogPrint(BCLog::ANCHORING, "%s: Unable to get team for current height %d\n", __func__, height);
         return false;
@@ -1086,7 +1103,7 @@ std::vector<CAnchorConfirmMessage> CAnchorAwaitingConfirms::GetQuorumFor(const C
 
     typedef Confirms::index<Confirm::ByKey>::type KList;
     const KList &list = confirms.get<Confirm::ByKey>();
-    uint32_t quorum   = GetMinAnchorQuorum(team);
+    uint32_t quorum = GetMinAnchorQuorum(team);
 
     std::vector<CAnchorConfirmMessage> result;
 
@@ -1114,8 +1131,9 @@ void CAnchorAwaitingConfirms::ForEachConfirm(
     std::function<void(const CAnchorAwaitingConfirms::Confirm &)> callback) const {
     AssertLockHeld(cs_main);
     const auto &list = confirms.get<Confirm::ByKey>();
-    for (auto it = list.begin(); it != list.end(); ++it)
+    for (auto it = list.begin(); it != list.end(); ++it) {
         callback(*it);
+    }
 }
 
 bool GetAnchorEmbeddedData(const CKeyID &data,
@@ -1149,8 +1167,8 @@ const PendingOrderType PendingOrder =
             if (a.anchor.height == b.anchor.height) {
                 if (a.anchor.height >= static_cast<THeight>(Params().GetConsensus().DF8EunosHeight)) {
                     const auto blockHash = panchors->ReadBlockHash(a.btcHeight);
-                    auto aHash           = Hash(a.txHash.begin(), a.txHash.end(), blockHash.begin(), blockHash.end());
-                    auto bHash           = Hash(b.txHash.begin(), b.txHash.end(), blockHash.begin(), blockHash.end());
+                    auto aHash = Hash(a.txHash.begin(), a.txHash.end(), blockHash.begin(), blockHash.end());
+                    auto bHash = Hash(b.txHash.begin(), b.txHash.end(), blockHash.begin(), blockHash.end());
                     return aHash < bHash;
                 }
 

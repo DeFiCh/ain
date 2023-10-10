@@ -19,18 +19,18 @@ class UniValue;
 
 class CToken {
 public:
-    static const uint8_t MAX_TOKEN_NAME_LENGTH     = 128;
-    static const uint8_t MAX_TOKEN_SYMBOL_LENGTH   = 8;
+    static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
+    static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
     enum class TokenFlags : uint8_t {
-        None      = 0,
-        Mintable  = 0x01,
+        None = 0,
+        Mintable = 0x01,
         Tradeable = 0x02,
-        DAT       = 0x04,
-        LPS       = 0x08,  // Liquidity Pool Share
+        DAT = 0x04,
+        LPS = 0x08,        // Liquidity Pool Share
         Finalized = 0x10,  // locked forever
         LoanToken = 0x20,  // token created for loan
-        Default   = TokenFlags::Mintable | TokenFlags::Tradeable
+        Default = TokenFlags::Mintable | TokenFlags::Tradeable
     };
 
     //! basic properties
@@ -194,7 +194,10 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, bool shouldCreateDst20 = false, const std::shared_ptr<CScopedQueueID> &evmQueueId = {});
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token,
+                               bool isPreBayfront = false,
+                               bool shouldCreateDst20 = false,
+                               const std::shared_ptr<CScopedQueueID> &evmQueueId = {});
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

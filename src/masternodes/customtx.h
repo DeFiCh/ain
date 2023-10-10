@@ -7,8 +7,8 @@
 
 #include <amount.h>
 #include <streams.h>
-#include <vector>
 #include <version.h>
+#include <vector>
 
 class CTransaction;
 
@@ -16,11 +16,11 @@ enum CustomTxErrCodes : uint32_t {
     NotSpecified = 0,
     //    NotCustomTx  = 1,
     NotEnoughBalance = 1024,
-    Fatal            = uint32_t(1) << 31  // not allowed to fail
+    Fatal = uint32_t(1) << 31  // not allowed to fail
 };
 
 enum class CustomTxType : uint8_t {
-    None   = 0,
+    None = 0,
     Reject = 1,  // Invalid TX type. Returned by GuessCustomTxType on invalid custom TX.
 
     // masternodes:
@@ -28,76 +28,78 @@ enum class CustomTxType : uint8_t {
     ResignMasternode = 'R',
     UpdateMasternode = 'm',
     // custom tokens:
-    CreateToken    = 'T',
-    MintToken      = 'M',
-    BurnToken      = 'F',
-    UpdateToken    = 'N',  // previous type, only DAT flag triggers
+    CreateToken = 'T',
+    MintToken = 'M',
+    BurnToken = 'F',
+    UpdateToken = 'N',     // previous type, only DAT flag triggers
     UpdateTokenAny = 'n',  // new type of token's update with any flags/fields possible
     // poolpair
-    CreatePoolPair      = 'p',
-    UpdatePoolPair      = 'u',
-    PoolSwap            = 's',
-    PoolSwapV2          = 'i',
-    AddPoolLiquidity    = 'l',
+    CreatePoolPair = 'p',
+    UpdatePoolPair = 'u',
+    PoolSwap = 's',
+    PoolSwapV2 = 'i',
+    AddPoolLiquidity = 'l',
     RemovePoolLiquidity = 'r',
     // accounts
-    UtxosToAccount        = 'U',
-    AccountToUtxos        = 'b',
-    AccountToAccount      = 'B',
+    UtxosToAccount = 'U',
+    AccountToUtxos = 'b',
+    AccountToAccount = 'B',
     AnyAccountsToAccounts = 'a',
-    SmartContract         = 'K',
-    FutureSwap            = 'Q',
+    SmartContract = 'K',
+    FutureSwap = 'Q',
     // set governance variable
-    SetGovVariable       = 'G',
+    SetGovVariable = 'G',
     SetGovVariableHeight = 'j',
     // Auto auth TX
     AutoAuthPrep = 'A',
     // oracles
-    AppointOracle       = 'o',
+    AppointOracle = 'o',
     RemoveOracleAppoint = 'h',
     UpdateOracleAppoint = 't',
-    SetOracleData       = 'y',
+    SetOracleData = 'y',
     // ICX
-    ICXCreateOrder   = '1',
-    ICXMakeOffer     = '2',
+    ICXCreateOrder = '1',
+    ICXMakeOffer = '2',
     ICXSubmitDFCHTLC = '3',
     ICXSubmitEXTHTLC = '4',
-    ICXClaimDFCHTLC  = '5',
-    ICXCloseOrder    = '6',
-    ICXCloseOffer    = '7',
+    ICXClaimDFCHTLC = '5',
+    ICXCloseOrder = '6',
+    ICXCloseOffer = '7',
     // Loans
     SetLoanCollateralToken = 'c',
-    SetLoanToken           = 'g',
-    UpdateLoanToken        = 'x',
-    LoanScheme             = 'L',
-    DefaultLoanScheme      = 'd',
-    DestroyLoanScheme      = 'D',
-    Vault                  = 'V',
-    CloseVault             = 'e',
-    UpdateVault            = 'v',
-    DepositToVault         = 'S',
-    WithdrawFromVault      = 'J',
-    PaybackWithCollateral  = 'W',
-    TakeLoan               = 'X',
-    PaybackLoan            = 'H',
-    PaybackLoanV2          = 'k',
-    AuctionBid             = 'I',
+    SetLoanToken = 'g',
+    UpdateLoanToken = 'x',
+    LoanScheme = 'L',
+    DefaultLoanScheme = 'd',
+    DestroyLoanScheme = 'D',
+    Vault = 'V',
+    CloseVault = 'e',
+    UpdateVault = 'v',
+    DepositToVault = 'S',
+    WithdrawFromVault = 'J',
+    PaybackWithCollateral = 'W',
+    TakeLoan = 'X',
+    PaybackLoan = 'H',
+    PaybackLoanV2 = 'k',
+    AuctionBid = 'I',
     // Marker TXs
     FutureSwapExecution = 'q',
-    FutureSwapRefund    = 'w',
-    TokenSplit          = 'P',
+    FutureSwapRefund = 'w',
+    TokenSplit = 'P',
     // On-Chain-Gov
-    CreateCfp                 = 'z',
-    Vote                      = 'O',  // NOTE: Check whether this overlapping with CreateOrder above is fine
-    CreateVoc                 = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
+    CreateCfp = 'z',
+    Vote = 'O',       // NOTE: Check whether this overlapping with CreateOrder above is fine
+    CreateVoc = 'E',  // NOTE: Check whether this overlapping with DestroyOrder above is fine
     ProposalFeeRedistribution = 'Y',
-    UnsetGovVariable          = 'Z',
+    UnsetGovVariable = 'Z',
     // EVM
-    TransferDomain                  = '8',
-    EvmTx                     = '9',
+    TransferDomain = '8',
+    EvmTx = '9',
 };
 
-CustomTxType GuessCustomTxType(const CTransaction &tx, std::vector<unsigned char> &metadata, bool metadataValidation = false);
+CustomTxType GuessCustomTxType(const CTransaction &tx,
+                               std::vector<unsigned char> &metadata,
+                               bool metadataValidation = false);
 TAmounts GetNonMintedValuesOut(const CTransaction &tx);
 CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID);
 bool IsBelowDakotaMintTokenOrAccountToUtxos(CustomTxType txType, int height);
@@ -105,9 +107,8 @@ CustomTxType CustomTxCodeToType(uint8_t ch);
 std::string ToString(CustomTxType type);
 CustomTxType FromString(const std::string &str);
 
-template<typename T>
-std::optional<T> GetIf(const CTransaction& tx, CustomTxType txType)
-{
+template <typename T>
+std::optional<T> GetIf(const CTransaction &tx, CustomTxType txType) {
     std::vector<unsigned char> metadata;
     if (GuessCustomTxType(tx, metadata) != txType) {
         return {};
@@ -136,4 +137,4 @@ inline void Unserialize(Stream &s, CustomTxType &txType) {
     txType = CustomTxCodeToType(ch);
 }
 
-#endif // DEFI_MASTERNODES_CUSTOMTX_H
+#endif  // DEFI_MASTERNODES_CUSTOMTX_H

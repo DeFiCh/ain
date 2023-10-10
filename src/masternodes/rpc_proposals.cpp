@@ -19,56 +19,56 @@ UniValue proposalToJSON(const CProposalId &propId,
                         const CProposalObject &prop,
                         const CCustomCSView &view,
                         const std::optional<VotingInfo> votingInfo) {
-    auto proposalId        = propId.GetHex();
-    auto creationHeight    = static_cast<int32_t>(prop.creationHeight);
-    auto title             = prop.title;
-    auto context           = prop.context;
-    auto contextHash       = prop.contextHash;
-    auto type              = static_cast<CProposalType>(prop.type);
-    auto typeString        = CProposalTypeToString(type);
-    auto amountValue       = ValueFromAmount(prop.nAmount);
-    auto payoutAddress     = ScriptToString(prop.address);
-    auto currentCycle      = static_cast<int32_t>(prop.cycle);
-    auto totalCycles       = static_cast<int32_t>(prop.nCycles);
-    auto cycleEndHeight    = static_cast<int32_t>(prop.cycleEndHeight);
+    auto proposalId = propId.GetHex();
+    auto creationHeight = static_cast<int32_t>(prop.creationHeight);
+    auto title = prop.title;
+    auto context = prop.context;
+    auto contextHash = prop.contextHash;
+    auto type = static_cast<CProposalType>(prop.type);
+    auto typeString = CProposalTypeToString(type);
+    auto amountValue = ValueFromAmount(prop.nAmount);
+    auto payoutAddress = ScriptToString(prop.address);
+    auto currentCycle = static_cast<int32_t>(prop.cycle);
+    auto totalCycles = static_cast<int32_t>(prop.nCycles);
+    auto cycleEndHeight = static_cast<int32_t>(prop.cycleEndHeight);
     auto proposalEndHeight = static_cast<int32_t>(prop.proposalEndHeight);
-    auto votingPeriod      = static_cast<int32_t>(prop.votingPeriod);
-    bool isEmergency       = prop.options & CProposalOption::Emergency;
-    auto quorum            = prop.quorum;
+    auto votingPeriod = static_cast<int32_t>(prop.votingPeriod);
+    bool isEmergency = prop.options & CProposalOption::Emergency;
+    auto quorum = prop.quorum;
     auto approvalThreshold = prop.approvalThreshold;
-    auto status            = static_cast<CProposalStatusType>(prop.status);
-    auto statusString      = CProposalStatusToString(status);
-    auto feeTotalValue     = ValueFromAmount(prop.fee);
-    auto feeBurnValue      = ValueFromAmount(prop.feeBurnAmount);
+    auto status = static_cast<CProposalStatusType>(prop.status);
+    auto statusString = CProposalStatusToString(status);
+    auto feeTotalValue = ValueFromAmount(prop.fee);
+    auto feeBurnValue = ValueFromAmount(prop.feeBurnAmount);
 
-    auto quorumString            = strprintf("%d.%02d%%", quorum / 100, quorum % 100);
+    auto quorumString = strprintf("%d.%02d%%", quorum / 100, quorum % 100);
     auto approvalThresholdString = strprintf("%d.%02d%%", approvalThreshold / 100, approvalThreshold % 100);
 
-    auto votesPossible                = -1;
-    auto votesPresent                 = -1;
-    auto votesPresentPct              = -1;
-    auto votesYes                     = -1;
-    auto votesYesPct                  = -1;
-    auto votesNo                      = -1;
-    auto votesNeutral                 = -1;
-    auto votesInvalid                 = -1;
+    auto votesPossible = -1;
+    auto votesPresent = -1;
+    auto votesPresentPct = -1;
+    auto votesYes = -1;
+    auto votesYesPct = -1;
+    auto votesNo = -1;
+    auto votesNeutral = -1;
+    auto votesInvalid = -1;
     std::string votesPresentPctString = "-1";
-    std::string votesYesPctString     = "-1";
+    std::string votesYesPctString = "-1";
 
     auto isVotingInfoAvailable = votingInfo.has_value();
     if (isVotingInfoAvailable) {
-        votesPresent  = votingInfo->votesPresent;
-        votesYes      = votingInfo->votesYes;
-        votesNo       = votingInfo->votesNo;
-        votesNeutral  = votingInfo->votesNeutral;
-        votesInvalid  = votingInfo->votesInvalid;
+        votesPresent = votingInfo->votesPresent;
+        votesYes = votingInfo->votesYes;
+        votesNo = votingInfo->votesNo;
+        votesNeutral = votingInfo->votesNeutral;
+        votesInvalid = votingInfo->votesInvalid;
         votesPossible = votingInfo->votesPossible;
 
         votesPresentPct = lround(votesPresent * 10000.f / votesPossible);
-        votesYesPct     = lround(votesYes * 10000.f / votesPresent);
+        votesYesPct = lround(votesYes * 10000.f / votesPresent);
 
         votesPresentPctString = strprintf("%d.%02d%%", votesPresentPct / 100, votesPresentPct % 100);
-        votesYesPctString     = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
+        votesYesPctString = strprintf("%d.%02d%%", votesYesPct / 100, votesYesPct % 100);
     }
 
     UniValue ret(UniValue::VOBJ);
@@ -100,22 +100,30 @@ UniValue proposalToJSON(const CProposalId &propId,
         ret.pushKV("votesNo", votesNo);
         ret.pushKV("votesNeutral", votesNeutral);
         ret.pushKV("votesInvalid", votesInvalid);
-        ret.pushKV("feeRedistributionPerVote", ValueFromAmount(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN)));
-        ret.pushKV("feeRedistributionTotal", ValueFromAmount(MultiplyAmounts(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN), votesPresent * COIN)));
+        ret.pushKV("feeRedistributionPerVote",
+                   ValueFromAmount(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN)));
+        ret.pushKV("feeRedistributionTotal",
+                   ValueFromAmount(MultiplyAmounts(DivideAmounts(prop.fee - prop.feeBurnAmount, votesPresent * COIN),
+                                                   votesPresent * COIN)));
     }
     ret.pushKV("fee", feeTotalValue);
     // ret.pushKV("feeBurn", feeBurnValue);
     if (prop.options) {
         UniValue opt = UniValue(UniValue::VARR);
-        if (isEmergency)
+        if (isEmergency) {
             opt.push_back("emergency");
+        }
 
         ret.pushKV("options", opt);
     }
     return ret;
 }
 
-UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote, bool valid) {
+UniValue proposalVoteToJSON(const CProposalId &propId,
+                            uint8_t cycle,
+                            const uint256 &mnId,
+                            CProposalVoteType vote,
+                            bool valid) {
     UniValue ret(UniValue::VOBJ);
     ret.pushKV("proposalId", propId.GetHex());
     ret.pushKV("masternodeId", mnId.GetHex());
@@ -128,17 +136,19 @@ UniValue proposalVoteToJSON(const CProposalId &propId, uint8_t cycle, const uint
 void proposalVoteAccounting(const CProposalVoteType &vote, uint256 propId, std::map<std::string, VotingInfo> &map) {
     const auto voteString = CProposalVoteToString(vote);
 
-    if (map.find(propId.GetHex()) == map.end())
+    if (map.find(propId.GetHex()) == map.end()) {
         map.emplace(propId.GetHex(), VotingInfo{0, 0, 0, 0, 0, 0});
+    }
 
     auto entry = &map.find(propId.GetHex())->second;
 
-    if (voteString == "YES")
+    if (voteString == "YES") {
         ++entry->votesYes;
-    else if (voteString == "NEUTRAL")
+    } else if (voteString == "NEUTRAL") {
         ++entry->votesNeutral;
-    else if (voteString == "NO")
+    } else if (voteString == "NO") {
         ++entry->votesNo;
+    }
 
     ++entry->votesPresent;
 }
@@ -235,11 +245,13 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
-    if (!data["contextHash"].isNull())
+    if (!data["contextHash"].isNull()) {
         contextHash = data["contextHash"].get_str();
+    }
 
-    if (!data["cycles"].isNull())
+    if (!data["cycles"].isNull()) {
         cycles = data["cycles"].get_int();
+    }
 
     if (!data["amount"].isNull()) {
         amount = AmountFromValue(data["amount"]);
@@ -260,14 +272,14 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     }
 
     CCreateProposalMessage pm;
-    pm.type        = CProposalType::CommunityFundProposal;
-    pm.address     = GetScriptForDestination(address);
-    pm.nAmount     = amount;
-    pm.nCycles     = cycles;
-    pm.title       = title;
-    pm.context     = context;
+    pm.type = CProposalType::CommunityFundProposal;
+    pm.address = GetScriptForDestination(address);
+    pm.nAmount = amount;
+    pm.nCycles = cycles;
+    pm.title = title;
+    pm.context = context;
     pm.contextHash = contextHash;
-    pm.options     = 0;
+    pm.options = 0;
 
     RejectErc55Address(pm.address);
 
@@ -278,14 +290,14 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto targetHeight    = pcustomcsview->GetLastHeight() + 1;
+    auto targetHeight = pcustomcsview->GetLastHeight() + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{pm.address};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     auto cfpFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
@@ -390,8 +402,9 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "<context> is required");
     }
 
-    if (!data["contextHash"].isNull())
+    if (!data["contextHash"].isNull()) {
         contextHash = data["contextHash"].get_str();
+    }
 
     if (!data["emergency"].isNull()) {
         emergency = data["emergency"].get_bool();
@@ -400,13 +413,13 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
     }
 
     CCreateProposalMessage pm;
-    pm.type        = CProposalType::VoteOfConfidence;
-    pm.nAmount     = 0;
-    pm.nCycles     = (emergency ? 1 : VOC_CYCLES);
-    pm.title       = title;
-    pm.context     = context;
+    pm.type = CProposalType::VoteOfConfidence;
+    pm.nAmount = 0;
+    pm.nCycles = (emergency ? 1 : VOC_CYCLES);
+    pm.title = title;
+    pm.context = context;
     pm.contextHash = contextHash;
-    pm.options     = (emergency ? CProposalOption::Emergency : 0);
+    pm.options = (emergency ? CProposalOption::Emergency : 0);
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -415,14 +428,14 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto targetHeight    = pcustomcsview->GetLastHeight() + 1;
+    auto targetHeight = pcustomcsview->GetLastHeight() + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
 
     auto vocFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
     rawTx.vout.emplace_back(CTxOut(vocFee, scriptMeta));
@@ -453,7 +466,10 @@ UniValue votegov(const JSONRPCRequest &request) {
         "\nVote for community proposal" + HelpRequiringPassphrase(pwallet) + "\n",
         {
                                                     {"proposalId", RPCArg::Type::STR, RPCArg::Optional::NO, "The proposal txid"},
-                                                    {"masternodeId", RPCArg::Type::STR, RPCArg::Optional::NO, "The masternode id / owner address / operator address which made the vote"},
+                                                    {"masternodeId",
+             RPCArg::Type::STR,
+             RPCArg::Optional::NO,
+             "The masternode id / owner address / operator address which made the vote"},
                                                     {"decision", RPCArg::Type::STR, RPCArg::Optional::NO, "The vote decision (yes/no/neutral)"},
                                                     {
                 "inputs",
@@ -489,7 +505,7 @@ UniValue votegov(const JSONRPCRequest &request) {
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
     std::string id = request.params[1].get_str();
     uint256 mnId;
-    auto vote   = CProposalVoteType::VoteNeutral;
+    auto vote = CProposalVoteType::VoteNeutral;
     auto voteStr = ToLower(request.params[2].get_str());
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
@@ -500,7 +516,9 @@ UniValue votegov(const JSONRPCRequest &request) {
     } else if (neutralVotesAllowed && voteStr != "neutral") {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
     } else if (!neutralVotesAllowed) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
+        throw JSONRPCError(RPC_INVALID_PARAMETER,
+                           "Decision supports yes or no. Neutral is currently disabled because of issue "
+                           "https://github.com/DeFiCh/ain/issues/1704");
     }
 
     int targetHeight;
@@ -522,12 +540,12 @@ UniValue votegov(const JSONRPCRequest &request) {
             CTxDestination dest = DecodeDestination(id);
             if (!IsValidDestination(dest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                    strprintf("The masternode id or address is not valid: %s", id));
+                                   strprintf("The masternode id or address is not valid: %s", id));
             }
 
             if (dest.index() != PKHashType && dest.index() != WitV0KeyHashType) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, 
-                                    strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
             }
 
             const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
@@ -539,8 +557,9 @@ UniValue votegov(const JSONRPCRequest &request) {
         }
         auto node = view.GetMasternode(mnId);
         if (!node) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER,
-                                    strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
+            throw JSONRPCError(
+                RPC_INVALID_PARAMETER,
+                strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
         }
         ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                          : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
@@ -549,9 +568,9 @@ UniValue votegov(const JSONRPCRequest &request) {
     }
 
     CProposalVoteMessage msg;
-    msg.propId       = propId;
+    msg.propId = propId;
     msg.masternodeId = mnId;
-    msg.vote         = vote;
+    msg.vote = vote;
 
     // encode
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -565,8 +584,8 @@ UniValue votegov(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(CTxOut(0, scriptMeta));
 
@@ -583,28 +602,35 @@ UniValue votegov(const JSONRPCRequest &request) {
     return signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex();
 }
 
-
 UniValue votegovbatch(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{
-            "votegovbatch",
-            "\nVote for community proposal with multiple masternodes" + HelpRequiringPassphrase(pwallet) + "\n",
-            {
-                    {"votes", RPCArg::Type::ARR, RPCArg::Optional::NO, "A json array of proposal ID, masternode IDs, operator or owner addresses and vote decision (yes/no/neutral).",
-                     {
-                             {"proposalId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The proposal txid"},
-                             {"masternodeId", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "The masternode ID, operator or owner address"},
-                             {"decision", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The vote decision (yes/no/neutral)"},
-                            }
-                    },
-                    {"sleepTime", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "No. of milliseconds to wait between each vote. A small wait time is required for large number of votes to prevent the node from being too busy to broadcast TXs (default: 500)"}
-            },
-            RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
-            RPCExamples{HelpExampleCli("votegovbatch", "{{proposalId, masternodeId, yes}...}") +
-                        HelpExampleRpc("votegovbatch", "{{proposalId, masternodeId, yes}...}")},
+        "votegovbatch",
+        "\nVote for community proposal with multiple masternodes" + HelpRequiringPassphrase(pwallet) + "\n",
+        {{"votes",
+          RPCArg::Type::ARR,
+          RPCArg::Optional::NO,
+          "A json array of proposal ID, masternode IDs, operator or owner addresses and vote decision "
+          "(yes/no/neutral).",
+          {
+              {"proposalId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The proposal txid"},
+              {"masternodeId",
+               RPCArg::Type::STR_HEX,
+               RPCArg::Optional::OMITTED,
+               "The masternode ID, operator or owner address"},
+              {"decision", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The vote decision (yes/no/neutral)"},
+          }},
+                                                    {"sleepTime",
+          RPCArg::Type::NUM,
+          RPCArg::Optional::OMITTED,
+          "No. of milliseconds to wait between each vote. A small wait time is required for large number of votes to "
+          "prevent the node from being too busy to broadcast TXs (default: 500)"}},
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("votegovbatch", "{{proposalId, masternodeId, yes}...}") +
+                    HelpExampleRpc("votegovbatch", "{{proposalId, masternodeId, yes}...}")},
     }
-            .Check(request);
+        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Cannot vote while still in Initial Block Download");
@@ -614,7 +640,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
     const auto &keys = request.params[0].get_array();
-    auto sleepTime = (request.params.size() > 1 && request.params[1].isNull()) ? SLEEP_TIME_MILLIS : request.params[1].get_int();
+    auto sleepTime =
+        (request.params.size() > 1 && request.params[1].isNull()) ? SLEEP_TIME_MILLIS : request.params[1].get_int();
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
     int targetHeight;
@@ -631,26 +658,23 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         CCustomCSView view(*pcustomcsview);
 
         for (size_t i{}; i < keys.size(); ++i) {
-
             const auto &votes{keys[i].get_array()};
             if (votes.size() != 3) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, 
-                    strprintf("Incorrect number of items, three expected, proposal ID, masternode ID and vote expected. %d entries provided.", 
-                    votes.size()));
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   strprintf("Incorrect number of items, three expected, proposal ID, masternode ID "
+                                             "and vote expected. %d entries provided.",
+                                             votes.size()));
             }
 
             const auto propId = ParseHashV(votes[0].get_str(), "proposalId");
             const auto prop = view.GetProposal(propId);
             if (!prop) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, 
-                    strprintf("Proposal <%s> does not exist", 
-                    propId.GetHex()));
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
 
             if (prop->status != CProposalStatusType::Voting) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER,
-                    strprintf("Proposal <%s> is not in voting period", 
-                    propId.GetHex()));
+                                   strprintf("Proposal <%s> is not in voting period", propId.GetHex()));
             }
 
             uint256 mnId;
@@ -662,12 +686,12 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                 const CTxDestination dest = DecodeDestination(id);
                 if (!IsValidDestination(dest)) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER,
-                        strprintf("The masternode id or address is not valid: %s", id));
+                                       strprintf("The masternode id or address is not valid: %s", id));
                 }
 
                 if (dest.index() != PKHashType && dest.index() != WitV0KeyHashType) {
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, 
-                        strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
+                    throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                       strprintf("%s does not refer to a P2PKH or P2WPKH address", id));
                 }
 
                 const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
@@ -680,11 +704,12 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
             const auto node = view.GetMasternode(mnId);
             if (!node) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                throw JSONRPCError(
+                    RPC_INVALID_PARAMETER,
                     strprintf("The masternode does not exist or the address doesn't own a masternode: %s", id));
             }
 
-            auto vote   = CProposalVoteType::VoteNeutral;
+            auto vote = CProposalVoteType::VoteNeutral;
             auto voteStr = ToLower(votes[2].get_str());
 
             if (voteStr == "no") {
@@ -694,16 +719,16 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
             } else if (neutralVotesAllowed && voteStr != "neutral") {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "decision supports yes/no/neutral");
             } else if (!neutralVotesAllowed) {
-                throw JSONRPCError(RPC_INVALID_PARAMETER, "Decision supports yes or no. Neutral is currently disabled because of issue https://github.com/DeFiCh/ain/issues/1704");
+                throw JSONRPCError(RPC_INVALID_PARAMETER,
+                                   "Decision supports yes or no. Neutral is currently disabled because of issue "
+                                   "https://github.com/DeFiCh/ain/issues/1704");
             }
 
-            voteList.push_back({
-                propId,
-                mnId,
-                node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress)) : 
-                    CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)),
-                vote
-            });
+            voteList.push_back({propId,
+                                mnId,
+                                node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
+                                                     : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)),
+                                vote});
         }
 
         targetHeight = view.GetLastHeight() + 1;
@@ -711,12 +736,11 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VARR);
 
-    for (const auto& [propId, mnId, ownerDest, vote] : voteList) {
-
+    for (const auto &[propId, mnId, ownerDest, vote] : voteList) {
         CProposalVoteMessage msg;
-        msg.propId       = propId;
+        msg.propId = propId;
         msg.masternodeId = mnId;
-        msg.vote         = vote;
+        msg.vote = vote;
 
         // encode
         CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -730,7 +754,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, {}, request.metadata.coinSelectOpts);
+        rawTx.vin =
+            GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, {}, request.metadata.coinSelectOpts);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;
@@ -744,8 +769,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
 
         ret.push_back(signsend(rawTx, pwallet, optAuthTx)->GetHash().GetHex());
-        // Sleep the RPC worker thread a bit, so that the node can 
-        // relay the TXs as it works through. Otherwise, the main 
+        // Sleep the RPC worker thread a bit, so that the node can
+        // relay the TXs as it works through. Otherwise, the main
         // chain can be locked for too long that prevent broadcasting of
         // TXs
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
@@ -759,47 +784,40 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     RPCHelpMan{
         "listgovproposalvotes",
         "\nReturns information about proposal votes.\n",
-        {
-          {"proposalId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The proposal id)"},
+        {{"proposalId", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "The proposal id)"},
           {"masternode", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "mine/all/id (default = mine)"},
           {"cycle",
-             RPCArg::Type::NUM,
-             RPCArg::Optional::OMITTED,
-             "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"},
+          RPCArg::Type::NUM,
+          RPCArg::Optional::OMITTED,
+          "cycle: 0 (show current), cycle: N (show cycle N), cycle: -1 (show all) (default = 0)"},
           {
-                "pagination",
-                RPCArg::Type::OBJ,
-                RPCArg::Optional::OMITTED,
-                "",
-                {
-                    {"start",
-                     RPCArg::Type::NUM,
-                     RPCArg::Optional::OMITTED,
-                     "Vote index to iterate from."
-                     "Typically it's set to last ID from previous request."},
-                    {"including_start",
-                     RPCArg::Type::BOOL,
-                     RPCArg::Optional::OMITTED,
-                     "If true, then iterate including starting position. False by default"},
-                    {"limit",
-                     RPCArg::Type::NUM,
-                     RPCArg::Optional::OMITTED,
-                     "Maximum number of votes to return, 100 by default"},
-                },
-            },
-            {
-                "aggregate",
-                RPCArg::Type::BOOL,
-                RPCArg::Optional::OMITTED,
-                "0: return raw vote data, 1: return total votes by type"
-            },
-            {
-                "valid",
-                RPCArg::Type::BOOL,
-                RPCArg::Optional::OMITTED,
-                "0: show only invalid votes at current height, 1: show only valid votes at current height (default: 1)"
-            }
-          },
+             "pagination",
+             RPCArg::Type::OBJ,
+             RPCArg::Optional::OMITTED,
+             "",
+             {
+                 {"start",
+                  RPCArg::Type::NUM,
+                  RPCArg::Optional::OMITTED,
+                  "Vote index to iterate from."
+                  "Typically it's set to last ID from previous request."},
+                 {"including_start",
+                  RPCArg::Type::BOOL,
+                  RPCArg::Optional::OMITTED,
+                  "If true, then iterate including starting position. False by default"},
+                 {"limit",
+                  RPCArg::Type::NUM,
+                  RPCArg::Optional::OMITTED,
+                  "Maximum number of votes to return, 100 by default"},
+             },
+         }, {"aggregate",
+          RPCArg::Type::BOOL,
+          RPCArg::Optional::OMITTED,
+          "0: return raw vote data, 1: return total votes by type"},
+          {"valid",
+          RPCArg::Type::BOOL,
+          RPCArg::Optional::OMITTED,
+          "0: show only invalid votes at current height, 1: show only valid votes at current height (default: 1)"}},
         RPCResult{"{id:{...},...}     (array) Json object with proposal vote information\n"},
         RPCExamples{HelpExampleCli("listgovproposalvotes", "txid") + HelpExampleRpc("listgovproposalvotes", "txid")},
     }
@@ -808,10 +826,14 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     UniValue optionsObj(UniValue::VOBJ);
 
     if (!request.params[0].empty()) {
-        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
-            RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL, UniValue::VBOOL}, true);
-        else if (request.params[0].isObject())
+        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr())) {
+            RPCTypeCheck(
+                request.params,
+                {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ, UniValue::VBOOL, UniValue::VBOOL},
+                true);
+        } else if (request.params[0].isObject()) {
             optionsObj = request.params[0].get_obj();
+        }
     }
 
     CCustomCSView view(*pcustomcsview);
@@ -825,8 +847,8 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
     bool latestOnly = true;
     bool validOnly = true;
 
-    size_t limit         = 100;
-    size_t start         = 0;
+    size_t limit = 100;
+    size_t start = 0;
     bool including_start = true;
 
     if (!optionsObj.empty()) {
@@ -842,7 +864,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 isMine = false;
             } else if (optionsObj["masternode"].get_str() != "mine") {
                 isMine = false;
-                mnId   = ParseHashV(optionsObj["masternode"].get_str(), "masternode");
+                mnId = ParseHashV(optionsObj["masternode"].get_str(), "masternode");
             }
         }
 
@@ -858,7 +880,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start           = (size_t)paginationObj["start"].get_int();
+                start = (size_t)paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -893,7 +915,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 isMine = false;
             } else if (str != "mine") {
                 isMine = false;
-                mnId   = ParseHashV(str, "masternode");
+                mnId = ParseHashV(str, "masternode");
             }
         }
 
@@ -909,7 +931,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start           = (size_t)paginationObj["start"].get_int();
+                start = (size_t)paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -964,8 +986,9 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 return false;
             }
 
-            if (aggregate && latestOnly && propCycle != view.GetProposal(pId)->cycle)
+            if (aggregate && latestOnly && propCycle != view.GetProposal(pId)->cycle) {
                 return true;
+            }
 
             int targetHeight;
             auto prop = view.GetProposal(propId);
@@ -986,10 +1009,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                     valid = false;
                 }
 
-                if (validOnly && !valid)
+                if (validOnly && !valid) {
                     return true;
-                if (!validOnly && valid)
+                }
+                if (!validOnly && valid) {
                     return true;
+                }
 
                 // skip entries until we reach start index
                 if (!aggregate && start != 0) {
@@ -1020,10 +1045,12 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                     valid = false;
                 }
 
-                if (validOnly && !valid)
+                if (validOnly && !valid) {
                     return true;
-                if (!validOnly && valid)
+                }
+                if (!validOnly && valid) {
                     return true;
+                }
 
                 if (!aggregate) {
                     ret.push_back(proposalVoteToJSON(propId, propCycle, id, vote, valid));
@@ -1037,8 +1064,8 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         },
         CMnVotePerCycle{propId, cycle, mnId});
 
-    if(aggregate) {
-        for (const auto& entry : map) {
+    if (aggregate) {
+        for (const auto &entry : map) {
             UniValue stats(UniValue::VOBJ);
 
             stats.pushKV("proposalId", entry.first);
@@ -1111,9 +1138,9 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
                 } else if (vote == CProposalVoteType::VoteNeutral) {
                     ++info.votesNeutral;
                 }
-            }
-            else
+            } else {
                 ++info.votesInvalid;
+            }
 
             return true;
         },
@@ -1128,12 +1155,12 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
 
 template <typename T>
 void iterateProposals(const T &list,
-                  UniValue &ret,
-                  const CProposalId &start,
-                  bool including_start,
-                  size_t limit,
-                  const uint8_t type,
-                  const uint8_t status) {
+                      UniValue &ret,
+                      const CProposalId &start,
+                      bool including_start,
+                      size_t limit,
+                      const uint8_t type,
+                      const uint8_t status) {
     bool pastStart = false;
     for (const auto &prop : list) {
         if (status && status != prop.second.status) {
@@ -1142,10 +1169,12 @@ void iterateProposals(const T &list,
         if (type && type != prop.second.type) {
             continue;
         }
-        if (prop.first == start)
+        if (prop.first == start) {
             pastStart = true;
-        if (start != CProposalId{} && prop.first != start && !pastStart)
+        }
+        if (start != CProposalId{} && prop.first != start && !pastStart) {
             continue;
+        }
         if (!including_start) {
             including_start = true;
             continue;
@@ -1153,8 +1182,9 @@ void iterateProposals(const T &list,
 
         limit--;
         ret.push_back(proposalToJSON(prop.first, prop.second, *pcustomcsview, std::nullopt));
-        if (!limit)
+        if (!limit) {
             break;
+        }
     }
 }
 
@@ -1198,16 +1228,17 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     UniValue optionsObj(UniValue::VOBJ);
 
     if (!request.params[0].empty()) {
-        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr()))
+        if (!request.params[0].isObject() && !optionsObj.read(request.params[0].getValStr())) {
             RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VNUM, UniValue::VOBJ}, true);
-        else if (request.params[0].isObject())
+        } else if (request.params[0].isObject()) {
             optionsObj = request.params[0].get_obj();
+        }
     }
 
     uint8_t type{0}, status{0};
     int cycle{0};
-    size_t limit         = 100;
-    CProposalId start    = {};
+    size_t limit = 100;
+    CProposalId start = {};
     bool including_start = true;
 
     if (!optionsObj.empty()) {
@@ -1250,7 +1281,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start           = ParseHashV(paginationObj["start"], "start");
+                start = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -1296,7 +1327,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start           = ParseHashV(paginationObj["start"], "start");
+                start = ParseHashV(paginationObj["start"], "start");
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -1311,9 +1342,9 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     UniValue ret{UniValue::VARR};
     CCustomCSView view(*pcustomcsview);
 
-    using IdPropPair        = std::pair<CProposalId, CProposalObject>;
+    using IdPropPair = std::pair<CProposalId, CProposalObject>;
     using CycleEndHeightInt = int;
-    using CyclePropsMap     = std::map<CycleEndHeightInt, std::vector<IdPropPair>>;
+    using CyclePropsMap = std::map<CycleEndHeightInt, std::vector<IdPropPair>>;
 
     std::map<CProposalId, CProposalObject> props;
     CyclePropsMap cycleProps;
@@ -1328,7 +1359,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     if (cycle != 0) {
         // populate map
         for (const auto &[propId, prop] : props) {
-            auto batch    = cycleProps.find(prop.cycleEndHeight);
+            auto batch = cycleProps.find(prop.cycleEndHeight);
             auto propPair = std::make_pair(propId, prop);
             // if batch is not found create it
             if (batch == cycleProps.end()) {
@@ -1340,8 +1371,9 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
 
         auto batch = cycleProps.rbegin();
         if (cycle != -1) {
-            if (static_cast<CyclePropsMap::size_type>(cycle) > cycleProps.size())
+            if (static_cast<CyclePropsMap::size_type>(cycle) > cycleProps.size()) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Could not find cycle");
+            }
             for (unsigned int i = 1; i <= (cycleProps.size() - cycle); i++) {
                 batch++;
             }
@@ -1365,13 +1397,14 @@ static const CRPCCommand commands[] = {
     {"proposals", "creategovcfp",         &creategovcfp,         {"data", "inputs"}                                  },
     {"proposals", "creategovvoc",         &creategovvoc,         {"data", "inputs"}                                  },
     {"proposals", "votegov",              &votegov,              {"proposalId", "masternodeId", "decision", "inputs"}},
-    {"proposals", "votegovbatch",         &votegovbatch,         {"proposalId", "masternodeIds", "decision"}},
+    {"proposals", "votegovbatch",         &votegovbatch,         {"proposalId", "masternodeIds", "decision"}         },
     {"proposals", "listgovproposalvotes", &listgovproposalvotes, {"proposalId", "masternode", "cycle", "pagination"} },
     {"proposals", "getgovproposal",       &getgovproposal,       {"proposalId"}                                      },
     {"proposals", "listgovproposals",     &listgovproposals,     {"type", "status", "cycle", "pagination"}           },
 };
 
 void RegisterProposalRPCCommands(CRPCTable &tableRPC) {
-    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++) {
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+    }
 }

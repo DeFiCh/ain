@@ -3,8 +3,9 @@
 #include <logging.h>
 #include <util/system.h>
 
-
-TaskPool::TaskPool(size_t size): pool{size}, size{size} {}
+TaskPool::TaskPool(size_t size)
+    : pool{size},
+      size{size} {}
 
 void TaskPool::Shutdown() {
     pool.wait();
@@ -22,15 +23,15 @@ void InitDfTxGlobalTaskPool() {
 }
 
 void ShutdownDfTxGlobalTaskPool() {
-    if (!DfTxTaskPool)
+    if (!DfTxTaskPool) {
         return;
+    }
     LogPrintf("DfTxTaskPool: Waiting for tasks\n");
     DfTxTaskPool->Shutdown();
     LogPrintf("DfTxTaskPool: Shutdown\n");
 }
 
-
-void TaskGroup::AddTask() { 
+void TaskGroup::AddTask() {
     tasks.fetch_add(1, std::memory_order_release);
 }
 
@@ -41,7 +42,9 @@ void TaskGroup::RemoveTask() {
 }
 
 void TaskGroup::WaitForCompletion(bool checkForPrematureCompletion) {
-    if (checkForPrematureCompletion && tasks.load() == 0) return;
+    if (checkForPrematureCompletion && tasks.load() == 0) {
+        return;
+    }
     std::unique_lock<std::mutex> l(cv_m);
     cv.wait(l, [&] { return tasks.load() == 0; });
 }

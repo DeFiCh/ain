@@ -7,8 +7,9 @@
 #include <masternodes/masternodes.h>
 
 Res CProposalsConsensus::CheckProposalTx(const CCreateProposalMessage &msg) const {
-    if (tx.vout[0].nValue != GetProposalCreationFee(height, mnview, msg) || tx.vout[0].nTokenId != DCT_ID{0})
+    if (tx.vout[0].nValue != GetProposalCreationFee(height, mnview, msg) || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("malformed tx vouts (wrong creation fee)");
+    }
 
     return Res::Ok();
 }
@@ -32,19 +33,23 @@ Res CProposalsConsensus::operator()(const CCreateProposalMessage &obj) const {
 
     switch (obj.type) {
         case CProposalType::CommunityFundProposal:
-            if (!HasAuth(obj.address))
+            if (!HasAuth(obj.address)) {
                 return Res::Err("tx must have at least one input from proposal account");
+            }
             break;
 
         case CProposalType::VoteOfConfidence:
-            if (obj.nAmount != 0)
+            if (obj.nAmount != 0) {
                 return Res::Err("proposal amount in vote of confidence");
+            }
 
-            if (!obj.address.empty())
+            if (!obj.address.empty()) {
                 return Res::Err("vote of confidence address should be empty");
+            }
 
-            if (!(obj.options & CProposalOption::Emergency) && obj.nCycles != VOC_CYCLES)
+            if (!(obj.options & CProposalOption::Emergency) && obj.nCycles != VOC_CYCLES) {
                 return Res::Err("proposal cycles should be %d", int(VOC_CYCLES));
+            }
             break;
 
         default:
@@ -52,34 +57,42 @@ Res CProposalsConsensus::operator()(const CCreateProposalMessage &obj) const {
     }
 
     res = CheckProposalTx(obj);
-    if (!res)
+    if (!res) {
         return res;
+    }
 
-    if (obj.nAmount >= MAX_MONEY)
+    if (obj.nAmount >= MAX_MONEY) {
         return Res::Err("proposal wants to gain all money");
+    }
 
-    if (obj.title.empty())
+    if (obj.title.empty()) {
         return Res::Err("proposal title must not be empty");
+    }
 
-    if (obj.title.size() > MAX_PROPOSAL_TITLE_SIZE)
+    if (obj.title.size() > MAX_PROPOSAL_TITLE_SIZE) {
         return Res::Err("proposal title cannot be more than %d bytes", MAX_PROPOSAL_TITLE_SIZE);
+    }
 
-    if (obj.context.empty())
+    if (obj.context.empty()) {
         return Res::Err("proposal context must not be empty");
+    }
 
-    if (obj.context.size() > MAX_PROPOSAL_CONTEXT_SIZE)
+    if (obj.context.size() > MAX_PROPOSAL_CONTEXT_SIZE) {
         return Res::Err("proposal context cannot be more than %d bytes", MAX_PROPOSAL_CONTEXT_SIZE);
+    }
 
-    if (obj.contextHash.size() > MAX_PROPOSAL_CONTEXT_SIZE)
+    if (obj.contextHash.size() > MAX_PROPOSAL_CONTEXT_SIZE) {
         return Res::Err("proposal context hash cannot be more than %d bytes", MAX_PROPOSAL_CONTEXT_SIZE);
+    }
 
     auto attributes = mnview.GetAttributes();
     assert(attributes);
     CDataStructureV0 cfpMaxCycles{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMaxCycles};
     auto maxCycles = attributes->GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
 
-    if (obj.nCycles < 1 || obj.nCycles > maxCycles )
+    if (obj.nCycles < 1 || obj.nCycles > maxCycles) {
         return Res::Err("proposal cycles can be between 1 and %d", maxCycles);
+    }
 
     if ((obj.options & CProposalOption::Emergency)) {
         if (obj.nCycles != 1) {
@@ -101,28 +114,36 @@ Res CProposalsConsensus::operator()(const CProposalVoteMessage &obj) const {
     }
 
     auto prop = mnview.GetProposal(obj.propId);
-    if (!prop)
+    if (!prop) {
         return Res::Err("proposal <%s> does not exist", obj.propId.GetHex());
+    }
 
-    if (prop->status != CProposalStatusType::Voting)
+    if (prop->status != CProposalStatusType::Voting) {
         return Res::Err("proposal <%s> is not in voting period", obj.propId.GetHex());
+    }
 
     auto node = mnview.GetMasternode(obj.masternodeId);
-    if (!node)
+    if (!node) {
         return Res::Err("masternode <%s> does not exist", obj.masternodeId.GetHex());
+    }
 
-    auto ownerDest = FromOrDefaultKeyIDToDestination(node->ownerAuthAddress, TxDestTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
-    if (!IsValidDestination(ownerDest))
+    auto ownerDest = FromOrDefaultKeyIDToDestination(
+        node->ownerAuthAddress, TxDestTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
+    if (!IsValidDestination(ownerDest)) {
         return Res::Err("masternode <%s> owner address is not invalid", obj.masternodeId.GetHex());
+    }
 
-    if (!HasAuth(GetScriptForDestination(ownerDest)))
+    if (!HasAuth(GetScriptForDestination(ownerDest))) {
         return Res::Err("tx must have at least one input from the owner");
+    }
 
-    if (!node->IsActive(height, mnview))
+    if (!node->IsActive(height, mnview)) {
         return Res::Err("masternode <%s> is not active", obj.masternodeId.GetHex());
+    }
 
-    if (node->mintedBlocks < 1)
+    if (node->mintedBlocks < 1) {
         return Res::Err("masternode <%s> does not mine at least one block", obj.masternodeId.GetHex());
+    }
 
     switch (obj.vote) {
         case CProposalVoteType::VoteNo:

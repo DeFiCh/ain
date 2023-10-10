@@ -15,10 +15,10 @@ struct CAnyAccountsToAccountsMessage;
 class CAccountsConsensus : public CCustomTxVisitor {
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CUtxosToAccountMessage& obj) const;
-    Res operator()(const CAccountToUtxosMessage& obj) const;
-    Res operator()(const CAccountToAccountMessage& obj) const;
-    Res operator()(const CAnyAccountsToAccountsMessage& obj) const;
+    Res operator()(const CUtxosToAccountMessage &obj) const;
+    Res operator()(const CAccountToUtxosMessage &obj) const;
+    Res operator()(const CAccountToAccountMessage &obj) const;
+    Res operator()(const CAnyAccountsToAccountsMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_ACCOUNTS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_ACCOUNTS_H

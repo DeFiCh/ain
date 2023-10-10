@@ -13,10 +13,11 @@ struct CProposalVoteMessage;
 class CProposalsConsensus : public CCustomTxVisitor {
     [[nodiscard]] Res CheckProposalTx(const CCreateProposalMessage &msg) const;
     [[nodiscard]] Res IsOnChainGovernanceEnabled() const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CCreateProposalMessage& obj) const;
-    Res operator()(const CProposalVoteMessage& obj) const;
+    Res operator()(const CCreateProposalMessage &obj) const;
+    Res operator()(const CProposalVoteMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_PROPOSALS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_PROPOSALS_H

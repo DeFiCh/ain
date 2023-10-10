@@ -12,7 +12,7 @@
 #include <masternodes/oracles.h>
 
 namespace Consensus {
-    struct Params;
+struct Params;
 }
 
 enum VersionTypes : uint8_t {
@@ -20,29 +20,29 @@ enum VersionTypes : uint8_t {
 };
 
 enum AttributeTypes : uint8_t {
-    Live       = 'l',
-    Oracles    = 'o',
-    Param      = 'a',
-    Token      = 't',
-    Poolpairs  = 'p',
-    Locks      = 'L',
+    Live = 'l',
+    Oracles = 'o',
+    Param = 'a',
+    Token = 't',
+    Poolpairs = 'p',
+    Locks = 'L',
     Governance = 'g',
     Consortium = 'c',
-    Transfer   = 'b',
-    EVMType    = 'e',
-    Vaults     = 'v',
-    Rules      = 'r',
+    Transfer = 'b',
+    EVMType = 'e',
+    Vaults = 'v',
+    Rules = 'r',
 };
 
 enum ParamIDs : uint8_t {
-    DFIP2201   = 'a',
-    DFIP2203   = 'b',
-    TokenID    = 'c',
-    Economy    = 'e',
-    DFIP2206A  = 'f',
-    DFIP2206F  = 'g',
-    Feature    = 'h',
-    Auction    = 'i',
+    DFIP2201 = 'a',
+    DFIP2203 = 'b',
+    TokenID = 'c',
+    Economy = 'e',
+    DFIP2206A = 'f',
+    DFIP2206F = 'g',
+    Feature = 'h',
+    Auction = 'i',
     Foundation = 'j',
 };
 
@@ -55,13 +55,13 @@ enum EVMIDs : uint8_t {
 };
 
 enum EVMKeys : uint8_t {
-    Finalized    = 'a',
-    GasLimit     = 'b',
-    GasTarget    = 'c',
+    Finalized = 'a',
+    GasLimit = 'b',
+    GasTarget = 'c',
 };
 
 enum GovernanceIDs : uint8_t {
-    Global    = 'a',
+    Global = 'a',
     Proposals = 'b',
 };
 
@@ -79,89 +79,89 @@ enum RulesIDs : uint8_t {
 };
 
 enum EconomyKeys : uint8_t {
-    PaybackDFITokens          = 'a',
-    PaybackTokens             = 'b',
-    DFIP2203Current           = 'c',
-    DFIP2203Burned            = 'd',
-    DFIP2203Minted            = 'e',
-    DFIP2206FCurrent          = 'f',
-    DFIP2206FBurned           = 'g',
-    DFIP2206FMinted           = 'h',
-    DexTokens                 = 'i',
-    NegativeInt               = 'j',
-    NegativeIntCurrent        = 'k',
-    ConsortiumMinted          = 'l',
-    ConsortiumMembersMinted   = 'm',
-    BatchRoundingExcess       = 'n',  // Extra added to loan amounts on auction creation due to round errors.
-    ConsolidatedInterest      = 'o',  // Amount added to loan amounts after auction with no bids.
+    PaybackDFITokens = 'a',
+    PaybackTokens = 'b',
+    DFIP2203Current = 'c',
+    DFIP2203Burned = 'd',
+    DFIP2203Minted = 'e',
+    DFIP2206FCurrent = 'f',
+    DFIP2206FBurned = 'g',
+    DFIP2206FMinted = 'h',
+    DexTokens = 'i',
+    NegativeInt = 'j',
+    NegativeIntCurrent = 'k',
+    ConsortiumMinted = 'l',
+    ConsortiumMembersMinted = 'm',
+    BatchRoundingExcess = 'n',        // Extra added to loan amounts on auction creation due to round errors.
+    ConsolidatedInterest = 'o',       // Amount added to loan amounts after auction with no bids.
     PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
-    Loans                     = 'q',
-    TransferDomainStatsLive   = 'r',
-    EVMBlockStatsLive         = 's',
+    Loans = 'q',
+    TransferDomainStatsLive = 'r',
+    EVMBlockStatsLive = 's',
 };
 
 enum DFIPKeys : uint8_t {
-    Active               = 'a',
-    Premium              = 'b',
-    MinSwap              = 'c',
-    RewardPct            = 'd',
-    BlockPeriod          = 'e',
-    DUSDInterestBurn     = 'g',
-    DUSDLoanBurn         = 'h',
-    StartBlock           = 'i',
-    GovUnset             = 'j',
-    GovFoundation        = 'k',
-    MNSetRewardAddress   = 'l',
+    Active = 'a',
+    Premium = 'b',
+    MinSwap = 'c',
+    RewardPct = 'd',
+    BlockPeriod = 'e',
+    DUSDInterestBurn = 'g',
+    DUSDLoanBurn = 'h',
+    StartBlock = 'i',
+    GovUnset = 'j',
+    GovFoundation = 'k',
+    MNSetRewardAddress = 'l',
     MNSetOperatorAddress = 'm',
-    MNSetOwnerAddress    = 'n',
-    ConsortiumEnabled    = 'o',
-    Members              = 'p',
-    GovernanceEnabled    = 'q',
-    CFPPayout            = 'r',
-    EmissionUnusedFund   = 's',
-    MintTokens           = 't',
-    EVMEnabled           = 'u',
-    ICXEnabled           = 'v',
-    TransferDomain       = 'w',
+    MNSetOwnerAddress = 'n',
+    ConsortiumEnabled = 'o',
+    Members = 'p',
+    GovernanceEnabled = 'q',
+    CFPPayout = 'r',
+    EmissionUnusedFund = 's',
+    MintTokens = 't',
+    EVMEnabled = 'u',
+    ICXEnabled = 'v',
+    TransferDomain = 'w',
 };
 
 enum GovernanceKeys : uint8_t {
-    FeeRedistribution    = 'a',
-    FeeBurnPct           = 'b',
-    CFPFee               = 'd',
+    FeeRedistribution = 'a',
+    FeeBurnPct = 'b',
+    CFPFee = 'd',
     CFPApprovalThreshold = 'e',
-    VOCFee               = 'f',
-    VOCEmergencyFee      = 'g',
-    VOCEmergencyPeriod   = 'h',
+    VOCFee = 'f',
+    VOCEmergencyFee = 'g',
+    VOCEmergencyPeriod = 'h',
     VOCApprovalThreshold = 'i',
-    Quorum               = 'j',
-    VotingPeriod         = 'k',
-    VOCEmergencyQuorum   = 'l',
-    CFPMaxCycles         = 'm',
+    Quorum = 'j',
+    VotingPeriod = 'k',
+    VOCEmergencyQuorum = 'l',
+    CFPMaxCycles = 'm',
 };
 
 enum TokenKeys : uint8_t {
-    PaybackDFI            = 'a',
-    PaybackDFIFeePCT      = 'b',
-    LoanPayback           = 'c',
-    LoanPaybackFeePCT     = 'd',
-    DexInFeePct           = 'e',
-    DexOutFeePct          = 'f',
-    DFIP2203Enabled       = 'g',
-    FixedIntervalPriceId  = 'h',
+    PaybackDFI = 'a',
+    PaybackDFIFeePCT = 'b',
+    LoanPayback = 'c',
+    LoanPaybackFeePCT = 'd',
+    DexInFeePct = 'e',
+    DexOutFeePct = 'f',
+    DFIP2203Enabled = 'g',
+    FixedIntervalPriceId = 'h',
     LoanCollateralEnabled = 'i',
-    LoanCollateralFactor  = 'j',
-    LoanMintingEnabled    = 'k',
-    LoanMintingInterest   = 'l',
-    Ascendant             = 'm',
-    Descendant            = 'n',
-    Epitaph               = 'o',
+    LoanCollateralFactor = 'j',
+    LoanMintingEnabled = 'k',
+    LoanMintingInterest = 'l',
+    Ascendant = 'm',
+    Descendant = 'n',
+    Epitaph = 'o',
     LoanPaybackCollateral = 'p',
 };
 
 enum ConsortiumKeys : uint8_t {
-    MemberValues   = 'a',
-    MintLimit      = 'b',
+    MemberValues = 'a',
+    MintLimit = 'b',
     DailyMintLimit = 'c',
 };
 
@@ -174,12 +174,12 @@ enum PoolKeys : uint8_t {
 
 enum TransferKeys : uint8_t {
     TransferEnabled = 'a',
-    SrcFormats      = 'b',
-    DestFormats     = 'c',
-    AuthFormats     = 'd',
-    NativeEnabled   = 'e',
-    DATEnabled      = 'f',
-    Disallowed      = 'g',
+    SrcFormats = 'b',
+    DestFormats = 'c',
+    AuthFormats = 'd',
+    NativeEnabled = 'e',
+    DATEnabled = 'f',
+    Disallowed = 'g',
 };
 
 enum VaultKeys : uint8_t {
@@ -188,8 +188,8 @@ enum VaultKeys : uint8_t {
 
 enum RulesKeys : uint8_t {
     CoreOPReturn = 'a',
-    DVMOPReturn  = 'b',
-    EVMOPReturn  = 'c',
+    DVMOPReturn = 'b',
+    EVMOPReturn = 'c',
 };
 
 struct CDataStructureV0 {
@@ -311,14 +311,16 @@ struct CTransferDomainStatsLive {
         READWRITE(evmCurrent);
     }
 
-    static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::TransferDomainStatsLive};
+    static constexpr CDataStructureV0 Key = {AttributeTypes::Live,
+                                             ParamIDs::Economy,
+                                             EconomyKeys::TransferDomainStatsLive};
 };
 
 struct CConsortiumMember {
     static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
     static const uint16_t MIN_CONSORTIUM_MEMBERS_STRING_LENGTH = 3;
     enum Status : uint8_t {
-        Active   = 0,
+        Active = 0,
         Disabled = 0x01,
     };
 
@@ -407,15 +409,15 @@ struct CEvmBlockStatsLive {
     static constexpr CDataStructureV0 Key = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::EVMBlockStatsLive};
 };
 
-using CDexBalances             = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits             = std::map<uint32_t, int32_t>;
-using DescendantValue          = std::pair<uint32_t, int32_t>;
-using AscendantValue           = std::pair<uint32_t, std::string>;
-using CConsortiumMembers       = std::map<std::string, CConsortiumMember>;
+using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
+using OracleSplits = std::map<uint32_t, int32_t>;
+using DescendantValue = std::pair<uint32_t, int32_t>;
+using AscendantValue = std::pair<uint32_t, std::string>;
+using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
 using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
-using CConsortiumGlobalMinted  = std::map<DCT_ID, CConsortiumMinted>;
-using CAttributeType           = std::variant<CDataStructureV0, CDataStructureV1>;
-using CAttributeValue          = std::variant<bool,
+using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
+using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+using CAttributeValue = std::variant<bool,
                                      CAmount,
                                      CBalances,
                                      CTokenPayback,
@@ -586,8 +588,8 @@ private:
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
     static const std::map<std::string, uint8_t> &allowedRulesIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
-    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>> &
-    parseValue();
+    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
+        &parseValue();
 
     Res ProcessVariable(const std::string &key,
                         const std::optional<UniValue> &value,
