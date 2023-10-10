@@ -6,9 +6,9 @@
 
 #include <chainparams.h>
 #include <consensus/validation.h>
+#include <dfi/masternodes.h>
 #include <key.h>
 #include <logging.h>
-#include <dfi/masternodes.h>
 #include <script/standard.h>
 #include <spv/spv_wrapper.h>
 #include <streams.h>

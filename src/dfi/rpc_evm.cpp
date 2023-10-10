@@ -1,8 +1,8 @@
 #include <dfi/mn_rpc.h>
 
 #include <ain_rs_exports.h>
-#include <key_io.h>
 #include <dfi/errors.h>
+#include <key_io.h>
 #include <util/strencodings.h>
 
 enum class VMDomainRPCMapType {

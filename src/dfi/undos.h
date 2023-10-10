@@ -5,9 +5,9 @@
 #ifndef DEFI_MASTERNODES_UNDOS_H
 #define DEFI_MASTERNODES_UNDOS_H
 
-#include <flushablestorage.h>
 #include <dfi/res.h>
 #include <dfi/undo.h>
+#include <flushablestorage.h>
 
 class CUndosView : public virtual CStorageView {
 public:

@@ -6,9 +6,9 @@
 #define DEFI_MASTERNODES_INCENTIVEFUNDING_H
 
 #include <amount.h>
-#include <flushablestorage.h>
 #include <dfi/communityaccounttypes.h>
 #include <dfi/res.h>
+#include <flushablestorage.h>
 
 inline CommunityAccountType CommunityAccountCodeToType(unsigned char ch) {
     const char types[] = "IACLOU";

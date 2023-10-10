@@ -4,9 +4,9 @@
 
 #include <dfi/govvariables/lp_daily_dfi_reward.h>
 
-#include <core_io.h>                  /// ValueFromAmount
+#include <core_io.h>          /// ValueFromAmount
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool LP_DAILY_DFI_REWARD::IsEmpty() const {
     return !dailyReward.has_value();

@@ -6,9 +6,9 @@
 #define DEFI_MASTERNODES_ORACLES_H
 
 #include <amount.h>
-#include <flushablestorage.h>
 #include <dfi/balances.h>
 #include <dfi/res.h>
+#include <flushablestorage.h>
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>

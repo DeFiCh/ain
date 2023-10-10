@@ -5,9 +5,9 @@
 #ifndef DEFI_MASTERNODES_GV_H
 #define DEFI_MASTERNODES_GV_H
 
-#include <flushablestorage.h>
 #include <dfi/factory.h>
 #include <dfi/res.h>
+#include <flushablestorage.h>
 #include <univalue/include/univalue.h>
 
 class ATTRIBUTES;

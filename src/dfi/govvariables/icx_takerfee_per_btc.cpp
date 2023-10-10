@@ -5,7 +5,7 @@
 #include <core_io.h>  /// ValueFromAmount
 #include <dfi/govvariables/icx_takerfee_per_btc.h>
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool ICX_TAKERFEE_PER_BTC::IsEmpty() const {
     return !takerFeePerBTC.has_value();

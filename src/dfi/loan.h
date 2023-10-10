@@ -4,11 +4,11 @@
 #include <amount.h>
 #include <uint256.h>
 
-#include <flushablestorage.h>
 #include <dfi/balances.h>
 #include <dfi/oracles.h>
 #include <dfi/res.h>
 #include <dfi/vault.h>
+#include <flushablestorage.h>
 #include <script/script.h>
 
 class CLoanSetCollateralToken {

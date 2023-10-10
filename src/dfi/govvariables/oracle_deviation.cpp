@@ -4,9 +4,9 @@
 
 #include <dfi/govvariables/oracle_deviation.h>
 
-#include <core_io.h>                  /// ValueFromAmount
+#include <core_io.h>          /// ValueFromAmount
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool ORACLE_DEVIATION::IsEmpty() const {
     return !deviation.has_value();

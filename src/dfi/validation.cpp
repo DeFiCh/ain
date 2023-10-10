@@ -4,7 +4,6 @@
 
 #include <ain_rs_exports.h>
 #include <chain.h>
-#include <ffi/ffihelpers.h>
 #include <dfi/accountshistory.h>
 #include <dfi/errors.h>
 #include <dfi/govvariables/attributes.h>
@@ -19,6 +18,7 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffihelpers.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>

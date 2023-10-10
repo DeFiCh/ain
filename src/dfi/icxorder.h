@@ -8,8 +8,8 @@
 #include <script/script.h>
 #include <uint256.h>
 
-#include <flushablestorage.h>
 #include <dfi/res.h>
+#include <flushablestorage.h>
 
 class CICXOrder {
 public:

@@ -4,9 +4,9 @@
 
 #include <dfi/govvariables/oracle_block_interval.h>
 
-#include <core_io.h>                  /// ValueFromAmount
+#include <core_io.h>          /// ValueFromAmount
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool ORACLE_BLOCK_INTERVAL::IsEmpty() const {
     return !blockInterval.has_value();

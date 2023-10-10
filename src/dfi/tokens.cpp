@@ -8,9 +8,9 @@
 #include <amount.h>
 #include <chainparams.h>  // Params()
 #include <core_io.h>
+#include <dfi/evm.h>
 #include <ffi/cxx.h>
 #include <ffi/ffihelpers.h>
-#include <dfi/evm.h>
 #include <primitives/transaction.h>
 #include <util/strencodings.h>
 

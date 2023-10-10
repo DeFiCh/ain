@@ -6,9 +6,9 @@
 #define DEFI_MASTERNODES_ACCOUNTSHISTORY_H
 
 #include <amount.h>
-#include <flushablestorage.h>
 #include <dfi/auctionhistory.h>
 #include <dfi/masternodes.h>
+#include <flushablestorage.h>
 #include <script/script.h>
 #include <uint256.h>
 

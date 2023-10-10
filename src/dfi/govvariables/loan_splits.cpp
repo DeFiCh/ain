@@ -4,9 +4,9 @@
 
 #include <dfi/govvariables/loan_splits.h>
 
-#include <core_io.h>                  /// ValueFromAmount
+#include <core_io.h>          /// ValueFromAmount
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool LP_LOAN_TOKEN_SPLITS::IsEmpty() const {
     return splits.empty();

@@ -2,7 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <ffi/ffihelpers.h>
 #include <dfi/accountshistory.h>
 #include <dfi/consensus/accounts.h>
 #include <dfi/consensus/governance.h>
@@ -19,6 +18,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_checks.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffihelpers.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>

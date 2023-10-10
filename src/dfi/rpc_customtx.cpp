@@ -1,9 +1,9 @@
 #include <ain_rs_exports.h>
 #include <arith_uint256.h>
 #include <core_io.h>
-#include <key_io.h>
 #include <dfi/mn_checks.h>
 #include <dfi/res.h>
+#include <key_io.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>

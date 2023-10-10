@@ -4,9 +4,9 @@
 
 #include <dfi/govvariables/loan_liquidation_penalty.h>
 
-#include <core_io.h>                  /// ValueFromAmount
+#include <core_io.h>          /// ValueFromAmount
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool LOAN_LIQUIDATION_PENALTY::IsEmpty() const {
     return !penalty.has_value();

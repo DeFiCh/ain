@@ -10,7 +10,7 @@
 #include <dfi/historywriter.h>    /// CHiistoryWriter
 #include <dfi/masternodes.h>      /// CCustomCSView
 #include <dfi/mn_checks.h>        /// GetAggregatePrice / CustomTxType
-#include <validation.h>                   /// GetNextAccPosition
+#include <validation.h>           /// GetNextAccPosition
 
 #include <amount.h>   /// GetDecimaleString
 #include <core_io.h>  /// ValueFromAmount

@@ -6,9 +6,9 @@
 #define DEFI_MASTERNODES_AUCTIONHISTORY_H
 
 #include <amount.h>
-#include <flushablestorage.h>
 #include <dfi/masternodes.h>
 #include <dfi/vault.h>
+#include <flushablestorage.h>
 #include <script/script.h>
 
 struct AuctionHistoryKey {

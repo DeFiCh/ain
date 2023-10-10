@@ -4,9 +4,9 @@
 #include <amount.h>
 #include <uint256.h>
 
-#include <flushablestorage.h>
 #include <dfi/balances.h>
 #include <dfi/res.h>
+#include <flushablestorage.h>
 #include <script/script.h>
 
 // use vault's creation tx for ID

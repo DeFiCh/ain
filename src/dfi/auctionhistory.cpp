@@ -2,9 +2,9 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <key_io.h>
 #include <dfi/auctionhistory.h>
 #include <dfi/masternodes.h>
+#include <key_io.h>
 
 void CAuctionHistoryView::ForEachAuctionHistory(
     std::function<bool(const AuctionHistoryKey &, CLazySerialize<AuctionHistoryValue>)> callback,

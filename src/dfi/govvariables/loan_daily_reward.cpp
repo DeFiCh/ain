@@ -4,9 +4,9 @@
 
 #include <dfi/govvariables/loan_daily_reward.h>
 
-#include <core_io.h>                  /// ValueFromAmount
+#include <core_io.h>          /// ValueFromAmount
 #include <dfi/masternodes.h>  /// CCustomCSView
-#include <rpc/util.h>                 /// AmountFromValue
+#include <rpc/util.h>         /// AmountFromValue
 
 bool LP_DAILY_LOAN_TOKEN_REWARD::IsEmpty() const {
     return !dailyReward.has_value();

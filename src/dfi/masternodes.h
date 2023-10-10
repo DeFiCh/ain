@@ -6,7 +6,6 @@
 #define DEFI_MASTERNODES_MASTERNODES_H
 
 #include <amount.h>
-#include <flushablestorage.h>
 #include <dfi/accounts.h>
 #include <dfi/anchors.h>
 #include <dfi/evm.h>
@@ -21,6 +20,7 @@
 #include <dfi/tokens.h>
 #include <dfi/undos.h>
 #include <dfi/vault.h>
+#include <flushablestorage.h>
 #include <pubkey.h>
 #include <serialize.h>
 #include <uint256.h>
