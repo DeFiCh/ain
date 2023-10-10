@@ -262,6 +262,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
+            // Calculate source address rewards
+            CalculateOwnerRewards(src.address);
+
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
             if (!res) {
@@ -363,6 +366,9 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             auto tokenAmount = CTokenAmount{tokenId, src.amount.nValue};
             stats.evmOut.Add(tokenAmount);
             stats.evmCurrent.Sub(tokenAmount);
+
+            // Calculate destination address rewards
+            CalculateOwnerRewards(dst.address);
 
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
