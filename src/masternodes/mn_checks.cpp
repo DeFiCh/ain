@@ -189,7 +189,7 @@ class CCustomMetadataParseVisitor {
                 { consensus.DF15FortCanningRoadHeight,        "called before FortCanningRoad height" },
                 { consensus.DF19FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
                 { consensus.DF20GrandCentralHeight,           "called before GrandCentral height" },
-                { consensus.DF22Metachain,     "called before Metachain height" },
+                { consensus.DF22MetachainHeight,     "called before Metachain height" },
         };
         if (startHeight && height < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -281,7 +281,7 @@ public:
         else if constexpr (IsOneOf<T,
                 CTransferDomainMessage,
                 CEvmTxMessage>())
-            return IsHardforkEnabled(consensus.DF22Metachain);
+            return IsHardforkEnabled(consensus.DF22MetachainHeight);
         else if constexpr (IsOneOf<T,
                 CCreateMasterNodeMessage,
                 CResignMasterNodeMessage>())
@@ -793,7 +793,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             anchorReward);
 
     CTxDestination destination;
-    if (height < consensusParams.DF22Metachain) {
+    if (height < consensusParams.DF22MetachainHeight) {
         destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     } else {
         destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
@@ -1345,7 +1345,7 @@ struct OpReturnLimitsKeys {
 OpReturnLimits OpReturnLimits::From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
-    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.DF22Metachain);
+    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.DF22MetachainHeight);
     item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
     item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
     item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);

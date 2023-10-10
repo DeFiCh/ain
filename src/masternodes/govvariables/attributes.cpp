@@ -1809,7 +1809,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         // Post fork remove this guard as long as there were no non-DAT loan tokens before
                         // the fork. A full sync test on the removal of this guard will tell.
-                        if (view.GetLastHeight() >= Params().GetConsensus().DF22Metachain) {
+                        if (view.GetLastHeight() >= Params().GetConsensus().DF22MetachainHeight) {
                             if (!VerifyDATToken(view, attrV0->typeId)) {
                                 return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                             }
@@ -1836,7 +1836,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         // Post fork remove this guard as long as there were no non-DAT loan tokens before
                         // the fork. A full sync test on the removal of this guard will tell.
-                        if (view.GetLastHeight() >= Params().GetConsensus().DF22Metachain) {
+                        if (view.GetLastHeight() >= Params().GetConsensus().DF22MetachainHeight) {
                             if (!token->IsDAT()) {
                                 return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                             }
@@ -1984,8 +1984,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
                         }
                     } else if (attrV0->key == DFIPKeys::EVMEnabled || attrV0->key == DFIPKeys::TransferDomain) {
-                        if (view.GetLastHeight() < Params().GetConsensus().DF22Metachain) {
-                            return Res::Err("Cannot be set before metachainheight");
+                        if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                            return Res::Err("Cannot be set before MetachainHeight");
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
@@ -2033,13 +2033,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::EVMType:
-                if (view.GetLastHeight() < Params().GetConsensus().DF22Metachain) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                     return Res::Err("Cannot be set before Metachain");
                 }
                 break;
 
             case AttributeTypes::Transfer:
-                if (view.GetLastHeight() < Params().GetConsensus().DF22Metachain) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                     return Res::Err("Cannot be set before Metachain");
                 }
                 if ((attrV0->typeId == TransferIDs::DVMToEVM || attrV0->typeId == TransferIDs::EVMToDVM) &&
@@ -2056,14 +2056,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
 
             case AttributeTypes::Vaults:
                 if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
-                    if (view.GetLastHeight() < Params().GetConsensus().DF22Metachain) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                         return Res::Err("Cannot be set before Metachain");
                     }
                 }
                 break;
 
             case AttributeTypes::Rules:
-                if (view.GetLastHeight() < Params().GetConsensus().DF22Metachain) {
+                if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                     return Res::Err("Cannot be set before Metachain");
                 }
                 break;

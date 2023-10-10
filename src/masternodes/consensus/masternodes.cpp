@@ -220,7 +220,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             }
             rewardType = true;
 
-            if (height < static_cast<uint32_t>(consensus.DF22Metachain)) {
+            if (height < static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
                 if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                     return Res::Err("Reward address must be P2PKH or P2WPKH type");
                 }
