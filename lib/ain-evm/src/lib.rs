@@ -34,7 +34,7 @@ pub type MaybeTransactionV2 = Option<ethereum::TransactionV2>;
 pub enum EVMError {
     #[error("EVM: Backend error: {0:?}")]
     TrieCreationFailed(#[from] BackendError),
-    #[error("EVM: Queue error {0:?}")]
+    #[error("EVM: Block template error {0:?}")]
     BlockTemplateError(#[from] BlockTemplateError),
     #[error("EVM: Exceed block size limit")]
     BlockSizeLimit(String),
