@@ -450,9 +450,22 @@ fmt_rs() {
 
 fmt_cpp() {
     echo "> fmt: cpp"
-    local clang_ver=${CLANG_DEFAULT_VERSION}
+    local clang_ver=${CLANG_DEFAULT_VERSION:-15}
+    local clang_formatters=("clang-format-${clang_ver}" "clang-format")
+    local index=-1
+    for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
+        if "${clang_formatters[$idx]}" --version &> /dev/null; then 
+            index="$idx"
+            break
+        fi
+    done
+    if [[ "$index" == -1 ]]; then
+        echo "No clang formatter found". 
+        exit 1
+    fi
+
     find src/masternodes \( -iname "*.cpp" -o -iname "*.h" \) \
-        -exec clang-format-"${clang_ver}" -i -style=file {} \;
+        -exec "${clang_formatters[$index]}" -i -style=file {} +;
 }
 
 fmt_lib() {
