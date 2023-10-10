@@ -9,7 +9,7 @@
 Res COraclesConsensus::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const {
     std::set<CTokenCurrencyPair> trimmed;
     for (const auto &pair : tokenCurrency) {
-        auto token    = trim_ws(pair.first).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        auto token = trim_ws(pair.first).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         auto currency = trim_ws(pair.second).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         Require(!token.empty() && !currency.empty(), "empty token / currency");
         trimmed.emplace(token, currency);
@@ -24,7 +24,7 @@ Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
     }
     COracle oracle;
     static_cast<CAppointOracleMessage &>(oracle) = obj;
-    auto res                                     = NormalizeTokenCurrencyPair(oracle.availablePairs);
+    auto res = NormalizeTokenCurrencyPair(oracle.availablePairs);
     return !res ? res : mnview.AppointOracle(tx.GetHash(), oracle);
 }
 
@@ -62,7 +62,7 @@ Res COraclesConsensus::operator()(const CSetOracleDataMessage &obj) const {
                 extern bool diffInHour(int64_t time1, int64_t time2);
                 if (!diffInHour(obj.timestamp, timestamp)) {
                     return Res::Err(
-                            "Timestamp (%d) is out of price update window (median: %d)", obj.timestamp, timestamp);
+                        "Timestamp (%d) is out of price update window (median: %d)", obj.timestamp, timestamp);
                 }
             }
         }

@@ -6,13 +6,13 @@
 #define DEFI_MASTERNODES_COMMUNITYACCOUNTTYPES_H
 
 enum class CommunityAccountType : unsigned char {
-    None              = 0,
-    IncentiveFunding  = 'I',  // or 'yield farming' - source of community rewards for LP (Liquidity Pools)
-    AnchorReward      = 'A',
+    None = 0,
+    IncentiveFunding = 'I',  // or 'yield farming' - source of community rewards for LP (Liquidity Pools)
+    AnchorReward = 'A',
     CommunityDevFunds = 'C',
-    Loan              = 'L',
-    Options           = 'O',
-    Unallocated       = 'U',
+    Loan = 'L',
+    Options = 'O',
+    Unallocated = 'U',
 };
 
 #endif  // DEFI_MASTERNODES_COMMUNITYACCOUNTTYPES_H

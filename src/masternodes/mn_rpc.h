@@ -8,21 +8,21 @@
 #include <core_io.h>
 #include <validation.h>
 
+#include <masternodes/coinselect.h>
 #include <masternodes/consensus/xvm.h>
 #include <masternodes/masternodes.h>
 #include <masternodes/mn_checks.h>
-#include <masternodes/coinselect.h>
 
 #include <rpc/rawtransaction_util.h>
 #include <rpc/resultcache.h>
 #include <rpc/server.h>
 #include <rpc/util.h>
 
-//#ifdef ENABLE_WALLET
+// #ifdef ENABLE_WALLET
 #include <wallet/coincontrol.h>
 #include <wallet/fees.h>
 #include <wallet/rpcwallet.h>
-//#endif
+// #endif
 
 typedef enum {
     // selecting accounts without sorting
@@ -54,7 +54,7 @@ class CWalletCoinsUnlocker {
 public:
     explicit CWalletCoinsUnlocker(std::shared_ptr<CWallet> pwallet);
     CWalletCoinsUnlocker(const CWalletCoinsUnlocker &) = delete;
-    CWalletCoinsUnlocker(CWalletCoinsUnlocker &&)      = default;
+    CWalletCoinsUnlocker(CWalletCoinsUnlocker &&) = default;
     ~CWalletCoinsUnlocker();
     CWallet *operator->();
     CWallet &operator*();
@@ -76,17 +76,18 @@ CMutableTransaction fund(CMutableTransaction &mtx,
                          CCoinControl *coin_control = nullptr,
                          const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
-CTransactionRef sign(CMutableTransaction& mtx, CWallet* const pwallet, CTransactionRef optAuthTx);
+CTransactionRef sign(CMutableTransaction &mtx, CWallet *const pwallet, CTransactionRef optAuthTx);
 CTransactionRef signsend(CMutableTransaction &mtx, CWalletCoinsUnlocker &pwallet, CTransactionRef optAuthTx);
 CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx);
 CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request);
-std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
-                                      int32_t txVersion,
-                                      std::set<CScript> &auths,
-                                      bool needFounderAuth,
-                                      CTransactionRef &optAuthTx,
-                                      const UniValue &explicitInputs,
-                                      const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
+std::vector<CTxIn> GetAuthInputsSmart(
+    CWalletCoinsUnlocker &pwallet,
+    int32_t txVersion,
+    std::set<CScript> &auths,
+    bool needFounderAuth,
+    CTransactionRef &optAuthTx,
+    const UniValue &explicitInputs,
+    const CoinSelectionOptions &coinSelectOpts = CoinSelectionOptions::CreateDefault());
 std::string ScriptToString(const CScript &script);
 CAccounts GetAllMineAccounts(CWallet *const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,

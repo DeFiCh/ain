@@ -11,11 +11,12 @@ struct CSmartContractMessage;
 struct CFutureSwapMessage;
 
 class CSmartContractsConsensus : public CCustomTxVisitor {
-    Res HandleDFIP2201Contract(const CSmartContractMessage& obj) const;
+    Res HandleDFIP2201Contract(const CSmartContractMessage &obj) const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CSmartContractMessage& obj) const;
-    Res operator()(const CFutureSwapMessage& obj) const;
+    Res operator()(const CSmartContractMessage &obj) const;
+    Res operator()(const CFutureSwapMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_SMARTCONTRACTS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_SMARTCONTRACTS_H

@@ -220,9 +220,7 @@ CustomTxType FromString(const std::string &str) {
     return type == customTxTypeMap.end() ? CustomTxType::None : type->second;
 }
 
-CustomTxType GuessCustomTxType(const CTransaction &tx,
-                                      std::vector<unsigned char> &metadata,
-                                      bool metadataValidation) {
+CustomTxType GuessCustomTxType(const CTransaction &tx, std::vector<unsigned char> &metadata, bool metadataValidation) {
     if (tx.vout.empty()) {
         return CustomTxType::None;
     }

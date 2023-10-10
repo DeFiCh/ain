@@ -59,7 +59,7 @@ public:
     std::string symbol;
     std::string name;
     CTokenCurrencyPair fixedIntervalPriceId;
-    bool mintable    = true;
+    bool mintable = true;
     CAmount interest = 0;
 
     ADD_SERIALIZE_METHODS;
@@ -256,7 +256,7 @@ struct CInterestRateV3 {
 
 inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2 &rate2) {
     CInterestRate rate1{};
-    rate1.height           = rate2.height;
+    rate1.height = rate2.height;
     rate1.interestPerBlock = rate2.interestPerBlock.GetLow64();
     rate1.interestToHeight = rate2.interestToHeight.GetLow64();
 
@@ -265,7 +265,7 @@ inline CInterestRate ConvertInterestRateToV1(const CInterestRateV2 &rate2) {
 
 inline CInterestRate ConvertInterestRateToV1(const CInterestRateV3 &rate3) {
     CInterestRate rate1{};
-    rate1.height           = rate3.height;
+    rate1.height = rate3.height;
     rate1.interestPerBlock = rate3.interestPerBlock.amount.GetLow64();
     rate1.interestToHeight = rate3.interestToHeight.amount.GetLow64();
 
@@ -274,7 +274,7 @@ inline CInterestRate ConvertInterestRateToV1(const CInterestRateV3 &rate3) {
 
 inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate &rate1) {
     CInterestRateV2 rate2{};
-    rate2.height           = rate1.height;
+    rate2.height = rate1.height;
     rate2.interestPerBlock = rate1.interestPerBlock;
     rate2.interestToHeight = rate1.interestToHeight;
 
@@ -283,7 +283,7 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRate &rate1) {
 
 inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRateV3 &rate3) {
     CInterestRateV2 rate2{};
-    rate2.height           = rate3.height;
+    rate2.height = rate3.height;
     rate2.interestPerBlock = rate3.interestPerBlock.amount;
     rate2.interestToHeight = rate3.interestToHeight.amount;
 
@@ -292,7 +292,7 @@ inline CInterestRateV2 ConvertInterestRateToV2(const CInterestRateV3 &rate3) {
 
 inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRate &rate1) {
     CInterestRateV3 rate3{};
-    rate3.height                  = rate1.height;
+    rate3.height = rate1.height;
     rate3.interestPerBlock.amount = rate1.interestPerBlock;
     rate3.interestToHeight.amount = rate1.interestToHeight;
 
@@ -301,7 +301,7 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRate &rate1) {
 
 inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2 &rate2) {
     CInterestRateV3 rate3{};
-    rate3.height           = rate2.height;
+    rate3.height = rate2.height;
     rate3.interestPerBlock = {false, rate2.interestPerBlock};
     rate3.interestToHeight = {false, rate2.interestToHeight};
 
@@ -311,14 +311,14 @@ inline CInterestRateV3 ConvertInterestRateToV3(const CInterestRateV2 &rate2) {
 inline auto InterestAddition = [](const CInterestAmount &a, const CInterestAmount &b) {
     CInterestAmount interest;
     if (a.negative == b.negative) {
-        interest.amount   = a.amount + b.amount;
+        interest.amount = a.amount + b.amount;
         interest.negative = b.negative;
     } else {
         if (a.amount > b.amount) {
-            interest.amount   = a.amount - b.amount;
+            interest.amount = a.amount - b.amount;
             interest.negative = a.negative;
         } else {
-            interest.amount   = b.amount - a.amount;
+            interest.amount = b.amount - a.amount;
             interest.negative = !a.negative;
         }
     }
@@ -403,7 +403,7 @@ public:
 class CLoanView : public virtual CStorageView {
 public:
     using CLoanSetCollateralTokenImpl = CLoanSetCollateralTokenImplementation;
-    using CLoanSetLoanTokenImpl       = CLoanSetLoanTokenImplementation;
+    using CLoanSetLoanTokenImpl = CLoanSetLoanTokenImplementation;
 
     std::optional<CLoanSetCollateralTokenImpl> GetLoanCollateralToken(const uint256 &txid) const;
     Res CreateLoanCollateralToken(const CLoanSetCollateralTokenImpl &collToken);
@@ -457,13 +457,13 @@ public:
                        const DCT_ID id);
     void ForEachVaultInterest(std::function<bool(const CVaultId &, DCT_ID, CInterestRate)> callback,
                               const CVaultId &vaultId = {},
-                              DCT_ID id               = {});
+                              DCT_ID id = {});
     void ForEachVaultInterestV2(std::function<bool(const CVaultId &, DCT_ID, CInterestRateV2)> callback,
                                 const CVaultId &vaultId = {},
-                                DCT_ID id               = {});
+                                DCT_ID id = {});
     void ForEachVaultInterestV3(std::function<bool(const CVaultId &, DCT_ID, CInterestRateV3)> callback,
                                 const CVaultId &vaultId = {},
-                                DCT_ID id               = {});
+                                DCT_ID id = {});
     void RevertInterestRateToV1();
     void RevertInterestRateToV2();
     void MigrateInterestRateToV2(CVaultView &view, uint32_t height);

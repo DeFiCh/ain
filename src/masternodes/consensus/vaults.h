@@ -17,12 +17,12 @@ struct CAuctionBidMessage;
 class CVaultsConsensus : public CCustomTxVisitor {
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CVaultMessage& obj) const;
-    Res operator()(const CCloseVaultMessage& obj) const;
-    Res operator()(const CUpdateVaultMessage& obj) const;
-    Res operator()(const CDepositToVaultMessage& obj) const;
-    Res operator()(const CWithdrawFromVaultMessage& obj) const;
-    Res operator()(const CAuctionBidMessage& obj) const;
+    Res operator()(const CVaultMessage &obj) const;
+    Res operator()(const CCloseVaultMessage &obj) const;
+    Res operator()(const CUpdateVaultMessage &obj) const;
+    Res operator()(const CDepositToVaultMessage &obj) const;
+    Res operator()(const CWithdrawFromVaultMessage &obj) const;
+    Res operator()(const CAuctionBidMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_VAULTS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_VAULTS_H

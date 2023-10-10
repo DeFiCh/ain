@@ -54,14 +54,14 @@ Res CProposalView::CreateProposal(const CProposalId &propId,
                                   const CAmount fee) {
     CProposalObject prop{msg};
     bool emergency = prop.options & CProposalOption::Emergency;
-    auto type      = static_cast<CProposalType>(prop.type);
+    auto type = static_cast<CProposalType>(prop.type);
 
-    prop.creationHeight    = height;
-    prop.votingPeriod      = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
+    prop.creationHeight = height;
+    prop.votingPeriod = (emergency ? GetEmergencyPeriodFromAttributes(type) : GetVotingPeriodFromAttributes());
     prop.approvalThreshold = GetApprovalThresholdFromAttributes(type);
-    prop.quorum            = GetQuorumFromAttributes(type, emergency);
-    prop.fee               = fee;
-    prop.feeBurnAmount     = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
+    prop.quorum = GetQuorumFromAttributes(type, emergency);
+    prop.fee = fee;
+    prop.feeBurnAmount = MultiplyAmounts(fee, GetFeeBurnPctFromAttributes());
 
     auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     WriteBy<ByStatus>(key, static_cast<uint8_t>(1));
@@ -83,17 +83,20 @@ Res CProposalView::CreateProposal(const CProposalId &propId,
 
 std::optional<CProposalObject> CProposalView::GetProposal(const CProposalId &propId) {
     auto prop = ReadBy<ByType, CProposalObject>(propId);
-    if (!prop)
+    if (!prop) {
         return prop;
+    }
 
     auto guessStatus = [&](CProposalStatusType status) {
         auto key = std::make_pair(uint8_t(status), propId);
         if (auto cycle = ReadBy<ByStatus, uint8_t>(key)) {
-            prop->cycle          = *cycle;
-            prop->status         = status;
-            prop->cycleEndHeight = prop->options & CProposalOption::Emergency ? prop->proposalEndHeight : prop->creationHeight +
-                                   (prop->votingPeriod - prop->creationHeight % prop->votingPeriod) +
-                                   prop->votingPeriod * *cycle;
+            prop->cycle = *cycle;
+            prop->status = status;
+            prop->cycleEndHeight = prop->options & CProposalOption::Emergency
+                                       ? prop->proposalEndHeight
+                                       : prop->creationHeight +
+                                             (prop->votingPeriod - prop->creationHeight % prop->votingPeriod) +
+                                             prop->votingPeriod * *cycle;
             return true;
         }
         return false;
@@ -104,13 +107,15 @@ std::optional<CProposalObject> CProposalView::GetProposal(const CProposalId &pro
 }
 
 Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle) {
-    auto key    = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
+    auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
-    if (!pcycle)
+    if (!pcycle) {
         Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
+    }
 
-    if (*pcycle >= cycle)
+    if (*pcycle >= cycle) {
         return Res::Err("New cycle should be greater than old one");
+    }
 
     WriteBy<ByStatus>(key, cycle);
 
@@ -118,23 +123,25 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle)
     auto prop = GetProposal(propId);
     assert(prop);
     bool emergency = prop->options & CProposalOption::Emergency;
-    auto type      = static_cast<CProposalType>(prop->type);
+    auto type = static_cast<CProposalType>(prop->type);
 
     prop->approvalThreshold = GetApprovalThresholdFromAttributes(type);
-    prop->quorum            = GetQuorumFromAttributes(type, emergency);
+    prop->quorum = GetQuorumFromAttributes(type, emergency);
     WriteBy<ByType>(propId, *prop);
 
     return Res::Ok();
 }
 
 Res CProposalView::UpdateProposalStatus(const CProposalId &propId, uint32_t height, CProposalStatusType status) {
-    auto key  = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
+    auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto stat = ReadBy<ByStatus, uint8_t>(key);
-    if (!stat)
+    if (!stat) {
         return Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
+    }
 
-    if (status == CProposalStatusType::Voting)
+    if (status == CProposalStatusType::Voting) {
         return Res::Err("Proposal <%s> is already in voting period", propId.GetHex());
+    }
 
     EraseBy<ByStatus>(key);
 
@@ -144,9 +151,9 @@ Res CProposalView::UpdateProposalStatus(const CProposalId &propId, uint32_t heig
     auto p_prop = GetProposal(propId);
     assert(p_prop);
 
-    uint8_t i   = 0;
+    uint8_t i = 0;
     auto cycles = p_prop->nCycles;
-    auto ckey   = std::make_pair(p_prop->creationHeight, propId);
+    auto ckey = std::make_pair(p_prop->creationHeight, propId);
     for (auto it = LowerBound<ByCycle>(ckey); i < cycles && it.Valid(); it.Next()) {
         if (it.Key().second == propId) {
             EraseBy<ByCycle>(it.Key());
@@ -163,8 +170,9 @@ Res CProposalView::UpdateProposalStatus(const CProposalId &propId, uint32_t heig
 
 Res CProposalView::AddProposalVote(const CProposalId &propId, const uint256 &masternodeId, CProposalVoteType vote) {
     auto cycle = ReadBy<ByStatus, uint8_t>(std::make_pair(uint8_t(CProposalStatusType::Voting), propId));
-    if (!cycle)
+    if (!cycle) {
         return Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
+    }
 
     CMnVotePerCycle key{propId, *cycle, masternodeId};
     WriteBy<ByMnVote>(key, uint8_t(vote));
@@ -176,8 +184,9 @@ std::optional<CProposalVoteType> CProposalView::GetProposalVote(const CProposalI
                                                                 const uint256 &masternodeId) {
     CMnVotePerCycle key{propId, cycle, masternodeId};
     auto vote = ReadBy<ByMnVote, uint8_t>(key);
-    if (!vote)
+    if (!vote) {
         return {};
+    }
     return static_cast<CProposalVoteType>(*vote);
 }
 
@@ -208,8 +217,9 @@ void CProposalView::ForEachCycleProposal(std::function<bool(const CProposalId &,
     ForEach<ByCycle, std::pair<uint32_t, uint256>, uint8_t>(
         [&](const std::pair<uint32_t, uint256> &key, uint8_t i) {
             // limited to exact height
-            if (key.first != height)
+            if (key.first != height) {
                 return false;
+            }
 
             auto prop = GetProposal(key.second);
             assert(prop);

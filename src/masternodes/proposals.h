@@ -12,15 +12,15 @@
 #include <serialize.h>
 #include <uint256.h>
 
-using CProposalId                                  = uint256;
-constexpr const uint8_t VOC_CYCLES                 = 1;
-constexpr const uint8_t MAX_CYCLES                 = 100;
-constexpr const uint16_t MAX_PROPOSAL_TITLE_SIZE   = 128;
+using CProposalId = uint256;
+constexpr const uint8_t VOC_CYCLES = 1;
+constexpr const uint8_t MAX_CYCLES = 100;
+constexpr const uint16_t MAX_PROPOSAL_TITLE_SIZE = 128;
 constexpr const uint16_t MAX_PROPOSAL_CONTEXT_SIZE = 512;
 
 enum CProposalType : uint8_t {
     CommunityFundProposal = 0x01,
-    VoteOfConfidence      = 0x02,
+    VoteOfConfidence = 0x02,
 };
 
 enum CProposalOption : uint8_t {
@@ -28,14 +28,14 @@ enum CProposalOption : uint8_t {
 };
 
 enum CProposalStatusType : uint8_t {
-    Voting    = 0x01,
-    Rejected  = 0x02,
+    Voting = 0x01,
+    Rejected = 0x02,
     Completed = 0x03,
 };
 
 enum CProposalVoteType : uint8_t {
-    VoteYes     = 0x01,
-    VoteNo      = 0x02,
+    VoteYes = 0x01,
+    VoteNo = 0x02,
     VoteNeutral = 0x03,
 };
 
@@ -157,11 +157,11 @@ public:
     void ForEachCycleProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback,
                               uint32_t height);
 
-    virtual uint32_t GetVotingPeriodFromAttributes() const                                           = 0;
-    virtual uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const               = 0;
-    virtual CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) const              = 0;
+    virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const = 0;
+    virtual CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) const = 0;
     virtual CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) const = 0;
-    virtual CAmount GetFeeBurnPctFromAttributes() const                                              = 0;
+    virtual CAmount GetFeeBurnPctFromAttributes() const = 0;
 
     struct ByType {
         static constexpr uint8_t prefix() { return 0x2B; }

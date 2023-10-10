@@ -15,14 +15,20 @@
 #include <masternodes/masternodes.h>
 
 constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_PCT =
-        "At least 50%% of the minimum required collateral must be in DFI";
+    "At least 50%% of the minimum required collateral must be in DFI";
 constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT =
-        "At least 50%% of the minimum required collateral must be in DFI or DUSD";
+    "At least 50%% of the minimum required collateral must be in DFI or DUSD";
 
-Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript &auth, AuthStrategy strategy, AuthFlags::Type flags) {
+Res HasAuth(const CTransaction &tx,
+            const CCoinsViewCache &coins,
+            const CScript &auth,
+            AuthStrategy strategy,
+            AuthFlags::Type flags) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
-        if (coin.IsSpent()) continue;
+        if (coin.IsSpent()) {
+            continue;
+        }
         if (strategy == AuthStrategy::DirectPubKeyMatch) {
             if (coin.out.scriptPubKey == auth) {
                 return Res::Ok();
@@ -36,16 +42,18 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
                 if (pubkey.Decompress()) {
                     const auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
                     const auto scriptOut = GetScriptForDestination(PKHash(pubkey));
-                    if (script == auth && coin.out.scriptPubKey == scriptOut)
+                    if (script == auth && coin.out.scriptPubKey == scriptOut) {
                         return Res::Ok();
+                    }
                 }
             } else if (flags & AuthFlags::Bech32InSource && solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
                 CPubKey pubkey(input.scriptWitness.stack[1]);
                 const auto scriptOut = GetScriptForDestination(WitnessV0KeyHash(pubkey));
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
-                    if (script == auth && coin.out.scriptPubKey == scriptOut)
+                    if (script == auth && coin.out.scriptPubKey == scriptOut) {
                         return Res::Ok();
+                    }
                 }
             }
         }
@@ -56,7 +64,9 @@ Res HasAuth(const CTransaction &tx, const CCoinsViewCache &coins, const CScript 
 Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
-        if (coin.IsSpent()) continue;
+        if (coin.IsSpent()) {
+            continue;
+        }
 
         std::vector<TBytes> vRet;
         const auto solution = Solver(coin.out.scriptPubKey, vRet);
@@ -89,16 +99,16 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const std::shared_ptr<CScopedQueueID> &evmQueueId,
                                    const bool isEvmEnabledForBlock,
                                    const bool evmPreValidate)
-        : height(height),
-          mnview(mnview),
-          tx(tx),
-          coins(coins),
-          consensus(consensus),
-          time(time),
-          txn(txn),
-          evmQueueId(evmQueueId),
-          isEvmEnabledForBlock(isEvmEnabledForBlock),
-          evmPreValidate(evmPreValidate) {}
+    : height(height),
+      mnview(mnview),
+      tx(tx),
+      coins(coins),
+      consensus(consensus),
+      time(time),
+      txn(txn),
+      evmQueueId(evmQueueId),
+      isEvmEnabledForBlock(isEvmEnabledForBlock),
+      evmPreValidate(evmPreValidate) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
     return ::HasAuth(tx, coins, auth);
@@ -111,14 +121,14 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
 }
 
 Res CCustomTxVisitor::HasFoundationAuth() const {
-    auto members          = consensus.foundationMembers;
+    auto members = consensus.foundationMembers;
     const auto attributes = mnview.GetAttributes();
     assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
         if (const auto databaseMembers = attributes->GetValue(
-                    CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
-                !databaseMembers.empty()) {
+                CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
+            !databaseMembers.empty()) {
             members = databaseMembers;
         }
     }
@@ -133,10 +143,12 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
 }
 
 Res CCustomTxVisitor::CheckCustomTx() const {
-    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
+    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
         Require(tx.vout.size() == 2, "malformed tx vouts ((wrong number of vouts)");
-    if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight)
+    }
+    if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
         Require(tx.vout[0].nValue == 0, "malformed tx vouts, first vout must be OP_RETURN vout with value 0");
+    }
     return Res::Ok();
 }
 
@@ -227,8 +239,8 @@ Res CCustomTxVisitor::SubBalancesDelShares(const CAccounts &accounts) const {
 }
 
 Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
-                       const CVaultAssets &vaultAssets,
-                       const uint32_t ratio) const {
+                                         const CVaultAssets &vaultAssets,
+                                         const uint32_t ratio) const {
     std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
@@ -236,10 +248,9 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
 
     // Calculate DFI and DUSD value separately
     CAmount totalCollateralsDUSD = 0;
-    CAmount totalCollateralsDFI  = 0;
-    CAmount factorDUSD           = 0;
-    CAmount factorDFI            = 0;
-
+    CAmount totalCollateralsDFI = 0;
+    CAmount factorDUSD = 0;
+    CAmount factorDFI = 0;
 
     auto hasDUSDColl = false;
     auto hasOtherColl = false;
@@ -255,7 +266,7 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
         if (tokenDUSD && col.nTokenId == tokenDUSD->first) {
             totalCollateralsDUSD += col.nValue;
             factorDUSD = token->factor;
-            hasDUSDColl= true;
+            hasDUSDColl = true;
         } else {
             hasOtherColl = true;
         }
@@ -263,65 +274,72 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
 
     // Height checks
     auto isPostFCH = static_cast<int>(height) >= consensus.DF14FortCanningHillHeight;
-    auto isPreFCH  = static_cast<int>(height) < consensus.DF14FortCanningHillHeight;
+    auto isPreFCH = static_cast<int>(height) < consensus.DF14FortCanningHillHeight;
     auto isPostFCE = static_cast<int>(height) >= consensus.DF19FortCanningEpilogueHeight;
     auto isPostFCR = static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight;
-    auto isPostGC  = static_cast<int>(height) >= consensus.DF20GrandCentralHeight;
-    auto isPostNext =  static_cast<int>(height) >= consensus.DF22MetachainHeight;
+    auto isPostGC = static_cast<int>(height) >= consensus.DF20GrandCentralHeight;
+    auto isPostNext = static_cast<int>(height) >= consensus.DF22MetachainHeight;
 
-    if(isPostNext) {
+    if (isPostNext) {
         const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};
         auto attributes = mnview.GetAttributes();
         assert(attributes);
         auto DUSDVaultsAllowed = attributes->GetValue(enabledKey, false);
-        if(DUSDVaultsAllowed && hasDUSDColl && !hasOtherColl) {
-            return Res::Ok(); //every loan ok when DUSD loops allowed and 100% DUSD collateral
+        if (DUSDVaultsAllowed && hasDUSDColl && !hasOtherColl) {
+            return Res::Ok();  // every loan ok when DUSD loops allowed and 100% DUSD collateral
         }
     }
 
-
     if (isPostGC) {
         totalCollateralsDUSD = MultiplyAmounts(totalCollateralsDUSD, factorDUSD);
-        totalCollateralsDFI  = MultiplyAmounts(totalCollateralsDFI, factorDFI);
+        totalCollateralsDFI = MultiplyAmounts(totalCollateralsDFI, factorDFI);
     }
     auto totalCollaterals = totalCollateralsDUSD + totalCollateralsDFI;
 
     // Condition checks
     auto isDFILessThanHalfOfTotalCollateral =
-            arith_uint256(totalCollateralsDFI) < arith_uint256(vaultAssets.totalCollaterals) / 2;
+        arith_uint256(totalCollateralsDFI) < arith_uint256(vaultAssets.totalCollaterals) / 2;
     auto isDFIAndDUSDLessThanHalfOfRequiredCollateral =
-            arith_uint256(totalCollaterals) * 100 < (arith_uint256(vaultAssets.totalLoans) * ratio / 2);
+        arith_uint256(totalCollaterals) * 100 < (arith_uint256(vaultAssets.totalLoans) * ratio / 2);
     auto isDFILessThanHalfOfRequiredCollateral =
-            arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(vaultAssets.totalLoans) * ratio / 2);
+        arith_uint256(totalCollateralsDFI) * 100 < (arith_uint256(vaultAssets.totalLoans) * ratio / 2);
 
     if (isPostFCE) {
         if (hasDUSDLoans) {
-            if (isDFILessThanHalfOfRequiredCollateral)
+            if (isDFILessThanHalfOfRequiredCollateral) {
                 return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
+            }
         } else {
-            if (isDFIAndDUSDLessThanHalfOfRequiredCollateral)
+            if (isDFIAndDUSDLessThanHalfOfRequiredCollateral) {
                 return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT));
+            }
         }
         return Res::Ok();
     }
 
-    if (isPostFCR)
+    if (isPostFCR) {
         return isDFIAndDUSDLessThanHalfOfRequiredCollateral
-               ? Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT))
-               : Res::Ok();
+                   ? Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT))
+                   : Res::Ok();
+    }
 
-    if (isPostFCH)
+    if (isPostFCH) {
         return isDFILessThanHalfOfRequiredCollateral ? Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT))
                                                      : Res::Ok();
+    }
 
-    if (isPreFCH && isDFILessThanHalfOfTotalCollateral)
+    if (isPreFCH && isDFILessThanHalfOfTotalCollateral) {
         return Res::Err(std::string(ERR_STRING_MIN_COLLATERAL_DFI_PCT));
+    }
 
     return Res::Ok();
 }
 
-ResVal<CVaultAssets> CCustomTxVisitor::CheckCollateralRatio(const CVaultId& vaultId, const CLoanSchemeData& scheme, const CBalances& collaterals, bool useNextPrice, bool requireLivePrice) const {
-
+ResVal<CVaultAssets> CCustomTxVisitor::CheckCollateralRatio(const CVaultId &vaultId,
+                                                            const CLoanSchemeData &scheme,
+                                                            const CBalances &collaterals,
+                                                            bool useNextPrice,
+                                                            bool requireLivePrice) const {
     auto vaultAssets = mnview.GetVaultAssets(vaultId, collaterals, height, time, useNextPrice, requireLivePrice);
     if (!vaultAssets) {
         return vaultAssets;
