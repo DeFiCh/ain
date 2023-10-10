@@ -438,6 +438,7 @@ fmt() {
 }
 
 fmt_py() {
+    echo "> fmt: py"
     py_ensure_env_active
     _exec_black
     py_env_deactivate
@@ -448,11 +449,14 @@ fmt_rs() {
 }
 
 fmt_cpp() {
-    # TODO
-    :
+    echo "> fmt: cpp"
+    local clang_ver=${CLANG_DEFAULT_VERSION}
+    find src/masternodes \( -iname "*.cpp" -o -iname "*.h" \) \
+        -exec clang-format-"${clang_ver}" -i -style=file {} \;
 }
 
 fmt_lib() {
+    echo "> fmt: rs"
     check_enter_build_rs_dir
     lib fmt
     _exit_dir

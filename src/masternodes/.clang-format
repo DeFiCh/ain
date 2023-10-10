@@ -101,7 +101,7 @@ IncludeCategories:
     CaseSensitive:   false
 IncludeIsMainRegex: '([-_](test|unittest))?$'
 IncludeIsMainSourceRegex: ''
-IndentAccessModifiers: true 
+IndentAccessModifiers: false 
 IndentCaseLabels: true
 IndentCaseBlocks: false
 IndentGotoLabels: true
