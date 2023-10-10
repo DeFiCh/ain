@@ -75,7 +75,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     ) -> RpcResult<()> {
         let limit = limit
             .map_or(Ok(usize::MAX), |s| s.parse())
-            .map_err(|e| Error::Custom(format!("{e}")))?;
+            .map_err(|e| Error::Custom(e.to_string()))?;
         self.handler
             .storage
             .dump_db(arg.unwrap_or(DumpArg::All), start, limit);
