@@ -417,7 +417,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 1244000;
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22MetachainHeight = 1948000;
+        consensus.DF22MetachainHeight = 1949500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
