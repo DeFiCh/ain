@@ -450,7 +450,7 @@ fmt_rs() {
 
 fmt_cpp() {
     echo "> fmt: cpp"
-    local clang_ver=${CLANG_DEFAULT_VERSION:-15}
+    local clang_ver=${CLANG_DEFAULT_VERSION}
     local clang_formatters=("clang-format-${clang_ver}" "clang-format")
     local index=-1
     for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
