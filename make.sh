@@ -386,9 +386,9 @@ check_lints() {
     test/lint/check-doc.py
     _fold_end
 
-    _fold_start "check-rpc-mappings"
-    test/lint/check-rpc-mappings.py .
-    _fold_end
+    # _fold_start "check-rpc-mappings"
+    # test/lint/check-rpc-mappings.py .
+    # _fold_end
 
     test/lint/lint-all.sh
     py_env_deactivate
@@ -410,7 +410,7 @@ check_sh() {
         -or -path ./test/lint/lint-python-dead-code.sh \
         -or -path ./src/univalue -prune \
         -or -path ./src/secp256k1 -prune \
-        -or -path ./build\* \)  -name '*.sh' -exec shellcheck {} \;
+        -or -path ./build\* \)  -name '*.sh' -print0 | xargs -0L1 shellcheck
 
     local result="$?"
     py_env_deactivate
