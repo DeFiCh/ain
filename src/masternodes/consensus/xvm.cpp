@@ -262,6 +262,13 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainSmartContractDestAddress();
             }
 
+            // Once Changi is retired remove this guard. Added to avoid unintentional
+            // fork on Changi or the need to perform another rollback.
+            if (Params().NetworkIDString() != CBaseChainParams::CHANGI) {
+                // Calculate source address rewards
+                CalculateOwnerRewards(src.address);
+            }
+
             // Subtract balance from DFI address
             res = mnview.SubBalance(src.address, src.amount);
             if (!res) {
