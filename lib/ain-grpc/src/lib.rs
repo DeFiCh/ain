@@ -29,23 +29,24 @@ use std::{
 
 use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
 use anyhow::{format_err, Result};
-use hyper::header::HeaderValue;
-use hyper::Method;
+use hyper::{header::HeaderValue, Method};
 use jsonrpsee::core::server::rpc_module::Methods;
 use jsonrpsee_server::ServerBuilder;
 use log::info;
 use logging::CppLogTarget;
 use tower_http::cors::CorsLayer;
 
-use crate::rpc::{
-    debug::{MetachainDebugRPCModule, MetachainDebugRPCServer},
-    eth::{MetachainRPCModule, MetachainRPCServer},
-    net::{MetachainNetRPCModule, MetachainNetRPCServer},
-    web3::{MetachainWeb3RPCModule, MetachainWeb3RPCServer},
-};
-use crate::subscription::{
-    eth::{MetachainPubSubModule, MetachainPubSubServer},
-    MetachainSubIdProvider,
+use crate::{
+    rpc::{
+        debug::{MetachainDebugRPCModule, MetachainDebugRPCServer},
+        eth::{MetachainRPCModule, MetachainRPCServer},
+        net::{MetachainNetRPCModule, MetachainNetRPCServer},
+        web3::{MetachainWeb3RPCModule, MetachainWeb3RPCServer},
+    },
+    subscription::{
+        eth::{MetachainPubSubModule, MetachainPubSubServer},
+        MetachainSubIdProvider,
+    },
 };
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
