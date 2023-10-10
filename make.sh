@@ -358,7 +358,7 @@ check() {
     check_py
     check_rs
     # check_lints
-    # check_cpp
+    check_cpp
 }
 
 check_git_dirty() {
@@ -410,14 +410,13 @@ check_sh() {
         -or -path ./test/lint/lint-python-dead-code.sh \
         -or -path ./src/univalue -prune \
         -or -path ./src/secp256k1 -prune \
-        -or -path ./build\* \)  -name '*.sh' -exec shellcheck {} \;
+        -or -path ./build\* \)  -name '*.sh' -exec bash -c "shellcheck {} || exit 1" \;
 
     py_env_deactivate
 }
 
 check_cpp() {
-    # TODO
-    :
+    _run_clang_format 1
 }
 
 check_enter_build_rs_dir() {
@@ -450,9 +449,16 @@ fmt_rs() {
 
 fmt_cpp() {
     echo "> fmt: cpp"
+    _run_clang_format 0
+}
+
+_run_clang_format() {
+    local check_only=${1:-0}
     local clang_ver=${CLANG_DEFAULT_VERSION}
     local clang_formatters=("clang-format-${clang_ver}" "clang-format")
     local index=-1
+    local fmt_args=""
+
     for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
         if "${clang_formatters[$idx]}" --version &> /dev/null; then 
             index="$idx"
@@ -460,12 +466,16 @@ fmt_cpp() {
         fi
     done
     if [[ "$index" == -1 ]]; then
-        echo "No clang formatter found". 
+        echo "clang-format(-${clang_ver}) required" 
         exit 1
     fi
 
+    if [[ "$check_only" == 1 ]]; then
+        fmt_args="--dry-run --Werror"
+    fi 
+
     find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) \
-        -exec "${clang_formatters[$index]}" -i -style=file {} +;
+        -exec "${clang_formatters[$index]}" $fmt_args -i -style=file {} +;
 }
 
 fmt_lib() {
