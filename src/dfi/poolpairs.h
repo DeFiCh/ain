@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_POOLPAIRS_H
-#define DEFI_MASTERNODES_POOLPAIRS_H
+#ifndef DEFI_DFI_POOLPAIRS_H
+#define DEFI_DFI_POOLPAIRS_H
 
 #include <flushablestorage.h>
 
@@ -372,4 +372,4 @@ struct CRemoveLiquidityMessage {
 bool poolInFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee);
 bool poolOutFee(const bool forward, const std::pair<CFeeDir, CFeeDir> &asymmetricFee);
 
-#endif  // DEFI_MASTERNODES_POOLPAIRS_H
+#endif  // DEFI_DFI_POOLPAIRS_H

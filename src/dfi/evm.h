@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_EVM_H
-#define DEFI_MASTERNODES_EVM_H
+#ifndef DEFI_DFI_EVM_H
+#define DEFI_DFI_EVM_H
 
 #include <amount.h>
 #include <dfi/consensus/xvm.h>
@@ -68,4 +68,4 @@ public:
     uint64_t GetQueueID() const;
 };
 
-#endif  // DEFI_MASTERNODES_EVM_H
+#endif  // DEFI_DFI_EVM_H

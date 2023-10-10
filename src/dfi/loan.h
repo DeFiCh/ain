@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_LOAN_H
-#define DEFI_MASTERNODES_LOAN_H
+#ifndef DEFI_DFI_LOAN_H
+#define DEFI_DFI_LOAN_H
 
 #include <amount.h>
 #include <uint256.h>
@@ -524,4 +524,4 @@ public:
     };
 };
 
-#endif  // DEFI_MASTERNODES_LOAN_H
+#endif  // DEFI_DFI_LOAN_H

@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_AUCTIONHISTORY_H
-#define DEFI_MASTERNODES_AUCTIONHISTORY_H
+#ifndef DEFI_DFI_AUCTIONHISTORY_H
+#define DEFI_DFI_AUCTIONHISTORY_H
 
 #include <amount.h>
 #include <dfi/masternodes.h>
@@ -63,4 +63,4 @@ public:
     };
 };
 
-#endif  // DEFI_MASTERNODES_AUCTIONHISTORY_H
+#endif  // DEFI_DFI_AUCTIONHISTORY_H

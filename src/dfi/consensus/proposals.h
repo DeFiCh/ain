@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_CONSENSUS_PROPOSALS_H
-#define DEFI_MASTERNODES_CONSENSUS_PROPOSALS_H
+#ifndef DEFI_DFI_CONSENSUS_PROPOSALS_H
+#define DEFI_DFI_CONSENSUS_PROPOSALS_H
 
 #include <dfi/consensus/txvisitor.h>
 
@@ -20,4 +20,4 @@ public:
     Res operator()(const CProposalVoteMessage &obj) const;
 };
 
-#endif  // DEFI_MASTERNODES_CONSENSUS_PROPOSALS_H
+#endif  // DEFI_DFI_CONSENSUS_PROPOSALS_H

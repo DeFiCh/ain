@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_CONSENSUS_MASTERNODES_H
-#define DEFI_MASTERNODES_CONSENSUS_MASTERNODES_H
+#ifndef DEFI_DFI_CONSENSUS_DFI_H
+#define DEFI_DFI_CONSENSUS_DFI_H
 
 #include <dfi/consensus/txvisitor.h>
 
@@ -21,4 +21,4 @@ public:
     Res operator()(const CUpdateMasterNodeMessage &obj) const;
 };
 
-#endif  // DEFI_MASTERNODES_CONSENSUS_MASTERNODES_H
+#endif  // DEFI_DFI_CONSENSUS_DFI_H

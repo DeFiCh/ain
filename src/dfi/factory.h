@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_FACTORY_H
-#define DEFI_MASTERNODES_FACTORY_H
+#ifndef DEFI_DFI_FACTORY_H
+#define DEFI_DFI_FACTORY_H
 
 #include <map>
 #include <string>
@@ -63,4 +63,4 @@ template <typename TBaseType, typename TDerivedType>
 typename AutoRegistrator<TBaseType, TDerivedType>::exec_registrate
     AutoRegistrator<TBaseType, TDerivedType>::register_object;
 
-#endif  // DEFI_MASTERNODES_FACTORY_H
+#endif  // DEFI_DFI_FACTORY_H

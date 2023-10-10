@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_CONSENSUS_LOANS_H
-#define DEFI_MASTERNODES_CONSENSUS_LOANS_H
+#ifndef DEFI_DFI_CONSENSUS_LOANS_H
+#define DEFI_DFI_CONSENSUS_LOANS_H
 
 #include <dfi/consensus/txvisitor.h>
 
@@ -35,4 +35,4 @@ public:
     Res operator()(const CPaybackWithCollateralMessage &obj) const;
 };
 
-#endif  // DEFI_MASTERNODES_CONSENSUS_LOANS_H
+#endif  // DEFI_DFI_CONSENSUS_LOANS_H

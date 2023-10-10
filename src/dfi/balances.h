@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_BALANCES_H
-#define DEFI_MASTERNODES_BALANCES_H
+#ifndef DEFI_DFI_BALANCES_H
+#define DEFI_DFI_BALANCES_H
 
 #include <amount.h>
 #include <script/script.h>
@@ -282,4 +282,4 @@ struct BalanceKey {
         READWRITE(WrapBigEndian(tokenID.v));
     }
 };
-#endif  // DEFI_MASTERNODES_BALANCES_H
+#endif  // DEFI_DFI_BALANCES_H

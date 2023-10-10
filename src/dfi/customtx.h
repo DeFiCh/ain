@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_CUSTOMTX_H
-#define DEFI_MASTERNODES_CUSTOMTX_H
+#ifndef DEFI_DFI_CUSTOMTX_H
+#define DEFI_DFI_CUSTOMTX_H
 
 #include <amount.h>
 #include <streams.h>
@@ -137,4 +137,4 @@ inline void Unserialize(Stream &s, CustomTxType &txType) {
     txType = CustomTxCodeToType(ch);
 }
 
-#endif  // DEFI_MASTERNODES_CUSTOMTX_H
+#endif  // DEFI_DFI_CUSTOMTX_H

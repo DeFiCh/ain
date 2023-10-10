@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_RES_H
-#define DEFI_MASTERNODES_RES_H
+#ifndef DEFI_DFI_RES_H
+#define DEFI_DFI_RES_H
 
 #include <tinyformat.h>
 #include <functional>
@@ -130,4 +130,4 @@ Res CheckRes(T &&res, std::tuple<Args...> &&args) {
         if (auto __res = ::CheckRes(x, std::make_tuple(__VA_ARGS__)); !__res) return __res; \
     } while (0)
 
-#endif  // DEFI_MASTERNODES_RES_H
+#endif  // DEFI_DFI_RES_H

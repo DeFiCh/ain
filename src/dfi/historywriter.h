@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_HISTORYWRITER_H
-#define DEFI_MASTERNODES_HISTORYWRITER_H
+#ifndef DEFI_DFI_HISTORYWRITER_H
+#define DEFI_DFI_HISTORYWRITER_H
 
 #include <amount.h>
 #include <dfi/loan.h>
@@ -135,4 +135,4 @@ public:
     void EraseHistory(uint32_t height, std::vector<AccountHistoryKey> &eraseBurnEntries);
 };
 
-#endif  // DEFI_MASTERNODES_HISTORYWRITER_H
+#endif  // DEFI_DFI_HISTORYWRITER_H

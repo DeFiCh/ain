@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_VALIDATION_H
-#define DEFI_MASTERNODES_VALIDATION_H
+#ifndef DEFI_DFI_VALIDATION_H
+#define DEFI_DFI_VALIDATION_H
 
 #include <amount.h>
 
@@ -36,4 +36,4 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
                                                  const TAmounts &collBalances,
                                                  const TAmounts &loanBalances);
 
-#endif  // DEFI_MASTERNODES_VALIDATION_H
+#endif  // DEFI_DFI_VALIDATION_H

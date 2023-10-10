@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_THREADPOOL_H
-#define DEFI_MASTERNODES_THREADPOOL_H
+#ifndef DEFI_DFI_THREADPOOL_H
+#define DEFI_DFI_THREADPOOL_H
 
 #include <sync.h>
 #include <atomic>
@@ -77,4 +77,4 @@ private:
 
 extern std::unique_ptr<TaskPool> DfTxTaskPool;
 
-#endif  // DEFI_MASTERNODES_THREADPOOL_H
+#endif  // DEFI_DFI_THREADPOOL_H

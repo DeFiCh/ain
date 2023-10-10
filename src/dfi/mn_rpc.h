@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_MN_RPC_H
-#define DEFI_MASTERNODES_MN_RPC_H
+#ifndef DEFI_DFI_MN_RPC_H
+#define DEFI_DFI_MN_RPC_H
 
 #include <arith_uint256.h>
 #include <univalue.h>
@@ -99,4 +99,4 @@ CPubKey PublickeyFromString(const std::string &pubkey);
 std::optional<CScript> AmIFounder(CWallet *const pwallet);
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId);
 std::string CTransferDomainToString(const VMDomain domain);
-#endif  // DEFI_MASTERNODES_MN_RPC_H
+#endif  // DEFI_DFI_MN_RPC_H

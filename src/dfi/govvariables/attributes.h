@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
-#define DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
+#ifndef DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
+#define DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
 
 #include <amount.h>
 #include <dfi/balances.h>
@@ -597,4 +597,4 @@ private:
     Res RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height);
 };
 
-#endif  // DEFI_MASTERNODES_GOVVARIABLES_ATTRIBUTES_H
+#endif  // DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H

@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_CONSENSUS_TXVISITOR_H
-#define DEFI_MASTERNODES_CONSENSUS_TXVISITOR_H
+#ifndef DEFI_DFI_CONSENSUS_TXVISITOR_H
+#define DEFI_DFI_CONSENSUS_TXVISITOR_H
 
 #include <amount.h>
 #include <dfi/balances.h>
@@ -95,4 +95,4 @@ protected:
                                               bool requireLivePrice) const;
 };
 
-#endif  // DEFI_MASTERNODES_CONSENSUS_TXVISITOR_H
+#endif  // DEFI_DFI_CONSENSUS_TXVISITOR_H

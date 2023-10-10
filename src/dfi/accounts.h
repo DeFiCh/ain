@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_ACCOUNTS_H
-#define DEFI_MASTERNODES_ACCOUNTS_H
+#ifndef DEFI_DFI_ACCOUNTS_H
+#define DEFI_DFI_ACCOUNTS_H
 
 #include <amount.h>
 #include <dfi/balances.h>
@@ -215,4 +215,4 @@ private:
     Res SetBalance(const CScript &owner, CTokenAmount amount);
 };
 
-#endif  // DEFI_MASTERNODES_ACCOUNTS_H
+#endif  // DEFI_DFI_ACCOUNTS_H

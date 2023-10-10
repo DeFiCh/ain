@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_GOVVARIABLES_LP_DAILY_DFI_REWARD_H
-#define DEFI_MASTERNODES_GOVVARIABLES_LP_DAILY_DFI_REWARD_H
+#ifndef DEFI_DFI_GOVVARIABLES_LP_DAILY_DFI_REWARD_H
+#define DEFI_DFI_GOVVARIABLES_LP_DAILY_DFI_REWARD_H
 
 #include <amount.h>
 #include <dfi/gv.h>
@@ -35,4 +35,4 @@ public:
     GvOptional<CAmount> dailyReward;
 };
 
-#endif  // DEFI_MASTERNODES_GOVVARIABLES_LP_DAILY_DFI_REWARD_H
+#endif  // DEFI_DFI_GOVVARIABLES_LP_DAILY_DFI_REWARD_H

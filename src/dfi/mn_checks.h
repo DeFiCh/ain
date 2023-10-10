@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_MN_CHECKS_H
-#define DEFI_MASTERNODES_MN_CHECKS_H
+#ifndef DEFI_DFI_MN_CHECKS_H
+#define DEFI_DFI_MN_CHECKS_H
 
 #include <consensus/params.h>
 #include <consensus/tx_check.h>
@@ -240,4 +240,4 @@ public:
     CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };
 
-#endif  // DEFI_MASTERNODES_MN_CHECKS_H
+#endif  // DEFI_DFI_MN_CHECKS_H

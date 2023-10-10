@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_TOKENS_H
-#define DEFI_MASTERNODES_TOKENS_H
+#ifndef DEFI_DFI_TOKENS_H
+#define DEFI_DFI_TOKENS_H
 
 #include <amount.h>
 #include <dfi/balances.h>
@@ -224,4 +224,4 @@ private:
     std::optional<DCT_ID> ReadLastDctId() const;
 };
 
-#endif  // DEFI_MASTERNODES_TOKENS_H
+#endif  // DEFI_DFI_TOKENS_H

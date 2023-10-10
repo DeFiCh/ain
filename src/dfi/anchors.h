@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_ANCHORS_H
-#define DEFI_MASTERNODES_ANCHORS_H
+#ifndef DEFI_DFI_ANCHORS_H
+#define DEFI_DFI_ANCHORS_H
 
 #include <pubkey.h>
 #include <script/script.h>
@@ -505,4 +505,4 @@ using PendingSet = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
 extern const PendingOrderType PendingOrder;
 }  // namespace spv
 
-#endif  // DEFI_MASTERNODES_ANCHORS_H
+#endif  // DEFI_DFI_ANCHORS_H

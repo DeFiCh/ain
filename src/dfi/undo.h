@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_UNDO_H
-#define DEFI_MASTERNODES_UNDO_H
+#ifndef DEFI_DFI_UNDO_H
+#define DEFI_DFI_UNDO_H
 
 #include <flushablestorage.h>
 #include <serialize.h>
@@ -59,4 +59,4 @@ struct CUndo {
     }
 };
 
-#endif  // DEFI_MASTERNODES_UNDO_H
+#endif  // DEFI_DFI_UNDO_H

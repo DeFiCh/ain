@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_ICXORDER_H
-#define DEFI_MASTERNODES_ICXORDER_H
+#ifndef DEFI_DFI_ICXORDER_H
+#define DEFI_DFI_ICXORDER_H
 
 #include <tuple>
 
@@ -518,4 +518,4 @@ public:
     };
 };
 
-#endif  // DEFI_MASTERNODES_ICXORDER_H
+#endif  // DEFI_DFI_ICXORDER_H

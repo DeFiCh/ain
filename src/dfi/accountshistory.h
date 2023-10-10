@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_ACCOUNTSHISTORY_H
-#define DEFI_MASTERNODES_ACCOUNTSHISTORY_H
+#ifndef DEFI_DFI_ACCOUNTSHISTORY_H
+#define DEFI_DFI_ACCOUNTSHISTORY_H
 
 #include <amount.h>
 #include <dfi/auctionhistory.h>
@@ -76,4 +76,4 @@ extern std::unique_ptr<CBurnHistoryStorage> pburnHistoryDB;
 
 static constexpr bool DEFAULT_ACINDEX = true;
 
-#endif  // DEFI_MASTERNODES_ACCOUNTSHISTORY_H
+#endif  // DEFI_DFI_ACCOUNTSHISTORY_H

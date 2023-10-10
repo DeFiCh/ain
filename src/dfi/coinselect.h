@@ -3,8 +3,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_COINSELECT_H
-#define DEFI_MASTERNODES_COINSELECT_H
+#ifndef DEFI_DFI_COINSELECT_H
+#define DEFI_DFI_COINSELECT_H
 
 #include <util/system.h>
 #include <optional>
@@ -144,4 +144,4 @@ public:
     }
 };
 
-#endif  // DEFI_MASTERNODES_COINSELECT_H
+#endif  // DEFI_DFI_COINSELECT_H

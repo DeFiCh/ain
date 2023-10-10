@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_CONSENSUS_ORACLES_H
-#define DEFI_MASTERNODES_CONSENSUS_ORACLES_H
+#ifndef DEFI_DFI_CONSENSUS_ORACLES_H
+#define DEFI_DFI_CONSENSUS_ORACLES_H
 
 #include <dfi/consensus/txvisitor.h>
 
@@ -23,4 +23,4 @@ public:
     Res operator()(const CSetOracleDataMessage &obj) const;
 };
 
-#endif  // DEFI_MASTERNODES_CONSENSUS_ORACLES_H
+#endif  // DEFI_DFI_CONSENSUS_ORACLES_H

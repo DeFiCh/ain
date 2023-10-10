@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_MASTERNODES_INCENTIVEFUNDING_H
-#define DEFI_MASTERNODES_INCENTIVEFUNDING_H
+#ifndef DEFI_DFI_INCENTIVEFUNDING_H
+#define DEFI_DFI_INCENTIVEFUNDING_H
 
 #include <amount.h>
 #include <dfi/communityaccounttypes.h>
@@ -54,4 +54,4 @@ public:
     };
 };
 
-#endif  // DEFI_MASTERNODES_INCENTIVEFUNDING_H
+#endif  // DEFI_DFI_INCENTIVEFUNDING_H

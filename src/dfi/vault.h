@@ -1,5 +1,5 @@
-#ifndef DEFI_MASTERNODES_VAULT_H
-#define DEFI_MASTERNODES_VAULT_H
+#ifndef DEFI_DFI_VAULT_H
+#define DEFI_DFI_VAULT_H
 
 #include <amount.h>
 #include <uint256.h>
@@ -195,4 +195,4 @@ public:
     };
 };
 
-#endif  // DEFI_MASTERNODES_VAULT_H
+#endif  // DEFI_DFI_VAULT_H
