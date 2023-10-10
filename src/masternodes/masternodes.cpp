@@ -784,6 +784,7 @@ CCustomCSView::CCustomCSView(CStorageKV &st)
 // cache-upon-a-cache (not a copy!) constructor
 CCustomCSView::CCustomCSView(CCustomCSView &other)
     : CStorageView(new CFlushableStorageKV(other.DB())),
+      calculatedAddresses(other.GetCalculatedAddresses()),
       writers(other.GetHistoryWriters()) {
     CheckPrefixes();
 }
@@ -1308,6 +1309,14 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     }
 
     return {};
+}
+
+void CCustomCSView::SetCalculatedAddresses(std::shared_ptr<std::set<CScript>> &addresses) {
+    calculatedAddresses = addresses;
+}
+
+std::shared_ptr<std::set<CScript>>& CCustomCSView::GetCalculatedAddresses() {
+    return calculatedAddresses;
 }
 
 uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {

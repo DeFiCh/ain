@@ -2643,6 +2643,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CAmount nFees = 0;
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
+
+    std::shared_ptr<std::set<CScript>> calculatedAddresses;
+    mnview.SetCalculatedAddresses(calculatedAddresses);
+
     // it's used for account changes by the block
     // to calculate their merkle root in isolation
     CCustomCSView accountsView(mnview);

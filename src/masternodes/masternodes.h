@@ -539,6 +539,8 @@ private:
                                bool useNextPrice,
                                bool requireLivePrice);
 
+    std::shared_ptr<std::set<CScript>> calculatedAddresses;
+
 protected:
     CHistoryWriters writers;
 
@@ -606,8 +608,10 @@ public:
 
     uint256 MerkleRoot();
 
-    // virtual CHistoryWriters& GetHistoryWriters() { return writers; }
     virtual CHistoryWriters &GetHistoryWriters() { return writers; }
+
+    void SetCalculatedAddresses(std::shared_ptr<std::set<CScript>> &addresses);
+    [[nodiscard]] std::shared_ptr<std::set<CScript>>& GetCalculatedAddresses();
 
     // we construct it as it
     CFlushableStorageKV &GetStorage() { return static_cast<CFlushableStorageKV &>(DB()); }

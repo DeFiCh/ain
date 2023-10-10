@@ -204,9 +204,16 @@ Res CCustomTxVisitor::DelShares(const CScript &owner, const TAmounts &balances) 
 
 // we need proxy view to prevent add/sub balance record
 void CCustomTxVisitor::CalculateOwnerRewards(const CScript &owner) const {
+    auto& calculatedAddresses = mnview.GetCalculatedAddresses();
+    if (calculatedAddresses && calculatedAddresses->count(owner)) return;
+
     CCustomCSView view(mnview);
     view.CalculateOwnerRewards(owner, height);
     view.Flush();
+
+    if (calculatedAddresses) {
+        calculatedAddresses->insert(owner);
+    }
 }
 
 Res CCustomTxVisitor::SubBalanceDelShares(const CScript &owner, const CBalances &balance) const {
