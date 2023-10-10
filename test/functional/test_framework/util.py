@@ -353,6 +353,8 @@ MAX_NODES = 12
 PORT_MIN = 11000
 # The number of ports to "reserve" for p2p and rpc, each
 PORT_RANGE = 5000
+# Don't assign rpc or p2p ports higher than this
+PORT_MAX = 65000
 
 
 class PortSeed:
@@ -388,16 +390,17 @@ def get_rpc_proxy(url, node_number, timeout=None, coveragedir=None):
 
 
 def p2p_port(n):
-    assert n <= MAX_NODES
-    return PORT_MIN + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
+    return rpc_port(n, 0)
 
 
 def rpc_port(n, i):
+    # We space out n, the node index, and i the item
+    # Additionally, use a reasonably large enough prime to tame the port seed
+    # to spread out concurrent processes.
     return (
         PORT_MIN
-        + (PORT_RANGE * i)
-        + (n * 10)
-        + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
+        + ((n * 1000) + (i * 100) + (PortSeed.n % 1229)) 
+        % (PORT_MAX - PORT_MIN)
     )
 
 

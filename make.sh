@@ -523,13 +523,13 @@ test_py() {
     py_ensure_env_active
 
     # shellcheck disable=SC2086
-    python3 ${build_target_dir}/test/functional/test_runner.py \
+    (set -x; python3 ${build_target_dir}/test/functional/test_runner.py \
         --tmpdirprefix="./test_runner/" \
         --ansi \
         --configfile="${build_target_dir}/test/config.ini" \
         --jobs=${make_jobs} \
         --combinedlogslen=${tests_combined_logs} \
-        ${extra_args} ${first_arg} "$@"
+        ${extra_args} ${first_arg} "$@")
 
     py_env_deactivate
     _exit_dir
