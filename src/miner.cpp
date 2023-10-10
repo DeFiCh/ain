@@ -272,30 +272,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID(), pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus)));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
-        if (!blockResult.failed_transactions.empty()) {
-            LogPrintf("%s: Construct block exceeded block size limit\n", __func__);
-            auto failedTxHashes = *res;
-            std::set<uint256> evmTxsToUndo;
-            for (const auto &txStr : blockResult.failed_transactions) {
-                auto txHash = std::string(txStr.data(), txStr.length());
-                evmTxsToUndo.insert(uint256S(txHash));
-            }
-
-            // Get all EVM Txs
-            CTxMemPool::setEntries failedEVMTxs;
-            for (const auto& iter : inBlock) {
-                if (!evmTxsToUndo.count(iter->GetTx().GetHash()))
-                    continue;
-                const auto txType = iter->GetCustomTxType();
-                if (txType == CustomTxType::EvmTx) {
-                    failedEVMTxs.insert(iter);
-                } else {
-                    LogPrintf("%s: Unable to remove from block, not EVM tx. Will result in a block hash mismatch.\n", __func__);
-                }
-            }
-            RemoveFromBlock(failedEVMTxs, true);
-        }
-
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
     }
 

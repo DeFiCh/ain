@@ -110,7 +110,8 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                                  token.creationTx.GetHex(),
                                  rust::string(token.name.c_str()),
                                  rust::string(token.symbol.c_str()),
-                                 id.v);
+                                 id.v,
+                                 static_cast<std::size_t>(reinterpret_cast<uintptr_t>(this)));
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
             }
