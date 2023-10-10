@@ -249,7 +249,7 @@ impl<'backend> AinExecutor<'backend> {
                     "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
-                    signed_tx.transaction.hash()
+                    signed_tx.hash()
                 );
 
                 let gas_fee =
@@ -323,7 +323,7 @@ impl<'backend> AinExecutor<'backend> {
                     "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
-                    signed_tx.transaction.hash(),
+                    signed_tx.hash(),
                     tx_response.logs
                 );
 
@@ -398,7 +398,7 @@ impl<'backend> AinExecutor<'backend> {
                     "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
-                    signed_tx.transaction.hash(),
+                    signed_tx.hash(),
                     tx_response.logs
                 );
 

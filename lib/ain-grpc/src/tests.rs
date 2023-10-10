@@ -124,7 +124,7 @@ fn should_get_transaction_by_hash() {
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByHashInput {
-        hash: format!("{:x}", signed_tx.transaction.hash()),
+        hash: format!("{:x}", signed_tx.hash()),
     };
 
     let res = EthService::Eth_GetTransactionByHash(handler.clone(), input.clone().into()).unwrap();

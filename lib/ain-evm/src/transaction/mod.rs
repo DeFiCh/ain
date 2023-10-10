@@ -100,6 +100,7 @@ impl From<&LegacyTransaction> for LegacyUnsignedTransaction {
 pub struct SignedTx {
     pub transaction: TransactionV2,
     pub sender: H160,
+    hash_cache: Cell<Option<H256>>,
 }
 
 impl fmt::Debug for SignedTx {
@@ -180,6 +181,7 @@ impl TryFrom<TransactionV2> for SignedTx {
         Ok(SignedTx {
             transaction: src,
             sender: public_key_to_address(&pubkey),
+            hash_cache: Cell::new(None),
         })
     }
 }
@@ -318,11 +320,16 @@ impl SignedTx {
     }
 
     pub fn hash(&self) -> H256 {
-        match &self.transaction {
-            TransactionV2::Legacy(tx) => tx.hash(),
-            TransactionV2::EIP2930(tx) => tx.hash(),
-            TransactionV2::EIP1559(tx) => tx.hash(),
+        let h = &self.hash_cache;
+        if h.get().is_none() {
+            let val = match &self.transaction {
+                TransactionV2::Legacy(tx) => tx.hash(),
+                TransactionV2::EIP2930(tx) => tx.hash(),
+                TransactionV2::EIP1559(tx) => tx.hash(),
+            };
+            h.set(Some(val));
         }
+        h.get().unwrap()
     }
 
     pub fn get_tx_type(&self) -> U256 {
@@ -331,6 +338,7 @@ impl SignedTx {
 }
 
 use std::{
+    cell::Cell,
     cmp::min,
     convert::{TryFrom, TryInto},
     fmt,

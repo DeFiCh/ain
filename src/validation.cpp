@@ -969,6 +969,12 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             } else {
                 ethSender = txResultSender;
             }
+
+
+            evm_try_dispatch_pending_transactions_event(result, rawEVMTx);
+            if (!result.ok) {
+                LogPrint(BCLog::MEMPOOL, "evm tx failed to generate events %s\n", result.reason.c_str());
+            }
         }
 
         if (test_accept) {
@@ -4261,7 +4267,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
-            if (height < consensusParams.DF22NextHeight) {
+            if (height < consensusParams.DF22MetachainHeight) {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);

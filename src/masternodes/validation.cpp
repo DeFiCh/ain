@@ -2247,7 +2247,7 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
                     LogPrintf("Proposal fee redistribution failed: %s Address: %s Amount: %d\n", res.msg, scriptPubKey.GetHex(), amountPerVoter);
                 }
 
-                if (pindex->nHeight >= chainparams.GetConsensus().DF22NextHeight) {
+                if (pindex->nHeight >= chainparams.GetConsensus().DF22MetachainHeight) {
                     subView.CalculateOwnerRewards(scriptPubKey, pindex->nHeight);
                 }
 
@@ -2270,10 +2270,10 @@ static void ProcessProposalEvents(const CBlockIndex* pindex, CCustomCSView& cach
             return true;
         }
 
-        if (pindex->nHeight < chainparams.GetConsensus().DF22NextHeight && lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
+        if (pindex->nHeight < chainparams.GetConsensus().DF22MetachainHeight && lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
             cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
             return true;
-        } else if (pindex->nHeight >= chainparams.GetConsensus().DF22NextHeight) {
+        } else if (pindex->nHeight >= chainparams.GetConsensus().DF22MetachainHeight) {
                 auto onlyNeutral = voters.size() == voteNeutral;
                 if (onlyNeutral || lround(voteYes * 10000.f / (voters.size() - voteNeutral)) <= prop.approvalThreshold) {
                     cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);

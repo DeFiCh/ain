@@ -32,7 +32,7 @@ class ICXOrderbookTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=3505",
+                "-metachainheight=3505",
                 "-txindex=1",
             ],
             [
@@ -50,7 +50,7 @@ class ICXOrderbookTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=3505",
+                "-metachainheight=3505",
                 "-txindex=1",
             ],
         ]

@@ -9,7 +9,7 @@
 #include <masternodes/mn_checks.h>
 
 bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
-    if (height >= consensus.DF22NextHeight) {
+    if (height >= consensus.DF22MetachainHeight) {
         const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
         auto attributes = view.GetAttributes();
         assert(attributes);
@@ -402,7 +402,7 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
         auto ICXBugPath = [&](uint32_t height) {
             if ((IsTestNetwork() && height >= 1250000) ||
                 IsRegtestNetwork() ||
-                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22NextHeight)))
+                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)))
                 return false;
             return true;
         };
