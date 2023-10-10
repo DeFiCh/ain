@@ -212,7 +212,7 @@ class BlockchainTest(DefiTestFramework):
                     "active": False,
                     "height": 10000000,
                 },
-                "Metachain": {
+                "metachain": {
                     "type": "buried",
                     "active": False,
                     "height": 10000000,
