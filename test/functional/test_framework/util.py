@@ -396,7 +396,7 @@ def rpc_port(n, i):
     return (
         PORT_MIN
         + (PORT_RANGE * i)
-        + n
+        + (n * 10)
         + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
     )
 
