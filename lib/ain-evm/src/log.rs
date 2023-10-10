@@ -125,24 +125,24 @@ impl LogService {
         filter: &LogsFilter,
         filter_type: &FilterType,
     ) -> Result<Vec<LogIndex>> {
-        let block_number = match filter_type {
-            FilterType::GetFilterChanges => filter.last_block_height,
+        let from_block_number = match filter_type {
+            FilterType::GetFilterChanges => filter.last_block.unwrap_or(filter.from_block),
             FilterType::GetFilterLogs => filter.from_block,
         };
 
-        if block_number >= filter.to_block {
+        if from_block_number >= filter.to_block {
             // not possible to have any new entries
             return Ok(Vec::new());
         }
 
         // get all logs that match filter from block_number to to_block
         let mut block_numbers = Vec::new();
-        let mut block_number = block_number;
+        let mut from_block_number = from_block_number;
 
-        while block_number <= filter.to_block {
-            debug!("Will query block {block_number}");
-            block_numbers.push(block_number);
-            block_number += U256::one();
+        while from_block_number <= filter.to_block {
+            debug!("Will query block {from_block_number}");
+            block_numbers.push(from_block_number);
+            from_block_number += U256::one();
         }
 
         let logs = block_numbers
