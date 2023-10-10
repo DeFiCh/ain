@@ -2,8 +2,8 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#ifndef DEFI_DFI_DFI_H
-#define DEFI_DFI_DFI_H
+#ifndef DEFI_DFI_MASTERNODES_H
+#define DEFI_DFI_MASTERNODES_H
 
 #include <amount.h>
 #include <dfi/accounts.h>
@@ -629,4 +629,4 @@ std::map<CKeyID, CKey> AmISignerNow(int height, const CAnchorData::CTeam &team);
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;
 
-#endif  // DEFI_DFI_DFI_H
+#endif  // DEFI_DFI_MASTERNODES_H
