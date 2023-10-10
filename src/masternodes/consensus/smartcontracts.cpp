@@ -44,7 +44,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
             "Only Bitcoin can be swapped in " + obj.name);
 
-    if (height >= static_cast<uint32_t>(consensus.DF22NextHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF22Metachain)) {
         mnview.CalculateOwnerRewards(script, height);
     }
 

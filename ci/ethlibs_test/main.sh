@@ -54,7 +54,7 @@ start_node() {
         -fortcanninggreatworldheight=14 \
         -fortcanningepilogueheight=15 \
         -grandcentralheight=16 \
-        -nextnetworkupgradeheight=17
+        -metachainheight=17
 }
 
 init_node() {

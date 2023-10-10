@@ -52,7 +52,7 @@ class EVMTest(DefiTestFramework):
             "-fortcanninggreatworldheight=94",
             "-fortcanningepilogueheight=96",
             "-grandcentralheight=101",
-            "-nextnetworkupgradeheight=150",
+            "-metachainheight=150",
             "-subsidytest=1",
             "-txindex=1",
         ]
@@ -163,7 +163,7 @@ class EVMTest(DefiTestFramework):
     def invalid_before_fork_and_disabled(self):
         assert_raises_rpc_error(
             -32600,
-            "called before NextNetworkUpgrade height",
+            "called before Metachain height",
             lambda: transfer_domain(
                 self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
             ),
