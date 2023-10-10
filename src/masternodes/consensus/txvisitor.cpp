@@ -267,7 +267,7 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
     auto isPostFCE = static_cast<int>(height) >= consensus.DF19FortCanningEpilogueHeight;
     auto isPostFCR = static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight;
     auto isPostGC  = static_cast<int>(height) >= consensus.DF20GrandCentralHeight;
-    auto isPostNext =  static_cast<int>(height) >= consensus.DF22NextHeight;
+    auto isPostNext =  static_cast<int>(height) >= consensus.DF22Metachain;
 
     if(isPostNext) {
         const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};

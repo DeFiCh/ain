@@ -196,7 +196,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             metadata << finMsg;
 
             CTxDestination destination;
-            if (nHeight < consensus.DF22NextHeight) {
+            if (nHeight < consensus.DF22Metachain) {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
             } else {
                 destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
