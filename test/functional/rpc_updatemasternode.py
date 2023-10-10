@@ -363,7 +363,7 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-amkheight=50",
                 "-bayfrontheight=50",
                 "-grandcentralheight=1",
-                "-nextnetworkupgradeheight=510",
+                "-metachainheight=510",
             ],
         )
 

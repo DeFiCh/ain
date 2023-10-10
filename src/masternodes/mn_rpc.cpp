@@ -964,7 +964,7 @@ UniValue listgovs(const JSONRPCRequest& request) {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
-                    if (height >= Params().GetConsensus().DF22NextHeight) {
+                    if (height >= Params().GetConsensus().DF22Metachain) {
                         if (auto attributes = dynamic_cast<ATTRIBUTES*>(var.get()); attributes) {
                             AddDefaultVars(height, Params(), *attributes);
                         }

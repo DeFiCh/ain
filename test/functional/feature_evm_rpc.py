@@ -36,7 +36,7 @@ class EVMTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=105",
+                "-metachainheight=105",
                 "-subsidytest=1",
                 "-txindex=1",
             ],
@@ -58,7 +58,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32600,
-            "called before NextNetworkUpgrade height",
+            "called before Metachain height",
             self.nodes[0].evmtx,
             self.ethAddress,
             0,
