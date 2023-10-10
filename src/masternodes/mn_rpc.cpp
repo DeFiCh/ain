@@ -485,7 +485,7 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
         CCustomCSView view(*pcustomcsview);
         auto consensus = Params().GetConsensus();
         const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
-        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        std::shared_ptr<CScopedTemplateID> evmQueueId{};
         res = CustomTxVisit(view,
                             coins,
                             tx,

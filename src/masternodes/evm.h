@@ -56,16 +56,16 @@ public:
     };
 };
 
-class CScopedQueueID {
-    explicit CScopedQueueID(uint64_t id);
+class CScopedTemplateID {
+    explicit CScopedTemplateID(uint64_t id);
 
-    uint64_t evmQueueId;
+    uint64_t evmTemplateId;
 
 public:
-    static std::shared_ptr<CScopedQueueID> Create(const uint64_t timestamp);
-    ~CScopedQueueID();
+    static std::shared_ptr<CScopedTemplateID> Create(const uint64_t dvmBlockNumber, std::string minerAddress, const uint64_t timestamp);
+    ~CScopedTemplateID();
 
-    uint64_t GetQueueID() const;
+    uint64_t GetTemplateID() const;
 };
 
 #endif  // DEFI_MASTERNODES_EVM_H

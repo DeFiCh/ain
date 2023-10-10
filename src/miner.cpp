@@ -43,7 +43,7 @@
 
 struct EvmTxPreApplyContext {
     const CTxMemPool::txiter& txIter;
-    const std::shared_ptr<CScopedQueueID>& evmQueueId;
+    const std::shared_ptr<CScopedTemplateID>& evmTemplateId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
     std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
@@ -251,25 +251,25 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     const auto attributes = mnview.GetAttributes();
     const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
 
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
     if (isEvmEnabledForBlock) {
-        evmQueueId = CScopedQueueID::Create(blockTime);
-        if (!evmQueueId) {
-            return Res::Err("Failed to create queue");
+        evmTemplateId = CScopedTemplateID::Create(nHeight, evmBeneficiary, blockTime);
+        if (!evmTemplateId) {
+            return Res::Err("Failed to create block template");
         }
     }
 
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmTemplateId, txFees, isEvmEnabledForBlock);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmQueueId, txFees, isEvmEnabledForBlock);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmTemplateId, txFees, isEvmEnabledForBlock);
     }
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId->GetQueueID(), pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID(), pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus)));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
         if (!blockResult.failed_transactions.empty()) {
@@ -619,14 +619,14 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 {
     const auto& txIter = ctx.txIter;
-    const auto& evmQueueId = ctx.evmQueueId;
+    const auto& evmTemplateId = ctx.evmTemplateId;
     const auto& failedTxSet = ctx.failedTxEntries;
     auto& failedNonces = ctx.failedNonces;
     auto& failedNoncesLookup = ctx.failedNoncesLookup;
     auto& [txNonce, txSender] = txIter->GetEVMAddrAndNonce();
 
     CrossBoundaryResult result;
-    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, evmQueueId->GetQueueID(), txSender);
+    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_template(result, evmTemplateId->GetTemplateID(), txSender);
     if (!result.ok) {
         return false;
     }
@@ -656,7 +656,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::shared_ptr<CScopedQueueID> &evmQueueId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::shared_ptr<CScopedTemplateID> &evmTemplateId, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -828,7 +828,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                     auto evmTxCtx = EvmTxPreApplyContext{
                         entry,
-                        evmQueueId,
+                        evmTemplateId,
                         failedNonces,
                         failedNoncesLookup,
                         failedTxSet,
@@ -844,7 +844,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmQueueId, isEvmEnabledForBlock, false);
+                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmTemplateId, isEvmEnabledForBlock, false);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     failedTxSet.insert(entry);
@@ -885,7 +885,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
-                        evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId->GetQueueID(), entryHash.ToString());
+                        evm_try_unsafe_remove_txs_above_hash_in_template(result, evmTemplateId->GetTemplateID(), entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
                         }

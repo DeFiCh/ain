@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     rawTx.vout = { CTxOut(0, CScript()) };
     rawTx.vin = { CTxIn(auth_out) };
 
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmQueueId{};
 
     // try to send "A:-1@DFI"
     {

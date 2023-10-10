@@ -23,13 +23,13 @@ void ProcessDeFiEvent(const CBlock &block,
                       const CCoinsViewCache &view,
                       const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedQueueID> &evmQueueId);
+                      const std::shared_ptr<CScopedTemplateID> &evmQueueId);
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                             const std::shared_ptr<CScopedTemplateID> &evmQueueId,
                              const bool isEvmEnabledForBlock);
 
 std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets,

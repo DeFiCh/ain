@@ -326,7 +326,7 @@ class CCustomTxApplyVisitor {
     const Consensus::Params &consensus;
     uint64_t time;
     uint32_t txn;
-    const std::shared_ptr<CScopedQueueID> &evmQueueId;
+    const std::shared_ptr<CScopedTemplateID> &evmQueueId;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
@@ -354,7 +354,7 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                          const std::shared_ptr<CScopedTemplateID> &evmQueueId,
                           const bool isEvmEnabledForBlock,
                           const bool evmPreValidate)
 
@@ -442,7 +442,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
+                  std::shared_ptr<CScopedTemplateID> &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     if (IsDisabledTx(height, tx, consensus)) {
@@ -450,7 +450,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     if (!evmQueueId && isEvmEnabledForBlock) {
-        evmQueueId = CScopedQueueID::Create(time);
+        evmQueueId = CScopedTemplateID::Create(time);
         if (!evmQueueId) {
             return Res::Err("Failed to create queue");
         }
@@ -547,7 +547,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
+                  std::shared_ptr<CScopedTemplateID> &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     auto res = Res::Ok();

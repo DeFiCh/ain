@@ -54,26 +54,26 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedQueueID::CScopedQueueID(uint64_t id)
-    : evmQueueId(id) {}
+CScopedTemplateID::CScopedTemplateID(uint64_t id)
+    : evmTemplateId(id) {}
 
-std::shared_ptr<CScopedQueueID> CScopedQueueID::Create(const uint64_t timestamp) {
+std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber, std::string minerAddress, const uint64_t timestamp) {
     CrossBoundaryResult result;
-    uint64_t queueId = evm_try_unsafe_create_queue(result, timestamp);
+    uint64_t templateId = evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, timestamp);
     if (result.ok) {
-        return std::shared_ptr<CScopedQueueID>(new CScopedQueueID(queueId));
+        return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(templateId));
     }
     return nullptr;
 }
 
-CScopedQueueID::~CScopedQueueID() {
+CScopedTemplateID::~CScopedTemplateID() {
     CrossBoundaryResult result;
-    evm_try_unsafe_remove_queue(result, evmQueueId);
+    evm_try_unsafe_remove_template(result, evmTemplateId);
     if (!result.ok) {
-        LogPrintf("Failed to destroy queue %d\n", evmQueueId);
+        LogPrintf("Failed to destroy queue %d\n", evmTemplateId);
     }
 }
 
-uint64_t CScopedQueueID::GetQueueID() const {
-    return evmQueueId;
+uint64_t CScopedTemplateID::GetTemplateID() const {
+    return evmTemplateId;
 }

@@ -547,7 +547,7 @@ public:
     }
 
     uint32_t time{0};
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
 
     // For formatting in export
     static const std::map<uint8_t, std::string> &displayVersions();

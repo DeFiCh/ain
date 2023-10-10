@@ -170,7 +170,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
+                  std::shared_ptr<CScopedTemplateID> &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate);
 
@@ -182,7 +182,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
+                  std::shared_ptr<CScopedTemplateID> &evmQueueId,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate);
 

@@ -1073,7 +1073,7 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
 static void ProcessGovEvents(const CBlockIndex *pindex,
                              CCustomCSView &cache,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedQueueID> &evmQueueId) {
+                             const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
     if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
         return;
     }
@@ -1087,7 +1087,7 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
-                govVar->evmQueueId = evmQueueId;
+                govVar->evmTemplateId = evmTemplateId;
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
@@ -2647,7 +2647,7 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
                            const CChainParams &chainparams,
-                           const std::shared_ptr<CScopedQueueID> &evmQueueId) {
+                           const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -2684,30 +2684,22 @@ static Res ProcessEVMQueue(const CBlock &block,
         minerAddress = GetScriptForDestination(dest);
     }
 
-    auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
-    if (!xvmRes) {
-        return std::move(xvmRes);
-    }
-
     CrossBoundaryResult result;
     const auto blockResult =
-        evm_try_unsafe_construct_block_in_q(result,
-                                            evmQueueId->GetQueueID(),
-                                            block.nBits,
-                                            xvmRes->evm.beneficiary,
-                                            block.GetBlockTime(),
-                                            pindex->nHeight,
-                                            static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&cache)));
+        evm_try_unsafe_construct_block_in_template(result,
+                                                   evmTemplateId->GetTemplateID(),
+                                                   block.nBits);                       
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
-    }
-    if (!blockResult.failed_transactions.empty()) {
-        return Res::Err("Failed EVM transactions, block size limit exceeded");
     }
     if (block.vtx[0]->vout.size() < 2) {
         return Res::Err("Not enough outputs in coinbase TX");
     }
 
+    auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
+    if (!xvmRes) {
+        return std::move(xvmRes);
+    }
     auto res = ValidateCoinbaseXVMOutput(*xvmRes, blockResult);
     if (!res) {
         return res;
@@ -2791,13 +2783,13 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedQueueID> &evmQueueId,
+                             const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
                              const bool isEvmEnabledForBlock) {
     CCustomCSView cache(mnview);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
-        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmQueueId);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplateId);
         if (!res) {
             return res;
         }
@@ -2815,7 +2807,7 @@ void ProcessDeFiEvent(const CBlock &block,
                       const CCoinsViewCache &view,
                       const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedQueueID> &evmQueueId) {
+                      const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2842,7 +2834,7 @@ void ProcessDeFiEvent(const CBlock &block,
     ProcessFutures(pindex, cache, chainparams);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams, evmQueueId);
+    ProcessGovEvents(pindex, cache, chainparams, evmTemplateId);
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, chainparams);
