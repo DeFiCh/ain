@@ -399,7 +399,7 @@ def rpc_port(n, i):
     # to spread out concurrent processes.
     return (
         PORT_MIN
-        + ((n * 1000) + (i * 100) + (PortSeed.n % 1229)) 
+        + ((n * 1000) + (i * 100) + (PortSeed.n % 9973)) 
         % (PORT_MAX - PORT_MIN)
     )
 
