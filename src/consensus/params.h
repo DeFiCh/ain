@@ -7,7 +7,7 @@
 #define DEFI_CONSENSUS_PARAMS_H
 
 #include <amount.h>
-#include <masternodes/communityaccounttypes.h>
+#include <dfi/communityaccounttypes.h>
 #include <script/standard.h>
 #include <uint256.h>
 #include <limits>

@@ -7,7 +7,7 @@
 #define DEFI_AMOUNT_H
 
 #include <arith_uint256.h>
-#include <masternodes/res.h>
+#include <dfi/res.h>
 #include <serialize.h>
 #include <stdint.h>
 #include <util/strencodings.h>

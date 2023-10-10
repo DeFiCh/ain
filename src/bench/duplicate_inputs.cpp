@@ -8,7 +8,7 @@
 #include <consensus/merkle.h>
 #include <consensus/validation.h>
 #include <pos.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 
 #include <txmempool.h>
 #include <validation.h>

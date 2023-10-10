@@ -1,5 +1,5 @@
 #include <chainparams.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <validation.h>
 
 #include <test/setup_common.h>
