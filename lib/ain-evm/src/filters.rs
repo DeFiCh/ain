@@ -20,7 +20,7 @@ pub struct LogsFilter {
     // Last height that getFilterChanges was called at. We only need to store this since
     // logs are generated during block creation, so new logs will return all logs of the blocks
     // since the RPC was last called.
-    pub last_block_height: U256,
+    pub last_block: Option<U256>,
 }
 
 impl TryInto<LogsFilter> for Filter {
@@ -80,7 +80,6 @@ impl FilterService {
         topics: Option<Vec<Option<H256>>>,
         from_block: U256,
         to_block: U256,
-        current_block_height: U256,
     ) -> usize {
         let mut filter_id = self.filter_id.write().unwrap();
         *filter_id += 1;
@@ -94,7 +93,7 @@ impl FilterService {
                 topics,
                 from_block,
                 to_block,
-                last_block_height: current_block_height,
+                last_block: None,
             }),
         );
 
@@ -148,7 +147,7 @@ impl FilterService {
         };
 
         if let Filter::Logs(f) = filter {
-            f.last_block_height = block_height;
+            f.last_block = Some(block_height);
         }
 
         Ok(())
