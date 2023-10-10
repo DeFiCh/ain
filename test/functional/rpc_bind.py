@@ -70,6 +70,9 @@ class RPCBindTest(DefiTestFramework):
         self.start_node(0, base_args + binds)
         pid = self.nodes[0].process.pid
         listening_set = set(get_bind_addrs(pid))
+        # TODO expected needs to be calc through rpc_port so it's 
+        # more deterministic and then add tests to verify expected
+        # in listening_set
         self.stop_nodes()
 
     def run_allowip_test(self, allow_ips, rpchost, rpcport):
