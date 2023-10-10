@@ -3,7 +3,7 @@
 
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <rpc/rawtransaction_util.h>
 #include <test/setup_common.h>
 

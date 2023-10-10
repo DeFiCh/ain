@@ -1,6 +1,6 @@
 #include <test/setup_common.h>
 
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 
 #include <boost/test/unit_test.hpp>
 

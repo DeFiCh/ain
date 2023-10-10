@@ -18,11 +18,11 @@
 #include <ffi/cxx.h>
 #include <ffi/ffihelpers.h>
 #include <ffi/ffiexports.h>
-#include <masternodes/anchors.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
-#include <masternodes/validation.h>
+#include <dfi/anchors.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
+#include <dfi/validation.h>
 #include <memory.h>
 #include <net.h>
 #include <node/transaction.h>

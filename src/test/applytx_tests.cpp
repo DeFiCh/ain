@@ -3,8 +3,8 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <test/setup_common.h>
 #include <validation.h>
 

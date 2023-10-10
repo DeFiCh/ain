@@ -43,7 +43,7 @@
 #include <boost/multi_index/indexed_by.hpp>
 #include <boost/signals2/signal.hpp>
 
-#include <masternodes/coinselect.h>
+#include <dfi/coinselect.h>
 
 //! Explicitly unload and delete the wallet.
 //! Blocks the current thread after signaling the unload intent so that all

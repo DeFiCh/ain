@@ -7,7 +7,7 @@
 #include <base58.h>
 #include <chainparams.h>
 #include <core_io.h>
-#include <masternodes/anchors.h>
+#include <dfi/anchors.h>
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <sync.h>
@@ -56,7 +56,7 @@ namespace spv
 
 std::unique_ptr<CSpvWrapper> pspv;
 
-// Prefixes to the masternodes database (masternodes/)
+// Prefixes to the masternodes database (dfi/)
 static const char DB_SPVBLOCKS = 'B';     // spv "blocks" table
 static const char DB_SPVTXS    = 'T';     // spv "tx2msg" table
 static const char DB_VERSION   = 'V';

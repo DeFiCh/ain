@@ -8,7 +8,7 @@
 #include <chainparams.h>
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/mn_checks.h>
 #include <streams.h>
 #include <tinyformat.h>
 #include <util/system.h>

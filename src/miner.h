@@ -8,7 +8,7 @@
 
 #include <primitives/block.h>
 #include <key.h>
-#include <masternodes/res.h>
+#include <dfi/res.h>
 #include <timedata.h>
 #include <txmempool.h>
 #include <validation.h>

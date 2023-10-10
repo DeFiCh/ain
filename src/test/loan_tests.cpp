@@ -1,6 +1,6 @@
 #include <chainparams.h>
-#include <masternodes/loan.h>
-#include <masternodes/masternodes.h>
+#include <dfi/loan.h>
+#include <dfi/masternodes.h>
 #include <validation.h>
 
 #include <test/setup_common.h>

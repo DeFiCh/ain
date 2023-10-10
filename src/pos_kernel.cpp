@@ -4,7 +4,7 @@
 #include <key.h>
 #include <validation.h>
 
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 
 extern CAmount GetMnCollateralAmount(int); // from masternodes.h
 

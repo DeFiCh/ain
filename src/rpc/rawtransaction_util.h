@@ -8,9 +8,9 @@
 #include <script/standard.h> // CTxDestination
 
 #include <map>
-#include <masternodes/res.h>
+#include <dfi/res.h>
 #include <rpc/request.h>
-#include <masternodes/balances.h>
+#include <dfi/balances.h>
 
 class FillableSigningProvider;
 class UniValue;
