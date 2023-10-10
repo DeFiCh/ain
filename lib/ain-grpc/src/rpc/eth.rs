@@ -1010,16 +1010,6 @@ impl MetachainRPCServer for MetachainRPCModule {
             )));
         }
 
-        let current_block_height = match self
-            .handler
-            .storage
-            .get_latest_block()
-            .map_err(to_jsonrpsee_custom_error)?
-        {
-            None => return Err(Error::Custom(String::from("Latest block unavailable"))),
-            Some(block) => block.header.number,
-        };
-
         Ok(self
             .handler
             .filters
@@ -1028,7 +1018,6 @@ impl MetachainRPCServer for MetachainRPCModule {
                 input.topics,
                 from_block_number,
                 to_block_number,
-                current_block_height,
             )
             .into())
     }
