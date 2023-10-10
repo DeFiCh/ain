@@ -9,7 +9,7 @@ import sys
 from test_framework.netutil import (
     all_interfaces,
     addr_to_hex,
-    get_bind_addrs,
+    # get_bind_addrs,
     test_ipv6_local,
 )
 from test_framework.test_framework import DefiTestFramework, SkipTest
