@@ -138,7 +138,7 @@ class DUSDLoanTests(DefiTestFramework):
         if self.metachainheight > blockHeight:
             self.nodes[0].generate((self.metachainheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["Metachain"]["active"], True)
+        assert_equal(blockchainInfo["softforks"]["metachain"]["active"], True)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"

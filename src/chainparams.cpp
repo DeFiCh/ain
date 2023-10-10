@@ -1338,7 +1338,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.DF19FortCanningEpilogueHeight);
     UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.DF20GrandCentralHeight);
     UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.DF21GrandCentralEpilogueHeight);
-    UpdateHeightValidation("Next Network Upgrade", "-metachainheight", consensus.DF22Metachain);
+    UpdateHeightValidation("Metachain", "-metachainheight", consensus.DF22Metachain);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
