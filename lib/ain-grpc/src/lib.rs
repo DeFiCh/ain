@@ -51,7 +51,7 @@ use crate::{
 
 // TODO: Ideally most of the below and SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to network services.
-// Note: This cannot just move to rs-exports, since rs-exports cannot cannot have reverse
+// Note: This cannot just move to rs-exports, since rs-exports cannot have reverse
 // deps that depend on it.
 
 pub fn preinit() {}
