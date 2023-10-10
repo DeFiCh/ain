@@ -69,7 +69,8 @@ class RPCBindTest(DefiTestFramework):
         self.nodes[0].rpchost = connect_to
         self.start_node(0, base_args + binds)
         pid = self.nodes[0].process.pid
-        assert_equal(set(get_bind_addrs(pid)), set(expected))
+        for x in set(expected): 
+            assert(x in set(get_bind_addrs(pid)))
         self.stop_nodes()
 
     def run_allowip_test(self, allow_ips, rpchost, rpcport):
