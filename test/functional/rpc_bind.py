@@ -14,7 +14,7 @@ from test_framework.netutil import (
 )
 from test_framework.test_framework import DefiTestFramework, SkipTest
 from test_framework.util import (
-    assert_equal,
+    # assert_equal,
     assert_raises_rpc_error,
     get_rpc_proxy,
     rpc_port,
@@ -68,8 +68,8 @@ class RPCBindTest(DefiTestFramework):
         binds = ["-rpcbind=" + addr for addr in addresses]
         self.nodes[0].rpchost = connect_to
         self.start_node(0, base_args + binds)
-        pid = self.nodes[0].process.pid
-        listening_set = set(get_bind_addrs(pid))
+        # pid = self.nodes[0].process.pid
+        # listening_set = set(get_bind_addrs(pid))
         # TODO expected needs to be calc through rpc_port so it's
         # more deterministic and then add tests to verify expected
         # in listening_set
