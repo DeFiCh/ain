@@ -26,7 +26,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     const auto &script = obj.accounts.begin()->first;
     Require(HasAuth(script), "Must have at least one input from supplied address");
 
-    const auto &id     = obj.accounts.begin()->second.balances.begin()->first;
+    const auto &id = obj.accounts.begin()->second.balances.begin()->first;
     const auto &amount = obj.accounts.begin()->second.balances.begin()->second;
 
     Require(amount > 0, "Amount out of range");
@@ -44,7 +44,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     Require(token->symbol == "BTC" && token->name == "Bitcoin" && token->IsDAT(),
             "Only Bitcoin can be swapped in " + obj.name);
 
-    if (height >= static_cast<uint32_t>(consensus.DF22NextHeight)) {
+    if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
         mnview.CalculateOwnerRewards(script, height);
     }
 
@@ -82,8 +82,9 @@ Res CSmartContractsConsensus::operator()(const CSmartContractMessage &obj) const
     Require(contract != contracts.end(), "Specified smart contract not found");
 
     // Convert to switch when it's long enough.
-    if (obj.name == SMART_CONTRACT_DFIP_2201)
+    if (obj.name == SMART_CONTRACT_DFIP_2201) {
         return HandleDFIP2201Contract(obj);
+    }
 
     return Res::Err("Specified smart contract not found");
 }
@@ -94,22 +95,20 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
     const auto attributes = mnview.GetAttributes();
     Require(attributes, "Attributes unavailable");
 
-    bool dfiToDUSD     = !obj.source.nTokenId.v;
+    bool dfiToDUSD = !obj.source.nTokenId.v;
     const auto paramID = dfiToDUSD ? ParamIDs::DFIP2206F : ParamIDs::DFIP2203;
 
     CDataStructureV0 activeKey{AttributeTypes::Param, paramID, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, paramID, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, paramID, DFIPKeys::RewardPct};
 
-    Require(
-            attributes->GetValue(activeKey, false) && attributes->CheckKey(blockKey) && attributes->CheckKey(rewardKey),
+    Require(attributes->GetValue(activeKey, false) && attributes->CheckKey(blockKey) && attributes->CheckKey(rewardKey),
             "%s not currently active",
             dfiToDUSD ? "DFIP2206F" : "DFIP2203");
 
     CDataStructureV0 startKey{AttributeTypes::Param, paramID, DFIPKeys::StartBlock};
     if (const auto startBlock = attributes->GetValue(startKey, CAmount{})) {
-        Require(
-                height >= startBlock, "%s not active until block %d", dfiToDUSD ? "DFIP2206F" : "DFIP2203", startBlock);
+        Require(height >= startBlock, "%s not active until block %d", dfiToDUSD ? "DFIP2206F" : "DFIP2203", startBlock);
     }
 
     Require(obj.source.nValue > 0, "Source amount must be more than zero");
@@ -148,7 +147,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
         }
     }
 
-    const auto contractType         = dfiToDUSD ? SMART_CONTRACT_DFIP2206F : SMART_CONTRACT_DFIP_2203;
+    const auto contractType = dfiToDUSD ? SMART_CONTRACT_DFIP2206F : SMART_CONTRACT_DFIP_2203;
     const auto contractAddressValue = GetFutureSwapContractAddress(contractType);
     Require(contractAddressValue);
 
@@ -168,14 +167,14 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
             std::map<CFuturesUserKey, CFuturesUserValue> userFuturesValues;
 
             mnview.ForEachFuturesUserValues(
-                    [&](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
-                        if (key.owner == obj.owner && futuresValues.source.nTokenId == obj.source.nTokenId &&
-                            futuresValues.destination == obj.destination) {
-                            userFuturesValues[key] = futuresValues;
-                        }
-                        return true;
-                    },
-                    {height, obj.owner, std::numeric_limits<uint32_t>::max()});
+                [&](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
+                    if (key.owner == obj.owner && futuresValues.source.nTokenId == obj.source.nTokenId &&
+                        futuresValues.destination == obj.destination) {
+                        userFuturesValues[key] = futuresValues;
+                    }
+                    return true;
+                },
+                {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
             for (const auto &[key, value] : userFuturesValues) {
                 totalFutures.Add(value.source.nValue);
@@ -185,13 +184,13 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
             std::map<CFuturesUserKey, CAmount> userFuturesValues;
 
             mnview.ForEachFuturesDUSD(
-                    [&](const CFuturesUserKey &key, const CAmount &futuresValues) {
-                        if (key.owner == obj.owner) {
-                            userFuturesValues[key] = futuresValues;
-                        }
-                        return true;
-                    },
-                    {height, obj.owner, std::numeric_limits<uint32_t>::max()});
+                [&](const CFuturesUserKey &key, const CAmount &futuresValues) {
+                    if (key.owner == obj.owner) {
+                        userFuturesValues[key] = futuresValues;
+                    }
+                    return true;
+                },
+                {height, obj.owner, std::numeric_limits<uint32_t>::max()});
 
             for (const auto &[key, amount] : userFuturesValues) {
                 totalFutures.Add(amount);

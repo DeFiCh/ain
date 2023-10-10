@@ -172,19 +172,21 @@ void CheckAndFillPoolSwapMessage(const JSONRPCRequest &request, CPoolSwapMessage
     {
         LOCK(cs_main);
         auto token = pcustomcsview->GetTokenGuessId(tokenFrom, poolSwapMsg.idTokenFrom);
-        if (!token)
+        if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenFrom was not found");
+        }
 
         auto token2 = pcustomcsview->GetTokenGuessId(tokenTo, poolSwapMsg.idTokenTo);
-        if (!token2)
+        if (!token2) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "TokenTo was not found");
+        }
 
         CAmount maxPrice = std::numeric_limits<CAmount>::max();
         if (!metadataObj["maxPrice"].isNull()) {
             maxPrice = AmountFromValue(metadataObj["maxPrice"]);
         }
 
-        poolSwapMsg.maxPrice.integer  = maxPrice / COIN;
+        poolSwapMsg.maxPrice.integer = maxPrice / COIN;
         poolSwapMsg.maxPrice.fraction = maxPrice % COIN;
     }
 }
@@ -214,19 +216,20 @@ UniValue listpoolpairs(const JSONRPCRequest &request) {
                      RPCArg::Optional::OMITTED,
                      "Maximum number of pools to return, 100 by default"},
                 },
-            },                                                               {"verbose",
+            }, {"verbose",
              RPCArg::Type::BOOL,
              RPCArg::Optional::OMITTED,
              "Flag for verbose list (default = true), otherwise only ids, symbols and names are listed"},
           },
         RPCResult{"{id:{...},...}     (array) Json object with pools information\n"},
-        RPCExamples{HelpExampleCli("listpoolpairs",                                       "'{\"start\":128}' false") +
+        RPCExamples{HelpExampleCli("listpoolpairs", "'{\"start\":128}' false") +
                     HelpExampleRpc("listpoolpairs", "'{\"start\":128}' false")},
     }
         .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request))
+    if (auto res = GetRPCResultCache().TryGet(request)) {
         return *res;
+    }
 
     bool verbose = true;
     if (request.params.size() > 1) {
@@ -245,7 +248,7 @@ UniValue listpoolpairs(const JSONRPCRequest &request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start.v         = (uint32_t)paginationObj["start"].get_int();
+                start.v = (uint32_t)paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -288,13 +291,14 @@ UniValue getpoolpair(const JSONRPCRequest &request) {
              RPCArg::Optional::OMITTED,
              "Flag for verbose list (default = true), otherwise limited objects are listed"},
           },
-        RPCResult{"{id:{...}}     (array) Json object with pool information\n"                                               },
-        RPCExamples{HelpExampleCli("getpoolpair",                                                                                                    "GOLD") + HelpExampleRpc("getpoolpair", "GOLD")},
+        RPCResult{"{id:{...}}     (array) Json object with pool information\n"},
+        RPCExamples{HelpExampleCli("getpoolpair", "GOLD") + HelpExampleRpc("getpoolpair", "GOLD")},
     }
         .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request))
+    if (auto res = GetRPCResultCache().TryGet(request)) {
         return *res;
+    }
 
     bool verbose = true;
     if (request.params.size() > 1) {
@@ -342,7 +346,7 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
                      "If \"from\" obj contain only one amount entry with address-key: \"*\" (star), it's means "
                      "auto-selection accounts from wallet."},
                 },
-            },                                                                                                    {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address for crediting tokens."},
+            }, {"shareAddress", RPCArg::Type::STR, RPCArg::Optional::NO, "The defi address for crediting tokens."},
                           {
                 "inputs",
                 RPCArg::Type::ARR,
@@ -360,7 +364,7 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },                                     },
+            }, },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{HelpExampleCli("addpoolliquidity",
                           "'{\"address1\":\"1.0@DFI\",\"address2\":\"1.0@DFI\"}' "
@@ -402,7 +406,7 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     }
     msg.shareAddress = DecodeScript(request.params[1].get_str());
 
-    for (const auto& [from, balance] : msg.from) {
+    for (const auto &[from, balance] : msg.from) {
         RejectErc55Address(from);
     }
     RejectErc55Address(msg.shareAddress);
@@ -426,7 +430,8 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     }
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -476,10 +481,10 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },},
-        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"                                                                                      },
-        RPCExamples{HelpExampleCli("removepoolliquidity",                               "from_address 1.0@LpSymbol") +
-                    HelpExampleRpc("removepoolliquidity",       "from_address 1.0@LpSymbol")                                                                                 },
+            }, },
+        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+        RPCExamples{HelpExampleCli("removepoolliquidity", "from_address 1.0@LpSymbol") +
+                    HelpExampleRpc("removepoolliquidity", "from_address 1.0@LpSymbol")},
     }
         .Check(request);
 
@@ -491,13 +496,13 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VSTR, UniValue::VARR}, true);
 
-    std::string from         = request.params[0].get_str();
-    std::string amount       = request.params[1].get_str();
+    std::string from = request.params[0].get_str();
+    std::string amount = request.params[1].get_str();
     const UniValue &txInputs = request.params[2];
 
     // decode
     CRemoveLiquidityMessage msg{};
-    msg.from   = DecodeScript(from);
+    msg.from = DecodeScript(from);
     msg.amount = DecodeAmount(pwallet->chain(), amount, from);
 
     RejectErc55Address(msg.from);
@@ -516,7 +521,8 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -568,7 +574,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
                      RPCArg::Optional::OMITTED,
                      "Pair symbol (unique), no longer than " + std::to_string(CToken::MAX_TOKEN_SYMBOL_LENGTH)},
                 },
-            },                                                                                                    {
+            }, {
                 "inputs",
                 RPCArg::Type::ARR,
                 RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -585,7 +591,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },                                                                                                                    },
+            }, },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{HelpExampleCli("createpoolpair",
                           "'{\"tokenA\":\"MyToken1\","
@@ -618,7 +624,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     CAmount commission = 0;  // !!!
     CScript ownerAddress;
     CBalances rewards;
-    bool status          = true;  // default Active
+    bool status = true;  // default Active
     UniValue metadataObj = request.params[0].get_obj();
     if (!metadataObj["tokenA"].isNull()) {
         tokenA = metadataObj["tokenA"].getValStr();
@@ -649,12 +655,14 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
         LOCK(cs_main);
 
         auto token = pcustomcsview->GetTokenGuessId(tokenA, idtokenA);
-        if (!token)
+        if (!token) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenA was not found");
+        }
 
         auto token2 = pcustomcsview->GetTokenGuessId(tokenB, idtokenB);
-        if (!token2)
+        if (!token2) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
+        }
 
         targetHeight = ::ChainActive().Height() + 1;
     }
@@ -667,10 +675,10 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     }
 
     CCreatePoolPairMessage poolPairMsg;
-    poolPairMsg.idTokenA     = idtokenA;
-    poolPairMsg.idTokenB     = idtokenB;
-    poolPairMsg.commission   = commission;
-    poolPairMsg.status       = status;
+    poolPairMsg.idTokenA = idtokenA;
+    poolPairMsg.idTokenB = idtokenB;
+    poolPairMsg.commission = commission;
+    poolPairMsg.status = status;
     poolPairMsg.ownerAddress = ownerAddress;
     poolPairMsg.pairSymbol = pairSymbol;
 
@@ -679,8 +687,7 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair)
-             << poolPairMsg;
+    metadata << static_cast<unsigned char>(CustomTxType::CreatePoolPair) << poolPairMsg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -693,7 +700,8 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -738,7 +746,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
                      RPCArg::Optional::OMITTED,
                      "Token reward to be paid on each block, multiple can be specified."},
                 },
-            },                                                                                                    {
+            }, {
                 "inputs",
                 RPCArg::Type::ARR,
                 RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -755,7 +763,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },                                                                                                                    },
+            }, },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{HelpExampleCli("updatepoolpair",
                           "'{\"pool\":\"POOL\",\"status\":true,"
@@ -778,11 +786,11 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VARR}, true);
 
-    bool status        = true;
+    bool status = true;
     CAmount commission = -1;
     CScript ownerAddress;
     CBalances rewards;
-    const UniValue &metaObj  = request.params[0].get_obj();
+    const UniValue &metaObj = request.params[0].get_obj();
     const UniValue &txInputs = request.params[1];
 
     std::string const poolStr = trim_ws(metaObj["pool"].getValStr());
@@ -799,7 +807,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
         if (!pool) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
-        status       = pool->status;
+        status = pool->status;
         targetHeight = ::ChainActive().Height() + 1;
     }
 
@@ -828,7 +836,8 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
@@ -889,7 +898,7 @@ UniValue poolswap(const JSONRPCRequest &request) {
                      "One of the keys may be specified (id/symbol)"},
                     {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum acceptable price"},
                 },
-            },                                                                                                    {
+            }, {
                 "inputs",
                 RPCArg::Type::ARR,
                 RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -906,7 +915,7 @@ UniValue poolswap(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },                                                                                                              },
+            }, },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{HelpExampleCli("poolswap",
                           "'{\"from\":\"MyAddress\","
@@ -956,7 +965,8 @@ UniValue poolswap(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{poolSwapMsg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1005,7 +1015,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
                      "One of the keys may be specified (id/symbol)"},
                     {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum acceptable price"},
                 },
-            },                                                                                                    {
+            }, {
                 "inputs",
                 RPCArg::Type::ARR,
                 RPCArg::Optional::OMITTED_NAMED_ARG,
@@ -1022,7 +1032,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },                                                                                                                   },
+            }, },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{HelpExampleCli("compositeswap",
                           "'{\"from\":\"MyAddress\","
@@ -1068,7 +1078,7 @@ UniValue compositeswap(const JSONRPCRequest &request) {
         // If no direct swap found search for composite swap
         auto directPool = pcustomcsview->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
         if (!directPool || !directPool->second.status) {
-            auto compositeSwap    = CPoolSwap(poolSwapMsg, targetHeight);
+            auto compositeSwap = CPoolSwap(poolSwapMsg, targetHeight);
             poolSwapMsgV2.poolIDs = compositeSwap.CalculateSwaps(*pcustomcsview, Params().GetConsensus());
 
             // No composite or direct pools found
@@ -1102,7 +1112,8 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{poolSwapMsg.from};
-    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin =
+        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1146,7 +1157,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
                      "One of the keys may be specified (id/symbol)"},
                     {"maxPrice", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "Maximum acceptable price"},
                 },
-            },                                     {"path",
+            }, {"path",
              RPCArg::Type::STR,
              RPCArg::Optional::OMITTED,
              "One of auto/direct (default = direct)\n"
@@ -1160,7 +1171,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
              "Returns estimated composite path when true (default = false)"},
           },
         RPCResult{
-          "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"                                                 },
+          "\"amount@tokenId\"    (string) The string with amount result of poolswap in format AMOUNT@TOKENID.\n"},
         RPCExamples{HelpExampleCli("testpoolswap",
           "'{\"from\":\"MyAddress\","
                                    "\"tokenFrom\":\"MyToken1\","
@@ -1176,7 +1187,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
                                    "\"to\":\"Address\","
                                    "\"tokenTo\":\"Token2\","
                                    "\"maxPrice\":\"0.01\""
-                                   "}'")                                                                                                                         },
+                                   "}'")},
     }
         .Check(request);
 
@@ -1206,22 +1217,24 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
         CCustomCSView mnview_dummy(*pcustomcsview);  // create dummy cache for test state writing
 
         uint32_t targetHeight = ::ChainActive().Height() + 1;
-        auto poolSwap         = CPoolSwap({poolSwapMsg, targetHeight});
+        auto poolSwap = CPoolSwap({poolSwapMsg, targetHeight});
         std::vector<DCT_ID> poolIds;
         auto poolPair = mnview_dummy.GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);
 
-        if (poolPair && poolPair->second.status && path == "auto")
+        if (poolPair && poolPair->second.status && path == "auto") {
             path = "direct";
+        }
 
         // If no direct swap found search for composite swap
         if (path == "direct") {
-            if (!poolPair)
+            if (!poolPair) {
                 throw JSONRPCError(RPC_INVALID_REQUEST,
                                    "Direct pool pair not found. Use 'auto' mode to use composite swap.");
+            }
 
             poolIds.push_back(poolPair->first);
         } else if (path == "auto" || path == "composite") {
-            poolIds = poolSwap.CalculateSwaps(mnview_dummy, consensus,true);
+            poolIds = poolSwap.CalculateSwaps(mnview_dummy, consensus, true);
         } else {
             path = "custom";
 
@@ -1294,7 +1307,7 @@ UniValue listpoolshares(const JSONRPCRequest &request) {
                      RPCArg::Optional::OMITTED,
                      "Maximum number of pools to return, 100 by default"},
                 },
-            },                                                 {"verbose",
+            }, {"verbose",
              RPCArg::Type::BOOL,
              RPCArg::Optional::OMITTED,
              "Flag for verbose list (default = true), otherwise only % are shown."},
@@ -1303,14 +1316,15 @@ UniValue listpoolshares(const JSONRPCRequest &request) {
              RPCArg::Optional::OMITTED,
              "Get shares for all accounts belonging to the wallet (default = false)"},
           },
-        RPCResult{"{id:{...},...}     (array) Json object with pools information\n"                                                             },
+        RPCResult{"{id:{...},...}     (array) Json object with pools information\n"},
         RPCExamples{HelpExampleCli("listpoolshares", "'{\"start\":128}' false false") +
-                    HelpExampleRpc("listpoolshares",                                "'{\"start\":128}' false false") },
+                    HelpExampleRpc("listpoolshares", "'{\"start\":128}' false false")},
     }
         .Check(request);
 
-    if (auto res = GetRPCResultCache().TryGet(request))
+    if (auto res = GetRPCResultCache().TryGet(request)) {
         return *res;
+    }
 
     bool verbose = true;
     if (request.params.size() > 1) {
@@ -1336,7 +1350,7 @@ UniValue listpoolshares(const JSONRPCRequest &request) {
             }
             if (!paginationObj["start"].isNull()) {
                 including_start = false;
-                start.v         = (uint32_t)paginationObj["start"].get_int();
+                start.v = (uint32_t)paginationObj["start"].get_int();
             }
             if (!paginationObj["including_start"].isNull()) {
                 including_start = paginationObj["including_start"].getBool();
@@ -1398,6 +1412,7 @@ static const CRPCCommand commands[] = {
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable &tableRPC) {
-    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
+    for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++) {
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
+    }
 }

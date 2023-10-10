@@ -4267,7 +4267,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::P
         auto node = pcustomcsview->GetMasternode(*nodeId);
         if (node->rewardAddressType != 0) {
             CTxDestination destination;
-            if (height < consensusParams.DF22NextHeight) {
+            if (height < consensusParams.DF22MetachainHeight) {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNOwnerKeyType);
             } else {
                 destination = FromOrDefaultKeyIDToDestination(node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType);

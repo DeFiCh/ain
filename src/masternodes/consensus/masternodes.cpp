@@ -12,7 +12,7 @@
 
 Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
     Require(tx.vout.size() >= 2 && tx.vout[0].nValue >= GetMnCreationFee(height) && tx.vout[0].nTokenId == DCT_ID{0} &&
-            tx.vout[1].nValue == GetMnCollateralAmount(height) && tx.vout[1].nTokenId == DCT_ID{0},
+                tx.vout[1].nValue == GetMnCollateralAmount(height) && tx.vout[1].nTokenId == DCT_ID{0},
             "malformed tx vouts (wrong creation fee or collateral amount)");
 
     return Res::Ok();
@@ -21,8 +21,9 @@ Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
 Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const {
     Require(CheckMasternodeCreationTx());
 
-    if (height >= static_cast<uint32_t>(consensus.DF8EunosHeight))
+    if (height >= static_cast<uint32_t>(consensus.DF8EunosHeight)) {
         Require(HasAuth(tx.vout[1].scriptPubKey), "masternode creation needs owner auth");
+    }
 
     if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight)) {
         switch (obj.timelock) {
@@ -33,27 +34,29 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
             default:
                 return Res::Err("Timelock must be set to either 0, 5 or 10 years");
         }
-    } else
+    } else {
         Require(obj.timelock == 0, "collateral timelock cannot be set below EunosPaya");
+    }
 
     CMasternode node;
     CTxDestination dest;
     if (ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
         if (dest.index() == PKHashType) {
-            node.ownerType        = 1;
+            node.ownerType = 1;
             node.ownerAuthAddress = CKeyID(std::get<PKHash>(dest));
         } else if (dest.index() == WitV0KeyHashType) {
-            node.ownerType        = 4;
+            node.ownerType = 4;
             node.ownerAuthAddress = CKeyID(std::get<WitnessV0KeyHash>(dest));
         }
     }
-    node.creationHeight      = height;
-    node.operatorType        = obj.operatorType;
+    node.creationHeight = height;
+    node.operatorType = obj.operatorType;
     node.operatorAuthAddress = obj.operatorAuthAddress;
 
     // Set masternode version2 after FC for new serialisation
-    if (height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight))
+    if (height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight)) {
         node.version = CMasternode::VERSION0;
+    }
 
     bool duplicate{};
     mnview.ForEachNewCollateral([&](const uint256 &key, CLazySerialize<MNNewOwnerHeightValue> valueKey) {
@@ -80,19 +83,24 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
     Require(mnview.CreateMasternode(tx.GetHash(), node, obj.timelock));
     // Build coinage from the point of masternode creation
 
-    if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight))
-        for (uint8_t i{0}; i < SUBNODE_COUNT; ++i)
+    if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight)) {
+        for (uint8_t i{0}; i < SUBNODE_COUNT; ++i) {
             mnview.SetSubNodesBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), i, time);
+        }
+    }
 
-    else if (height >= static_cast<uint32_t>(consensus.DF7DakotaCrescentHeight))
+    else if (height >= static_cast<uint32_t>(consensus.DF7DakotaCrescentHeight)) {
         mnview.SetMasternodeLastBlockTime(node.operatorAuthAddress, static_cast<uint32_t>(height), time);
+    }
 
     return Res::Ok();
 }
 
 Res CMasternodesConsensus::operator()(const CResignMasterNodeMessage &obj) const {
     auto node = mnview.GetMasternode(obj);
-    if (!node) return DeFiErrors::MNInvalid(obj.ToString());
+    if (!node) {
+        return DeFiErrors::MNInvalid(obj.ToString());
+    }
 
     Require(HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx));
     return mnview.ResignMasternode(*node, obj, tx.GetHash(), height);
@@ -108,8 +116,9 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
     }
 
     auto node = mnview.GetMasternode(obj.mnId);
-    if (!node)
+    if (!node) {
         return DeFiErrors::MNInvalidAltMsg(obj.mnId.ToString());
+    }
 
     const auto collateralTx = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
     Require(HasCollateralAuth(collateralTx));
@@ -220,7 +229,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             }
             rewardType = true;
 
-            if (height < static_cast<uint32_t>(consensus.DF22NextHeight)) {
+            if (height < static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
                 if (addressType != PKHashType && addressType != WitV0KeyHashType) {
                     return Res::Err("Reward address must be P2PKH or P2WPKH type");
                 }
@@ -244,7 +253,8 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             // next hard fork as this is a workaround for the issue fixed in the following PR:
             // https://github.com/DeFiCh/ain/pull/1766
             if (auto addresses = mnview.SettingsGetRewardAddresses()) {
-                const CScript rewardAddress = GetScriptForDestination(FromOrDefaultKeyIDToDestination(keyID, TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType));
+                const CScript rewardAddress = GetScriptForDestination(
+                    FromOrDefaultKeyIDToDestination(keyID, TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType));
                 addresses->insert(rewardAddress);
                 mnview.SettingsSetRewardAddresses(*addresses);
             }

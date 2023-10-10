@@ -438,6 +438,7 @@ fmt() {
 }
 
 fmt_py() {
+    echo "> fmt: py"
     py_ensure_env_active
     _exec_black
     py_env_deactivate
@@ -448,11 +449,27 @@ fmt_rs() {
 }
 
 fmt_cpp() {
-    # TODO
-    :
+    echo "> fmt: cpp"
+    local clang_ver=${CLANG_DEFAULT_VERSION}
+    local clang_formatters=("clang-format-${clang_ver}" "clang-format")
+    local index=-1
+    for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
+        if "${clang_formatters[$idx]}" --version &> /dev/null; then 
+            index="$idx"
+            break
+        fi
+    done
+    if [[ "$index" == -1 ]]; then
+        echo "No clang formatter found". 
+        exit 1
+    fi
+
+    find src/masternodes \( -iname "*.cpp" -o -iname "*.h" \) \
+        -exec "${clang_formatters[$index]}" -i -style=file {} +;
 }
 
 fmt_lib() {
+    echo "> fmt: rs"
     check_enter_build_rs_dir
     lib fmt
     _exit_dir
@@ -523,13 +540,13 @@ test_py() {
     py_ensure_env_active
 
     # shellcheck disable=SC2086
-    python3 ${build_target_dir}/test/functional/test_runner.py \
+    (set -x; python3 ${build_target_dir}/test/functional/test_runner.py \
         --tmpdirprefix="./test_runner/" \
         --ansi \
         --configfile="${build_target_dir}/test/config.ini" \
         --jobs=${make_jobs} \
         --combinedlogslen=${tests_combined_logs} \
-        ${extra_args} ${first_arg} "$@"
+        ${extra_args} ${first_arg} "$@")
 
     py_env_deactivate
     _exit_dir

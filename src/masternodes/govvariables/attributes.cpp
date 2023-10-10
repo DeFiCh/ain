@@ -20,9 +20,9 @@
 #include <ffi/ffihelpers.h>
 
 enum class EVMAttributesTypes : uint32_t {
-    Finalized    = 1,
-    GasLimit     = 2,
-    GasTarget    = 3,
+    Finalized = 1,
+    GasLimit = 2,
+    GasTarget = 3,
 };
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
@@ -147,14 +147,14 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayOracleIDs() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedEVMIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"block", EVMIDs::Block},
+        {"block", EVMIDs::Block},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayEVMIDs() {
     static const std::map<uint8_t, std::string> params{
-            {EVMIDs::Block, "block"},
+        {EVMIDs::Block, "block"},
     };
     return params;
 }
@@ -175,44 +175,44 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayGovernanceIDs() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTransferIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"evm-dvm", TransferIDs::EVMToDVM},
-            {"dvm-evm", TransferIDs::DVMToEVM},
+        {"evm-dvm", TransferIDs::EVMToDVM},
+        {"dvm-evm", TransferIDs::DVMToEVM},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
     static const std::map<uint8_t, std::string> params{
-            {TransferIDs::EVMToDVM, "evm-dvm"},
-            {TransferIDs::DVMToEVM, "dvm-evm"},
+        {TransferIDs::EVMToDVM, "evm-dvm"},
+        {TransferIDs::DVMToEVM, "dvm-evm"},
     };
     return params;
 }
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedVaultIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"dusd-vault", VaultIDs::DUSDVault},
+        {"dusd-vault", VaultIDs::DUSDVault},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayVaultIDs() {
     static const std::map<uint8_t, std::string> params{
-            {VaultIDs::DUSDVault, "dusd-vault"},
+        {VaultIDs::DUSDVault, "dusd-vault"},
     };
     return params;
 }
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedRulesIDs() {
     static const std::map<std::string, uint8_t> params{
-            {"tx", RulesIDs::TXRules},
+        {"tx", RulesIDs::TXRules},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayRulesIDs() {
     static const std::map<uint8_t, std::string> params{
-            {RulesIDs::TXRules, "tx"},
+        {RulesIDs::TXRules, "tx"},
     };
     return params;
 }
@@ -275,9 +275,9 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::EVMType,
          {
-            {"finality_count", EVMKeys::Finalized},
-            {"gas_limit", EVMKeys::GasLimit},
-            {"gas_target", EVMKeys::GasTarget},
+             {"finality_count", EVMKeys::Finalized},
+             {"gas_limit", EVMKeys::GasLimit},
+             {"gas_target", EVMKeys::GasTarget},
          }},
         {AttributeTypes::Governance,
          {
@@ -296,23 +296,23 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::Transfer,
          {
-            {"enabled", TransferKeys::TransferEnabled},
-            {"src-formats", TransferKeys::SrcFormats},
-            {"dest-formats", TransferKeys::DestFormats},
-            {"auth-formats", TransferKeys::AuthFormats},
-            {"native-enabled", TransferKeys::NativeEnabled},
-            {"dat-enabled", TransferKeys::DATEnabled},
-            {"disallowed", TransferKeys::Disallowed},
+             {"enabled", TransferKeys::TransferEnabled},
+             {"src-formats", TransferKeys::SrcFormats},
+             {"dest-formats", TransferKeys::DestFormats},
+             {"auth-formats", TransferKeys::AuthFormats},
+             {"native-enabled", TransferKeys::NativeEnabled},
+             {"dat-enabled", TransferKeys::DATEnabled},
+             {"disallowed", TransferKeys::Disallowed},
          }},
         {AttributeTypes::Vaults,
-        {
+         {
              {"enabled", VaultKeys::DUSDVaultEnabled},
-        }},
+         }},
         {AttributeTypes::Rules,
          {
-            {"core_op_return_max_size_bytes", RulesKeys::CoreOPReturn},
-            {"dvm_op_return_max_size_bytes", RulesKeys::DVMOPReturn},
-            {"evm_op_return_max_size_bytes", RulesKeys::EVMOPReturn},
+             {"core_op_return_max_size_bytes", RulesKeys::CoreOPReturn},
+             {"dvm_op_return_max_size_bytes", RulesKeys::DVMOPReturn},
+             {"evm_op_return_max_size_bytes", RulesKeys::EVMOPReturn},
          }},
     };
     return keys;
@@ -379,9 +379,9 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::EVMType,
          {
-            {EVMKeys::Finalized, "finality_count"},
-            {EVMKeys::GasLimit, "gas_limit"},
-            {EVMKeys::GasTarget, "gas_target"},
+             {EVMKeys::Finalized, "finality_count"},
+             {EVMKeys::GasLimit, "gas_limit"},
+             {EVMKeys::GasTarget, "gas_target"},
          }},
         {AttributeTypes::Live,
          {
@@ -421,23 +421,23 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::Transfer,
          {
-            {TransferKeys::TransferEnabled, "enabled"},
-            {TransferKeys::SrcFormats, "src-formats"},
-            {TransferKeys::DestFormats, "dest-formats"},
-            {TransferKeys::AuthFormats, "auth-formats"},
-            {TransferKeys::NativeEnabled, "native-enabled"},
-            {TransferKeys::DATEnabled, "dat-enabled"},
-            {TransferKeys::Disallowed, "disallowed"},
+             {TransferKeys::TransferEnabled, "enabled"},
+             {TransferKeys::SrcFormats, "src-formats"},
+             {TransferKeys::DestFormats, "dest-formats"},
+             {TransferKeys::AuthFormats, "auth-formats"},
+             {TransferKeys::NativeEnabled, "native-enabled"},
+             {TransferKeys::DATEnabled, "dat-enabled"},
+             {TransferKeys::Disallowed, "disallowed"},
          }},
         {AttributeTypes::Vaults,
-        {
+         {
              {VaultKeys::DUSDVaultEnabled, "enabled"},
-        }},
+         }},
         {AttributeTypes::Rules,
          {
-            {RulesKeys::CoreOPReturn, "core_op_return_max_size_bytes"},
-            {RulesKeys::DVMOPReturn, "dvm_op_return_max_size_bytes"},
-            {RulesKeys::EVMOPReturn, "evm_op_return_max_size_bytes"},
+             {RulesKeys::CoreOPReturn, "core_op_return_max_size_bytes"},
+             {RulesKeys::DVMOPReturn, "dvm_op_return_max_size_bytes"},
+             {RulesKeys::EVMOPReturn, "evm_op_return_max_size_bytes"},
          }},
     };
     return keys;
@@ -475,7 +475,6 @@ static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
     return {x, Res::Ok()};
 }
 
-
 static ResVal<CAttributeValue> VerifyInt64(const std::string &str) {
     CAmount int64;
     if (!ParseInt64(str, &int64) || int64 < 0) {
@@ -511,16 +510,18 @@ ResVal<CAttributeValue> VerifyPositiveOrMinusOneFloat(const std::string &str) {
 
 static ResVal<CAttributeValue> VerifyPct(const std::string &str) {
     std::string val = str;
-    bool isPct      = (val.size() > 0 && val.back() == '%');
-    if (isPct)
+    bool isPct = (val.size() > 0 && val.back() == '%');
+    if (isPct) {
         val.pop_back();
+    }
     auto resVal = VerifyPositiveFloat(val);
     if (!resVal) {
         return resVal;
     }
     auto value = std::get<CAmount>(*resVal.val);
-    if (isPct && value > 0)
+    if (isPct && value > 0) {
         (*resVal.val).emplace<CAmount>(value / 100);
+    }
     if (std::get<CAmount>(*resVal.val) > COIN) {
         return Res::Err("Percentage exceeds 100%%");
     }
@@ -572,7 +573,7 @@ static ResVal<CAttributeValue> VerifyMember(const UniValue &array) {
         CTxDestination dest;
         if (member[0] == '-') {
             removal = true;
-            dest    = DecodeDestination(member.erase(0, 1));
+            dest = DecodeDestination(member.erase(0, 1));
             addresses.insert(array[i].getValStr());
         } else if (member[0] == '+') {
             dest = DecodeDestination(member.erase(0, 1));
@@ -602,7 +603,7 @@ static ResVal<CAttributeValue> VerifyCurrencyPair(const std::string &str) {
         return DeFiErrors::GovVarVerifyPair();
     }
 
-    auto token    = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    auto token = trim_all_ws(value[0]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto currency = trim_all_ws(value[1]).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     if (token.empty() || currency.empty()) {
         return DeFiErrors::GovVarVerifyValues();
@@ -814,9 +815,9 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::EVMType,
              {
-                {EVMKeys::Finalized, VerifyUInt64},
-                {EVMKeys::GasLimit, VerifyUInt64},
-                {EVMKeys::GasTarget, VerifyUInt64},
+                 {EVMKeys::Finalized, VerifyUInt64},
+                 {EVMKeys::GasLimit, VerifyUInt64},
+                 {EVMKeys::GasTarget, VerifyUInt64},
              }},
             {AttributeTypes::Governance,
              {
@@ -835,19 +836,19 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Transfer,
              {
-                {TransferKeys::TransferEnabled, VerifyBool},
-                {TransferKeys::NativeEnabled, VerifyBool},
-                {TransferKeys::DATEnabled, VerifyBool},
+                 {TransferKeys::TransferEnabled, VerifyBool},
+                 {TransferKeys::NativeEnabled, VerifyBool},
+                 {TransferKeys::DATEnabled, VerifyBool},
              }},
             {AttributeTypes::Vaults,
-            {
+             {
                  {VaultKeys::DUSDVaultEnabled, VerifyBool},
-            }},
+             }},
             {AttributeTypes::Rules,
              {
-                {RulesKeys::CoreOPReturn, VerifyUInt64},
-                {RulesKeys::DVMOPReturn, VerifyUInt64},
-                {RulesKeys::EVMOPReturn, VerifyUInt64},
+                 {RulesKeys::CoreOPReturn, VerifyUInt64},
+                 {RulesKeys::DVMOPReturn, VerifyUInt64},
+                 {RulesKeys::EVMOPReturn, VerifyUInt64},
              }},
     };
     return parsers;
@@ -911,7 +912,9 @@ void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const u
 }
 
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
-    if (!attributes) return false;
+    if (!attributes) {
+        return false;
+    }
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
     return attributes->GetValue(enabledKey, false);
@@ -996,7 +999,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return DeFiErrors::GovVarVariableInvalidKey("evm", allowedEVMIDs());
         }
         typeId = id->second;
-    }else if (type == AttributeTypes::Oracles) {
+    } else if (type == AttributeTypes::Oracles) {
         auto id = allowedOracleIDs().find(keys[2]);
         if (id == allowedOracleIDs().end()) {
             return DeFiErrors::GovVarVariableInvalidKey("oracles", allowedOracleIDs());
@@ -1026,8 +1029,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return DeFiErrors::GovVarVariableInvalidKey("rules", allowedRulesIDs());
         }
         typeId = id->second;
-    }
-    else {
+    } else {
         auto id = VerifyInt32(keys[2]);
         if (!id) {
             return id;
@@ -1107,10 +1109,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             }
         } else if (type == AttributeTypes::EVMType) {
             if (typeId == EVMIDs::Block) {
-                if (typeKey != EVMKeys::Finalized &&
-                    typeKey != EVMKeys::GasLimit &&
-                    typeKey != EVMKeys::GasTarget)
+                if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTarget) {
                     return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
+                }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
@@ -1121,28 +1122,23 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
                     typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCApprovalThreshold &&
                     typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee &&
                     typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
-                    typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles)
+                    typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles) {
                     return DeFiErrors::GovVarVariableUnsupportedProposalType(typeKey);
+                }
             } else {
                 return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
         } else if (type == AttributeTypes::Transfer) {
             if (typeId == TransferIDs::DVMToEVM) {
-                if (typeKey != TransferKeys::TransferEnabled &&
-                    typeKey != TransferKeys::SrcFormats &&
-                    typeKey != TransferKeys::DestFormats &&
-                    typeKey != TransferKeys::NativeEnabled &&
-                    typeKey != TransferKeys::DATEnabled &&
-                    typeKey != TransferKeys::Disallowed) {
+                if (typeKey != TransferKeys::TransferEnabled && typeKey != TransferKeys::SrcFormats &&
+                    typeKey != TransferKeys::DestFormats && typeKey != TransferKeys::NativeEnabled &&
+                    typeKey != TransferKeys::DATEnabled && typeKey != TransferKeys::Disallowed) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
             } else if (typeId == TransferIDs::EVMToDVM) {
-                if (typeKey != TransferKeys::TransferEnabled &&
-                    typeKey != TransferKeys::SrcFormats &&
-                    typeKey != TransferKeys::DestFormats &&
-                    typeKey != TransferKeys::AuthFormats &&
-                    typeKey != TransferKeys::NativeEnabled &&
-                    typeKey != TransferKeys::DATEnabled &&
+                if (typeKey != TransferKeys::TransferEnabled && typeKey != TransferKeys::SrcFormats &&
+                    typeKey != TransferKeys::DestFormats && typeKey != TransferKeys::AuthFormats &&
+                    typeKey != TransferKeys::NativeEnabled && typeKey != TransferKeys::DATEnabled &&
                     typeKey != TransferKeys::Disallowed) {
                     return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
                 }
@@ -1159,8 +1155,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             }
         } else if (type == AttributeTypes::Rules) {
             if (typeId == RulesIDs::TXRules) {
-                if (typeKey != RulesKeys::CoreOPReturn &&
-                    typeKey != RulesKeys::DVMOPReturn &&
+                if (typeKey != RulesKeys::CoreOPReturn && typeKey != RulesKeys::DVMOPReturn &&
                     typeKey != RulesKeys::EVMOPReturn) {
                     return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
                 }
@@ -1213,11 +1208,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue.val);
-    } else if (attrV0.type == AttributeTypes::Transfer &&
-               attrV0.typeId == TransferIDs::EVMToDVM &&
-               (attrV0.key == TransferKeys::DestFormats ||
-               attrV0.key == TransferKeys::SrcFormats ||
-               attrV0.key == TransferKeys::AuthFormats)) {
+    } else if (attrV0.type == AttributeTypes::Transfer && attrV0.typeId == TransferIDs::EVMToDVM &&
+               (attrV0.key == TransferKeys::DestFormats || attrV0.key == TransferKeys::SrcFormats ||
+                attrV0.key == TransferKeys::AuthFormats)) {
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
         }
@@ -1231,8 +1224,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue.val);
-    } else if (attrV0.type == AttributeTypes::Transfer &&
-               attrV0.typeId == TransferIDs::DVMToEVM &&
+    } else if (attrV0.type == AttributeTypes::Transfer && attrV0.typeId == TransferIDs::DVMToEVM &&
                (attrV0.key == TransferKeys::DestFormats || attrV0.key == TransferKeys::SrcFormats)) {
         if (value && !value->isArray() && value->get_array().empty()) {
             return Res::Err("Empty value");
@@ -1242,8 +1234,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
             return std::move(attribValue);
         }
         return applyVariable(attrV0, *attribValue.val);
-    } else if (attrV0.type == AttributeTypes::Transfer &&
-               attrV0.typeId == TransferIDs::DVMToEVM &&
+    } else if (attrV0.type == AttributeTypes::Transfer && attrV0.typeId == TransferIDs::DVMToEVM &&
                (attrV0.typeId == TransferIDs::DVMToEVM || attrV0.typeId == TransferIDs::EVMToDVM) &&
                attrV0.key == TransferKeys::Disallowed) {
         if (value && !value->isArray() && value->get_array().empty()) {
@@ -1316,14 +1307,16 @@ Res ATTRIBUTES::RefundFuturesContracts(CCustomCSView &mnview, const uint32_t hei
 
     for (const auto &[key, value] : userFuturesValues) {
         mnview.EraseFuturesUserValues(key);
-        CAccountsHistoryWriter subView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
+        CAccountsHistoryWriter subView(
+            mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
 
         if (auto res = subView.SubBalance(*contractAddressValue, value.source); !res) {
             return res;
         }
         subView.Flush();
 
-        CAccountsHistoryWriter addView(mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
+        CAccountsHistoryWriter addView(
+            mnview, currentHeight, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
 
         if (auto res = addView.AddBalance(key.owner, value.source); !res) {
             return res;
@@ -1367,14 +1360,16 @@ Res ATTRIBUTES::RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height) 
     for (const auto &[key, amount] : userFuturesValues) {
         mnview.EraseFuturesDUSD(key);
 
-        CAccountsHistoryWriter subView(mnview, height, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
+        CAccountsHistoryWriter subView(
+            mnview, height, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
         auto res = subView.SubBalance(*contractAddressValue, {DCT_ID{}, amount});
         if (!res) {
             return res;
         }
         subView.Flush();
 
-        CAccountsHistoryWriter addView(mnview, height, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
+        CAccountsHistoryWriter addView(
+            mnview, height, GetNextAccPosition(), {}, uint8_t(CustomTxType::FutureSwapRefund));
         res = addView.AddBalance(key.owner, {DCT_ID{}, amount});
         if (!res) {
             return res;
@@ -1413,8 +1408,9 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                     if (!splitValue) {
                         return Res::Err("Failed to get Oracle split value");
                     }
-                    if (splitValue->size() != 1)
+                    if (splitValue->size() != 1) {
                         return Res::Err("Invalid number of token splits, allowed only one per height!");
+                    }
 
                     const auto &[id, multiplier] = *(splitValue->begin());
                     tokenSplits.insert(id);
@@ -1459,17 +1455,21 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                         auto members = GetValue(*attrV0, CConsortiumMembers{});
 
                         for (auto const &member : *attrValue) {
-                            for (auto const &tmp : members)
-                                if (tmp.first != member.first && tmp.second.ownerAddress == member.second.ownerAddress)
+                            for (auto const &tmp : members) {
+                                if (tmp.first != member.first &&
+                                    tmp.second.ownerAddress == member.second.ownerAddress) {
                                     return Res::Err(
                                         "Cannot add a member with an owner address of a existing consortium member!");
+                                }
+                            }
 
                             members[member.first] = member.second;
                         }
                         SetValue(*attrV0, members);
                         return Res::Ok();
-                    } else
+                    } else {
                         return Res::Err("Invalid member data");
+                    }
                 }
             }
             SetValue(attribute, value);
@@ -1507,8 +1507,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             continue;
         } else if (filter == GovVarsFilter::Version2Dot7) {
             if (attrV0->type == AttributeTypes::Token &&
-                attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end())
+                attrsVersion27TokenHiddenSet.find(attrV0->key) != attrsVersion27TokenHiddenSet.end()) {
                 continue;
+            }
         }
         try {
             std::string id;
@@ -1586,7 +1587,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 for (const auto &pool : *balances) {
                     auto &dexTokenA = pool.second.totalTokenA;
                     auto &dexTokenB = pool.second.totalTokenB;
-                    auto poolkey    = KeyBuilder(key, pool.first.v);
+                    auto poolkey = KeyBuilder(key, pool.first.v);
                     ret.pushKV(KeyBuilder(poolkey, "total_commission_a"), ValueFromUint(dexTokenA.commissions));
                     ret.pushKV(KeyBuilder(poolkey, "total_commission_b"), ValueFromUint(dexTokenB.commissions));
                     ret.pushKV(KeyBuilder(poolkey, "fee_burn_a"), ValueFromUint(dexTokenA.feeburn));
@@ -1594,44 +1595,44 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_a"), ValueFromUint(dexTokenA.swaps));
                     ret.pushKV(KeyBuilder(poolkey, "total_swap_b"), ValueFromUint(dexTokenB.swaps));
                 }
-            }  else if (const auto stats = std::get_if<CTransferDomainStatsLive>(&attribute.second)) {
-                    auto dvmEvmEdge    = KeyBuilder(key, "dvm-evm");
-                    auto evmDvmEdge    = KeyBuilder(key, "evm-dvm");
-                    auto dvmDomain    = KeyBuilder(key, "dvm");
-                    auto evmDomain    = KeyBuilder(key, "evm");
-                    auto v = std::vector<std::tuple<std::string, std::string, TAmounts>> {
-                        { dvmEvmEdge, "total", stats->dvmEvmTotal.balances },
-                        { evmDvmEdge, "total", stats->evmDvmTotal.balances },
-                        { dvmDomain, "current", stats->dvmCurrent.balances },
-                        { dvmDomain, "in", stats->dvmIn.balances },
-                        { dvmDomain, "out", stats->dvmOut.balances },
-                        { evmDomain, "current", stats->evmCurrent.balances },
-                        { evmDomain, "in", stats->evmIn.balances },
-                        { evmDomain, "out", stats->evmOut.balances },
-                    };
+            } else if (const auto stats = std::get_if<CTransferDomainStatsLive>(&attribute.second)) {
+                auto dvmEvmEdge = KeyBuilder(key, "dvm-evm");
+                auto evmDvmEdge = KeyBuilder(key, "evm-dvm");
+                auto dvmDomain = KeyBuilder(key, "dvm");
+                auto evmDomain = KeyBuilder(key, "evm");
+                auto v = std::vector<std::tuple<std::string, std::string, TAmounts>>{
+                    {dvmEvmEdge, "total",   stats->dvmEvmTotal.balances},
+                    {evmDvmEdge, "total",   stats->evmDvmTotal.balances},
+                    {dvmDomain,  "current", stats->dvmCurrent.balances },
+                    {dvmDomain,  "in",      stats->dvmIn.balances      },
+                    {dvmDomain,  "out",     stats->dvmOut.balances     },
+                    {evmDomain,  "current", stats->evmCurrent.balances },
+                    {evmDomain,  "in",      stats->evmIn.balances      },
+                    {evmDomain,  "out",     stats->evmOut.balances     },
+                };
 
-                    for (const auto &[key, subkey, balances] : v) {
-                        for (const auto &[id, value] : balances) {
-                            ret.pushKV(KeyBuilder(key, id.v, subkey), ValueFromAmount(value));
-                        }
+                for (const auto &[key, subkey, balances] : v) {
+                    for (const auto &[id, value] : balances) {
+                        ret.pushKV(KeyBuilder(key, id.v, subkey), ValueFromAmount(value));
                     }
+                }
             } else if (const auto stats = std::get_if<CEvmBlockStatsLive>(&attribute.second)) {
-                    auto blockStatsKey     = KeyBuilder(key, "block");
-                    auto v = std::vector<std::tuple<std::string, UniValue>> {
-                        { "fee_burnt", ValueFromAmount(stats->feeBurnt) },
-                        { "fee_burnt_min", ValueFromAmount(stats->feeBurntMin) },
-                        { "fee_burnt_min_hash", stats->feeBurntMinHash.GetHex() },
-                        { "fee_burnt_max", ValueFromAmount(stats->feeBurntMax) },
-                        { "fee_burnt_max_hash", stats->feeBurntMaxHash.GetHex() },
-                        { "fee_priority", ValueFromAmount(stats->feePriority) },
-                        { "fee_priority_min", ValueFromAmount(stats->feePriorityMin) },
-                        { "fee_priority_min_hash", stats->feePriorityMinHash.GetHex() },
-                        { "fee_priority_max", ValueFromAmount(stats->feePriorityMax) },
-                        { "fee_priority_max_hash", stats->feePriorityMaxHash.GetHex() },
-                    };
-                    for (const auto &[key, value] : v) {
-                        ret.pushKV(KeyBuilder(blockStatsKey, key), value);
-                    }
+                auto blockStatsKey = KeyBuilder(key, "block");
+                auto v = std::vector<std::tuple<std::string, UniValue>>{
+                    {"fee_burnt",             ValueFromAmount(stats->feeBurnt)      },
+                    {"fee_burnt_min",         ValueFromAmount(stats->feeBurntMin)   },
+                    {"fee_burnt_min_hash",    stats->feeBurntMinHash.GetHex()       },
+                    {"fee_burnt_max",         ValueFromAmount(stats->feeBurntMax)   },
+                    {"fee_burnt_max_hash",    stats->feeBurntMaxHash.GetHex()       },
+                    {"fee_priority",          ValueFromAmount(stats->feePriority)   },
+                    {"fee_priority_min",      ValueFromAmount(stats->feePriorityMin)},
+                    {"fee_priority_min_hash", stats->feePriorityMinHash.GetHex()    },
+                    {"fee_priority_max",      ValueFromAmount(stats->feePriorityMax)},
+                    {"fee_priority_max_hash", stats->feePriorityMaxHash.GetHex()    },
+                };
+                for (const auto &[key, value] : v) {
+                    ret.pushKV(KeyBuilder(blockStatsKey, key), value);
+                }
             } else if (auto members = std::get_if<CConsortiumMembers>(&attribute.second)) {
                 UniValue result(UniValue::VOBJ);
                 for (const auto &[id, member] : *members) {
@@ -1648,7 +1649,7 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (auto consortiumMinted = std::get_if<CConsortiumGlobalMinted>(&attribute.second)) {
                 for (const auto &token : *consortiumMinted) {
                     auto &minted = token.second.minted;
-                    auto &burnt  = token.second.burnt;
+                    auto &burnt = token.second.burnt;
 
                     auto tokenKey = KeyBuilder(key, token.first.v);
                     ret.pushKV(KeyBuilder(tokenKey, "minted"), ValueFromAmount(minted));
@@ -1659,9 +1660,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 for (const auto &token : *membersMinted) {
                     for (const auto &member : token.second) {
                         auto &minted = member.second.minted;
-                        auto &burnt  = member.second.burnt;
+                        auto &burnt = member.second.burnt;
 
-                        auto tokenKey  = KeyBuilder(key, token.first.v);
+                        auto tokenKey = KeyBuilder(key, token.first.v);
                         auto memberKey = KeyBuilder(tokenKey, member.first);
                         ret.pushKV(KeyBuilder(memberKey, "minted"), ValueFromAmount(minted));
                         ret.pushKV(KeyBuilder(memberKey, "daily_minted"),
@@ -1809,7 +1810,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         // Post fork remove this guard as long as there were no non-DAT loan tokens before
                         // the fork. A full sync test on the removal of this guard will tell.
-                        if (view.GetLastHeight() >= Params().GetConsensus().DF22NextHeight) {
+                        if (view.GetLastHeight() >= Params().GetConsensus().DF22MetachainHeight) {
                             if (!VerifyDATToken(view, attrV0->typeId)) {
                                 return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                             }
@@ -1819,7 +1820,7 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             }
                         }
                         CDataStructureV0 intervalPriceKey{
-                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                            AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
                             return DeFiErrors::GovVarValidateCurrencyPair();
                         }
@@ -1836,13 +1837,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         }
                         // Post fork remove this guard as long as there were no non-DAT loan tokens before
                         // the fork. A full sync test on the removal of this guard will tell.
-                        if (view.GetLastHeight() >= Params().GetConsensus().DF22NextHeight) {
+                        if (view.GetLastHeight() >= Params().GetConsensus().DF22MetachainHeight) {
                             if (!token->IsDAT()) {
                                 return DeFiErrors::GovVarValidateToken(attrV0->typeId);
                             }
                         }
                         CDataStructureV0 intervalPriceKey{
-                                AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
+                            AttributeTypes::Token, attrV0->typeId, TokenKeys::FixedIntervalPriceId};
                         if (GetValue(intervalPriceKey, CTokenCurrencyPair{}) == CTokenCurrencyPair{}) {
                             return DeFiErrors::GovVarValidateCurrencyPair();
                         }
@@ -1876,11 +1877,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Consortium:
                 switch (attrV0->key) {
                     case ConsortiumKeys::MemberValues: {
-                        if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight)
+                        if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
                             return Res::Err("Cannot be set before GrandCentral");
+                        }
 
-                        if (!view.GetToken(DCT_ID{attrV0->typeId}))
+                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
                             return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
 
                         const auto members = std::get_if<CConsortiumMembers>(&value);
                         if (!members) {
@@ -1908,11 +1911,13 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     }
                     case ConsortiumKeys::MintLimit:
                     case ConsortiumKeys::DailyMintLimit:
-                        if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight)
+                        if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
                             return Res::Err("Cannot be set before GrandCentral");
+                        }
 
-                        if (!view.GetToken(DCT_ID{attrV0->typeId}))
+                        if (!view.GetToken(DCT_ID{attrV0->typeId})) {
                             return Res::Err("No such token (%d)", attrV0->typeId);
+                        }
                         break;
                     default:
                         return Res::Err("Unsupported key");
@@ -1984,8 +1989,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             return Res::Err("Cannot be set before GrandCentralEpilogueHeight");
                         }
                     } else if (attrV0->key == DFIPKeys::EVMEnabled || attrV0->key == DFIPKeys::TransferDomain) {
-                        if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
-                            return Res::Err("Cannot be set before NextNetworkUpgradeHeight");
+                        if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                            return Res::Err("Cannot be set before MetachainHeight");
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
@@ -2033,14 +2038,14 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::EVMType:
-                if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
-                    return Res::Err("Cannot be set before NextNetworkUpgrade");
+                if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                    return Res::Err("Cannot be set before Metachain");
                 }
                 break;
 
             case AttributeTypes::Transfer:
-                if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
-                    return Res::Err("Cannot be set before NextNetworkUpgrade");
+                if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                    return Res::Err("Cannot be set before Metachain");
                 }
                 if ((attrV0->typeId == TransferIDs::DVMToEVM || attrV0->typeId == TransferIDs::EVMToDVM) &&
                     attrV0->key == TransferKeys::Disallowed) {
@@ -2056,15 +2061,15 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
 
             case AttributeTypes::Vaults:
                 if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
-                    if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
-                        return Res::Err("Cannot be set before NextNetworkUpgrade");
+                    if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                        return Res::Err("Cannot be set before Metachain");
                     }
                 }
                 break;
 
             case AttributeTypes::Rules:
-                if (view.GetLastHeight() < Params().GetConsensus().DF22NextHeight) {
-                    return Res::Err("Cannot be set before NextNetworkUpgrade");
+                if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                    return Res::Err("Cannot be set before Metachain");
                 }
                 break;
 
@@ -2085,7 +2090,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
         if (attrV0->type == AttributeTypes::Poolpairs) {
             if (attrV0->key == PoolKeys::TokenAFeePCT || attrV0->key == PoolKeys::TokenBFeePCT) {
                 auto poolId = DCT_ID{attrV0->typeId};
-                auto pool   = mnview.GetPoolPair(poolId);
+                auto pool = mnview.GetPoolPair(poolId);
                 if (!pool) {
                     return DeFiErrors::GovVarApplyInvalidPool(poolId.v);
                 }
@@ -2124,10 +2129,10 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                                         currencyPair->second);
                     }
                     CFixedIntervalPrice fixedIntervalPrice;
-                    fixedIntervalPrice.priceFeedId    = *currencyPair;
-                    fixedIntervalPrice.timestamp      = time;
+                    fixedIntervalPrice.priceFeedId = *currencyPair;
+                    fixedIntervalPrice.timestamp = time;
                     fixedIntervalPrice.priceRecord[1] = -1;
-                    const auto aggregatePrice         = GetAggregatePrice(
+                    const auto aggregatePrice = GetAggregatePrice(
                         mnview, fixedIntervalPrice.priceFeedId.first, fixedIntervalPrice.priceFeedId.second, time);
                     if (aggregatePrice) {
                         fixedIntervalPrice.priceRecord[1] = aggregatePrice;
@@ -2311,7 +2316,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
 
                     CGovernanceHeightMessage lock;
                     lock.startHeight = startHeight;
-                    lock.govVar      = govVar;
+                    lock.govVar = govVar;
 
                     if (auto res = StoreGovVars(lock, mnview); !res) {
                         return res;
@@ -2323,7 +2328,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
             }
         }
 
-        const auto govVarPtr = static_cast<const uint8_t*>(static_cast<const void*>(&attribute.second));
+        const auto govVarPtr = static_cast<const uint8_t *>(static_cast<const void *>(&attribute.second));
         const auto govVarVec = std::vector<uint8_t>(govVarPtr, govVarPtr + sizeof(attribute.second));
 
         rust::Vec<uint8_t> govVarValue{};
@@ -2360,7 +2365,7 @@ Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::st
             }
             if (attrV0->type == AttributeTypes::Poolpairs) {
                 auto poolId = DCT_ID{attrV0->typeId};
-                auto pool   = mnview.GetPoolPair(poolId);
+                auto pool = mnview.GetPoolPair(poolId);
                 if (!pool) {
                     return DeFiErrors::GovVarApplyInvalidPool(poolId.v);
                 }

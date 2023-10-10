@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <ffi/ffihelpers.h>
 #include <masternodes/accountshistory.h>
 #include <masternodes/consensus/accounts.h>
 #include <masternodes/consensus/governance.h>
@@ -18,7 +19,6 @@
 #include <masternodes/govvariables/attributes.h>
 #include <masternodes/mn_checks.h>
 #include <masternodes/vaulthistory.h>
-#include <ffi/ffihelpers.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -159,15 +159,15 @@ CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     return CCustomTxMessageNone{};
 }
 
-template <typename ...T>
+template <typename... T>
 constexpr bool FalseType = false;
 
-template<typename T>
+template <typename T>
 constexpr bool IsOneOf() {
     return false;
 }
 
-template<typename T, typename T1, typename ...Args>
+template <typename T, typename T1, typename... Args>
 constexpr bool IsOneOf() {
     return std::is_same_v<T, T1> || IsOneOf<T, Args...>();
 }
@@ -179,17 +179,17 @@ class CCustomMetadataParseVisitor {
 
     Res IsHardforkEnabled(const uint32_t startHeight) const {
         const std::unordered_map<int, std::string> hardforks = {
-                { consensus.DF1AMKHeight,                    "called before AMK height" },
-                { consensus.DF2BayfrontHeight,               "called before Bayfront height" },
-                { consensus.BayfrontGardensHeight,        "called before Bayfront Gardens height" },
-                { consensus.DF8EunosHeight,                  "called before Eunos height" },
-                { consensus.DF10EunosPayaHeight,              "called before EunosPaya height" },
-                { consensus.DF11FortCanningHeight,            "called before FortCanning height" },
-                { consensus.DF14FortCanningHillHeight,        "called before FortCanningHill height" },
-                { consensus.DF15FortCanningRoadHeight,        "called before FortCanningRoad height" },
-                { consensus.DF19FortCanningEpilogueHeight,    "called before FortCanningEpilogue height" },
-                { consensus.DF20GrandCentralHeight,           "called before GrandCentral height" },
-                { consensus.DF22NextHeight,     "called before NextNetworkUpgrade height" },
+            {consensus.DF1AMKHeight,                  "called before AMK height"                },
+            {consensus.DF2BayfrontHeight,             "called before Bayfront height"           },
+            {consensus.BayfrontGardensHeight,         "called before Bayfront Gardens height"   },
+            {consensus.DF8EunosHeight,                "called before Eunos height"              },
+            {consensus.DF10EunosPayaHeight,           "called before EunosPaya height"          },
+            {consensus.DF11FortCanningHeight,         "called before FortCanning height"        },
+            {consensus.DF14FortCanningHillHeight,     "called before FortCanningHill height"    },
+            {consensus.DF15FortCanningRoadHeight,     "called before FortCanningRoad height"    },
+            {consensus.DF19FortCanningEpilogueHeight, "called before FortCanningEpilogue height"},
+            {consensus.DF20GrandCentralHeight,        "called before GrandCentral height"       },
+            {consensus.DF22MetachainHeight,           "called before Metachain height"          },
         };
         if (startHeight && height < startHeight) {
             auto it = hardforks.find(startHeight);
@@ -208,110 +208,107 @@ public:
           consensus(consensus),
           metadata(metadata) {}
 
-    template<typename T>
+    template <typename T>
     Res EnabledAfter() const {
         if constexpr (IsOneOf<T,
-                CCreateTokenMessage,
-                CUpdateTokenPreAMKMessage,
-                CUtxosToAccountMessage,
-                CAccountToUtxosMessage,
-                CAccountToAccountMessage,
-                CMintTokensMessage>())
+                              CCreateTokenMessage,
+                              CUpdateTokenPreAMKMessage,
+                              CUtxosToAccountMessage,
+                              CAccountToUtxosMessage,
+                              CAccountToAccountMessage,
+                              CMintTokensMessage>()) {
             return IsHardforkEnabled(consensus.DF1AMKHeight);
-        else if constexpr (IsOneOf<T,
-                CUpdateTokenMessage,
-                CPoolSwapMessage,
-                CLiquidityMessage,
-                CRemoveLiquidityMessage,
-                CCreatePoolPairMessage,
-                CUpdatePoolPairMessage,
-                CGovernanceMessage>())
+        } else if constexpr (IsOneOf<T,
+                                     CUpdateTokenMessage,
+                                     CPoolSwapMessage,
+                                     CLiquidityMessage,
+                                     CRemoveLiquidityMessage,
+                                     CCreatePoolPairMessage,
+                                     CUpdatePoolPairMessage,
+                                     CGovernanceMessage>()) {
             return IsHardforkEnabled(consensus.DF2BayfrontHeight);
-        else if constexpr (IsOneOf<T,
-                CAppointOracleMessage,
-                CRemoveOracleAppointMessage,
-                CUpdateOracleAppointMessage,
-                CSetOracleDataMessage,
-                CICXCreateOrderMessage,
-                CICXMakeOfferMessage,
-                CICXSubmitDFCHTLCMessage,
-                CICXSubmitEXTHTLCMessage,
-                CICXClaimDFCHTLCMessage,
-                CICXCloseOrderMessage,
-                CICXCloseOfferMessage>())
+        } else if constexpr (IsOneOf<T,
+                                     CAppointOracleMessage,
+                                     CRemoveOracleAppointMessage,
+                                     CUpdateOracleAppointMessage,
+                                     CSetOracleDataMessage,
+                                     CICXCreateOrderMessage,
+                                     CICXMakeOfferMessage,
+                                     CICXSubmitDFCHTLCMessage,
+                                     CICXSubmitEXTHTLCMessage,
+                                     CICXClaimDFCHTLCMessage,
+                                     CICXCloseOrderMessage,
+                                     CICXCloseOfferMessage>()) {
             return IsHardforkEnabled(consensus.DF8EunosHeight);
-        else if constexpr (IsOneOf<T,
-                CPoolSwapMessageV2,
-                CLoanSetCollateralTokenMessage,
-                CLoanSetLoanTokenMessage,
-                CLoanUpdateLoanTokenMessage,
-                CLoanSchemeMessage,
-                CDefaultLoanSchemeMessage,
-                CDestroyLoanSchemeMessage,
-                CVaultMessage,
-                CCloseVaultMessage,
-                CUpdateVaultMessage,
-                CDepositToVaultMessage,
-                CWithdrawFromVaultMessage,
-                CLoanTakeLoanMessage,
-                CLoanPaybackLoanMessage,
-                CAuctionBidMessage,
-                CGovernanceHeightMessage>())
+        } else if constexpr (IsOneOf<T,
+                                     CPoolSwapMessageV2,
+                                     CLoanSetCollateralTokenMessage,
+                                     CLoanSetLoanTokenMessage,
+                                     CLoanUpdateLoanTokenMessage,
+                                     CLoanSchemeMessage,
+                                     CDefaultLoanSchemeMessage,
+                                     CDestroyLoanSchemeMessage,
+                                     CVaultMessage,
+                                     CCloseVaultMessage,
+                                     CUpdateVaultMessage,
+                                     CDepositToVaultMessage,
+                                     CWithdrawFromVaultMessage,
+                                     CLoanTakeLoanMessage,
+                                     CLoanPaybackLoanMessage,
+                                     CAuctionBidMessage,
+                                     CGovernanceHeightMessage>()) {
             return IsHardforkEnabled(consensus.DF11FortCanningHeight);
-        else if constexpr (IsOneOf<T,
-                CAnyAccountsToAccountsMessage>())
+        } else if constexpr (IsOneOf<T, CAnyAccountsToAccountsMessage>()) {
             return IsHardforkEnabled(consensus.BayfrontGardensHeight);
-        else if constexpr (IsOneOf<T,
-                CSmartContractMessage>())
+        } else if constexpr (IsOneOf<T, CSmartContractMessage>()) {
             return IsHardforkEnabled(consensus.DF14FortCanningHillHeight);
-        else if constexpr (IsOneOf<T,
-                CLoanPaybackLoanV2Message,
-                CFutureSwapMessage>())
+        } else if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message, CFutureSwapMessage>()) {
             return IsHardforkEnabled(consensus.DF15FortCanningRoadHeight);
-        else if constexpr (IsOneOf<T,
-                CPaybackWithCollateralMessage>())
+        } else if constexpr (IsOneOf<T, CPaybackWithCollateralMessage>()) {
             return IsHardforkEnabled(consensus.DF19FortCanningEpilogueHeight);
-        else if constexpr (IsOneOf<T,
-                CUpdateMasterNodeMessage,
-                CBurnTokensMessage,
-                CCreateProposalMessage,
-                CProposalVoteMessage,
-                CGovernanceUnsetMessage>())
+        } else if constexpr (IsOneOf<T,
+                                     CUpdateMasterNodeMessage,
+                                     CBurnTokensMessage,
+                                     CCreateProposalMessage,
+                                     CProposalVoteMessage,
+                                     CGovernanceUnsetMessage>()) {
             return IsHardforkEnabled(consensus.DF20GrandCentralHeight);
-        else if constexpr (IsOneOf<T,
-                CTransferDomainMessage,
-                CEvmTxMessage>())
-            return IsHardforkEnabled(consensus.DF22NextHeight);
-        else if constexpr (IsOneOf<T,
-                CCreateMasterNodeMessage,
-                CResignMasterNodeMessage>())
+        } else if constexpr (IsOneOf<T, CTransferDomainMessage, CEvmTxMessage>()) {
+            return IsHardforkEnabled(consensus.DF22MetachainHeight);
+        } else if constexpr (IsOneOf<T, CCreateMasterNodeMessage, CResignMasterNodeMessage>()) {
             return Res::Ok();
-        else
+        } else {
             static_assert(FalseType<T>, "Unhandled type");
+        }
     }
 
-    template<typename T>
+    template <typename T>
     Res DisabledAfter() const {
-        if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>())
-            return IsHardforkEnabled(consensus.DF2BayfrontHeight) ? Res::Err("called after Bayfront height") : Res::Ok();
+        if constexpr (IsOneOf<T, CUpdateTokenPreAMKMessage>()) {
+            return IsHardforkEnabled(consensus.DF2BayfrontHeight) ? Res::Err("called after Bayfront height")
+                                                                  : Res::Ok();
+        }
 
         return Res::Ok();
     }
 
-    template<typename T>
-    Res operator()(T& obj) const {
+    template <typename T>
+    Res operator()(T &obj) const {
         auto res = EnabledAfter<T>();
-        if (!res)
+        if (!res) {
             return res;
+        }
 
         res = DisabledAfter<T>();
-        if (!res)
+        if (!res) {
             return res;
+        }
 
         CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
         ss >> obj;
-        if (!ss.empty())
+        if (!ss.empty()) {
             return Res::Err("deserialization failed: excess %d bytes", ss.size());
+        }
 
         return Res::Ok();
     }
@@ -322,28 +319,29 @@ public:
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor {
-    const CTransaction& tx;
+    const CTransaction &tx;
     const uint32_t height;
-    const CCoinsViewCache& coins;
-    CCustomCSView& mnview;
-    const Consensus::Params& consensus;
+    const CCoinsViewCache &coins;
+    CCustomCSView &mnview;
+    const Consensus::Params &consensus;
     uint64_t time;
     uint32_t txn;
     const std::shared_ptr<CScopedQueueID> &evmQueueId;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
-    template<typename T, typename T1, typename ...Args>
-    Res ConsensusHandler(const T& obj) const {
-
+    template <typename T, typename T1, typename... Args>
+    Res ConsensusHandler(const T &obj) const {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
-        if constexpr (std::is_invocable_v<T1, T>)
-            return T1{tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate}(obj);
-        else if constexpr (sizeof...(Args) != 0)
+        if constexpr (std::is_invocable_v<T1, T>) {
+            return T1{
+                tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate}(obj);
+        } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
-        else
+        } else {
             static_assert(FalseType<T>, "Unhandled type");
+        }
 
         return Res::Err("(%s): Unhandled type", __func__);
     }
@@ -371,23 +369,21 @@ public:
           isEvmEnabledForBlock(isEvmEnabledForBlock),
           evmPreValidate(evmPreValidate) {}
 
-    template<typename T>
-    Res operator()(const T& obj) const {
-
+    template <typename T>
+    Res operator()(const T &obj) const {
         return ConsensusHandler<T,
-                CAccountsConsensus,
-                CGovernanceConsensus,
-                CICXOrdersConsensus,
-                CLoansConsensus,
-                CMasternodesConsensus,
-                COraclesConsensus,
-                CPoolPairsConsensus,
-                CProposalsConsensus,
-                CSmartContractsConsensus,
-                CTokensConsensus,
-                CVaultsConsensus,
-                CXVMConsensus
-        >(obj);
+                                CAccountsConsensus,
+                                CGovernanceConsensus,
+                                CICXOrdersConsensus,
+                                CLoansConsensus,
+                                CMasternodesConsensus,
+                                COraclesConsensus,
+                                CPoolPairsConsensus,
+                                CProposalsConsensus,
+                                CSmartContractsConsensus,
+                                CTokensConsensus,
+                                CVaultsConsensus,
+                                CXVMConsensus>(obj);
     }
 
     Res operator()(const CCustomTxMessageNone &) const { return Res::Ok(); }
@@ -402,7 +398,7 @@ Res CustomMetadataParse(uint32_t height,
     } catch (const std::exception &e) {
         return Res::Err(e.what());
     } catch (...) {
-        return Res::Err("%s unexpected error", __func__ );
+        return Res::Err("%s unexpected error", __func__);
     }
 }
 
@@ -411,8 +407,9 @@ bool IsDisabledTx(uint32_t height, CustomTxType type, const Consensus::Params &c
     auto fortCanningParkHeight = static_cast<uint32_t>(consensus.DF13FortCanningParkHeight);
     auto fortCanningHillHeight = static_cast<uint32_t>(consensus.DF14FortCanningHillHeight);
 
-    if (height < fortCanningParkHeight)
+    if (height < fortCanningParkHeight) {
         return false;
+    }
 
     // For additional safety, since some APIs do block + 1 calc
     if (height == fortCanningHillHeight || height == fortCanningHillHeight - 1) {
@@ -461,13 +458,14 @@ Res CustomTxVisit(CCustomCSView &mnview,
 
     try {
         auto res = std::visit(
-                CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate),
-                txMessage);
+            CCustomTxApplyVisitor(
+                tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate),
+            txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
     } catch (...) {
-        return Res::Err("%s unexpected error", __func__ );
+        return Res::Err("%s unexpected error", __func__);
     }
 }
 
@@ -487,44 +485,44 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
                               const uint32_t txn,
                               const uint256 &txid) {
     if (txType == CustomTxType::Vault) {
-        auto obj          = std::get<CVaultMessage>(txMessage);
+        auto obj = std::get<CVaultMessage>(txMessage);
         writers.schemeID = obj.schemeId;
-        view.vaultID      = txid;
+        view.vaultID = txid;
     } else if (txType == CustomTxType::CloseVault) {
-        auto obj     = std::get<CCloseVaultMessage>(txMessage);
+        auto obj = std::get<CCloseVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::UpdateVault) {
-        auto obj     = std::get<CUpdateVaultMessage>(txMessage);
+        auto obj = std::get<CUpdateVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
         if (!obj.schemeId.empty()) {
             writers.schemeID = obj.schemeId;
         }
     } else if (txType == CustomTxType::DepositToVault) {
-        auto obj     = std::get<CDepositToVaultMessage>(txMessage);
+        auto obj = std::get<CDepositToVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::WithdrawFromVault) {
-        auto obj     = std::get<CWithdrawFromVaultMessage>(txMessage);
+        auto obj = std::get<CWithdrawFromVaultMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackWithCollateral) {
-        auto obj     = std::get<CPaybackWithCollateralMessage>(txMessage);
+        auto obj = std::get<CPaybackWithCollateralMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::TakeLoan) {
-        auto obj     = std::get<CLoanTakeLoanMessage>(txMessage);
+        auto obj = std::get<CLoanTakeLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackLoan) {
-        auto obj     = std::get<CLoanPaybackLoanMessage>(txMessage);
+        auto obj = std::get<CLoanPaybackLoanMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::PaybackLoanV2) {
-        auto obj     = std::get<CLoanPaybackLoanV2Message>(txMessage);
+        auto obj = std::get<CLoanPaybackLoanV2Message>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::AuctionBid) {
-        auto obj     = std::get<CAuctionBidMessage>(txMessage);
+        auto obj = std::get<CAuctionBidMessage>(txMessage);
         view.vaultID = obj.vaultId;
     } else if (txType == CustomTxType::LoanScheme) {
-        auto obj                             = std::get<CLoanSchemeMessage>(txMessage);
+        auto obj = std::get<CLoanSchemeMessage>(txMessage);
         writers.globalLoanScheme.identifier = obj.identifier;
-        writers.globalLoanScheme.ratio      = obj.ratio;
-        writers.globalLoanScheme.rate       = obj.rate;
+        writers.globalLoanScheme.ratio = obj.ratio;
+        writers.globalLoanScheme.rate = obj.rate;
         if (!obj.updateHeight) {
             writers.globalLoanScheme.schemeCreationTxid = txid;
         } else {
@@ -590,7 +588,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate);
+        res = CustomTxVisit(
+            view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
@@ -613,7 +612,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             if (txType == CustomTxType::CreateCfp || txType == CustomTxType::CreateVoc) {
                 // burn fee_burn_pct of creation fee, the rest is distributed among voting masternodes
                 CDataStructureV0 burnPctKey{
-                        AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
+                    AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
                 auto attributes = view.GetAttributes();
                 assert(attributes);
@@ -647,7 +646,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 
     // construct undo
     auto &flushable = view.GetStorage();
-    auto undo       = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
+    auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
     // flush changes
     view.Flush();
     // write undo
@@ -691,8 +690,9 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
     // check reward sum
     if (height >= consensusParams.DF1AMKHeight) {
         const auto cbValues = tx.GetValuesOut();
-        if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0})
+        if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0}) {
             return Res::ErrDbg("bad-ar-wrong-tokens", "anchor reward should be payed only in Defi coins");
+        }
 
         const auto anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
         if (cbValues.begin()->second != anchorReward) {
@@ -709,7 +709,8 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
         }
     }
 
-    CTxDestination destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+    CTxDestination destination = FromOrDefaultKeyIDToDestination(
+        finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
     }
@@ -757,7 +758,7 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
 
     // Miner used confirm team at chain height when creating this TX, this is height - 1.
     int anchorHeight = height - 1;
-    auto uniqueKeys  = finMsg.CheckConfirmSigs(anchorHeight);
+    auto uniqueKeys = finMsg.CheckConfirmSigs(anchorHeight);
     if (!uniqueKeys) {
         return Res::ErrDbg("bad-ar-sigs", "anchor signatures are incorrect");
     }
@@ -793,10 +794,12 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
             anchorReward);
 
     CTxDestination destination;
-    if (height < consensusParams.DF22NextHeight) {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
+    if (height < consensusParams.DF22MetachainHeight) {
+        destination = FromOrDefaultKeyIDToDestination(
+            finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNOwnerKeyType);
     } else {
-        destination = FromOrDefaultKeyIDToDestination(finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
+        destination = FromOrDefaultKeyIDToDestination(
+            finMsg.rewardKeyID, TxDestTypeToKeyType(finMsg.rewardKeyType), KeyType::MNRewardKeyType);
     }
     if (!IsValidDestination(destination) || tx.vout[1].scriptPubKey != GetScriptForDestination(destination)) {
         return Res::ErrDbg("bad-ar-dest", "anchor pay destination is incorrect");
@@ -917,10 +920,10 @@ std::vector<std::vector<DCT_ID> > CPoolSwap::CalculatePoolPaths(CCustomCSView &v
         [&](DCT_ID const &id, const CPoolPair &pool) {
             // Loop through from pool multimap on unique keys only
             for (auto fromIt = fromPoolsID.begin(); fromIt != fromPoolsID.end();
-                 fromIt      = fromPoolsID.equal_range(fromIt->first).second) {
+                 fromIt = fromPoolsID.equal_range(fromIt->first).second) {
                 // Loop through to pool multimap on unique keys only
                 for (auto toIt = toPoolsID.begin(); toIt != toPoolsID.end();
-                     toIt      = toPoolsID.equal_range(toIt->first).second) {
+                     toIt = toPoolsID.equal_range(toIt->first).second) {
                     // If a pool pairs matches from pair and to pair add it to the pool paths
                     if ((fromIt->first == pool.idTokenA.v && toIt->first == pool.idTokenB.v) ||
                         (fromIt->first == pool.idTokenB.v && toIt->first == pool.idTokenA.v)) {
@@ -940,7 +943,10 @@ std::vector<std::vector<DCT_ID> > CPoolSwap::CalculatePoolPaths(CCustomCSView &v
 // Note: `testOnly` doesn't update views, and as such can result in a previous price calculations
 // for a pool, if used multiple times (or duplicated pool IDs) with the same view.
 // testOnly is only meant for one-off tests per well defined view.
-Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, const Consensus::Params &consensus, bool testOnly) {
+Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
+                           std::vector<DCT_ID> poolIDs,
+                           const Consensus::Params &consensus,
+                           bool testOnly) {
     Res poolResult = Res::Ok();
     // No composite swap allowed before Fort Canning
     if (height < static_cast<uint32_t>(consensus.DF11FortCanningHeight) && !poolIDs.empty()) {
@@ -949,8 +955,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
 
     Require(obj.amountFrom > 0, "Input amount should be positive");
 
-    if (height >= static_cast<uint32_t>(consensus.DF14FortCanningHillHeight) &&
-        poolIDs.size() > MAX_POOL_SWAPS) {
+    if (height >= static_cast<uint32_t>(consensus.DF14FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
         return Res::Err(
             strprintf("Too many pool IDs provided, max %d allowed, %d provided", MAX_POOL_SWAPS, poolIDs.size()));
     }
@@ -1018,21 +1023,21 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
 
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenBFeeDir};
-        const auto dirA          = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
-        const auto dirB          = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
-        auto &balances   = dexBalances[currentID];
-        auto forward     = swapAmount.nTokenId == pool->idTokenA;
+        auto &balances = dexBalances[currentID];
+        auto forward = swapAmount.nTokenId == pool->idTokenA;
 
         auto &totalTokenA = forward ? balances.totalTokenA : balances.totalTokenB;
         auto &totalTokenB = forward ? balances.totalTokenB : balances.totalTokenA;
 
-        const auto &reserveAmount   = forward ? pool->reserveA : pool->reserveB;
+        const auto &reserveAmount = forward ? pool->reserveA : pool->reserveB;
         const auto &blockCommission = forward ? pool->blockCommissionA : pool->blockCommissionB;
 
-        const auto initReserveAmount   = reserveAmount;
+        const auto initReserveAmount = reserveAmount;
         const auto initBlockCommission = blockCommission;
 
         // Perform swap
@@ -1057,8 +1062,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
                 // Just go over pools and return result. The only way this can
                 // cause inaccurate result is if we go over the same path twice,
                 // which shouldn't happen in the first place.
-                if (testOnly)
+                if (testOnly) {
                     return Res::Ok();
+                }
 
                 auto res = view.SetPoolPair(currentID, height, *pool);
                 if (!res) {
@@ -1068,7 +1074,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, con
                 CCustomCSView intermediateView(view);
                 // hide interemidiate swaps
                 auto &subView = i == 0 ? view : intermediateView;
-                res           = subView.SubBalance(obj.from, swapAmount);
+                res = subView.SubBalance(obj.from, swapAmount);
                 if (!res) {
                     return res;
                 }
@@ -1158,15 +1164,15 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
                     bool forceLoanSwap) {
     CPoolSwapMessage obj;
 
-    obj.from        = from;
-    obj.to          = to;
+    obj.from = from;
+    obj.to = to;
     obj.idTokenFrom = tokenId;
-    obj.idTokenTo   = DCT_ID{0};
-    obj.amountFrom  = amount;
-    obj.maxPrice    = PoolPrice::getMaxValid();
+    obj.idTokenTo = DCT_ID{0};
+    obj.amountFrom = amount;
+    obj.maxPrice = PoolPrice::getMaxValid();
 
     auto poolSwap = CPoolSwap(obj, height);
-    auto token    = mnview.GetToken(tokenId);
+    auto token = mnview.GetToken(tokenId);
     Require(token, "Cannot find token with id %s!", tokenId.ToString());
 
     // TODO: Optimize double look up later when first token is DUSD.
@@ -1186,9 +1192,10 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
             Require(mnview.SubBalance(from, dUSD));
 
             return mnview.AddBalance(to, dUSD);
-        } else
+        } else {
             // swap dUSD -> DFI and burn DFI
             return poolSwap.ExecuteSwap(mnview, {}, consensus);
+        }
     }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
@@ -1202,13 +1209,14 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
 
         // swap tokenID -> dUSD and burn dUSD
         return poolSwap.ExecuteSwap(mnview, {}, consensus);
-    } else
+    } else {
         // swap tokenID -> dUSD -> DFI and burn DFI
         return poolSwap.ExecuteSwap(mnview, {poolTokendUSD->first, pooldUSDDFI->first}, consensus);
+    }
 }
 
 bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t height) {
-    if (auto collaterals = mnview.GetVaultCollaterals(vaultId))
+    if (auto collaterals = mnview.GetVaultCollaterals(vaultId)) {
         for (const auto &collateral : collaterals->balances) {
             if (auto collateralToken = mnview.HasLoanCollateralToken({collateral.first, height})) {
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(collateralToken->fixedIntervalPriceId)) {
@@ -1224,8 +1232,9 @@ bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t 
                 return false;
             }
         }
+    }
 
-    if (auto loans = mnview.GetLoanTokens(vaultId))
+    if (auto loans = mnview.GetLoanTokens(vaultId)) {
         for (const auto &loan : loans->balances) {
             if (auto loanToken = mnview.GetLoanTokenByID(loan.first)) {
                 if (auto fixedIntervalPrice = mnview.GetFixedIntervalPrice(loanToken->fixedIntervalPriceId)) {
@@ -1241,6 +1250,7 @@ bool IsVaultPriceValid(CCustomCSView &mnview, const CVaultId &vaultId, uint32_t 
                 return false;
             }
         }
+    }
     return true;
 }
 bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) {
@@ -1268,9 +1278,9 @@ bool IsRegtestNetwork() {
     return Params().NetworkIDString() == CBaseChainParams::REGTEST;
 }
 bool IsTestNetwork() {
-    return Params().NetworkIDString() == CBaseChainParams::TESTNET
-    || Params().NetworkIDString() == CBaseChainParams::CHANGI
-    || Params().NetworkIDString() == CBaseChainParams::DEVNET;
+    return Params().NetworkIDString() == CBaseChainParams::TESTNET ||
+           Params().NetworkIDString() == CBaseChainParams::CHANGI ||
+           Params().NetworkIDString() == CBaseChainParams::DEVNET;
 }
 
 bool IsMainNetwork() {
@@ -1311,8 +1321,8 @@ ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {
     }
 
     std::vector<unsigned char> metadata;
-    if (!scriptPubKey.GetOp(pc, opcode, metadata)
-        || (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
+    if (!scriptPubKey.GetOp(pc, opcode, metadata) ||
+        (opcode > OP_PUSHDATA1 && opcode != OP_PUSHDATA2 && opcode != OP_PUSHDATA4)) {
         return Res::Err("Coinbase XVM: OP_PUSHDATA expected");
     }
 
@@ -1323,12 +1333,11 @@ ResVal<XVM> XVM::TryFrom(const CScript &scriptPubKey) {
     } catch (...) {
         return Res::Err("Coinbase XVM: Deserialization failed");
     }
-    return { obj, Res::Ok() };
+    return {obj, Res::Ok()};
 }
 
-
 OpReturnLimits OpReturnLimits::Default() {
-    return OpReturnLimits {
+    return OpReturnLimits{
         false,
         MAX_OP_RETURN_CORE_ACCEPT,
         MAX_OP_RETURN_DVM_ACCEPT,
@@ -1342,24 +1351,32 @@ struct OpReturnLimitsKeys {
     CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
 };
 
-OpReturnLimits OpReturnLimits::From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes) {
+OpReturnLimits OpReturnLimits::From(const uint64_t height,
+                                    const Consensus::Params &consensus,
+                                    const ATTRIBUTES &attributes) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
-    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.DF22NextHeight);
+    item.shouldEnforce = height >= static_cast<uint64_t>(consensus.DF22MetachainHeight);
     item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
     item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
     item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);
     return item;
 }
 
-void OpReturnLimits::SetToAttributesIfNotExists(ATTRIBUTES& attrs) const {
+void OpReturnLimits::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
     OpReturnLimitsKeys k{};
-    if (!attrs.CheckKey(k.coreKey)) attrs.SetValue(k.coreKey, coreSizeBytes);
-    if (!attrs.CheckKey(k.dvmKey)) attrs.SetValue(k.dvmKey, dvmSizeBytes);
-    if (!attrs.CheckKey(k.evmKey)) attrs.SetValue(k.evmKey, evmSizeBytes);
+    if (!attrs.CheckKey(k.coreKey)) {
+        attrs.SetValue(k.coreKey, coreSizeBytes);
+    }
+    if (!attrs.CheckKey(k.dvmKey)) {
+        attrs.SetValue(k.dvmKey, dvmSizeBytes);
+    }
+    if (!attrs.CheckKey(k.evmKey)) {
+        attrs.SetValue(k.evmKey, evmSizeBytes);
+    }
 }
 
-Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) const {
+Res OpReturnLimits::Validate(const CTransaction &tx, const CustomTxType txType) const {
     auto err = [](const std::string area, const int voutIndex) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "OP_RETURN size check: vout[%d] %s failure", voutIndex, area);
     };
@@ -1374,7 +1391,7 @@ Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) 
             return err("DVM", 0);
         }
     } else if (!CheckOPReturnSize(tx.vout[0].scriptPubKey, coreSizeBytes)) {
-            return err("Core", 0);
+        return err("Core", 0);
     }
     // Check core OP_RETURN size on vout[1] and higher outputs
     for (size_t i{1}; i < tx.vout.size(); ++i) {
@@ -1385,16 +1402,15 @@ Res OpReturnLimits::Validate(const CTransaction& tx, const CustomTxType txType) 
     return Res::Ok();
 }
 
-
 TransferDomainConfig TransferDomainConfig::Default() {
     return TransferDomainConfig{
         true,
         true,
-        { XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash },
-        { XVmAddressFormatTypes::Erc55 },
-        { XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash },
-        { XVmAddressFormatTypes::Erc55 },
-        { XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55 },
+        {XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash},
+        {XVmAddressFormatTypes::Erc55},
+        {XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash},
+        {XVmAddressFormatTypes::Erc55},
+        {XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55},
         true,
         true,
         false,
@@ -1407,14 +1423,24 @@ TransferDomainConfig TransferDomainConfig::Default() {
 struct TransferDomainConfigKeys {
     CDataStructureV0 dvm_to_evm_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::TransferEnabled};
     CDataStructureV0 dvm_to_evm_src_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::SrcFormats};
-    CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DestFormats};
+    CDataStructureV0 dvm_to_evm_dest_formats{AttributeTypes::Transfer,
+                                             TransferIDs::DVMToEVM,
+                                             TransferKeys::DestFormats};
     CDataStructureV0 dvm_to_evm_dat_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::DATEnabled};
-    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer, TransferIDs::DVMToEVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 dvm_to_evm_native_enabled{AttributeTypes::Transfer,
+                                               TransferIDs::DVMToEVM,
+                                               TransferKeys::NativeEnabled};
     CDataStructureV0 evm_to_dvm_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::TransferEnabled};
     CDataStructureV0 evm_to_dvm_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::SrcFormats};
-    CDataStructureV0 evm_to_dvm_dest_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DestFormats};
-    CDataStructureV0 evm_to_dvm_auth_formats{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::AuthFormats};
-    CDataStructureV0 evm_to_dvm_native_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::NativeEnabled};
+    CDataStructureV0 evm_to_dvm_dest_formats{AttributeTypes::Transfer,
+                                             TransferIDs::EVMToDVM,
+                                             TransferKeys::DestFormats};
+    CDataStructureV0 evm_to_dvm_auth_formats{AttributeTypes::Transfer,
+                                             TransferIDs::EVMToDVM,
+                                             TransferKeys::AuthFormats};
+    CDataStructureV0 evm_to_dvm_native_enabled{AttributeTypes::Transfer,
+                                               TransferIDs::EVMToDVM,
+                                               TransferKeys::NativeEnabled};
     CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
 };
 
@@ -1440,18 +1466,40 @@ TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
     return r;
 }
 
-void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES& attrs) const {
+void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
     TransferDomainConfigKeys k{};
-    if (!attrs.CheckKey(k.dvm_to_evm_enabled)) attrs.SetValue(k.dvm_to_evm_enabled, dvmToEvmEnabled);
-    if (!attrs.CheckKey(k.dvm_to_evm_src_formats)) attrs.SetValue(k.dvm_to_evm_src_formats, dvmToEvmSrcAddresses);
-    if (!attrs.CheckKey(k.dvm_to_evm_dest_formats)) attrs.SetValue(k.dvm_to_evm_dest_formats, dvmToEvmDestAddresses);
-    if (!attrs.CheckKey(k.dvm_to_evm_native_enabled)) attrs.SetValue(k.dvm_to_evm_native_enabled, dvmToEvmNativeTokenEnabled);
-    if (!attrs.CheckKey(k.dvm_to_evm_dat_enabled)) attrs.SetValue(k.dvm_to_evm_dat_enabled, dvmToEvmDatEnabled);
+    if (!attrs.CheckKey(k.dvm_to_evm_enabled)) {
+        attrs.SetValue(k.dvm_to_evm_enabled, dvmToEvmEnabled);
+    }
+    if (!attrs.CheckKey(k.dvm_to_evm_src_formats)) {
+        attrs.SetValue(k.dvm_to_evm_src_formats, dvmToEvmSrcAddresses);
+    }
+    if (!attrs.CheckKey(k.dvm_to_evm_dest_formats)) {
+        attrs.SetValue(k.dvm_to_evm_dest_formats, dvmToEvmDestAddresses);
+    }
+    if (!attrs.CheckKey(k.dvm_to_evm_native_enabled)) {
+        attrs.SetValue(k.dvm_to_evm_native_enabled, dvmToEvmNativeTokenEnabled);
+    }
+    if (!attrs.CheckKey(k.dvm_to_evm_dat_enabled)) {
+        attrs.SetValue(k.dvm_to_evm_dat_enabled, dvmToEvmDatEnabled);
+    }
 
-    if (!attrs.CheckKey(k.evm_to_dvm_enabled)) attrs.SetValue(k.evm_to_dvm_enabled, evmToDvmEnabled);
-    if (!attrs.CheckKey(k.evm_to_dvm_src_formats)) attrs.SetValue(k.evm_to_dvm_src_formats, evmToDvmSrcAddresses);
-    if (!attrs.CheckKey(k.evm_to_dvm_dest_formats)) attrs.SetValue(k.evm_to_dvm_dest_formats, evmToDvmDestAddresses);
-    if (!attrs.CheckKey(k.evm_to_dvm_auth_formats)) attrs.SetValue(k.evm_to_dvm_auth_formats, evmToDvmAuthFormats);
-    if (!attrs.CheckKey(k.evm_to_dvm_native_enabled)) attrs.SetValue(k.evm_to_dvm_native_enabled, evmToDvmNativeTokenEnabled);
-    if (!attrs.CheckKey(k.evm_to_dvm_dat_enabled)) attrs.SetValue(k.evm_to_dvm_dat_enabled, evmToDvmDatEnabled);
+    if (!attrs.CheckKey(k.evm_to_dvm_enabled)) {
+        attrs.SetValue(k.evm_to_dvm_enabled, evmToDvmEnabled);
+    }
+    if (!attrs.CheckKey(k.evm_to_dvm_src_formats)) {
+        attrs.SetValue(k.evm_to_dvm_src_formats, evmToDvmSrcAddresses);
+    }
+    if (!attrs.CheckKey(k.evm_to_dvm_dest_formats)) {
+        attrs.SetValue(k.evm_to_dvm_dest_formats, evmToDvmDestAddresses);
+    }
+    if (!attrs.CheckKey(k.evm_to_dvm_auth_formats)) {
+        attrs.SetValue(k.evm_to_dvm_auth_formats, evmToDvmAuthFormats);
+    }
+    if (!attrs.CheckKey(k.evm_to_dvm_native_enabled)) {
+        attrs.SetValue(k.evm_to_dvm_native_enabled, evmToDvmNativeTokenEnabled);
+    }
+    if (!attrs.CheckKey(k.evm_to_dvm_dat_enabled)) {
+        attrs.SetValue(k.evm_to_dvm_dat_enabled, evmToDvmDatEnabled);
+    }
 }

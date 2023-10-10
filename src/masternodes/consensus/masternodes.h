@@ -13,11 +13,12 @@ struct CUpdateMasterNodeMessage;
 
 class CMasternodesConsensus : public CCustomTxVisitor {
     [[nodiscard]] Res CheckMasternodeCreationTx() const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CCreateMasterNodeMessage& obj) const;
-    Res operator()(const CResignMasterNodeMessage& obj) const;
-    Res operator()(const CUpdateMasterNodeMessage& obj) const;
+    Res operator()(const CCreateMasterNodeMessage &obj) const;
+    Res operator()(const CResignMasterNodeMessage &obj) const;
+    Res operator()(const CUpdateMasterNodeMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_MASTERNODES_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_MASTERNODES_H

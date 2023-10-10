@@ -13,8 +13,9 @@
 
 static bool IsPaybackWithCollateral(CCustomCSView &view, const std::map<DCT_ID, CBalances> &loans) {
     auto tokenDUSD = view.GetToken("DUSD");
-    if (!tokenDUSD)
+    if (!tokenDUSD) {
         return false;
+    }
 
     if (loans.size() == 1 && loans.count(tokenDUSD->first) &&
         loans.at(tokenDUSD->first) == CBalances{{{tokenDUSD->first, 999999999999999999LL}}}) {
@@ -24,35 +25,51 @@ static bool IsPaybackWithCollateral(CCustomCSView &view, const std::map<DCT_ID, 
 }
 
 static Res PaybackWithCollateral(CCustomCSView &view,
-                          const CVaultData &vault,
-                          const CVaultId &vaultId,
-                          uint32_t height,
-                          uint64_t time) {
+                                 const CVaultData &vault,
+                                 const CVaultId &vaultId,
+                                 uint32_t height,
+                                 uint64_t time) {
     const auto attributes = view.GetAttributes();
-    if (!attributes) return DeFiErrors::MNInvalidAttribute();
+    if (!attributes) {
+        return DeFiErrors::MNInvalidAttribute();
+    }
 
     const auto dUsdToken = view.GetToken("DUSD");
-    if (!dUsdToken) return DeFiErrors::TokenInvalidForName("DUSD");
+    if (!dUsdToken) {
+        return DeFiErrors::TokenInvalidForName("DUSD");
+    }
 
     CDataStructureV0 activeKey{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateral};
-    if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackWithCollateralDisable();
+    if (!attributes->GetValue(activeKey, false)) {
+        return DeFiErrors::LoanPaybackWithCollateralDisable();
+    }
 
     const auto collateralAmounts = view.GetVaultCollaterals(vaultId);
-    if (!collateralAmounts) return DeFiErrors::VaultNoCollateral();
+    if (!collateralAmounts) {
+        return DeFiErrors::VaultNoCollateral();
+    }
 
-    if (!collateralAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoDUSDCollateral();
+    if (!collateralAmounts->balances.count(dUsdToken->first)) {
+        return DeFiErrors::VaultNoDUSDCollateral();
+    }
 
     const auto &collateralDUSD = collateralAmounts->balances.at(dUsdToken->first);
 
     const auto loanAmounts = view.GetLoanTokens(vaultId);
-    if (!loanAmounts) return DeFiErrors::VaultNoLoans();
+    if (!loanAmounts) {
+        return DeFiErrors::VaultNoLoans();
+    }
 
-    if (!loanAmounts->balances.count(dUsdToken->first)) return DeFiErrors::VaultNoLoans("DUSD");
+    if (!loanAmounts->balances.count(dUsdToken->first)) {
+        return DeFiErrors::VaultNoLoans("DUSD");
+    }
 
     const auto &loanDUSD = loanAmounts->balances.at(dUsdToken->first);
 
     const auto rate = view.GetInterestRate(vaultId, dUsdToken->first, height);
-    if (!rate) return DeFiErrors::TokenInterestRateInvalid("DUSD");
+    if (!rate) {
+        return DeFiErrors::TokenInterestRateInvalid("DUSD");
+    }
     const auto subInterest = TotalInterest(*rate, height);
 
     Res res{};
@@ -65,37 +82,41 @@ static Res PaybackWithCollateral(CCustomCSView &view,
         subCollateralAmount = collateralDUSD;
 
         res = view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount});
-        if (!res)
+        if (!res) {
             return res;
+        }
 
         res = view.DecreaseInterest(height, vaultId, vault.schemeId, dUsdToken->first, 0, subCollateralAmount);
-        if (!res)
+        if (!res) {
             return res;
+        }
 
         burnAmount = subCollateralAmount;
     } else {
         // Postive interest: Loan + interest > collateral.
         // Negative interest: Loan - abs(interest) > collateral.
         if (loanDUSD + subInterest > collateralDUSD) {
-            subLoanAmount       = collateralDUSD - subInterest;
+            subLoanAmount = collateralDUSD - subInterest;
             subCollateralAmount = collateralDUSD;
         } else {
             // Common case: Collateral > loans.
-            subLoanAmount       = loanDUSD;
+            subLoanAmount = loanDUSD;
             subCollateralAmount = loanDUSD + subInterest;
         }
 
         if (subLoanAmount > 0) {
             TrackDUSDSub(view, {dUsdToken->first, subLoanAmount});
             res = view.SubLoanToken(vaultId, {dUsdToken->first, subLoanAmount});
-            if (!res)
+            if (!res) {
                 return res;
+            }
         }
 
         if (subCollateralAmount > 0) {
             res = view.SubVaultCollateral(vaultId, {dUsdToken->first, subCollateralAmount});
-            if (!res)
+            if (!res) {
                 return res;
+            }
         }
 
         view.ResetInterest(height, vaultId, vault.schemeId, dUsdToken->first);
@@ -104,35 +125,44 @@ static Res PaybackWithCollateral(CCustomCSView &view,
 
     if (burnAmount > 0) {
         res = view.AddBalance(Params().GetConsensus().burnAddress, {dUsdToken->first, burnAmount});
-        if (!res)
+        if (!res) {
             return res;
+        }
     } else {
         TrackNegativeInterest(view, {dUsdToken->first, std::abs(burnAmount)});
     }
 
     // Guard against liquidation
     const auto collaterals = view.GetVaultCollaterals(vaultId);
-    const auto loans       = view.GetLoanTokens(vaultId);
-    if (loans)
-        if (!collaterals) return DeFiErrors::VaultNeedCollateral();
+    const auto loans = view.GetLoanTokens(vaultId);
+    if (loans) {
+        if (!collaterals) {
+            return DeFiErrors::VaultNeedCollateral();
+        }
+    }
 
     auto vaultAssets = view.GetVaultAssets(vaultId, *collaterals, height, time);
-    if (!vaultAssets)
+    if (!vaultAssets) {
         return std::move(vaultAssets);
+    }
 
     // The check is required to do a ratio check safe guard, or the vault of ratio is unreliable.
     // This can later be removed, if all edge cases of price deviations and max collateral factor for DUSD (1.5
     // currently) can be tested for economical stability. Taking the safer approach for now.
-    if (!IsVaultPriceValid(view, vaultId, height)) return DeFiErrors::VaultInvalidPrice();
+    if (!IsVaultPriceValid(view, vaultId, height)) {
+        return DeFiErrors::VaultInvalidPrice();
+    }
 
     const auto scheme = view.GetLoanScheme(vault.schemeId);
-    if (vaultAssets.val->ratio() < scheme->ratio) return DeFiErrors::VaultInsufficientCollateralization(
-                vaultAssets.val->ratio(), scheme->ratio);
+    if (vaultAssets.val->ratio() < scheme->ratio) {
+        return DeFiErrors::VaultInsufficientCollateralization(vaultAssets.val->ratio(), scheme->ratio);
+    }
 
     if (subCollateralAmount > 0) {
         res = view.SubMintedTokens(dUsdToken->first, subCollateralAmount);
-        if (!res)
+        if (!res) {
             return res;
+        }
     }
 
     return Res::Ok();
@@ -150,7 +180,7 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &tokenId = obj.idToken.v;
 
-        auto attributes  = mnview.GetAttributes();
+        auto attributes = mnview.GetAttributes();
         attributes->time = time;
 
         CDataStructureV0 collateralEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralEnabled};
@@ -177,14 +207,15 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
     CLoanSetCollateralTokenImplementation collToken;
     static_cast<CLoanSetCollateralToken &>(collToken) = obj;
 
-    collToken.creationTx     = tx.GetHash();
+    collToken.creationTx = tx.GetHash();
     collToken.creationHeight = height;
 
     auto token = mnview.GetToken(collToken.idToken);
     Require(token, "token %s does not exist!", collToken.idToken.ToString());
 
-    if (!collToken.activateAfterBlock)
+    if (!collToken.activateAfterBlock) {
         collToken.activateAfterBlock = height;
+    }
 
     Require(collToken.activateAfterBlock >= height, "activateAfterBlock cannot be less than current height!");
 
@@ -196,12 +227,12 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
     CFixedIntervalPrice fixedIntervalPrice;
     fixedIntervalPrice.priceFeedId = collToken.fixedIntervalPriceId;
 
-    auto price = GetAggregatePrice(
-            mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
+    auto price =
+        GetAggregatePrice(mnview, collToken.fixedIntervalPriceId.first, collToken.fixedIntervalPriceId.second, time);
     Require(price, price.msg);
 
     fixedIntervalPrice.priceRecord[1] = price;
-    fixedIntervalPrice.timestamp      = time;
+    fixedIntervalPrice.timestamp = time;
 
     auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
     Require(resSetFixedPrice, resSetFixedPrice.msg);
@@ -222,14 +253,13 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
     auto tokenSymbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto tokenName = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
-    token.symbol         = tokenSymbol;
-    token.name           = tokenName;
-    token.creationTx     = tx.GetHash();
+    token.symbol = tokenSymbol;
+    token.name = tokenName;
+    token.creationTx = tx.GetHash();
     token.creationHeight = height;
-    token.flags          = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
-                                        : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
-    token.flags |=
-            static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
+    token.flags = obj.mintable ? static_cast<uint8_t>(CToken::TokenFlags::Default)
+                               : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
+    token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
     auto tokenId = mnview.CreateToken(token, false, isEvmEnabledForBlock, evmQueueId);
     Require(tokenId);
@@ -237,7 +267,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &id = tokenId.val->v;
 
-        auto attributes  = mnview.GetAttributes();
+        auto attributes = mnview.GetAttributes();
         attributes->time = time;
         attributes->evmQueueId = evmQueueId;
 
@@ -264,11 +294,10 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
     CLoanSetLoanTokenImplementation loanToken;
     static_cast<CLoanSetLoanToken &>(loanToken) = obj;
 
-    loanToken.creationTx     = tx.GetHash();
+    loanToken.creationTx = tx.GetHash();
     loanToken.creationHeight = height;
 
-    auto nextPrice =
-            GetAggregatePrice(mnview, obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second, time);
+    auto nextPrice = GetAggregatePrice(mnview, obj.fixedIntervalPriceId.first, obj.fixedIntervalPriceId.second, time);
     Require(nextPrice, nextPrice.msg);
 
     Require(OraclePriceFeed(mnview, obj.fixedIntervalPriceId),
@@ -277,9 +306,9 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
             obj.fixedIntervalPriceId.second);
 
     CFixedIntervalPrice fixedIntervalPrice;
-    fixedIntervalPrice.priceFeedId    = loanToken.fixedIntervalPriceId;
+    fixedIntervalPrice.priceFeedId = loanToken.fixedIntervalPriceId;
     fixedIntervalPrice.priceRecord[1] = nextPrice;
-    fixedIntervalPrice.timestamp      = time;
+    fixedIntervalPrice.timestamp = time;
 
     auto resSetFixedPrice = mnview.SetFixedIntervalPrice(fixedIntervalPrice);
     Require(resSetFixedPrice, resSetFixedPrice.msg);
@@ -300,33 +329,38 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
     Require(pair, "Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
     auto loanToken =
-            (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
+        (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar())
             ? mnview.GetLoanTokenByID(pair->first)
             : mnview.GetLoanToken(obj.tokenTx);
 
     Require(loanToken, "Loan token (%s) does not exist!", obj.tokenTx.GetHex());
 
-    if (obj.mintable != loanToken->mintable)
+    if (obj.mintable != loanToken->mintable) {
         loanToken->mintable = obj.mintable;
+    }
 
-    if (obj.interest != loanToken->interest)
+    if (obj.interest != loanToken->interest) {
         loanToken->interest = obj.interest;
+    }
 
-    if (obj.symbol != pair->second.symbol)
+    if (obj.symbol != pair->second.symbol) {
         pair->second.symbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+    }
 
-    if (obj.name != pair->second.name)
+    if (obj.name != pair->second.name) {
         pair->second.name = trim_ws(obj.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    }
 
-    if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable))
+    if (obj.mintable != (pair->second.flags & (uint8_t)CToken::TokenFlags::Mintable)) {
         pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+    }
 
     Require(mnview.UpdateToken(pair->second));
 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &id = pair->first.v;
 
-        auto attributes  = mnview.GetAttributes();
+        auto attributes = mnview.GetAttributes();
         attributes->time = time;
 
         CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
@@ -370,8 +404,7 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
 
     Require(obj.rate >= 1000000, "interest rate cannot be less than 0.01");
 
-    Require(!obj.identifier.empty() && obj.identifier.length() <= 8,
-            "id cannot be empty or more than 8 chars long");
+    Require(!obj.identifier.empty() && obj.identifier.length() <= 8, "id cannot be empty or more than 8 chars long");
 
     // Look for loan scheme which already has matching rate and ratio
     bool duplicateLoan = false;
@@ -380,7 +413,7 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
         // Duplicate scheme already exists
         if (data.ratio == obj.ratio && data.rate == obj.rate) {
             duplicateLoan = true;
-            duplicateID   = key;
+            duplicateID = key;
             return false;
         }
         return true;
@@ -390,16 +423,15 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
 
     // Look for delayed loan scheme which already has matching rate and ratio
     std::pair<std::string, uint64_t> duplicateKey;
-    mnview.ForEachDelayedLoanScheme(
-            [&](const std::pair<std::string, uint64_t> &key, const CLoanSchemeMessage &data) {
-                // Duplicate delayed loan scheme
-                if (data.ratio == obj.ratio && data.rate == obj.rate) {
-                    duplicateLoan = true;
-                    duplicateKey  = key;
-                    return false;
-                }
-                return true;
-            });
+    mnview.ForEachDelayedLoanScheme([&](const std::pair<std::string, uint64_t> &key, const CLoanSchemeMessage &data) {
+        // Duplicate delayed loan scheme
+        if (data.ratio == obj.ratio && data.rate == obj.rate) {
+            duplicateLoan = true;
+            duplicateKey = key;
+            return false;
+        }
+        return true;
+    });
 
     Require(!duplicateLoan,
             "Loan scheme %s with same interestrate and mincolratio pending on block %d",
@@ -407,14 +439,14 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
             duplicateKey.second);
 
     // New loan scheme, no duplicate expected.
-    if (mnview.GetLoanScheme(obj.identifier))
+    if (mnview.GetLoanScheme(obj.identifier)) {
         Require(obj.updateHeight, "Loan scheme already exist with id %s", obj.identifier);
-    else
+    } else {
         Require(!obj.updateHeight, "Cannot find existing loan scheme with id %s", obj.identifier);
+    }
 
     // Update set, not max uint64_t which indicates immediate update and not updated on this block.
-    if (obj.updateHeight && obj.updateHeight != std::numeric_limits<uint64_t>::max() &&
-        obj.updateHeight != height) {
+    if (obj.updateHeight && obj.updateHeight != std::numeric_limits<uint64_t>::max() && obj.updateHeight != height) {
         Require(obj.updateHeight >= height, "Update height below current block height, set future height");
         return mnview.StoreDelayedLoanScheme(obj);
     }
@@ -431,12 +463,12 @@ Res CLoansConsensus::operator()(const CDefaultLoanSchemeMessage &obj) const {
     Require(CheckCustomTx());
     Require(HasFoundationAuth(), "tx not from foundation member!");
 
-    Require(!obj.identifier.empty() && obj.identifier.length() <= 8,
-            "id cannot be empty or more than 8 chars long");
+    Require(!obj.identifier.empty() && obj.identifier.length() <= 8, "id cannot be empty or more than 8 chars long");
     Require(mnview.GetLoanScheme(obj.identifier), "Cannot find existing loan scheme with id %s", obj.identifier);
 
-    if (auto currentID = mnview.GetDefaultLoanScheme())
+    if (auto currentID = mnview.GetDefaultLoanScheme()) {
         Require(*currentID != obj.identifier, "Loan scheme with id %s is already set as default", obj.identifier);
+    }
 
     const auto height = mnview.GetDestroyLoanScheme(obj.identifier);
     Require(!height, "Cannot set %s as default, set to destroyed on block %d", obj.identifier, *height);
@@ -448,8 +480,7 @@ Res CLoansConsensus::operator()(const CDestroyLoanSchemeMessage &obj) const {
 
     Require(HasFoundationAuth(), "tx not from foundation member!");
 
-    Require(!obj.identifier.empty() && obj.identifier.length() <= 8,
-            "id cannot be empty or more than 8 chars long");
+    Require(!obj.identifier.empty() && obj.identifier.length() <= 8, "id cannot be empty or more than 8 chars long");
     Require(mnview.GetLoanScheme(obj.identifier), "Cannot find existing loan scheme with id %s", obj.identifier);
 
     const auto currentID = mnview.GetDefaultLoanScheme();
@@ -471,7 +502,6 @@ Res CLoansConsensus::operator()(const CDestroyLoanSchemeMessage &obj) const {
 
     return mnview.EraseLoanScheme(obj.identifier);
 }
-
 
 Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
     Require(CheckCustomTx());
@@ -522,27 +552,27 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 
         if (loanAmounts && loanAmounts->balances.count(tokenId)) {
             currentLoanAmount = loanAmounts->balances.at(tokenId);
-            const auto rate   = mnview.GetInterestRate(obj.vaultId, tokenId, height);
+            const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
             assert(rate);
             const auto totalInterest = TotalInterest(*rate, height);
 
             if (totalInterest < 0) {
-                loanAmountChange      = currentLoanAmount > std::abs(totalInterest)
-                                        ?
-                                        // Interest to decrease smaller than overall existing loan amount.
-                                        // So reduce interest from the borrowing principal. If this is negative,
-                                        // we'll reduce from principal.
-                                        tokenAmount + totalInterest
-                                        :
-                                        // Interest to decrease is larger than old loan amount.
-                                        // We reduce from the borrowing principal. If this is negative,
-                                        // we'll reduce from principal.
-                                        tokenAmount - currentLoanAmount;
+                loanAmountChange = currentLoanAmount > std::abs(totalInterest)
+                                       ?
+                                       // Interest to decrease smaller than overall existing loan amount.
+                                       // So reduce interest from the borrowing principal. If this is negative,
+                                       // we'll reduce from principal.
+                                       tokenAmount + totalInterest
+                                       :
+                                       // Interest to decrease is larger than old loan amount.
+                                       // We reduce from the borrowing principal. If this is negative,
+                                       // we'll reduce from principal.
+                                       tokenAmount - currentLoanAmount;
                 resetInterestToHeight = true;
                 TrackNegativeInterest(
-                        mnview,
-                        {tokenId,
-                         currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount});
+                    mnview,
+                    {tokenId,
+                     currentLoanAmount > std::abs(totalInterest) ? std::abs(totalInterest) : currentLoanAmount});
             }
         }
 
@@ -554,7 +584,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
             Require(mnview.AddLoanToken(obj.vaultId, CTokenAmount{tokenId, loanAmountChange}));
         } else {
             const auto subAmount =
-                    currentLoanAmount > std::abs(loanAmountChange) ? std::abs(loanAmountChange) : currentLoanAmount;
+                currentLoanAmount > std::abs(loanAmountChange) ? std::abs(loanAmountChange) : currentLoanAmount;
 
             if (const auto token = mnview.GetToken("DUSD"); token && token->first == tokenId) {
                 TrackDUSDSub(mnview, {tokenId, subAmount});
@@ -567,7 +597,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
             mnview.ResetInterest(height, obj.vaultId, vault->schemeId, tokenId);
         } else {
             Require(mnview.IncreaseInterest(
-                    height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmountChange));
+                height, obj.vaultId, vault->schemeId, tokenId, loanToken->interest, loanAmountChange));
         }
 
         const auto tokenCurrency = loanToken->fixedIntervalPriceId;
@@ -582,7 +612,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 
         for (int i = 0; i < 2; i++) {
             // check active and next price
-            auto price  = priceFeed.val->priceRecord[int(i > 0)];
+            auto price = priceFeed.val->priceRecord[int(i > 0)];
             auto amount = MultiplyAmounts(price, tokenAmount);
             if (price > COIN) {
                 Require(amount >= tokenAmount,
@@ -591,7 +621,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
                         GetDecimalString(price));
             }
             auto &totalLoans = i > 0 ? totalLoansNextPrice : totalLoansActivePrice;
-            auto prevLoans   = totalLoans;
+            auto prevLoans = totalLoans;
             totalLoans += amount;
             Require(prevLoans <= totalLoans, "Exceed maximum loans");
         }
@@ -608,7 +638,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
         // check ratio against current and active price
         bool useNextPrice = i > 0, requireLivePrice = true;
         auto vaultAssets =
-                mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
+            mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
         Require(vaultAssets);
 
         Require(vaultAssets.val->ratio() >= scheme->ratio,
@@ -624,16 +654,19 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage &obj) const {
     std::map<DCT_ID, CBalances> loans;
     for (auto &balance : obj.amounts.balances) {
-        auto id     = balance.first;
+        auto id = balance.first;
         auto amount = balance.second;
 
         CBalances *loan;
         if (id == DCT_ID{0}) {
             auto tokenDUSD = mnview.GetToken("DUSD");
-            if (!tokenDUSD) return DeFiErrors::LoanTokenNotFoundForName("DUSD");
+            if (!tokenDUSD) {
+                return DeFiErrors::LoanTokenNotFoundForName("DUSD");
+            }
             loan = &loans[tokenDUSD->first];
-        } else
+        } else {
             loan = &loans[id];
+        }
 
         loan->Add({id, amount});
     }
@@ -642,20 +675,31 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage &obj) const {
 
 Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
     auto res = CheckCustomTx();
-    if (!res)
+    if (!res) {
         return res;
+    }
 
     const auto vault = mnview.GetVault(obj.vaultId);
-    if (!vault) return DeFiErrors::VaultInvalid(obj.vaultId);
+    if (!vault) {
+        return DeFiErrors::VaultInvalid(obj.vaultId);
+    }
 
-    if (vault->isUnderLiquidation) return DeFiErrors::LoanNoPaybackOnLiquidation();
+    if (vault->isUnderLiquidation) {
+        return DeFiErrors::LoanNoPaybackOnLiquidation();
+    }
 
-    if (!mnview.GetVaultCollaterals(obj.vaultId)) return DeFiErrors::VaultNoCollateral(obj.vaultId.GetHex());
+    if (!mnview.GetVaultCollaterals(obj.vaultId)) {
+        return DeFiErrors::VaultNoCollateral(obj.vaultId.GetHex());
+    }
 
-    if (!HasAuth(obj.from)) return DeFiErrors::TXMissingInput();
+    if (!HasAuth(obj.from)) {
+        return DeFiErrors::TXMissingInput();
+    }
 
     if (static_cast<int>(height) < consensus.DF15FortCanningRoadHeight) {
-        if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
+        if (!IsVaultPriceValid(mnview, obj.vaultId, height)) {
+            return DeFiErrors::LoanAssetPriceInvalid();
+        }
     }
 
     // Handle payback with collateral special case
@@ -665,43 +709,53 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
     }
 
     auto shouldSetVariable = false;
-    auto attributes        = mnview.GetAttributes();
+    auto attributes = mnview.GetAttributes();
     assert(attributes);
 
     for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
         const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
-        if (!loanToken) return DeFiErrors::LoanTokenIdInvalid(loanTokenId);
+        if (!loanToken) {
+            return DeFiErrors::LoanTokenIdInvalid(loanTokenId);
+        }
 
         for (const auto &kv : paybackAmounts.balances) {
             const auto &paybackTokenId = kv.first;
-            auto paybackAmount         = kv.second;
+            auto paybackAmount = kv.second;
 
             if (height >= static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
-                if (paybackAmount <= 0) return DeFiErrors::LoanPaymentAmountInvalid(paybackAmount, paybackTokenId.v);
+                if (paybackAmount <= 0) {
+                    return DeFiErrors::LoanPaymentAmountInvalid(paybackAmount, paybackTokenId.v);
+                }
             }
 
             CAmount paybackUsdPrice{0}, loanUsdPrice{0}, penaltyPct{COIN};
 
             auto paybackToken = mnview.GetToken(paybackTokenId);
-            if (!paybackToken) return DeFiErrors::TokenIdInvalid(paybackTokenId);
+            if (!paybackToken) {
+                return DeFiErrors::TokenIdInvalid(paybackTokenId);
+            }
 
             if (loanTokenId != paybackTokenId) {
-                if (!IsVaultPriceValid(mnview, obj.vaultId, height)) return DeFiErrors::LoanAssetPriceInvalid();
+                if (!IsVaultPriceValid(mnview, obj.vaultId, height)) {
+                    return DeFiErrors::LoanAssetPriceInvalid();
+                }
 
                 // search in token to token
                 if (paybackTokenId != DCT_ID{0}) {
                     CDataStructureV0 activeKey{
-                            AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
-                    if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackDisabled(
-                                paybackToken->symbol);
+                        AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
+                    if (!attributes->GetValue(activeKey, false)) {
+                        return DeFiErrors::LoanPaybackDisabled(paybackToken->symbol);
+                    }
 
                     CDataStructureV0 penaltyKey{
-                            AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
+                        AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
                     penaltyPct -= attributes->GetValue(penaltyKey, CAmount{0});
                 } else {
                     CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFI};
-                    if (!attributes->GetValue(activeKey, false)) return DeFiErrors::LoanPaybackDisabled(
-                                paybackToken->symbol);
+                    if (!attributes->GetValue(activeKey, false)) {
+                        return DeFiErrors::LoanPaybackDisabled(paybackToken->symbol);
+                    }
 
                     CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFIFeePCT};
                     penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
@@ -711,8 +765,9 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                 const CTokenCurrencyPair tokenUsdPair{paybackToken->symbol, "USD"};
                 bool useNextPrice{false}, requireLivePrice{true};
                 const auto resVal = mnview.GetValidatedIntervalPrice(tokenUsdPair, useNextPrice, requireLivePrice);
-                if (!resVal)
+                if (!resVal) {
                     return std::move(resVal);
+                }
 
                 paybackUsdPrice = MultiplyAmounts(*resVal.val, penaltyPct);
 
@@ -730,10 +785,10 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                     // Get dToken price in USD
                     const CTokenCurrencyPair dTokenUsdPair{loanToken->symbol, "USD"};
                     bool useNextPrice{false}, requireLivePrice{true};
-                    const auto resVal =
-                            mnview.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
-                    if (!resVal)
+                    const auto resVal = mnview.GetValidatedIntervalPrice(dTokenUsdPair, useNextPrice, requireLivePrice);
+                    if (!resVal) {
                         return std::move(resVal);
+                    }
 
                     loanUsdPrice = *resVal.val;
 
@@ -742,22 +797,27 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
             }
 
             const auto loanAmounts = mnview.GetLoanTokens(obj.vaultId);
-            if (!loanAmounts) return DeFiErrors::LoanInvalidVault(obj.vaultId);
+            if (!loanAmounts) {
+                return DeFiErrors::LoanInvalidVault(obj.vaultId);
+            }
 
-            if (!loanAmounts->balances.count(loanTokenId))
+            if (!loanAmounts->balances.count(loanTokenId)) {
                 return DeFiErrors::LoanInvalidTokenForSymbol(loanToken->symbol);
+            }
 
             const auto &currentLoanAmount = loanAmounts->balances.at(loanTokenId);
 
             const auto rate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-            if (!rate) return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
+            if (!rate) {
+                return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
+            }
 
             auto subInterest = TotalInterest(*rate, height);
 
             if (subInterest < 0) {
                 TrackNegativeInterest(
-                        mnview,
-                        {loanTokenId, currentLoanAmount > std::abs(subInterest) ? std::abs(subInterest) : subInterest});
+                    mnview,
+                    {loanTokenId, currentLoanAmount > std::abs(subInterest) ? std::abs(subInterest) : subInterest});
             }
 
             // In the case of negative subInterest the amount ends up being added to paybackAmount
@@ -765,7 +825,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
 
             if (paybackAmount < subInterest) {
                 subInterest = paybackAmount;
-                subLoan     = 0;
+                subLoan = 0;
             } else if (currentLoanAmount - subLoan < 0) {
                 subLoan = currentLoanAmount;
             }
@@ -775,28 +835,32 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
             }
 
             res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{loanTokenId, subLoan});
-            if (!res)
+            if (!res) {
                 return res;
+            }
 
             // Eraseinterest. On subInterest is nil interest ITH and IPB will be updated, if
             // subInterest is negative or IPB is negative and subLoan is equal to the loan amount
             // then IPB will be updated and ITH will be wiped.
             res = mnview.DecreaseInterest(
-                    height,
-                    obj.vaultId,
-                    vault->schemeId,
-                    loanTokenId,
-                    subLoan,
-                    subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
+                height,
+                obj.vaultId,
+                vault->schemeId,
+                loanTokenId,
+                subLoan,
+                subInterest < 0 || (rate->interestPerBlock.negative && subLoan == currentLoanAmount)
                     ? std::numeric_limits<CAmount>::max()
                     : subInterest);
-            if (!res)
+            if (!res) {
                 return res;
+            }
 
             if (height >= static_cast<uint32_t>(consensus.DF12FortCanningMuseumHeight) && subLoan < currentLoanAmount &&
                 height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
                 auto newRate = mnview.GetInterestRate(obj.vaultId, loanTokenId, height);
-                if (!newRate) return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
+                if (!newRate) {
+                    return DeFiErrors::TokenInterestRateInvalid(loanToken->symbol);
+                }
 
                 Require(newRate->interestPerBlock.amount != 0,
                         "Cannot payback this amount of loan for %s, either payback full amount or less than this "
@@ -808,12 +872,14 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
 
             if (paybackTokenId == loanTokenId) {
                 res = mnview.SubMintedTokens(loanTokenId, subInterest > 0 ? subLoan : subLoan + subInterest);
-                if (!res)
+                if (!res) {
                     return res;
+                }
 
                 // If interest was negative remove it from sub amount
-                if (height >= static_cast<uint32_t>(consensus.DF19FortCanningEpilogueHeight) && subInterest < 0)
+                if (height >= static_cast<uint32_t>(consensus.DF19FortCanningEpilogueHeight) && subInterest < 0) {
                     subLoan += subInterest;
+                }
 
                 // Do not sub balance if negative interest fully negates the current loan amount
                 if (!(subInterest < 0 && std::abs(subInterest) >= currentLoanAmount)) {
@@ -829,8 +895,9 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                              subLoan,
                              height);
                     res = mnview.SubBalance(obj.from, CTokenAmount{loanTokenId, subLoan});
-                    if (!res)
+                    if (!res) {
                         return res;
+                    }
                 }
 
                 // burn interest Token->USD->DFI->burnAddress
@@ -840,9 +907,11 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                              loanToken->symbol,
                              subInterest,
                              height);
-                    res = SwapToDFIorDUSD(mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height, consensus);
-                    if (!res)
+                    res = SwapToDFIorDUSD(
+                        mnview, loanTokenId, subInterest, obj.from, consensus.burnAddress, height, consensus);
+                    if (!res) {
                         return res;
+                    }
                 }
             } else {
                 CAmount subInToken;
@@ -852,14 +921,16 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                 if (paybackAmount > subAmount) {
                     if (loanToken->symbol == "DUSD") {
                         subInToken = DivideAmounts(subAmount, paybackUsdPrice);
-                        if (MultiplyAmounts(subInToken, paybackUsdPrice) != subAmount)
+                        if (MultiplyAmounts(subInToken, paybackUsdPrice) != subAmount) {
                             subInToken += 1;
+                        }
                     } else {
                         auto tempAmount = MultiplyAmounts(subAmount, loanUsdPrice);
 
                         subInToken = DivideAmounts(tempAmount, paybackUsdPrice);
-                        if (DivideAmounts(MultiplyAmounts(subInToken, paybackUsdPrice), loanUsdPrice) != subAmount)
+                        if (DivideAmounts(MultiplyAmounts(subInToken, paybackUsdPrice), loanUsdPrice) != subAmount) {
                             subInToken += 1;
+                        }
                     }
                 } else {
                     subInToken = kv.second;
@@ -870,15 +941,14 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                 auto penalty = MultiplyAmounts(subInToken, COIN - penaltyPct);
 
                 if (paybackTokenId == DCT_ID{0}) {
-                    CDataStructureV0 liveKey{
-                            AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+                    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
                     auto balances = attributes->GetValue(liveKey, CBalances{});
                     balances.Add({loanTokenId, subAmount});
                     balances.Add({paybackTokenId, penalty});
                     attributes->SetValue(liveKey, balances);
 
                     liveKey.key = EconomyKeys::PaybackDFITokensPrincipal;
-                    balances    = attributes->GetValue(liveKey, CBalances{});
+                    balances = attributes->GetValue(liveKey, CBalances{});
                     balances.Add({loanTokenId, subLoan});
                     attributes->SetValue(liveKey, balances);
 
@@ -892,8 +962,9 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                              height);
 
                     res = TransferTokenBalance(paybackTokenId, subInToken, obj.from, consensus.burnAddress);
-                    if (!res)
+                    if (!res) {
                         return res;
+                    }
                 } else {
                     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
                     auto balances = attributes->GetValue(liveKey, CTokenPayback{});
@@ -911,8 +982,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                              paybackToken->symbol,
                              height);
 
-                    CDataStructureV0 directBurnKey{
-                            AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDLoanBurn};
+                    CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDLoanBurn};
                     auto directLoanBurn = attributes->GetValue(directBurnKey, false);
 
                     res = SwapToDFIorDUSD(mnview,
@@ -923,8 +993,9 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                                           height,
                                           consensus,
                                           !directLoanBurn);
-                    if (!res)
+                    if (!res) {
                         return res;
+                    }
                 }
             }
         }

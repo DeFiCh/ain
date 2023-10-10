@@ -13,7 +13,7 @@ class Factory {
 public:
     typedef TBaseType *(*Creator)();  // creator function
 
-    Factory()  = delete;
+    Factory() = delete;
     ~Factory() = delete;
 
     template <typename TType>

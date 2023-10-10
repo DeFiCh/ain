@@ -11,23 +11,23 @@ struct CEvmTxMessage;
 struct CTransferDomainMessage;
 
 enum class VMDomain : uint8_t {
-    NONE     = 0x00,
+    NONE = 0x00,
     // UTXO Reserved
-    UTXO     = 0x01,
-    DVM      = 0x02,
-    EVM      = 0x03,
+    UTXO = 0x01,
+    DVM = 0x02,
+    EVM = 0x03,
 };
 
 enum class VMDomainEdge : uint8_t {
-    DVMToEVM            = 0x01,
-    EVMToDVM            = 0x02,
+    DVMToEVM = 0x01,
+    EVMToDVM = 0x02,
 };
 
 class CXVMConsensus : public CCustomTxVisitor {
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CEvmTxMessage& obj) const;
-    Res operator()(const CTransferDomainMessage& obj) const;
+    Res operator()(const CEvmTxMessage &obj) const;
+    Res operator()(const CTransferDomainMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_XVM_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_XVM_H

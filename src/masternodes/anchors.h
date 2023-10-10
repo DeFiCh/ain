@@ -95,7 +95,7 @@ private:
 
 class CAnchor : public CAnchorData {
     using Signature = std::vector<unsigned char>;
-    using CTeam     = CAnchorData::CTeam;
+    using CTeam = CAnchorData::CTeam;
 
 public:
     std::vector<Signature> sigs;
@@ -173,7 +173,7 @@ private:
 
 public:
     using Signature = std::vector<unsigned char>;
-    using CTeam     = CAnchorData::CTeam;
+    using CTeam = CAnchorData::CTeam;
 
     struct AnchorRec {
         CAnchor anchor;
@@ -247,9 +247,9 @@ public:
 
 private:
     AnchorIndexImpl anchors;
-    const AnchorRec *top      = nullptr;
+    const AnchorRec *top = nullptr;
     bool possibleReActivation = false;
-    uint32_t spvLastHeight    = 0;
+    uint32_t spvLastHeight = 0;
 
 private:
     template <typename Key, typename Value>
@@ -416,7 +416,7 @@ struct CAnchorFinalizationMessagePlus : public CAnchorConfirmDataPlus {
 
 class CAnchorAwaitingConfirms {
     using ConfirmMessageHash = uint256;
-    using AnchorTxHash       = uint256;
+    using AnchorTxHash = uint256;
 
 private:
     using Confirm = CAnchorConfirmMessage;
@@ -464,8 +464,9 @@ size_t CheckSigs(const uint256 &sigHash, const TContainer &sigs, const std::set<
     std::set<CPubKey> uniqueKeys;
     for (const auto &sig : sigs) {
         CPubKey pubkey;
-        if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end())
+        if (!pubkey.RecoverCompact(sigHash, sig) || keys.find(pubkey.GetID()) == keys.end()) {
             return false;
+        }
 
         uniqueKeys.insert(pubkey);
     }
@@ -500,7 +501,7 @@ extern std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 namespace spv {
 // Define comparator and set to hold pending anchors
 using PendingOrderType = std::function<bool(const CAnchorIndex::AnchorRec &, const CAnchorIndex::AnchorRec &)>;
-using PendingSet       = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
+using PendingSet = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
 extern const PendingOrderType PendingOrder;
 }  // namespace spv
 

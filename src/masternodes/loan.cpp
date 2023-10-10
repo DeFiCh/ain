@@ -12,13 +12,13 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollater
 
 Res CLoanView::CreateLoanCollateralToken(const CLoanSetCollateralTokenImpl &collToken) {
     // this should not happen, but for sure
-    Require(!GetLoanCollateralToken(collToken.creationTx),
-            [=]{ return strprintf("setCollateralToken with creation tx %s already exists!",
-                                  collToken.creationTx.GetHex()); });
-    Require(
-        collToken.factor <= COIN, [=]{ return strprintf("setCollateralToken factor must be lower or equal than %s!",
-                                                         GetDecimalString(COIN)); });
-    Require(collToken.factor >= 0, []{ return "setCollateralToken factor must not be negative!"; });
+    Require(!GetLoanCollateralToken(collToken.creationTx), [=] {
+        return strprintf("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
+    });
+    Require(collToken.factor <= COIN, [=] {
+        return strprintf("setCollateralToken factor must be lower or equal than %s!", GetDecimalString(COIN));
+    });
+    Require(collToken.factor >= 0, [] { return "setCollateralToken factor must not be negative!"; });
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);
 
@@ -43,22 +43,26 @@ void CLoanView::ForEachLoanCollateralToken(std::function<bool(const CollateralTo
 
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollateralToken(const CollateralTokenKey &key) {
     auto it = LowerBound<LoanSetCollateralTokenKey>(key);
-    if (it.Valid() && it.Key().id == key.id)
+    if (it.Valid() && it.Key().id == key.id) {
         return GetLoanCollateralToken(it.Value());
+    }
 
     return GetCollateralTokenFromAttributes(key.id);
 }
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(const uint256 &txid) const {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
-    if (id)
+    if (id) {
         return GetLoanTokenByID(*id);
+    }
     return {};
 }
 
 Res CLoanView::SetLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id) {
     // this should not happen, but for sure
-    Require(!GetLoanTokenByID(id), [=]{ return strprintf("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex()); });
+    Require(!GetLoanTokenByID(id), [=] {
+        return strprintf("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
+    });
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
     WriteBy<LoanSetLoanTokenCreationTx>(loanToken.creationTx, id);
@@ -123,8 +127,9 @@ Res CLoanView::StoreDefaultLoanScheme(const std::string &loanSchemeID) {
 
 std::optional<std::string> CLoanView::GetDefaultLoanScheme() {
     std::string loanSchemeID;
-    if (Read(DefaultLoanSchemeKey::prefix(), loanSchemeID))
+    if (Read(DefaultLoanSchemeKey::prefix(), loanSchemeID)) {
         return loanSchemeID;
+    }
 
     return {};
 }
@@ -134,8 +139,9 @@ std::optional<CLoanSchemeData> CLoanView::GetLoanScheme(const std::string &loanS
 }
 
 std::optional<uint64_t> CLoanView::GetDestroyLoanScheme(const std::string &loanSchemeID) {
-    if (const auto res = ReadBy<DestroyLoanSchemeKey, uint64_t>(loanSchemeID))
+    if (const auto res = ReadBy<DestroyLoanSchemeKey, uint64_t>(loanSchemeID)) {
         return res;
+    }
     return {};
 }
 
@@ -143,13 +149,15 @@ Res CLoanView::EraseLoanScheme(const std::string &loanSchemeID) {
     // Find and delete all related loan scheme updates
     std::vector<uint64_t> loanUpdateHeights;
     ForEachDelayedLoanScheme([&](const std::pair<std::string, uint64_t> &key, const CLoanSchemeMessage &) {
-        if (key.first == loanSchemeID)
+        if (key.first == loanSchemeID) {
             loanUpdateHeights.push_back(key.second);
+        }
         return true;
     });
 
-    for (const auto &height : loanUpdateHeights)
+    for (const auto &height : loanUpdateHeights) {
         EraseDelayedLoanScheme(loanSchemeID, height);
+    }
 
     // Delete loan scheme
     EraseBy<LoanSchemeKey>(loanSchemeID);
@@ -188,21 +196,21 @@ std::optional<CInterestRateV3> CLoanView::GetInterestRate(const CVaultId &vaultI
 // Precision 64bit
 template <typename T>
 inline T InterestPerBlockCalculationV1(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
-    const auto netInterest          = (tokenInterest + schemeInterest) / 100;  // in %
+    const auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
     static const auto blocksPerYear = T(365) * Params().GetConsensus().blocksPerDay();
     return MultiplyAmounts(netInterest, amount) / blocksPerYear;
 }
 
 // Precision 128bit
 inline base_uint<128> InterestPerBlockCalculationV2(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
-    const auto netInterest          = (tokenInterest + schemeInterest) / 100;  // in %
+    const auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
     static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
     return arith_uint256(amount) * netInterest * COIN / blocksPerYear;
 }
 
 // Precision 128bit with negative interest
 CInterestAmount InterestPerBlockCalculationV3(CAmount amount, CAmount tokenInterest, CAmount schemeInterest) {
-    const auto netInterest          = (tokenInterest + schemeInterest) / 100;  // in %
+    const auto netInterest = (tokenInterest + schemeInterest) / 100;  // in %
     static const auto blocksPerYear = 365 * Params().GetConsensus().blocksPerDay();
     return {netInterest < 0 && amount > 0, arith_uint256(amount) * std::abs(netInterest) * COIN / blocksPerYear};
 }
@@ -222,8 +230,9 @@ CAmount FloorInterest(const base_uint<128> &value) {
 
 static base_uint<128> ToHigherPrecision(CAmount amount, uint32_t height) {
     base_uint<128> amountHP = amount;
-    if (height >= static_cast<uint32_t>(Params().GetConsensus().DF14FortCanningHillHeight))
+    if (height >= static_cast<uint32_t>(Params().GetConsensus().DF14FortCanningHillHeight)) {
         amountHP *= HIGH_PRECISION_SCALER;
+    }
 
     return amountHP;
 }
@@ -233,9 +242,9 @@ const auto InterestPerBlock = [](const CInterestRateV3 &rate, const uint32_t hei
 };
 
 CInterestAmount TotalInterestCalculation(const CInterestRateV3 &rate, const uint32_t height) {
-    const auto heightDiff     = (height - rate.height);
+    const auto heightDiff = (height - rate.height);
     const auto interestAmount = rate.interestPerBlock.amount;
-    const auto totalInterest  = interestAmount * heightDiff;
+    const auto totalInterest = interestAmount * heightDiff;
 
     if (heightDiff != 0 && totalInterest / heightDiff != interestAmount) {
         LogPrintf(
@@ -286,19 +295,20 @@ Res CLoanView::IncreaseInterest(const uint32_t height,
                                 const CAmount tokenInterest,
                                 const CAmount loanIncreased) {
     const auto scheme = GetLoanScheme(loanSchemeID);
-    Require(scheme, [=]{ return strprintf("No such scheme id %s", loanSchemeID); });
+    Require(scheme, [=] { return strprintf("No such scheme id %s", loanSchemeID); });
 
     auto token = GetLoanTokenByID(id);
-    Require(token, [=]{ return strprintf("No such loan token id %s", id.ToString()); });
+    Require(token, [=] { return strprintf("No such loan token id %s", id.ToString()); });
 
     CInterestRateV3 rate{};
-    if (auto readRate = GetInterestRate(vaultId, id, height))
+    if (auto readRate = GetInterestRate(vaultId, id, height)) {
         rate = *readRate;
+    }
 
-    Require(height >= rate.height, []{ return "Cannot store height in the past"; });
+    Require(height >= rate.height, [] { return "Cannot store height in the past"; });
 
     rate.interestToHeight = TotalInterestCalculation(rate, height);
-    rate.height           = height;
+    rate.height = height;
 
     if (height >= static_cast<uint32_t>(Params().GetConsensus().DF18FortCanningGreatWorldHeight)) {
         CBalances amounts;
@@ -334,20 +344,21 @@ Res CLoanView::DecreaseInterest(const uint32_t height,
                                 const CAmount loanDecreased,
                                 const CAmount interestDecreased) {
     const auto scheme = GetLoanScheme(loanSchemeID);
-    Require(scheme, [=]{ return strprintf("No such scheme id %s", loanSchemeID); });
+    Require(scheme, [=] { return strprintf("No such scheme id %s", loanSchemeID); });
 
     auto token = GetLoanTokenByID(id);
-    Require(token, [=]{ return strprintf("No such loan token id %s", id.ToString()); });
+    Require(token, [=] { return strprintf("No such loan token id %s", id.ToString()); });
 
     CInterestRateV3 rate{};
-    if (auto readRate = GetInterestRate(vaultId, id, height))
+    if (auto readRate = GetInterestRate(vaultId, id, height)) {
         rate = *readRate;
+    }
 
-    Require(height >= rate.height, []{ return "Cannot store height in the past"; });
+    Require(height >= rate.height, [] { return "Cannot store height in the past"; });
 
-    Require(rate.height != 0, []{ return "Data mismatch height == 0"; });
+    Require(rate.height != 0, [] { return "Data mismatch height == 0"; });
 
-    const auto interestToHeight    = TotalInterestCalculation(rate, height);
+    const auto interestToHeight = TotalInterestCalculation(rate, height);
     const auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
 
     rate.interestToHeight =
@@ -437,11 +448,13 @@ void EraseInterest(CLoanView &view, const CVaultId &vaultId) {
     std::vector<std::pair<CVaultId, DCT_ID>> keysToDelete;
 
     auto it = view.LowerBound<BoundType>(std::make_pair(vaultId, DCT_ID{0}));
-    for (; it.Valid() && it.Key().first == vaultId; it.Next())
+    for (; it.Valid() && it.Key().first == vaultId; it.Next()) {
         keysToDelete.push_back(it.Key());
+    }
 
-    for (const auto &key : keysToDelete)
+    for (const auto &key : keysToDelete) {
         view.EraseBy<BoundType>(key);
+    }
 }
 
 Res CLoanView::EraseInterest(const CVaultId &vaultId, uint32_t height) {
@@ -527,28 +540,33 @@ void CLoanView::MigrateInterestRateToV3(CVaultView &view, uint32_t height) {
 }
 
 Res CLoanView::AddLoanToken(const CVaultId &vaultId, CTokenAmount amount) {
-    Require(GetLoanTokenByID(amount.nTokenId), [=]{ return strprintf("No such loan token id %s", amount.nTokenId.ToString()); });
+    Require(GetLoanTokenByID(amount.nTokenId),
+            [=] { return strprintf("No such loan token id %s", amount.nTokenId.ToString()); });
 
     CBalances amounts;
     ReadBy<LoanTokenAmount>(vaultId, amounts);
     Require(amounts.Add(amount));
 
-    if (!amounts.balances.empty())
+    if (!amounts.balances.empty()) {
         WriteBy<LoanTokenAmount>(vaultId, amounts);
+    }
 
     return Res::Ok();
 }
 
 Res CLoanView::SubLoanToken(const CVaultId &vaultId, CTokenAmount amount) {
-    Require(GetLoanTokenByID(amount.nTokenId), [=]{ return strprintf("No such loan token id %s", amount.nTokenId.ToString()); });
+    Require(GetLoanTokenByID(amount.nTokenId),
+            [=] { return strprintf("No such loan token id %s", amount.nTokenId.ToString()); });
 
     auto amounts = GetLoanTokens(vaultId);
-    Require(amounts && amounts->Sub(amount), [=]{ return strprintf("Loan token for vault <%s> not found", vaultId.GetHex()); });
+    Require(amounts && amounts->Sub(amount),
+            [=] { return strprintf("Loan token for vault <%s> not found", vaultId.GetHex()); });
 
-    if (amounts->balances.empty())
+    if (amounts->balances.empty()) {
         EraseBy<LoanTokenAmount>(vaultId);
-    else
+    } else {
         WriteBy<LoanTokenAmount>(vaultId, *amounts);
+    }
 
     return Res::Ok();
 }
@@ -573,8 +591,9 @@ Res CLoanView::EraseLoanLiquidationPenalty() {
 
 CAmount CLoanView::GetLoanLiquidationPenalty() {
     CAmount penalty;
-    if (Read(LoanLiquidationPenalty::prefix(), penalty))
+    if (Read(LoanLiquidationPenalty::prefix(), penalty)) {
         return penalty;
+    }
 
     return 5 * COIN / 100;
 }
@@ -588,7 +607,7 @@ std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const CInte
         bool negative;
 
         explicit HighPrecisionInterestValue(const CInterestAmount &val) {
-            value    = int128("0x" + val.amount.GetHex());
+            value = int128("0x" + val.amount.GetHex());
             negative = val.negative;
         }
 
@@ -609,8 +628,9 @@ std::optional<std::string> TryGetInterestPerBlockHighPrecisionString(const CInte
             auto dec = GetInterestPerBlockDecimal();
             // While these can happen theoretically, they should be out of range of
             // operating interest. If this happens, something else went wrong.
-            if (mag < 0 || dec < 0)
+            if (mag < 0 || dec < 0) {
                 return {};
+            }
 
             result << (negative ? "-" : "") << mag << "." << std::setw(24) << std::setfill('0') << dec;
             return result.str();
