@@ -259,7 +259,7 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
         }
     }
 
-    if (height >= static_cast<uint32_t>(consensus.DF22Metachain)) {
+    if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
         mnview.CalculateOwnerRewards(obj.to, height);
     }
 

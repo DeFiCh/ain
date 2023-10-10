@@ -140,7 +140,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.DF20GrandCentralHeight = 2479000; // Dec 8th, 2022.
         consensus.DF21GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
-        consensus.DF22Metachain = std::numeric_limits<int>::max();
+        consensus.DF22MetachainHeight = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -417,7 +417,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 1244000;
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22Metachain = 1948000;
+        consensus.DF22MetachainHeight = 1948000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -636,7 +636,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 1244000;
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22Metachain = 1586750;
+        consensus.DF22MetachainHeight = 1586750;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -852,7 +852,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 1244000;
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22Metachain = 1586750;
+        consensus.DF22MetachainHeight = 1586750;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
@@ -1071,7 +1071,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 10000000;
         consensus.DF20GrandCentralHeight = 10000000;
         consensus.DF21GrandCentralEpilogueHeight = 10000000;
-        consensus.DF22Metachain = 10000000;
+        consensus.DF22MetachainHeight = 10000000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -1338,7 +1338,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Fort Canning Epilogue", "-fortcanningepilogueheight", consensus.DF19FortCanningEpilogueHeight);
     UpdateHeightValidation("Grand Central", "-grandcentralheight", consensus.DF20GrandCentralHeight);
     UpdateHeightValidation("Grand Central Epilogue", "-grandcentralepilogueheight", consensus.DF21GrandCentralEpilogueHeight);
-    UpdateHeightValidation("Metachain", "-metachainheight", consensus.DF22Metachain);
+    UpdateHeightValidation("Metachain", "-metachainheight", consensus.DF22MetachainHeight);
 
     if (gArgs.GetBoolArg("-simulatemainnet", false)) {
         consensus.pos.nTargetTimespan = 5 * 60; // 5 min == 10 blocks
