@@ -50,7 +50,7 @@ struct CBalances {
         if (amount.nValue == 0) {
             return CTokenAmount{amount.nTokenId, 0};
         }
-        auto current   = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
+        auto current = CTokenAmount{amount.nTokenId, balances[amount.nTokenId]};
         auto remainder = current.SubWithRemainder(amount.nValue);
         if (current.nValue == 0) {
             balances.erase(amount.nTokenId);
@@ -117,7 +117,7 @@ struct CBalances {
     friend bool operator<(const CBalances &a, const CBalances &b) {
         for (const auto &b_kv : b.balances) {
             const auto a_value_it = a.balances.find(b_kv.first);
-            CAmount a_value       = 0;
+            CAmount a_value = 0;
             if (a_value_it != a.balances.end()) {
                 a_value = a_value_it->second;
             }
@@ -217,15 +217,19 @@ struct CStatsTokenBalances {
         return res;
     }
 
-    friend bool operator==(const CStatsTokenBalances &a, const CStatsTokenBalances &b) { return a.balances == b.balances; }
+    friend bool operator==(const CStatsTokenBalances &a, const CStatsTokenBalances &b) {
+        return a.balances == b.balances;
+    }
 
-    friend bool operator!=(const CStatsTokenBalances &a, const CStatsTokenBalances &b) { return a.balances != b.balances; }
+    friend bool operator!=(const CStatsTokenBalances &a, const CStatsTokenBalances &b) {
+        return a.balances != b.balances;
+    }
 
     // NOTE: if some balance from b is hgher than a => a is less than b
     friend bool operator<(const CStatsTokenBalances &a, const CStatsTokenBalances &b) {
         for (const auto &b_kv : b.balances) {
             const auto a_value_it = a.balances.find(b_kv.first);
-            CAmount a_value       = 0;
+            CAmount a_value = 0;
             if (a_value_it != a.balances.end()) {
                 a_value = a_value_it->second;
             }

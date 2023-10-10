@@ -31,8 +31,7 @@ struct EVM {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(version);
         READWRITE(blockHash);
         READWRITE(burntFee);
@@ -50,8 +49,7 @@ struct XVM {
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action)
-    {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(version);
         READWRITE(evm);
     }
@@ -59,7 +57,6 @@ struct XVM {
     static ResVal<XVM> TryFrom(const CScript &scriptPubKey);
     UniValue ToUniValue() const;
     CScript ToScript() const;
-
 };
 
 constexpr uint8_t MAX_POOL_SWAPS = 3;
@@ -73,9 +70,9 @@ struct OpReturnLimits {
     static OpReturnLimits Default();
     static OpReturnLimits From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes);
 
-    void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
-    Res Validate(const CTransaction& tx, const CustomTxType txType) const;
-    uint64_t MaxSize() { return std::max({ coreSizeBytes, dvmSizeBytes, evmSizeBytes}); }
+    void SetToAttributesIfNotExists(ATTRIBUTES &attrs) const;
+    Res Validate(const CTransaction &tx, const CustomTxType txType) const;
+    uint64_t MaxSize() { return std::max({coreSizeBytes, dvmSizeBytes, evmSizeBytes}); }
 };
 
 struct TransferDomainConfig {
@@ -96,7 +93,7 @@ struct TransferDomainConfig {
     static TransferDomainConfig Default();
     static TransferDomainConfig From(const CCustomCSView &mnview);
 
-    void SetToAttributesIfNotExists(ATTRIBUTES& attrs) const;
+    void SetToAttributesIfNotExists(ATTRIBUTES &attrs) const;
 };
 
 struct CCustomTxMessageNone {};
@@ -189,7 +186,6 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate);
 
-
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,
                                     int height,
@@ -219,7 +215,7 @@ bool IsRegtestNetwork();
 bool IsTestNetwork();
 bool IsMainNetwork();
 
-bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed) ;
+bool OraclePriceFeed(CCustomCSView &view, const CTokenCurrencyPair &priceFeed);
 bool CheckOPReturnSize(const CScript &scriptPubKey, const uint32_t opreturnSize);
 
 class CPoolSwap {
@@ -236,7 +232,10 @@ public:
           height(height) {}
 
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, const Consensus::Params &consensus, bool testOnly = false);
-    Res ExecuteSwap(CCustomCSView &view, std::vector<DCT_ID> poolIDs, const Consensus::Params &consensus, bool testOnly = false);
+    Res ExecuteSwap(CCustomCSView &view,
+                    std::vector<DCT_ID> poolIDs,
+                    const Consensus::Params &consensus,
+                    bool testOnly = false);
     std::vector<std::vector<DCT_ID>> CalculatePoolPaths(CCustomCSView &view);
     CTokenAmount GetResult() { return CTokenAmount{obj.idTokenTo, result}; };
 };

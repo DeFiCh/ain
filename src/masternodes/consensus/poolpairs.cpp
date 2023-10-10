@@ -32,11 +32,11 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
 
     /// @todo ownerAddress validity checked only in rpc. is it enough?
     CPoolPair poolPair{};
-    static_cast<CPoolPairMessageBase&>(poolPair) = obj;
-    auto pairSymbol         = obj.pairSymbol;
-    poolPair.creationTx     = tx.GetHash();
+    static_cast<CPoolPairMessageBase &>(poolPair) = obj;
+    auto pairSymbol = obj.pairSymbol;
+    poolPair.creationTx = tx.GetHash();
     poolPair.creationHeight = height;
-    auto &rewards           = poolPair.rewards;
+    auto &rewards = poolPair.rewards;
 
     auto tokenA = mnview.GetToken(poolPair.idTokenA);
     Require(tokenA, "token %s does not exist!", poolPair.idTokenA.ToString());
@@ -45,8 +45,8 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     Require(tokenB, "token %s does not exist!", poolPair.idTokenB.ToString());
 
     const auto symbolLength = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight)
-                              ? CToken::MAX_TOKEN_POOLPAIR_LENGTH
-                              : CToken::MAX_TOKEN_SYMBOL_LENGTH;
+                                  ? CToken::MAX_TOKEN_POOLPAIR_LENGTH
+                                  : CToken::MAX_TOKEN_SYMBOL_LENGTH;
     if (pairSymbol.empty()) {
         pairSymbol = trim_ws(tokenA->symbol + "-" + tokenB->symbol).substr(0, symbolLength);
     } else {
@@ -57,9 +57,9 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     token.flags = (uint8_t)CToken::TokenFlags::DAT | (uint8_t)CToken::TokenFlags::LPS |
                   (uint8_t)CToken::TokenFlags::Tradeable | (uint8_t)CToken::TokenFlags::Finalized;
 
-    token.name           = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-    token.symbol         = pairSymbol;
-    token.creationTx     = tx.GetHash();
+    token.name = trim_ws(tokenA->name + "-" + tokenB->name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    token.symbol = pairSymbol;
+    token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
     auto tokenId = mnview.CreateToken(token, false);
@@ -128,27 +128,28 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
     }
 
     const auto &lpTokenID = pair->first;
-    auto &pool            = pair->second;
+    auto &pool = pair->second;
 
     // normalize A & B to correspond poolpair's tokens
-    if (amountA.first != pool.idTokenA)
+    if (amountA.first != pool.idTokenA) {
         std::swap(amountA, amountB);
+    }
 
     bool slippageProtection = static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight;
     Require(pool.AddLiquidity(
-            amountA.second,
-            amountB.second,
-            [&] /*onMint*/ (CAmount liqAmount) {
-                CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
-                return AddBalanceSetShares(obj.shareAddress, balance);
-            },
-            slippageProtection));
+        amountA.second,
+        amountB.second,
+        [&] /*onMint*/ (CAmount liqAmount) {
+            CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
+            return AddBalanceSetShares(obj.shareAddress, balance);
+        },
+        slippageProtection));
     return mnview.SetPoolPair(lpTokenID, height, pool);
 }
 
 Res CPoolPairsConsensus::operator()(const CRemoveLiquidityMessage &obj) const {
     const auto &from = obj.from;
-    auto amount      = obj.amount;
+    auto amount = obj.amount;
 
     // checked internally too. remove here?
     Require(amount.nValue > 0, "amount cannot be less than or equal to zero");
@@ -167,7 +168,7 @@ Res CPoolPairsConsensus::operator()(const CRemoveLiquidityMessage &obj) const {
     Require(pool.RemoveLiquidity(amount.nValue, [&](CAmount amountA, CAmount amountB) {
         CalculateOwnerRewards(from);
         CBalances balances{
-                TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}
+            TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}
         };
         return mnview.AddBalances(from, balances);
     }));

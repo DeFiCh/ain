@@ -63,8 +63,7 @@ struct CUtxosToAccountMessage {
     }
 };
 
-struct CTransferDomainItem
-{
+struct CTransferDomainItem {
     CScript address;
     CTokenAmount amount;
     uint8_t domain;

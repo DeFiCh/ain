@@ -15,14 +15,17 @@ struct CBurnTokensMessage;
 
 class CTokensConsensus : public CCustomTxVisitor {
     [[nodiscard]] Res CheckTokenCreationTx() const;
-    [[nodiscard]] ResVal<CScript> MintableToken(DCT_ID id, const CTokenImplementation &token, bool anybodyCanMint) const;
+    [[nodiscard]] ResVal<CScript> MintableToken(DCT_ID id,
+                                                const CTokenImplementation &token,
+                                                bool anybodyCanMint) const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CCreateTokenMessage& obj) const;
-    Res operator()(const CUpdateTokenPreAMKMessage& obj) const;
-    Res operator()(const CUpdateTokenMessage& obj) const;
-    Res operator()(const CMintTokensMessage& obj) const;
-    Res operator()(const CBurnTokensMessage& obj) const;
+    Res operator()(const CCreateTokenMessage &obj) const;
+    Res operator()(const CUpdateTokenPreAMKMessage &obj) const;
+    Res operator()(const CUpdateTokenMessage &obj) const;
+    Res operator()(const CMintTokensMessage &obj) const;
+    Res operator()(const CBurnTokensMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_TOKENS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_TOKENS_H

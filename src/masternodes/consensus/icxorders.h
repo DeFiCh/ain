@@ -18,15 +18,16 @@ struct CICXCloseOfferMessage;
 class CICXOrdersConsensus : public CCustomTxVisitor {
     [[nodiscard]] CAmount CalculateTakerFee(CAmount amount) const;
     [[nodiscard]] DCT_ID FindTokenByPartialSymbolName(const std::string &symbol) const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CICXCreateOrderMessage& obj) const;
-    Res operator()(const CICXMakeOfferMessage& obj) const;
-    Res operator()(const CICXSubmitDFCHTLCMessage& obj) const;
-    Res operator()(const CICXSubmitEXTHTLCMessage& obj) const;
-    Res operator()(const CICXClaimDFCHTLCMessage& obj) const;
-    Res operator()(const CICXCloseOrderMessage& obj) const;
-    Res operator()(const CICXCloseOfferMessage& obj) const;
+    Res operator()(const CICXCreateOrderMessage &obj) const;
+    Res operator()(const CICXMakeOfferMessage &obj) const;
+    Res operator()(const CICXSubmitDFCHTLCMessage &obj) const;
+    Res operator()(const CICXSubmitEXTHTLCMessage &obj) const;
+    Res operator()(const CICXClaimDFCHTLCMessage &obj) const;
+    Res operator()(const CICXCloseOrderMessage &obj) const;
+    Res operator()(const CICXCloseOfferMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_ICXORDERS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_ICXORDERS_H

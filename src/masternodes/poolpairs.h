@@ -44,9 +44,7 @@ struct PoolPrice {
 
     bool operator!=(const PoolPrice &rhs) const { return integer != rhs.integer || fraction != rhs.fraction; }
 
-    static constexpr PoolPrice getMaxValid() {
-        return { MAX_MONEY / COIN, MAX_MONEY % COIN };
-    }
+    static constexpr PoolPrice getMaxValid() { return {MAX_MONEY / COIN, MAX_MONEY % COIN}; }
 
     bool isAboveValid() const {
         const auto maxPrice = PoolPrice::getMaxValid();
@@ -110,11 +108,12 @@ struct CCreatePoolPairMessage : public CPoolPairMessageBase {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITEAS(CPoolPairMessageBase, *this);
         READWRITE(pairSymbol);
-        if (!s.empty())
+        if (!s.empty()) {
             READWRITE(rewards);
+        }
     }
 };
 
@@ -127,32 +126,33 @@ struct CUpdatePoolPairMessage {
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream& s, Operation ser_action) {
+    inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(poolId.v);
         READWRITE(status);
         READWRITE(commission);
         READWRITE(ownerAddress);
-        if (!s.empty())
+        if (!s.empty()) {
             READWRITE(rewards);
+        }
     }
 };
 
 class CPoolPair : public CPoolPairMessageBase {
 public:
     static const CAmount MINIMUM_LIQUIDITY = 1000;
-    static const CAmount SLOPE_SWAP_RATE   = 1000;
-    static const uint32_t PRECISION        = (uint32_t)COIN;  // or just PRECISION_BITS for "<<" and ">>"
+    static const CAmount SLOPE_SWAP_RATE = 1000;
+    static const uint32_t PRECISION = (uint32_t)COIN;  // or just PRECISION_BITS for "<<" and ">>"
 
     // temporary values, not serialized
-    CAmount reserveA         = 0;
-    CAmount reserveB         = 0;
-    CAmount totalLiquidity   = 0;
+    CAmount reserveA = 0;
+    CAmount reserveB = 0;
+    CAmount totalLiquidity = 0;
     CAmount blockCommissionA = 0;
     CAmount blockCommissionB = 0;
 
-    CAmount rewardPct     = 0;  // pool yield farming reward %%
+    CAmount rewardPct = 0;  // pool yield farming reward %%
     CAmount rewardLoanPct = 0;
-    bool swapEvent        = false;
+    bool swapEvent = false;
 
     // serialized
     CBalances rewards;
@@ -191,16 +191,18 @@ public:
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        if (!ser_action.ForRead())
+        if (!ser_action.ForRead()) {
             ioProofer();
+        }
 
         READWRITEAS(CPoolPairMessageBase, *this);
         READWRITE(rewards);
         READWRITE(creationTx);
         READWRITE(creationHeight);
 
-        if (ser_action.ForRead())
+        if (ser_action.ForRead()) {
             ioProofer();
+        }
     }
 };
 
@@ -238,10 +240,10 @@ struct PoolHeightKey {
 };
 
 enum RewardType {
-    Commission         = 127,
-    Rewards            = 128,
-    Coinbase           = Rewards | 1,
-    Pool               = Rewards | 2,
+    Commission = 127,
+    Rewards = 128,
+    Coinbase = Rewards | 1,
+    Pool = Rewards | 2,
     LoanTokenDEXReward = Rewards | 4,
 };
 

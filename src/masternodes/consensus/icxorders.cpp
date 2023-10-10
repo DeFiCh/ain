@@ -15,17 +15,20 @@ bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::
         assert(attributes);
         return attributes->GetValue(enabledKey, false);
     }
-        // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
-    else if (height < consensus.DF13FortCanningParkHeight || IsRegtestNetwork() || (IsTestNetwork() && static_cast<int>(height) >= 1250000))
+    // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions
+    else if (height < consensus.DF13FortCanningParkHeight || IsRegtestNetwork() ||
+             (IsTestNetwork() && static_cast<int>(height) >= 1250000)) {
         return true;
+    }
 
     // ICX transactions disabled in all other cases
     return false;
 }
 
 static CAmount GetDFIperBTC(const CPoolPair &BTCDFIPoolPair) {
-    if (BTCDFIPoolPair.idTokenA == DCT_ID({0}))
+    if (BTCDFIPoolPair.idTokenA == DCT_ID({0})) {
         return DivideAmounts(BTCDFIPoolPair.reserveA, BTCDFIPoolPair.reserveB);
+    }
     return DivideAmounts(BTCDFIPoolPair.reserveB, BTCDFIPoolPair.reserveA);
 }
 
@@ -35,35 +38,35 @@ CAmount CICXOrdersConsensus::CalculateTakerFee(CAmount amount) const {
     auto pair = mnview.GetPoolPair(tokenBTC->first, DCT_ID{0});
     assert(pair);
     return (arith_uint256(amount) * mnview.ICXGetTakerFeePerBTC() / COIN * GetDFIperBTC(pair->second) / COIN)
-            .GetLow64();
+        .GetLow64();
 }
 
 DCT_ID CICXOrdersConsensus::FindTokenByPartialSymbolName(const std::string &symbol) const {
     DCT_ID res{0};
     mnview.ForEachToken(
-            [&](DCT_ID id, CTokenImplementation token) {
-                if (token.symbol.find(symbol) == 0) {
-                    res = id;
-                    return false;
-                }
-                return true;
-            },
-            DCT_ID{1});
+        [&](DCT_ID id, CTokenImplementation token) {
+            if (token.symbol.find(symbol) == 0) {
+                res = id;
+                return false;
+            }
+            return true;
+        },
+        DCT_ID{1});
     assert(res.v != 0);
     return res;
 }
 
-
 Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage &obj) const {
-    if (!IsICXEnabled(height, mnview, consensus))
+    if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
+    }
 
     Require(CheckCustomTx());
 
     CICXOrderImplemetation order;
     static_cast<CICXOrder &>(order) = obj;
 
-    order.creationTx     = tx.GetHash();
+    order.creationTx = tx.GetHash();
     order.creationHeight = height;
 
     Require(HasAuth(order.ownerAddress), "tx must have at least one input from order owner");
@@ -83,15 +86,16 @@ Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
-    if (!IsICXEnabled(height, mnview, consensus))
+    if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
+    }
 
     Require(CheckCustomTx());
 
     CICXMakeOfferImplemetation makeoffer;
     static_cast<CICXMakeOffer &>(makeoffer) = obj;
 
-    makeoffer.creationTx     = tx.GetHash();
+    makeoffer.creationTx = tx.GetHash();
     makeoffer.creationHeight = height;
 
     Require(HasAuth(makeoffer.ownerAddress), "tx must have at least one input from order owner");
@@ -100,7 +104,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
     Require(order, "order with creation tx " + makeoffer.orderTx.GetHex() + " does not exists!");
 
     auto expiry = static_cast<int>(height) < consensus.DF10EunosPayaHeight ? CICXMakeOffer::DEFAULT_EXPIRY
-                                                                       : CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
+                                                                           : CICXMakeOffer::EUNOSPAYA_DEFAULT_EXPIRY;
 
     Require(makeoffer.expiry >= expiry, "offer expiry must be greater than %d!", expiry - 1);
 
@@ -114,7 +118,7 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
 
         // calculating takerFee
         CAmount BTCAmount(static_cast<CAmount>(
-                                  (arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
+            (arith_uint256(makeoffer.amount) * arith_uint256(COIN) / arith_uint256(order->orderPrice)).GetLow64()));
         makeoffer.takerFee = CalculateTakerFee(BTCAmount);
     }
 
@@ -126,15 +130,16 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
-    if (!IsICXEnabled(height, mnview, consensus))
+    if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
+    }
 
     Require(CheckCustomTx());
 
     CICXSubmitDFCHTLCImplemetation submitdfchtlc;
     static_cast<CICXSubmitDFCHTLC &>(submitdfchtlc) = obj;
 
-    submitdfchtlc.creationTx     = tx.GetHash();
+    submitdfchtlc.creationTx = tx.GetHash();
     submitdfchtlc.creationHeight = height;
 
     auto offer = mnview.GetICXMakeOfferByCreationTx(submitdfchtlc.offerTx);
@@ -156,10 +161,11 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
                 submitdfchtlc.offerTx.GetHex());
 
         uint32_t timeout;
-        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
+        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
             timeout = CICXSubmitDFCHTLC::MINIMUM_TIMEOUT;
-        else
+        } else {
             timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+        }
 
         Require(submitdfchtlc.timeout >= timeout, "timeout must be greater than %d", timeout - 1);
 
@@ -175,18 +181,17 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
         if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
             if (calcAmount < offer->amount) {
                 auto BTCAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
-                takerFee       = (arith_uint256(BTCAmount) * offer->takerFee / offer->amount).GetLow64();
+                takerFee = (arith_uint256(BTCAmount) * offer->takerFee / offer->amount).GetLow64();
             }
         } else {
             auto BTCAmount = MultiplyAmounts(submitdfchtlc.amount, order->orderPrice);
-            takerFee       = CalculateTakerFee(BTCAmount);
+            takerFee = CalculateTakerFee(BTCAmount);
         }
 
         // refund the rest of locked takerFee if there is difference
         if (offer->takerFee - takerFee) {
             CalculateOwnerRewards(offer->ownerAddress);
-            Require(
-                    TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress));
+            Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress));
 
             // update the offer with adjusted takerFee
             offer->takerFee = takerFee;
@@ -222,10 +227,10 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
 
         uint32_t timeout, btcBlocksInDfi;
         if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
-            timeout        = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
+            timeout = CICXSubmitDFCHTLC::MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         } else {
-            timeout        = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+            timeout = CICXSubmitDFCHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         }
 
@@ -242,15 +247,16 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
-    if (!IsICXEnabled(height, mnview, consensus))
+    if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
+    }
 
     Require(CheckCustomTx());
 
     CICXSubmitEXTHTLCImplemetation submitexthtlc;
     static_cast<CICXSubmitEXTHTLC &>(submitexthtlc) = obj;
 
-    submitexthtlc.creationTx     = tx.GetHash();
+    submitexthtlc.creationTx = tx.GetHash();
     submitexthtlc.creationHeight = height;
 
     auto offer = mnview.GetICXMakeOfferByCreationTx(submitexthtlc.offerTx);
@@ -260,7 +266,7 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
     Require(order, "order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
     Require(order->creationHeight + order->expiry >=
-            height + (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS),
+                height + (submitexthtlc.timeout * CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS),
             "order will expire before ext htlc expires!");
 
     Require(!mnview.HasICXSubmitEXTHTLCOpen(submitexthtlc.offerTx), "ext htlc already submitted!");
@@ -280,10 +286,10 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
 
         uint32_t timeout, btcBlocksInDfi;
         if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
-            timeout        = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
+            timeout = CICXSubmitEXTHTLC::MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::BTC_BLOCKS_IN_DFI_BLOCKS;
         } else {
-            timeout        = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
+            timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_2ND_TIMEOUT;
             btcBlocksInDfi = CICXSubmitEXTHTLC::EUNOSPAYA_BTC_BLOCKS_IN_DFI_BLOCKS;
         }
 
@@ -298,10 +304,11 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
                 submitexthtlc.offerTx.GetHex());
 
         uint32_t timeout;
-        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
+        if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
             timeout = CICXSubmitEXTHTLC::MINIMUM_TIMEOUT;
-        else
+        } else {
             timeout = CICXSubmitEXTHTLC::EUNOSPAYA_MINIMUM_TIMEOUT;
+        }
 
         Require(submitexthtlc.timeout >= timeout, "timeout must be greater than %d", timeout - 1);
 
@@ -315,16 +322,16 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
         if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
             if (calcAmount < offer->amount) {
                 auto BTCAmount = DivideAmounts(offer->amount, order->orderPrice);
-                takerFee       = (arith_uint256(submitexthtlc.amount) * offer->takerFee / BTCAmount).GetLow64();
+                takerFee = (arith_uint256(submitexthtlc.amount) * offer->takerFee / BTCAmount).GetLow64();
             }
-        } else
+        } else {
             takerFee = CalculateTakerFee(submitexthtlc.amount);
+        }
 
         // refund the rest of locked takerFee if there is difference
         if (offer->takerFee - takerFee) {
             CalculateOwnerRewards(offer->ownerAddress);
-            Require(
-                    TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress));
+            Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee - takerFee, offerTxidAddr, offer->ownerAddress));
 
             // update the offer with adjusted takerFee
             offer->takerFee = takerFee;
@@ -343,15 +350,16 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
-    if (!IsICXEnabled(height, mnview, consensus))
+    if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
+    }
 
     Require(CheckCustomTx());
 
     CICXClaimDFCHTLCImplemetation claimdfchtlc;
     static_cast<CICXClaimDFCHTLC &>(claimdfchtlc) = obj;
 
-    claimdfchtlc.creationTx     = tx.GetHash();
+    claimdfchtlc.creationTx = tx.GetHash();
     claimdfchtlc.creationHeight = height;
 
     auto dfchtlc = mnview.GetICXSubmitDFCHTLCByCreationTx(claimdfchtlc.dfchtlcTx);
@@ -376,17 +384,19 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     Require(order, "order with creation tx %s does not exists!", offer->orderTx.GetHex());
 
     auto exthtlc = mnview.HasICXSubmitEXTHTLCOpen(dfchtlc->offerTx);
-    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight)
+    if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
         Require(exthtlc, "cannot claim, external htlc for this offer does not exists or expired!");
+    }
 
     // claim DFC HTLC to receiveAddress
     CalculateOwnerRewards(order->ownerAddress);
     CScript htlcTxidAddr(dfchtlc->creationTx.begin(), dfchtlc->creationTx.end());
 
-    if (order->orderType == CICXOrder::TYPE_INTERNAL)
+    if (order->orderType == CICXOrder::TYPE_INTERNAL) {
         Require(TransferTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, offer->ownerAddress));
-    else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+    } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
         Require(TransferTokenBalance(order->idToken, dfchtlc->amount, htlcTxidAddr, order->ownerAddress));
+    }
 
     // refund makerDeposit
     Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee, CScript(), order->ownerAddress));
@@ -397,13 +407,12 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     // maker bonus only on fair dBTC/BTC (1:1) trades for now
     DCT_ID BTC = FindTokenByPartialSymbolName(CICXOrder::TOKEN_BTC);
     if (order->idToken == BTC && order->orderPrice == COIN) {
-
         // Check if ICX should work with bug for makerBonus to maintain complatibility with past netwrok behavior
         auto ICXBugPath = [&](uint32_t height) {
-            if ((IsTestNetwork() && height >= 1250000) ||
-                IsRegtestNetwork() ||
-                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)))
+            if ((IsTestNetwork() && height >= 1250000) || IsRegtestNetwork() ||
+                (IsMainNetwork() && height >= static_cast<uint32_t>(consensus.DF22MetachainHeight))) {
                 return false;
+            }
             return true;
         };
 
@@ -417,14 +426,15 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     }
 
     // Reduce amount to fill in order
-    if (order->orderType == CICXOrder::TYPE_INTERNAL)
+    if (order->orderType == CICXOrder::TYPE_INTERNAL) {
         order->amountToFill -= dfchtlc->amount;
-    else if (order->orderType == CICXOrder::TYPE_EXTERNAL)
+    } else if (order->orderType == CICXOrder::TYPE_EXTERNAL) {
         order->amountToFill -= DivideAmounts(dfchtlc->amount, order->orderPrice);
+    }
 
     // Order fulfilled, close order.
     if (order->amountToFill == 0) {
-        order->closeTx     = claimdfchtlc.creationTx;
+        order->closeTx = claimdfchtlc.creationTx;
         order->closeHeight = height;
         Require(mnview.ICXCloseOrderTx(*order, CICXOrder::STATUS_FILLED));
     }
@@ -436,12 +446,14 @@ Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
     Require(mnview.ICXCloseDFCHTLC(*dfchtlc, CICXSubmitDFCHTLC::STATUS_CLAIMED));
 
     if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
-        if (exthtlc)
+        if (exthtlc) {
             return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
-        else
+        } else {
             return (Res::Ok());
-    } else
+        }
+    } else {
         return mnview.ICXCloseEXTHTLC(*exthtlc, CICXSubmitEXTHTLC::STATUS_CLOSED);
+    }
 }
 
 Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage &obj) const {
@@ -450,7 +462,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage &obj) const {
     CICXCloseOrderImplemetation closeorder;
     static_cast<CICXCloseOrder &>(closeorder) = obj;
 
-    closeorder.creationTx     = tx.GetHash();
+    closeorder.creationTx = tx.GetHash();
     closeorder.creationHeight = height;
 
     auto order = mnview.GetICXOrderByCreationTx(closeorder.orderTx);
@@ -464,7 +476,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage &obj) const {
     // check auth
     Require(HasAuth(order->ownerAddress), "tx must have at least one input from order owner");
 
-    order->closeTx     = closeorder.creationTx;
+    order->closeTx = closeorder.creationTx;
     order->closeHeight = closeorder.creationHeight;
 
     if (order->orderType == CICXOrder::TYPE_INTERNAL && order->amountToFill > 0) {
@@ -484,7 +496,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage &obj) const {
     CICXCloseOfferImplemetation closeoffer;
     static_cast<CICXCloseOffer &>(closeoffer) = obj;
 
-    closeoffer.creationTx     = tx.GetHash();
+    closeoffer.creationTx = tx.GetHash();
     closeoffer.creationHeight = height;
 
     auto offer = mnview.GetICXMakeOfferByCreationTx(closeoffer.offerTx);
@@ -501,7 +513,7 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage &obj) const {
     // check auth
     Require(HasAuth(offer->ownerAddress), "tx must have at least one input from offer owner");
 
-    offer->closeTx     = closeoffer.creationTx;
+    offer->closeTx = closeoffer.creationTx;
     offer->closeHeight = closeoffer.creationHeight;
 
     bool isPreEunosPaya = static_cast<int>(height) < consensus.DF10EunosPayaHeight;
@@ -516,11 +528,13 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage &obj) const {
         // subtract the balance from txidAddr and return to owner
         CScript txidAddr(offer->creationTx.begin(), offer->creationTx.end());
         CalculateOwnerRewards(offer->ownerAddress);
-        if (isPreEunosPaya)
+        if (isPreEunosPaya) {
             Require(TransferTokenBalance(order->idToken, offer->amount, txidAddr, offer->ownerAddress));
+        }
 
-        if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya))
+        if (!mnview.ExistedICXSubmitEXTHTLC(offer->creationTx, isPreEunosPaya)) {
             Require(TransferTokenBalance(DCT_ID{0}, offer->takerFee, txidAddr, offer->ownerAddress));
+        }
     }
 
     Require(mnview.ICXCloseOffer(closeoffer));

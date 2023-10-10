@@ -1,12 +1,12 @@
 #ifndef DEFI_MASTERNODES_THREADPOOL_H
 #define DEFI_MASTERNODES_THREADPOOL_H
 
-#include <boost/asio.hpp>
-#include <atomic>
-#include <condition_variable>
 #include <sync.h>
+#include <atomic>
+#include <boost/asio.hpp>
+#include <condition_variable>
 
-static const int DEFAULT_DFTX_WORKERS=0;
+static const int DEFAULT_DFTX_WORKERS = 0;
 
 // Until C++20x concurrency impls make it into standard, std::future and std::async impls
 // doesn't have the primitives needed for working with many at the same time efficiently
@@ -18,37 +18,37 @@ static const int DEFAULT_DFTX_WORKERS=0;
 // from the TaskPool
 
 class TaskPool {
-    public:
-        explicit TaskPool(size_t size);
-        void Shutdown();
-        [[nodiscard]] size_t GetAvailableThreads() const { return size; }
-        boost::asio::thread_pool pool;
+public:
+    explicit TaskPool(size_t size);
+    void Shutdown();
+    [[nodiscard]] size_t GetAvailableThreads() const { return size; }
+    boost::asio::thread_pool pool;
 
-    private:
-        size_t size;
+private:
+    size_t size;
 };
 
 void InitDfTxGlobalTaskPool();
 void ShutdownDfTxGlobalTaskPool();
 
 class TaskGroup {
-    public:
-        void AddTask();
-        void RemoveTask();
-        void WaitForCompletion(bool checkForPrematureCompletion = true);
-        void MarkCancellation() { is_cancelled.store(true); }
-        bool IsCancelled() { return is_cancelled.load(); }
+public:
+    void AddTask();
+    void RemoveTask();
+    void WaitForCompletion(bool checkForPrematureCompletion = true);
+    void MarkCancellation() { is_cancelled.store(true); }
+    bool IsCancelled() { return is_cancelled.load(); }
 
-    private:
-        std::atomic<uint64_t> tasks{0};
-        std::mutex cv_m;
-        std::condition_variable cv;
-        std::atomic_bool is_cancelled{false};
+private:
+    std::atomic<uint64_t> tasks{0};
+    std::mutex cv_m;
+    std::condition_variable cv;
+    std::atomic_bool is_cancelled{false};
 };
 
 template <typename T>
 class BufferPool {
-    public:
+public:
     explicit BufferPool(size_t size) {
         pool.reserve(size);
         for (size_t i = 0; i < size; i++) {
@@ -70,7 +70,7 @@ class BufferPool {
 
     std::vector<std::shared_ptr<T>> &GetBuffer() { return pool; }
 
-    private:
+private:
     AtomicMutex m{};
     std::vector<std::shared_ptr<T>> pool;
 };

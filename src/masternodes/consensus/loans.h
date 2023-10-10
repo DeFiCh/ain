@@ -20,18 +20,19 @@ class CPaybackWithCollateralMessage;
 
 class CLoansConsensus : public CCustomTxVisitor {
     [[nodiscard]] bool IsTokensMigratedToGovVar() const;
+
 public:
     using CCustomTxVisitor::CCustomTxVisitor;
-    Res operator()(const CLoanSetCollateralTokenMessage& obj) const;
-    Res operator()(const CLoanSetLoanTokenMessage& obj) const;
-    Res operator()(const CLoanUpdateLoanTokenMessage& obj) const;
-    Res operator()(const CLoanSchemeMessage& obj) const;
-    Res operator()(const CDefaultLoanSchemeMessage& obj) const;
-    Res operator()(const CDestroyLoanSchemeMessage& obj) const;
-    Res operator()(const CLoanTakeLoanMessage& obj) const;
-    Res operator()(const CLoanPaybackLoanMessage& obj) const;
-    Res operator()(const CLoanPaybackLoanV2Message& obj) const;
-    Res operator()(const CPaybackWithCollateralMessage& obj) const;
+    Res operator()(const CLoanSetCollateralTokenMessage &obj) const;
+    Res operator()(const CLoanSetLoanTokenMessage &obj) const;
+    Res operator()(const CLoanUpdateLoanTokenMessage &obj) const;
+    Res operator()(const CLoanSchemeMessage &obj) const;
+    Res operator()(const CDefaultLoanSchemeMessage &obj) const;
+    Res operator()(const CDestroyLoanSchemeMessage &obj) const;
+    Res operator()(const CLoanTakeLoanMessage &obj) const;
+    Res operator()(const CLoanPaybackLoanMessage &obj) const;
+    Res operator()(const CLoanPaybackLoanV2Message &obj) const;
+    Res operator()(const CPaybackWithCollateralMessage &obj) const;
 };
 
-#endif // DEFI_MASTERNODES_CONSENSUS_LOANS_H
+#endif  // DEFI_MASTERNODES_CONSENSUS_LOANS_H

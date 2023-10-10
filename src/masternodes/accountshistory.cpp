@@ -49,7 +49,7 @@ void CAccountsHistoryView::ForEachAccountHistory(
 
     ForEach<ByAccountHistoryKeyNew, AccountHistoryKeyNew, char>(
         [&](const AccountHistoryKeyNew &newKey, char) {
-            auto key   = Convert(newKey);
+            auto key = Convert(newKey);
             auto value = ReadAccountHistory(key);
             assert(value);
             return callback(key, *value);
@@ -102,8 +102,7 @@ CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView &storage,
       txn(txn),
       txid(txid),
       type(type),
-      writers(storage.GetHistoryWriters()) {
-}
+      writers(storage.GetHistoryWriters()) {}
 
 CAccountsHistoryWriter::~CAccountsHistoryWriter() {
     writers.ClearState();

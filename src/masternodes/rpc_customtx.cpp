@@ -1,4 +1,5 @@
 #include <ain_rs_exports.h>
+#include <arith_uint256.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <masternodes/mn_checks.h>
@@ -7,7 +8,6 @@
 #include <rpc/protocol.h>
 #include <rpc/request.h>
 #include <univalue.h>
-#include <arith_uint256.h>
 
 extern std::string ScriptToString(const CScript &script);
 
@@ -74,7 +74,10 @@ public:
 
     void operator()(const CCreateMasterNodeMessage &obj) const {
         rpcInfo.pushKV("collateralamount", ValueFromAmount(GetMnCollateralAmount(height)));
-        rpcInfo.pushKV("masternodeoperator", EncodeDestination(FromOrDefaultKeyIDToDestination(obj.operatorAuthAddress, TxDestTypeToKeyType(obj.operatorType), KeyType::MNOperatorKeyType)));
+        rpcInfo.pushKV(
+            "masternodeoperator",
+            EncodeDestination(FromOrDefaultKeyIDToDestination(
+                obj.operatorAuthAddress, TxDestTypeToKeyType(obj.operatorType), KeyType::MNOperatorKeyType)));
         rpcInfo.pushKV("timelock", CMasternode::GetTimelockToString(static_cast<CMasternode::TimeLock>(obj.timelock)));
     }
 
@@ -85,7 +88,10 @@ public:
         for (const auto &[updateType, addressPair] : obj.updates) {
             const auto &[addressType, rawAddress] = addressPair;
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
-                rpcInfo.pushKV("operatorAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(CKeyID(uint160(rawAddress)), TxDestTypeToKeyType(addressType), KeyType::MNOperatorKeyType)));
+                rpcInfo.pushKV(
+                    "operatorAddress",
+                    EncodeDestination(FromOrDefaultKeyIDToDestination(
+                        CKeyID(uint160(rawAddress)), TxDestTypeToKeyType(addressType), KeyType::MNOperatorKeyType)));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
                 CTxDestination dest;
                 if (tx.vout.size() >= 2 && ExtractDestination(tx.vout[1].scriptPubKey, dest)) {
@@ -93,7 +99,10 @@ public:
                 }
             }
             if (updateType == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
-                rpcInfo.pushKV("rewardAddress", EncodeDestination(FromOrDefaultKeyIDToDestination(CKeyID(uint160(rawAddress)), TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType)));
+                rpcInfo.pushKV(
+                    "rewardAddress",
+                    EncodeDestination(FromOrDefaultKeyIDToDestination(
+                        CKeyID(uint160(rawAddress)), TxDestTypeToKeyType(addressType), KeyType::MNRewardKeyType)));
             } else if (updateType == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
                 rpcInfo.pushKV("rewardAddress", "");
             }
@@ -127,8 +136,9 @@ public:
         }
         rpcInfo.pushKV("type", type);
 
-        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty())
+        if (auto addr = std::get_if<CScript>(&obj.context); !addr->empty()) {
             rpcInfo.pushKV("context", ScriptToString(*addr));
+        }
     }
 
     void operator()(const CLiquidityMessage &obj) const {
@@ -188,12 +198,15 @@ public:
 
     void operator()(const CCreatePoolPairMessage &obj) const {
         rpcInfo.pushKV("creationTx", tx.GetHash().GetHex());
-        if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash()))
+        if (auto tokenPair = mnview.GetTokenByCreationTx(tx.GetHash())) {
             tokenInfo(tokenPair->second);
-        if (auto tokenA = mnview.GetToken(obj.idTokenA))
+        }
+        if (auto tokenA = mnview.GetToken(obj.idTokenA)) {
             rpcInfo.pushKV("tokenA", tokenA->name);
-        if (auto tokenB = mnview.GetToken(obj.idTokenB))
+        }
+        if (auto tokenB = mnview.GetToken(obj.idTokenB)) {
             rpcInfo.pushKV("tokenB", tokenB->name);
+        }
         rpcInfo.pushKV("commission", ValueFromAmount(obj.commission));
         rpcInfo.pushKV("status", obj.status);
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
@@ -230,8 +243,7 @@ public:
         if (obj.maxPrice.isAboveValid()) {
             auto price = PoolPrice::getMaxValid();
             rpcInfo.pushKV("maxPrice", ValueFromAmount((price.integer * COIN) + price.fraction));
-        }
-        else {
+        } else {
             rpcInfo.pushKV("maxPrice", ValueFromAmount((obj.maxPrice.integer * COIN) + obj.maxPrice.fraction));
         }
     }
@@ -254,7 +266,7 @@ public:
 
     void operator()(const CGovernanceMessage &obj) const {
         for (const auto &gov : obj.govs) {
-            auto& var = gov.second;
+            auto &var = gov.second;
             rpcInfo.pushKV(var->GetName(), var->Export());
         }
     }
@@ -262,8 +274,9 @@ public:
     void operator()(const CGovernanceUnsetMessage &obj) const {
         for (const auto &gov : obj.govs) {
             UniValue keys(UniValue::VARR);
-            for (const auto &key : gov.second)
+            for (const auto &key : gov.second) {
                 keys.push_back(key);
+            }
 
             rpcInfo.pushKV(gov.first, keys);
         }
@@ -300,7 +313,7 @@ public:
             const auto &token = tokenPice.first;
             for (const auto &price : tokenPice.second) {
                 const auto &currency = price.first;
-                auto amount          = price.second;
+                auto amount = price.second;
 
                 UniValue uniPair(UniValue::VOBJ);
                 uniPair.pushKV("currency", currency);
@@ -314,14 +327,16 @@ public:
     void operator()(const CICXCreateOrderMessage &obj) const {
         if (obj.orderType == CICXOrder::TYPE_INTERNAL) {
             rpcInfo.pushKV("type", "DFC");
-            if (auto token = mnview.GetToken(obj.idToken))
+            if (auto token = mnview.GetToken(obj.idToken)) {
                 rpcInfo.pushKV("tokenFrom", token->CreateSymbolKey(obj.idToken));
+            }
             rpcInfo.pushKV("chainto", CICXOrder::CHAIN_BTC);
         } else if (obj.orderType == CICXOrder::TYPE_EXTERNAL) {
             rpcInfo.pushKV("type", "EXTERNAL");
             rpcInfo.pushKV("chainFrom", CICXOrder::CHAIN_BTC);
-            if (auto token = mnview.GetToken(obj.idToken))
+            if (auto token = mnview.GetToken(obj.idToken)) {
                 rpcInfo.pushKV("tokenTo", token->CreateSymbolKey(obj.idToken));
+            }
             rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
         }
 
@@ -339,8 +354,9 @@ public:
         rpcInfo.pushKV("orderTx", obj.orderTx.GetHex());
         rpcInfo.pushKV("amount", ValueFromAmount(obj.amount));
         rpcInfo.pushKV("ownerAddress", ScriptToString(obj.ownerAddress));
-        if (obj.receivePubkey.IsFullyValid())
+        if (obj.receivePubkey.IsFullyValid()) {
             rpcInfo.pushKV("receivePubkey", HexStr(obj.receivePubkey));
+        }
         rpcInfo.pushKV("takerFee", ValueFromAmount(obj.takerFee));
         rpcInfo.pushKV("expiry", static_cast<int>(obj.expiry));
     }
@@ -374,12 +390,14 @@ public:
     void operator()(const CICXCloseOfferMessage &obj) const { rpcInfo.pushKV("offerTx", obj.offerTx.GetHex()); }
 
     void operator()(const CLoanSetCollateralTokenMessage &obj) const {
-        if (auto token = mnview.GetToken(obj.idToken))
+        if (auto token = mnview.GetToken(obj.idToken)) {
             rpcInfo.pushKV("token", token->CreateSymbolKey(obj.idToken));
+        }
         rpcInfo.pushKV("factor", ValueFromAmount(obj.factor));
         rpcInfo.pushKV("fixedIntervalPriceId", obj.fixedIntervalPriceId.first + "/" + obj.fixedIntervalPriceId.second);
-        if (obj.activateAfterBlock)
+        if (obj.activateAfterBlock) {
             rpcInfo.pushKV("activateAfterBlock", static_cast<int>(obj.activateAfterBlock));
+        }
     }
 
     void operator()(const CLoanSetLoanTokenMessage &obj) const {
@@ -446,8 +464,9 @@ public:
 
     void operator()(const CLoanTakeLoanMessage &obj) const {
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
-        if (!obj.to.empty())
+        if (!obj.to.empty()) {
             rpcInfo.pushKV("to", ScriptToString(obj.to));
+        }
         rpcInfo.pushKV("vaultId", obj.vaultId.GetHex());
         for (const auto &kv : obj.amounts.balances) {
             if (auto token = mnview.GetToken(kv.first)) {
@@ -519,9 +538,9 @@ public:
         } else {
             // TX still in mempool. For the most accurate guesstimate use
             // votingPeriod as it would be set when TX is added to the chain.
-            const auto votingPeriod = obj.options & CProposalOption::Emergency ?
-                                mnview.GetEmergencyPeriodFromAttributes(type) :
-                                mnview.GetVotingPeriodFromAttributes();
+            const auto votingPeriod = obj.options & CProposalOption::Emergency
+                                          ? mnview.GetEmergencyPeriodFromAttributes(type)
+                                          : mnview.GetVotingPeriodFromAttributes();
             proposalEndHeight = height + (votingPeriod - height % votingPeriod);
             for (uint8_t i = 1; i <= obj.nCycles; ++i) {
                 proposalEndHeight += votingPeriod;
@@ -531,8 +550,9 @@ public:
         rpcInfo.pushKV("payoutAddress", ScriptToString(obj.address));
         if (obj.options) {
             UniValue opt = UniValue(UniValue::VARR);
-            if (obj.options & CProposalOption::Emergency)
+            if (obj.options & CProposalOption::Emergency) {
                 opt.push_back("emergency");
+            }
 
             rpcInfo.pushKV("options", opt);
         }
@@ -551,13 +571,10 @@ public:
         for (const auto &[src, dst] : obj.transfers) {
             UniValue srcJson{UniValue::VOBJ};
             UniValue dstJson{UniValue::VOBJ};
-            std::array<std::pair<UniValue&, const CTransferDomainItem>,
-            2> items {
-                std::make_pair(std::ref(srcJson), src),
-                std::make_pair(std::ref(dstJson), dst)
-            };
+            std::array<std::pair<UniValue &, const CTransferDomainItem>, 2> items{
+                std::make_pair(std::ref(srcJson), src), std::make_pair(std::ref(dstJson), dst)};
 
-            for (auto &[j, o]: items) {
+            for (auto &[j, o] : items) {
                 j.pushKV("address", ScriptToString(o.address));
                 j.pushKV("amount", o.amount.ToString());
                 j.pushKV("domain", CTransferDomainToString(VMDomain(o.domain)));
@@ -577,7 +594,7 @@ public:
 
     void operator()(const CEvmTxMessage &obj) const {
         auto txHash = tx.GetHash().GetHex();
-        if (auto evmTxHash =  mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
+        if (auto evmTxHash = mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
             CrossBoundaryResult result;
             auto txInfo = evm_try_get_tx_by_hash(result, *evmTxHash);
             if (!result.ok) {
@@ -627,7 +644,7 @@ Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &txType, UniVa
     }
     auto txMessage = customTypeToMessage(txType);
     auto consensus = Params().GetConsensus();
-    auto res       = CustomMetadataParse(height, consensus, metadata, txMessage);
+    auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
     if (res) {
         CCustomCSView mnview(*pcustomcsview);
         std::visit(CCustomTxRpcVisitor(tx, height, mnview, results), txMessage);

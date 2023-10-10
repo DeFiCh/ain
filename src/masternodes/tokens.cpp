@@ -4,15 +4,15 @@
 
 #include <masternodes/tokens.h>
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <chainparams.h>  // Params()
 #include <core_io.h>
+#include <ffi/cxx.h>
+#include <ffi/ffihelpers.h>
 #include <masternodes/evm.h>
 #include <primitives/transaction.h>
 #include <util/strencodings.h>
-#include <ffi/cxx.h>
-#include <ain_rs_exports.h>
-#include <ffi/ffihelpers.h>
 
 #include <univalue.h>
 
@@ -27,17 +27,20 @@ std::optional<CTokensView::CTokenImpl> CTokensView::GetToken(DCT_ID id) const {
 std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> CTokensView::GetToken(
     const std::string &symbolKey) const {
     DCT_ID id;
-    if (ReadBy<Symbol, std::string>(symbolKey, id))
+    if (ReadBy<Symbol, std::string>(symbolKey, id)) {
         return std::make_pair(id, GetToken(id));
+    }
 
     return {};
 }
 
 std::optional<std::pair<DCT_ID, CTokensView::CTokenImpl>> CTokensView::GetTokenByCreationTx(const uint256 &txid) const {
     DCT_ID id;
-    if (ReadBy<CreationTx, uint256>(txid, id))
-        if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id))
+    if (ReadBy<CreationTx, uint256>(txid, id)) {
+        if (auto tokenImpl = ReadBy<ID, CTokenImpl>(id)) {
             return std::make_pair(id, std::move(*tokenImpl));
+        }
+    }
 
     return {};
 }
@@ -49,11 +52,11 @@ void CTokensView::ForEachToken(std::function<bool(const DCT_ID &, CLazySerialize
 
 Res CTokensView::CreateDFIToken() {
     CTokenImpl token;
-    token.symbol         = CURRENCY_UNIT;
-    token.name           = "Default Defi token";
-    token.creationTx     = uint256();
+    token.symbol = CURRENCY_UNIT;
+    token.name = "Default Defi token";
+    token.creationTx = uint256();
     token.creationHeight = 0;
-    token.flags          = '\0';
+    token.flags = '\0';
     token.flags |= (uint8_t)CToken::TokenFlags::DAT;
     token.flags |= (uint8_t)CToken::TokenFlags::Tradeable;
     token.flags |= (uint8_t)CToken::TokenFlags::Finalized;
@@ -65,7 +68,10 @@ Res CTokensView::CreateDFIToken() {
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bool isPreBayfront, bool shouldCreateDst20, const std::shared_ptr<CScopedQueueID> &evmQueueId) {
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
+                                        bool isPreBayfront,
+                                        bool shouldCreateDst20,
+                                        const std::shared_ptr<CScopedQueueID> &evmQueueId) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -81,8 +87,9 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
 
         ForEachToken(
             [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
-                if (currentId < DCT_ID_START)
+                if (currentId < DCT_ID_START) {
                     id.v = currentId.v + 1;
+                }
                 return currentId < DCT_ID_START;
             },
             id);
@@ -98,10 +105,12 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
 
         if (shouldCreateDst20) {
             CrossBoundaryResult result;
-            evm_try_create_dst20(result, evmQueueId->GetQueueID(), token.creationTx.GetHex(),
-                                rust::string(token.name.c_str()),
-                                rust::string(token.symbol.c_str()),
-                                id.v);
+            evm_try_create_dst20(result,
+                                 evmQueueId->GetQueueID(),
+                                 token.creationTx.GetHex(),
+                                 rust::string(token.name.c_str()),
+                                 rust::string(token.symbol.c_str()),
+                                 id.v);
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
             }
@@ -119,15 +128,17 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, bo
 
 Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, const bool tokenSplitUpdate) {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
-    Require(pair, [=]{ return strprintf("token with creationTx %s does not exist!", newToken.creationTx.ToString()); });
+    Require(pair,
+            [=] { return strprintf("token with creationTx %s does not exist!", newToken.creationTx.ToString()); });
 
-    DCT_ID id            = pair->first;
+    DCT_ID id = pair->first;
     CTokenImpl &oldToken = pair->second;
 
-    if (!isPreBayfront)
+    if (!isPreBayfront) {
         // for compatibility, in potential case when someone cheat and create finalized token with old node (and then
         // alter dat for ex.)
-        Require(!oldToken.IsFinalized(), []{ return "can't alter 'Finalized' tokens"; });
+        Require(!oldToken.IsFinalized(), [] { return "can't alter 'Finalized' tokens"; });
+    }
 
     // 'name' and 'symbol' were trimmed in 'Apply'
     oldToken.name = newToken.name;
@@ -143,7 +154,8 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
         // create keys with regard of new flag
         std::string oldSymbolKey = oldToken.CreateSymbolKey(id);
         std::string newSymbolKey = newToken.CreateSymbolKey(id);
-        Require(!GetToken(newSymbolKey), [=]{ return strprintf("token with key '%s' already exists!", newSymbolKey); });
+        Require(!GetToken(newSymbolKey),
+                [=] { return strprintf("token with key '%s' already exists!", newSymbolKey); });
 
         EraseBy<Symbol>(oldSymbolKey);
         WriteBy<Symbol>(newSymbolKey, id);
@@ -151,21 +163,26 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
 
     // apply DAT flag and symbol only AFTER dealing with symbol indexes:
     oldToken.symbol = newToken.symbol;
-    if (oldToken.IsDAT() != newToken.IsDAT())
+    if (oldToken.IsDAT() != newToken.IsDAT()) {
         oldToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
+    }
 
     // regular flags:
-    if (oldToken.IsMintable() != newToken.IsMintable())
+    if (oldToken.IsMintable() != newToken.IsMintable()) {
         oldToken.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
+    }
 
-    if (oldToken.IsTradeable() != newToken.IsTradeable())
+    if (oldToken.IsTradeable() != newToken.IsTradeable()) {
         oldToken.flags ^= (uint8_t)CToken::TokenFlags::Tradeable;
+    }
 
-    if (!oldToken.IsFinalized() && newToken.IsFinalized())  // IsFinalized() itself was checked upthere (with Err)
+    if (!oldToken.IsFinalized() && newToken.IsFinalized()) {  // IsFinalized() itself was checked upthere (with Err)
         oldToken.flags |= (uint8_t)CToken::TokenFlags::Finalized;
+    }
 
-    if (tokenSplitUpdate && oldToken.IsLoanToken() != newToken.IsLoanToken())
+    if (tokenSplitUpdate && oldToken.IsLoanToken() != newToken.IsLoanToken()) {
         oldToken.flags ^= (uint8_t)CToken::TokenFlags::LoanToken;
+    }
 
     if (oldToken.destructionHeight != newToken.destructionHeight) {
         oldToken.destructionHeight = newToken.destructionHeight;
@@ -197,8 +214,9 @@ Res CTokensView::BayfrontFlagsCleanup() {
                 LogPrintf("Warning! Got `LPS` token, id=%s\n", id.ToString().c_str());
                 changed = true;
             }
-            if (changed)
+            if (changed) {
                 WriteBy<ID>(id, token);
+            }
 
             return true;
         },
@@ -208,10 +226,10 @@ Res CTokensView::BayfrontFlagsCleanup() {
 
 Res CTokensView::AddMintedTokens(DCT_ID const &id, const CAmount &amount) {
     auto tokenImpl = GetToken(id);
-    Require(tokenImpl, [=]{ return strprintf("token with id %d does not exist!", id.v); });
+    Require(tokenImpl, [=] { return strprintf("token with id %d does not exist!", id.v); });
 
     auto resMinted = SafeAdd(tokenImpl->minted, amount);
-    Require(resMinted, []{ return "overflow when adding to minted"; });
+    Require(resMinted, [] { return "overflow when adding to minted"; });
 
     tokenImpl->minted = resMinted;
 
@@ -221,10 +239,10 @@ Res CTokensView::AddMintedTokens(DCT_ID const &id, const CAmount &amount) {
 
 Res CTokensView::SubMintedTokens(DCT_ID const &id, const CAmount &amount) {
     auto tokenImpl = GetToken(id);
-    Require(tokenImpl, [=]{ return strprintf("token with id %d does not exist!", id.v); });
+    Require(tokenImpl, [=] { return strprintf("token with id %d does not exist!", id.v); });
 
     auto resMinted = tokenImpl->minted - amount;
-    Require(resMinted >= 0, []{ return "not enough tokens exist to subtract this amount"; });
+    Require(resMinted >= 0, [] { return "not enough tokens exist to subtract this amount"; });
 
     tokenImpl->minted = resMinted;
 
@@ -235,8 +253,9 @@ Res CTokensView::SubMintedTokens(DCT_ID const &id, const CAmount &amount) {
 DCT_ID CTokensView::IncrementLastDctId() {
     DCT_ID result{DCT_ID_START};
     auto lastDctId = ReadLastDctId();
-    if (lastDctId)
+    if (lastDctId) {
         result = DCT_ID{std::max(lastDctId->v + 1, result.v)};
+    }
     assert(Write(LastDctId::prefix(), result));
     return result;
 }
