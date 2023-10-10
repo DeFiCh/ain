@@ -367,9 +367,6 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.evmOut.Add(tokenAmount);
             stats.evmCurrent.Sub(tokenAmount);
 
-            // Calculate destination address rewards
-            CalculateOwnerRewards(dst.address);
-
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
             if (!res) {
