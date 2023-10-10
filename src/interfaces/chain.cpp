@@ -7,7 +7,7 @@
 #include <chain.h>
 #include <chainparams.h>
 #include <interfaces/handler.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <net.h>
 #include <net_processing.h>
 #include <node/coin.h>

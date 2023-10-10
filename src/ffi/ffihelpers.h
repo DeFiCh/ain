@@ -1,7 +1,7 @@
 #ifndef DEFI_FFI_FFIHELPERS_H
 #define DEFI_FFI_FFIHELPERS_H
 
-#include <masternodes/res.h>
+#include <dfi/res.h>
 #include <ain_rs_exports.h>
 
 #define XResultThrowOnErr(x) [&]() { \

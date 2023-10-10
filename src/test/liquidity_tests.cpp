@@ -1,7 +1,7 @@
 #include <chainparams.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/poolpairs.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+#include <dfi/poolpairs.h>
 #include <validation.h>
 
 #include <test/setup_common.h>
