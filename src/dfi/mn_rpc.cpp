@@ -486,6 +486,11 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
         auto consensus = Params().GetConsensus();
         const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
         std::shared_ptr<CScopedQueueID> evmQueueId{};
+        auto blockCtx = BlockContext{
+            isEvmEnabledForBlock,
+            evmQueueId,
+            true,
+        };
         res = CustomTxVisit(view,
                             coins,
                             tx,
@@ -494,9 +499,7 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
                             txMessage,
                             ::ChainActive().Tip()->nTime,
                             0,
-                            evmQueueId,
-                            isEvmEnabledForBlock,
-                            true);
+                            blockCtx);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

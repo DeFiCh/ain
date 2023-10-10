@@ -15,6 +15,7 @@
 
 #include <variant>
 
+struct BlockContext;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;
@@ -170,9 +171,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate);
+                  BlockContext &blockCtx);
 
 Res CustomTxVisit(CCustomCSView &mnview,
                   const CCoinsViewCache &coins,
@@ -182,9 +181,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate);
+                  BlockContext &blockCtx);
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,

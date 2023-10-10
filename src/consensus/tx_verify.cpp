@@ -11,6 +11,7 @@
 #include <dfi/mn_checks.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -182,8 +183,8 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough, 
         // that it's propagated.
-        std::shared_ptr<CScopedQueueID> evmQueueId{};
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, evmQueueId, false, false);
+        BlockContext blockCtx;
+        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, blockCtx);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

@@ -47,6 +47,7 @@ class CInv;
 class CConnman;
 class CScriptCheck;
 class CBlockPolicyEstimator;
+class CScopedQueueID;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
@@ -59,6 +60,12 @@ enum TxOrderings {
     MIXED_ORDERING,
     FEE_ORDERING,
     ENTRYTIME_ORDERING
+};
+
+struct BlockContext {
+    bool isEvmEnabledForBlock{};
+    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    bool evmPreValidate{};
 };
 
 /** Default for -minrelaytxfee, minimum relay fee for transactions */

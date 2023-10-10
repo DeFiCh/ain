@@ -11,6 +11,7 @@
 #include <dfi/res.h>
 #include <dfi/vault.h>
 
+struct BlockContext;
 struct CBalances;
 class CCoinsViewCache;
 struct CCreateProposalMessage;
@@ -68,9 +69,7 @@ public:
                      const Consensus::Params &consensus,
                      const uint64_t time,
                      const uint32_t txn,
-                     const std::shared_ptr<CScopedQueueID> &evmQueueId,
-                     const bool isEvmEnabledForBlock,
-                     const bool evmPreValidate);
+                     const BlockContext& blockCtx);
 
 protected:
     Res HasAuth(const CScript &auth) const;

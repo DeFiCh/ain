@@ -13,6 +13,7 @@
 #include <dfi/icxorder.h>
 #include <dfi/loan.h>
 #include <dfi/masternodes.h>
+#include <validation.h>
 
 constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_PCT =
     "At least 50%% of the minimum required collateral must be in DFI";
@@ -96,9 +97,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const uint64_t time,
                                    const uint32_t txn,
-                                   const std::shared_ptr<CScopedQueueID> &evmQueueId,
-                                   const bool isEvmEnabledForBlock,
-                                   const bool evmPreValidate)
+                                   const BlockContext& blockCtx)
     : height(height),
       mnview(mnview),
       tx(tx),
@@ -106,9 +105,9 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
       consensus(consensus),
       time(time),
       txn(txn),
-      evmQueueId(evmQueueId),
-      isEvmEnabledForBlock(isEvmEnabledForBlock),
-      evmPreValidate(evmPreValidate) {}
+      evmQueueId(blockCtx.evmQueueId),
+      isEvmEnabledForBlock(blockCtx.isEvmEnabledForBlock),
+      evmPreValidate(blockCtx.evmPreValidate) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
     return ::HasAuth(tx, coins, auth);

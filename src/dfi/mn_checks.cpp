@@ -326,9 +326,7 @@ class CCustomTxApplyVisitor {
     const Consensus::Params &consensus;
     uint64_t time;
     uint32_t txn;
-    const std::shared_ptr<CScopedQueueID> &evmQueueId;
-    bool isEvmEnabledForBlock;
-    bool evmPreValidate;
+    const BlockContext &blockCtx;
 
     template <typename T, typename T1, typename... Args>
     Res ConsensusHandler(const T &obj) const {
@@ -336,7 +334,7 @@ class CCustomTxApplyVisitor {
 
         if constexpr (std::is_invocable_v<T1, T>) {
             return T1{
-                tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate}(obj);
+                tx, height, coins, mnview, consensus, time, txn, blockCtx}(obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
         } else {
@@ -354,9 +352,7 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const std::shared_ptr<CScopedQueueID> &evmQueueId,
-                          const bool isEvmEnabledForBlock,
-                          const bool evmPreValidate)
+                          const BlockContext &blockCtx)
 
         : tx(tx),
           height(height),
@@ -365,9 +361,7 @@ public:
           consensus(consensus),
           time(time),
           txn(txn),
-          evmQueueId(evmQueueId),
-          isEvmEnabledForBlock(isEvmEnabledForBlock),
-          evmPreValidate(evmPreValidate) {}
+          blockCtx(blockCtx) {}
 
     template <typename T>
     Res operator()(const T &obj) const {
@@ -442,12 +436,13 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate) {
+                  BlockContext &blockCtx) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
+
+    const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
+    auto &evmQueueId = blockCtx.evmQueueId;
 
     if (!evmQueueId && isEvmEnabledForBlock) {
         evmQueueId = CScopedQueueID::Create(time);
@@ -459,7 +454,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     try {
         auto res = std::visit(
             CCustomTxApplyVisitor(
-                tx, height, coins, mnview, consensus, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate),
+                    tx, height, coins, mnview, consensus, time, txn, blockCtx),
             txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
@@ -547,9 +542,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  std::shared_ptr<CScopedQueueID> &evmQueueId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate) {
+                  BlockContext &blockCtx) {
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -560,6 +553,8 @@ Res ApplyCustomTx(CCustomCSView &mnview,
 
     auto attributes = mnview.GetAttributes();
     assert(attributes);
+
+    const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
 
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
@@ -589,7 +584,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
         }
 
         res = CustomTxVisit(
-            view, coins, tx, height, consensus, txMessage, time, txn, evmQueueId, isEvmEnabledForBlock, evmPreValidate);
+                view, coins, tx, height, consensus, txMessage, time, txn, blockCtx);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
