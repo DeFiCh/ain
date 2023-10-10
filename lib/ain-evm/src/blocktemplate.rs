@@ -113,10 +113,10 @@ impl BlockTemplateMap {
     }
 
     /// Attempts to add a new transaction to the `BlockTemplate` associated with the provided template ID.
-    /// Nonces for each account's transactions_queue must be in strictly increasing order. This means that if the last
-    /// queued transaction for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a
-    /// nonce that is not one more than the previous nonce is added, an error is returned. This helps to ensure
-    /// the integrity of the block template and enforce correct nonce usage.
+    /// Nonces for each account must be in strictly increasing order. This means that if the last added transaction
+    /// for an account has nonce 3, the next one should have nonce 4. If a `SignedTx` with a nonce that is not one
+    /// more than the previous nonce is added, an error is returned. This helps to ensure the integrity of the block
+    /// template and enforce correct nonce usage.
     ///
     /// # Errors
     ///

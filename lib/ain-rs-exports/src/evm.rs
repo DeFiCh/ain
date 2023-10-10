@@ -419,15 +419,19 @@ fn unsafe_validate_transferdomain_tx_in_template(
 /// Returns the EVM template ID as a `u64`.
 #[ffi_fallible]
 fn unsafe_create_template(dvm_block: u64, miner_address: &str, timestamp: u64) -> Result<u64> {
-    let eth_address = miner_address
-        .parse::<H160>()
-        .map_err(|_| "Invalid address")?;
+    let miner_address = if miner_address.is_empty() {
+        H160::zero()
+    } else {
+        miner_address
+            .parse::<H160>()
+            .map_err(|_| "Invalid address")?
+    };
 
     unsafe {
         SERVICES
             .evm
             .core
-            .create_block_template(dvm_block, eth_address, timestamp)
+            .create_block_template(dvm_block, miner_address, timestamp)
     }
 }
 

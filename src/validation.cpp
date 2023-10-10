@@ -2658,11 +2658,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
     std::shared_ptr<CScopedTemplateID> evmTemplateId{};
 
-    auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
-    if (!xvmRes) {
-        return Res::Err("Failed to process XVM in coinbase");
-    }
     if (isEvmEnabledForBlock) {
+        auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
+        if (!xvmRes) {
+            return Res::Err("Failed to process XVM in coinbase");
+        }
         evmTemplateId = CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, pindex->GetBlockTime());
         if (!evmTemplateId) {
             return Res::Err("Failed to create block template");
