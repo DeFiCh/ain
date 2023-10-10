@@ -410,9 +410,15 @@ check_sh() {
         -or -path ./test/lint/lint-python-dead-code.sh \
         -or -path ./src/univalue -prune \
         -or -path ./src/secp256k1 -prune \
-        -or -path ./build\* \)  -name '*.sh' -exec bash -c "shellcheck {} || exit 1" \;
+        -or -path ./build\* \)  -name '*.sh' -exec shellcheck {} \;
 
+    local result="$?"
     py_env_deactivate
+
+    if [[ "$result" != "0" ]]; then
+        echo "shellcheck failed"
+        exit 1
+    fi
 }
 
 check_cpp() {
@@ -474,6 +480,7 @@ _run_clang_format() {
         fmt_args="--dry-run --Werror"
     fi 
 
+    # shellcheck disable=xSC2086
     find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) \
         -exec "${clang_formatters[$index]}" $fmt_args -i -style=file {} +;
 }
