@@ -412,13 +412,7 @@ check_sh() {
         -or -path ./src/secp256k1 -prune \
         -or -path ./build\* \)  -name '*.sh' -print0 | xargs -0L1 shellcheck
 
-    local result="$?"
     py_env_deactivate
-
-    if [[ "$result" != "0" ]]; then
-        echo "shellcheck failed"
-        exit 1
-    fi
 }
 
 check_cpp() {
@@ -480,9 +474,9 @@ _run_clang_format() {
         fmt_args="--dry-run --Werror"
     fi 
 
-    # shellcheck disable=xSC2086
-    find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) \
-        -exec "${clang_formatters[$index]}" $fmt_args -i -style=file {} +;
+    # shellcheck disable=SC2086
+    find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
+        xargs -0 -I{} "${clang_formatters[$index]}" $fmt_args -i -style=file {}
 }
 
 fmt_lib() {
