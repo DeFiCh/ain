@@ -32,7 +32,6 @@ use crate::{
     transaction::SignedTx,
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     txqueue::TransactionQueueMap,
-    utils,
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
@@ -221,7 +220,7 @@ impl EVMCoreService {
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
                 nonce: genesis.nonce.unwrap_or_default(),
-                timestamp: utils::checked_as_u64(genesis.timestamp.unwrap_or_default())?,
+                timestamp: u64::try_from(genesis.timestamp.unwrap_or_default())?,
                 difficulty: genesis.difficulty.unwrap_or_default(),
                 base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
             },

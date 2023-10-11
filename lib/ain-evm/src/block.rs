@@ -12,7 +12,7 @@ use statrs::statistics::{Data, OrderStatistics};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
-    utils, Result,
+    Result,
 };
 
 pub struct BlockService {
@@ -135,9 +135,9 @@ impl BlockService {
             .get_block_by_hash(&parent_hash)?
             .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
-        let parent_gas_used = utils::checked_as_u64(parent_block.header.gas_used)?;
-        let parent_gas_target = utils::checked_as_u64(parent_block.header.gas_limit)?
-            / utils::checked_as_u64(elasticity_multiplier)?;
+        let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
+        let parent_gas_target =
+            u64::try_from(parent_block.header.gas_limit)? / u64::try_from(elasticity_multiplier)?;
 
         Ok(self.get_base_fee(
             parent_gas_used,
@@ -189,8 +189,8 @@ impl BlockService {
                 let gas_ratio = if block.header.gas_limit == U256::zero() {
                     f64::default() // empty block
                 } else {
-                    utils::checked_as_u64(block.header.gas_used)? as f64
-                        / utils::checked_as_u64(block.header.gas_limit)? as f64
+                    u64::try_from(block.header.gas_used)? as f64
+                        / u64::try_from(block.header.gas_limit)? as f64
                 };
 
                 Ok((base_fee, gas_ratio))
@@ -238,7 +238,7 @@ impl BlockService {
                 let mut block_rewards = Vec::new();
                 let priority_fees: Vec<f64> = block_eip_tx
                     .iter()
-                    .map(|tx| Ok(utils::checked_as_u64(tx.max_priority_fee_per_gas)? as f64))
+                    .map(|tx| Ok(u64::try_from(tx.max_priority_fee_per_gas)? as f64))
                     .collect::<Result<Vec<f64>>>()?;
                 let mut data = Data::new(priority_fees);
 
@@ -320,8 +320,7 @@ impl BlockService {
                         continue;
                     }
                     TransactionAny::EIP1559(t) => {
-                        priority_fees
-                            .push(utils::checked_as_u64(t.max_priority_fee_per_gas)? as f64);
+                        priority_fees.push(u64::try_from(t.max_priority_fee_per_gas)? as f64);
                     }
                 }
             }
