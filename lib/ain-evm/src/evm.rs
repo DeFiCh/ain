@@ -170,10 +170,10 @@ impl EVMServices {
         )?;
 
         let mut executor = AinExecutor::new(&mut backend);
-        for queue_item in template.transactions.clone() {
-            all_transactions.push(queue_item.tx);
-            receipts_v3.push(queue_item.receipt_v3);
-            total_gas_fees += queue_item.gas_fees;
+        for transaction in template.transactions.clone() {
+            all_transactions.push(transaction.tx);
+            receipts_v3.push(transaction.receipt_v3);
+            total_gas_fees += transaction.gas_fees;
         }
 
         let total_burnt_fees = template.total_gas_used * base_fee;
@@ -480,8 +480,8 @@ impl EVMServices {
 
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
-            for queue_item in migration_txs.clone() {
-                let apply_result = executor.execute_tx(queue_item, base_fee)?;
+            for exec_tx in migration_txs.clone() {
+                let apply_result = executor.execute_tx(exec_tx, base_fee)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
                 template.transactions.push(TemplateTxItem::new_system_tx(
                     apply_result.tx,
