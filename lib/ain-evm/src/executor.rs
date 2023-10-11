@@ -309,8 +309,15 @@ impl<'backend> AinExecutor<'backend> {
                     Some(account) => account.code_hash != contract.codehash,
                 };
                 if mismatch {
-                    debug!("[execute_tx] {} failed with as transferdomain account codehash mismatch", direction);
-                    return Err(format_err!("[execute_tx] {} failed with as transferdomain account codehash mismatch", direction).into());
+                    debug!(
+                        "[execute_tx] {} failed with as transferdomain account codehash mismatch",
+                        direction
+                    );
+                    return Err(format_err!(
+                        "[execute_tx] {} failed with as transferdomain account codehash mismatch",
+                        direction
+                    )
+                    .into());
                 }
 
                 if direction == TransferDirection::EvmIn {
