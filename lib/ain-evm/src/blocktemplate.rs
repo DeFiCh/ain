@@ -8,8 +8,9 @@ use rand::Rng;
 use crate::{
     backend::Vicinity,
     core::XHash,
+    evm::TxState,
     receipt::Receipt,
-    transaction::{system::SystemTx, SignedTx},
+    transaction::SignedTx,
 };
 
 type Result<T> = std::result::Result<T, BlockTemplateError>;
@@ -130,13 +131,11 @@ impl BlockTemplateMap {
     pub unsafe fn push_in(
         &self,
         template_id: u64,
-        tx: QueueTx,
+        tx_update: TxState,
         hash: XHash,
-        gas_used: U256,
-        state_root: H256,
     ) -> Result<()> {
         self.with_block_template(template_id, |template| {
-            template.queue_tx(tx, hash, gas_used, state_root)
+            template.queue_tx(tx_update, hash)
         })
         .and_then(|res| res)
     }
@@ -168,7 +167,7 @@ impl BlockTemplateMap {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_txs_cloned_in(&self, template_id: u64) -> Result<Vec<QueueTxItem>> {
+    pub unsafe fn get_txs_cloned_in(&self, template_id: u64) -> Result<Vec<TemplateTxItem>> {
         self.with_block_template(template_id, BlockTemplate::get_queue_txs_cloned)
     }
 
@@ -223,18 +222,31 @@ impl BlockTemplateMap {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QueueTx {
-    SignedTx(Box<SignedTx>),
-    SystemTx(SystemTx),
-}
+
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QueueTxItem {
-    pub tx: QueueTx,
+pub struct TemplateTxItem {
+    pub tx: Box<SignedTx>,
     pub tx_hash: XHash,
     pub gas_used: U256,
+    pub gas_fees: U256,
     pub state_root: H256,
+    pub logs_bloom: Bloom,
+    pub receipt_v3: ReceiptAndOptionalContractAddress,
+}
+
+impl TemplateTxItem {
+    pub fn new_system_tx(tx: Box<SignedTx>, receipt_v3: ReceiptAndOptionalContractAddress, state_root: H256, logs_bloom: Bloom) -> Self {
+        TemplateTxItem {
+            tx,
+            tx_hash: Default::default(),
+            gas_used: U256::zero(),
+            gas_fees: U256::zero(),
+            state_root,
+            logs_bloom,
+            receipt_v3,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -259,13 +271,9 @@ pub struct BlockData {
 ///
 #[derive(Clone, Debug, Default)]
 pub struct BlockTemplateData {
-    pub transactions_queue: Vec<QueueTxItem>,
+    pub transactions_queue: Vec<TemplateTxItem>,
     pub block_data: Option<BlockData>,
-    pub all_transactions: Vec<Box<SignedTx>>,
-    pub receipts_v3: Vec<ReceiptAndOptionalContractAddress>,
-    pub logs_bloom: Bloom,
     pub total_gas_used: U256,
-    pub total_gas_fees: U256,
     pub vicinity: Vicinity,
     pub timestamp: u64,
     pub dvm_block: u64,
@@ -284,11 +292,7 @@ impl BlockTemplateData {
         Self {
             transactions_queue: Vec::new(),
             block_data: None,
-            all_transactions: Vec::new(),
-            receipts_v3: Vec::new(),
-            logs_bloom: Bloom::default(),
             total_gas_used: U256::zero(),
-            total_gas_fees: U256::zero(),
             vicinity: Vicinity {
                 beneficiary,
                 timestamp: U256::from(timestamp),
@@ -331,20 +335,21 @@ impl BlockTemplate {
 
     pub fn queue_tx(
         &self,
-        tx: QueueTx,
+        tx_update: TxState,
         tx_hash: XHash,
-        gas_used: U256,
-        state_root: H256,
     ) -> Result<()> {
         let mut data = self.data.lock();
 
-        data.total_gas_used += gas_used;
+        data.total_gas_used += tx_update.gas_used;
 
-        data.transactions_queue.push(QueueTxItem {
-            tx,
+        data.transactions_queue.push(TemplateTxItem {
+            tx: tx_update.tx,
             tx_hash,
-            gas_used,
-            state_root,
+            gas_used: tx_update.gas_used,
+            gas_fees: tx_update.gas_fees,
+            state_root: tx_update.state_root,
+            logs_bloom: tx_update.logs_bloom,
+            receipt_v3: tx_update.receipt,
         });
         Ok(())
     }
@@ -373,7 +378,7 @@ impl BlockTemplate {
         Ok(removed_txs)
     }
 
-    pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
+    pub fn get_queue_txs_cloned(&self) -> Vec<TemplateTxItem> {
         self.data.lock().transactions_queue.clone()
     }
 
@@ -405,18 +410,16 @@ impl BlockTemplate {
             .map_or(data.initial_state_root, |tx_item| tx_item.state_root)
     }
 
-    pub fn is_queued(&self, tx: &QueueTx) -> bool {
-        self.data
-            .lock()
-            .transactions_queue
-            .iter()
-            .any(|queued| &queued.tx == tx)
+    pub fn get_latest_logs_bloom(&self) -> Bloom {
+        let data = self.data.lock();
+        data.transactions_queue
+            .last()
+            .map_or(Bloom::default(), |tx_item| tx_item.logs_bloom)
     }
-}
 
-impl From<SignedTx> for QueueTx {
-    fn from(tx: SignedTx) -> Self {
-        Self::SignedTx(Box::new(tx))
+    pub fn get_block_number(&self) -> U256 {
+        let data = self.data.lock();
+        data.vicinity.block_number
     }
 }
 
@@ -434,56 +437,3 @@ impl std::fmt::Display for BlockTemplateError {
 }
 
 impl std::error::Error for BlockTemplateError {}
-
-#[cfg(test_off)]
-mod tests {
-    use std::str::FromStr;
-
-    use ethereum_types::{H256, U256};
-
-    use super::*;
-    use crate::transaction::bridge::BalanceUpdate;
-
-    #[test]
-    fn test_valid_nonce_order() -> Result<(), BlockTemplateError> {
-        let template = BlockTemplate::new();
-
-        // Nonce 0, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx1 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869808502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa03d28d24808c3de08c606c5544772ded91913f648ad56556f181905208e206c85a00ecd0ba938fb89fc4a17ea333ea842c7305090dee9236e2b632578f9e5045cb3").unwrap()));
-
-        // Nonce 1, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx2 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869018502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0dd1fad9a8465969354d567e8a74af3f6de3e56abbe1b71154d7929d0bd5cc170a0353190adb50e3cfae82a77c2ea56b49a86f72bd0071a70d1c25c49827654aa68").unwrap()));
-
-        // Nonce 2, sender 0xe61a3a6eb316d773c773f4ce757a542f673023c6
-        let tx3 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa0adb0386f95848d33b49ee6057c34e530f87f696a29b4e1b04ef90b2a58bbedbca02f500cf29c5c4245608545e7d9d35b36ef0365e5c52d96e69b8f07920d32552f").unwrap()));
-
-        // Nonce 2, sender 0x6bc42fd533d6cb9d973604155e1f7197a3b0e703
-        let tx4 = QueueTx::SignedTx(Box::new(SignedTx::try_from("f869028502540be400832dc6c0943e338e722607a8c1eab615579ace4f6dedfa19fa80840adb1a9a2aa09588b47d2cd3f474d6384309cca5cb8e360cb137679f0a1589a1c184a15cb27ca0453ddbf808b83b279cac3226b61a9d83855aba60ae0d3a8407cba0634da7459d").unwrap()));
-
-        template.queue_tx(
-            tx1,
-            H256::from_low_u64_be(1).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        template.queue_tx(
-            tx2,
-            H256::from_low_u64_be(2).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        template.queue_tx(
-            tx3,
-            H256::from_low_u64_be(3).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        template.queue_tx(
-            tx4,
-            H256::from_low_u64_be(4).into(),
-            U256::zero(),
-            U256::zero(),
-        )?;
-        Ok(())
-    }
-}

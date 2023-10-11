@@ -2667,6 +2667,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!evmTemplateId) {
             return Res::Err("Failed to create block template");
         }
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
 
     // Execute TXs

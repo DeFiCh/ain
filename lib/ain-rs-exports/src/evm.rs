@@ -4,9 +4,9 @@ use ain_contracts::{
 };
 use ain_evm::log::Notification;
 use ain_evm::{
-    blocktemplate::QueueTx,
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
+    executor::QueueTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
@@ -210,6 +210,23 @@ fn get_balance(address: &str) -> Result<u64> {
     Ok(amount)
 }
 
+/// Updates the block template in a specific template_id as a `u64`
+///
+/// # Arguments
+///
+/// * `template_id` - The template ID.
+/// * `mnview_ptr` - The pointer to the DVM accounts view.
+///
+/// # Returns
+///
+/// The state update results.
+#[ffi_fallible]
+fn unsafe_update_state_in_template(template_id: u64, mnview_ptr: usize) -> Result<()> {
+    unsafe {
+        SERVICES.evm.update_state_in_block_template(template_id, mnview_ptr)
+    }
+}
+
 /// Retrieves the next valid nonce of an EVM account in a specific template_id
 ///
 /// # Arguments
@@ -267,7 +284,6 @@ fn unsafe_add_balance_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    mnview_ptr: usize,
 ) -> Result<()> {
     let signed_tx = SERVICES
         .evm
@@ -284,7 +300,7 @@ fn unsafe_add_balance_in_template(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, queue_tx, native_hash, mnview_ptr)
+            .push_tx_in_block_template(template_id, queue_tx, native_hash)
     }
 }
 
@@ -312,7 +328,6 @@ fn unsafe_sub_balance_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    mnview_ptr: usize,
 ) -> Result<bool> {
     let signed_tx = SERVICES
         .evm
@@ -329,7 +344,7 @@ fn unsafe_sub_balance_in_template(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, queue_tx, native_hash, mnview_ptr)?;
+            .push_tx_in_block_template(template_id, queue_tx, native_hash)?;
         Ok(true)
     }
 }
@@ -466,7 +481,6 @@ fn unsafe_push_tx_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
-    mnview_ptr: usize,
 ) -> Result<ffi::ValidateTxCompletion> {
     let native_hash = native_hash.to_string();
 
@@ -482,7 +496,6 @@ fn unsafe_push_tx_in_template(
             template_id,
             signed_tx.into(),
             native_hash,
-            mnview_ptr,
         )?;
 
         Ok(ffi::ValidateTxCompletion {
@@ -634,20 +647,6 @@ fn get_block_count() -> Result<u64> {
 }
 
 #[ffi_fallible]
-fn is_dst20_deployed_or_queued(
-    template_id: u64,
-    name: &str,
-    symbol: &str,
-    token_id: u64,
-) -> Result<bool> {
-    unsafe {
-        SERVICES
-            .evm
-            .is_dst20_deployed_or_queued(template_id, name, symbol, token_id)
-    }
-}
-
-#[ffi_fallible]
 fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
     let tx_hash = tx_hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
@@ -767,7 +766,6 @@ fn create_dst20(
     name: &str,
     symbol: &str,
     token_id: u64,
-    mnview_ptr: usize,
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
     let address = ain_contracts::dst20_address_from_token_id(token_id)?;
@@ -783,7 +781,7 @@ fn create_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, system_tx, native_hash, mnview_ptr)
+            .push_tx_in_block_template(template_id, system_tx, native_hash)
     }
 }
 
@@ -794,7 +792,6 @@ fn unsafe_bridge_dst20(
     native_hash: &str,
     token_id: u64,
     out: bool,
-    mnview_ptr: usize,
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
     let contract_address = ain_contracts::dst20_address_from_token_id(token_id)?;
@@ -812,7 +809,7 @@ fn unsafe_bridge_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, system_tx, native_hash, mnview_ptr)
+            .push_tx_in_block_template(template_id, system_tx, native_hash)
     }
 }
 

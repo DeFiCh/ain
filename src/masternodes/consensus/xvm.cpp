@@ -291,13 +291,13 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
-                evm_try_unsafe_add_balance_in_template(result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
+                evm_try_unsafe_add_balance_in_template(result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex());
                 if (!result.ok) {
                     return Res::Err("Error bridging DFI: %s", result.reason);
                 }
             } else {
                 evm_try_unsafe_bridge_dst20(
-                    result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex(), tokenId.v, true, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
+                    result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex(), tokenId.v, true);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }
@@ -347,7 +347,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Subtract balance from ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
-                if (!evm_try_unsafe_sub_balance_in_template(result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)))) {
+                if (!evm_try_unsafe_sub_balance_in_template(result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
                 if (!result.ok) {
@@ -355,7 +355,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 }
             } else {
                 evm_try_unsafe_bridge_dst20(
-                    result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex(), tokenId.v, false, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
+                    result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex(), tokenId.v, false);
                 if (!result.ok) {
                     return Res::Err("Error bridging DST20: %s", result.reason);
                 }
@@ -418,7 +418,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
     }
 
     const auto validateResults =
-        evm_try_unsafe_push_tx_in_template(result, evmTemplateId->GetTemplateID(), HexStr(obj.evmTx), tx.GetHash().GetHex(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
+        evm_try_unsafe_push_tx_in_template(result, evmTemplateId->GetTemplateID(), HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {
         LogPrintf("[evm_try_unsafe_push_tx_in_template] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to queue %s\n", result.reason);

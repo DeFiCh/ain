@@ -151,6 +151,11 @@ pub mod ffi {
         // Failible functions
         // Has to take CrossBoundaryResult as first param
         // Has to start with try_ / evm_try
+        fn evm_try_unsafe_update_state_in_template(
+            result: &mut CrossBoundaryResult,
+            template_id: u64,
+            mnview_ptr: usize,
+        );
         fn evm_try_unsafe_get_next_valid_nonce_in_template(
             result: &mut CrossBoundaryResult,
             template_id: u64,
@@ -166,14 +171,12 @@ pub mod ffi {
             template_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            mnview_ptr: usize,
         );
         fn evm_try_unsafe_sub_balance_in_template(
             result: &mut CrossBoundaryResult,
             template_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            mnview_ptr: usize,
         ) -> bool;
         fn evm_try_unsafe_validate_raw_tx_in_template(
             result: &mut CrossBoundaryResult,
@@ -191,7 +194,6 @@ pub mod ffi {
             template_id: u64,
             raw_tx: &str,
             native_hash: &str,
-            mnview_ptr: usize,
         ) -> ValidateTxCompletion;
         fn evm_try_unsafe_construct_block_in_template(
             result: &mut CrossBoundaryResult,
@@ -247,7 +249,6 @@ pub mod ffi {
             name: &str,
             symbol: &str,
             token_id: u64,
-            mnview_ptr: usize,
         );
         fn evm_try_unsafe_bridge_dst20(
             result: &mut CrossBoundaryResult,
@@ -256,15 +257,7 @@ pub mod ffi {
             native_hash: &str,
             token_id: u64,
             out: bool,
-            mnview_ptr: usize,
         );
-        fn evm_try_is_dst20_deployed_or_queued(
-            result: &mut CrossBoundaryResult,
-            template_id: u64,
-            name: &str,
-            symbol: &str,
-            token_id: u64,
-        ) -> bool;
         fn evm_try_unsafe_get_target_block_in_template(
             result: &mut CrossBoundaryResult,
             template_id: u64,

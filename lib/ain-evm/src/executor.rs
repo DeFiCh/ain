@@ -11,7 +11,7 @@ use log::{debug, trace};
 
 use crate::{
     backend::EVMBackend,
-    blocktemplate::{QueueTx, ReceiptAndOptionalContractAddress},
+    blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
         bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
@@ -26,6 +26,18 @@ use crate::{
     },
     EVMError, Result,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QueueTx {
+    SignedTx(Box<SignedTx>),
+    SystemTx(SystemTx),
+}
+
+impl From<SignedTx> for QueueTx {
+    fn from(tx: SignedTx) -> Self {
+        Self::SignedTx(Box::new(tx))
+    }
+}
 
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {
@@ -257,7 +269,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
-                    used_gas: tx_response.used_gas,
+                    used_gas: U256::from(tx_response.used_gas),
                     logs: tx_response.logs,
                     gas_fee,
                     receipt: (receipt, None),
@@ -293,7 +305,7 @@ impl<'backend> AinExecutor<'backend> {
                     ..
                 } = get_transfer_domain_contract();
                 let mismatch = match self.backend.get_account(&fixed_address) {
-                    None => true,
+                    None => false,
                     Some(account) => account.code_hash != contract.codehash,
                 };
                 if mismatch {
@@ -335,7 +347,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
-                    used_gas: 0,
+                    used_gas: U256::zero(),
                     logs: tx_response.logs,
                     gas_fee: U256::zero(),
                     receipt: (receipt, None),
@@ -410,7 +422,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
-                    used_gas: 0,
+                    used_gas: U256::zero(),
                     logs: tx_response.logs,
                     gas_fee: U256::zero(),
                     receipt: (receipt, None),
@@ -438,7 +450,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx,
-                    used_gas: 0,
+                    used_gas: U256::zero(),
                     logs: Vec::new(),
                     gas_fee: U256::zero(),
                     receipt: (receipt, Some(address)),
@@ -451,7 +463,7 @@ impl<'backend> AinExecutor<'backend> {
 #[derive(Debug)]
 pub struct ApplyTxResult {
     pub tx: Box<SignedTx>,
-    pub used_gas: u64,
+    pub used_gas: U256,
     pub logs: Vec<Log>,
     pub gas_fee: U256,
     pub receipt: ReceiptAndOptionalContractAddress,

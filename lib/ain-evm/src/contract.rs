@@ -16,9 +16,8 @@ use sha3::{Digest, Keccak256};
 
 use crate::{
     backend::EVMBackend,
-    blocktemplate::{QueueTx, QueueTxItem},
     bytes::Bytes,
-    executor::AinExecutor,
+    executor::{AinExecutor, QueueTx},
     transaction::{
         system::{DeployContractData, SystemTx, TransferDirection},
         SignedTx, LOWER_H256,
@@ -412,7 +411,7 @@ fn get_default_successful_receipt() -> ReceiptV3 {
     })
 }
 
-pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
+pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTx>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
@@ -427,12 +426,7 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<QueueTxItem>> {
             token_id: token.id,
             address,
         }));
-        txs.push(QueueTxItem {
-            tx,
-            tx_hash: Default::default(),
-            gas_used: U256::zero(),
-            state_root: Default::default(),
-        });
+        txs.push(tx);
     }
     Ok(txs)
 }
