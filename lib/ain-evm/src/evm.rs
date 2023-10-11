@@ -50,7 +50,7 @@ pub struct EVMServices {
     pub channel: NotificationChannel<Notification>,
 }
 
-pub struct TxState {
+pub struct ExecTxState {
     pub tx: Box<SignedTx>,
     pub receipt: ReceiptAndOptionalContractAddress,
     pub state_root: H256,
@@ -281,7 +281,7 @@ impl EVMServices {
         &self,
         template_id: u64,
         tx: ExecuteTx,
-    ) -> Result<TxState> {
+    ) -> Result<ExecTxState> {
         let block_template = self.core.block_templates.get(template_id)?;
         let state_root = block_template.get_latest_state_root();
         let mut logs_bloom = block_template.get_latest_logs_bloom();
@@ -313,7 +313,7 @@ impl EVMServices {
         let apply_tx = executor.execute_tx(tx, base_fee)?;
         EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
 
-        Ok(TxState {
+        Ok(ExecTxState {
             tx: apply_tx.tx,
             receipt: apply_tx.receipt,
             state_root: backend.commit(),

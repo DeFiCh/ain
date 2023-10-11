@@ -6,7 +6,7 @@ use parking_lot::{Mutex, RwLock};
 use rand::Rng;
 
 use crate::{
-    backend::Vicinity, core::XHash, evm::TxState, receipt::Receipt, transaction::SignedTx,
+    backend::Vicinity, core::XHash, evm::ExecTxState, receipt::Receipt, transaction::SignedTx,
 };
 
 type Result<T> = std::result::Result<T, BlockTemplateError>;
@@ -109,7 +109,7 @@ impl BlockTemplateMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn push_in(&self, template_id: u64, tx_update: TxState, hash: XHash) -> Result<()> {
+    pub unsafe fn push_in(&self, template_id: u64, tx_update: ExecTxState, hash: XHash) -> Result<()> {
         self.with_block_template(template_id, |template| template.add_tx(tx_update, hash))
             .and_then(|res| res)
     }
@@ -133,16 +133,6 @@ impl BlockTemplateMap {
             template.remove_txs_above_hash(target_hash)
         })
         .and_then(|res| res)
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_txs_cloned_in(&self, template_id: u64) -> Result<Vec<TemplateTxItem>> {
-        self.with_block_template(template_id, BlockTemplate::get_cloned_transactions)
     }
 
     /// # Safety
@@ -267,7 +257,7 @@ impl BlockTemplate {
         }
     }
 
-    pub fn add_tx(&self, tx_update: TxState, tx_hash: XHash) -> Result<()> {
+    pub fn add_tx(&self, tx_update: ExecTxState, tx_hash: XHash) -> Result<()> {
         let mut data = self.data.lock();
 
         data.total_gas_used = data
@@ -309,10 +299,6 @@ impl BlockTemplate {
         }
 
         Ok(removed_txs)
-    }
-
-    pub fn get_cloned_transactions(&self) -> Vec<TemplateTxItem> {
-        self.data.lock().transactions.clone()
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
