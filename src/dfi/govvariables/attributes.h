@@ -554,6 +554,7 @@ public:
     static const std::map<uint8_t, std::string> &displayVersions();
     static const std::map<uint8_t, std::string> &displayTypes();
     static const std::map<uint8_t, std::string> &displayParamsIDs();
+    static const std::map<uint8_t, std::string> &allowedDisplayParamsIDs();
     static const std::map<uint8_t, std::string> &displayLocksIDs();
     static const std::map<uint8_t, std::string> &displayOracleIDs();
     static const std::map<uint8_t, std::string> &displayGovernanceIDs();

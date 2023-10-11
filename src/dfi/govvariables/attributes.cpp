@@ -107,6 +107,18 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
     return params;
 }
 
+const std::map<uint8_t, std::string> &ATTRIBUTES::allowedDisplayParamsIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {ParamIDs::DFIP2201,   "dfip2201"  },
+            {ParamIDs::DFIP2203,   "dfip2203"  },
+            {ParamIDs::DFIP2206A,  "dfip2206a" },
+            {ParamIDs::DFIP2206F,  "dfip2206f" },
+            {ParamIDs::Feature,    "feature"   },
+            {ParamIDs::Foundation, "foundation"},
+    };
+    return params;
+}
+
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedLocksIDs() {
     static const std::map<std::string, uint8_t> params{
         {"token", ParamIDs::TokenID},
@@ -1530,8 +1542,8 @@ Res ATTRIBUTES::CheckKeys() const {
 
         // Check typeId
         if (attrV0->type == AttributeTypes::Param) {
-            if (!displayParamsIDs().count(attrV0->typeId)) {
-                return DeFiErrors::GovVarVariableInvalidKey("param", displayParamsIDs());
+            if (!allowedDisplayParamsIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("param", allowedDisplayParamsIDs());
             }
         } else if (attrV0->type == AttributeTypes::Locks) {
             if (!displayLocksIDs().count(attrV0->typeId)) {
