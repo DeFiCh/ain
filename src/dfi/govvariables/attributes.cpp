@@ -114,6 +114,13 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedLocksIDs() {
     return params;
 }
 
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayLocksIDs() {
+    static const std::map<uint8_t, std::string> params{
+            {ParamIDs::TokenID, "token"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayParamsIDs() {
     static const std::map<uint8_t, std::string> params{
         {ParamIDs::DFIP2201,   "dfip2201"  },
@@ -947,6 +954,98 @@ Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
     return view.SetStoredVariables(storedGovVars, obj.startHeight);
 }
 
+static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const uint32_t typeKey) {
+    if (type == AttributeTypes::Param) {
+        if (typeId == ParamIDs::DFIP2201) {
+            if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::Premium && typeKey != DFIPKeys::MinSwap) {
+                return Res::Err("Unsupported type for DFIP2201 {%d}", typeKey);
+            }
+        } else if (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F) {
+            if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::RewardPct && typeKey != DFIPKeys::BlockPeriod &&
+                typeKey != DFIPKeys::StartBlock) {
+                return Res::Err("Unsupported type for this DFIP {%d}", typeKey);
+            }
+        } else if (typeId == ParamIDs::DFIP2206A) {
+            if (typeKey != DFIPKeys::DUSDInterestBurn && typeKey != DFIPKeys::DUSDLoanBurn) {
+                return DeFiErrors::GovVarVariableUnsupportedDFIPType(typeKey);
+            }
+        } else if (typeId == ParamIDs::Feature) {
+            if (typeKey != DFIPKeys::GovUnset && typeKey != DFIPKeys::GovFoundation &&
+                typeKey != DFIPKeys::MNSetRewardAddress && typeKey != DFIPKeys::MNSetOperatorAddress &&
+                typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
+                typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
+                typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens &&
+                typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
+                typeKey != DFIPKeys::TransferDomain) {
+                return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
+            }
+        } else if (typeId == ParamIDs::Foundation) {
+            if (typeKey != DFIPKeys::Members) {
+                return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedParamType();
+        }
+    } else if (type == AttributeTypes::EVMType) {
+        if (typeId == EVMIDs::Block) {
+            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTarget) {
+                return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedGovType();
+        }
+    } else if (type == AttributeTypes::Governance) {
+        if (typeId == GovernanceIDs::Proposals) {
+            if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::FeeBurnPct &&
+                typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPApprovalThreshold &&
+                typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCApprovalThreshold &&
+                typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee &&
+                typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
+                typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles) {
+                return DeFiErrors::GovVarVariableUnsupportedProposalType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedGovType();
+        }
+    } else if (type == AttributeTypes::Transfer) {
+        if (typeId == TransferIDs::DVMToEVM) {
+            if (typeKey != TransferKeys::TransferEnabled && typeKey != TransferKeys::SrcFormats &&
+                typeKey != TransferKeys::DestFormats && typeKey != TransferKeys::NativeEnabled &&
+                typeKey != TransferKeys::DATEnabled && typeKey != TransferKeys::Disallowed) {
+                return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+            }
+        } else if (typeId == TransferIDs::EVMToDVM) {
+            if (typeKey != TransferKeys::TransferEnabled && typeKey != TransferKeys::SrcFormats &&
+                typeKey != TransferKeys::DestFormats && typeKey != TransferKeys::AuthFormats &&
+                typeKey != TransferKeys::NativeEnabled && typeKey != TransferKeys::DATEnabled &&
+                typeKey != TransferKeys::Disallowed) {
+                return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedGovType();
+        }
+    } else if (type == AttributeTypes::Vaults) {
+        if (typeId == VaultIDs::DUSDVault) {
+            if (typeKey != VaultKeys::DUSDVaultEnabled) {
+                return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedGovType();
+        }
+    } else if (type == AttributeTypes::Rules) {
+        if (typeId == RulesIDs::TXRules) {
+            if (typeKey != RulesKeys::CoreOPReturn && typeKey != RulesKeys::DVMOPReturn &&
+                typeKey != RulesKeys::EVMOPReturn) {
+                return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedGovType();
+        }
+    }
+
+    return Res::Ok();
+}
+
 Res ATTRIBUTES::ProcessVariable(const std::string &key,
                                 const std::optional<UniValue> &value,
                                 std::function<Res(const CAttributeType &, const CAttributeValue &)> applyVariable) {
@@ -1068,99 +1167,16 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
 
         typeKey = itype->second;
 
-        if (type == AttributeTypes::Param) {
-            if (typeId == ParamIDs::DFIP2201) {
-                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::Premium && typeKey != DFIPKeys::MinSwap) {
-                    return Res::Err("Unsupported type for DFIP2201 {%d}", typeKey);
-                }
-            } else if (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F) {
-                if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::RewardPct && typeKey != DFIPKeys::BlockPeriod &&
-                    typeKey != DFIPKeys::StartBlock) {
-                    return Res::Err("Unsupported type for this DFIP {%d}", typeKey);
-                }
+        auto res = CheckValidAttrV0Key(type, typeId, typeKey);
+        if (!res) return res;
 
-                if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
-                    if (typeId == ParamIDs::DFIP2203) {
-                        futureUpdated = true;
-                    } else {
-                        futureDUSDUpdated = true;
-                    }
+        if (type == AttributeTypes::Param && (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F)) {
+            if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
+                if (typeId == ParamIDs::DFIP2203) {
+                    futureUpdated = true;
+                } else {
+                    futureDUSDUpdated = true;
                 }
-            } else if (typeId == ParamIDs::DFIP2206A) {
-                if (typeKey != DFIPKeys::DUSDInterestBurn && typeKey != DFIPKeys::DUSDLoanBurn) {
-                    return DeFiErrors::GovVarVariableUnsupportedDFIPType(typeKey);
-                }
-            } else if (typeId == ParamIDs::Feature) {
-                if (typeKey != DFIPKeys::GovUnset && typeKey != DFIPKeys::GovFoundation &&
-                    typeKey != DFIPKeys::MNSetRewardAddress && typeKey != DFIPKeys::MNSetOperatorAddress &&
-                    typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
-                    typeKey != DFIPKeys::ConsortiumEnabled && typeKey != DFIPKeys::CFPPayout &&
-                    typeKey != DFIPKeys::EmissionUnusedFund && typeKey != DFIPKeys::MintTokens &&
-                    typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
-                    typeKey != DFIPKeys::TransferDomain) {
-                    return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
-                }
-            } else if (typeId == ParamIDs::Foundation) {
-                if (typeKey != DFIPKeys::Members) {
-                    return DeFiErrors::GovVarVariableUnsupportedFoundationType(typeKey);
-                }
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedParamType();
-            }
-        } else if (type == AttributeTypes::EVMType) {
-            if (typeId == EVMIDs::Block) {
-                if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTarget) {
-                    return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
-                }
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedGovType();
-            }
-        } else if (type == AttributeTypes::Governance) {
-            if (typeId == GovernanceIDs::Proposals) {
-                if (typeKey != GovernanceKeys::FeeRedistribution && typeKey != GovernanceKeys::FeeBurnPct &&
-                    typeKey != GovernanceKeys::CFPFee && typeKey != GovernanceKeys::CFPApprovalThreshold &&
-                    typeKey != GovernanceKeys::VOCFee && typeKey != GovernanceKeys::VOCApprovalThreshold &&
-                    typeKey != GovernanceKeys::VOCEmergencyPeriod && typeKey != GovernanceKeys::VOCEmergencyFee &&
-                    typeKey != GovernanceKeys::VOCEmergencyQuorum && typeKey != GovernanceKeys::Quorum &&
-                    typeKey != GovernanceKeys::VotingPeriod && typeKey != GovernanceKeys::CFPMaxCycles) {
-                    return DeFiErrors::GovVarVariableUnsupportedProposalType(typeKey);
-                }
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedGovType();
-            }
-        } else if (type == AttributeTypes::Transfer) {
-            if (typeId == TransferIDs::DVMToEVM) {
-                if (typeKey != TransferKeys::TransferEnabled && typeKey != TransferKeys::SrcFormats &&
-                    typeKey != TransferKeys::DestFormats && typeKey != TransferKeys::NativeEnabled &&
-                    typeKey != TransferKeys::DATEnabled && typeKey != TransferKeys::Disallowed) {
-                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
-                }
-            } else if (typeId == TransferIDs::EVMToDVM) {
-                if (typeKey != TransferKeys::TransferEnabled && typeKey != TransferKeys::SrcFormats &&
-                    typeKey != TransferKeys::DestFormats && typeKey != TransferKeys::AuthFormats &&
-                    typeKey != TransferKeys::NativeEnabled && typeKey != TransferKeys::DATEnabled &&
-                    typeKey != TransferKeys::Disallowed) {
-                    return DeFiErrors::GovVarVariableUnsupportedTransferType(typeKey);
-                }
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedGovType();
-            }
-        } else if (type == AttributeTypes::Vaults) {
-            if (typeId == VaultIDs::DUSDVault) {
-                if (typeKey != VaultKeys::DUSDVaultEnabled) {
-                    return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
-                }
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedGovType();
-            }
-        } else if (type == AttributeTypes::Rules) {
-            if (typeId == RulesIDs::TXRules) {
-                if (typeKey != RulesKeys::CoreOPReturn && typeKey != RulesKeys::DVMOPReturn &&
-                    typeKey != RulesKeys::EVMOPReturn) {
-                    return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
-                }
-            } else {
-                return DeFiErrors::GovVarVariableUnsupportedGovType();
             }
         }
 
@@ -1499,6 +1515,64 @@ std::set<uint32_t> attrsVersion27TokenHiddenSet = {
     TokenKeys::Descendant,
     TokenKeys::Epitaph,
 };
+
+Res ATTRIBUTES::CheckKeys() const {
+    for (const auto &attribute : attributes) {
+        const auto attrV0 = std::get_if<CDataStructureV0>(&attribute.first);
+        if (!attrV0) {
+            return DeFiErrors::GovVarUnsupportedVersion();
+        }
+
+        // Check type
+        if (!displayTypes().count(attrV0->type)) {
+            return DeFiErrors::GovVarVariableInvalidKey("type", displayTypes());
+        }
+
+        // Check typeId
+        if (attrV0->type == AttributeTypes::Param) {
+            if (!displayParamsIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("param", displayParamsIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::Locks) {
+            if (!displayLocksIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("locks", displayLocksIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::EVMType) {
+            if (!displayEVMIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("evm", displayEVMIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::Oracles) {
+            if (!displayOracleIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("oracles", displayOracleIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::Governance) {
+            if (!displayGovernanceIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("governance", displayGovernanceIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::Transfer) {
+            if (!displayTransferIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("transferdomain", displayTransferIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::Vaults) {
+            if (!displayVaultIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("vaults", displayVaultIDs());
+            }
+        } else if (attrV0->type == AttributeTypes::Rules) {
+            if (!displayRulesIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("rules", displayRulesIDs());
+            }
+        }
+
+        // Check key - Locks and Oracles have height int keys so skip.
+        if (attrV0->type != AttributeTypes::Locks &&
+            attrV0->type != AttributeTypes::Oracles) {
+            auto res = CheckValidAttrV0Key(attrV0->type, attrV0->typeId, attrV0->key);
+            if (!res) return res;
+        }
+    }
+
+    return Res::Ok();
+}
 
 UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &prefix) const {
     UniValue ret(UniValue::VOBJ);
