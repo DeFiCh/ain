@@ -109,7 +109,12 @@ impl BlockTemplateMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn push_in(&self, template_id: u64, tx_update: ExecTxState, hash: XHash) -> Result<()> {
+    pub unsafe fn push_in(
+        &self,
+        template_id: u64,
+        tx_update: ExecTxState,
+        hash: XHash,
+    ) -> Result<()> {
         self.with_block_template(template_id, |template| template.add_tx(tx_update, hash))
             .and_then(|res| res)
     }
