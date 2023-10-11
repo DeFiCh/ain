@@ -328,7 +328,10 @@ impl BlockTemplate {
     pub fn queue_tx(&self, tx_update: TxState, tx_hash: XHash) -> Result<()> {
         let mut data = self.data.lock();
 
-        data.total_gas_used += tx_update.gas_used;
+        data.total_gas_used = data
+            .total_gas_used
+            .checked_add(tx_update.gas_used)
+            .ok_or(BlockTemplateError::ValueOverflow)?;
 
         data.transactions_queue.push(TemplateTxItem {
             tx: tx_update.tx,
@@ -357,10 +360,13 @@ impl BlockTemplate {
                 .map(|tx_item| tx_item.tx_hash)
                 .collect();
 
-            data.total_gas_used = data
-                .transactions_queue
-                .iter()
-                .fold(U256::zero(), |acc, tx| acc + tx.gas_used)
+            data.total_gas_used =
+                data.transactions_queue
+                    .iter()
+                    .try_fold(U256::zero(), |acc, tx| {
+                        acc.checked_add(tx.gas_used)
+                            .ok_or(BlockTemplateError::ValueOverflow)
+                    })?
         }
 
         Ok(removed_txs)
@@ -414,12 +420,16 @@ impl BlockTemplate {
 #[derive(Debug)]
 pub enum BlockTemplateError {
     NoSuchTemplate,
+    ValueOverflow,
 }
 
 impl std::fmt::Display for BlockTemplateError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             BlockTemplateError::NoSuchTemplate => write!(f, "No block template for this id"),
+            BlockTemplateError::ValueOverflow => {
+                write!(f, "Value overflow when updating block template")
+            }
         }
     }
 }
