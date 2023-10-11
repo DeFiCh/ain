@@ -76,29 +76,55 @@ impl BlockService {
         parent_base_fee: U256,
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
-    ) -> U256 {
+    ) -> Result<U256> {
         match parent_gas_used.cmp(&parent_gas_target) {
-            Ordering::Equal => parent_base_fee,
+            Ordering::Equal => Ok(parent_base_fee),
             Ordering::Greater => {
                 let gas_used_delta = parent_gas_used - parent_gas_target;
-                let base_fee_per_gas_delta = max(
-                    parent_base_fee * gas_used_delta
-                        / parent_gas_target
-                        / base_fee_max_change_denominator,
-                    U256::one(),
-                );
-
-                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+                let base_fee_per_gas_delta = self.get_base_fee_per_gas_delta(
+                    gas_used_delta,
+                    parent_gas_target,
+                    parent_base_fee,
+                    base_fee_max_change_denominator,
+                )?;
+                Ok(max(
+                    parent_base_fee + base_fee_per_gas_delta,
+                    initial_base_fee,
+                ))
             }
             Ordering::Less => {
                 let gas_used_delta = parent_gas_target - parent_gas_used;
-                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                    / parent_gas_target
-                    / base_fee_max_change_denominator;
-
-                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+                let base_fee_per_gas_delta = self.get_base_fee_per_gas_delta(
+                    gas_used_delta,
+                    parent_gas_target,
+                    parent_base_fee,
+                    base_fee_max_change_denominator,
+                )?;
+                Ok(max(
+                    parent_base_fee - base_fee_per_gas_delta,
+                    initial_base_fee,
+                ))
             }
         }
+    }
+
+    fn get_base_fee_per_gas_delta(
+        &self,
+        gas_used_delta: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+    ) -> Result<U256> {
+        Ok(max(
+            parent_base_fee
+                .checked_mul(gas_used_delta.into())
+                .and_then(|x| x.checked_div(parent_gas_target.into()))
+                .and_then(|x| x.checked_div(base_fee_max_change_denominator))
+                .ok_or_else(|| {
+                    format_err!("Unsatisfied bounds calculating base_fee_per_gas_delta")
+                })?,
+            U256::one(),
+        ))
     }
 
     pub fn get_base_fee(
@@ -108,7 +134,7 @@ impl BlockService {
         parent_base_fee: U256,
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
-    ) -> U256 {
+    ) -> Result<U256> {
         self.base_fee_calculation(
             parent_gas_used,
             parent_gas_target,
@@ -139,13 +165,13 @@ impl BlockService {
         let parent_gas_target =
             u64::try_from(parent_block.header.gas_limit / elasticity_multiplier)?; // safe to use normal division since we know elasticity_multiplier is non-zero
 
-        Ok(self.get_base_fee(
+        self.get_base_fee(
             parent_gas_used,
             parent_gas_target,
             parent_base_fee,
             base_fee_max_change_denominator,
             INITIAL_BASE_FEE,
-        ))
+        )
     }
 
     pub fn calculate_next_block_base_fee(&self) -> Result<U256> {
