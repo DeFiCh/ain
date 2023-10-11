@@ -8,8 +8,11 @@ use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
+use tokio::sync::{
+    mpsc::{self, UnboundedReceiver, UnboundedSender},
+    RwLock,
+};
 
-use crate::log::Notification;
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
@@ -25,15 +28,13 @@ use crate::{
     core::{EVMCoreService, XHash},
     executor::{AinExecutor, ExecuteTx},
     filters::FilterService,
-    log::LogService,
+    log::{LogService, Notification},
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
     trie::GENESIS_STATE_ROOT,
     Result,
 };
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use tokio::sync::RwLock;
 
 pub struct NotificationChannel<T> {
     pub sender: UnboundedSender<T>,

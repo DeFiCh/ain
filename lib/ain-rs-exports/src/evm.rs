@@ -2,12 +2,12 @@ use ain_contracts::{
     get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
     get_transferdomain_native_transfer_function, FixedContract,
 };
-use ain_evm::log::Notification;
 use ain_evm::{
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
+    log::Notification,
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     transaction::{

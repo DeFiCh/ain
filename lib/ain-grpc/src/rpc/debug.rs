@@ -1,6 +1,8 @@
 use std::{cmp, sync::Arc};
 
-use ain_evm::{core::EthCallArgs, evm::EVMServices, executor::TxResponse};
+use ain_evm::{
+    core::EthCallArgs, evm::EVMServices, executor::TxResponse, storage::block_store::DumpArg,
+};
 use ethereum::Account;
 use ethereum_types::U256;
 use jsonrpsee::{
@@ -28,7 +30,12 @@ pub trait MetachainDebugRPC {
 
     // Dump full db
     #[method(name = "dumpdb")]
-    fn dump_db(&self) -> RpcResult<()>;
+    fn dump_db(
+        &self,
+        arg: Option<DumpArg>,
+        from: Option<&str>,
+        limit: Option<&str>,
+    ) -> RpcResult<()>;
 
     // Log accounts state
     #[method(name = "logaccountstates")]
@@ -60,8 +67,19 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         Ok(())
     }
 
-    fn dump_db(&self) -> RpcResult<()> {
-        self.handler.storage.dump_db();
+    fn dump_db(
+        &self,
+        arg: Option<DumpArg>,
+        start: Option<&str>,
+        limit: Option<&str>,
+    ) -> RpcResult<()> {
+        let default_limit = 100usize;
+        let limit = limit
+            .map_or(Ok(default_limit), |s| s.parse())
+            .map_err(|e| Error::Custom(e.to_string()))?;
+        self.handler
+            .storage
+            .dump_db(arg.unwrap_or(DumpArg::All), start, limit);
         Ok(())
     }
 
