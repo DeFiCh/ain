@@ -24,12 +24,12 @@
 #include <key.h>
 #include <key_io.h>
 #include <ain_rs_exports.h>
-#include <masternodes/accountshistory.h>
-#include <masternodes/anchors.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/vaulthistory.h>
-#include <masternodes/threadpool.h>
+#include <dfi/accountshistory.h>
+#include <dfi/anchors.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+#include <dfi/vaulthistory.h>
+#include <dfi/threadpool.h>
 #include <miner.h>
 #include <net.h>
 #include <net_permissions.h>
@@ -516,7 +516,7 @@ void SetupServerArgs()
     gArgs.AddArg("-fortcanningepilogueheight", "Alias for Fort Canning Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralheight", "Grand Central fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-grandcentralepilogueheight", "Grand Central Epilogue fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-nextnetworkupgradeheight", "Next Network Upgrade fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
+    gArgs.AddArg("-metachainheight", "Metachain fork activation height (regtest only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-jellyfish_regtest", "Configure the regtest network for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-skip-loan-collateral-validation", "Skip loan collateral check for jellyfish testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-regtest-minttoken-simulate-mainnet", "Simulate mainnet for minttokens on regtest -  default behavior on regtest is to allow anyone to mint mintable tokens for ease of testing", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
@@ -650,6 +650,7 @@ void SetupServerArgs()
     gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), changiBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethrpcbind=<addr>[:port]", "Bind to given address to listen for ETH-JSON-RPC connections. Do not expose the ETH-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -ethrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-wsport=<port>", strprintf("Listen for ETH-WebSockets connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->WSPort(), testnetBaseParams->WSPort(), changiBaseParams->WSPort(), devnetBaseParams->WSPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethmaxconnections=<connections>", strprintf("Set the maximum number of connections allowed by the ETH-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
@@ -1575,10 +1576,12 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
     // By default, we will take the first address, if multiple addresses are specified.
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
+    int websockets_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
 
     // Determine which addresses to bind to ETH RPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
         ethEndpoints.emplace_back("127.0.0.1", eth_rpc_port);
+        ethEndpoints.emplace_back("127.0.0.1", websockets_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
         }
@@ -1588,9 +1591,12 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
     } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
         for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
             int port = eth_rpc_port;
+            int ws_port = websockets_port;
+
             std::string host;
             SplitHostPort(strETHRPCBind, port, host);
             ethEndpoints.emplace_back(host, port);
+            ethEndpoints.emplace_back(host, ws_port);
         }
     }
 
@@ -2270,8 +2276,9 @@ bool AppInitMain(InitInterfaces& interfaces)
         SetupRPCPorts(eth_endpoints, g_endpoints);
         // Default to using the first address passed to bind
         auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
+        auto websockets_endpoint = eth_endpoints[1].first + ":" + std::to_string(eth_endpoints[1].second);
         auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
-        auto res = XResultStatusLogged(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint));
+        auto res = XResultStatusLogged(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint, websockets_endpoint));
         if (!res) return false;
     }
     uiInterface.InitMessage(_("Done loading").translated);

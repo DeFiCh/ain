@@ -36,7 +36,7 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanningepilogueheight = 500
         self.grandcentralheight = 600
         self.grandcentralepilogueheight = 700
-        self.nextnetworkupgradeheight = 800
+        self.metachainheight = 800
 
         self.extra_args = [
             [
@@ -53,7 +53,7 @@ class DUSDLoanTests(DefiTestFramework):
                 f"-fortcanningepilogueheight={self.fortcanningepilogueheight}",
                 f"-grandcentralheight={self.grandcentralheight}",
                 f"-grandcentralepilogueheight={self.grandcentralepilogueheight}",
-                f"-nextnetworkupgradeheight={self.nextnetworkupgradeheight}",
+                f"-metachainheight={self.metachainheight}",
                 "-jellyfish_regtest=1",
                 "-txindex=1",
                 "-simulatemainnet=1",
@@ -135,10 +135,10 @@ class DUSDLoanTests(DefiTestFramework):
 
     def goto_next_height(self):
         blockHeight = self.nodes[0].getblockcount()
-        if self.nextnetworkupgradeheight > blockHeight:
-            self.nodes[0].generate((self.nextnetworkupgradeheight - blockHeight) + 2)
+        if self.metachainheight > blockHeight:
+            self.nodes[0].generate((self.metachainheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["nextnetworkupgrade"]["active"], True)
+        assert_equal(blockchainInfo["softforks"]["metachain"]["active"], True)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"

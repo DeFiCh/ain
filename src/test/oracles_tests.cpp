@@ -6,9 +6,9 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include <masternodes/oracles.h>
+#include <dfi/oracles.h>
 #include <rpc/rawtransaction_util.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 
 #include <string>
 

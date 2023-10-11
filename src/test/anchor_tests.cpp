@@ -1,6 +1,6 @@
 #include <chainparams.h>
-#include <masternodes/anchors.h>
-#include <masternodes/masternodes.h>
+#include <dfi/anchors.h>
+#include <dfi/masternodes.h>
 #include <spv/spv_wrapper.h>
 #include <validation.h>
 

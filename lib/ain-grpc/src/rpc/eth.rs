@@ -736,7 +736,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     );
                     debug!(target:"rpc",
                         "[send_raw_transaction] transaction hash : {:#x}",
-                        signed_tx.transaction.hash()
+                        signed_tx.hash()
                     );
 
                     if !self
@@ -751,7 +751,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                         )));
                     }
 
-                    Ok(format!("{:#x}", signed_tx.transaction.hash()))
+                    Ok(format!("{:#x}", signed_tx.hash()))
                 } else {
                     debug!(target:"rpc", "[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
                     Err(Error::Custom(format!(
@@ -1010,16 +1010,6 @@ impl MetachainRPCServer for MetachainRPCModule {
             )));
         }
 
-        let current_block_height = match self
-            .handler
-            .storage
-            .get_latest_block()
-            .map_err(to_jsonrpsee_custom_error)?
-        {
-            None => return Err(Error::Custom(String::from("Latest block unavailable"))),
-            Some(block) => block.header.number,
-        };
-
         Ok(self
             .handler
             .filters
@@ -1028,7 +1018,6 @@ impl MetachainRPCServer for MetachainRPCModule {
                 input.topics,
                 from_block_number,
                 to_block_number,
-                current_block_height,
             )
             .into())
     }

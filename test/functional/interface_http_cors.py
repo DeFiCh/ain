@@ -21,7 +21,6 @@ class HTTPCorsTest(DefiTestFramework):
         self.test_json_rpc_port()
         self.test_eth_json_rpc_port()
 
-
     def test_json_rpc_port(self):
         url = urllib.parse.urlparse(self.nodes[0].url)
         authpair = url.username + ":" + url.password
@@ -71,7 +70,9 @@ class HTTPCorsTest(DefiTestFramework):
         assert_equal(res.status, http.client.OK)
         res.close()
 
-    def check_cors_headers(self, res, check_allow_methods=True, check_allow_headers=True):
+    def check_cors_headers(
+        self, res, check_allow_methods=True, check_allow_headers=True
+    ):
         assert_equal(res.getheader("Access-Control-Allow-Origin"), self.cors_origin)
         assert_equal(res.getheader("Access-Control-Allow-Credentials"), "true")
         if check_allow_methods:
@@ -80,7 +81,8 @@ class HTTPCorsTest(DefiTestFramework):
             )
         if check_allow_headers:
             assert_equal(
-                res.getheader("Access-Control-Allow-Headers"), "Content-Type, Authorization"
+                res.getheader("Access-Control-Allow-Headers"),
+                "Content-Type, Authorization",
             )
 
 

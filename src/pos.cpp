@@ -6,8 +6,8 @@
 #include <consensus/merkle.h>
 #include <key.h>
 #include <logging.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <sync.h>
 #include <validation.h>
 

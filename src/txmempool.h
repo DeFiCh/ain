@@ -18,7 +18,7 @@
 #include <coins.h>
 #include <crypto/siphash.h>
 #include <indirectmap.h>
-#include <masternodes/customtx.h>
+#include <dfi/customtx.h>
 #include <policy/feerate.h>
 #include <primitives/transaction.h>
 #include <sync.h>
@@ -107,7 +107,7 @@ private:
     int64_t nSigOpCostWithAncestors;
 
     // EVM related data
-    uint64_t evmMaxPromisedTipFee{};
+    uint64_t evmRbfMinTipFee{};
     EvmAddressWithNonce evmAddressAndNonce;
     CustomTxType customTxType{CustomTxType::None};
 
@@ -132,8 +132,8 @@ public:
     // Getter / Setter for EVM related data
     void SetCustomTxType(const CustomTxType type) { customTxType = type; }
     [[nodiscard]] CustomTxType GetCustomTxType() const { return customTxType; }
-    void SetEVMPomisedTipFee(const uint64_t maxPromisedTipFee) { evmMaxPromisedTipFee = maxPromisedTipFee; }
-    [[nodiscard]] uint64_t GetEVMPromisedTipFee() const { return evmMaxPromisedTipFee; }
+    void SetEVMRbfMinTipFee(const uint64_t rbfMinTipFee) { evmRbfMinTipFee = rbfMinTipFee; }
+    [[nodiscard]] uint64_t GetEVMRbfMinTipFee() const { return evmRbfMinTipFee; }
     void SetEVMAddrAndNonce(const EvmAddressWithNonce addrAndNonce) { evmAddressAndNonce = addrAndNonce; }
     [[nodiscard]] const EvmAddressWithNonce& GetEVMAddrAndNonce() const { return evmAddressAndNonce; }
 
@@ -767,7 +767,7 @@ public:
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
 
-    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag);
+    bool checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const uint64_t &entryFee, const EvmAddressData &txSender, bool &senderLimitFlag);
 
 private:
     /** UpdateForDescendants is used by UpdateTransactionsFromBlock to update

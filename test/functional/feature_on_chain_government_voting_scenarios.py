@@ -33,7 +33,7 @@ class OCGVotingScenarionTest(DefiTestFramework):
                 "-fortcanningspringheight=90",
                 "-fortcanninggreatworldheight=94",
                 "-grandcentralheight=101",
-                f"-nextnetworkupgradeheight={NEXT_NETWORK_UPGRADE_HEIGHT}",
+                f"-metachainheight={NEXT_NETWORK_UPGRADE_HEIGHT}",
                 "-rpc-governance-accept-neutral=1",
                 "-simulatemainnet=1",
             ],

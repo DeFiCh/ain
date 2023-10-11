@@ -12,8 +12,8 @@
 #include <fs.h>
 #include <interfaces/chain.h>
 #include <key.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>

@@ -16,9 +16,9 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -300,7 +300,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
             return {};
         }
         auto tx1ScriptPubKey = tx.vout[1].scriptPubKey;
-        if (!isEvmEnabledForBlock || tx1ScriptPubKey.size() == 0) return {};
+        if (!isEvmEnabledForBlock || tx1ScriptPubKey.empty()) return {};
         auto xvm = XVM::TryFrom(tx1ScriptPubKey);
         if (!xvm) return {};
         UniValue result(UniValue::VOBJ);
@@ -348,7 +348,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(blockindex->nHeight, *pcustomcsview, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview, consensus);
 
     auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
@@ -1545,7 +1545,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "fortcanningepilogue", consensusParams.DF19FortCanningEpilogueHeight);
     BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.DF20GrandCentralHeight);
     BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.DF21GrandCentralEpilogueHeight);
-    BuriedForkDescPushBack(softforks, "nextnetworkupgrade", consensusParams.DF22NextHeight);
+    BuriedForkDescPushBack(softforks, "metachain", consensusParams.DF22MetachainHeight);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 

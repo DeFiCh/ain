@@ -33,7 +33,7 @@ impl From<SignedTx> for EthTransactionInfo {
         };
 
         EthTransactionInfo {
-            hash: format_h256(signed_tx.transaction.hash()),
+            hash: format_h256(signed_tx.hash()),
             from: format_address(signed_tx.sender),
             to: signed_tx.to().map(format_address),
             gas: format_u256(signed_tx.gas_limit()),

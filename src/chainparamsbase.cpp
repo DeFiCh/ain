@@ -40,23 +40,23 @@ const CBaseChainParams& BaseParams()
 std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN) {
-        return std::make_unique<CBaseChainParams>("", 8554, 8550, 8551);
+        return std::make_unique<CBaseChainParams>("", 8554, 8550, 8551, 8553);
     } else if (chain == CBaseChainParams::TESTNET) {
-        return std::make_unique<CBaseChainParams>("testnet3", 18554, 18550, 18551);
+        return std::make_unique<CBaseChainParams>("testnet3", 18554, 18550, 18551, 18553);
     } else if (chain == CBaseChainParams::CHANGI) {
         if (gArgs.IsArgSet("-changi-bootstrap")) {
-            return std::make_unique<CBaseChainParams>("changi", 18554, 18550, 18551);
+            return std::make_unique<CBaseChainParams>("changi", 18554, 18550, 18551, 18553);
         } else {
-            return std::make_unique<CBaseChainParams>("changi", 20554, 20550, 20551);
+            return std::make_unique<CBaseChainParams>("changi", 20554, 20550, 20551, 20553);
         }
     } else if (chain == CBaseChainParams::DEVNET) {
         if (gArgs.IsArgSet("-devnet-bootstrap")) {
-            return std::make_unique<CBaseChainParams>("devnet", 18554, 18550, 18551);
+            return std::make_unique<CBaseChainParams>("devnet", 18554, 18550, 18551, 18553);
         } else {
-            return std::make_unique<CBaseChainParams>("devnet", 21554, 21550, 21551);
+            return std::make_unique<CBaseChainParams>("devnet", 21554, 21550, 21551, 21553);
         }
     } else if (chain == CBaseChainParams::REGTEST) {
-        return std::make_unique<CBaseChainParams>("regtest", 19554, 19550, 19551);
+        return std::make_unique<CBaseChainParams>("regtest", 19554, 19550, 19551, 19553);
     } else {
         throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
     }

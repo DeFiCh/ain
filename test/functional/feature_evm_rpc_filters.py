@@ -35,7 +35,7 @@ class EVMTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-nextnetworkupgradeheight=105",
+                "-metachainheight=105",
                 "-subsidytest=1",
                 "-txindex=1",
             ],
@@ -135,10 +135,9 @@ class EVMTest(DefiTestFramework):
             {
                 "fromBlock": "earliest",
                 "toBlock": "latest",
-                "address": self.contract_address,
             }
         )
-        assert_equal(len(logs), 3)
+        assert_equal(len(logs), 5)
 
     def test_get_filter_logs(self):
         node = self.nodes[0]
@@ -153,6 +152,22 @@ class EVMTest(DefiTestFramework):
 
         logs = node.eth_getFilterLogs(id)
         assert_equal(len(logs), 3)
+
+    def test_get_filter_changes(self):
+        node = self.nodes[0]
+
+        id = node.eth_newFilter(
+            {
+                "fromBlock": "earliest",
+                "toBlock": "latest",
+                "address": self.contract_address,
+            }
+        )
+        logs = node.eth_getFilterChanges(id)
+        assert_equal(len(logs), 3)
+
+        logs = node.eth_getFilterChanges(id)
+        assert_equal(len(logs), 0)
 
     def test_new_filter(self):
         node = self.nodes[0]
@@ -197,6 +212,8 @@ class EVMTest(DefiTestFramework):
         self.test_get_logs()
 
         self.test_get_filter_logs()
+
+        self.test_get_filter_changes()
 
         self.test_new_filter()
 

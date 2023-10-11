@@ -11,8 +11,8 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
-#include <masternodes/anchors.h>
-#include <masternodes/masternodes.h>
+#include <dfi/anchors.h>
+#include <dfi/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <noui.h>

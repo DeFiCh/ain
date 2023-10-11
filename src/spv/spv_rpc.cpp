@@ -8,8 +8,8 @@
 #include <rpc/server.h>
 #include <rpc/protocol.h>
 #include <rpc/util.h>
-#include <masternodes/anchors.h>
-#include <masternodes/mn_rpc.h>
+#include <dfi/anchors.h>
+#include <dfi/mn_rpc.h>
 #include <univalue/include/univalue.h>
 
 //#ifdef ENABLE_WALLET

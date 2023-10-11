@@ -10,9 +10,9 @@
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <masternodes/errors.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/errors.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/mn_checks.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <policy/fees.h>
@@ -1179,7 +1179,7 @@ bool CTxMemPool::getAccountViewDirty() const {
     return accountsViewDirty;
 }
 
-bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const EvmAddressData &txSender, bool &senderLimitFlag) {
+bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, const uint64_t &entryFee, const EvmAddressData &txSender, bool &senderLimitFlag) {
     if (pendingEntry.GetCustomTxType() != CustomTxType::EvmTx &&
         pendingEntry.GetCustomTxType() != CustomTxType::TransferDomain) {
         return true;
@@ -1197,38 +1197,14 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
         return true;
     }
 
-    CTxMemPool::setEntries itersToRemove;
-    std::set<CTransactionRef> txsToRemove;
-    auto& txidIndex = mapTx.get<txid_tag>();
-
     auto result{true};
+    CTxMemPool::setEntries itersToRemove;
     for (auto it = range.first; it != range.second; ++it) {
         const auto& entry = *it;
-
-        if (pendingEntry.GetEVMPromisedTipFee() > entry.GetEVMPromisedTipFee()) {
-            if (entry.GetCustomTxType() == CustomTxType::EvmTx) {
-                auto txIter = mapTx.project<0>(it);
-                itersToRemove.insert(txIter);
-            } else {
-                const auto &tx = entry.GetSharedTx();
-                for (const auto &vin : tx->vin) {
-                    auto hashEntry = txidIndex.find(vin.prevout.hash);
-                    if (hashEntry != txidIndex.end() &&
-                        hashEntry->GetCustomTxType() == CustomTxType::AutoAuthPrep) {
-                        txsToRemove.insert(hashEntry->GetSharedTx());
-                        // Add auto auth and continue, this will remove the transfer
-                        // domain TX in the removeRecursive function.
-                        continue;
-                    }
-                }
-                txsToRemove.insert(tx);
-            }
-
-            // We might want to set accountsViewDirty to true here but
-            // then we would trigger a rebuild on every EVM RBF TX.
-            // Imperfect mempool behaviour might be preferred over this
-            // performance cost. Account view will be rebuilt on each
-            // new block.
+        const auto entryType = entry.GetCustomTxType();
+        if (entryType == CustomTxType::EvmTx && entryFee >= entry.GetEVMRbfMinTipFee()) {
+            auto txIter = mapTx.project<0>(it);
+            itersToRemove.insert(txIter);
         } else {
             result = false;
         }
@@ -1236,10 +1212,6 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
 
     for (const auto& txIter : itersToRemove) {
         removeUnchecked(txIter, MemPoolRemovalReason::REPLACED);
-    }
-
-    for (const auto& tx : txsToRemove) {
-        removeRecursive(*tx, MemPoolRemovalReason::REPLACED);
     }
 
     if (result) {
@@ -1261,8 +1233,8 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     setEntries staged;
     std::vector<CTransactionRef> vtx;
 
-    auto consensus = Params().GetConsensus();
-    auto isEvmEnabledForBlock = IsEVMEnabled(height, viewDuplicate, consensus);
+    const auto& consensus = Params().GetConsensus();
+    const auto isEvmEnabledForBlock = IsEVMEnabled(viewDuplicate, consensus);
 
     // Check custom TX consensus types are now not in conflict with account layer
     auto& txsByEntryTime = mapTx.get<entry_time>();
@@ -1275,7 +1247,8 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, 0, isEvmEnabledForBlock, true);
+        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, evmQueueId, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
