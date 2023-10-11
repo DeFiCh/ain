@@ -154,7 +154,7 @@ static bool CorsHandler(HTTPRequest *req) {
         return false;
 
     req->WriteHeader("Access-Control-Allow-Origin", host);
-    req->WriteHeader("Access-Control-Allow-Credentials", "true");
+    req->WriteHeader("Access-Control-Allow-Credentials", host != "*" ? "true" : "false");
     req->WriteHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
     req->WriteHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
