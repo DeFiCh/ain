@@ -107,7 +107,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
     return params;
 }
 
-const std::map<uint8_t, std::string> &ATTRIBUTES::allowedDisplayParamsIDs() {
+const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
     static const std::map<uint8_t, std::string> params{
             {ParamIDs::DFIP2201,   "dfip2201"  },
             {ParamIDs::DFIP2203,   "dfip2203"  },
@@ -116,6 +116,14 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedDisplayParamsIDs() {
             {ParamIDs::Feature,    "feature"   },
             {ParamIDs::Foundation, "foundation"},
     };
+    return params;
+}
+
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayParamsIDs() {
+    static auto params = allowedExportParamsIDs();
+    params[ParamIDs::Auction] = "auction";
+    params[ParamIDs::Economy] = "economy";
+    params[ParamIDs::TokenID] = "token";
     return params;
 }
 
@@ -129,23 +137,6 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedLocksIDs() {
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayLocksIDs() {
     static const std::map<uint8_t, std::string> params{
             {ParamIDs::TokenID, "token"},
-    };
-    return params;
-}
-
-const std::map<uint8_t, std::string> &ATTRIBUTES::displayParamsIDs() {
-    static const std::map<uint8_t, std::string> params{
-        {ParamIDs::DFIP2201,   "dfip2201"  },
-        {ParamIDs::DFIP2203,   "dfip2203"  },
-        {ParamIDs::DFIP2206A,  "dfip2206a" },
- // Note: DFIP2206F is currently in beta testing
-  // for testnet. May not be enabled on mainnet until testing is complete.
-        {ParamIDs::DFIP2206F,  "dfip2206f" },
-        {ParamIDs::TokenID,    "token"     },
-        {ParamIDs::Economy,    "economy"   },
-        {ParamIDs::Feature,    "feature"   },
-        {ParamIDs::Auction,    "auction"   },
-        {ParamIDs::Foundation, "foundation"},
     };
     return params;
 }
@@ -1538,8 +1529,8 @@ Res ATTRIBUTES::CheckKeys() const {
 
         // Check typeId
         if (attrV0->type == AttributeTypes::Param) {
-            if (!allowedDisplayParamsIDs().count(attrV0->typeId)) {
-                return DeFiErrors::GovVarVariableInvalidKey("param", allowedDisplayParamsIDs());
+            if (!allowedExportParamsIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("param", allowedExportParamsIDs());
             }
         } else if (attrV0->type == AttributeTypes::Locks) {
             if (!displayLocksIDs().count(attrV0->typeId)) {
