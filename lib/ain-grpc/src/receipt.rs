@@ -1,5 +1,4 @@
-use ain_evm::log::LogIndex;
-use ain_evm::receipt::Receipt;
+use ain_evm::{log::LogIndex, receipt::Receipt};
 use ethereum::{EIP658ReceiptData, Log};
 use ethereum_types::{H160, H256, U256};
 
