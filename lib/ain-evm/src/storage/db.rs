@@ -388,7 +388,6 @@ where
         });
         self.backend
             .iterator_cf::<C>(self.handle(), iterator_mode)
-            .into_iter()
             .filter_map(|k| {
                 k.ok().and_then(|(k, v)| {
                     let value = bincode::deserialize(&v).ok()?;
