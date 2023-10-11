@@ -33,8 +33,10 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 return Res::Err("Failed to cast Gov var to ATTRIBUTES");
             }
 
-            res = newVar->CheckKeys();
-            if (!res) return res;
+            if (height >= consensus.DF22MetachainHeight) {
+                res = newVar->CheckKeys();
+                if (!res) return res;
+            }
 
             CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
             auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
@@ -172,16 +174,19 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
             return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
         }
 
-        auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(obj.govVar);
-        if (!newVar) {
-            return Res::Err("Failed to cast Gov var to ATTRIBUTES");
-        }
+        if (height >= consensus.DF22MetachainHeight) {
+            auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(obj.govVar);
+            if (!newVar) {
+                return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+            }
 
-        auto res = newVar->CheckKeys();
-        if (!res) return res;
+            auto res = newVar->CheckKeys();
+            if (!res) return res;
+        }
 
         auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
 
+        Res res{};
         CCustomCSView govCache(mnview);
         for (const auto &[varHeight, var] : storedGovVars) {
             if (var->GetName() == "ATTRIBUTES") {
