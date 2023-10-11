@@ -43,7 +43,7 @@ use crate::{
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
 #[ffi_fallible]
-fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateTxResult> {
+fn evm_try_create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateTxResult> {
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
     } else {
@@ -93,7 +93,7 @@ fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateT
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
 #[ffi_fallible]
-fn create_and_sign_transfer_domain_tx(
+fn evm_try_create_and_sign_transfer_domain_tx(
     ctx: ffi::CreateTransferDomainContext,
 ) -> Result<ffi::CreateTxResult> {
     let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
@@ -168,7 +168,7 @@ fn create_and_sign_transfer_domain_tx(
 }
 
 #[ffi_fallible]
-fn store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
+fn evm_try_store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
     let from_address = from_address
         .parse::<H160>()
         .map_err(|_| "Invalid address")?;
@@ -193,7 +193,7 @@ fn store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
 ///
 /// Returns the balance of the account as a `u64` on success.
 #[ffi_fallible]
-fn get_balance(address: &str) -> Result<u64> {
+fn evm_try_get_balance(address: &str) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
     let (_, latest_block_number) = SERVICES
         .evm
@@ -221,7 +221,7 @@ fn get_balance(address: &str) -> Result<u64> {
 ///
 /// Returns the next valid nonce of the account in a specific queue_id as a `u64`
 #[ffi_fallible]
-fn unsafe_get_next_valid_nonce_in_q(queue_id: u64, address: &str) -> Result<u64> {
+fn evm_try_unsafe_get_next_valid_nonce_in_q(queue_id: u64, address: &str) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe {
@@ -242,7 +242,10 @@ fn unsafe_get_next_valid_nonce_in_q(queue_id: u64, address: &str) -> Result<u64>
 /// * `queue_id` - The queue ID.
 /// * `address` - The EVM address of the account.
 #[ffi_fallible]
-fn unsafe_remove_txs_above_hash_in_q(queue_id: u64, target_hash: String) -> Result<Vec<String>> {
+fn evm_try_unsafe_remove_txs_above_hash_in_q(
+    queue_id: u64,
+    target_hash: String,
+) -> Result<Vec<String>> {
     unsafe {
         SERVICES
             .evm
@@ -260,7 +263,7 @@ fn unsafe_remove_txs_above_hash_in_q(queue_id: u64, target_hash: String) -> Resu
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 #[ffi_fallible]
-fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
+fn evm_try_unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -300,7 +303,7 @@ fn unsafe_add_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// Returns `true` if the balance subtraction is successful, `false` otherwise.
 #[ffi_fallible]
-fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<bool> {
+fn evm_try_unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Result<bool> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -345,7 +348,7 @@ fn unsafe_sub_balance_in_q(queue_id: u64, raw_tx: &str, native_hash: &str) -> Re
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
+fn evm_try_unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_q]");
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, queue_id)?;
@@ -376,7 +379,7 @@ fn unsafe_validate_raw_tx_in_q(queue_id: u64, raw_tx: &str) -> Result<()> {
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_transferdomain_tx_in_q(
+fn evm_try_unsafe_validate_transferdomain_tx_in_q(
     queue_id: u64,
     raw_tx: &str,
     context: ffi::TransferDomainInfo,
@@ -405,7 +408,7 @@ fn unsafe_validate_transferdomain_tx_in_q(
 ///
 /// Returns the EVM queue ID as a `u64`.
 #[ffi_fallible]
-fn unsafe_create_queue(timestamp: u64) -> Result<u64> {
+fn evm_try_unsafe_create_queue(timestamp: u64) -> Result<u64> {
     unsafe { SERVICES.evm.core.create_queue(timestamp) }
 }
 
@@ -416,7 +419,7 @@ fn unsafe_create_queue(timestamp: u64) -> Result<u64> {
 /// * `queue_id` - The queue ID.
 ///
 #[ffi_fallible]
-fn unsafe_remove_queue(queue_id: u64) -> Result<()> {
+fn evm_try_unsafe_remove_queue(queue_id: u64) -> Result<()> {
     unsafe { SERVICES.evm.core.remove_queue(queue_id) }
     Ok(())
 }
@@ -436,7 +439,7 @@ fn unsafe_remove_queue(queue_id: u64) -> Result<()> {
 /// - The queue does not exists.
 ///
 #[ffi_fallible]
-fn unsafe_push_tx_in_q(
+fn evm_try_unsafe_push_tx_in_q(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
@@ -474,7 +477,7 @@ fn unsafe_push_tx_in_q(
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 #[ffi_fallible]
-fn unsafe_construct_block_in_q(
+fn evm_try_unsafe_construct_block_in_q(
     queue_id: u64,
     difficulty: u32,
     miner_address: &str,
@@ -515,18 +518,18 @@ fn unsafe_construct_block_in_q(
 }
 
 #[ffi_fallible]
-fn unsafe_commit_queue(queue_id: u64) -> Result<()> {
+fn evm_try_unsafe_commit_queue(queue_id: u64) -> Result<()> {
     unsafe { SERVICES.evm.commit_queue(queue_id) }
 }
 
 #[ffi_fallible]
-fn disconnect_latest_block() -> Result<()> {
+fn evm_try_disconnect_latest_block() -> Result<()> {
     SERVICES.evm.core.clear_account_nonce();
     SERVICES.evm.storage.disconnect_latest_block()
 }
 
 #[ffi_fallible]
-fn handle_attribute_apply(
+fn evm_try_handle_attribute_apply(
     _queue_id: u64,
     _attribute_type: ffi::GovVarKeyDataStructure,
     _value: Vec<u8>,
@@ -544,7 +547,7 @@ fn handle_attribute_apply(
 ///
 /// Returns the blockhash associated with the given block number.
 #[ffi_fallible]
-fn get_block_hash_by_number(height: u64) -> Result<XHash> {
+fn evm_try_get_block_hash_by_number(height: u64) -> Result<XHash> {
     let block = SERVICES
         .evm
         .storage
@@ -563,7 +566,7 @@ fn get_block_hash_by_number(height: u64) -> Result<XHash> {
 ///
 /// Returns the block number associated with the given blockhash.
 #[ffi_fallible]
-fn get_block_number_by_hash(hash: &str) -> Result<u64> {
+fn evm_try_get_block_number_by_hash(hash: &str) -> Result<u64> {
     let hash = hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
     let block = SERVICES
@@ -576,7 +579,7 @@ fn get_block_number_by_hash(hash: &str) -> Result<u64> {
 }
 
 #[ffi_fallible]
-fn get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
+fn evm_try_get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
     let hash = hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
     let block = SERVICES
@@ -608,7 +611,7 @@ fn get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
 }
 
 #[ffi_fallible]
-fn get_block_count() -> Result<u64> {
+fn evm_try_get_block_count() -> Result<u64> {
     let (_, block_number) = SERVICES
         .evm
         .block
@@ -619,7 +622,7 @@ fn get_block_count() -> Result<u64> {
 }
 
 #[ffi_fallible]
-fn is_dst20_deployed_or_queued(
+fn evm_try_is_dst20_deployed_or_queued(
     queue_id: u64,
     name: &str,
     symbol: &str,
@@ -633,7 +636,7 @@ fn is_dst20_deployed_or_queued(
 }
 
 #[ffi_fallible]
-fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
+fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
     let tx_hash = tx_hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
     let tx = SERVICES
@@ -694,7 +697,7 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
-fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
+fn evm_try_parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
     let tx = SERVICES
         .evm
         .core
@@ -746,7 +749,7 @@ fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
-fn create_dst20(
+fn evm_try_create_dst20(
     queue_id: u64,
     native_hash: &str,
     name: &str,
@@ -772,7 +775,7 @@ fn create_dst20(
 }
 
 #[ffi_fallible]
-fn unsafe_bridge_dst20(
+fn evm_try_unsafe_bridge_dst20(
     queue_id: u64,
     raw_tx: &str,
     native_hash: &str,
@@ -808,7 +811,7 @@ fn unsafe_bridge_dst20(
 ///
 /// Returns the transaction's hash
 #[ffi_fallible]
-fn get_tx_hash(raw_tx: &str) -> Result<String> {
+fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -827,7 +830,7 @@ fn get_tx_hash(raw_tx: &str) -> Result<String> {
 ///
 /// Returns the target block for a specific `queue_id` as a `u64`
 #[ffi_fallible]
-fn unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
+fn evm_try_unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
     let target_block = unsafe { SERVICES.evm.core.get_target_block_in(queue_id)? };
     Ok(target_block.as_u64())
 }
@@ -842,14 +845,14 @@ fn unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
 ///
 /// Returns `true` if the address is a contract, `false` otherwise
 #[ffi_fallible]
-fn unsafe_is_smart_contract_in_q(address: &str, queue_id: u64) -> Result<bool> {
+fn evm_try_unsafe_is_smart_contract_in_q(address: &str, queue_id: u64) -> Result<bool> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe { SERVICES.evm.is_smart_contract_in_queue(address, queue_id) }
 }
 
 #[ffi_fallible]
-fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
+fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -872,17 +875,17 @@ fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
 }
 
 #[ffi_fallible]
-fn unsafe_get_total_gas_used(queue_id: u64) -> Result<String> {
+fn evm_try_unsafe_get_total_gas_used(queue_id: u64) -> Result<String> {
     unsafe { Ok(SERVICES.evm.core.get_total_gas_used(queue_id)) }
 }
 
 #[ffi_fallible]
-fn get_block_limit() -> Result<u64> {
+fn evm_try_get_block_limit() -> Result<u64> {
     SERVICES.evm.get_block_limit()
 }
 
 #[ffi_fallible]
-fn dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
+fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
