@@ -80,10 +80,7 @@ fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateT
 ///
 /// # Arguments
 ///
-/// * `to` - The address to transfer funds to.
-/// * `direction` - True if sending to EVM. False if sending from EVM
-/// * `value` - Amount to send
-/// * `priv_key` - Key used to sign the TX
+/// * `ctx` - The transferdomain transaction context.
 ///
 /// # Errors
 ///
@@ -259,7 +256,7 @@ fn unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> R
 /// # Arguments
 ///
 /// * `template_id` - The template ID.
-/// * `address` - The EVM address of the account.
+/// * `target_hash` - The native hash of the tx to be targeted and removed.
 #[ffi_fallible]
 fn unsafe_remove_txs_above_hash_in_template(
     template_id: u64,
@@ -278,9 +275,8 @@ fn unsafe_remove_txs_above_hash_in_template(
 /// # Arguments
 ///
 /// * `template_id` - The template ID.
-/// * `address` - The EVM address of the account.
-/// * `amount` - The amount to add as a byte array.
-/// * `hash` - The hash value as a byte array.
+/// * `raw_tx` - The raw transparent transferdomain tx.
+/// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
 fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
     let signed_tx = SERVICES
@@ -307,20 +303,8 @@ fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &
 /// # Arguments
 ///
 /// * `template_id` - The template ID.
-/// * `address` - The EVM address of the account.
-/// * `amount` - The amount to subtract as a byte array.
-/// * `hash` - The hash value as a byte array.
-///
-/// # Errors
-///
-/// Returns an Error if:
-/// - the `template_id` does not match any existing template
-/// - the address is not a valid EVM address
-/// - the account has insufficient balance.
-///
-/// # Returns
-///
-/// Returns `true` if the balance subtraction is successful, `false` otherwise.
+/// * `raw_tx` - The raw transparent transferdomain tx.
+/// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
 fn unsafe_sub_balance_in_template(
     template_id: u64,
