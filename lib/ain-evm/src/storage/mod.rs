@@ -1,4 +1,4 @@
-mod block_store;
+pub mod block_store;
 mod cache;
 mod db;
 pub mod traits;
@@ -10,7 +10,7 @@ use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 
 use self::{
-    block_store::BlockStore,
+    block_store::{BlockStore, DumpArg},
     cache::Cache,
     traits::{
         AttributesStorage, BlockStorage, FlushableStorage, ReceiptStorage, Rollback,
@@ -206,8 +206,9 @@ impl Storage {
 }
 
 impl Storage {
-    pub fn dump_db(&self) {
-        // println!("self.block_data_handler : {:#?}", self.blockstore);
+    pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) {
+        println!("[dump_db]");
+        self.blockstore.dump(&arg, from, limit)
     }
 }
 
