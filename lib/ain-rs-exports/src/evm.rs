@@ -14,6 +14,7 @@ use ain_evm::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
     },
     txqueue::QueueTx,
+    utils,
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
     Result,
 };
@@ -509,7 +510,7 @@ fn unsafe_construct_block_in_q(
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
-            block_number: block_number.as_u64(),
+            block_number: utils::checked_as_u64(block_number)?,
         })
     }
 }
@@ -829,7 +830,7 @@ fn get_tx_hash(raw_tx: &str) -> Result<String> {
 #[ffi_fallible]
 fn unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
     let target_block = unsafe { SERVICES.evm.core.get_target_block_in(queue_id)? };
-    Ok(target_block.as_u64())
+    Ok(utils::checked_as_u64(target_block)?)
 }
 
 /// Checks if the given address is a smart contract

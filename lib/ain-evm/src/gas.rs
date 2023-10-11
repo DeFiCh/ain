@@ -6,7 +6,7 @@ use evm::{
 };
 use log::debug;
 
-use crate::{transaction::SignedTx, Result};
+use crate::{transaction::SignedTx, utils, Result};
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx
@@ -23,7 +23,7 @@ fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
 
 pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<()> {
     const CONFIG: Config = Config::shanghai();
-    let mut gasometer = Gasometer::new(signed_tx.gas_limit().as_u64(), &CONFIG);
+    let mut gasometer = Gasometer::new(utils::checked_as_u64(signed_tx.gas_limit())?, &CONFIG);
 
     let tx_cost = get_tx_cost(signed_tx);
     match gasometer.record_transaction(tx_cost) {

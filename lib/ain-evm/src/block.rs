@@ -12,7 +12,7 @@ use statrs::statistics::{Data, OrderStatistics};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
-    Result,
+    utils, Result,
 };
 
 pub struct BlockService {
@@ -135,9 +135,9 @@ impl BlockService {
             .get_block_by_hash(&parent_hash)?
             .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
-        let parent_gas_used = parent_block.header.gas_used.as_u64();
-        let parent_gas_target =
-            parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
+        let parent_gas_used = utils::checked_as_u64(parent_block.header.gas_used)?;
+        let parent_gas_target = utils::checked_as_u64(parent_block.header.gas_limit)?
+            / utils::checked_as_u64(elasticity_multiplier)?;
 
         Ok(self.get_base_fee(
             parent_gas_used,
@@ -189,11 +189,14 @@ impl BlockService {
                 let gas_ratio = if block.header.gas_limit == U256::zero() {
                     f64::default() // empty block
                 } else {
-                    block.header.gas_used.as_u64() as f64 / block.header.gas_limit.as_u64() as f64
+                    utils::checked_as_u64(block.header.gas_used)? as f64
+                        / utils::checked_as_u64(block.header.gas_limit)? as f64
                 };
 
-                (base_fee, gas_ratio)
+                Ok((base_fee, gas_ratio))
             })
+            .collect::<Result<Vec<(U256, f64)>>>()?
+            .into_iter()
             .unzip();
 
         let reward = if priority_fee_percentile.is_empty() {
@@ -233,10 +236,10 @@ impl BlockService {
                 }
 
                 let mut block_rewards = Vec::new();
-                let priority_fees = block_eip_tx
+                let priority_fees: Vec<f64> = block_eip_tx
                     .iter()
-                    .map(|tx| tx.max_priority_fee_per_gas.as_u64() as f64)
-                    .collect::<Vec<f64>>();
+                    .map(|tx| Ok(utils::checked_as_u64(tx.max_priority_fee_per_gas)? as f64))
+                    .collect::<Result<Vec<f64>>>()?;
                 let mut data = Data::new(priority_fees);
 
                 for pct in &priority_fee_percentile {
@@ -317,7 +320,8 @@ impl BlockService {
                         continue;
                     }
                     TransactionAny::EIP1559(t) => {
-                        priority_fees.push(t.max_priority_fee_per_gas.as_u64() as f64);
+                        priority_fees
+                            .push(utils::checked_as_u64(t.max_priority_fee_per_gas)? as f64);
                     }
                 }
             }

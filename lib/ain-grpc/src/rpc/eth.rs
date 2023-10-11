@@ -10,6 +10,7 @@ use ain_evm::{
     log::FilterType,
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
+    utils,
 };
 use ethereum::{EnvelopedEncodable, TransactionV2};
 use ethereum_types::{H160, H256, U256};
@@ -350,7 +351,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 data: &input
                     .map(|d| d.0)
                     .unwrap_or(data.map(|d| d.0).unwrap_or_default()),
-                gas_limit: gas.unwrap_or(U256::from(max_gas_per_block)).as_u64(),
+                gas_limit: utils::checked_as_u64(gas.unwrap_or(U256::from(max_gas_per_block)))?,
                 gas_price,
                 max_fee_per_gas,
                 access_list: access_list.unwrap_or_default(),
@@ -539,7 +540,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_hash_and_index(&hash, index.as_usize())
+            .get_transaction_by_block_hash_and_index(&hash, utils::checked_as_usize(index)?)
             .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
                 let tx_hash = &tx.hash();
@@ -572,7 +573,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<Option<EthTransactionInfo>> {
         self.handler
             .storage
-            .get_transaction_by_block_number_and_index(&number, index.as_usize())
+            .get_transaction_by_block_number_and_index(&number, utils::checked_as_usize(index)?)
             .map_err(to_jsonrpsee_custom_error)?
             .map_or(Ok(None), |tx| {
                 let tx_hash = &tx.hash();
@@ -816,7 +817,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 to,
                 value: value.unwrap_or_default(),
                 data: &data.map(|d| d.0).unwrap_or_default(),
-                gas_limit: gas.unwrap_or(U256::from(gas_limit)).as_u64(),
+                gas_limit: utils::checked_as_u64(gas.unwrap_or(U256::from(gas_limit)))?,
                 gas_price,
                 max_fee_per_gas,
                 access_list: access_list.unwrap_or_default(),
@@ -874,7 +875,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .block
             .fee_history(
-                block_count.as_usize(),
+                utils::checked_as_usize(block_count)?,
                 first_block_number,
                 priority_fee_percentile,
             )
@@ -1030,7 +1031,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let filter = self
             .handler
             .filters
-            .get_filter(filter_id.as_usize())
+            .get_filter(utils::checked_as_usize(filter_id)?)
             .map_err(to_jsonrpsee_custom_error)?;
 
         let res = match filter {
@@ -1056,7 +1057,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                 self.handler
                     .filters
-                    .update_last_block(filter_id.as_usize(), current_block_height)
+                    .update_last_block(utils::checked_as_usize(filter_id)?, current_block_height)
                     .map_err(to_jsonrpsee_custom_error)?;
 
                 GetFilterChangesResult::Logs(logs)
@@ -1064,13 +1065,13 @@ impl MetachainRPCServer for MetachainRPCModule {
             Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
                 self.handler
                     .filters
-                    .get_entries_from_filter(filter_id.as_usize())
+                    .get_entries_from_filter(utils::checked_as_usize(filter_id)?)
                     .map_err(to_jsonrpsee_custom_error)?,
             ),
             Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
                 self.handler
                     .filters
-                    .get_entries_from_filter(filter_id.as_usize())
+                    .get_entries_from_filter(utils::checked_as_usize(filter_id)?)
                     .map_err(to_jsonrpsee_custom_error)?,
             ),
         };
@@ -1079,14 +1080,17 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
-        Ok(self.handler.filters.delete_filter(filter_id.as_usize()))
+        Ok(self
+            .handler
+            .filters
+            .delete_filter(utils::checked_as_usize(filter_id)?))
     }
 
     fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
         let filter = self
             .handler
             .filters
-            .get_filter(filter_id.as_usize())
+            .get_filter(utils::checked_as_usize(filter_id)?)
             .map_err(to_jsonrpsee_custom_error)?;
 
         match filter {

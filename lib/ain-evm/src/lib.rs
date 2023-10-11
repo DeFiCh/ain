@@ -18,6 +18,7 @@ pub mod storage;
 pub mod transaction;
 mod trie;
 pub mod txqueue;
+pub mod utils;
 pub mod weiamount;
 
 pub use anyhow::{format_err, Ok};
