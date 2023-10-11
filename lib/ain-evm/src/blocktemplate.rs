@@ -6,11 +6,7 @@ use parking_lot::{Mutex, RwLock};
 use rand::Rng;
 
 use crate::{
-    backend::Vicinity,
-    core::XHash,
-    evm::TxState,
-    receipt::Receipt,
-    transaction::SignedTx,
+    backend::Vicinity, core::XHash, evm::TxState, receipt::Receipt, transaction::SignedTx,
 };
 
 type Result<T> = std::result::Result<T, BlockTemplateError>;
@@ -128,16 +124,9 @@ impl BlockTemplateMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn push_in(
-        &self,
-        template_id: u64,
-        tx_update: TxState,
-        hash: XHash,
-    ) -> Result<()> {
-        self.with_block_template(template_id, |template| {
-            template.queue_tx(tx_update, hash)
-        })
-        .and_then(|res| res)
+    pub unsafe fn push_in(&self, template_id: u64, tx_update: TxState, hash: XHash) -> Result<()> {
+        self.with_block_template(template_id, |template| template.queue_tx(tx_update, hash))
+            .and_then(|res| res)
     }
 
     /// Removes all transactions_queue in the queue whose sender matches the provided sender address.
@@ -222,8 +211,6 @@ impl BlockTemplateMap {
     }
 }
 
-
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TemplateTxItem {
     pub tx: Box<SignedTx>,
@@ -236,7 +223,12 @@ pub struct TemplateTxItem {
 }
 
 impl TemplateTxItem {
-    pub fn new_system_tx(tx: Box<SignedTx>, receipt_v3: ReceiptAndOptionalContractAddress, state_root: H256, logs_bloom: Bloom) -> Self {
+    pub fn new_system_tx(
+        tx: Box<SignedTx>,
+        receipt_v3: ReceiptAndOptionalContractAddress,
+        state_root: H256,
+        logs_bloom: Bloom,
+    ) -> Self {
         TemplateTxItem {
             tx,
             tx_hash: Default::default(),
@@ -333,11 +325,7 @@ impl BlockTemplate {
         }
     }
 
-    pub fn queue_tx(
-        &self,
-        tx_update: TxState,
-        tx_hash: XHash,
-    ) -> Result<()> {
+    pub fn queue_tx(&self, tx_update: TxState, tx_hash: XHash) -> Result<()> {
         let mut data = self.data.lock();
 
         data.total_gas_used += tx_update.gas_used;

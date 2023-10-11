@@ -223,7 +223,9 @@ fn get_balance(address: &str) -> Result<u64> {
 #[ffi_fallible]
 fn unsafe_update_state_in_template(template_id: u64, mnview_ptr: usize) -> Result<()> {
     unsafe {
-        SERVICES.evm.update_state_in_block_template(template_id, mnview_ptr)
+        SERVICES
+            .evm
+            .update_state_in_block_template(template_id, mnview_ptr)
     }
 }
 
@@ -280,11 +282,7 @@ fn unsafe_remove_txs_above_hash_in_template(
 /// * `amount` - The amount to add as a byte array.
 /// * `hash` - The hash value as a byte array.
 #[ffi_fallible]
-fn unsafe_add_balance_in_template(
-    template_id: u64,
-    raw_tx: &str,
-    native_hash: &str,
-) -> Result<()> {
+fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -492,11 +490,9 @@ fn unsafe_push_tx_in_template(
             .try_get_or_create(raw_tx)?;
 
         let tx_hash = signed_tx.hash();
-        SERVICES.evm.push_tx_in_block_template(
-            template_id,
-            signed_tx.into(),
-            native_hash,
-        )?;
+        SERVICES
+            .evm
+            .push_tx_in_block_template(template_id, signed_tx.into(), native_hash)?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", tx_hash),
