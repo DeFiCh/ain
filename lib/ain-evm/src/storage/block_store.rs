@@ -226,6 +226,7 @@ impl Rollback for BlockStore {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DumpArg {
     All,
     Blocks,
