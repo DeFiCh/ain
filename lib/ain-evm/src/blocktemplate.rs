@@ -125,11 +125,11 @@ impl BlockTemplateMap {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn push_in(&self, template_id: u64, tx_update: TxState, hash: XHash) -> Result<()> {
-        self.with_block_template(template_id, |template| template.queue_tx(tx_update, hash))
+        self.with_block_template(template_id, |template| template.add_tx(tx_update, hash))
             .and_then(|res| res)
     }
 
-    /// Removes all transactions_queue in the queue whose sender matches the provided sender address.
+    /// Removes all transactions in the block template whose sender matches the provided sender address.
     /// # Errors
     ///
     /// Returns `BlockTemplateError::NoSuchTemplate` if no template is associated with the given template ID.
@@ -157,7 +157,7 @@ impl BlockTemplateMap {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_txs_cloned_in(&self, template_id: u64) -> Result<Vec<TemplateTxItem>> {
-        self.with_block_template(template_id, BlockTemplate::get_cloned_transaction_queue_txs)
+        self.with_block_template(template_id, BlockTemplate::get_cloned_transactions)
     }
 
     /// # Safety
@@ -248,22 +248,19 @@ pub struct BlockData {
 }
 
 /// The `BlockTemplateData` contains:
-/// 1. Queue of validated transactions_queue
+/// 1. Validated transactions in the block template
 /// 2. Block data
-/// 3. All transactions_queue added into the block template
-/// 4. All transaction receipts added into the block template
-/// 5. Logs bloom
-/// 6. Total gas used by all transactions_queue in the block
-/// 7. Total gas fees of all transactions_queue in the block
-/// 8. Backend vicinity
-/// 9. DVM block number
-/// 10. Initial state root
+/// 3. Total gas used by all in the block template
+/// 4. Backend vicinity
+/// 5. Block template timestamp
+/// 6. DVM block number
+/// 7. Initial state root
 ///
 /// The template is used to construct a valid EVM block.
 ///
 #[derive(Clone, Debug, Default)]
 pub struct BlockTemplateData {
-    pub transactions_queue: Vec<TemplateTxItem>,
+    pub transactions: Vec<TemplateTxItem>,
     pub block_data: Option<BlockData>,
     pub total_gas_used: U256,
     pub vicinity: Vicinity,
@@ -282,7 +279,7 @@ impl BlockTemplateData {
         block_gas_limit: u64,
     ) -> Self {
         Self {
-            transactions_queue: Vec::new(),
+            transactions: Vec::new(),
             block_data: None,
             total_gas_used: U256::zero(),
             vicinity: Vicinity {
@@ -325,7 +322,7 @@ impl BlockTemplate {
         }
     }
 
-    pub fn queue_tx(&self, tx_update: TxState, tx_hash: XHash) -> Result<()> {
+    pub fn add_tx(&self, tx_update: TxState, tx_hash: XHash) -> Result<()> {
         let mut data = self.data.lock();
 
         data.total_gas_used = data
@@ -333,7 +330,7 @@ impl BlockTemplate {
             .checked_add(tx_update.gas_used)
             .ok_or(BlockTemplateError::ValueOverflow)?;
 
-        data.transactions_queue.push(TemplateTxItem {
+        data.transactions.push(TemplateTxItem {
             tx: tx_update.tx,
             tx_hash,
             gas_used: tx_update.gas_used,
@@ -350,30 +347,27 @@ impl BlockTemplate {
         let mut removed_txs = Vec::new();
 
         if let Some(index) = data
-            .transactions_queue
+            .transactions
             .iter()
             .position(|item| item.tx_hash == target_hash)
         {
             removed_txs = data
-                .transactions_queue
+                .transactions
                 .drain(index..)
                 .map(|tx_item| tx_item.tx_hash)
                 .collect();
 
-            data.total_gas_used =
-                data.transactions_queue
-                    .iter()
-                    .try_fold(U256::zero(), |acc, tx| {
-                        acc.checked_add(tx.gas_used)
-                            .ok_or(BlockTemplateError::ValueOverflow)
-                    })?
+            data.total_gas_used = data.transactions.iter().try_fold(U256::zero(), |acc, tx| {
+                acc.checked_add(tx.gas_used)
+                    .ok_or(BlockTemplateError::ValueOverflow)
+            })?
         }
 
         Ok(removed_txs)
     }
 
-    pub fn get_cloned_transaction_queue_txs(&self) -> Vec<TemplateTxItem> {
-        self.data.lock().transactions_queue.clone()
+    pub fn get_cloned_transactions(&self) -> Vec<TemplateTxItem> {
+        self.data.lock().transactions.clone()
     }
 
     pub fn get_total_gas_used(&self) -> U256 {
@@ -391,7 +385,7 @@ impl BlockTemplate {
     pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
         self.data
             .lock()
-            .transactions_queue
+            .transactions
             .iter()
             .find(|tx_item| tx_item.tx_hash == hash)
             .map(|tx_item| tx_item.state_root)
@@ -399,14 +393,14 @@ impl BlockTemplate {
 
     pub fn get_latest_state_root(&self) -> H256 {
         let data = self.data.lock();
-        data.transactions_queue
+        data.transactions
             .last()
             .map_or(data.initial_state_root, |tx_item| tx_item.state_root)
     }
 
     pub fn get_latest_logs_bloom(&self) -> Bloom {
         let data = self.data.lock();
-        data.transactions_queue
+        data.transactions
             .last()
             .map_or(Bloom::default(), |tx_item| tx_item.logs_bloom)
     }

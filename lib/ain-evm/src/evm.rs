@@ -149,10 +149,9 @@ impl EVMServices {
         let block_number = template.vicinity.block_number;
         let block_gas_limit = template.vicinity.block_gas_limit;
 
-        let queue_txs_len = template.transactions_queue.len();
-        let mut all_transactions = Vec::with_capacity(queue_txs_len);
-        let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> =
-            Vec::with_capacity(queue_txs_len);
+        let txs_len = template.transactions.len();
+        let mut all_transactions = Vec::with_capacity(txs_len);
+        let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> = Vec::with_capacity(txs_len);
         let mut total_gas_fees = U256::zero();
 
         debug!("[construct_block] template_id: {:?}", template_id);
@@ -173,7 +172,7 @@ impl EVMServices {
         )?;
 
         let mut executor = AinExecutor::new(&mut backend);
-        for queue_item in template.transactions_queue.clone() {
+        for queue_item in template.transactions.clone() {
             all_transactions.push(queue_item.tx);
             receipts_v3.push(queue_item.receipt_v3);
             total_gas_fees += queue_item.gas_fees;
@@ -384,14 +383,12 @@ impl EVMServices {
                     .init_bytecode,
                 &base_fee,
             )?;
-            template
-                .transactions_queue
-                .push(TemplateTxItem::new_system_tx(
-                    Box::new(tx),
-                    (receipt, Some(address)),
-                    executor.commit(),
-                    logs_bloom,
-                ));
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                executor.commit(),
+                logs_bloom,
+            ));
 
             // Deploy DFIIntrinsics contract
             let DeployContractInfo {
@@ -409,14 +406,12 @@ impl EVMServices {
                 get_dfi_intrinsics_v1_contract().contract.init_bytecode,
                 &base_fee,
             )?;
-            template
-                .transactions_queue
-                .push(TemplateTxItem::new_system_tx(
-                    Box::new(tx),
-                    (receipt, Some(address)),
-                    executor.commit(),
-                    logs_bloom,
-                ));
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                executor.commit(),
+                logs_bloom,
+            ));
 
             // Deploy transfer domain contract on the first block
             let DeployContractInfo {
@@ -434,14 +429,12 @@ impl EVMServices {
                 get_transfer_domain_v1_contract().contract.init_bytecode,
                 &base_fee,
             )?;
-            template
-                .transactions_queue
-                .push(TemplateTxItem::new_system_tx(
-                    Box::new(tx),
-                    (receipt, Some(address)),
-                    executor.commit(),
-                    logs_bloom,
-                ));
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                executor.commit(),
+                logs_bloom,
+            ));
 
             // Deploy transfer domain proxy
             let DeployContractInfo {
@@ -459,14 +452,12 @@ impl EVMServices {
                 get_transfer_domain_contract().contract.init_bytecode,
                 &base_fee,
             )?;
-            template
-                .transactions_queue
-                .push(TemplateTxItem::new_system_tx(
-                    Box::new(tx),
-                    (receipt, Some(address)),
-                    executor.commit(),
-                    logs_bloom,
-                ));
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                executor.commit(),
+                logs_bloom,
+            ));
 
             // Deploy DST20 implementation contract
             let DeployContractInfo {
@@ -482,28 +473,24 @@ impl EVMServices {
             // DST20 implementation contract deployment TX
             let (tx, receipt) =
                 deploy_contract_tx(get_dst20_v1_contract().contract.init_bytecode, &base_fee)?;
-            template
-                .transactions_queue
-                .push(TemplateTxItem::new_system_tx(
-                    Box::new(tx),
-                    (receipt, Some(address)),
-                    executor.commit(),
-                    logs_bloom,
-                ));
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                executor.commit(),
+                logs_bloom,
+            ));
 
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             for queue_item in migration_txs.clone() {
                 let apply_result = executor.execute_tx(queue_item, base_fee)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
-                template
-                    .transactions_queue
-                    .push(TemplateTxItem::new_system_tx(
-                        apply_result.tx,
-                        apply_result.receipt,
-                        executor.commit(),
-                        logs_bloom,
-                    ));
+                template.transactions.push(TemplateTxItem::new_system_tx(
+                    apply_result.tx,
+                    apply_result.receipt,
+                    executor.commit(),
+                    logs_bloom,
+                ));
             }
         } else {
             let DeployContractInfo {

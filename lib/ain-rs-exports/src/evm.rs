@@ -290,7 +290,7 @@ fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &
         .try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
-    let queue_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+    let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmIn,
     }));
@@ -298,7 +298,7 @@ fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, queue_tx, native_hash)
+            .push_tx_in_block_template(template_id, exec_tx, native_hash)
     }
 }
 
@@ -334,7 +334,7 @@ fn unsafe_sub_balance_in_template(
         .try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
-    let queue_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+    let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmOut,
     }));
@@ -342,7 +342,7 @@ fn unsafe_sub_balance_in_template(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, queue_tx, native_hash)?;
+            .push_tx_in_block_template(template_id, exec_tx, native_hash)?;
         Ok(true)
     }
 }
