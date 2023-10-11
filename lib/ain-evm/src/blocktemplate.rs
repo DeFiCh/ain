@@ -157,7 +157,7 @@ impl BlockTemplateMap {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn get_txs_cloned_in(&self, template_id: u64) -> Result<Vec<TemplateTxItem>> {
-        self.with_block_template(template_id, BlockTemplate::get_queue_txs_cloned)
+        self.with_block_template(template_id, BlockTemplate::get_cloned_transaction_queue_txs)
     }
 
     /// # Safety
@@ -372,7 +372,7 @@ impl BlockTemplate {
         Ok(removed_txs)
     }
 
-    pub fn get_queue_txs_cloned(&self) -> Vec<TemplateTxItem> {
+    pub fn get_cloned_transaction_queue_txs(&self) -> Vec<TemplateTxItem> {
         self.data.lock().transactions_queue.clone()
     }
 
