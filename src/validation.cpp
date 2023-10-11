@@ -2663,7 +2663,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!xvmRes) {
             return Res::Err("Failed to process XVM in coinbase");
         }
-        evmTemplateId = CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, pindex->GetBlockTime());
+        evmTemplateId = CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime());
         if (!evmTemplateId) {
             return Res::Err("Failed to create block template");
         }

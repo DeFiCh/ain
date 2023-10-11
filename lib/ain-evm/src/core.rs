@@ -31,7 +31,7 @@ use crate::{
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
-    trie::{TrieDBStore, GENESIS_STATE_ROOT},
+    trie::TrieDBStore,
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
@@ -749,35 +749,6 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create_block_template(
-        &self,
-        dvm_block: u64,
-        beneficiary: H160,
-        timestamp: u64,
-    ) -> Result<u64> {
-        let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
-            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis block
-            Some(block) => (block.header.number + 1, block.header.state_root),
-        };
-
-        let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
-        let template_id = self.block_templates.create(
-            target_block,
-            dvm_block,
-            beneficiary,
-            initial_state_root,
-            timestamp,
-            block_gas_limit,
-        );
-        Ok(template_id)
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
     pub unsafe fn remove_block_template(&self, template_id: u64) {
         self.block_templates.remove(template_id);
     }
@@ -837,10 +808,6 @@ impl EVMCoreService {
             "[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?} in template_id {template_id}"
         );
         Ok(nonce)
-    }
-
-    pub fn clear_transaction_cache(&self) {
-        self.tx_validation_cache.clear()
     }
 }
 
@@ -1018,5 +985,9 @@ impl EVMCoreService {
     pub fn clear_account_nonce(&self) {
         let mut nonce_store = self.nonce_store.lock();
         nonce_store.clear()
+    }
+
+    pub fn clear_transaction_cache(&self) {
+        self.tx_validation_cache.clear()
     }
 }

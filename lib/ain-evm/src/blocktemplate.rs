@@ -42,15 +42,7 @@ impl BlockTemplateMap {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create(
-        &self,
-        target_block: U256,
-        dvm_block: u64,
-        beneficiary: H160,
-        initial_state_root: H256,
-        timestamp: u64,
-        block_gas_limit: u64,
-    ) -> u64 {
+    pub unsafe fn create(&self, block_data: BlockTemplateData) -> u64 {
         let mut rng = rand::thread_rng();
         loop {
             let template_id = rng.gen();
@@ -61,14 +53,7 @@ impl BlockTemplateMap {
             let mut write_guard = self.templates.write();
 
             if let std::collections::hash_map::Entry::Vacant(e) = write_guard.entry(template_id) {
-                e.insert(Arc::new(BlockTemplate::new(
-                    target_block,
-                    dvm_block,
-                    beneficiary,
-                    initial_state_root,
-                    timestamp,
-                    block_gas_limit,
-                )));
+                e.insert(Arc::new(BlockTemplate::new(block_data)));
                 return template_id;
             }
         }
@@ -264,36 +249,10 @@ pub struct BlockTemplateData {
     pub block_data: Option<BlockData>,
     pub total_gas_used: U256,
     pub vicinity: Vicinity,
-    pub timestamp: u64,
+    pub parent_hash: H256,
     pub dvm_block: u64,
+    pub timestamp: u64,
     pub initial_state_root: H256,
-}
-
-impl BlockTemplateData {
-    pub fn new(
-        target_block: U256,
-        dvm_block: u64,
-        beneficiary: H160,
-        initial_state_root: H256,
-        timestamp: u64,
-        block_gas_limit: u64,
-    ) -> Self {
-        Self {
-            transactions: Vec::new(),
-            block_data: None,
-            total_gas_used: U256::zero(),
-            vicinity: Vicinity {
-                beneficiary,
-                timestamp: U256::from(timestamp),
-                block_number: target_block,
-                block_gas_limit: U256::from(block_gas_limit),
-                ..Vicinity::default()
-            },
-            timestamp,
-            dvm_block,
-            initial_state_root,
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -302,23 +261,9 @@ pub struct BlockTemplate {
 }
 
 impl BlockTemplate {
-    fn new(
-        target_block: U256,
-        dvm_block: u64,
-        beneficiary: H160,
-        initial_state_root: H256,
-        timestamp: u64,
-        block_gas_limit: u64,
-    ) -> Self {
+    fn new(block_data: BlockTemplateData) -> Self {
         Self {
-            data: Mutex::new(BlockTemplateData::new(
-                target_block,
-                dvm_block,
-                beneficiary,
-                initial_state_root,
-                timestamp,
-                block_gas_limit,
-            )),
+            data: Mutex::new(block_data),
         }
     }
 

@@ -62,7 +62,7 @@ class CScopedTemplateID {
     uint64_t evmTemplateId;
 
 public:
-    static std::shared_ptr<CScopedTemplateID> Create(const uint64_t dvmBlockNumber, std::string minerAddress, const uint64_t timestamp);
+    static std::shared_ptr<CScopedTemplateID> Create(const uint64_t dvmBlockNumber, std::string minerAddress, unsigned int difficulty, const uint64_t timestamp);
     ~CScopedTemplateID();
 
     uint64_t GetTemplateID() const;

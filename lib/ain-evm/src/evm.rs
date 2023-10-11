@@ -11,9 +11,11 @@ use log::{debug, trace};
 
 use crate::log::Notification;
 use crate::{
-    backend::EVMBackend,
+    backend::{EVMBackend, Vicinity},
     block::BlockService,
-    blocktemplate::{BlockData, ReceiptAndOptionalContractAddress, TemplateTxItem},
+    blocktemplate::{
+        BlockData, BlockTemplateData, ReceiptAndOptionalContractAddress, TemplateTxItem,
+    },
     contract::{
         deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
         dst20_v1_deploy_info, get_dst20_migration_txs, reserve_dst20_namespace,
@@ -25,8 +27,9 @@ use crate::{
     filters::FilterService,
     log::LogService,
     receipt::ReceiptService,
-    storage::Storage,
+    storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
+    trie::GENESIS_STATE_ROOT,
     Result,
 };
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -137,7 +140,6 @@ impl EVMServices {
     pub unsafe fn construct_block_in_template(
         &self,
         template_id: u64,
-        difficulty: u32,
     ) -> Result<FinalizedBlockInfo> {
         let block_template = self.core.block_templates.get(template_id)?;
         let state_root = block_template.get_latest_state_root();
@@ -145,9 +147,12 @@ impl EVMServices {
         let mut template = block_template.data.lock();
 
         let timestamp = template.timestamp;
+        let parent_hash = template.parent_hash;
         let beneficiary = template.vicinity.beneficiary;
+        let difficulty = template.vicinity.block_difficulty;
         let block_number = template.vicinity.block_number;
-        let block_gas_limit = template.vicinity.block_gas_limit;
+        let base_fee = template.vicinity.block_base_fee_per_gas;
+        let gas_limit = template.vicinity.block_gas_limit;
 
         let txs_len = template.transactions.len();
         let mut all_transactions = Vec::with_capacity(txs_len);
@@ -156,13 +161,6 @@ impl EVMServices {
 
         debug!("[construct_block] template_id: {:?}", template_id);
         debug!("[construct_block] vicinity: {:?}", template.vicinity);
-
-        let (parent_hash, _) = self
-            .block
-            .get_latest_block_hash_and_number()?
-            .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
-        let base_fee = self.block.calculate_base_fee(parent_hash)?;
-        debug!("[construct_block] Block base fee: {}", base_fee);
 
         let mut backend = EVMBackend::from_root(
             state_root,
@@ -203,9 +201,9 @@ impl EVMServices {
                 state_root: backend.commit(),
                 receipts_root: ReceiptService::get_receipts_root(&receipts_v3),
                 logs_bloom,
-                difficulty: U256::from(difficulty),
+                difficulty,
                 number: block_number,
-                gas_limit: block_gas_limit,
+                gas_limit,
                 gas_used: template.total_gas_used,
                 timestamp,
                 extra_data,
@@ -502,6 +500,56 @@ impl EVMServices {
             template.initial_state_root = backend.commit();
         }
         Ok(())
+    }
+}
+
+// Block template methods
+impl EVMServices {
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn create_block_template(
+        &self,
+        dvm_block: u64,
+        beneficiary: H160,
+        difficulty: u32,
+        timestamp: u64,
+    ) -> Result<u64> {
+        let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
+            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis block
+            Some(block) => (block.header.number + 1, block.header.state_root),
+        };
+
+        let block_difficulty = U256::from(difficulty);
+        let (parent_hash, _) = self
+            .block
+            .get_latest_block_hash_and_number()?
+            .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
+        let block_base_fee_per_gas = self.block.calculate_base_fee(parent_hash)?;
+
+        let block_gas_limit = U256::from(self.storage.get_attributes_or_default()?.block_gas_limit);
+        let template_id = self.core.block_templates.create(BlockTemplateData {
+            transactions: Vec::new(),
+            block_data: None,
+            total_gas_used: U256::zero(),
+            vicinity: Vicinity {
+                beneficiary,
+                timestamp: U256::from(timestamp),
+                block_number: target_block,
+                block_base_fee_per_gas,
+                block_difficulty,
+                block_gas_limit,
+                ..Vicinity::default()
+            },
+            parent_hash,
+            dvm_block,
+            timestamp,
+            initial_state_root,
+        });
+        Ok(template_id)
     }
 
     ///

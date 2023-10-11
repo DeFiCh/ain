@@ -431,7 +431,12 @@ fn unsafe_validate_transferdomain_tx_in_template(
 ///
 /// Returns the EVM template ID as a `u64`.
 #[ffi_fallible]
-fn unsafe_create_template(dvm_block: u64, miner_address: &str, timestamp: u64) -> Result<u64> {
+fn unsafe_create_template(
+    dvm_block: u64,
+    miner_address: &str,
+    difficulty: u32,
+    timestamp: u64,
+) -> Result<u64> {
     let miner_address = if miner_address.is_empty() {
         H160::zero()
     } else {
@@ -443,8 +448,7 @@ fn unsafe_create_template(dvm_block: u64, miner_address: &str, timestamp: u64) -
     unsafe {
         SERVICES
             .evm
-            .core
-            .create_block_template(dvm_block, miner_address, timestamp)
+            .create_block_template(dvm_block, miner_address, difficulty, timestamp)
     }
 }
 
@@ -513,19 +517,14 @@ fn unsafe_push_tx_in_template(
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 #[ffi_fallible]
-fn unsafe_construct_block_in_template(
-    template_id: u64,
-    difficulty: u32,
-) -> Result<ffi::FinalizeBlockCompletion> {
+fn unsafe_construct_block_in_template(template_id: u64) -> Result<ffi::FinalizeBlockCompletion> {
     unsafe {
         let FinalizedBlockInfo {
             block_hash,
             total_burnt_fees,
             total_priority_fees,
             block_number,
-        } = SERVICES
-            .evm
-            .construct_block_in_template(template_id, difficulty)?;
+        } = SERVICES.evm.construct_block_in_template(template_id)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 

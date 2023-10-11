@@ -143,6 +143,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             dvm_block: u64,
             miner_address: &str,
+            difficulty: u32,
             timestamp: u64,
         ) -> u64;
         fn evm_try_unsafe_remove_template(result: &mut CrossBoundaryResult, template_id: u64);
@@ -198,7 +199,6 @@ pub mod ffi {
         fn evm_try_unsafe_construct_block_in_template(
             result: &mut CrossBoundaryResult,
             template_id: u64,
-            difficulty: u32,
         ) -> FinalizeBlockCompletion;
         fn evm_try_unsafe_commit_block(result: &mut CrossBoundaryResult, template_id: u64);
         fn evm_try_handle_attribute_apply(

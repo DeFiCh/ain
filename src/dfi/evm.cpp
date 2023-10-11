@@ -57,9 +57,9 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
 CScopedTemplateID::CScopedTemplateID(uint64_t id)
     : evmTemplateId(id) {}
 
-std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber, std::string minerAddress, const uint64_t timestamp) {
+std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber, const std::string minerAddress, const unsigned int difficulty, const uint64_t timestamp) {
     CrossBoundaryResult result;
-    uint64_t templateId = evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, timestamp);
+    uint64_t templateId = evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
         return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(templateId));
     }
