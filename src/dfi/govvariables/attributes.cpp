@@ -1395,6 +1395,10 @@ Res ATTRIBUTES::Import(const UniValue &val) {
     std::map<std::string, UniValue> objMap;
     val.getObjMap(objMap);
 
+    if (objMap.empty()) {
+        return Res::Err("Cannot import empty attribute map");
+    }
+
     for (const auto &[key, value] : objMap) {
         auto res = ProcessVariable(key, value, [this](const CAttributeType &attribute, const CAttributeValue &value) {
             if (const auto attrV0 = std::get_if<CDataStructureV0>(&attribute)) {
