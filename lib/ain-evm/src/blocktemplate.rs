@@ -46,8 +46,8 @@ impl BlockTemplateMap {
         &self,
         target_block: U256,
         dvm_block: u64,
-        state_root: H256,
         beneficiary: H160,
+        initial_state_root: H256,
         timestamp: u64,
         block_gas_limit: u64,
     ) -> u64 {
@@ -64,8 +64,8 @@ impl BlockTemplateMap {
                 e.insert(Arc::new(BlockTemplate::new(
                     target_block,
                     dvm_block,
-                    state_root,
                     beneficiary,
+                    initial_state_root,
                     timestamp,
                     block_gas_limit,
                 )));
@@ -273,8 +273,8 @@ impl BlockTemplateData {
     pub fn new(
         target_block: U256,
         dvm_block: u64,
-        state_root: H256,
         beneficiary: H160,
+        initial_state_root: H256,
         timestamp: u64,
         block_gas_limit: u64,
     ) -> Self {
@@ -291,7 +291,7 @@ impl BlockTemplateData {
             },
             timestamp,
             dvm_block,
-            initial_state_root: state_root,
+            initial_state_root,
         }
     }
 }
@@ -305,8 +305,8 @@ impl BlockTemplate {
     fn new(
         target_block: U256,
         dvm_block: u64,
-        state_root: H256,
         beneficiary: H160,
+        initial_state_root: H256,
         timestamp: u64,
         block_gas_limit: u64,
     ) -> Self {
@@ -314,8 +314,8 @@ impl BlockTemplate {
             data: Mutex::new(BlockTemplateData::new(
                 target_block,
                 dvm_block,
-                state_root,
                 beneficiary,
+                initial_state_root,
                 timestamp,
                 block_gas_limit,
             )),

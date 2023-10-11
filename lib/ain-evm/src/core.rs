@@ -764,8 +764,8 @@ impl EVMCoreService {
         let template_id = self.block_templates.create(
             target_block,
             dvm_block,
-            initial_state_root,
             beneficiary,
+            initial_state_root,
             timestamp,
             block_gas_limit,
         );
