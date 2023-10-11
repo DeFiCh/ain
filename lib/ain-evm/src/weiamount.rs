@@ -69,11 +69,13 @@ pub fn try_from_satoshi(satoshi: U256) -> Result<WeiAmount> {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
+
+    use ethereum_types::U256;
+
     use crate::weiamount::{
         try_from_satoshi, WeiAmount, MAX_MONEY_SATS, MAX_MONEY_SATS_DOUBLE, WEI_TO_SATS,
     };
-    use ethereum_types::U256;
-    use std::error::Error;
 
     #[test]
     fn test_satoshi_double_conversion() -> Result<(), Box<dyn Error>> {

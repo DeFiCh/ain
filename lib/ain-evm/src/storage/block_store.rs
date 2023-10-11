@@ -1,12 +1,13 @@
-use std::{collections::HashMap, fs, marker::PhantomData, path::Path, sync::Arc};
+use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
+use serde::{Deserialize, Serialize};
 
 use super::{
-    db::{Column, ColumnName, LedgerColumn, Rocks},
+    db::{Column, ColumnName, LedgerColumn, Rocks, TypedColumn},
     traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
 };
 use crate::{
@@ -127,7 +128,7 @@ impl BlockStorage for BlockStore {
     fn get_latest_block(&self) -> Result<Option<BlockAny>> {
         let latest_block_cf = self.column::<columns::LatestBlockNumber>();
 
-        match latest_block_cf.get(&()) {
+        match latest_block_cf.get(&"") {
             Ok(Some(block_number)) => self.get_block_by_number(&block_number),
             Ok(None) => Ok(None),
             Err(e) => Err(e),
@@ -138,7 +139,7 @@ impl BlockStorage for BlockStore {
         if let Some(block) = block {
             let latest_block_cf = self.column::<columns::LatestBlockNumber>();
             let block_number = block.header.number;
-            latest_block_cf.put(&(), &block_number)?;
+            latest_block_cf.put(&"latest_block", &block_number)?;
         }
         Ok(())
     }
@@ -217,9 +218,64 @@ impl Rollback for BlockStore {
 
             if let Some(block) = self.get_block_by_hash(&block.header.parent_hash)? {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
-                latest_block_cf.put(&(), &block.header.number)?;
+                latest_block_cf.put(&"latest_block", &block.header.number)?;
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DumpArg {
+    All,
+    Blocks,
+    Txs,
+    Receipts,
+    BlockMap,
+    Logs,
+}
+
+impl BlockStore {
+    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) {
+        let s_to_u256 = |s| {
+            U256::from_str_radix(s, 10)
+                .or(U256::from_str_radix(s, 16))
+                .unwrap_or_else(|_| U256::zero())
+        };
+        let s_to_h256 = |s: &str| H256::from_str(&s).unwrap_or(H256::zero());
+
+        match arg {
+            DumpArg::All => {
+                self.dump_all(limit);
+            }
+            DumpArg::Blocks => self.dump_column(columns::Blocks, from.map(s_to_u256), limit),
+            DumpArg::Txs => self.dump_column(columns::Transactions, from.map(s_to_h256), limit),
+            DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
+            DumpArg::BlockMap => self.dump_column(columns::BlockMap, from.map(s_to_h256), limit),
+            DumpArg::Logs => self.dump_column(columns::AddressLogsMap, from.map(s_to_u256), limit),
+        }
+    }
+
+    fn dump_all(&self, limit: usize) {
+        for arg in &[
+            DumpArg::Blocks,
+            DumpArg::Txs,
+            DumpArg::Receipts,
+            DumpArg::BlockMap,
+            DumpArg::Logs,
+        ] {
+            self.dump(arg, None, limit);
+        }
+    }
+
+    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize)
+    where
+        C: TypedColumn + ColumnName,
+    {
+        println!("{}", C::NAME);
+        for (k, v) in self.column::<C>().iter(from, limit) {
+            println!("{:?}: {:#?}", k, v);
+        }
     }
 }

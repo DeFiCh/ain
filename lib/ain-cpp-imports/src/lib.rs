@@ -97,6 +97,9 @@ mod ffi {
     pub fn getCORSAllowedOrigin() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getNumConnections() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -202,6 +205,10 @@ pub fn get_num_cores() -> i32 {
 
 pub fn get_cors_allowed_origin() -> String {
     ffi::getCORSAllowedOrigin()
+}
+
+pub fn get_num_connections() -> i32 {
+    ffi::getNumConnections()
 }
 
 #[cfg(test)]
