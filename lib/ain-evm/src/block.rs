@@ -12,7 +12,7 @@ use statrs::statistics::{Data, OrderStatistics};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
-    Result,
+    EVMError, Result,
 };
 
 pub struct BlockService {
@@ -206,24 +206,26 @@ impl BlockService {
 
         let oldest_block = blocks.last().unwrap().header.number;
 
-        let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
-            .iter()
-            .map(|block| {
-                trace!("[fee_history] Processing block {}", block.header.number);
-                let base_fee = block.header.base_fee;
+        let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) =
+            blocks.iter().try_fold(
+                (Vec::new(), Vec::new()),
+                |(mut base_fee_per_gas, mut gas_used_ratio), block| {
+                    trace!("[fee_history] Processing block {}", block.header.number);
+                    let base_fee = block.header.base_fee;
 
-                let gas_ratio = if block.header.gas_limit == U256::zero() {
-                    f64::default() // empty block
-                } else {
-                    u64::try_from(block.header.gas_used)? as f64
-                        / u64::try_from(block.header.gas_limit)? as f64
-                };
+                    let gas_ratio = if block.header.gas_limit == U256::zero() {
+                        f64::default() // empty block
+                    } else {
+                        u64::try_from(block.header.gas_used)? as f64
+                            / u64::try_from(block.header.gas_limit)? as f64
+                    };
 
-                Ok((base_fee, gas_ratio))
-            })
-            .collect::<Result<Vec<(U256, f64)>>>()?
-            .into_iter()
-            .unzip();
+                    base_fee_per_gas.push(base_fee);
+                    gas_used_ratio.push(gas_ratio);
+
+                    Ok::<(Vec<U256>, Vec<f64>), EVMError>((base_fee_per_gas, gas_used_ratio))
+                },
+            )?;
 
         let reward = if priority_fee_percentile.is_empty() {
             None
