@@ -608,31 +608,6 @@ fn get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
 }
 
 #[ffi_fallible]
-fn get_block_count() -> Result<u64> {
-    let (_, block_number) = SERVICES
-        .evm
-        .block
-        .get_latest_block_hash_and_number()?
-        .ok_or("Unable to get block block_number")?;
-    let count = u64::try_from(block_number)?;
-    Ok(count)
-}
-
-#[ffi_fallible]
-fn is_dst20_deployed_or_queued(
-    queue_id: u64,
-    name: &str,
-    symbol: &str,
-    token_id: u64,
-) -> Result<bool> {
-    unsafe {
-        SERVICES
-            .evm
-            .is_dst20_deployed_or_queued(queue_id, name, symbol, token_id)
-    }
-}
-
-#[ffi_fallible]
 fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
     let tx_hash = tx_hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
@@ -648,58 +623,6 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
         .signed_tx_cache
         .try_get_or_create_from_tx(&tx)?;
 
-    let nonce = u64::try_from(tx.nonce())?;
-    let gas_limit = u64::try_from(tx.gas_limit())?;
-    let value = u64::try_from(WeiAmount(tx.value()).to_satoshi()?)?;
-
-    let (tx_type, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match &tx.transaction {
-        TransactionV2::Legacy(transaction) => {
-            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()?)?;
-            (0u8, price, 0u64, 0u64)
-        }
-        TransactionV2::EIP2930(transaction) => {
-            let price = u64::try_from(WeiAmount(transaction.gas_price).to_satoshi()?)?;
-            (1u8, price, 0u64, 0u64)
-        }
-        TransactionV2::EIP1559(transaction) => {
-            let max_fee_per_gas =
-                u64::try_from(WeiAmount(transaction.max_fee_per_gas).to_satoshi()?)?;
-            let max_priority_fee_per_gas =
-                u64::try_from(WeiAmount(transaction.max_priority_fee_per_gas).to_satoshi()?)?;
-            (2u8, 0u64, max_fee_per_gas, max_priority_fee_per_gas)
-        }
-    };
-
-    let out = ffi::EVMTransaction {
-        tx_type,
-        hash: format!("{:?}", tx.hash()),
-        sender: format!("{:?}", tx.sender),
-        nonce,
-        gas_price,
-        gas_limit,
-        max_fee_per_gas,
-        max_priority_fee_per_gas,
-        create_tx: match tx.action() {
-            TransactionAction::Call(_) => false,
-            TransactionAction::Create => true,
-        },
-        to: match tx.to() {
-            Some(to) => format!("{to:?}"),
-            None => XHash::new(),
-        },
-        value,
-        data: tx.data().to_vec(),
-    };
-    Ok(out)
-}
-
-#[ffi_fallible]
-fn parse_tx_from_raw(raw_tx: &str) -> Result<ffi::EVMTransaction> {
-    let tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
     let value = u64::try_from(WeiAmount(tx.value()).to_satoshi()?)?;
@@ -817,21 +740,6 @@ fn get_tx_hash(raw_tx: &str) -> Result<String> {
     Ok(format!("{:?}", signed_tx.hash()))
 }
 
-/// Retrieves the queue target block
-///
-/// # Arguments
-///
-/// * `queue_id` - The queue ID.
-///
-/// # Returns
-///
-/// Returns the target block for a specific `queue_id` as a `u64`
-#[ffi_fallible]
-fn unsafe_get_target_block_in_q(queue_id: u64) -> Result<u64> {
-    let target_block = unsafe { SERVICES.evm.core.get_target_block_in(queue_id)? };
-    Ok(target_block.as_u64())
-}
-
 /// Checks if the given address is a smart contract
 ///
 /// # Arguments
@@ -869,16 +777,6 @@ fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
         tip_fee,
         min_rbf_tip_fee,
     })
-}
-
-#[ffi_fallible]
-fn unsafe_get_total_gas_used(queue_id: u64) -> Result<String> {
-    unsafe { Ok(SERVICES.evm.core.get_total_gas_used(queue_id)) }
-}
-
-#[ffi_fallible]
-fn get_block_limit() -> Result<u64> {
-    SERVICES.evm.get_block_limit()
 }
 
 #[ffi_fallible]
