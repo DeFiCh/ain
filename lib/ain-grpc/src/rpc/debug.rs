@@ -73,8 +73,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         start: Option<&str>,
         limit: Option<&str>,
     ) -> RpcResult<()> {
+        let default_limit = 100usize;
         let limit = limit
-            .map_or(Ok(usize::MAX), |s| s.parse())
+            .map_or(Ok(default_limit), |s| s.parse())
             .map_err(|e| Error::Custom(e.to_string()))?;
         self.handler
             .storage
