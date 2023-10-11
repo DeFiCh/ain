@@ -28,12 +28,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum QueueTx {
+pub enum ExecuteTx {
     SignedTx(Box<SignedTx>),
     SystemTx(SystemTx),
 }
 
-impl From<SignedTx> for QueueTx {
+impl From<SignedTx> for ExecuteTx {
     fn from(tx: SignedTx) -> Self {
         Self::SignedTx(Box::new(tx))
     }
@@ -240,14 +240,14 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
-    pub fn apply_queue_tx(&mut self, tx: QueueTx, base_fee: U256) -> Result<ApplyTxResult> {
+    pub fn execute_tx(&mut self, tx: ExecuteTx, base_fee: U256) -> Result<ApplyTxResult> {
         match tx {
-            QueueTx::SignedTx(signed_tx) => {
+            ExecuteTx::SignedTx(signed_tx) => {
                 // Validate nonce
                 let nonce = self.backend.get_nonce(&signed_tx.sender);
                 if nonce != signed_tx.nonce() {
                     return Err(format_err!(
-                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        "[execute_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
                         nonce,
                         signed_tx.nonce(),
                     )
@@ -258,7 +258,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false)?;
 
                 debug!(
-                    "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    "[execute_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash()
@@ -275,7 +275,7 @@ impl<'backend> AinExecutor<'backend> {
                     receipt: (receipt, None),
                 })
             }
-            QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+            ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
                 signed_tx,
                 direction,
             })) => {
@@ -283,7 +283,7 @@ impl<'backend> AinExecutor<'backend> {
                 let nonce = self.backend.get_nonce(&signed_tx.sender);
                 if nonce != signed_tx.nonce() {
                     return Err(format_err!(
-                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        "[execute_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
                         nonce,
                         signed_tx.nonce(),
                     )
@@ -295,7 +295,7 @@ impl<'backend> AinExecutor<'backend> {
                 let amount = U256::from_big_endian(&input[68..100]);
 
                 debug!(
-                    "[apply_queue_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
+                    "[execute_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
                     direction, signed_tx.sender, signed_tx.nonce(), to, amount,
                 );
 
@@ -309,8 +309,8 @@ impl<'backend> AinExecutor<'backend> {
                     Some(account) => account.code_hash != contract.codehash,
                 };
                 if mismatch {
-                    debug!("[apply_queue_tx] {} failed with as transferdomain account codehash mismatch", direction);
-                    return Err(format_err!("[apply_queue_tx] {} failed with as transferdomain account codehash mismatch", direction).into());
+                    debug!("[execute_tx] {} failed with as transferdomain account codehash mismatch", direction);
+                    return Err(format_err!("[execute_tx] {} failed with as transferdomain account codehash mismatch", direction).into());
                 }
 
                 if direction == TransferDirection::EvmIn {
@@ -324,7 +324,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
-                        "[apply_queue_tx] Transfer domain failed VM execution {:?}",
+                        "[execute_tx] Transfer domain failed VM execution {:?}",
                         tx_response.exit_reason
                     )
                     .into());
@@ -332,7 +332,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash(),
@@ -353,7 +353,7 @@ impl<'backend> AinExecutor<'backend> {
                     receipt: (receipt, None),
                 })
             }
-            QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+            ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                 signed_tx,
                 contract_address,
                 direction,
@@ -362,7 +362,7 @@ impl<'backend> AinExecutor<'backend> {
                 let nonce = self.backend.get_nonce(&signed_tx.sender);
                 if nonce != signed_tx.nonce() {
                     return Err(format_err!(
-                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        "[execute_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
                         nonce,
                         signed_tx.nonce(),
                     )
@@ -373,7 +373,7 @@ impl<'backend> AinExecutor<'backend> {
                 let amount = U256::from_big_endian(&input[100..132]);
 
                 debug!(
-                    "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
+                    "[execute_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
                     signed_tx.sender, contract_address, amount, direction
                 );
 
@@ -392,12 +392,12 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
                 if !tx_response.exit_reason.is_succeed() {
                     debug!(
-                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {}",
+                        "[execute_tx] DST20 bridge failed VM execution {:?}, data {}",
                         tx_response.exit_reason,
                         hex::encode(&tx_response.data)
                     );
                     return Err(format_err!(
-                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {:?}",
+                        "[execute_tx] DST20 bridge failed VM execution {:?}, data {:?}",
                         tx_response.exit_reason,
                         tx_response.data
                     )
@@ -407,7 +407,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash(),
@@ -428,14 +428,14 @@ impl<'backend> AinExecutor<'backend> {
                     receipt: (receipt, None),
                 })
             }
-            QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                 name,
                 symbol,
                 address,
                 token_id,
             })) => {
                 debug!(
-                    "[apply_queue_tx] DeployContract for address {:x?}, name {}, symbol {}",
+                    "[execute_tx] DeployContract for address {:x?}, name {}, symbol {}",
                     address, name, symbol
                 );
 

@@ -6,7 +6,7 @@ use ain_evm::log::Notification;
 use ain_evm::{
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
-    executor::QueueTx,
+    executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
@@ -290,7 +290,7 @@ fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &
         .try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
-    let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+    let queue_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmIn,
     }));
@@ -334,7 +334,7 @@ fn unsafe_sub_balance_in_template(
         .try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
-    let queue_tx = QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+    let queue_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmOut,
     }));
@@ -767,7 +767,7 @@ fn create_dst20(
     let address = ain_contracts::dst20_address_from_token_id(token_id)?;
     debug!("Deploying to address {:#?}", address);
 
-    let system_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+    let system_tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
         name: String::from(name),
         symbol: String::from(symbol),
         address,
@@ -796,7 +796,7 @@ fn unsafe_bridge_dst20(
         .core
         .signed_tx_cache
         .try_get_or_create(raw_tx)?;
-    let system_tx = QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+    let system_tx = ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         signed_tx: Box::new(signed_tx),
         contract_address,
         direction: out.into(),

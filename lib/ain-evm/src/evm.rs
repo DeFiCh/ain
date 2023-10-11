@@ -21,7 +21,7 @@ use crate::{
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
-    executor::{AinExecutor, QueueTx},
+    executor::{AinExecutor, ExecuteTx},
     filters::FilterService,
     log::LogService,
     receipt::ReceiptService,
@@ -283,7 +283,7 @@ impl EVMServices {
     unsafe fn update_block_template_state_from_tx(
         &self,
         template_id: u64,
-        tx: QueueTx,
+        tx: ExecuteTx,
     ) -> Result<TxState> {
         let block_template = self.core.block_templates.get(template_id)?;
         let state_root = block_template.get_latest_state_root();
@@ -313,7 +313,7 @@ impl EVMServices {
         );
 
         executor.update_total_gas_used(template.total_gas_used);
-        let apply_tx = executor.apply_queue_tx(tx, base_fee)?;
+        let apply_tx = executor.execute_tx(tx, base_fee)?;
         EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
 
         Ok(TxState {
@@ -494,7 +494,7 @@ impl EVMServices {
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             for queue_item in migration_txs.clone() {
-                let apply_result = executor.apply_queue_tx(queue_item, base_fee)?;
+                let apply_result = executor.execute_tx(queue_item, base_fee)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
                 template
                     .transactions_queue
@@ -526,7 +526,7 @@ impl EVMServices {
     pub unsafe fn push_tx_in_block_template(
         &self,
         template_id: u64,
-        tx: QueueTx,
+        tx: ExecuteTx,
         hash: XHash,
     ) -> Result<()> {
         let tx_update = self.update_block_template_state_from_tx(template_id, tx.clone())?;
