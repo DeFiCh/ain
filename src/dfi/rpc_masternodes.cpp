@@ -277,7 +277,7 @@ UniValue resignmasternode(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, true);
 
-    std::string const nodeIdStr = request.params[0].getValStr();
+    const std::string nodeIdStr = request.params[0].getValStr();
     const uint256 nodeId = uint256S(nodeIdStr);
     CTxDestination ownerDest, collateralDest;
     int targetHeight;

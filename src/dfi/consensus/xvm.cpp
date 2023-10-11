@@ -253,8 +253,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if destination address is a contract
-            auto isSmartContract =
-                evm_try_unsafe_is_smart_contract_in_template(result, toAddress->GetHex(), evmTemplateId->GetTemplateID());
+            auto isSmartContract = evm_try_unsafe_is_smart_contract_in_template(
+                result, toAddress->GetHex(), evmTemplateId->GetTemplateID());
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -282,7 +282,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(dst.data);
-            evm_try_unsafe_validate_transferdomain_tx_in_template(result, evmTemplateId->GetTemplateID(), evmTx, contexts[idx]);
+            evm_try_unsafe_validate_transferdomain_tx_in_template(
+                result, evmTemplateId->GetTemplateID(), evmTx, contexts[idx]);
             if (!result.ok) {
                 return Res::Err("transferdomain evm tx failed to pre-validate : %s", result.reason);
             }
@@ -298,7 +299,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
-                evm_try_unsafe_add_balance_in_template(result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex());
+                evm_try_unsafe_add_balance_in_template(
+                    result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex());
                 if (!result.ok) {
                     return Res::Err("Error bridging DFI: %s", result.reason);
                 }
@@ -324,8 +326,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if source address is a contract
-            auto isSmartContract =
-                evm_try_unsafe_is_smart_contract_in_template(result, fromAddress->GetHex(), evmTemplateId->GetTemplateID());
+            auto isSmartContract = evm_try_unsafe_is_smart_contract_in_template(
+                result, fromAddress->GetHex(), evmTemplateId->GetTemplateID());
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -337,7 +339,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
             }
             const auto evmTx = HexStr(src.data);
-            evm_try_unsafe_validate_transferdomain_tx_in_template(result, evmTemplateId->GetTemplateID(), evmTx, contexts[idx]);
+            evm_try_unsafe_validate_transferdomain_tx_in_template(
+                result, evmTemplateId->GetTemplateID(), evmTx, contexts[idx]);
             if (!result.ok) {
                 return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
             }
@@ -354,7 +357,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Subtract balance from ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
-                if (!evm_try_unsafe_sub_balance_in_template(result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex())) {
+                if (!evm_try_unsafe_sub_balance_in_template(
+                        result, evmTemplateId->GetTemplateID(), evmTx, tx.GetHash().GetHex())) {
                     return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
                 }
                 if (!result.ok) {
@@ -374,7 +378,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             // Add balance to DFI address
             res = mnview.AddBalance(dst.address, dst.amount);
             if (!res) {
-                evm_try_unsafe_remove_txs_above_hash_in_template(result, evmTemplateId->GetTemplateID(), tx.GetHash().GetHex());
+                evm_try_unsafe_remove_txs_above_hash_in_template(
+                    result, evmTemplateId->GetTemplateID(), tx.GetHash().GetHex());
                 return res;
             }
             stats.evmDvmTotal.Add(dst.amount);
@@ -424,10 +429,10 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Ok();
     }
 
-    const auto validateResults =
-        evm_try_unsafe_push_tx_in_template(result, evmTemplateId->GetTemplateID(), HexStr(obj.evmTx), tx.GetHash().GetHex());
+    const auto validateResults = evm_try_unsafe_push_tx_in_template(
+        result, evmTemplateId->GetTemplateID(), HexStr(obj.evmTx), tx.GetHash().GetHex());
     if (!result.ok) {
-        LogPrintf("[evm_try_unsafe_push_tx_in_template] failed, reason : %s\n", result.reason);
+        LogPrintf("[evm_try_push_tx_in_template] failed, reason : %s\n", result.reason);
         return Res::Err("evm tx failed to queue %s\n", result.reason);
     }
 

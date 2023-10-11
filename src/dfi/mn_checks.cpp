@@ -336,7 +336,8 @@ class CCustomTxApplyVisitor {
 
         if constexpr (std::is_invocable_v<T1, T>) {
             return T1{
-                tx, height, coins, mnview, consensus, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate}(obj);
+                tx, height, coins, mnview, consensus, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate}(
+                obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
         } else {
@@ -589,8 +590,17 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(
-            view, coins, tx, height, consensus, txMessage, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate);
+        res = CustomTxVisit(view,
+                            coins,
+                            tx,
+                            height,
+                            consensus,
+                            txMessage,
+                            time,
+                            txn,
+                            evmTemplateId,
+                            isEvmEnabledForBlock,
+                            evmPreValidate);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {

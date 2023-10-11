@@ -509,7 +509,7 @@ UniValue updateloantoken(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, true);
 
-    std::string const tokenStr = trim_ws(request.params[0].getValStr());
+    const std::string tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
     const UniValue &txInputs = request.params[2];
 
