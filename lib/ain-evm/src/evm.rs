@@ -170,10 +170,10 @@ impl EVMServices {
         )?;
 
         let mut executor = AinExecutor::new(&mut backend);
-        for transaction in template.transactions.clone() {
-            all_transactions.push(transaction.tx);
-            receipts_v3.push(transaction.receipt_v3);
-            total_gas_fees += transaction.gas_fees;
+        for template_tx in template.transactions.clone() {
+            all_transactions.push(template_tx.tx);
+            receipts_v3.push(template_tx.receipt_v3);
+            total_gas_fees += template_tx.gas_fees;
         }
 
         let total_burnt_fees = template.total_gas_used * base_fee;
