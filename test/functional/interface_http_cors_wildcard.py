@@ -36,13 +36,13 @@ class HTTPCorsWildcardTest(DefiTestFramework):
         conn.connect()
         conn.request("POST", "/", '{"method": "getbestblockhash"}', headers)
         res = conn.getresponse()
-        self.check_cors_headers_dvm(res)
+        self.check_cors_headers(res)
         assert_equal(res.status, http.client.OK)
         res.close()
 
         conn.request("OPTIONS", "/", '{"method": "getbestblockhash"}', headers)
         res = conn.getresponse()
-        self.check_cors_headers_dvm(res)
+        self.check_cors_headers(res)
         assert_equal(res.status, http.client.NO_CONTENT)
         res.close()
 
@@ -61,32 +61,17 @@ class HTTPCorsWildcardTest(DefiTestFramework):
         res = conn.getresponse()
         print(res.status)
         print(res.headers)
-        self.check_cors_headers_evm(res, False, False)
+        self.check_cors_headers(res, False, False)
         assert_equal(res.status, http.client.OK)
         res.close()
 
         conn.request("OPTIONS", "/", '{"method": "eth_syncing"}', headers)
         res = conn.getresponse()
-        self.check_cors_headers_evm(res, False, False)
+        self.check_cors_headers(res, False, False)
         assert_equal(res.status, http.client.OK)
         res.close()
 
-    def check_cors_headers_dvm(
-        self, res, check_allow_methods=True, check_allow_headers=True
-    ):
-        assert_equal(res.getheader("Access-Control-Allow-Origin"), self.cors_origin)
-        assert_equal(res.getheader("Access-Control-Allow-Credentials"), "false")
-        if check_allow_methods:
-            assert_equal(
-                res.getheader("Access-Control-Allow-Methods"), "POST, GET, OPTIONS"
-            )
-        if check_allow_headers:
-            assert_equal(
-                res.getheader("Access-Control-Allow-Headers"),
-                "Content-Type, Authorization",
-            )
-
-    def check_cors_headers_evm(
+    def check_cors_headers(
         self, res, check_allow_methods=True, check_allow_headers=True
     ):
         assert_equal(res.getheader("Access-Control-Allow-Origin"), self.cors_origin)
