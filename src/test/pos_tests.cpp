@@ -1,6 +1,6 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <miner.h>
 #include <pos.h>
 #include <pos_kernel.h>

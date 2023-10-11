@@ -27,7 +27,7 @@
 #include <support/events.h>
 
 #include <univalue.h>
-#include <masternodes/coinselect.h>
+#include <dfi/coinselect.h>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 

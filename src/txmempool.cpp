@@ -10,9 +10,9 @@
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
-#include <masternodes/errors.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/errors.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/mn_checks.h>
 #include <validation.h>
 #include <policy/policy.h>
 #include <policy/fees.h>

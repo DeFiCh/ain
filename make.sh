@@ -464,7 +464,7 @@ fmt_cpp() {
         exit 1
     fi
 
-    find src/masternodes \( -iname "*.cpp" -o -iname "*.h" \) \
+    find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) \
         -exec "${clang_formatters[$index]}" -i -style=file {} +;
 }
 

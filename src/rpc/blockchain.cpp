@@ -16,9 +16,9 @@
 #include <core_io.h>
 #include <hash.h>
 #include <index/blockfilterindex.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>

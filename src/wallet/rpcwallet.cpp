@@ -9,7 +9,7 @@
 #include <init.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/tokens.h>
+#include <dfi/tokens.h>
 #include <node/transaction.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -41,7 +41,7 @@
 
 #include <functional>
 
-#include <masternodes/mn_checks.h>
+#include <dfi/mn_checks.h>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
