@@ -137,7 +137,7 @@ impl BlockService {
         let parent_base_fee = parent_block.header.base_fee;
         let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
         let parent_gas_target =
-            u64::try_from(parent_block.header.gas_limit)? / u64::try_from(elasticity_multiplier)?;
+            u64::try_from(parent_block.header.gas_limit / elasticity_multiplier)?; // safe to use normal division since we know elasticity_multiplier is non-zero
 
         Ok(self.get_base_fee(
             parent_gas_used,
@@ -236,7 +236,7 @@ impl BlockService {
                 }
 
                 let mut block_rewards = Vec::new();
-                let priority_fees: Vec<f64> = block_eip_tx
+                let priority_fees = block_eip_tx
                     .iter()
                     .map(|tx| Ok(u64::try_from(tx.max_priority_fee_per_gas)? as f64))
                     .collect::<Result<Vec<f64>>>()?;
