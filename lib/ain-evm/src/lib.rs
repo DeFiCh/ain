@@ -36,8 +36,6 @@ pub enum EVMError {
     TrieCreationFailed(#[from] BackendError),
     #[error("EVM: Block template error {0:?}")]
     BlockTemplateError(#[from] BlockTemplateError),
-    #[error("EVM: Exceed block size limit")]
-    BlockSizeLimit(String),
     #[error("EVM: Exceed money range")]
     MoneyRangeError(String),
     #[error("EVM: IO error")]

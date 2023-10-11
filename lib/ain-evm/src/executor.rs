@@ -24,7 +24,7 @@ use crate::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
         SignedTx,
     },
-    EVMError, Result,
+    Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,9 +203,10 @@ impl<'backend> AinExecutor<'backend> {
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
         if !system_tx && total_gas_used + U256::from(used_gas) > block_gas_limit {
-            return Err(EVMError::BlockSizeLimit(
-                "Block size limit exceeded, tx cannot make it into the block".to_string(),
-            ));
+            return Err(format_err!(
+                "[exec] block size limit exceeded, tx cannot make it into the block"
+            )
+            .into());
         }
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
@@ -258,7 +259,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false)?;
 
                 debug!(
-                    "[execute_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash()
