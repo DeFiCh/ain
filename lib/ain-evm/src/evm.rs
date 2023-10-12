@@ -346,12 +346,8 @@ impl EVMServices {
             template.vicinity.clone(),
         )?;
         let mut executor = AinExecutor::new(&mut backend);
-
-        let (parent_hash, _) = self
-            .block
-            .get_latest_block_hash_and_number()?
-            .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
-        let base_fee = self.block.calculate_base_fee(parent_hash)?;
+        let parent_hash = template.parent_hash;
+        let base_fee = template.vicinity.block_base_fee_per_gas;
         debug!(
             "[update_block_template_state_from_tx] Block base fee: {}",
             base_fee
