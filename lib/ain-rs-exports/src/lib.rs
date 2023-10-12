@@ -224,15 +224,9 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             hash: &str,
         ) -> EVMBlockHeader;
-        fn evm_try_get_block_count(result: &mut CrossBoundaryResult) -> u64;
         fn evm_try_get_tx_by_hash(
             result: &mut CrossBoundaryResult,
             tx_hash: &str,
-        ) -> EVMTransaction;
-
-        fn evm_try_parse_tx_from_raw(
-            result: &mut CrossBoundaryResult,
-            raw_tx: &str,
         ) -> EVMTransaction;
 
         fn evm_try_get_tx_hash(result: &mut CrossBoundaryResult, raw_tx: &str) -> String;
@@ -253,17 +247,6 @@ pub mod ffi {
             token_id: u64,
             out: bool,
         );
-        fn evm_try_is_dst20_deployed_or_queued(
-            result: &mut CrossBoundaryResult,
-            queue_id: u64,
-            name: &str,
-            symbol: &str,
-            token_id: u64,
-        ) -> bool;
-        fn evm_try_unsafe_get_target_block_in_q(
-            result: &mut CrossBoundaryResult,
-            queue_id: u64,
-        ) -> u64;
         fn evm_try_unsafe_is_smart_contract_in_q(
             result: &mut CrossBoundaryResult,
             address: &str,
@@ -273,11 +256,6 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         ) -> TxMinerInfo;
-        fn evm_try_get_block_limit(result: &mut CrossBoundaryResult) -> u64;
-        fn evm_try_unsafe_get_total_gas_used(
-            result: &mut CrossBoundaryResult,
-            queue_id: u64,
-        ) -> String;
         fn evm_try_dispatch_pending_transactions_event(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,

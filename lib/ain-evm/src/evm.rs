@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
     get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
-    get_transfer_domain_contract, get_transfer_domain_v1_contract, FixedContract,
+    get_transfer_domain_contract, get_transfer_domain_v1_contract,
 };
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader, ReceiptV3};
@@ -28,10 +28,7 @@ use crate::{
     log::{LogService, Notification},
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    transaction::{
-        system::{DeployContractData, SystemTx},
-        SignedTx,
-    },
+    transaction::SignedTx,
     trie::GENESIS_STATE_ROOT,
     txqueue::{BlockData, QueueTx},
     EVMError, Result,
@@ -408,11 +405,6 @@ impl EVMServices {
         })
     }
 
-    pub fn get_block_limit(&self) -> Result<u64> {
-        let res = self.storage.get_attributes_or_default()?;
-        Ok(res.block_gas_limit)
-    }
-
     ///
     /// # Safety
     ///
@@ -537,68 +529,6 @@ impl EVMServices {
         self.filters.add_tx_to_filters(signed_tx.hash());
 
         Ok(())
-    }
-
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<U256> {
-        trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let signed_tx = self
-            .core
-            .signed_tx_cache
-            .try_get_or_create(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        trace!("[verify_tx_fees] signed_tx : {:#?}", signed_tx);
-
-        let block_fee = self.block.calculate_next_block_base_fee()?;
-        let tx_gas_price = signed_tx.gas_price();
-        if tx_gas_price < block_fee {
-            trace!("[verify_tx_fees] tx gas price is lower than block base fee");
-            return Err(format_err!("tx gas price is lower than block base fee").into());
-        }
-
-        Ok(block_fee)
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn is_dst20_deployed_or_queued(
-        &self,
-        queue_id: u64,
-        name: &str,
-        symbol: &str,
-        token_id: u64,
-    ) -> Result<bool> {
-        let address = ain_contracts::dst20_address_from_token_id(token_id)?;
-        debug!(
-            "[is_dst20_deployed_or_queued] Fetching address {:#?}",
-            address
-        );
-
-        let backend = self.core.get_latest_block_backend()?;
-        // Address already deployed
-        match backend.get_account(&address) {
-            None => {}
-            Some(account) => {
-                let FixedContract { contract, .. } = get_transfer_domain_contract();
-                if account.code_hash == contract.codehash {
-                    return Ok(true);
-                }
-            }
-        }
-
-        let deploy_tx = QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-            name: String::from(name),
-            symbol: String::from(symbol),
-            token_id,
-            address,
-        }));
-
-        let is_queued = self.core.tx_queues.get(queue_id)?.is_queued(&deploy_tx);
-
-        Ok(is_queued)
     }
 
     ///
