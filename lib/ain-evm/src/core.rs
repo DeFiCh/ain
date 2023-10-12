@@ -220,7 +220,7 @@ impl EVMCoreService {
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
                 nonce: genesis.nonce.unwrap_or_default(),
-                timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
+                timestamp: u64::try_from(genesis.timestamp.unwrap_or_default())?,
                 difficulty: genesis.difficulty.unwrap_or_default(),
                 base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
             },

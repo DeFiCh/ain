@@ -509,7 +509,7 @@ fn unsafe_construct_block_in_q(
             failed_transactions,
             total_burnt_fees,
             total_priority_fees,
-            block_number: block_number.as_u64(),
+            block_number: u64::try_from(block_number)?,
         })
     }
 }
