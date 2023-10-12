@@ -341,6 +341,11 @@ impl BlockTemplate {
             .map_or(Bloom::default(), |tx_item| tx_item.logs_bloom)
     }
 
+    pub fn get_block_base_fee_per_gas(&self) -> U256 {
+        let data = self.data.lock();
+        data.vicinity.block_base_fee_per_gas
+    }
+
     pub fn get_block_number(&self) -> U256 {
         let data = self.data.lock();
         data.vicinity.block_number

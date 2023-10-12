@@ -547,6 +547,26 @@ impl EVMServices {
         Ok(template_id)
     }
 
+    unsafe fn verify_tx_fees_in_block_template(
+        &self,
+        template_id: u64,
+        tx: &ExecuteTx,
+    ) -> Result<()> {
+        if let ExecuteTx::SignedTx(signed_tx) = tx {
+            let block_template = self.core.block_templates.get(template_id)?;
+            let base_fee_per_gas = block_template.get_block_base_fee_per_gas();
+
+            let tx_gas_price = signed_tx.gas_price();
+            if tx_gas_price < base_fee_per_gas {
+                return Err(format_err!(
+                    "tx gas price per gas is lower than block base fee per gas"
+                )
+                .into());
+            }
+        }
+        Ok(())
+    }
+
     ///
     /// # Safety
     ///
@@ -559,6 +579,7 @@ impl EVMServices {
         tx: ExecuteTx,
         hash: XHash,
     ) -> Result<()> {
+        self.verify_tx_fees_in_block_template(template_id, &tx)?;
         let tx_update = self.update_block_template_state_from_tx(template_id, tx.clone())?;
         let tx_hash = tx_update.tx.hash();
 
