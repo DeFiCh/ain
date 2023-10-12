@@ -243,7 +243,7 @@ impl BlockStore {
                 .or(U256::from_str_radix(s, 16))
                 .unwrap_or_else(|_| U256::zero())
         };
-        let s_to_h256 = |s: &str| H256::from_str(&s).unwrap_or(H256::zero());
+        let s_to_h256 = |s: &str| H256::from_str(s).unwrap_or(H256::zero());
 
         match arg {
             DumpArg::All => {

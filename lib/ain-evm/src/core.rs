@@ -220,7 +220,7 @@ impl EVMCoreService {
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
                 nonce: genesis.nonce.unwrap_or_default(),
-                timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
+                timestamp: u64::try_from(genesis.timestamp.unwrap_or_default())?,
                 difficulty: genesis.difficulty.unwrap_or_default(),
                 base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
             },
@@ -431,19 +431,6 @@ impl EVMCoreService {
                 max_prepay_fee,
             },
         ))
-    }
-
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_total_gas_used(&self, queue_id: u64) -> String {
-        let res = self
-            .tx_queues
-            .get_total_gas_used_in(queue_id)
-            .unwrap_or_default();
-        format!("{:064x}", res)
     }
 
     /// Validates a raw transfer domain tx.
@@ -783,17 +770,6 @@ impl EVMCoreService {
             .tx_queues
             .remove_txs_above_hash_in(queue_id, target_hash)?;
         Ok(hashes)
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        let target_block = self.tx_queues.get_target_block_in(queue_id)?;
-        Ok(target_block)
     }
 
     /// Retrieves the next valid nonce for the specified account within a particular queue.
