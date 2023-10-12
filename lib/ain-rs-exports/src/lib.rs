@@ -109,6 +109,7 @@ pub mod ffi {
         pub from: String,
         pub to: String,
         pub native_address: String,
+        pub pubkey: String,
         pub direction: bool,
         pub value: u64,
         pub token_id: u32,

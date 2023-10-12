@@ -19,11 +19,11 @@ constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_PCT =
 constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT =
     "At least 50%% of the minimum required collateral must be in DFI or DUSD";
 
-Res HasAuth(const CTransaction &tx,
-            const CCoinsViewCache &coins,
-            const CScript &auth,
-            AuthStrategy strategy,
-            AuthFlags::Type flags) {
+ResVal<CPubKey> HasAuth(const CTransaction &tx,
+                        const CCoinsViewCache &coins,
+                        const CScript &auth,
+                        AuthStrategy strategy,
+                        AuthFlags::Type flags) {
     for (const auto &input : tx.vin) {
         const Coin &coin = coins.AccessCoin(input.prevout);
         if (coin.IsSpent()) {
@@ -31,7 +31,7 @@ Res HasAuth(const CTransaction &tx,
         }
         if (strategy == AuthStrategy::DirectPubKeyMatch) {
             if (coin.out.scriptPubKey == auth) {
-                return Res::Ok();
+                return {{}, Res::Ok()};
             }
         } else if (strategy == AuthStrategy::Mapped) {
             std::vector<TBytes> vRet;
@@ -43,7 +43,7 @@ Res HasAuth(const CTransaction &tx,
                     const auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
                     const auto scriptOut = GetScriptForDestination(PKHash(pubkey));
                     if (script == auth && coin.out.scriptPubKey == scriptOut) {
-                        return Res::Ok();
+                        return {pubkey, Res::Ok()};
                     }
                 }
             } else if (flags & AuthFlags::Bech32InSource && solution == txnouttype::TX_WITNESS_V0_KEYHASH) {
@@ -52,7 +52,7 @@ Res HasAuth(const CTransaction &tx,
                 if (pubkey.Decompress()) {
                     auto script = GetScriptForDestination(WitnessV16EthHash(pubkey));
                     if (script == auth && coin.out.scriptPubKey == scriptOut) {
-                        return Res::Ok();
+                        return {pubkey, Res::Ok()};
                     }
                 }
             }

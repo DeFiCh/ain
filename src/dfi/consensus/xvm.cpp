@@ -153,7 +153,12 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
         }
         context.from = EncodeDestination(dest);
 
-        return HasAuth(tx, coins, src.address);
+        auto resVal = HasAuth(tx, coins, src.address);
+        if (resVal) {
+            context.pubkey = HexStr(resVal->begin(), resVal->end());
+        }
+
+        return resVal;
 
     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
         if (!config.evmToDvmEnabled) {
@@ -183,7 +188,13 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
                 authType = static_cast<AuthFlags::Type>(authType | AuthFlags::Bech32InSource);
             }
         }
-        return HasAuth(tx, coins, src.address, AuthStrategy::Mapped, authType);
+
+        const auto resVal = HasAuth(tx, coins, src.address, AuthStrategy::Mapped, authType);
+        if (resVal) {
+            context.pubkey = HexStr(resVal->begin(), resVal->end());
+        }
+
+        return resVal;
     }
 
     return DeFiErrors::TransferDomainUnknownEdge();

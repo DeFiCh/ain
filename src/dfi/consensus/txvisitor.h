@@ -17,6 +17,7 @@ struct CCreateProposalMessage;
 class CCustomCSView;
 struct CLoanSchemeData;
 class CPoolPair;
+class CPubKey;
 class CScript;
 class CScopedQueueID;
 class CTokenImplementation;
@@ -40,11 +41,11 @@ enum Type : uint32_t {
 };
 }
 
-Res HasAuth(const CTransaction &tx,
-            const CCoinsViewCache &coins,
-            const CScript &auth,
-            AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch,
-            AuthFlags::Type flags = AuthFlags::None);
+ResVal<CPubKey> HasAuth(const CTransaction &tx,
+                        const CCoinsViewCache &coins,
+                        const CScript &auth,
+                        AuthStrategy strategy = AuthStrategy::DirectPubKeyMatch,
+                        AuthFlags::Type flags = AuthFlags::None);
 Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins, CScript &script);
 
 class CCustomTxVisitor {
