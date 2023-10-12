@@ -70,5 +70,6 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr);
 rust::string getClientVersion();
 int32_t getNumCores();
 rust::string getCORSAllowedOrigin();
+int32_t getNumConnections();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

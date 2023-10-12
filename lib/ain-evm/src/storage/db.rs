@@ -1,5 +1,7 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
+    iter::Iterator,
     marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
@@ -8,7 +10,10 @@ use std::{
 use bincode;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
-use rocksdb::{BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, Options, DB};
+use rocksdb::{
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, IteratorMode,
+    Options, DB,
+};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{log::LogIndex, receipt::Receipt, Result};
@@ -95,6 +100,13 @@ impl Rocks {
     fn delete_cf(&self, cf: &ColumnFamily, key: &[u8]) -> Result<()> {
         self.0.delete_cf(cf, key)?;
         Ok(())
+    }
+
+    pub fn iterator_cf<C>(&self, cf: &ColumnFamily, iterator_mode: IteratorMode) -> DBIterator
+    where
+        C: Column,
+    {
+        self.0.iterator_cf(cf, iterator_mode)
     }
 
     pub fn flush(&self) -> Result<()> {
@@ -209,9 +221,11 @@ impl ColumnName for columns::CodeMap {
 // Column trait. Define associated index type
 //
 pub trait Column {
-    type Index;
+    type Index: Debug;
 
     fn key(index: &Self::Index) -> Vec<u8>;
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index;
 }
 
 //
@@ -224,6 +238,10 @@ impl Column for columns::Transactions {
     fn key(index: &Self::Index) -> Vec<u8> {
         index.as_bytes().to_vec()
     }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        Self::Index::from_slice(&raw_key)
+    }
 }
 
 impl Column for columns::Blocks {
@@ -234,6 +252,10 @@ impl Column for columns::Blocks {
         index.to_big_endian(&mut bytes);
         bytes.to_vec()
     }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        Self::Index::from(&*raw_key)
+    }
 }
 
 impl Column for columns::Receipts {
@@ -242,6 +264,10 @@ impl Column for columns::Receipts {
     fn key(index: &Self::Index) -> Vec<u8> {
         index.to_fixed_bytes().to_vec()
     }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        Self::Index::from_slice(&raw_key)
+    }
 }
 impl Column for columns::BlockMap {
     type Index = H256;
@@ -249,13 +275,21 @@ impl Column for columns::BlockMap {
     fn key(index: &Self::Index) -> Vec<u8> {
         index.to_fixed_bytes().to_vec()
     }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        Self::Index::from_slice(&raw_key)
+    }
 }
 
 impl Column for columns::LatestBlockNumber {
-    type Index = ();
+    type Index = &'static str;
 
     fn key(_index: &Self::Index) -> Vec<u8> {
         b"latest".to_vec()
+    }
+
+    fn get_key(_raw_key: Box<[u8]>) -> Self::Index {
+        "latest"
     }
 }
 
@@ -267,6 +301,10 @@ impl Column for columns::AddressLogsMap {
         index.to_big_endian(&mut bytes);
         bytes.to_vec()
     }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        Self::Index::from(&*raw_key)
+    }
 }
 
 impl Column for columns::CodeMap {
@@ -275,13 +313,17 @@ impl Column for columns::CodeMap {
     fn key(index: &Self::Index) -> Vec<u8> {
         index.to_fixed_bytes().to_vec()
     }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        H256::from_slice(&raw_key)
+    }
 }
 
 //
 // TypedColumn trait. Define associated value type
 //
 pub trait TypedColumn: Column {
-    type Type: Serialize + DeserializeOwned;
+    type Type: Serialize + DeserializeOwned + Debug;
 }
 
 //
@@ -333,5 +375,26 @@ where
 
     pub fn delete(&self, key: &C::Index) -> Result<()> {
         self.backend.delete_cf(self.handle(), &C::key(key))
+    }
+
+    pub fn iter(
+        &self,
+        from: Option<C::Index>,
+        limit: usize,
+    ) -> impl Iterator<Item = (C::Index, C::Type)> + '_ {
+        let index = from.as_ref().map(|i| C::key(i)).unwrap_or_default();
+        let iterator_mode = from.map_or(IteratorMode::Start, |_| {
+            IteratorMode::From(&index, rocksdb::Direction::Forward)
+        });
+        self.backend
+            .iterator_cf::<C>(self.handle(), iterator_mode)
+            .filter_map(|k| {
+                k.ok().and_then(|(k, v)| {
+                    let value = bincode::deserialize(&v).ok()?;
+                    let key = C::get_key(k);
+                    Some((key, value))
+                })
+            })
+            .take(limit)
     }
 }

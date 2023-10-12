@@ -147,43 +147,6 @@ impl TransactionQueueMap {
             .and_then(|res| res)
     }
 
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_txs_cloned_in(&self, queue_id: u64) -> Result<Vec<QueueTxItem>> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_queue_txs_cloned)
-    }
-
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_total_gas_used_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_total_gas_used)
-    }
-
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_target_block)
-    }
-
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_timestamp_in(&self, queue_id: u64) -> Result<u64> {
-        self.with_transaction_queue(queue_id, TransactionQueue::get_timestamp)
-    }
-
     /// # Safety
     ///
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
@@ -321,14 +284,6 @@ impl TransactionQueue {
 
     pub fn get_queue_txs_cloned(&self) -> Vec<QueueTxItem> {
         self.data.lock().transactions.clone()
-    }
-
-    pub fn get_total_gas_used(&self) -> U256 {
-        self.data.lock().total_gas_used
-    }
-
-    pub fn get_target_block(&self) -> U256 {
-        self.data.lock().target_block
     }
 
     pub fn get_timestamp(&self) -> u64 {

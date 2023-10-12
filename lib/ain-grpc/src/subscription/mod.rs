@@ -2,13 +2,13 @@ pub mod eth;
 pub mod params;
 pub mod sync_status;
 
-use crate::block::RpcBlockHeader;
 use ethereum_types::H256;
 use jsonrpsee::core::traits::IdProvider;
 use serde::{Serialize, Serializer};
 
-use crate::receipt::LogResult;
-use crate::subscription::sync_status::PubSubSyncStatus;
+use crate::{
+    block::RpcBlockHeader, receipt::LogResult, subscription::sync_status::PubSubSyncStatus,
+};
 
 /// Subscription result.
 #[derive(Clone, Debug, Eq, PartialEq)]

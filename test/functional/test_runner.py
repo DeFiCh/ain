@@ -203,6 +203,7 @@ BASE_SCRIPTS = [
     "feature_consortium.py",
     "interface_http.py",
     "interface_http_cors.py",
+    "interface_http_cors_wildcard.py",
     "interface_rpc.py",
     "rpc_psbt.py",
     "rpc_users.py",
