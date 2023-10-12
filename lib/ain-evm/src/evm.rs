@@ -538,11 +538,13 @@ impl EVMServices {
             total_gas_used: U256::zero(),
             vicinity: Vicinity {
                 beneficiary,
-                timestamp: U256::from(timestamp),
                 block_number: target_block,
-                block_base_fee_per_gas,
+                timestamp: U256::from(timestamp),
+                total_gas_used: U256::zero(),
                 block_difficulty,
                 block_gas_limit,
+                block_base_fee_per_gas,
+                block_randomness: None,
                 ..Vicinity::default()
             },
             parent_hash,

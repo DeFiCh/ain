@@ -30,7 +30,6 @@ pub struct Vicinity {
     pub beneficiary: H160,
     pub block_number: U256,
     pub timestamp: U256,
-    pub gas_limit: U256,
     pub total_gas_used: U256,
     pub block_difficulty: U256,
     pub block_gas_limit: U256,
@@ -139,11 +138,9 @@ impl EVMBackend {
         self.state.root().into()
     }
 
-    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx, base_fee: U256) {
+    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
         self.vicinity = Vicinity {
             origin: tx.sender,
-            gas_price: tx.effective_gas_price(base_fee),
-            gas_limit: tx.gas_limit(),
             ..self.vicinity
         };
     }

@@ -251,7 +251,15 @@ impl EVMCoreService {
             transaction_type,
         } = arguments;
 
-        let (state_root, block_number, beneficiary, base_fee, timestamp) = self
+        let (
+            state_root,
+            block_number,
+            beneficiary,
+            base_fee,
+            timestamp,
+            block_difficulty,
+            block_gas_limit,
+        ) = self
             .storage
             .get_block_by_number(&block_number)?
             .map(|block| {
@@ -261,6 +269,8 @@ impl EVMCoreService {
                     block.header.beneficiary,
                     block.header.base_fee,
                     block.header.timestamp,
+                    block.header.difficulty,
+                    block.header.gas_limit,
                 )
             })
             .unwrap_or_default();
@@ -270,20 +280,20 @@ impl EVMCoreService {
         );
         debug!("[call] caller: {:?}", caller);
         let vicinity = Vicinity {
-            block_number,
-            origin: caller.unwrap_or_default(),
-            gas_limit: U256::from(gas_limit),
-            total_gas_used: U256::zero(),
-            block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
             gas_price: if transaction_type == Some(U256::from(2)) {
                 max_fee_per_gas.unwrap_or_default()
             } else {
                 gas_price.unwrap_or_default()
             },
+            origin: caller.unwrap_or_default(),
             beneficiary,
-            block_base_fee_per_gas: base_fee,
+            block_number,
             timestamp: U256::from(timestamp),
-            ..Vicinity::default()
+            total_gas_used: U256::zero(),
+            block_difficulty,
+            block_gas_limit,
+            block_base_fee_per_gas: base_fee,
+            block_randomness: None,
         };
         debug!("[call] vicinity: {:?}", vicinity);
 
@@ -929,6 +939,8 @@ impl EVMCoreService {
         )
     }
 
+    // Note that backend instance returned is only suitable for getting state information,
+    // and unsuitable for EVM execution.
     pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
         trace!("[get_backend] state_root : {:#x}", state_root);
         EVMBackend::from_root(
