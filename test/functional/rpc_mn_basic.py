@@ -77,6 +77,10 @@ class MasternodesRpcBasicTest(DefiTestFramework):
 
         # Create node0
         self.nodes[0].generate(1)
+
+        # Save start block for revert
+        start_block = self.nodes[0].getblockcount()
+
         collateral1 = self.nodes[1].getnewaddress("", "legacy")
         assert_raises_rpc_error(
             -8,
@@ -293,6 +297,40 @@ class MasternodesRpcBasicTest(DefiTestFramework):
         assert_equal(self.nodes[0].listmasternodes()[mnTx]["state"], "PRE_RESIGNED")
         self.nodes[0].generate(1)
         assert_equal(self.nodes[0].listmasternodes()[mnTx]["state"], "RESIGNED")
+
+        # Rollback to the start
+        self.rollback_to(start_block)
+
+        # Generate separate owner and operator address
+        owner = self.nodes[0].getnewaddress("", "legacy")
+        operator = self.nodes[0].getnewaddress("", "legacy")
+
+        # Create masternode
+        id = self.nodes[0].createmasternode(owner, operator)
+        self.nodes[0].generate(1)
+
+        # Try and get MN with invalid string
+        assert_raises_rpc_error(
+            -5,
+            "Masternode not found",
+            self.nodes[0].getmasternode,
+            "notanid",
+        )
+
+        # Get masternode by ID
+        node = self.nodes[0].getmasternode(id)[id]
+        assert_equal(node["ownerAuthAddress"], owner)
+        assert_equal(node["operatorAuthAddress"], operator)
+
+        # Get masternode by owner
+        node = self.nodes[0].getmasternode(owner)[id]
+        assert_equal(node["ownerAuthAddress"], owner)
+        assert_equal(node["operatorAuthAddress"], operator)
+
+        # Get masternode by operator
+        node = self.nodes[0].getmasternode(operator)[id]
+        assert_equal(node["ownerAuthAddress"], owner)
+        assert_equal(node["operatorAuthAddress"], operator)
 
 
 if __name__ == "__main__":
