@@ -238,11 +238,6 @@ impl EVMServices {
         })
     }
 
-    pub fn get_block_limit(&self) -> Result<u64> {
-        let res = self.storage.get_attributes_or_default()?;
-        Ok(res.block_gas_limit)
-    }
-
     ///
     /// # Safety
     ///
@@ -582,25 +577,6 @@ impl EVMServices {
         self.filters.add_tx_to_filters(tx_hash);
 
         Ok(())
-    }
-
-    pub fn verify_tx_fees(&self, tx: &str) -> Result<U256> {
-        trace!("[verify_tx_fees] raw transaction : {:#?}", tx);
-        let signed_tx = self
-            .core
-            .signed_tx_cache
-            .try_get_or_create(tx)
-            .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
-        trace!("[verify_tx_fees] signed_tx : {:#?}", signed_tx);
-
-        let block_fee = self.block.calculate_next_block_base_fee()?;
-        let tx_gas_price = signed_tx.gas_price();
-        if tx_gas_price < block_fee {
-            trace!("[verify_tx_fees] tx gas price is lower than block base fee");
-            return Err(format_err!("tx gas price is lower than block base fee").into());
-        }
-
-        Ok(block_fee)
     }
 
     ///
