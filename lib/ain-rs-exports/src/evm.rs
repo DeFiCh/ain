@@ -43,7 +43,7 @@ use crate::{
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
 #[ffi_fallible]
-fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateTxResult> {
+fn evm_try_create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateTxResult> {
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
     } else {
@@ -90,7 +90,7 @@ fn create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi::CreateT
 ///
 /// Returns the signed transaction encoded as a byte vector on success.
 #[ffi_fallible]
-fn create_and_sign_transfer_domain_tx(
+fn evm_try_create_and_sign_transfer_domain_tx(
     ctx: ffi::CreateTransferDomainContext,
 ) -> Result<ffi::CreateTxResult> {
     let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
@@ -165,7 +165,7 @@ fn create_and_sign_transfer_domain_tx(
 }
 
 #[ffi_fallible]
-fn store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
+fn evm_try_store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
     let from_address = from_address
         .parse::<H160>()
         .map_err(|_| "Invalid address")?;
@@ -190,7 +190,7 @@ fn store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
 ///
 /// Returns the balance of the account as a `u64` on success.
 #[ffi_fallible]
-fn get_balance(address: &str) -> Result<u64> {
+fn evm_try_get_balance(address: &str) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
     let (_, latest_block_number) = SERVICES
         .evm
@@ -237,7 +237,7 @@ fn unsafe_update_state_in_template(template_id: u64, mnview_ptr: usize) -> Resul
 ///
 /// Returns the next valid nonce of the account in a specific template_id as a `u64`
 #[ffi_fallible]
-fn unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> Result<u64> {
+fn evm_try_unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe {
@@ -258,7 +258,7 @@ fn unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> R
 /// * `template_id` - The template ID.
 /// * `target_hash` - The native hash of the tx to be targeted and removed.
 #[ffi_fallible]
-fn unsafe_remove_txs_above_hash_in_template(
+fn evm_try_unsafe_remove_txs_above_hash_in_template(
     template_id: u64,
     target_hash: String,
 ) -> Result<Vec<String>> {
@@ -278,7 +278,7 @@ fn unsafe_remove_txs_above_hash_in_template(
 /// * `raw_tx` - The raw transparent transferdomain tx.
 /// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
-fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
+fn evm_try_unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -306,7 +306,7 @@ fn unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &
 /// * `raw_tx` - The raw transparent transferdomain tx.
 /// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
-fn unsafe_sub_balance_in_template(
+fn evm_try_unsafe_sub_balance_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
@@ -355,7 +355,7 @@ fn unsafe_sub_balance_in_template(
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) -> Result<()> {
+fn evm_try_unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_template]");
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, template_id)?;
@@ -386,7 +386,7 @@ fn unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) -> Result<
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn unsafe_validate_transferdomain_tx_in_template(
+fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     template_id: u64,
     raw_tx: &str,
     context: ffi::TransferDomainInfo,
@@ -415,7 +415,7 @@ fn unsafe_validate_transferdomain_tx_in_template(
 ///
 /// Returns the EVM template ID as a `u64`.
 #[ffi_fallible]
-fn unsafe_create_template(
+fn evm_try_unsafe_create_template(
     dvm_block: u64,
     miner_address: &str,
     difficulty: u32,
@@ -443,7 +443,7 @@ fn unsafe_create_template(
 /// * `template_id` - The template ID.
 ///
 #[ffi_fallible]
-fn unsafe_remove_template(template_id: u64) -> Result<()> {
+fn evm_try_unsafe_remove_template(template_id: u64) -> Result<()> {
     unsafe { SERVICES.evm.core.remove_block_template(template_id) }
     Ok(())
 }
@@ -463,7 +463,7 @@ fn unsafe_remove_template(template_id: u64) -> Result<()> {
 /// - The block template does not exists.
 ///
 #[ffi_fallible]
-fn unsafe_push_tx_in_template(
+fn evm_try_unsafe_push_tx_in_template(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
@@ -501,7 +501,7 @@ fn unsafe_push_tx_in_template(
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 #[ffi_fallible]
-fn unsafe_construct_block_in_template(template_id: u64) -> Result<ffi::FinalizeBlockCompletion> {
+fn evm_try_unsafe_construct_block_in_template(template_id: u64) -> Result<ffi::FinalizeBlockCompletion> {
     unsafe {
         let FinalizedBlockInfo {
             block_hash,
@@ -522,18 +522,18 @@ fn unsafe_construct_block_in_template(template_id: u64) -> Result<ffi::FinalizeB
 }
 
 #[ffi_fallible]
-fn unsafe_commit_block(template_id: u64) -> Result<()> {
+fn evm_try_unsafe_commit_block(template_id: u64) -> Result<()> {
     unsafe { SERVICES.evm.commit_block(template_id) }
 }
 
 #[ffi_fallible]
-fn disconnect_latest_block() -> Result<()> {
+fn evm_try_disconnect_latest_block() -> Result<()> {
     SERVICES.evm.core.clear_account_nonce();
     SERVICES.evm.storage.disconnect_latest_block()
 }
 
 #[ffi_fallible]
-fn handle_attribute_apply(
+fn evm_try_handle_attribute_apply(
     _template_id: u64,
     _attribute_type: ffi::GovVarKeyDataStructure,
     _value: Vec<u8>,
@@ -551,7 +551,7 @@ fn handle_attribute_apply(
 ///
 /// Returns the blockhash associated with the given block number.
 #[ffi_fallible]
-fn get_block_hash_by_number(height: u64) -> Result<XHash> {
+fn evm_try_get_block_hash_by_number(height: u64) -> Result<XHash> {
     let block = SERVICES
         .evm
         .storage
@@ -570,7 +570,7 @@ fn get_block_hash_by_number(height: u64) -> Result<XHash> {
 ///
 /// Returns the block number associated with the given blockhash.
 #[ffi_fallible]
-fn get_block_number_by_hash(hash: &str) -> Result<u64> {
+fn evm_try_get_block_number_by_hash(hash: &str) -> Result<u64> {
     let hash = hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
     let block = SERVICES
@@ -583,7 +583,7 @@ fn get_block_number_by_hash(hash: &str) -> Result<u64> {
 }
 
 #[ffi_fallible]
-fn get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
+fn evm_try_get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
     let hash = hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
     let block = SERVICES
@@ -615,7 +615,7 @@ fn get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
 }
 
 #[ffi_fallible]
-fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
+fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
     let tx_hash = tx_hash.parse::<H256>().map_err(|_| "Invalid hash")?;
 
     let tx = SERVICES
@@ -676,7 +676,7 @@ fn get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
-fn create_dst20(
+fn evm_try_create_dst20(
     template_id: u64,
     native_hash: &str,
     name: &str,
@@ -702,7 +702,7 @@ fn create_dst20(
 }
 
 #[ffi_fallible]
-fn unsafe_bridge_dst20(
+fn evm_try_unsafe_bridge_dst20(
     template_id: u64,
     raw_tx: &str,
     native_hash: &str,
@@ -738,7 +738,7 @@ fn unsafe_bridge_dst20(
 ///
 /// Returns the transaction's hash
 #[ffi_fallible]
-fn get_tx_hash(raw_tx: &str) -> Result<String> {
+fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -757,7 +757,7 @@ fn get_tx_hash(raw_tx: &str) -> Result<String> {
 ///
 /// Returns `true` if the address is a contract, `false` otherwise
 #[ffi_fallible]
-fn unsafe_is_smart_contract_in_template(address: &str, template_id: u64) -> Result<bool> {
+fn evm_try_unsafe_is_smart_contract_in_template(address: &str, template_id: u64) -> Result<bool> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe {
@@ -768,7 +768,7 @@ fn unsafe_is_smart_contract_in_template(address: &str, template_id: u64) -> Resu
 }
 
 #[ffi_fallible]
-fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
+fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -791,7 +791,7 @@ fn get_tx_miner_info_from_raw_tx(raw_tx: &str) -> Result<TxMinerInfo> {
 }
 
 #[ffi_fallible]
-fn dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
+fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
