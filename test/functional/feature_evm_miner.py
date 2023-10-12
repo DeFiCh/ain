@@ -234,6 +234,65 @@ class EVMTest(DefiTestFramework):
             )
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
 
+    def varying_block_base_fee(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        # mine a full block
+        for i in range(17):
+            # tx call actual used gas: 1_761_626
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        tx_fee = 10_000_000_000
+        tx = {
+            "nonce": hex(nonce),
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gas": "0x5209",
+            "gasPrice": hex(tx_fee),  # 10_000_000_000
+        }
+        hash = self.nodes[0].eth_sendTransaction(tx)
+        # Should not make it into the block
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"]), 1)
+        # Should make it into the block
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"]), 2)
+        tx_info = block_info["tx"][1]
+        assert_equal(tx_info["vm"]["msg"]["hash"], hash[2:])
+
     def blocks_size_gas_limit_with_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
@@ -846,6 +905,9 @@ class EVMTest(DefiTestFramework):
 
         # Test mining multiple full blocks
         self.multiple_blocks_size_gas_limit()
+
+        # Test mining txs into blocks with varying block fees
+        self.varying_block_base_fee()
 
         # Test mining full block with transferdomain txs
         self.blocks_size_gas_limit_with_transferdomain_txs()
