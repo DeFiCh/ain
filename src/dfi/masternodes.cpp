@@ -1199,7 +1199,7 @@ bool CCustomCSView::AreTokensLocked(const std::set<uint32_t> &tokenIds) const {
 }
 
 std::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const std::string &str, DCT_ID &id) const {
-    std::string const key = trim_ws(str);
+    const std::string key = trim_ws(str);
 
     if (key.empty()) {
         id = DCT_ID{0};

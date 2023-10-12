@@ -254,7 +254,7 @@ UniValue updatetoken(const JSONRPCRequest &request) {
 
     /// @todo RPCTypeCheckObj or smth to help with option's names and old/new tx type
 
-    std::string const tokenStr = trim_ws(request.params[0].getValStr());
+    const std::string tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
     const UniValue &txInputs = request.params[2];
 
@@ -670,7 +670,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         const auto &consensus = Params().GetConsensus();
         const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
         auto res = ApplyCustomTx(mnview,
                                  view,
                                  *tx,
@@ -679,7 +679,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
                                  0,
                                  nullptr,
                                  0,
-                                 evmQueueId,
+                                 evmTemplateId,
                                  isEvmEnabledForBlock,
                                  false);
 

@@ -7,7 +7,7 @@ use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    evm::ReceiptAndOptionalContractAddress,
+    blocktemplate::ReceiptAndOptionalContractAddress,
     storage::{traits::ReceiptStorage, Storage},
     transaction::SignedTx,
     Result,

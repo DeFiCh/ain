@@ -26,10 +26,24 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             }
 
             govVar->time = time;
-            govVar->evmQueueId = evmQueueId;
+            govVar->evmTemplateId = evmTemplateId;
 
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-            assert(newVar);
+            if (!newVar) {
+                return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+            }
+
+            if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
+                res = newVar->CheckKeys();
+                if (!res) {
+                    return res;
+                }
+
+                const auto newExport = newVar->Export();
+                if (newExport.empty()) {
+                    return Res::Err("Cannot export empty attribute map");
+                }
+            }
 
             CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
             auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
@@ -165,6 +179,23 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
         auto govVar = mnview.GetAttributes();
         if (!govVar) {
             return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
+        }
+
+        if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
+            auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(obj.govVar);
+            if (!newVar) {
+                return Res::Err("Failed to cast Gov var to ATTRIBUTES");
+            }
+
+            auto res = newVar->CheckKeys();
+            if (!res) {
+                return res;
+            }
+
+            const auto newExport = newVar->Export();
+            if (newExport.empty()) {
+                return Res::Err("Cannot export empty attribute map");
+            }
         }
 
         auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
