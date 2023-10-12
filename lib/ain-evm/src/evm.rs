@@ -174,7 +174,9 @@ impl EVMServices {
         for template_tx in template.transactions.clone() {
             all_transactions.push(template_tx.tx);
             receipts_v3.push(template_tx.receipt_v3);
-            total_gas_fees += template_tx.gas_fees;
+            total_gas_fees = total_gas_fees
+                .checked_add(template_tx.gas_fees)
+                .ok_or_else(|| format_err!("calculate total gas fees failed from overflow"))?;
         }
 
         let total_burnt_fees = template.total_gas_used * base_fee;
