@@ -23,15 +23,15 @@ fn is_empty_account(account: &Account) -> bool {
     account.balance.is_zero() && account.nonce.is_zero() && account.code_hash.is_zero()
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Vicinity {
     pub gas_price: U256,
     pub origin: H160,
     pub beneficiary: H160,
     pub block_number: U256,
     pub timestamp: U256,
-    pub gas_limit: U256,
     pub total_gas_used: U256,
+    pub block_difficulty: U256,
     pub block_gas_limit: U256,
     pub block_base_fee_per_gas: U256,
     pub block_randomness: Option<H256>,
@@ -138,11 +138,9 @@ impl EVMBackend {
         self.state.root().into()
     }
 
-    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx, base_fee: U256) {
+    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
         self.vicinity = Vicinity {
             origin: tx.sender,
-            gas_price: tx.effective_gas_price(base_fee),
-            gas_limit: tx.gas_limit(),
             ..self.vicinity
         };
     }
@@ -301,7 +299,7 @@ impl Backend for EVMBackend {
     }
 
     fn block_difficulty(&self) -> U256 {
-        U256::zero()
+        self.vicinity.block_difficulty
     }
 
     fn block_randomness(&self) -> Option<H256> {

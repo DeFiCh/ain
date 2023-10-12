@@ -26,7 +26,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             }
 
             govVar->time = time;
-            govVar->evmQueueId = evmQueueId;
+            govVar->evmTemplateId = evmTemplateId;
 
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
             if (!newVar) {
