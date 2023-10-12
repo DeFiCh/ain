@@ -109,12 +109,12 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
     static const std::map<uint8_t, std::string> params{
-            {ParamIDs::DFIP2201,   "dfip2201"  },
-            {ParamIDs::DFIP2203,   "dfip2203"  },
-            {ParamIDs::DFIP2206A,  "dfip2206a" },
-            {ParamIDs::DFIP2206F,  "dfip2206f" },
-            {ParamIDs::Feature,    "feature"   },
-            {ParamIDs::Foundation, "foundation"},
+        {ParamIDs::DFIP2201,   "dfip2201"  },
+        {ParamIDs::DFIP2203,   "dfip2203"  },
+        {ParamIDs::DFIP2206A,  "dfip2206a" },
+        {ParamIDs::DFIP2206F,  "dfip2206f" },
+        {ParamIDs::Feature,    "feature"   },
+        {ParamIDs::Foundation, "foundation"},
     };
     return params;
 }
@@ -136,7 +136,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedLocksIDs() {
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayLocksIDs() {
     static const std::map<uint8_t, std::string> params{
-            {ParamIDs::TokenID, "token"},
+        {ParamIDs::TokenID, "token"},
     };
     return params;
 }
@@ -1171,7 +1171,9 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         typeKey = itype->second;
 
         auto res = CheckValidAttrV0Key(type, typeId, typeKey);
-        if (!res) return res;
+        if (!res) {
+            return res;
+        }
 
         if (type == AttributeTypes::Param && (typeId == ParamIDs::DFIP2203 || typeId == ParamIDs::DFIP2206F)) {
             if (typeKey == DFIPKeys::BlockPeriod || typeKey == DFIPKeys::StartBlock) {
@@ -1563,10 +1565,11 @@ Res ATTRIBUTES::CheckKeys() const {
         }
 
         // Check key - Locks and Oracles have height int keys so skip.
-        if (attrV0->type != AttributeTypes::Locks &&
-            attrV0->type != AttributeTypes::Oracles) {
+        if (attrV0->type != AttributeTypes::Locks && attrV0->type != AttributeTypes::Oracles) {
             auto res = CheckValidAttrV0Key(attrV0->type, attrV0->typeId, attrV0->key);
-            if (!res) return res;
+            if (!res) {
+                return res;
+            }
         }
     }
 

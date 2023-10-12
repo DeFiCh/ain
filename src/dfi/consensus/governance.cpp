@@ -35,7 +35,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
 
             if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
                 res = newVar->CheckKeys();
-                if (!res) return res;
+                if (!res) {
+                    return res;
+                }
 
                 const auto newExport = newVar->Export();
                 if (newExport.empty()) {
@@ -186,7 +188,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
             }
 
             auto res = newVar->CheckKeys();
-            if (!res) return res;
+            if (!res) {
+                return res;
+            }
 
             const auto newExport = newVar->Export();
             if (newExport.empty()) {
