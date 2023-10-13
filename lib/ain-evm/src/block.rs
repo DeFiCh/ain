@@ -28,6 +28,7 @@ pub struct FeeHistoryData {
 }
 
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
+pub const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 
 impl BlockService {
     pub fn new(storage: Arc<Storage>) -> Result<Self> {
@@ -76,6 +77,7 @@ impl BlockService {
         parent_base_fee: U256,
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
+        max_base_fee: U256,
     ) -> Result<U256> {
         match parent_gas_used.cmp(&parent_gas_target) {
             Ordering::Equal => Ok(parent_base_fee),
@@ -87,10 +89,9 @@ impl BlockService {
                     parent_base_fee,
                     base_fee_max_change_denominator,
                 )?;
-                Ok(max(
-                    parent_base_fee.saturating_add(base_fee_per_gas_delta),
-                    initial_base_fee,
-                ))
+                Ok(parent_base_fee
+                    .saturating_add(base_fee_per_gas_delta)
+                    .min(max_base_fee))
             }
             Ordering::Less => {
                 let gas_used_delta = parent_gas_target - parent_gas_used; // sub is safe due to cmp
@@ -100,10 +101,9 @@ impl BlockService {
                     parent_base_fee,
                     base_fee_max_change_denominator,
                 )?;
-                Ok(max(
-                    parent_base_fee.saturating_sub(base_fee_per_gas_delta),
-                    initial_base_fee,
-                ))
+                Ok(parent_base_fee
+                    .saturating_sub(base_fee_per_gas_delta)
+                    .max(initial_base_fee))
             }
         }
     }
@@ -134,6 +134,7 @@ impl BlockService {
         parent_base_fee: U256,
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
+        max_base_fee: U256,
     ) -> Result<U256> {
         self.base_fee_calculation(
             parent_gas_used,
@@ -141,6 +142,7 @@ impl BlockService {
             parent_base_fee,
             base_fee_max_change_denominator,
             initial_base_fee,
+            max_base_fee,
         )
     }
 
@@ -171,6 +173,7 @@ impl BlockService {
             parent_base_fee,
             base_fee_max_change_denominator,
             INITIAL_BASE_FEE,
+            MAX_BASE_FEE,
         )
     }
 
