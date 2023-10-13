@@ -945,13 +945,19 @@ impl EVMCoreService {
 
                 let mut nonce = state_root_nonce;
                 for elem in nonce_set.range(state_root_nonce..) {
-                    if (elem - nonce) > U256::from(1) {
+                    if elem
+                        .checked_sub(nonce)
+                        .ok_or_else(|| format_err!("elem underflow"))?
+                        > U256::from(1)
+                    {
                         break;
                     } else {
                         nonce = *elem;
                     }
                 }
-                nonce += U256::from(1);
+                nonce = nonce
+                    .checked_add(U256::one())
+                    .ok_or_else(|| format_err!("Nonce overflow"))?;
                 Ok(nonce)
             }
         }

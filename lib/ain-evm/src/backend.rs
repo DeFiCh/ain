@@ -410,7 +410,10 @@ impl EVMBackend {
         let basic = self.basic(address);
 
         let new_basic = Basic {
-            balance: basic.balance + amount,
+            balance: basic
+                .balance
+                .checked_add(amount)
+                .ok_or_else(|| format_err!("Balance overflow"))?,
             ..basic
         };
 
@@ -432,7 +435,7 @@ impl EVMBackend {
             .into())
         } else {
             let new_basic = Basic {
-                balance: account.balance - amount,
+                balance: account.balance - amount, // sub is safe due to check above
                 nonce: account.nonce,
             };
 
@@ -460,6 +463,7 @@ pub enum BackendError {
     RefundUnusedGasFailed(String),
 }
 
+use anyhow::format_err;
 use std::fmt;
 
 impl fmt::Display for BackendError {

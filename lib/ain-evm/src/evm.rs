@@ -179,8 +179,13 @@ impl EVMServices {
                 .ok_or_else(|| format_err!("calculate total gas fees failed from overflow"))?;
         }
 
-        let total_burnt_fees = template.total_gas_used * base_fee;
-        let total_priority_fees = total_gas_fees - total_burnt_fees;
+        let total_burnt_fees = template
+            .total_gas_used
+            .checked_mul(base_fee)
+            .ok_or_else(|| format_err!("total_burnt_fees overflow"))?;
+        let total_priority_fees = total_gas_fees
+            .checked_sub(total_burnt_fees)
+            .ok_or_else(|| format_err!("total_priority_fees underflow"))?;
         debug!(
             "[construct_block] Total burnt fees : {:#?}",
             total_burnt_fees
@@ -227,7 +232,7 @@ impl EVMServices {
             block.header.hash(),
             block.header.number,
             base_fee,
-        );
+        )?;
         template.block_data = Some(BlockData { block, receipts });
 
         Ok(FinalizedBlockInfo {
@@ -513,7 +518,14 @@ impl EVMServices {
     ) -> Result<u64> {
         let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
             None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis block
-            Some(block) => (block.header.number + 1, block.header.state_root),
+            Some(block) => (
+                block
+                    .header
+                    .number
+                    .checked_add(U256::one())
+                    .ok_or_else(|| format_err!("Block number overflow"))?,
+                block.header.state_root,
+            ),
         };
 
         let block_difficulty = U256::from(difficulty);

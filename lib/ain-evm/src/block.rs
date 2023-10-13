@@ -80,30 +80,30 @@ impl BlockService {
         match parent_gas_used.cmp(&parent_gas_target) {
             Ordering::Equal => Ok(parent_base_fee),
             Ordering::Greater => {
-                let gas_used_delta = parent_gas_used - parent_gas_target;
+                let gas_used_delta = parent_gas_used - parent_gas_target; // sub is safe due to cmp
                 let base_fee_per_gas_delta = self.get_base_fee_per_gas_delta(
                     gas_used_delta,
                     parent_gas_target,
                     parent_base_fee,
                     base_fee_max_change_denominator,
                 )?;
-                Ok(max(
-                    parent_base_fee + base_fee_per_gas_delta,
-                    initial_base_fee,
-                ))
+                Ok(match parent_base_fee.checked_add(base_fee_per_gas_delta) {
+                    None => U256::MAX, // overflow case
+                    Some(sum) => max(sum, initial_base_fee),
+                })
             }
             Ordering::Less => {
-                let gas_used_delta = parent_gas_target - parent_gas_used;
+                let gas_used_delta = parent_gas_target - parent_gas_used; // sub is safe due to cmp
                 let base_fee_per_gas_delta = self.get_base_fee_per_gas_delta(
                     gas_used_delta,
                     parent_gas_target,
                     parent_base_fee,
                     base_fee_max_change_denominator,
                 )?;
-                Ok(max(
-                    parent_base_fee - base_fee_per_gas_delta,
-                    initial_base_fee,
-                ))
+                Ok(match parent_base_fee.checked_sub(base_fee_per_gas_delta) {
+                    None => initial_base_fee, // underflow case
+                    Some(sub) => max(sub, initial_base_fee),
+                })
             }
         }
     }
@@ -201,7 +201,9 @@ impl BlockService {
 
             blocks.push(block);
 
-            block_number -= U256::one();
+            block_number = block_number
+                .checked_sub(U256::one())
+                .ok_or_else(|| format_err!("block_number underflow"))?;
         }
 
         let oldest_block = blocks.last().unwrap().header.number;
@@ -281,10 +283,11 @@ impl BlockService {
         };
 
         // add another entry for baseFeePerGas
-        let next_block_base_fee = match self
-            .storage
-            .get_block_by_number(&(first_block + U256::one()))?
-        {
+        let next_block_base_fee = match self.storage.get_block_by_number(
+            &(first_block
+                .checked_add(U256::one())
+                .ok_or_else(|| format_err!("Block number overflow"))?),
+        )? {
             None => {
                 // get one block earlier (this should exist)
                 let block = self
@@ -368,7 +371,9 @@ impl BlockService {
             .header
             .base_fee;
 
-        Ok(base_fee + priority_fee)
+        Ok(base_fee
+            .checked_add(priority_fee)
+            .ok_or_else(|| format_err!("Legacy fee overflow"))?)
     }
 }
 

@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use std::sync::Arc;
 
 use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3};
@@ -61,8 +62,8 @@ impl ReceiptService {
         block_hash: H256,
         block_number: U256,
         base_fee: U256,
-    ) -> Vec<Receipt> {
-        let mut logs_size = 0;
+    ) -> Result<Vec<Receipt>> {
+        let mut logs_size = 0_usize;
         let mut cumulative_gas = U256::zero();
 
         transactions
@@ -76,10 +77,14 @@ impl ReceiptService {
                     | ReceiptV3::EIP1559(data) => data,
                 };
                 let logs_len = receipt_data.logs.len();
-                logs_size += logs_len;
-                cumulative_gas += receipt_data.used_gas;
+                logs_size = logs_size
+                    .checked_add(logs_len)
+                    .ok_or_else(|| format_err!("logs_size overflow"))?;
+                cumulative_gas = cumulative_gas
+                    .checked_add(receipt_data.used_gas)
+                    .ok_or_else(|| format_err!("cumulative_gas overflow"))?;
 
-                Receipt {
+                let receipt = Receipt {
                     receipt,
                     block_hash,
                     block_number,
@@ -93,10 +98,14 @@ impl ReceiptService {
                             get_contract_address(&signed_tx.sender, &signed_tx.nonce())
                         })
                     }),
-                    logs_index: logs_size - logs_len,
+                    logs_index: logs_size
+                        .checked_sub(logs_len)
+                        .ok_or_else(|| format_err!("logs_size underflow"))?,
                     cumulative_gas,
                     effective_gas_price: signed_tx.effective_gas_price(base_fee),
-                }
+                };
+
+                Ok(receipt)
             })
             .collect()
     }
