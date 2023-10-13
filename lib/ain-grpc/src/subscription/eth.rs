@@ -112,7 +112,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                                         .header
                                         .number;
                                     let starting_block = handler.block.get_starting_block_number();
-                                    let highest_block = current_block + (highest - current);
+                                    let highest_block = current_block + (highest - current); // safe since current can never be more than highest
 
                                     Ok(PubSubSyncStatus::Detailed(SyncStatusMetadata {
                                         syncing: current != highest,

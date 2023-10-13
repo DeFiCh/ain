@@ -102,7 +102,7 @@ impl ReceiptService {
                         .checked_sub(logs_len)
                         .ok_or_else(|| format_err!("logs_size underflow"))?,
                     cumulative_gas,
-                    effective_gas_price: signed_tx.effective_gas_price(base_fee),
+                    effective_gas_price: signed_tx.effective_gas_price(base_fee)?,
                 };
 
                 Ok(receipt)

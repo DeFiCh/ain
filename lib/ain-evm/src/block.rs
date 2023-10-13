@@ -218,7 +218,7 @@ impl BlockService {
                     f64::default() // empty block
                 } else {
                     u64::try_from(block.header.gas_used)? as f64
-                        / u64::try_from(block.header.gas_limit)? as f64
+                        / u64::try_from(block.header.gas_limit)? as f64 // safe due to check
                 };
 
                 base_fee_per_gas.push(base_fee);
