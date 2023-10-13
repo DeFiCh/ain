@@ -82,7 +82,7 @@ impl FilterService {
         to_block: U256,
     ) -> usize {
         let mut filter_id = self.filter_id.write().unwrap();
-        *filter_id += 1;
+        *filter_id = filter_id.wrapping_add(1);
 
         let mut filters = self.filters.write().unwrap();
         filters.insert(
@@ -103,7 +103,7 @@ impl FilterService {
     pub fn create_block_filter(&self) -> usize {
         let mut filters = self.filters.write().unwrap();
         let mut filter_id = self.filter_id.write().unwrap();
-        *filter_id += 1;
+        *filter_id = filter_id.wrapping_add(1);
 
         let filter = Filter::NewBlock(BlockFilter {
             id: *filter_id,
@@ -118,7 +118,7 @@ impl FilterService {
     pub fn create_transaction_filter(&self) -> usize {
         let mut filters = self.filters.write().unwrap();
         let mut filter_id = self.filter_id.write().unwrap();
-        *filter_id += 1;
+        *filter_id = filter_id.wrapping_add(1);
 
         let filter = Filter::NewPendingTransactions(PendingTransactionFilter {
             id: *filter_id,

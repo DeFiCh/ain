@@ -42,7 +42,7 @@ pub fn get_abi_encoded_string(input: &str) -> H256 {
     let length = input.len();
 
     let mut storage_value = H256::default();
-    storage_value.0[31] = (length * 2) as u8;
+    storage_value.0[31] = (length * 2) as u8; // safe due to character limits on token name/symbol on DVM
     storage_value.0[..length].copy_from_slice(input.as_bytes());
 
     storage_value

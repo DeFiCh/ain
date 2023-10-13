@@ -202,7 +202,12 @@ impl<'backend> AinExecutor<'backend> {
         let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
-        if !system_tx && total_gas_used + U256::from(used_gas) > block_gas_limit {
+        if !system_tx
+            && total_gas_used
+                .checked_add(U256::from(used_gas))
+                .ok_or_else(|| format_err!("total_gas_used overflow"))?
+                > block_gas_limit
+        {
             return Err(format_err!(
                 "[exec] block size limit exceeded, tx cannot make it into the block"
             )

@@ -106,7 +106,11 @@ impl EthTransactionInfo {
             block_hash: Some(format_h256(block.header.hash())),
             block_number: Some(format_u256(block.header.number)),
             transaction_index: Some(format_u256(U256::from(index))),
-            gas_price: format_u256(signed_tx.effective_gas_price(block.header.base_fee)),
+            gas_price: format_u256(
+                signed_tx
+                    .effective_gas_price(block.header.base_fee)
+                    .map_err(|_| TransactionError::ConstructionError)?,
+            ),
             ..EthTransactionInfo::from(signed_tx)
         })
     }
