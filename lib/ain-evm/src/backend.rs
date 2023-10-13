@@ -1,5 +1,6 @@
 use std::{error::Error, sync::Arc};
 
+use anyhow::format_err;
 use ethereum::{Account, Log};
 use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
@@ -463,7 +464,6 @@ pub enum BackendError {
     RefundUnusedGasFailed(String),
 }
 
-use anyhow::format_err;
 use std::fmt;
 
 impl fmt::Display for BackendError {

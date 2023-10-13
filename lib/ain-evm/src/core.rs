@@ -957,7 +957,7 @@ impl EVMCoreService {
                 }
                 nonce = nonce
                     .checked_add(U256::one())
-                    .ok_or_else(|| format_err!("Nonce overflow"))?;
+                    .ok_or_else(|| format_err!("nonce overflow"))?;
                 Ok(nonce)
             }
         }
