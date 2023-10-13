@@ -47,7 +47,7 @@ class CInv;
 class CConnman;
 class CScriptCheck;
 class CBlockPolicyEstimator;
-class CScopedQueueID;
+class CScopedTemplateID;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
@@ -64,7 +64,7 @@ enum TxOrderings {
 
 struct BlockContext {
     bool isEvmEnabledForBlock{};
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
     bool evmPreValidate{};
 };
 

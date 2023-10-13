@@ -445,7 +445,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
     auto &evmTemplateId = blockCtx.evmTemplateId;
 
     if (!evmTemplateId && isEvmEnabledForBlock) {
-        evmTemplateId = CScopedTemplateQueueID::Create(time);
+        std::string minerAddress{};
+        evmTemplateId = CScopedTemplateID::Create(height, minerAddress, 0u, time);
         if (!evmTemplateId) {
             return Res::Err("Failed to create queue");
         }

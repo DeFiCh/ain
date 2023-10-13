@@ -262,7 +262,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     auto blockCtx = BlockContext {
         isEvmEnabledForBlock,
-        evmQueueId,
+        evmTemplateId,
     };
 
     std::map<uint256, CAmount> txFees;
@@ -671,7 +671,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
     const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
-    const auto& evmQueueId = blockCtx.evmQueueId;
+    const auto& evmTemplateId = blockCtx.evmTemplateId;
 
     // Block gas limit
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {

@@ -2678,7 +2678,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     auto blockCtx = BlockContext{
         isEvmEnabledForBlock,
-        evmQueueId,
+        evmTemplateId,
     };
 
     // Execute TXs
