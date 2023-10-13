@@ -188,6 +188,14 @@ public:
         return Res::Err(error);
     }
 
+    static Res GovVarVariableInvalidKey(const std::string &key, const std::map<uint8_t, std::string> &keys) {
+        std::string error{"Unrecognised " + key + " argument provided, valid " + key + "s are:"};
+        for (const auto &pair : keys) {
+            error += ' ' + pair.second + ',';
+        }
+        return Res::Err(error);
+    }
+
     static Res GovVarVariableUnsupportedType(const unsigned char type) {
         return Res::Err("Unsupported type {%d}", type);
     }

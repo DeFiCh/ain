@@ -82,7 +82,7 @@ impl From<Receipt> for ReceiptResult {
                             block_hash: b.block_hash,
                             transaction_hash: b.tx_hash,
                             transaction_index: format!("{:#x}", b.tx_index),
-                            log_index: { format!("{:#x}", b.logs_index + log_index) },
+                            log_index: { format!("{:#x}", b.logs_index + log_index) }, // safe since we sub the total number of logs during receipt generation
                             removed: false,
                         },
                     )

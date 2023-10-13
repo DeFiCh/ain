@@ -105,7 +105,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
       consensus(consensus),
       time(time),
       txn(txn),
-      evmQueueId(blockCtx.evmQueueId),
+      evmTemplateId(blockCtx.evmTemplateId),
       isEvmEnabledForBlock(blockCtx.isEvmEnabledForBlock),
       evmPreValidate(blockCtx.evmPreValidate) {}
 

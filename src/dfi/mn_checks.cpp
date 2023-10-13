@@ -442,11 +442,11 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
-    auto &evmQueueId = blockCtx.evmQueueId;
+    auto &evmTemplateId = blockCtx.evmTemplateId;
 
-    if (!evmQueueId && isEvmEnabledForBlock) {
-        evmQueueId = CScopedQueueID::Create(time);
-        if (!evmQueueId) {
+    if (!evmTemplateId && isEvmEnabledForBlock) {
+        evmTemplateId = CScopedTemplateQueueID::Create(time);
+        if (!evmTemplateId) {
             return Res::Err("Failed to create queue");
         }
     }

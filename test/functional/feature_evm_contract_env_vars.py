@@ -97,6 +97,7 @@ class EVMTest(DefiTestFramework):
         hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
 
         node.generate(1)
+        self.block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
 
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         self.contract = node.w3.eth.contract(
@@ -130,8 +131,8 @@ class EVMTest(DefiTestFramework):
         )
 
     def test_difficulty(self):
-        difficulty = self.contract.functions.difficulty().call()
-        assert_equal(difficulty, 0)
+        difficulty = int(self.contract.functions.difficulty().call())
+        assert_equal(difficulty, int(self.block_info["bits"], base=16))
 
     def test_block_gaslimit(self):
         gas = self.contract.functions.gasLimit().call()

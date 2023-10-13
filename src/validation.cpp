@@ -652,10 +652,10 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         const auto& consensus = chainparams.GetConsensus();
         const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        std::shared_ptr<CScopedQueueID> evmQueueId{};
+        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
         auto blockCtx = BlockContext{
             isEvmEnabledForBlock,
-            evmQueueId,
+            evmTemplateId,
             true,
         };
 
@@ -2662,13 +2662,18 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     const auto& consensus = chainparams.GetConsensus();
     const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
 
     if (isEvmEnabledForBlock) {
-        evmQueueId = CScopedQueueID::Create(pindex->GetBlockTime());
-        if (!evmQueueId) {
-            return Res::Err("Failed to create queue");
+        auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
+        if (!xvmRes) {
+            return Res::Err("Failed to process XVM in coinbase");
         }
+        evmTemplateId = CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime());
+        if (!evmTemplateId) {
+            return Res::Err("Failed to create block template");
+        }
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
 
     auto blockCtx = BlockContext{
@@ -2914,7 +2919,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmQueueId, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplateId, isEvmEnabledForBlock);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -2931,7 +2936,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmQueueId);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplateId);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
@@ -2994,7 +2999,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Finalize items
     if (isEvmEnabledForBlock) {
-        XResultThrowOnErr(evm_try_unsafe_commit_queue(result, evmQueueId->GetQueueID()));
+        XResultThrowOnErr(evm_try_unsafe_commit_block(result, evmTemplateId->GetTemplateID()));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;

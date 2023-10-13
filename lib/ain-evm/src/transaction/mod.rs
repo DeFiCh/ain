@@ -1,5 +1,7 @@
 pub mod system;
 
+use crate::EVMError;
+use anyhow::format_err;
 use ethereum::{
     AccessList, EnvelopedDecoderError, EnvelopedEncodable, LegacyTransaction, TransactionAction,
     TransactionSignature, TransactionV2,
@@ -255,13 +257,16 @@ impl SignedTx {
         }
     }
 
-    pub fn effective_gas_price(&self, base_fee: U256) -> U256 {
+    pub fn effective_gas_price(&self, base_fee: U256) -> Result<U256, EVMError> {
         match &self.transaction {
-            TransactionV2::Legacy(tx) => tx.gas_price,
-            TransactionV2::EIP2930(tx) => tx.gas_price,
-            TransactionV2::EIP1559(tx) => {
-                min(tx.max_fee_per_gas, tx.max_priority_fee_per_gas + base_fee)
-            }
+            TransactionV2::Legacy(tx) => Ok(tx.gas_price),
+            TransactionV2::EIP2930(tx) => Ok(tx.gas_price),
+            TransactionV2::EIP1559(tx) => Ok(min(
+                tx.max_fee_per_gas,
+                tx.max_priority_fee_per_gas
+                    .checked_add(base_fee)
+                    .ok_or_else(|| format_err!("effective_gas_price overflow"))?,
+            )),
         }
     }
 
@@ -350,6 +355,7 @@ pub enum TransactionError {
     DecodingError,
     SignatureError,
     FromHexError(hex::FromHexError),
+    ConstructionError,
 }
 
 impl fmt::Display for TransactionError {
@@ -364,6 +370,9 @@ impl fmt::Display for TransactionError {
             }
             TransactionError::FromHexError(ref e) => {
                 write!(f, "Error parsing hex: {e}")
+            }
+            TransactionError::ConstructionError => {
+                write!(f, "Error constructing Transaction")
             }
         }
     }

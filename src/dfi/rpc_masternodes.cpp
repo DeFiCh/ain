@@ -277,7 +277,7 @@ UniValue resignmasternode(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValue::VSTR, UniValue::VARR}, true);
 
-    std::string const nodeIdStr = request.params[0].getValStr();
+    const std::string nodeIdStr = request.params[0].getValStr();
     const uint256 nodeId = uint256S(nodeIdStr);
     CTxDestination ownerDest, collateralDest;
     int targetHeight;
@@ -607,7 +607,7 @@ UniValue getmasternode(const JSONRPCRequest &request) {
         "getmasternode",
         "\nReturns information about specified masternode.\n",
         {
-          {"mn_id", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "Masternode's id"},
+          {"mn_id", RPCArg::Type::STR, RPCArg::Optional::NO, "Masternode's ID, operator or owner address"},
           },
         RPCResult{"{id:{...}}     (object) Json object with masternode information\n"},
         RPCExamples{HelpExampleCli("getmasternode", "mn_id") + HelpExampleRpc("getmasternode", "mn_id")},
@@ -621,15 +621,54 @@ UniValue getmasternode(const JSONRPCRequest &request) {
     }
     auto pwallet = GetWallet(request);
 
-    uint256 id = ParseHashV(request.params[0], "masternode id");
+    const auto idStr = request.params[0].get_str();
 
     LOCK(cs_main);
     const auto mnIds = pcustomcsview->GetOperatorsMulti();
-    auto node = pcustomcsview->GetMasternode(id);
-    if (node) {
-        auto res = mnToJSON(*pcustomcsview, id, *node, true, mnIds, pwallet);  // or maybe just node, w/o id?
-        return GetRPCResultCache().Set(request, res);
+
+    auto printMasternode = [&](const uint256 &id) -> std::optional<UniValue> {
+        auto node = pcustomcsview->GetMasternode(id);
+        if (node) {
+            auto res = mnToJSON(*pcustomcsview, id, *node, true, mnIds, pwallet);
+            return GetRPCResultCache().Set(request, res);
+        }
+        return {};
+    };
+
+    // Try from hex string
+    if (IsHex(idStr) && idStr.length() == 64) {
+        const auto id = uint256S(idStr);
+        if (auto res = printMasternode(id)) {
+            return *res;
+        }
     }
+
+    const auto dest = DecodeDestination(idStr);
+    if (!IsValidDestination(dest)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
+    }
+
+    const auto keyId = CKeyID::TryFromDestination(dest);
+    if (!keyId) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
+    }
+
+    // Try from operator address
+    auto hash = pcustomcsview->GetMasternodeIdByOperator(*keyId);
+    if (hash) {
+        if (auto res = printMasternode(*hash)) {
+            return *res;
+        }
+    }
+
+    // Try from owner address
+    hash = pcustomcsview->GetMasternodeIdByOwner(*keyId);
+    if (hash) {
+        if (auto res = printMasternode(*hash)) {
+            return *res;
+        }
+    }
+
     throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
 }
 

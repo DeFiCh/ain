@@ -43,7 +43,7 @@
 
 struct EvmTxPreApplyContext {
     const CTxMemPool::txiter& txIter;
-    const std::shared_ptr<CScopedQueueID>& evmQueueId;
+    const std::shared_ptr<CScopedTemplateID>& evmTemplateId;
     std::multimap<uint64_t, CTxMemPool::txiter>& failedNonces;
     std::map<uint256, CTxMemPool::FailedNonceIterator>& failedNoncesLookup;
     CTxMemPool::setEntries& failedTxEntries;
@@ -251,12 +251,13 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     const auto attributes = mnview.GetAttributes();
     const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
 
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
     if (isEvmEnabledForBlock) {
-        evmQueueId = CScopedQueueID::Create(blockTime);
-        if (!evmQueueId) {
-            return Res::Err("Failed to create queue");
+        evmTemplateId = CScopedTemplateID::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime);
+        if (!evmTemplateId) {
+            return Res::Err("Failed to create block template");
         }
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
 
     auto blockCtx = BlockContext {
@@ -274,33 +275,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_q(result, evmQueueId->GetQueueID(), pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), evmBeneficiary, blockTime, nHeight, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID()));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
-        if (!blockResult.failed_transactions.empty()) {
-            LogPrintf("%s: Construct block exceeded block size limit\n", __func__);
-            auto failedTxHashes = *res;
-            std::set<uint256> evmTxsToUndo;
-            for (const auto &txStr : blockResult.failed_transactions) {
-                auto txHash = std::string(txStr.data(), txStr.length());
-                evmTxsToUndo.insert(uint256S(txHash));
-            }
-
-            // Get all EVM Txs
-            CTxMemPool::setEntries failedEVMTxs;
-            for (const auto& iter : inBlock) {
-                if (!evmTxsToUndo.count(iter->GetTx().GetHash()))
-                    continue;
-                const auto txType = iter->GetCustomTxType();
-                if (txType == CustomTxType::EvmTx) {
-                    failedEVMTxs.insert(iter);
-                } else {
-                    LogPrintf("%s: Unable to remove from block, not EVM tx. Will result in a block hash mismatch.\n", __func__);
-                }
-            }
-            RemoveFromBlock(failedEVMTxs, true);
-        }
-
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
     }
 
@@ -624,14 +601,14 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, std::ve
 bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 {
     const auto& txIter = ctx.txIter;
-    const auto& evmQueueId = ctx.evmQueueId;
+    const auto& evmTemplateId = ctx.evmTemplateId;
     const auto& failedTxSet = ctx.failedTxEntries;
     auto& failedNonces = ctx.failedNonces;
     auto& failedNoncesLookup = ctx.failedNoncesLookup;
     auto& [txNonce, txSender] = txIter->GetEVMAddrAndNonce();
 
     CrossBoundaryResult result;
-    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_q(result, evmQueueId->GetQueueID(), txSender);
+    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_template(result, evmTemplateId->GetTemplateID(), txSender);
     if (!result.ok) {
         return false;
     }
@@ -836,7 +813,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                     auto evmTxCtx = EvmTxPreApplyContext{
                         entry,
-                        evmQueueId,
+                        evmTemplateId,
                         failedNonces,
                         failedNoncesLookup,
                         failedTxSet,
@@ -893,7 +870,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
-                        evm_try_unsafe_remove_txs_above_hash_in_q(result, evmQueueId->GetQueueID(), entryHash.ToString());
+                        evm_try_unsafe_remove_txs_above_hash_in_template(result, evmTemplateId->GetTemplateID(), entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
                         }

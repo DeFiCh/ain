@@ -41,9 +41,9 @@ pub trait MetachainDebugRPC {
     #[method(name = "logaccountstates")]
     fn log_account_states(&self) -> RpcResult<()>;
 
-    // Log txqueue state
-    #[method(name = "logqueues")]
-    fn log_queues(&self) -> RpcResult<()>;
+    // Log block template state
+    #[method(name = "logblocktemplates")]
+    fn log_block_templates(&self) -> RpcResult<()>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -187,7 +187,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 else {
                     return Err(Error::Custom("Cannot get EIP1559 TX fee estimate without max_fee_per_gas and max_priority_fee_per_gas".to_string()));
                 };
-                let gas_fee = cmp::min(max_fee_per_gas, max_priority_fee_per_gas + base_fee);
+                let gas_fee = cmp::min(max_fee_per_gas, max_priority_fee_per_gas.checked_add(base_fee).ok_or_else(|| Error::Custom("max_priority_fee_per_gas overflow".to_string()))?);
                 used_gas.checked_mul(gas_fee)
             }
             _ => {
@@ -199,8 +199,13 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             "Cannot get fee estimate, fee value overflow".to_string()
         ))?;
 
-        let burnt_fee = used_gas * base_fee;
-        let priority_fee = gas_fee - burnt_fee;
+        let burnt_fee = used_gas
+            .checked_mul(base_fee)
+            .ok_or_else(|| Error::Custom("burnt_fee overflow".to_string()))?;
+        let priority_fee = gas_fee
+            .checked_sub(burnt_fee)
+            .ok_or_else(|| Error::Custom("priority_fee underflow".to_string()))?;
+
         Ok(FeeEstimate {
             used_gas,
             gas_fee,
@@ -209,9 +214,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         })
     }
 
-    fn log_queues(&self) -> RpcResult<()> {
-        let queues = &self.handler.core.tx_queues;
-        debug!("queues : {:#?}", queues);
+    fn log_block_templates(&self) -> RpcResult<()> {
+        let templates = &self.handler.core.block_templates;
+        debug!("templates : {:#?}", templates);
         Ok(())
     }
 }
