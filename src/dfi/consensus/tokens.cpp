@@ -10,10 +10,11 @@
 #include <dfi/mn_checks.h>
 
 Res CTokensConsensus::CheckTokenCreationTx() const {
-    Require(tx.vout.size() >= 2 && tx.vout[0].nValue >= GetTokenCreationFee(height) &&
-                tx.vout[0].nTokenId == DCT_ID{0} && tx.vout[1].nValue == GetTokenCollateralAmount() &&
-                tx.vout[1].nTokenId == DCT_ID{0},
-            "malformed tx vouts (wrong creation fee or collateral amount)");
+    if (tx.vout.size() < 2 || tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
+            tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0},
+        "malformed tx vouts (wrong creation fee or collateral amount)") {
+        ;
+    }
 
     return Res::Ok();
 }
@@ -126,16 +127,23 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
 
 Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
-    Require(pair, "token with creationTx %s does not exist", obj.tokenTx.ToString());
-    Require(pair->first != DCT_ID{0}, "Can't alter DFI token!");
+    if (!pair) {
+        return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
+    }
+    if (pair->first == DCT_ID{0}) {
+        return Res::Err("Can't alter DFI token!");
+    }
 
-    Require(!mnview.AreTokensLocked({pair->first.v}), "Cannot update token during lock");
+    if (mnview.AreTokensLocked({pair->first.v})) {
+        return Res::Err("Cannot update token during lock");
+    }
 
     const auto &token = pair->second;
 
     // need to check it exectly here cause lps has no collateral auth (that checked next)
-    Require(
-        !token.IsPoolShare(), "token %s is the LPS token! Can't alter pool share's tokens!", obj.tokenTx.ToString());
+    if (token.IsPoolShare()) {
+        return Res::Err("token %s is the LPS token! Can't alter pool share's tokens!", obj.tokenTx.ToString());
+    }
 
     // check auth, depends from token's "origins"
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
@@ -152,16 +160,21 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
                                                     : consensus.foundationMembers.count(auth.out.scriptPubKey) > 0;
 
     if (isFoundersToken) {
-        Require(HasFoundationAuth());
+        if (auto res = HasFoundationAuth(); !res) {
+            return res;
+        }
     } else {
-        Require(HasCollateralAuth(token.creationTx));
+        if (auto res = HasCollateralAuth(token.creationTx); !res) {
+            return res;
+        }
     }
 
     // Check for isDAT change in non-foundation token after set height
     if (static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight) {
         // check foundation auth
-        Require(obj.token.IsDAT() == token.IsDAT() || HasFoundationAuth(),
-                "can't set isDAT to true, tx not from foundation member");
+        if (obj.token.IsDAT() != token.IsDAT() && !HasFoundationAuth()) {
+            return Res::Err("can't set isDAT to true, tx not from foundation member");
+        }
     }
 
     CTokenImplementation updatedToken{obj.token};
@@ -388,7 +401,7 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
         }
 
         auto attributes = mnview.GetAttributes();
-        Require(attributes, "Cannot read from attributes gov variable!");
+        assert(attributes);
 
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
         const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
