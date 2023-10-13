@@ -124,7 +124,6 @@ impl EVMBackend {
         self.state
             .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
             .map_err(|e| BackendError::TrieError(format!("{e}")))?;
-        self.state.commit();
 
         Ok(new_account)
     }
@@ -158,7 +157,7 @@ impl EVMBackend {
         self.state.ro_handle(root)
     }
 
-    pub fn deduct_prepay_gas_fee(&mut self, sender: H160, prepay_fee: U256) -> Result<()> {
+    pub fn deduct_prepay_gas_fee(&mut self, sender: H160, prepay_fee: U256) -> Result<H256> {
         debug!(target: "backend", "[deduct_prepay_gas_fee] Deducting {:#x} from {:#x}", prepay_fee, sender);
 
         let basic = self.basic(sender);
@@ -171,9 +170,7 @@ impl EVMBackend {
 
         self.apply(sender, Some(new_basic), None, Vec::new(), false)
             .map_err(|e| BackendError::DeductPrepayGasFailed(e.to_string()))?;
-        self.commit();
-
-        Ok(())
+        Ok(self.commit())
     }
 
     pub fn refund_unused_gas_fee(
@@ -181,7 +178,7 @@ impl EVMBackend {
         signed_tx: &SignedTx,
         used_gas: U256,
         base_fee: U256,
-    ) -> Result<()> {
+    ) -> Result<H256> {
         let refund_gas = signed_tx.gas_limit().checked_sub(used_gas).ok_or_else(|| {
             BackendError::RefundUnusedGasFailed(String::from(
                 "failed checked sub used gas with gas limit",
@@ -202,12 +199,11 @@ impl EVMBackend {
 
         self.apply(signed_tx.sender, Some(new_basic), None, Vec::new(), false)
             .map_err(|e| BackendError::RefundUnusedGasFailed(e.to_string()))?;
-        self.commit();
-
-        Ok(())
+        Ok(self.commit())
     }
 }
 
+// Get state methods
 impl EVMBackend {
     pub fn get_account(&self, address: &H160) -> Option<Account> {
         self.state
@@ -246,23 +242,6 @@ impl EVMBackend {
                 .unwrap_or_default()
                 .as_slice(),
         ))
-    }
-
-    pub fn deploy_contract(
-        &mut self,
-        address: &H160,
-        code: Vec<u8>,
-        storage: Vec<(H256, H256)>,
-    ) -> Result<()> {
-        self.apply(*address, None, Some(code), storage, true)?;
-
-        Ok(())
-    }
-
-    pub fn update_storage(&mut self, address: &H160, storage: Vec<(H256, H256)>) -> Result<()> {
-        self.apply(*address, None, None, storage, false)?;
-
-        Ok(())
     }
 }
 
@@ -384,6 +363,7 @@ impl ApplyBackend for EVMBackend {
                     let new_account = self
                         .apply(address, Some(basic), code, storage, reset_storage)
                         .expect("Error applying state");
+                    self.commit();
 
                     if is_empty_account(&new_account) && delete_empty {
                         debug!("Deleting empty address {:x?}", address);
@@ -405,8 +385,9 @@ impl ApplyBackend for EVMBackend {
     }
 }
 
+// State change methods
 impl EVMBackend {
-    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<()> {
+    pub fn add_balance(&mut self, address: H160, amount: U256) -> Result<H256> {
         let basic = self.basic(address);
 
         let new_basic = Basic {
@@ -415,10 +396,10 @@ impl EVMBackend {
         };
 
         self.apply(address, Some(new_basic), None, Vec::new(), false)?;
-        Ok(())
+        Ok(self.commit())
     }
 
-    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<()> {
+    pub fn sub_balance(&mut self, address: H160, amount: U256) -> Result<H256> {
         let account = self
             .get_account(&address)
             .ok_or(BackendError::NoSuchAccount(address))?;
@@ -437,8 +418,23 @@ impl EVMBackend {
             };
 
             self.apply(address, Some(new_basic), None, Vec::new(), false)?;
-            Ok(())
+            Ok(self.commit())
         }
+    }
+
+    pub fn deploy_contract(
+        &mut self,
+        address: &H160,
+        code: Vec<u8>,
+        storage: Vec<(H256, H256)>,
+    ) -> Result<H256> {
+        self.apply(*address, None, Some(code), storage, true)?;
+        Ok(self.commit())
+    }
+
+    pub fn update_storage(&mut self, address: &H160, storage: Vec<(H256, H256)>) -> Result<H256> {
+        self.apply(*address, None, None, storage, false)?;
+        Ok(self.commit())
     }
 }
 

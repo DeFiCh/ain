@@ -170,7 +170,7 @@ impl EVMServices {
             template.vicinity.clone(),
         )?;
 
-        let mut executor = AinExecutor::new(&mut backend);
+        let executor = AinExecutor::new(&mut backend);
         for template_tx in template.transactions.clone() {
             all_transactions.push(template_tx.tx);
             receipts_v3.push(template_tx.receipt_v3);
@@ -191,17 +191,16 @@ impl EVMServices {
         );
 
         // burn base fee and pay priority fee to miner
-        executor
+        let new_state_root = executor
             .backend
             .add_balance(beneficiary, total_priority_fees)?;
-        executor.commit();
 
         let extra_data = format!("DFI: {}", template.dvm_block).into_bytes();
         let block = Block::new(
             PartialHeader {
                 parent_hash,
                 beneficiary,
-                state_root: backend.commit(),
+                state_root: new_state_root,
                 receipts_root: ReceiptService::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty,
@@ -308,13 +307,13 @@ impl EVMServices {
         );
 
         executor.update_total_gas_used(template.total_gas_used);
-        let apply_tx = executor.execute_tx(tx, base_fee)?;
+        let (apply_tx, new_state_root) = executor.execute_tx(tx, base_fee)?;
         EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
 
         Ok(ExecTxState {
             tx: apply_tx.tx,
             receipt: apply_tx.receipt,
-            state_root: backend.commit(),
+            state_root: new_state_root,
             logs_bloom,
             gas_used: apply_tx.used_gas,
             gas_fees: apply_tx.gas_fee,
@@ -364,8 +363,7 @@ impl EVMServices {
             } = dfi_intrinsics_registry_deploy_info(get_dfi_intrinsics_v1_contract().fixed_address);
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
-            executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
+            let new_state_root = executor.deploy_contract(address, bytecode, storage)?;
 
             // DFIIntrinsicsRegistry contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -377,7 +375,7 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
+                new_state_root,
                 logs_bloom,
             ));
 
@@ -389,8 +387,7 @@ impl EVMServices {
             } = dfi_intrinsics_v1_deploy_info(template.dvm_block, template.vicinity.block_number)?;
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
-            executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
+            let new_state_root = executor.deploy_contract(address, bytecode, storage)?;
 
             // DFIIntrinsics contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -400,7 +397,7 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
+                new_state_root,
                 logs_bloom,
             ));
 
@@ -412,8 +409,7 @@ impl EVMServices {
             } = transfer_domain_v1_contract_deploy_info();
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
-            executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
+            let new_state_root = executor.deploy_contract(address, bytecode, storage)?;
 
             // Transferdomain_v1 contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -423,7 +419,7 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
+                new_state_root,
                 logs_bloom,
             ));
 
@@ -435,8 +431,7 @@ impl EVMServices {
             } = transfer_domain_deploy_info(get_transfer_domain_v1_contract().fixed_address)?;
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
-            executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
+            let new_state_root = executor.deploy_contract(address, bytecode, storage)?;
 
             // Transferdomain contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -446,7 +441,7 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
+                new_state_root,
                 logs_bloom,
             ));
 
@@ -458,8 +453,7 @@ impl EVMServices {
             } = dst20_v1_deploy_info();
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
 
-            executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
+            let new_state_root = executor.deploy_contract(address, bytecode, storage)?;
 
             // DST20 implementation contract deployment TX
             let (tx, receipt) =
@@ -467,19 +461,19 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
+                new_state_root,
                 logs_bloom,
             ));
 
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
             for exec_tx in migration_txs.clone() {
-                let apply_result = executor.execute_tx(exec_tx, base_fee)?;
+                let (apply_result, new_state_root) = executor.execute_tx(exec_tx, base_fee)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
                 template.transactions.push(TemplateTxItem::new_system_tx(
                     apply_result.tx,
                     apply_result.receipt,
-                    executor.commit(),
+                    new_state_root,
                     logs_bloom,
                 ));
             }
@@ -488,9 +482,8 @@ impl EVMServices {
                 address, storage, ..
             } = dfi_intrinsics_v1_deploy_info(template.dvm_block, template.vicinity.block_number)?;
 
-            executor.update_storage(address, storage)?;
-            executor.commit();
-            template.initial_state_root = backend.commit();
+            let new_state_root = executor.update_storage(address, storage)?;
+            template.initial_state_root = new_state_root;
         }
         Ok(())
     }
