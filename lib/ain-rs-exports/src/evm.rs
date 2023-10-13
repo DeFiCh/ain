@@ -218,7 +218,7 @@ fn evm_try_get_balance(address: &str) -> Result<u64> {
 ///
 /// The state update results.
 #[ffi_fallible]
-fn unsafe_update_state_in_template(template_id: u64, mnview_ptr: usize) -> Result<()> {
+fn evm_try_unsafe_update_state_in_template(template_id: u64, mnview_ptr: usize) -> Result<()> {
     unsafe {
         SERVICES
             .evm
@@ -278,7 +278,11 @@ fn evm_try_unsafe_remove_txs_above_hash_in_template(
 /// * `raw_tx` - The raw transparent transferdomain tx.
 /// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
-fn evm_try_unsafe_add_balance_in_template(template_id: u64, raw_tx: &str, native_hash: &str) -> Result<()> {
+fn evm_try_unsafe_add_balance_in_template(
+    template_id: u64,
+    raw_tx: &str,
+    native_hash: &str,
+) -> Result<()> {
     let signed_tx = SERVICES
         .evm
         .core
@@ -501,7 +505,9 @@ fn evm_try_unsafe_push_tx_in_template(
 ///
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 #[ffi_fallible]
-fn evm_try_unsafe_construct_block_in_template(template_id: u64) -> Result<ffi::FinalizeBlockCompletion> {
+fn evm_try_unsafe_construct_block_in_template(
+    template_id: u64,
+) -> Result<ffi::FinalizeBlockCompletion> {
     unsafe {
         let FinalizedBlockInfo {
             block_hash,
