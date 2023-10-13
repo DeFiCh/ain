@@ -69,7 +69,7 @@ public:
                      const Consensus::Params &consensus,
                      const uint64_t time,
                      const uint32_t txn,
-                     const BlockContext& blockCtx);
+                     const BlockContext &blockCtx);
 
 protected:
     Res HasAuth(const CScript &auth) const;

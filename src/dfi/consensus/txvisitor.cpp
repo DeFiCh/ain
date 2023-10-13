@@ -97,7 +97,7 @@ CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
                                    const Consensus::Params &consensus,
                                    const uint64_t time,
                                    const uint32_t txn,
-                                   const BlockContext& blockCtx)
+                                   const BlockContext &blockCtx)
     : height(height),
       mnview(mnview),
       tx(tx),

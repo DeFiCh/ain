@@ -333,8 +333,7 @@ class CCustomTxApplyVisitor {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>) {
-            return T1{
-                tx, height, coins, mnview, consensus, time, txn, blockCtx}(obj);
+            return T1{tx, height, coins, mnview, consensus, time, txn, blockCtx}(obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
         } else {
@@ -453,10 +452,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     try {
-        auto res = std::visit(
-            CCustomTxApplyVisitor(
-                    tx, height, coins, mnview, consensus, time, txn, blockCtx),
-            txMessage);
+        auto res =
+            std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, blockCtx), txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
@@ -584,8 +581,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
         }
 
-        res = CustomTxVisit(
-                view, coins, tx, height, consensus, txMessage, time, txn, blockCtx);
+        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, blockCtx);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
