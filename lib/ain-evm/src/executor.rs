@@ -212,7 +212,7 @@ impl<'backend> AinExecutor<'backend> {
         let logs = logs.into_iter().collect::<Vec<_>>();
 
         ApplyBackend::apply(self.backend, values, logs.clone(), true);
-        let mut state_root = self.backend.commit();
+        let mut state_root = self.commit();
 
         if !system_tx {
             state_root =
