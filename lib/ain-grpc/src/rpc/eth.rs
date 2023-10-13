@@ -924,7 +924,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                 let starting_block = self.handler.block.get_starting_block_number();
 
-                let highest_block = current_block + (highest_native_block - current_native_height);
+                let highest_block = current_block + (highest_native_block - current_native_height); // safe since current height cannot be higher than seen height
                 debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");
 
                 Ok(SyncState::Syncing(SyncInfo {
@@ -976,7 +976,9 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                 while block_number <= to_block_number {
                     block_numbers.push(block_number);
-                    block_number += U256::one();
+                    block_number = block_number
+                        .checked_add(U256::one())
+                        .ok_or_else(|| Error::Custom("block_number overflow".to_string()))?;
                 }
 
                 Ok::<Vec<U256>, Error>(block_numbers)

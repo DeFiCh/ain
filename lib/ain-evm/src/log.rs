@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use std::{collections::HashMap, sync::Arc};
 
 use ethereum::ReceiptV3;
@@ -50,7 +51,7 @@ impl LogService {
         block_number: U256,
     ) -> Result<()> {
         let mut logs_map: HashMap<H160, Vec<LogIndex>> = HashMap::new();
-        let mut log_index = 0; // log index is a block level index
+        let mut log_index = 0_usize; // log index is a block level index
         for receipt in receipts {
             let logs = match &receipt.receipt {
                 ReceiptV3::Legacy(r) | ReceiptV3::EIP2930(r) | ReceiptV3::EIP1559(r) => &r.logs,
@@ -71,7 +72,9 @@ impl LogService {
                     transaction_index: U256::from(receipt.tx_index),
                 });
 
-                log_index += 1;
+                log_index = log_index
+                    .checked_add(1)
+                    .ok_or_else(|| format_err!("log_index overflow"))?;
             }
         }
 
@@ -142,7 +145,9 @@ impl LogService {
         while from_block_number <= filter.to_block {
             debug!("Will query block {from_block_number}");
             block_numbers.push(from_block_number);
-            from_block_number += U256::one();
+            from_block_number = from_block_number
+                .checked_add(U256::one())
+                .ok_or_else(|| format_err!("from_block_number overflow"))?;
         }
 
         let logs = block_numbers
