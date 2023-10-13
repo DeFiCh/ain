@@ -87,10 +87,10 @@ impl BlockService {
                     parent_base_fee,
                     base_fee_max_change_denominator,
                 )?;
-                Ok(match parent_base_fee.checked_add(base_fee_per_gas_delta) {
-                    None => U256::MAX, // overflow case
-                    Some(sum) => max(sum, initial_base_fee),
-                })
+                Ok(max(
+                    parent_base_fee.saturating_add(base_fee_per_gas_delta),
+                    initial_base_fee,
+                ))
             }
             Ordering::Less => {
                 let gas_used_delta = parent_gas_target - parent_gas_used; // sub is safe due to cmp
