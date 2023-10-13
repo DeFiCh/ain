@@ -948,7 +948,7 @@ impl EVMCoreService {
                     if elem
                         .checked_sub(nonce)
                         .ok_or_else(|| format_err!("elem underflow"))?
-                        > U256::from(1)
+                        > U256::one()
                     {
                         break;
                     } else {

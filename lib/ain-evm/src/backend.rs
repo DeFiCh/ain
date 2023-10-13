@@ -427,21 +427,21 @@ impl EVMBackend {
             .ok_or(BackendError::NoSuchAccount(address))?;
 
         if account.balance < amount {
-            Err(BackendError::InsufficientBalance(InsufficientBalance {
+            return Err(BackendError::InsufficientBalance(InsufficientBalance {
                 address,
                 account_balance: account.balance,
                 amount,
             })
-            .into())
-        } else {
-            let new_basic = Basic {
-                balance: account.balance - amount, // sub is safe due to check above
-                nonce: account.nonce,
-            };
-
-            self.apply(address, Some(new_basic), None, Vec::new(), false)?;
-            Ok(())
+            .into());
         }
+
+        let new_basic = Basic {
+            balance: account.balance - amount, // sub is safe due to check above
+            nonce: account.nonce,
+        };
+
+        self.apply(address, Some(new_basic), None, Vec::new(), false)?;
+        Ok(())
     }
 }
 
