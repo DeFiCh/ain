@@ -100,10 +100,13 @@ impl BlockService {
                     parent_base_fee,
                     base_fee_max_change_denominator,
                 )?;
-                Ok(match parent_base_fee.checked_sub(base_fee_per_gas_delta) {
-                    None => initial_base_fee, // underflow case
-                    Some(sub) => max(sub, initial_base_fee),
-                })
+                Ok(max(
+                    match parent_base_fee.checked_sub(base_fee_per_gas_delta) {
+                        None => initial_base_fee, // underflow case
+                        Some(sub) => max(sub, initial_base_fee),
+                    },
+                    initial_base_fee,
+                ))
             }
         }
     }
