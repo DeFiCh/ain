@@ -169,7 +169,7 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
         std::swap(amountA, amountB);
     }
 
-    bool slippageProtection = static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight;
+    bool slippageProtection = static_cast<int>(height) >= consensus.DF3BayfrontMarinaHeight;
     if (auto res = pool.AddLiquidity(
             amountA.second,
             amountB.second,
@@ -181,6 +181,7 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
         !res) {
         return res;
     }
+
     return mnview.SetPoolPair(lpTokenID, height, pool);
 }
 
