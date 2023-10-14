@@ -121,8 +121,8 @@ public:
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.DF1AMKHeight = 356500; // Oct 12th, 2020.
         consensus.DF2BayfrontHeight = 405000; // Nov 2nd, 2020.
-        consensus.DF3DF4BayfrontGardensHeight = 465150; // Nov 28th, 2020.
-        consensus.BayfrontGardensHeight = 488300; // Dec 8th, 2020.
+        consensus.DF3BayfrontMarinaHeight = 465150; // Nov 28th, 2020.
+        consensus.DF4BayfrontGardensHeight = 488300; // Dec 8th, 2020.
         consensus.DF5ClarkeQuayHeight = 595738; // Jan 24th, 2021.
         consensus.DF6DakotaHeight = 678000; // Mar 1st, 2021.
         consensus.DF7DakotaCrescentHeight = 733000; // Mar 25th, 2021.
@@ -398,8 +398,8 @@ public:
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -616,8 +616,8 @@ public:
         consensus.BIP66Height = 0;
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -832,8 +832,8 @@ public:
         consensus.BIP66Height = 0;
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -1051,8 +1051,8 @@ public:
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.DF1AMKHeight = 10000000;
         consensus.DF2BayfrontHeight = 10000000;
-        consensus.DF3DF4BayfrontGardensHeight = 10000000;
-        consensus.BayfrontGardensHeight = 10000000;
+        consensus.DF3BayfrontMarinaHeight = 10000000;
+        consensus.DF4BayfrontGardensHeight = 10000000;
         consensus.DF5ClarkeQuayHeight = 10000000;
         consensus.DF6DakotaHeight = 10000000;
         consensus.DF7DakotaCrescentHeight = 10000000;
@@ -1316,7 +1316,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.DF1AMKHeight);
     UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.DF2BayfrontHeight);
-    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight);
+    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.DF4BayfrontGardensHeight);
     UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.DF5ClarkeQuayHeight);
     UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DF6DakotaHeight);
     UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DF7DakotaCrescentHeight);

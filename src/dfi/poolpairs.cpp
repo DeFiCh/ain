@@ -250,7 +250,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const &poolId,
         return;
     }
     constexpr const uint32_t PRECISION = 10000;
-    const auto newCalcHeight = uint32_t(Params().GetConsensus().BayfrontGardensHeight);
+    const auto newCalcHeight = uint32_t(Params().GetConsensus().DF4BayfrontGardensHeight);
 
     auto tokenIds = ReadBy<ByIDPair, ByPairKey>(poolId);
     assert(tokenIds);  // contract to verify pool data
@@ -496,7 +496,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     arith_uint256 poolT = arith_uint256(poolTo);
 
     arith_uint256 swapped = 0;
-    if (height < Params().GetConsensus().BayfrontGardensHeight) {
+    if (height < Params().GetConsensus().DF4BayfrontGardensHeight) {
         CAmount chunk = poolFrom / SLOPE_SWAP_RATE < unswapped ? poolFrom / SLOPE_SWAP_RATE : unswapped;
         while (unswapped > 0) {
             // arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
@@ -529,7 +529,7 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
     std::function<CTokenAmount(const CScript &, DCT_ID)> onGetBalance,
     std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
     int nHeight) {
-    bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
+    bool newRewardCalc = nHeight >= Params().GetConsensus().DF4BayfrontGardensHeight;
     bool newRewardLogic = nHeight >= Params().GetConsensus().DF8EunosHeight;
     bool newCustomRewards = nHeight >= Params().GetConsensus().DF5ClarkeQuayHeight;
 
