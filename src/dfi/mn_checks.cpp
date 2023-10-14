@@ -181,7 +181,7 @@ class CCustomMetadataParseVisitor {
         const std::unordered_map<int, std::string> hardforks = {
             {consensus.DF1AMKHeight,                  "called before AMK height"                },
             {consensus.DF2BayfrontHeight,             "called before Bayfront height"           },
-            {consensus.BayfrontGardensHeight,         "called before Bayfront Gardens height"   },
+            {consensus.DF4BayfrontGardensHeight,      "called before Bayfront Gardens height"   },
             {consensus.DF8EunosHeight,                "called before Eunos height"              },
             {consensus.DF10EunosPayaHeight,           "called before EunosPaya height"          },
             {consensus.DF11FortCanningHeight,         "called before FortCanning height"        },
@@ -259,7 +259,7 @@ public:
                                      CGovernanceHeightMessage>()) {
             return IsHardforkEnabled(consensus.DF11FortCanningHeight);
         } else if constexpr (IsOneOf<T, CAnyAccountsToAccountsMessage>()) {
-            return IsHardforkEnabled(consensus.BayfrontGardensHeight);
+            return IsHardforkEnabled(consensus.DF4BayfrontGardensHeight);
         } else if constexpr (IsOneOf<T, CSmartContractMessage>()) {
             return IsHardforkEnabled(consensus.DF14FortCanningHillHeight);
         } else if constexpr (IsOneOf<T, CLoanPaybackLoanV2Message, CFutureSwapMessage>()) {

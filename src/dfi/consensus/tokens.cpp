@@ -158,7 +158,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     }
 
     // Check for isDAT change in non-foundation token after set height
-    if (static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight) {
+    if (static_cast<int>(height) >= consensus.DF3BayfrontMarinaHeight) {
         // check foundation auth
         Require(obj.token.IsDAT() == token.IsDAT() || HasFoundationAuth(),
                 "can't set isDAT to true, tx not from foundation member");

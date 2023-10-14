@@ -135,7 +135,7 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
         std::swap(amountA, amountB);
     }
 
-    bool slippageProtection = static_cast<int>(height) >= consensus.DF3DF4BayfrontGardensHeight;
+    bool slippageProtection = static_cast<int>(height) >= consensus.DF3BayfrontMarinaHeight;
     Require(pool.AddLiquidity(
         amountA.second,
         amountB.second,
