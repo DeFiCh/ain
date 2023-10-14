@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeSet, HashMap},
     num::NonZeroUsize,
+    panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
     sync::Arc,
 };
@@ -18,20 +19,19 @@ use ethereum::{
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
 use lru::LruCache;
-use parking_lot::Mutex;
-use vsdb_core::vsdb_set_base_dir;
+use parking_lot::{Mutex, RwLock};
 
 use crate::{
-    backend::{BackendError, EVMBackend, Vicinity},
+    backend::{BackendError, EVMBackend, EVMBackendMut, Vicinity},
     block::INITIAL_BASE_FEE,
-    blocktemplate::BlockTemplateMap,
-    executor::{AinExecutor, ExecutorContext, TxResponse},
+    blocktemplate::BlockTemplate,
+    executor::{call, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
-    trie::TrieDBStore,
+    trie::{Trie, TrieBackend, TrieMut, GENESIS_STATE_ROOT},
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
@@ -128,8 +128,8 @@ impl TxValidationCache {
 }
 
 pub struct EVMCoreService {
-    pub block_templates: Arc<BlockTemplateMap>,
-    pub trie_store: Arc<TrieDBStore>,
+    pub trie_backend: Arc<RwLock<TrieBackend>>,
+    pub storage_backend: Arc<RwLock<TrieBackend>>,
     pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
@@ -163,25 +163,18 @@ pub struct TransferDomainTxInfo {
     pub token_id: u32,
 }
 
-fn init_vsdb(path: PathBuf) {
-    debug!(target: "vsdb", "Initializating VSDB");
-    let vsdb_dir_path = path.join(".vsdb");
-    vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
-    debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
-}
-
 impl EVMCoreService {
-    pub fn restore(storage: Arc<Storage>, path: PathBuf) -> Self {
-        init_vsdb(path);
-
-        Self {
-            block_templates: Arc::new(BlockTemplateMap::new()),
-            trie_store: Arc::new(TrieDBStore::restore()),
+    pub fn restore(storage: Arc<Storage>, path: PathBuf) -> Result<Self> {
+        Ok(Self {
+            trie_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?)),
+            storage_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from(
+                "storage_trie.db",
+            ))?)),
             signed_tx_cache: SignedTxCache::default(),
             storage,
             nonce_store: Mutex::new(HashMap::new()),
             tx_validation_cache: TxValidationCache::default(),
-        }
+        })
     }
 
     pub fn new_from_json(
@@ -190,51 +183,48 @@ impl EVMCoreService {
         evm_datadir: PathBuf,
     ) -> Result<Self> {
         debug!("Loading genesis state from {}", genesis_path.display());
-        init_vsdb(evm_datadir);
 
         let handler = Self {
-            block_templates: Arc::new(BlockTemplateMap::new()),
-            trie_store: Arc::new(TrieDBStore::new()),
+            trie_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?)),
+            storage_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from(
+                "storage_trie.db",
+            ))?)),
             signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
             nonce_store: Mutex::new(HashMap::new()),
             tx_validation_cache: TxValidationCache::default(),
         };
-        let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
-            &handler.trie_store,
-            &handler.storage,
-            genesis_path,
-        )?;
+        // let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
+        //     &handler.trie_store,
+        //     &handler.storage,
+        //     genesis_path,
+        // )?;
 
-        let gas_limit = storage.get_attributes_or_default()?.block_gas_limit;
-        let block: Block<TransactionV2> = Block::new(
-            PartialHeader {
-                state_root,
-                number: U256::zero(),
-                beneficiary: H160::default(),
-                receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
-                logs_bloom: Bloom::default(),
-                gas_used: U256::default(),
-                gas_limit: genesis.gas_limit.unwrap_or(U256::from(gas_limit)),
-                extra_data: genesis.extra_data.unwrap_or_default().into(),
-                parent_hash: genesis.parent_hash.unwrap_or_default(),
-                mix_hash: genesis.mix_hash.unwrap_or_default(),
-                nonce: genesis.nonce.unwrap_or_default(),
-                timestamp: u64::try_from(genesis.timestamp.unwrap_or_default())?,
-                difficulty: genesis.difficulty.unwrap_or_default(),
-                base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
-            },
-            Vec::new(),
-            Vec::new(),
-        );
-        storage.put_latest_block(Some(&block))?;
-        storage.put_block(&block)?;
+        // let gas_limit = storage.get_attributes_or_default()?.block_gas_limit;
+        // let block: Block<TransactionV2> = Block::new(
+        //     PartialHeader {
+        //         state_root,
+        //         number: U256::zero(),
+        //         beneficiary: H160::default(),
+        //         receipts_root: ReceiptService::get_receipts_root(&Vec::new()),
+        //         logs_bloom: Bloom::default(),
+        //         gas_used: U256::default(),
+        //         gas_limit: genesis.gas_limit.unwrap_or(U256::from(gas_limit)),
+        //         extra_data: genesis.extra_data.unwrap_or_default().into(),
+        //         parent_hash: genesis.parent_hash.unwrap_or_default(),
+        //         mix_hash: genesis.mix_hash.unwrap_or_default(),
+        //         nonce: genesis.nonce.unwrap_or_default(),
+        //         timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
+        //         difficulty: genesis.difficulty.unwrap_or_default(),
+        //         base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
+        //     },
+        //     Vec::new(),
+        //     Vec::new(),
+        // );
+        // storage.put_latest_block(Some(&block))?;
+        // storage.put_block(&block)?;
 
         Ok(handler)
-    }
-
-    pub fn flush(&self) -> Result<()> {
-        self.trie_store.flush()
     }
 
     pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse> {
@@ -252,7 +242,7 @@ impl EVMCoreService {
         } = arguments;
 
         let (
-            state_root,
+            mut state_root,
             block_number,
             beneficiary,
             base_fee,
@@ -297,22 +287,26 @@ impl EVMCoreService {
         };
         debug!("[call] vicinity: {:?}", vicinity);
 
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
+        let back = self.trie_backend.read();
+        let trie = Trie::new(&back, &state_root);
+        let backend = EVMBackend::from_root(
+            self.storage_backend.clone(),
+            trie,
             Arc::clone(&self.storage),
             vicinity,
         )
         .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
-
-        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller: caller.unwrap_or_default(),
-            to,
-            value,
-            data,
-            gas_limit,
-            access_list,
-        }))
+        Ok(call(
+            &backend,
+            ExecutorContext {
+                caller: caller.unwrap_or_default(),
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list,
+            },
+        ))
     }
 
     /// Validates a raw tx.
@@ -328,7 +322,6 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `template_id` - The template_id template number.
     ///
     /// # Returns
     ///
@@ -339,18 +332,22 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(&self, tx: &str, template_id: u64) -> Result<ValidateTxInfo> {
-        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
-        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+    pub unsafe fn validate_raw_tx(
+        &self,
+        tx: &str,
+        template_ptr: *mut BlockTemplate,
+    ) -> Result<ValidateTxInfo> {
+        let mut template = unsafe { &mut *template_ptr };
 
-        if let Some(tx_info) = self
-            .tx_validation_cache
-            .get(&(state_root, String::from(tx)))
-        {
-            return Ok(tx_info);
-        }
+        let state_root = H256::zero();
 
-        debug!("[validate_raw_tx] template_id {}", template_id);
+        // if let Some(tx_info) = self
+        //     .tx_validation_cache
+        //     .get(&(state_root, String::from(tx)))
+        // {
+        //     return Ok(tx_info);
+        // }
+
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
@@ -410,7 +407,8 @@ impl EVMCoreService {
 
         // Start of stateful checks
         // Validate tx prepay fees with account balance
-        let backend = self.get_backend(state_root)?;
+        let mut backend = unsafe { &mut *template.backend };
+
         let balance = backend.get_balance(&signed_tx.sender);
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         if balance < max_prepay_fee {
@@ -435,7 +433,7 @@ impl EVMCoreService {
         }
 
         Ok(self.tx_validation_cache.set(
-            (state_root, String::from(tx)),
+            (backend.root(), String::from(tx)),
             ValidateTxInfo {
                 signed_tx,
                 max_prepay_fee,
@@ -473,7 +471,6 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `template_id` - The template_id template number.
     ///
     /// # Returns
     ///
@@ -487,22 +484,14 @@ impl EVMCoreService {
     pub unsafe fn validate_raw_transferdomain_tx(
         &self,
         tx: &str,
-        template_id: u64,
+        template_ptr: *mut BlockTemplate,
         context: TransferDomainTxInfo,
     ) -> Result<ValidateTxInfo> {
-        debug!(
-            "[validate_raw_transferdomain_tx] template_id {}",
-            template_id
-        );
+        let mut template = unsafe { &mut *template_ptr };
+
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
-        );
-
-        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
-        debug!(
-            "[validate_raw_transferdomain_tx] state_root : {:#?}",
-            state_root
         );
 
         let ValidateTxInfo {
@@ -699,9 +688,10 @@ impl EVMCoreService {
             }
         };
 
-        let backend = self.get_backend(state_root)?;
+        let mut backend = unsafe { &mut *template.backend };
 
         let nonce = backend.get_nonce(&signed_tx.sender);
+
         debug!(
             "[validate_raw_transferdomain_tx] signed_tx.sender : {:#?}",
             signed_tx.sender
@@ -746,8 +736,25 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_block_template(&self, template_id: u64) {
-        self.block_templates.remove(template_id);
+    pub unsafe fn remove_block_template(&self, ptr: *mut BlockTemplate) {
+        println!("Trying to remove blok template");
+        if !ptr.is_null() {
+            let block_template = Box::from_raw(ptr);
+            println!("Got block template");
+
+            let backend_ptr = block_template.backend;
+            if !backend_ptr.is_null() {
+                let backend = Box::from_raw(backend_ptr);
+                println!("Got backend");
+
+                let trie_ptr = backend.state;
+                if !trie_ptr.is_null() {
+                    println!("Got trie");
+                    drop(Box::from_raw(trie_ptr));
+                    println!("Dropped trie");
+                }
+            }
+        }
     }
 
     ///
@@ -758,19 +765,16 @@ impl EVMCoreService {
     ///
     pub unsafe fn remove_txs_above_hash_in_block_template(
         &self,
-        template_id: u64,
+        template: &mut BlockTemplate,
         target_hash: XHash,
     ) -> Result<Vec<XHash>> {
-        let hashes = self
-            .block_templates
-            .remove_txs_above_hash_in(template_id, target_hash)?;
+        let hashes = template.remove_txs_above_hash(target_hash)?;
         Ok(hashes)
     }
 
     /// Retrieves the next valid nonce for the specified account within a particular block template.
     /// # Arguments
     ///
-    /// * `template_id` - The template_id template number.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
@@ -784,15 +788,14 @@ impl EVMCoreService {
     ///
     pub unsafe fn get_next_valid_nonce_in_block_template(
         &self,
-        template_id: u64,
+        template_ptr: *mut BlockTemplate,
         address: H160,
     ) -> Result<U256> {
-        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
-        let backend = self.get_backend(state_root)?;
+        let mut template = unsafe { &mut *template_ptr };
+        let mut backend = unsafe { &mut *template.backend };
+
         let nonce = backend.get_nonce(&address);
-        trace!(
-            "[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?} in template_id {template_id}"
-        );
+        trace!("[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?}");
         Ok(nonce)
     }
 }
@@ -803,9 +806,10 @@ impl EVMCoreService {
         let state_root = self
             .storage
             .get_latest_block()?
-            .map_or(H256::default(), |block| block.header.state_root);
+            .map_or(GENESIS_STATE_ROOT, |block| block.header.state_root);
         Ok(state_root)
     }
+
     pub fn get_account(&self, address: H160, block_number: U256) -> Result<Option<Account>> {
         let state_root = self
             .storage
@@ -815,25 +819,29 @@ impl EVMCoreService {
                 "[get_account] Block number {:x?} not found",
                 block_number
             ))?;
-
+        let back = self.trie_backend.read();
+        let trie = Trie::new(&back, &state_root);
         let backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
+            self.storage_backend.clone(),
+            trie,
             Arc::clone(&self.storage),
-            Vicinity::default(),
-        )?;
+            Default::default(),
+        )
+        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
         Ok(backend.get_account(&address))
     }
 
     pub fn get_latest_contract_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
         let state_root = self.get_state_root()?;
+        let back = self.trie_backend.read();
+        let trie = Trie::new(&back, &state_root);
         let backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
+            self.storage_backend.clone(),
+            trie,
             Arc::clone(&self.storage),
-            Vicinity::default(),
-        )?;
-
+            Default::default(),
+        )
+        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
         backend.get_contract_storage(contract, storage_index.as_bytes())
     }
 
@@ -852,17 +860,18 @@ impl EVMCoreService {
     ) -> Result<Option<Vec<u8>>> {
         self.get_account(address, block_number)?
             .map_or(Ok(None), |account| {
-                let storage_trie = self
-                    .trie_store
-                    .trie_db
-                    .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                    .unwrap();
+                // let storage_trie = self
+                //     .trie_store
+                //     .trie_db
+                //     .trie_restore(address.as_bytes(), None, account.storage_root.into())
+                //     .unwrap();
 
                 let tmp: &mut [u8; 32] = &mut [0; 32];
                 position.to_big_endian(tmp);
-                storage_trie
-                    .get(tmp.as_slice())
-                    .map_err(|e| BackendError::TrieError(e.to_string()).into())
+                // storage_trie
+                //     .get(tmp.as_slice())
+                //     .map_err(|e| BackendError::TrieError(e.to_string()).into())
+                Ok(None)
             })
     }
 
@@ -884,83 +893,44 @@ impl EVMCoreService {
         Ok(nonce)
     }
 
-    pub fn get_nonce_from_state_root(&self, address: H160, state_root: H256) -> Result<U256> {
-        let backend = self.get_backend(state_root)?;
-        let nonce = backend.get_nonce(&address);
-        Ok(nonce)
-    }
+    // pub fn get_nonce_from_state_root(&self, address: H160, mut state_root: H256) -> Result<U256> {
+    //     let mut back = self.trie_backend.write();
+    //     let mut trie = TrieMut::from_existing(&mut back, &mut state_root);
+    //     let backend = EVMBackendMut::from_root(
+    //         self.storage_backend.clone(),
+    //         &mut trie,
+    //         Arc::clone(&self.storage),
+    //         Default::default(),
+    //     )
+    //     .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
+    //     let nonce = backend.get_nonce(&address);
+    //     Ok(nonce)
+    // }
 
-    pub fn get_latest_block_backend(&self) -> Result<EVMBackend> {
-        let (state_root, block_number) = self
-            .storage
-            .get_latest_block()?
-            .map(|block| (block.header.state_root, block.header.number))
-            .unwrap_or_default();
+    pub fn get_next_account_nonce(&self, _address: H160, _state_root: H256) -> Result<U256> {
+        Ok(U256::zero())
+        // let state_root_nonce = self.get_nonce_from_state_root(address, state_root)?;
+        // let mut nonce_store = self.nonce_store.lock();
+        // match nonce_store.entry(address) {
+        //     std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
+        //     std::collections::hash_map::Entry::Occupied(e) => {
+        //         let nonce_set = e.get();
+        //         if !nonce_set.contains(&state_root_nonce) {
+        //             return Ok(state_root_nonce);
+        //         }
 
-        trace!(
-            "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
-            block_number,
-            state_root
-        );
-        EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            Vicinity {
-                block_gas_limit: U256::from(
-                    self.storage.get_attributes_or_default()?.block_gas_limit,
-                ),
-                ..Vicinity::default()
-            },
-        )
-    }
-
-    // Note that backend instance returned is only suitable for getting state information,
-    // and unsuitable for EVM execution.
-    pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
-        trace!("[get_backend] state_root : {:#x}", state_root);
-        EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            Vicinity {
-                block_gas_limit: U256::from(
-                    self.storage.get_attributes_or_default()?.block_gas_limit,
-                ),
-                ..Vicinity::default()
-            },
-        )
-    }
-
-    pub fn get_next_account_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
-        let state_root_nonce = self.get_nonce_from_state_root(address, state_root)?;
-        let mut nonce_store = self.nonce_store.lock();
-        match nonce_store.entry(address) {
-            std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
-            std::collections::hash_map::Entry::Occupied(e) => {
-                let nonce_set = e.get();
-                if !nonce_set.contains(&state_root_nonce) {
-                    return Ok(state_root_nonce);
-                }
-
-                let mut nonce = state_root_nonce;
-                for elem in nonce_set.range(state_root_nonce..) {
-                    if elem
-                        .checked_sub(nonce)
-                        .ok_or_else(|| format_err!("elem underflow"))?
-                        > U256::one()
-                    {
-                        break;
-                    } else {
-                        nonce = *elem;
-                    }
-                }
-                nonce = nonce
-                    .checked_add(U256::one())
-                    .ok_or_else(|| format_err!("nonce overflow"))?;
-                Ok(nonce)
-            }
-        }
+        //         let mut nonce = state_root_nonce;
+        //         for elem in nonce_set.range(state_root_nonce..) {
+        //             if (elem - nonce) > U256::from(1) {
+        //                 break;
+        //             } else {
+        //                 nonce = *elem;
+        //             }
+        //         }
+        //         nonce += U256::from(1);
+        //         Ok(nonce)
+        //     }
+        // }
     }
 
     pub fn store_account_nonce(&self, address: H160, nonce: U256) -> bool {

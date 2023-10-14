@@ -253,11 +253,12 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     std::shared_ptr<CScopedTemplateID> evmTemplateId{};
     if (isEvmEnabledForBlock) {
+        LogPrintf("[Creating a new CScopedTemplateID] from miner\n");
         evmTemplateId = CScopedTemplateID::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime);
         if (!evmTemplateId) {
             return Res::Err("Failed to create block template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, *(evmTemplateId->GetTemplateID()), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
 
     std::map<uint256, CAmount> txFees;
@@ -270,7 +271,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID()));
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, *(evmTemplateId->GetTemplateID())));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
@@ -603,7 +604,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
     auto& [txNonce, txSender] = txIter->GetEVMAddrAndNonce();
 
     CrossBoundaryResult result;
-    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_template(result, evmTemplateId->GetTemplateID(), txSender);
+    const auto expectedNonce = evm_try_unsafe_get_next_valid_nonce_in_template(result, *(evmTemplateId->GetTemplateID()), txSender);
     if (!result.ok) {
         return false;
     }
@@ -862,7 +863,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     // then remove from queue, otherwise it has not been added.
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
-                        evm_try_unsafe_remove_txs_above_hash_in_template(result, evmTemplateId->GetTemplateID(), entryHash.ToString());
+                        evm_try_unsafe_remove_txs_above_hash_in_template(result, *(evmTemplateId->GetTemplateID()), entryHash.ToString());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n", __func__, entryHash.ToString());
                         }

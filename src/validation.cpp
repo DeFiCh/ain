@@ -2663,11 +2663,14 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
         if (!xvmRes) {
             return Res::Err("Failed to process XVM in coinbase");
         }
+        LogPrintf("[Creating a new CScopedTemplateID] from validation\n");
         evmTemplateId = CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime());
         if (!evmTemplateId) {
             return Res::Err("Failed to create block template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        LogPrintf("[Creating a new CScopedTemplateID] from validation update state in template\n");
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, *(evmTemplateId->GetTemplateID()), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        LogPrintf("[Creating a new CScopedTemplateID] from validation update state in template done\n");
     }
 
     // Execute TXs
@@ -2988,7 +2991,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Finalize items
     if (isEvmEnabledForBlock) {
-        XResultThrowOnErr(evm_try_unsafe_commit_block(result, evmTemplateId->GetTemplateID()));
+        XResultThrowOnErr(evm_try_unsafe_commit_block(result, *(evmTemplateId->GetTemplateID())));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;

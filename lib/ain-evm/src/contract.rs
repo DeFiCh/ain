@@ -15,9 +15,9 @@ use log::trace;
 use sha3::{Digest, Keccak256};
 
 use crate::{
-    backend::EVMBackend,
+    backend::EVMBackendMut,
     bytes::Bytes,
-    executor::{AinExecutor, ExecuteTx},
+    executor::ExecuteTx,
     transaction::{
         system::{DeployContractData, SystemTx, TransferDirection},
         SignedTx, LOWER_H256,
@@ -161,7 +161,7 @@ pub fn transfer_domain_v1_contract_deploy_info() -> DeployContractInfo {
 }
 
 pub fn dst20_deploy_info(
-    backend: &EVMBackend,
+    backend: &EVMBackendMut,
     address: H160,
     name: &str,
     symbol: &str,
@@ -210,7 +210,7 @@ pub fn dst20_v1_deploy_info() -> DeployContractInfo {
 }
 
 pub fn bridge_dst20_in(
-    backend: &EVMBackend,
+    backend: &EVMBackendMut,
     contract: H160,
     amount: U256,
 ) -> Result<DST20BridgeInfo> {
@@ -246,7 +246,7 @@ pub fn bridge_dst20_in(
 }
 
 pub fn bridge_dst20_out(
-    backend: &EVMBackend,
+    backend: &EVMBackendMut,
     contract: H160,
     amount: U256,
 ) -> Result<DST20BridgeInfo> {
@@ -303,7 +303,7 @@ pub fn dst20_allowance(
 }
 
 pub fn bridge_dfi(
-    backend: &EVMBackend,
+    backend: &EVMBackendMut,
     amount: U256,
     direction: TransferDirection,
 ) -> Result<Vec<(H256, H256)>> {
@@ -325,7 +325,7 @@ pub fn bridge_dfi(
     Ok(vec![(total_supply_index, u256_to_h256(new_total_supply))])
 }
 
-pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
+pub fn reserve_dst20_namespace(backend: &mut EVMBackendMut) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
     } = get_dfi_reserved_contract();
@@ -338,13 +338,13 @@ pub fn reserve_dst20_namespace(executor: &mut AinExecutor) -> Result<()> {
             "[reserve_dst20_namespace] Deploying address to {:#?}",
             address
         );
-        executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
+        backend.deploy_contract(&address, runtime_bytecode.clone().into(), Vec::new())?;
     }
 
     Ok(())
 }
 
-pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
+pub fn reserve_intrinsics_namespace(backend: &mut EVMBackendMut) -> Result<()> {
     let Contract {
         runtime_bytecode, ..
     } = get_dfi_reserved_contract();
@@ -357,7 +357,7 @@ pub fn reserve_intrinsics_namespace(executor: &mut AinExecutor) -> Result<()> {
             "[reserve_intrinsics_namespace] Deploying address to {:#?}",
             address
         );
-        executor.deploy_contract(address, runtime_bytecode.clone().into(), Vec::new())?;
+        backend.deploy_contract(&address, runtime_bytecode.clone().into(), Vec::new())?;
     }
 
     Ok(())

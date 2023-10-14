@@ -2685,7 +2685,7 @@ static Res ProcessEVMQueue(const CBlock &block,
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID());
+    const auto blockResult = evm_try_unsafe_construct_block_in_template(result, *(evmTemplateId->GetTemplateID()));
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }

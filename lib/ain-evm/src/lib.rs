@@ -17,7 +17,7 @@ pub mod receipt;
 pub mod services;
 pub mod storage;
 pub mod transaction;
-mod trie;
+pub mod trie;
 pub mod weiamount;
 
 pub use anyhow::{format_err, Ok};
@@ -25,6 +25,7 @@ use backend::BackendError;
 use blocktemplate::BlockTemplateError;
 use thiserror::Error;
 use transaction::TransactionError;
+use trie::TrieError;
 pub type Result<T> = std::result::Result<T, EVMError>;
 
 pub type MaybeBlockAny = Option<ethereum::Block<ethereum::TransactionAny>>;
@@ -54,6 +55,8 @@ pub enum EVMError {
     RocksDBError(#[from] rocksdb::Error),
     #[error("EVM: ethabi error")]
     EthAbiError(#[from] ethabi::Error),
+    #[error("EVM: trie error")]
+    TrieError(#[from] TrieError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

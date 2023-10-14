@@ -54,29 +54,37 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplateID::CScopedTemplateID(uint64_t id)
-    : evmTemplateId(id) {}
+CScopedTemplateID::CScopedTemplateID(BlockTemplate* blockTemplate, BackendLock* lock)
+    : blockTemplate(blockTemplate), lock(lock) {}
 
 std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber,
                                                              const std::string minerAddress,
                                                              const unsigned int difficulty,
                                                              const uint64_t timestamp) {
+
+    LogPrintf("Creating a new CScopedTemplateID id\n");
+    BackendLock* lock = get_backend_lock();
+
     CrossBoundaryResult result;
-    uint64_t templateId = evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
+    BlockTemplate * blockTemplate = evm_try_unsafe_create_block_template(result, *lock, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
-        return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(templateId));
+        return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(blockTemplate, lock));
     }
     return nullptr;
 }
 
 CScopedTemplateID::~CScopedTemplateID() {
+    LogPrintf("Removing block template");
     CrossBoundaryResult result;
-    evm_try_unsafe_remove_template(result, evmTemplateId);
-    if (!result.ok) {
-        LogPrintf("Failed to destroy queue %d\n", evmTemplateId);
-    }
+    // evm_try_unsafe_remove_block_template(result, *blockTemplate);
+
+    // LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
+    // if (!result.ok) {
+    //     LogPrintf("Failed to destroy queue\n");
+    // }
+    free_backend_lock(lock);
 }
 
-uint64_t CScopedTemplateID::GetTemplateID() const {
-    return evmTemplateId;
+BlockTemplate* CScopedTemplateID::GetTemplateID() const {
+    return blockTemplate;
 }

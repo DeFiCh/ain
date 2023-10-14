@@ -15,8 +15,6 @@ resolver = "2"
 lto = true
 
 [patch.crates-io]
-vsdb = { git = "https://github.com/defich/vsdb.git" }
-vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
 
 [workspace.dependencies]
@@ -104,9 +102,10 @@ ethabi = "18.0.0"
 #### Trie dependencies
 hash-db = "0.16"
 sp-core = "22.0"
-vsdb_trie_db = { version = "0.7", git = "https://github.com/defich/vsdb.git", features = ["rocks_engine"] }
-vsdb_core = { version = "0.55", git = "https://github.com/defich/vsdb.git", features = ["rocks_engine", "compress"] }
-vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
+kvdb = "0.13.0"
+kvdb-rocksdb = "0.19.0"
+sp-trie = "25.0.0"
+trie-db = "0.28.0"
 
 #### Cache dependencies
 lru = "0.12"

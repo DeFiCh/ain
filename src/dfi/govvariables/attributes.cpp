@@ -759,8 +759,8 @@ static inline void rtrim(std::string &s, unsigned char remove) {
     s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) { return ch != remove; }).base(), s.end());
 }
 
-const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
-    &ATTRIBUTES::parseValue() {
+const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>> &
+ATTRIBUTES::parseValue() {
     static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
         parsers{
             {AttributeTypes::Token,
@@ -2418,7 +2418,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
         if (evmTemplateId) {
             CrossBoundaryResult result;
             const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
-            if (!evm_try_handle_attribute_apply(result, evmTemplateId->GetTemplateID(), rustKey, govVarValue)) {
+            if (!evm_try_handle_attribute_apply(result, *(evmTemplateId->GetTemplateID()), rustKey, govVarValue)) {
                 return DeFiErrors::SettingEVMAttributeFailure();
             }
             if (!result.ok) {

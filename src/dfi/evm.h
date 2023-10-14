@@ -8,6 +8,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <ain_rs_exports.h>
 
 constexpr const uint16_t EVM_TX_SIZE = 32768;
 
@@ -57,9 +58,10 @@ public:
 };
 
 class CScopedTemplateID {
-    explicit CScopedTemplateID(uint64_t id);
+    explicit CScopedTemplateID(BlockTemplate * blockTempalte, BackendLock * lock);
 
-    uint64_t evmTemplateId;
+    BlockTemplate * blockTemplate;
+    BackendLock * lock;
 
 public:
     static std::shared_ptr<CScopedTemplateID> Create(const uint64_t dvmBlockNumber,
@@ -68,7 +70,7 @@ public:
                                                      const uint64_t timestamp);
     ~CScopedTemplateID();
 
-    uint64_t GetTemplateID() const;
+    BlockTemplate * GetTemplateID() const;
 };
 
 #endif  // DEFI_DFI_EVM_H

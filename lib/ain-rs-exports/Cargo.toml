@@ -23,6 +23,7 @@ hex.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 ethabi.workspace = true
+parking_lot.workspace = true
 
 # Build
 cxx.workspace = true

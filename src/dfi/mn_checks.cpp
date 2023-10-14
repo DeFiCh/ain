@@ -451,6 +451,8 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     if (!evmTemplateId && isEvmEnabledForBlock) {
+        LogPrintf("[Creating a new CScopedTemplateID] from mn_checks\n");
+        LogPrintf("Creating new queue id here. evmPrevalidate :%d\n", evmPreValidate);
         std::string minerAddress{};
         evmTemplateId = CScopedTemplateID::Create(height, minerAddress, 0u, time);
         if (!evmTemplateId) {

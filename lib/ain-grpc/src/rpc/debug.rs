@@ -84,25 +84,25 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_account_states(&self) -> RpcResult<()> {
-        let backend = self
-            .handler
-            .core
-            .get_latest_block_backend()
-            .expect("Error restoring backend");
-        let ro_handle = backend.ro_handle();
+        // let backend = self
+        //     .handler
+        //     .core
+        //     .get_latest_block_backend()
+        //     .expect("Error restoring backend");
+        // let ro_handle = backend.ro_handle();
 
-        ro_handle.iter().for_each(|el| match el {
-            Ok((_, v)) => {
-                if let Ok(account) = Account::decode(&Rlp::new(&v)) {
-                    debug!("[log_account_states] account {:?}", account);
-                } else {
-                    debug!("[log_account_states] Error decoding account {:?}", v);
-                }
-            }
-            Err(e) => {
-                debug!("[log_account_states] Error on iter element {e}");
-            }
-        });
+        // ro_handle.iter().for_each(|el| match el {
+        //     Ok((_, v)) => {
+        //         if let Ok(account) = Account::decode(&Rlp::new(&v)) {
+        //             debug!("[log_account_states] account {:?}", account);
+        //         } else {
+        //             debug!("[log_account_states] Error decoding account {:?}", v);
+        //         }
+        //     }
+        //     Err(e) => {
+        //         debug!("[log_account_states] Error on iter element {e}");
+        //     }
+        // });
 
         Ok(())
     }
@@ -215,8 +215,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_block_templates(&self) -> RpcResult<()> {
-        let templates = &self.handler.core.block_templates;
-        debug!("templates : {:#?}", templates);
+        // let templates = &self.handler.core.block_templates;
+        // debug!("templates : {:#?}", templates);
         Ok(())
     }
 }

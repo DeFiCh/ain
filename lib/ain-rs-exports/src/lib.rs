@@ -2,10 +2,11 @@ mod core;
 mod evm;
 mod prelude;
 
-use crate::{core::*, evm::*};
+use crate::{core::*, evm::*, BlockTemplate};
 
 #[cxx::bridge]
 pub mod ffi {
+
     // ========== Block ==========
     #[derive(Default)]
     pub struct EVMBlockHeader {
@@ -65,6 +66,7 @@ pub mod ffi {
     }
 
     extern "Rust" {
+
         fn ain_rs_preinit(result: &mut CrossBoundaryResult);
         fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
         fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
@@ -134,76 +136,88 @@ pub mod ffi {
     }
 
     extern "Rust" {
+        type BackendLock;
+        type BlockTemplate<'a>;
+        fn get_backend_lock() -> *mut BackendLock;
+        unsafe fn free_backend_lock(lock: *mut BackendLock);
+        unsafe fn evm_try_unsafe_create_block_template(
+            result: &mut CrossBoundaryResult,
+            lock: &mut BackendLock,
+            dvm_block: u64,
+            miner_address: &str,
+            difficulty: u32,
+            timestamp: u64,
+        ) -> *mut BlockTemplate<'static>;
+
         // In-fallible functions
         //
         // If they are fallible, it's a TODO to changed and move later
         // so errors are propogated up properly.
         fn evm_try_get_balance(result: &mut CrossBoundaryResult, address: &str) -> u64;
-        fn evm_try_unsafe_create_template(
+        unsafe fn evm_try_unsafe_remove_block_template<'a>(
             result: &mut CrossBoundaryResult,
-            dvm_block: u64,
-            miner_address: &str,
-            difficulty: u32,
-            timestamp: u64,
-        ) -> u64;
-        fn evm_try_unsafe_remove_template(result: &mut CrossBoundaryResult, template_id: u64);
+            block_template: &mut BlockTemplate<'a>,
+        );
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
 
         // Failible functions
         // Has to take CrossBoundaryResult as first param
         // Has to start with try_ / evm_try
-        fn evm_try_unsafe_update_state_in_template(
+        unsafe fn evm_try_unsafe_update_state_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             mnview_ptr: usize,
         );
-        fn evm_try_unsafe_get_next_valid_nonce_in_template(
+        unsafe fn evm_try_unsafe_get_next_valid_nonce_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             address: &str,
         ) -> u64;
-        fn evm_try_unsafe_remove_txs_above_hash_in_template(
+        unsafe fn evm_try_unsafe_remove_txs_above_hash_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             target_hash: String,
         ) -> Vec<String>;
-        fn evm_try_unsafe_add_balance_in_template(
+        unsafe fn evm_try_unsafe_add_balance_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             raw_tx: &str,
             native_hash: &str,
         );
-        fn evm_try_unsafe_sub_balance_in_template(
+        unsafe fn evm_try_unsafe_sub_balance_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             raw_tx: &str,
             native_hash: &str,
         ) -> bool;
-        fn evm_try_unsafe_validate_raw_tx_in_template(
+        unsafe fn evm_try_unsafe_validate_raw_tx_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             raw_tx: &str,
         );
-        fn evm_try_unsafe_validate_transferdomain_tx_in_template(
+        unsafe fn evm_try_unsafe_validate_transferdomain_tx_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             raw_tx: &str,
             context: TransferDomainInfo,
         );
-        fn evm_try_unsafe_push_tx_in_template(
+        unsafe fn evm_try_unsafe_push_tx_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
             raw_tx: &str,
             native_hash: &str,
         ) -> ValidateTxCompletion;
-        fn evm_try_unsafe_construct_block_in_template(
+        unsafe fn evm_try_unsafe_construct_block_in_template<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
         ) -> FinalizeBlockCompletion;
-        fn evm_try_unsafe_commit_block(result: &mut CrossBoundaryResult, template_id: u64);
-        fn evm_try_handle_attribute_apply(
+        unsafe fn evm_try_unsafe_commit_block<'a>(
             result: &mut CrossBoundaryResult,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
+        );
+        unsafe fn evm_try_handle_attribute_apply<'a>(
+            result: &mut CrossBoundaryResult,
+            block_template: &mut BlockTemplate<'a>,
             attribute_type: GovVarKeyDataStructure,
             value: Vec<u8>,
         ) -> bool;
@@ -236,26 +250,26 @@ pub mod ffi {
 
         fn evm_try_get_tx_hash(result: &mut CrossBoundaryResult, raw_tx: &str) -> String;
 
-        fn evm_try_create_dst20(
+        unsafe fn evm_try_create_dst20<'a>(
             result: &mut CrossBoundaryResult,
-            context: u64,
+            block_template: &mut BlockTemplate<'a>,
             native_hash: &str,
             name: &str,
             symbol: &str,
             token_id: u64,
         );
-        fn evm_try_unsafe_bridge_dst20(
+        unsafe fn evm_try_unsafe_bridge_dst20<'a>(
             result: &mut CrossBoundaryResult,
-            context: u64,
+            block_template: &mut BlockTemplate<'a>,
             raw_tx: &str,
             native_hash: &str,
             token_id: u64,
             out: bool,
         );
-        fn evm_try_unsafe_is_smart_contract_in_template(
+        unsafe fn evm_try_unsafe_is_smart_contract_in_template<'a>(
             result: &mut CrossBoundaryResult,
             address: &str,
-            template_id: u64,
+            block_template: &mut BlockTemplate<'a>,
         ) -> bool;
         fn evm_try_get_tx_miner_info_from_raw_tx(
             result: &mut CrossBoundaryResult,

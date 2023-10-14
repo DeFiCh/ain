@@ -56,15 +56,6 @@ impl BlockService {
         Ok(opt_hash_and_number)
     }
 
-    pub fn get_latest_state_root(&self) -> Result<H256> {
-        let state_root = self
-            .storage
-            .get_latest_block()?
-            .map(|block| block.header.state_root)
-            .unwrap_or_default();
-        Ok(state_root)
-    }
-
     pub fn connect_block(&self, block: &BlockAny) -> Result<()> {
         self.storage.put_latest_block(Some(block))?;
         self.storage.put_block(block)

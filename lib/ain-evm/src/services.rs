@@ -99,7 +99,6 @@ impl Services {
             .unwrap();
 
         // Persist EVM State to disk
-        self.evm.core.flush().expect("Could not flush evm state");
         self.evm.storage.flush().expect("Could not flush storage");
     }
 }
