@@ -76,13 +76,13 @@ std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmB
 CScopedTemplateID::~CScopedTemplateID() {
     LogPrintf("Removing block template");
     CrossBoundaryResult result;
-    // evm_try_unsafe_remove_block_template(result, *blockTemplate);
+    evm_try_unsafe_remove_block_template(result, *blockTemplate);
 
-    // LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
-    // if (!result.ok) {
-    //     LogPrintf("Failed to destroy queue\n");
-    // }
-    free_backend_lock(lock);
+    LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
+    if (!result.ok) {
+        LogPrintf("Failed to destroy queue\n");
+    }
+    // free_backend_lock(lock);
 }
 
 BlockTemplate* CScopedTemplateID::GetTemplateID() const {

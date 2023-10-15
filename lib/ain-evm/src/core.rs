@@ -765,9 +765,10 @@ impl EVMCoreService {
     ///
     pub unsafe fn remove_txs_above_hash_in_block_template(
         &self,
-        template: &mut BlockTemplate,
+        template_ptr: *mut BlockTemplate,
         target_hash: XHash,
     ) -> Result<Vec<XHash>> {
+        let mut template = unsafe { &mut *template_ptr };
         let hashes = template.remove_txs_above_hash(target_hash)?;
         Ok(hashes)
     }

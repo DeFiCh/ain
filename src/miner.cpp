@@ -275,6 +275,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
+        CrossBoundaryResult result;
+        evm_try_unsafe_remove_block_template(result, *(evmTemplateId->GetTemplateID()));
+        if (!result.ok) return Res::Err("Failed to construct block");
     }
 
     // TXs for the creationTx field in new tokens created via token split
@@ -1125,6 +1128,7 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         return Status::stakeWaiting;
     }
 
+    LogPrintf("Dropping evmqueue id ehere\n");
     return Status::minted;
 }
 
