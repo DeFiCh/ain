@@ -326,7 +326,7 @@ class CCustomTxApplyVisitor {
     const Consensus::Params &consensus;
     uint64_t time;
     uint32_t txn;
-    const std::shared_ptr<CScopedTemplateID> &evmTemplateId;
+    const std::shared_ptr<CScopedTemplate> &evmTemplate;
     bool isEvmEnabledForBlock;
     bool evmPreValidate;
 
@@ -336,7 +336,7 @@ class CCustomTxApplyVisitor {
 
         if constexpr (std::is_invocable_v<T1, T>) {
             return T1{
-                tx, height, coins, mnview, consensus, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate}(
+                tx, height, coins, mnview, consensus, time, txn, evmTemplate, isEvmEnabledForBlock, evmPreValidate}(
                 obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
@@ -355,7 +355,7 @@ public:
                           const Consensus::Params &consensus,
                           uint64_t time,
                           uint32_t txn,
-                          const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
+                          const std::shared_ptr<CScopedTemplate> &evmTemplate,
                           const bool isEvmEnabledForBlock,
                           const bool evmPreValidate)
 
@@ -366,7 +366,7 @@ public:
           consensus(consensus),
           time(time),
           txn(txn),
-          evmTemplateId(evmTemplateId),
+          evmTemplate(evmTemplate),
           isEvmEnabledForBlock(isEvmEnabledForBlock),
           evmPreValidate(evmPreValidate) {}
 
@@ -443,19 +443,19 @@ Res CustomTxVisit(CCustomCSView &mnview,
                   const CCustomTxMessage &txMessage,
                   const uint64_t time,
                   const uint32_t txn,
-                  std::shared_ptr<CScopedTemplateID> &evmTemplateId,
+                  std::shared_ptr<CScopedTemplate> &evmTemplate,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    if (!evmTemplateId && isEvmEnabledForBlock) {
-        LogPrintf("[Creating a new CScopedTemplateID] from mn_checks\n");
+    if (!evmTemplate && isEvmEnabledForBlock) {
+        LogPrintf("[Creating a new CScopedTemplate] from mn_checks\n");
         LogPrintf("Creating new queue id here. evmPrevalidate :%d\n", evmPreValidate);
         std::string minerAddress{};
-        evmTemplateId = CScopedTemplateID::Create(height, minerAddress, 0u, time);
-        if (!evmTemplateId) {
+        evmTemplate = CScopedTemplate::Create(height, minerAddress, 0u, time);
+        if (!evmTemplate) {
             return Res::Err("Failed to create queue");
         }
     }
@@ -463,7 +463,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     try {
         auto res = std::visit(
             CCustomTxApplyVisitor(
-                tx, height, coins, mnview, consensus, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate),
+                tx, height, coins, mnview, consensus, time, txn, evmTemplate, isEvmEnabledForBlock, evmPreValidate),
             txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
@@ -551,7 +551,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                   uint64_t time,
                   uint256 *canSpend,
                   uint32_t txn,
-                  std::shared_ptr<CScopedTemplateID> &evmTemplateId,
+                  std::shared_ptr<CScopedTemplate> &evmTemplate,
                   const bool isEvmEnabledForBlock,
                   const bool evmPreValidate) {
     auto res = Res::Ok();
@@ -600,7 +600,7 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                             txMessage,
                             time,
                             txn,
-                            evmTemplateId,
+                            evmTemplate,
                             isEvmEnabledForBlock,
                             evmPreValidate);
 

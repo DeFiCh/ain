@@ -57,20 +57,20 @@ public:
     };
 };
 
-class CScopedTemplateID {
-    explicit CScopedTemplateID(BlockTemplate * blockTempalte, BackendLock * lock);
+class CScopedTemplate {
+    explicit CScopedTemplate(BlockTemplate * blockTempalte, BackendLock * lock);
 
     BlockTemplate * blockTemplate;
     BackendLock * lock;
 
 public:
-    static std::shared_ptr<CScopedTemplateID> Create(const uint64_t dvmBlockNumber,
+    static std::unique_ptr<CScopedTemplate> Create(const uint64_t dvmBlockNumber,
                                                      std::string minerAddress,
                                                      unsigned int difficulty,
                                                      const uint64_t timestamp);
-    ~CScopedTemplateID();
+    ~CScopedTemplate();
 
-    BlockTemplate * GetTemplateID() const;
+    BlockTemplate * GetTemplate() const;
 };
 
 #endif  // DEFI_DFI_EVM_H

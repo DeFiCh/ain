@@ -71,7 +71,7 @@ Res CTokensView::CreateDFIToken() {
 ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                                         bool isPreBayfront,
                                         bool shouldCreateDst20,
-                                        const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                                        const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -106,7 +106,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
         if (shouldCreateDst20) {
             CrossBoundaryResult result;
             evm_try_create_dst20(result,
-                                 *(evmTemplateId->GetTemplateID()),
+                                 *(evmTemplate->GetTemplate()),
                                  token.creationTx.GetHex(),
                                  rust::string(token.name.c_str()),
                                  rust::string(token.symbol.c_str()),

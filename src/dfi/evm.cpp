@@ -54,37 +54,37 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplateID::CScopedTemplateID(BlockTemplate* blockTemplate, BackendLock* lock)
+CScopedTemplate::CScopedTemplate(BlockTemplate* blockTemplate, BackendLock* lock)
     : blockTemplate(blockTemplate), lock(lock) {}
 
-std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber,
+std::unique_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
                                                              const std::string minerAddress,
                                                              const unsigned int difficulty,
                                                              const uint64_t timestamp) {
 
-    LogPrintf("Creating a new CScopedTemplateID id\n");
+    LogPrintf("Creating a new CScopedTemplate id\n");
     BackendLock* lock = get_backend_lock();
 
     CrossBoundaryResult result;
     BlockTemplate * blockTemplate = evm_try_unsafe_create_block_template(result, *lock, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
-        return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(blockTemplate, lock));
+        return std::unique_ptr<CScopedTemplate>(new CScopedTemplate(blockTemplate, lock));
     }
     return nullptr;
 }
 
-CScopedTemplateID::~CScopedTemplateID() {
-    LogPrintf("Removing block template");
-    CrossBoundaryResult result;
-    evm_try_unsafe_remove_block_template(result, *blockTemplate);
+CScopedTemplate::~CScopedTemplate() {
+    LogPrintf("Removing block template in ~");
+    // CrossBoundaryResult result;
+    // evm_try_unsafe_remove_block_template(result, *blockTemplate);
 
-    LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
-    if (!result.ok) {
-        LogPrintf("Failed to destroy queue\n");
-    }
+    // LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
+    // if (!result.ok) {
+    //     LogPrintf("Failed to destroy queue\n");
+    // }
     // free_backend_lock(lock);
 }
 
-BlockTemplate* CScopedTemplateID::GetTemplateID() const {
+BlockTemplate* CScopedTemplate::GetTemplate() const {
     return blockTemplate;
 }
