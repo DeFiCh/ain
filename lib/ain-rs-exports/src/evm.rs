@@ -445,16 +445,14 @@ pub unsafe fn evm_try_unsafe_create_block_template(
     unsafe {
         let backend = (*lock).get_backend_mut();
 
-        let backend_box = Box::new(backend);
-        let backend_ptr = Box::into_raw(backend_box);
+        let backend_ptr = Box::into_raw(Box::new(backend));
 
         let Ok(state_root) = SERVICES.evm.core.get_state_root() else {
             cross_boundary_error(result, "Error fetching latest state root");
             return std::ptr::null_mut();
         };
 
-        let root_box = Box::new(state_root);
-        let root_ptr = Box::into_raw(root_box);
+        let root_ptr = Box::into_raw(Box::new(state_root));
 
         let trie = TrieMut::from_existing(&mut *backend_ptr, &mut *root_ptr);
         let Ok(ptr) = SERVICES.evm.create_block_template(
@@ -477,12 +475,13 @@ pub unsafe fn evm_try_unsafe_create_block_template(
 ///
 ///
 #[ffi_fallible]
-fn evm_try_unsafe_remove_block_template(template: *mut BlockTemplate) -> Result<()> {
+fn evm_try_unsafe_remove_block_template(template: *mut BlockTemplate, is_miner: i32) -> Result<()> {
     unsafe {
-        println!("[evm_try_unsafe_remove_block_template]");
-        SERVICES.evm.core.remove_block_template((*template).0);
+        println!("is miner : {is_miner}");
+        println!("[evm_try_unsafe_remove_block_template] template {template:p}");
+        // SERVICES.evm.core.remove_block_template((*template).0);
         println!("[evm_try_unsafe_remove_block_template] done");
-        drop(Box::from_raw((*template).1)); // Free Backend lock
+        free_backend_lock((*template).1); // Free Backend lock
     }
     Ok(())
 }
@@ -896,10 +895,8 @@ pub fn get_backend_lock() -> *mut BackendLock {
 }
 
 pub unsafe fn free_backend_lock(lock: *mut BackendLock) {
-    unsafe {
-        if !lock.is_null() {
-            drop(Box::from_raw(lock));
-        }
+    if !lock.is_null() {
+        drop(Box::from_raw(lock));
     }
 }
 

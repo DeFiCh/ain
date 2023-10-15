@@ -62,7 +62,7 @@ std::unique_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlock
                                                              const unsigned int difficulty,
                                                              const uint64_t timestamp) {
 
-    LogPrintf("Creating a new CScopedTemplate id\n");
+    LogPrintf("Creating a new CScopedTemplate id block number :%llu\n", dvmBlockNumber);
     BackendLock* lock = get_backend_lock();
 
     CrossBoundaryResult result;
@@ -74,14 +74,14 @@ std::unique_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlock
 }
 
 CScopedTemplate::~CScopedTemplate() {
-    LogPrintf("Removing block template in ~");
-    // CrossBoundaryResult result;
-    // evm_try_unsafe_remove_block_template(result, *blockTemplate);
+    LogPrintf("Removing block template in ~\n");
+    CrossBoundaryResult result;
+    evm_try_unsafe_remove_block_template(result, *blockTemplate, 2);
 
-    // LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
-    // if (!result.ok) {
-    //     LogPrintf("Failed to destroy queue\n");
-    // }
+    LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
+    if (!result.ok) {
+        LogPrintf("Failed to destroy queue\n");
+    }
     // free_backend_lock(lock);
 }
 

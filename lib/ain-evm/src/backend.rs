@@ -39,7 +39,7 @@ pub struct Vicinity {
 }
 
 pub struct EVMBackendMut<'a> {
-    storage_backend: Arc<RwLock<TrieBackend>>,
+    pub storage_backend: Arc<RwLock<TrieBackend>>,
     pub state: *mut TrieMut<'a>,
     storage: Arc<Storage>,
     pub vicinity: Vicinity,
@@ -51,13 +51,13 @@ impl<'a> EVMBackendMut<'a> {
         state: *mut TrieMut<'a>,
         storage: Arc<Storage>,
         vicinity: Vicinity,
-    ) -> Result<Self> {
-        Ok(EVMBackendMut {
+    ) -> Self {
+        Self {
             storage_backend,
             state,
             storage,
             vicinity,
-        })
+        }
     }
 
     pub fn apply<I: IntoIterator<Item = (H256, H256)>>(
@@ -74,9 +74,9 @@ impl<'a> EVMBackendMut<'a> {
             storage_root: H256::zero(),
             code_hash: H256::zero(),
         });
-        println!("address : {:?}", address);
-        println!("account : {:?}", account);
-        println!("reset_storage : {:?}", reset_storage);
+        // println!("address : {:?}", address);
+        // println!("account : {:?}", account);
+        // println!("reset_storage : {:?}", reset_storage);
 
         // let mut base_root = H256::zero();
 
@@ -124,14 +124,14 @@ impl<'a> EVMBackendMut<'a> {
             },
         };
 
-        println!("inserting new_account : {:?}", new_account);
+        // println!("inserting new_account : {:?}", new_account);
         let mut state = unsafe { &mut *self.state };
         state
             .insert(&address.as_bytes(), &new_account.rlp_bytes())
             .unwrap();
         // .map_err(|e| BackendError::TrieError(format!("{e}")))?;
 
-        println!("inserted");
+        // println!("inserted");
         Ok(new_account)
     }
 
@@ -247,7 +247,7 @@ impl<'a> EVMBackendMut<'a> {
         code: Vec<u8>,
         storage: Vec<(H256, H256)>,
     ) -> Result<()> {
-        println!("deploying address : {:?}", address);
+        // println!("deploying address : {:?}", address);
         self.apply(*address, None, Some(code), storage, true)?;
 
         Ok(())
@@ -463,13 +463,13 @@ impl<'a> EVMBackend<'a> {
         state: Trie<'a>,
         storage: Arc<Storage>,
         vicinity: Vicinity,
-    ) -> Result<Self> {
-        Ok(EVMBackend {
+    ) -> Self {
+        EVMBackend {
             storage_backend,
             state,
             storage,
             vicinity,
-        })
+        }
     }
 
     pub fn with_read_storage_and_root<T, F: FnOnce(&Trie) -> T>(&self, root: &TrieRoot, f: F) -> T {

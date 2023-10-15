@@ -277,7 +277,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};
         CrossBoundaryResult result;
         LogPrintf("Returning before evm_try_unsafe_remove_block_template in miner \n");
-        evm_try_unsafe_remove_block_template(result, *(evmTemplate->GetTemplate()), true);
+        evm_try_unsafe_remove_block_template(result, *(evmTemplate->GetTemplate()), 1);
         if (!result.ok) return Res::Err("Failed to construct block");
     }
 
@@ -1129,7 +1129,6 @@ Staker::Status Staker::stake(const CChainParams& chainparams, const ThreadStaker
         return Status::stakeWaiting;
     }
 
-    LogPrintf("Dropping evmqueue id ehere\n");
     return Status::minted;
 }
 

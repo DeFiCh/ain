@@ -536,7 +536,7 @@ impl EVMServices {
             trie,
             Arc::clone(&self.storage),
             vicinity.clone(),
-        )?;
+        );
         let template = BlockTemplate::new(
             vicinity,
             parent_hash,

@@ -157,6 +157,7 @@ pub mod ffi {
         unsafe fn evm_try_unsafe_remove_block_template<'a>(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplate<'a>,
+            miner: i32,
         );
         fn evm_try_disconnect_latest_block(result: &mut CrossBoundaryResult);
 

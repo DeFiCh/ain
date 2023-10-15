@@ -2992,6 +2992,13 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Finalize items
     if (isEvmEnabledForBlock) {
         XResultThrowOnErr(evm_try_unsafe_commit_block(result, *(evmTemplate->GetTemplate())));
+
+        CrossBoundaryResult result;
+        LogPrintf("Returning before evm_try_unsafe_remove_block_template in validation \n");
+        evm_try_unsafe_remove_block_template(result, *(evmTemplate->GetTemplate()), 0);
+        if (!result.ok) {
+            return Res::Err(result.reason.c_str());
+        }
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
@@ -4931,6 +4938,7 @@ bool ProcessNewBlock(const CChainParams& chainparams, const std::shared_ptr<cons
 
 bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams, const CBlock& block, CBlockIndex* pindexPrev, bool fCheckMerkleRoot)
 {
+    LogPrintf("[TestBlockValidity]\n");
     AssertLockHeld(cs_main);
     assert(pindexPrev && pindexPrev == ::ChainActive().Tip());
     CCoinsViewCache viewNew(&::ChainstateActive().CoinsTip());

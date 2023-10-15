@@ -128,7 +128,7 @@ impl TxValidationCache {
 }
 
 pub struct EVMCoreService {
-    pub trie_backend: Arc<RwLock<TrieBackend>>,
+    pub trie_backend: RwLock<TrieBackend>,
     pub storage_backend: Arc<RwLock<TrieBackend>>,
     pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
@@ -166,7 +166,7 @@ pub struct TransferDomainTxInfo {
 impl EVMCoreService {
     pub fn restore(storage: Arc<Storage>, path: PathBuf) -> Result<Self> {
         Ok(Self {
-            trie_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?)),
+            trie_backend: RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?),
             storage_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from(
                 "storage_trie.db",
             ))?)),
@@ -185,7 +185,7 @@ impl EVMCoreService {
         debug!("Loading genesis state from {}", genesis_path.display());
 
         let handler = Self {
-            trie_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?)),
+            trie_backend: RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?),
             storage_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from(
                 "storage_trie.db",
             ))?)),
@@ -294,8 +294,7 @@ impl EVMCoreService {
             trie,
             Arc::clone(&self.storage),
             vicinity,
-        )
-        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
+        );
         Ok(call(
             &backend,
             ExecutorContext {
@@ -745,6 +744,11 @@ impl EVMCoreService {
             let backend_ptr = block_template.backend;
             if !backend_ptr.is_null() {
                 let backend = Box::from_raw(backend_ptr);
+                println!(
+                    "Arc::strong_count(backend.storage_backend) : {:?}",
+                    Arc::strong_count(&backend.storage_backend)
+                );
+
                 println!("Got backend");
 
                 let trie_ptr = backend.state;
@@ -827,8 +831,7 @@ impl EVMCoreService {
             trie,
             Arc::clone(&self.storage),
             Default::default(),
-        )
-        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
+        );
         Ok(backend.get_account(&address))
     }
 
@@ -841,8 +844,7 @@ impl EVMCoreService {
             trie,
             Arc::clone(&self.storage),
             Default::default(),
-        )
-        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
+        );
         backend.get_contract_storage(contract, storage_index.as_bytes())
     }
 
