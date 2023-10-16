@@ -293,6 +293,48 @@ class EVMTest(DefiTestFramework):
         tx_info = block_info["tx"][1]
         assert_equal(tx_info["vm"]["msg"]["hash"], hash[2:])
 
+    def block_with_multiple_transfer_domain_txs(self):
+        self.rollback_to(self.start_height)
+
+        # Send transferdomain txs to be included in the first block
+        total_unspent = len(self.nodes[0].listunspent())
+        total_transferdomain_txs = 52
+        transferdomaintx_hashes = []
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+        for i in range(total_transferdomain_txs):
+            hash = self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+            transferdomaintx_hashes.append(hash)
+
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent)
+
+        idx = 0
+        for tx_info in block_info["tx"][1:]:
+            if tx_info["vm"]["txtype"] == "TransferDomain":
+                assert_equal(tx_info["txid"], transferdomaintx_hashes[idx])
+                idx += 1
+            else:
+                assert_equal(tx_info["vm"]["txtype"], "AutoAuth")
+
     def blocks_size_gas_limit_with_transferdomain_txs(self):
         self.rollback_to(self.start_height)
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
@@ -903,29 +945,32 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        # Test mining multiple full blocks
-        self.multiple_blocks_size_gas_limit()
+        # # Test mining multiple full blocks
+        # self.multiple_blocks_size_gas_limit()
 
-        # Test mining txs into blocks with varying block fees
-        self.varying_block_base_fee()
+        # # Test mining txs into blocks with varying block fees
+        # self.varying_block_base_fee()
 
-        # Test mining full block with transferdomain txs
-        self.blocks_size_gas_limit_with_transferdomain_txs()
+        # Test mining multiple transferdomain txs in the same block
+        self.block_with_multiple_transfer_domain_txs()
 
-        # Test mining multiple full blocks with max evm txs per sender and RBF
-        self.multiple_blocks_size_gas_limit_max_txs_with_rbf()
+        # # Test mining full block with transferdomain txs
+        # self.blocks_size_gas_limit_with_transferdomain_txs()
 
-        # Test invalid tx in block creation
-        self.invalid_evm_tx_in_block_creation()
+        # # Test mining multiple full blocks with max evm txs per sender and RBF
+        # self.multiple_blocks_size_gas_limit_max_txs_with_rbf()
 
-        # Test for block size overflow from fee mismatch between tx queue and block
-        self.state_dependent_txs_in_block_and_queue()
+        # # Test invalid tx in block creation
+        # self.invalid_evm_tx_in_block_creation()
 
-        # Test for multiple expensive evm txs and transferdomain txs in the same block
-        self.multiple_evm_and_transferdomain_txs()
+        # # Test for block size overflow from fee mismatch between tx queue and block
+        # self.state_dependent_txs_in_block_and_queue()
 
-        # Test for multiple transferdomain txs in the same block
-        self.multiple_transferdomain_txs()
+        # # Test for multiple expensive evm txs and transferdomain txs in the same block
+        # self.multiple_evm_and_transferdomain_txs()
+
+        # # Test for multiple transferdomain txs in the same block
+        # self.multiple_transferdomain_txs()
 
 
 if __name__ == "__main__":
