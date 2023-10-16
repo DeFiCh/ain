@@ -947,32 +947,32 @@ class EVMTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        # # Test mining multiple full blocks
-        # self.multiple_blocks_size_gas_limit()
+        # Test mining multiple full blocks
+        self.multiple_blocks_size_gas_limit()
 
-        # # Test mining txs into blocks with varying block fees
-        # self.varying_block_base_fee()
+        # Test mining txs into blocks with varying block fees
+        self.varying_block_base_fee()
 
         # Test mining multiple transferdomain txs in the same block
         self.block_with_multiple_transfer_domain_txs()
 
-        # # Test mining full block with transferdomain txs
-        # self.blocks_size_gas_limit_with_transferdomain_txs()
+        # Test mining full block with transferdomain txs
+        self.blocks_size_gas_limit_with_transferdomain_txs()
 
-        # # Test mining multiple full blocks with max evm txs per sender and RBF
-        # self.multiple_blocks_size_gas_limit_max_txs_with_rbf()
+        # Test mining multiple full blocks with max evm txs per sender and RBF
+        self.multiple_blocks_size_gas_limit_max_txs_with_rbf()
 
-        # # Test invalid tx in block creation
-        # self.invalid_evm_tx_in_block_creation()
+        # Test invalid tx in block creation
+        self.invalid_evm_tx_in_block_creation()
 
-        # # Test for block size overflow from fee mismatch between tx queue and block
-        # self.state_dependent_txs_in_block_and_queue()
+        # Test for block size overflow from fee mismatch between tx queue and block
+        self.state_dependent_txs_in_block_and_queue()
 
-        # # Test for multiple expensive evm txs and transferdomain txs in the same block
-        # self.multiple_evm_and_transferdomain_txs()
+        # Test for multiple expensive evm txs and transferdomain txs in the same block
+        self.multiple_evm_and_transferdomain_txs()
 
-        # # Test for multiple transferdomain txs in the same block
-        # self.multiple_transferdomain_txs()
+        # Test for multiple transferdomain txs in the same block
+        self.multiple_transferdomain_txs()
 
 
 if __name__ == "__main__":
