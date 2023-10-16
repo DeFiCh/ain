@@ -467,6 +467,7 @@ public:
     Res Import(const UniValue &val) override;
     UniValue Export() const override;
     UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix) const;
+    Res CheckKeys() const;
 
     Res Validate(const CCustomCSView &mnview) const override;
     Res Apply(CCustomCSView &mnview, const uint32_t height) override;
@@ -547,14 +548,15 @@ public:
     }
 
     uint32_t time{0};
-    std::shared_ptr<CScopedQueueID> evmQueueId{};
+    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
 
     // For formatting in export
     static const std::map<uint8_t, std::string> &displayVersions();
     static const std::map<uint8_t, std::string> &displayTypes();
     static const std::map<uint8_t, std::string> &displayParamsIDs();
+    static const std::map<uint8_t, std::string> &allowedExportParamsIDs();
+    static const std::map<uint8_t, std::string> &displayLocksIDs();
     static const std::map<uint8_t, std::string> &displayOracleIDs();
-    static const std::map<uint8_t, std::string> &displayConsortiumIDs();
     static const std::map<uint8_t, std::string> &displayGovernanceIDs();
     static const std::map<uint8_t, std::string> &displayTransferIDs();
     static const std::map<uint8_t, std::string> &displayEVMIDs();
@@ -581,7 +583,6 @@ private:
     static const std::map<std::string, uint8_t> &allowedParamIDs();
     static const std::map<std::string, uint8_t> &allowedLocksIDs();
     static const std::map<std::string, uint8_t> &allowedOracleIDs();
-    static const std::map<std::string, uint8_t> &allowedConsortiumIDs();
     static const std::map<std::string, uint8_t> &allowedGovernanceIDs();
     static const std::map<std::string, uint8_t> &allowedTransferIDs();
     static const std::map<std::string, uint8_t> &allowedEVMIDs();

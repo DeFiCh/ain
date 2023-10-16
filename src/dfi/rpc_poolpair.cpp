@@ -793,7 +793,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
     const UniValue &metaObj = request.params[0].get_obj();
     const UniValue &txInputs = request.params[1];
 
-    std::string const poolStr = trim_ws(metaObj["pool"].getValStr());
+    const std::string poolStr = trim_ws(metaObj["pool"].getValStr());
     DCT_ID poolId;
     int targetHeight;
     {

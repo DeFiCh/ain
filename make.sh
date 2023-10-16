@@ -358,7 +358,7 @@ check() {
     check_py
     check_rs
     # check_lints
-    # check_cpp
+    check_cpp
 }
 
 check_git_dirty() {
@@ -386,9 +386,9 @@ check_lints() {
     test/lint/check-doc.py
     _fold_end
 
-    _fold_start "check-rpc-mappings"
-    test/lint/check-rpc-mappings.py .
-    _fold_end
+    # _fold_start "check-rpc-mappings"
+    # test/lint/check-rpc-mappings.py .
+    # _fold_end
 
     test/lint/lint-all.sh
     py_env_deactivate
@@ -410,14 +410,13 @@ check_sh() {
         -or -path ./test/lint/lint-python-dead-code.sh \
         -or -path ./src/univalue -prune \
         -or -path ./src/secp256k1 -prune \
-        -or -path ./build\* \)  -name '*.sh' -exec shellcheck {} \;
+        -or -path ./build\* \)  -name '*.sh' -print0 | xargs -0L1 shellcheck
 
     py_env_deactivate
 }
 
 check_cpp() {
-    # TODO
-    :
+    _run_clang_format 1
 }
 
 check_enter_build_rs_dir() {
@@ -450,9 +449,16 @@ fmt_rs() {
 
 fmt_cpp() {
     echo "> fmt: cpp"
+    _run_clang_format 0
+}
+
+_run_clang_format() {
+    local check_only=${1:-0}
     local clang_ver=${CLANG_DEFAULT_VERSION}
     local clang_formatters=("clang-format-${clang_ver}" "clang-format")
     local index=-1
+    local fmt_args=""
+
     for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
         if "${clang_formatters[$idx]}" --version &> /dev/null; then 
             index="$idx"
@@ -460,12 +466,17 @@ fmt_cpp() {
         fi
     done
     if [[ "$index" == -1 ]]; then
-        echo "No clang formatter found". 
+        echo "clang-format(-${clang_ver}) required" 
         exit 1
     fi
 
-    find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) \
-        -exec "${clang_formatters[$index]}" -i -style=file {} +;
+    if [[ "$check_only" == 1 ]]; then
+        fmt_args="--dry-run --Werror"
+    fi 
+
+    # shellcheck disable=SC2086
+    find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
+        xargs -0 -I{} "${clang_formatters[$index]}" $fmt_args -i -style=file {}
 }
 
 fmt_lib() {
@@ -708,13 +719,6 @@ pkg_install_rust() {
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
         --default-toolchain="${RUST_DEFAULT_VERSION}" -y
     _fold_end
-}
-
-pkg_install_solc() {
-    _fold_start "pkg-install-solc"
-    add-apt-repository ppa:ethereum/ethereum -y
-    apt-get update
-    apt-get install solc -y
 }
 
 pkg_local_ensure_osx_sysroot() {
@@ -1103,7 +1107,6 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
     DEBIAN_FRONTEND=noninteractive pkg_install_rust
-    DEBIAN_FRONTEND=noninteractive pkg_install_solc
 }
 
 _ci_setup_deps_target() {

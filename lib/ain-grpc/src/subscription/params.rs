@@ -1,6 +1,5 @@
 use ethereum_types::{H160, H256};
-use serde::de::Error;
-use serde::{Deserialize, Deserializer};
+use serde::{de::Error, Deserialize, Deserializer};
 use serde_json::{from_value, Value};
 use serde_with::{serde_as, OneOrMany};
 

@@ -1,8 +1,8 @@
-use evm::{Capture, ExitReason, Trap};
 use crate::core::ExecutionStep;
 use crate::opcode;
 use evm::gasometer::tracing::{using as using_gas, EventListener as GasEventListener};
 use evm::gasometer::Gasometer;
+use evm::{Capture, ExitReason, Trap};
 use evm_runtime::tracing::{using as using_runtime, Event, EventListener as RuntimeEventListener};
 use evm_runtime::Config;
 

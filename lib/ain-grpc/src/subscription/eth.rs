@@ -1,12 +1,15 @@
-use crate::subscription::params::{Kind, Params};
-use crate::subscription::sync_status::{PubSubSyncStatus, SyncStatusMetadata};
-use crate::subscription::PubSubResult;
-use ain_evm::log::Notification;
-use ain_evm::{evm::EVMServices, storage::traits::BlockStorage};
+use std::sync::Arc;
+
+use ain_evm::{evm::EVMServices, log::Notification, storage::traits::BlockStorage};
 use anyhow::format_err;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 use log::debug;
-use std::sync::Arc;
+
+use crate::subscription::{
+    params::{Kind, Params},
+    sync_status::{PubSubSyncStatus, SyncStatusMetadata},
+    PubSubResult,
+};
 
 /// Metachain WebSockets interface.
 #[rpc(server)]
@@ -109,7 +112,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                                         .header
                                         .number;
                                     let starting_block = handler.block.get_starting_block_number();
-                                    let highest_block = current_block + (highest - current);
+                                    let highest_block = current_block + (highest - current); // safe since current can never be more than highest
 
                                     Ok(PubSubSyncStatus::Detailed(SyncStatusMetadata {
                                         syncing: current != highest,

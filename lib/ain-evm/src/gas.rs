@@ -23,7 +23,7 @@ fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
 
 pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<()> {
     const CONFIG: Config = Config::shanghai();
-    let mut gasometer = Gasometer::new(signed_tx.gas_limit().as_u64(), &CONFIG);
+    let mut gasometer = Gasometer::new(u64::try_from(signed_tx.gas_limit())?, &CONFIG);
 
     let tx_cost = get_tx_cost(signed_tx);
     match gasometer.record_transaction(tx_cost) {

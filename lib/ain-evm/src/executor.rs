@@ -11,22 +11,33 @@ use log::{debug, trace};
 
 use crate::{
     backend::EVMBackend,
+    blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
         bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
         dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
-    evm::ReceiptAndOptionalContractAddress,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
         SignedTx,
     },
-    txqueue::QueueTx,
-    EVMError, Result,
+    Result,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecuteTx {
+    SignedTx(Box<SignedTx>),
+    SystemTx(SystemTx),
+}
+
+impl From<SignedTx> for ExecuteTx {
+    fn from(tx: SignedTx) -> Self {
+        Self::SignedTx(Box::new(tx))
+    }
+}
 
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {
@@ -136,7 +147,7 @@ impl<'backend> AinExecutor<'backend> {
         base_fee: U256,
         system_tx: bool,
     ) -> Result<(TxResponse, ReceiptV3)> {
-        self.backend.update_vicinity_from_tx(signed_tx, base_fee);
+        self.backend.update_vicinity_from_tx(signed_tx);
         trace!(
             "[Executor] Executing EVM TX with vicinity : {:?}",
             self.backend.vicinity
@@ -191,12 +202,16 @@ impl<'backend> AinExecutor<'backend> {
         let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
         let total_gas_used = self.backend.vicinity.total_gas_used;
         let block_gas_limit = self.backend.vicinity.block_gas_limit;
-        if !system_tx && total_gas_used + U256::from(used_gas) > block_gas_limit {
-            self.backend
-                .refund_unused_gas_fee(signed_tx, U256::zero(), base_fee)?;
-            return Err(EVMError::BlockSizeLimit(
-                "Block size limit exceeded, tx cannot make it into the block".to_string(),
-            ));
+        if !system_tx
+            && total_gas_used
+                .checked_add(U256::from(used_gas))
+                .ok_or_else(|| format_err!("total_gas_used overflow"))?
+                > block_gas_limit
+        {
+            return Err(format_err!(
+                "[exec] block size limit exceeded, tx cannot make it into the block"
+            )
+            .into());
         }
         let (values, logs) = executor.into_state().deconstruct();
         let logs = logs.into_iter().collect::<Vec<_>>();
@@ -231,14 +246,14 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
-    pub fn apply_queue_tx(&mut self, tx: QueueTx, base_fee: U256) -> Result<ApplyTxResult> {
+    pub fn execute_tx(&mut self, tx: ExecuteTx, base_fee: U256) -> Result<ApplyTxResult> {
         match tx {
-            QueueTx::SignedTx(signed_tx) => {
+            ExecuteTx::SignedTx(signed_tx) => {
                 // Validate nonce
                 let nonce = self.backend.get_nonce(&signed_tx.sender);
                 if nonce != signed_tx.nonce() {
                     return Err(format_err!(
-                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        "[execute_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
                         nonce,
                         signed_tx.nonce(),
                     )
@@ -249,7 +264,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false)?;
 
                 debug!(
-                    "[apply_queue_tx]receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
+                    "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash()
@@ -260,13 +275,13 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
-                    used_gas: tx_response.used_gas,
+                    used_gas: U256::from(tx_response.used_gas),
                     logs: tx_response.logs,
                     gas_fee,
                     receipt: (receipt, None),
                 })
             }
-            QueueTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
+            ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
                 signed_tx,
                 direction,
             })) => {
@@ -274,7 +289,7 @@ impl<'backend> AinExecutor<'backend> {
                 let nonce = self.backend.get_nonce(&signed_tx.sender);
                 if nonce != signed_tx.nonce() {
                     return Err(format_err!(
-                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        "[execute_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
                         nonce,
                         signed_tx.nonce(),
                     )
@@ -286,7 +301,7 @@ impl<'backend> AinExecutor<'backend> {
                 let amount = U256::from_big_endian(&input[68..100]);
 
                 debug!(
-                    "[apply_queue_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
+                    "[execute_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
                     direction, signed_tx.sender, signed_tx.nonce(), to, amount,
                 );
 
@@ -296,12 +311,19 @@ impl<'backend> AinExecutor<'backend> {
                     ..
                 } = get_transfer_domain_contract();
                 let mismatch = match self.backend.get_account(&fixed_address) {
-                    None => true,
+                    None => false,
                     Some(account) => account.code_hash != contract.codehash,
                 };
                 if mismatch {
-                    debug!("[apply_queue_tx] {} failed with as transferdomain account codehash mismatch", direction);
-                    return Err(format_err!("[apply_queue_tx] {} failed with as transferdomain account codehash mismatch", direction).into());
+                    debug!(
+                        "[execute_tx] {} failed with as transferdomain account codehash mismatch",
+                        direction
+                    );
+                    return Err(format_err!(
+                        "[execute_tx] {} failed with as transferdomain account codehash mismatch",
+                        direction
+                    )
+                    .into());
                 }
 
                 if direction == TransferDirection::EvmIn {
@@ -315,7 +337,7 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
-                        "[apply_queue_tx] Transfer domain failed VM execution {:?}",
+                        "[execute_tx] Transfer domain failed VM execution {:?}",
                         tx_response.exit_reason
                     )
                     .into());
@@ -323,7 +345,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash(),
@@ -338,13 +360,13 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
-                    used_gas: 0,
+                    used_gas: U256::zero(),
                     logs: tx_response.logs,
                     gas_fee: U256::zero(),
                     receipt: (receipt, None),
                 })
             }
-            QueueTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+            ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                 signed_tx,
                 contract_address,
                 direction,
@@ -353,7 +375,7 @@ impl<'backend> AinExecutor<'backend> {
                 let nonce = self.backend.get_nonce(&signed_tx.sender);
                 if nonce != signed_tx.nonce() {
                     return Err(format_err!(
-                        "[apply_queue_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
+                        "[execute_tx] nonce check failed. Account nonce {}, signed_tx nonce {}",
                         nonce,
                         signed_tx.nonce(),
                     )
@@ -364,7 +386,7 @@ impl<'backend> AinExecutor<'backend> {
                 let amount = U256::from_big_endian(&input[100..132]);
 
                 debug!(
-                    "[apply_queue_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
+                    "[execute_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
                     signed_tx.sender, contract_address, amount, direction
                 );
 
@@ -383,12 +405,12 @@ impl<'backend> AinExecutor<'backend> {
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
                 if !tx_response.exit_reason.is_succeed() {
                     debug!(
-                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {}",
+                        "[execute_tx] DST20 bridge failed VM execution {:?}, data {}",
                         tx_response.exit_reason,
                         hex::encode(&tx_response.data)
                     );
                     return Err(format_err!(
-                        "[apply_queue_tx] DST20 bridge failed VM execution {:?}, data {:?}",
+                        "[execute_tx] DST20 bridge failed VM execution {:?}, data {:?}",
                         tx_response.exit_reason,
                         tx_response.data
                     )
@@ -398,7 +420,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.commit();
 
                 debug!(
-                    "[apply_queue_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
+                    "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
                     signed_tx.hash(),
@@ -413,20 +435,20 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
-                    used_gas: 0,
+                    used_gas: U256::zero(),
                     logs: tx_response.logs,
                     gas_fee: U256::zero(),
                     receipt: (receipt, None),
                 })
             }
-            QueueTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+            ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
                 name,
                 symbol,
                 address,
                 token_id,
             })) => {
                 debug!(
-                    "[apply_queue_tx] DeployContract for address {:x?}, name {}, symbol {}",
+                    "[execute_tx] DeployContract for address {:x?}, name {}, symbol {}",
                     address, name, symbol
                 );
 
@@ -441,7 +463,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx,
-                    used_gas: 0,
+                    used_gas: U256::zero(),
                     logs: Vec::new(),
                     gas_fee: U256::zero(),
                     receipt: (receipt, Some(address)),
@@ -454,7 +476,7 @@ impl<'backend> AinExecutor<'backend> {
 #[derive(Debug)]
 pub struct ApplyTxResult {
     pub tx: Box<SignedTx>,
-    pub used_gas: u64,
+    pub used_gas: U256,
     pub logs: Vec<Log>,
     pub gas_fee: U256,
     pub receipt: ReceiptAndOptionalContractAddress,

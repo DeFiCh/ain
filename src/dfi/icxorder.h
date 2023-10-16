@@ -385,7 +385,7 @@ public:
     uint8_t GetICXOrderStatus(const OrderKey &key) const;
     Res ICXCreateOrder(const CICXOrderImpl &order);
     Res ICXUpdateOrder(const CICXOrderImpl &order);
-    Res ICXCloseOrderTx(const CICXOrderImpl &order, uint8_t const);
+    Res ICXCloseOrderTx(const CICXOrderImpl &order, const uint8_t);
     void ForEachICXOrderOpen(std::function<bool(const OrderKey &, uint8_t)> callback, DCT_ID const &pair = {0});
     void ForEachICXOrderClose(std::function<bool(const OrderKey &, uint8_t)> callback, DCT_ID const &pair = {0});
     void ForEachICXOrderExpire(std::function<bool(const StatusKey &, uint8_t)> callback, const uint32_t &height = 0);
@@ -396,7 +396,7 @@ public:
     uint8_t GetICXMakeOfferStatus(const TxidPairKey &key) const;
     Res ICXMakeOffer(const CICXMakeOfferImpl &makeoffer);
     Res ICXUpdateMakeOffer(const CICXMakeOfferImpl &makeoffer);
-    Res ICXCloseMakeOfferTx(const CICXMakeOfferImpl &order, uint8_t const);
+    Res ICXCloseMakeOfferTx(const CICXMakeOfferImpl &order, const uint8_t);
     void ForEachICXMakeOfferOpen(std::function<bool(const TxidPairKey &, uint8_t)> callback,
                                  const uint256 &ordertxid = uint256());
     void ForEachICXMakeOfferClose(std::function<bool(const TxidPairKey &, uint8_t)> callback,
@@ -408,7 +408,7 @@ public:
     // SubmitDFCHTLC
     std::unique_ptr<CICXSubmitDFCHTLCImpl> GetICXSubmitDFCHTLCByCreationTx(const uint256 &txid) const;
     Res ICXSubmitDFCHTLC(const CICXSubmitDFCHTLCImpl &dfchtlc);
-    Res ICXCloseDFCHTLC(const CICXSubmitDFCHTLCImpl &dfchtlc, uint8_t const);
+    Res ICXCloseDFCHTLC(const CICXSubmitDFCHTLCImpl &dfchtlc, const uint8_t);
     void ForEachICXSubmitDFCHTLCOpen(std::function<bool(const TxidPairKey &, uint8_t)> callback,
                                      const uint256 &offertxid = uint256());
     void ForEachICXSubmitDFCHTLCClose(std::function<bool(const TxidPairKey &, uint8_t)> callback,
@@ -421,7 +421,7 @@ public:
     // SubmitEXTHTLC
     std::unique_ptr<CICXSubmitEXTHTLCImpl> GetICXSubmitEXTHTLCByCreationTx(const uint256 &txid) const;
     Res ICXSubmitEXTHTLC(const CICXSubmitEXTHTLCImpl &dfchtlc);
-    Res ICXCloseEXTHTLC(const CICXSubmitEXTHTLCImpl &exthtlc, uint8_t const);
+    Res ICXCloseEXTHTLC(const CICXSubmitEXTHTLCImpl &exthtlc, const uint8_t);
     void ForEachICXSubmitEXTHTLCOpen(std::function<bool(const TxidPairKey &, uint8_t)> callback,
                                      const uint256 &offertxid = uint256());
     void ForEachICXSubmitEXTHTLCClose(std::function<bool(const TxidPairKey &, uint8_t)> callback,
