@@ -413,11 +413,11 @@ public:
         consensus.DF15FortCanningRoadHeight = 893700;
         consensus.DF16FortCanningCrunchHeight = 1011600;
         consensus.DF17FortCanningSpringHeight = 1086000;
-        consensus.DF18FortCanningGreatWorldHeight = 1223000;
-        consensus.DF19FortCanningEpilogueHeight = 1244000;
-        consensus.DF20GrandCentralHeight = 1366000;
-        consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22MetachainHeight = 1949500;
+        consensus.DF18FortCanningGreatWorldHeight = 1200000;
+        consensus.DF19FortCanningEpilogueHeight = 1200000;
+        consensus.DF20GrandCentralHeight = 1200000;
+        consensus.DF21GrandCentralEpilogueHeight = 1200000;
+        consensus.DF22MetachainHeight = 1200000;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
