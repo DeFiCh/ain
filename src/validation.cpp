@@ -2396,6 +2396,10 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // Wipe burn map, we only want TXs added during ConnectBlock
     mapBurnAmounts.clear();
 
+    // Add empty set of scripts to the view
+    std::shared_ptr<std::set<CScript>> calculatedAddresses;
+    mnview.SetCalculatedAddresses(calculatedAddresses);
+
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
     // ContextualCheckBlockHeader() here. This means that if we add a new
@@ -2643,9 +2647,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     CAmount nFees = 0;
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
-
-    std::shared_ptr<std::set<CScript>> calculatedAddresses;
-    mnview.SetCalculatedAddresses(calculatedAddresses);
 
     // it's used for account changes by the block
     // to calculate their merkle root in isolation
