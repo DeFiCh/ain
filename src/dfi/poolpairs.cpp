@@ -69,12 +69,16 @@ ReturnType ReadValueAt(CPoolPairView *poolView, const PoolHeightKey &poolKey) {
 }
 
 Res CPoolPairView::SetPoolPair(DCT_ID const &poolId, uint32_t height, const CPoolPair &pool) {
-    Require(pool.idTokenA != pool.idTokenB, [] { return "Error: tokens IDs are the same."; });
+    if (pool.idTokenA == pool.idTokenB) {
+        return Res::Err("Error: tokens IDs are the same.");
+    }
     auto poolPairByID = GetPoolPair(poolId);
     auto poolIdByTokens = ReadBy<ByPair, DCT_ID>(ByPairKey{pool.idTokenA, pool.idTokenB});
 
     auto mismatch = (!poolPairByID && poolIdByTokens) || (poolPairByID && !poolIdByTokens);
-    Require(!mismatch, [] { return "Error, there is already a poolpair with same tokens, but different poolId"; });
+    if (mismatch) {
+        return Res::Err("Error, there is already a poolpair with same tokens, but different poolId");
+    }
 
     // create new
     if (!poolPairByID && !poolIdByTokens) {
@@ -85,7 +89,9 @@ Res CPoolPairView::SetPoolPair(DCT_ID const &poolId, uint32_t height, const CPoo
         return Res::Ok();
     }
 
-    Require(poolId == *poolIdByTokens, [] { return "Error, PoolID is incorrect"; });
+    if (poolId != *poolIdByTokens) {
+        return Res::Err("Error, PoolID is incorrect");
+    }
 
     auto poolPairByTokens = ReadBy<ByIDPair, ByPairKey>(poolId);
     assert(poolPairByTokens);
@@ -116,7 +122,9 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const &poolId,
                                   const CScript &ownerAddress,
                                   const CBalances &rewards) {
     auto poolPair = GetPoolPair(poolId);
-    Require(poolPair, [=] { return strprintf("Pool with poolId %s does not exist", poolId.ToString()); });
+    if (!poolPair) {
+        return Res::Err("Pool with poolId %s does not exist", poolId.ToString());
+    }
 
     CPoolPair &pool = poolPair.value();
 
@@ -125,7 +133,9 @@ Res CPoolPairView::UpdatePoolPair(DCT_ID const &poolId,
     }
 
     if (commission >= 0) {  // default/not set is -1
-        Require(commission <= COIN, [] { return "commission > 100%%"; });
+        if (commission > COIN) {
+            return Res::Err("commission > 100%%");
+        }
         pool.commission = commission;
     }
 
@@ -240,7 +250,7 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const &poolId,
         return;
     }
     constexpr const uint32_t PRECISION = 10000;
-    const auto newCalcHeight = uint32_t(Params().GetConsensus().BayfrontGardensHeight);
+    const auto newCalcHeight = uint32_t(Params().GetConsensus().DF4BayfrontGardensHeight);
 
     auto tokenIds = ReadBy<ByIDPair, ByPairKey>(poolId);
     assert(tokenIds);  // contract to verify pool data
@@ -340,14 +350,18 @@ Res CPoolPair::AddLiquidity(CAmount amountA,
                             std::function<Res(CAmount)> onMint,
                             bool slippageProtection) {
     // instead of assertion due to tests
-    Require(amountA > 0 && amountB > 0, [] { return "amounts should be positive"; });
+    if (amountA <= 0 || amountB <= 0) {
+        return Res::Err("amounts should be positive");
+    }
 
     CAmount liquidity{0};
     if (totalLiquidity == 0) {
         liquidity = (arith_uint256(amountA) * amountB)
                         .sqrt()
                         .GetLow64();  // sure this is below std::numeric_limits<CAmount>::max() due to sqrt natue
-        Require(liquidity > MINIMUM_LIQUIDITY, [] { return "liquidity too low"; });
+        if (liquidity <= MINIMUM_LIQUIDITY) {
+            return Res::Err("liquidity too low");
+        }
         liquidity -= MINIMUM_LIQUIDITY;
         // MINIMUM_LIQUIDITY is a hack for non-zero division
         totalLiquidity = MINIMUM_LIQUIDITY;
@@ -356,23 +370,30 @@ Res CPoolPair::AddLiquidity(CAmount amountA,
         CAmount liqB = (arith_uint256(amountB) * arith_uint256(totalLiquidity) / reserveB).GetLow64();
         liquidity = std::min(liqA, liqB);
 
-        Require(liquidity > 0, [] { return "amounts too low, zero liquidity"; });
+        if (liquidity <= 0) {
+            return Res::Err("amounts too low, zero liquidity");
+        }
 
         if (slippageProtection) {
-            Require((std::max(liqA, liqB) - liquidity) * 100 / liquidity < 3,
-                    [] { return "Exceeds max ratio slippage protection of 3%%"; });
+            if ((std::max(liqA, liqB) - liquidity) * 100 / liquidity >= 3) {
+                return Res::Err("Exceeds max ratio slippage protection of 3%%");
+            }
         }
     }
 
     // increasing totalLiquidity
     auto resTotal = SafeAdd(totalLiquidity, liquidity);
-    Require(resTotal, [=] { return strprintf("can't add %d to totalLiquidity: %s", liquidity, resTotal.msg); });
+    if (!resTotal) {
+        return Res::Err("can't add %d to totalLiquidity: %s", liquidity, resTotal.msg);
+    }
     totalLiquidity = resTotal;
 
     // increasing reserves
     auto resA = SafeAdd(reserveA, amountA);
     auto resB = SafeAdd(reserveB, amountB);
-    Require(resA && resB, [] { return "overflow when adding to reserves"; });
+    if (!resA || !resB) {
+        return Res::Err("overflow when adding to reserves");
+    }
 
     reserveA = resA;
     reserveB = resB;
@@ -384,7 +405,9 @@ Res CPoolPair::RemoveLiquidity(CAmount liqAmount, std::function<Res(CAmount, CAm
     // instead of assertion due to tests
     // IRL it can't be more than "total-1000", and was checked indirectly by balances before. but for tests and
     // incapsulation:
-    Require(liqAmount > 0 && liqAmount < totalLiquidity, [] { return "incorrect liquidity"; });
+    if (liqAmount <= 0 || liqAmount >= totalLiquidity) {
+        return Res::Err("incorrect liquidity");
+    }
 
     CAmount resAmountA, resAmountB;
     resAmountA = (arith_uint256(liqAmount) * arith_uint256(reserveA) / totalLiquidity).GetLow64();
@@ -403,14 +426,16 @@ Res CPoolPair::Swap(CTokenAmount in,
                     const std::pair<CFeeDir, CFeeDir> &asymmetricFee,
                     std::function<Res(const CTokenAmount &, const CTokenAmount &)> onTransfer,
                     int height) {
-    Require(in.nTokenId == idTokenA || in.nTokenId == idTokenB, [=] {
-        return strprintf("Error, input token ID (%s) doesn't match pool tokens (%s,%s)",
-                         in.nTokenId.ToString(),
-                         idTokenA.ToString(),
-                         idTokenB.ToString());
-    });
+    if (in.nTokenId != idTokenA && in.nTokenId != idTokenB) {
+        return Res::Err("Error, input token ID (%s) doesn't match pool tokens (%s,%s)",
+                        in.nTokenId.ToString(),
+                        idTokenA.ToString(),
+                        idTokenB.ToString());
+    }
 
-    Require(status, [] { return "Pool trading is turned off!"; });
+    if (!status) {
+        return Res::Err("Pool trading is turned off!");
+    }
 
     const bool forward = in.nTokenId == idTokenA;
     auto &reserveF = forward ? reserveA : reserveB;
@@ -418,7 +443,9 @@ Res CPoolPair::Swap(CTokenAmount in,
 
     // it is important that reserves are at least SLOPE_SWAP_RATE (1000) to be able to slide, otherwise it can lead to
     // underflow
-    Require(reserveA >= SLOPE_SWAP_RATE && reserveB >= SLOPE_SWAP_RATE, [] { return "Lack of liquidity."; });
+    if (reserveA < SLOPE_SWAP_RATE || reserveB < SLOPE_SWAP_RATE) {
+        return Res::Err("Lack of liquidity.");
+    }
 
     const auto maxPrice256 = arith_uint256(maxPrice.integer) * PRECISION + maxPrice.fraction;
     // NOTE it has a bug prior Dakota hardfork
@@ -426,7 +453,9 @@ Res CPoolPair::Swap(CTokenAmount in,
                            ? arith_uint256(reserveT) * PRECISION / reserveF
                            : arith_uint256(reserveF) * PRECISION / reserveT;
 
-    Require(price <= maxPrice256, [] { return "Price is higher than indicated."; });
+    if (price > maxPrice256) {
+        return Res::Err("Price is higher than indicated.");
+    }
     // claim trading fee
     if (commission) {
         const CAmount tradeFee = MultiplyAmounts(in.nValue, commission);
@@ -441,12 +470,16 @@ Res CPoolPair::Swap(CTokenAmount in,
     CTokenAmount dexfeeInAmount{in.nTokenId, 0};
 
     if (dexfeeInPct > 0 && poolInFee(forward, asymmetricFee)) {
-        Require(dexfeeInPct <= COIN, [] { return "Dex fee input percentage over 100%%"; });
+        if (dexfeeInPct > COIN) {
+            return Res::Err("Dex fee input percentage over 100%%");
+        }
         dexfeeInAmount.nValue = MultiplyAmounts(in.nValue, dexfeeInPct);
         in.nValue -= dexfeeInAmount.nValue;
     }
 
-    Require(SafeAdd(reserveF, in.nValue), [] { return "Swapping will lead to pool's reserve overflow"; });
+    if (!SafeAdd(reserveF, in.nValue)) {
+        return Res::Err("Swapping will lead to pool's reserve overflow");
+    }
 
     CAmount result = slopeSwap(in.nValue, reserveF, reserveT, height);
 
@@ -463,7 +496,7 @@ CAmount CPoolPair::slopeSwap(CAmount unswapped, CAmount &poolFrom, CAmount &pool
     arith_uint256 poolT = arith_uint256(poolTo);
 
     arith_uint256 swapped = 0;
-    if (height < Params().GetConsensus().BayfrontGardensHeight) {
+    if (height < Params().GetConsensus().DF4BayfrontGardensHeight) {
         CAmount chunk = poolFrom / SLOPE_SWAP_RATE < unswapped ? poolFrom / SLOPE_SWAP_RATE : unswapped;
         while (unswapped > 0) {
             // arith_uint256 stepFrom = std::min(poolFrom/1000, unswapped); // 0.1%
@@ -496,7 +529,7 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
     std::function<CTokenAmount(const CScript &, DCT_ID)> onGetBalance,
     std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
     int nHeight) {
-    bool newRewardCalc = nHeight >= Params().GetConsensus().BayfrontGardensHeight;
+    bool newRewardCalc = nHeight >= Params().GetConsensus().DF4BayfrontGardensHeight;
     bool newRewardLogic = nHeight >= Params().GetConsensus().DF8EunosHeight;
     bool newCustomRewards = nHeight >= Params().GetConsensus().DF5ClarkeQuayHeight;
 
@@ -656,7 +689,9 @@ inline CAmount PoolRewardPerBlock(CAmount dailyReward, CAmount rewardPct) {
 }
 
 Res CPoolPairView::SetRewardPct(DCT_ID const &poolId, uint32_t height, CAmount rewardPct) {
-    Require(HasPoolPair(poolId), [] { return "No such pool pair"; });
+    if (!HasPoolPair(poolId)) {
+        return Res::Err("No such pool pair");
+    }
     WriteBy<ByRewardPct>(poolId, rewardPct);
     if (auto dailyReward = ReadBy<ByDailyReward, CAmount>(DCT_ID{})) {
         WriteBy<ByPoolReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(*dailyReward, rewardPct));
@@ -665,7 +700,9 @@ Res CPoolPairView::SetRewardPct(DCT_ID const &poolId, uint32_t height, CAmount r
 }
 
 Res CPoolPairView::SetRewardLoanPct(DCT_ID const &poolId, uint32_t height, CAmount rewardLoanPct) {
-    Require(HasPoolPair(poolId), [] { return "No such pool pair"; });
+    if (!HasPoolPair(poolId)) {
+        return Res::Err("No such pool pair");
+    }
     WriteBy<ByRewardLoanPct>(poolId, rewardLoanPct);
     if (auto dailyReward = ReadBy<ByDailyLoanReward, CAmount>(DCT_ID{})) {
         WriteBy<ByPoolLoanReward>(PoolHeightKey{poolId, height}, PoolRewardPerBlock(*dailyReward, rewardLoanPct));
@@ -719,7 +756,9 @@ void CPoolPairView::ForEachPoolShare(std::function<bool(DCT_ID const &, const CS
 }
 
 Res CPoolPairView::SetDexFeePct(DCT_ID poolId, DCT_ID tokenId, CAmount feePct) {
-    Require(feePct >= 0 && feePct <= COIN, [] { return "Token dex fee should be in percentage"; });
+    if (feePct < 0 || feePct > COIN) {
+        return Res::Err("Token dex fee should be in percentage");
+    }
     WriteBy<ByTokenDexFeePct>(std::make_pair(poolId, tokenId), uint32_t(feePct));
     return Res::Ok();
 }

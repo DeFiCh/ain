@@ -121,8 +121,8 @@ public:
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.DF1AMKHeight = 356500; // Oct 12th, 2020.
         consensus.DF2BayfrontHeight = 405000; // Nov 2nd, 2020.
-        consensus.DF3DF4BayfrontGardensHeight = 465150; // Nov 28th, 2020.
-        consensus.BayfrontGardensHeight = 488300; // Dec 8th, 2020.
+        consensus.DF3BayfrontMarinaHeight = 465150; // Nov 28th, 2020.
+        consensus.DF4BayfrontGardensHeight = 488300; // Dec 8th, 2020.
         consensus.DF5ClarkeQuayHeight = 595738; // Jan 24th, 2021.
         consensus.DF6DakotaHeight = 678000; // Mar 1st, 2021.
         consensus.DF7DakotaCrescentHeight = 733000; // Mar 25th, 2021.
@@ -398,8 +398,8 @@ public:
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -413,11 +413,11 @@ public:
         consensus.DF15FortCanningRoadHeight = 893700;
         consensus.DF16FortCanningCrunchHeight = 1011600;
         consensus.DF17FortCanningSpringHeight = 1086000;
-        consensus.DF18FortCanningGreatWorldHeight = 1223000;
-        consensus.DF19FortCanningEpilogueHeight = 1244000;
-        consensus.DF20GrandCentralHeight = 1366000;
-        consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22MetachainHeight = 1949500;
+        consensus.DF18FortCanningGreatWorldHeight = 1200000;
+        consensus.DF19FortCanningEpilogueHeight = 1200010;
+        consensus.DF20GrandCentralHeight = 1200020;
+        consensus.DF21GrandCentralEpilogueHeight = 1200030;
+        consensus.DF22MetachainHeight = 1200040;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -583,8 +583,7 @@ public:
                 {100000, uint256S("9896ac2c34c20771742bccda4f00f458229819947e02204022c8ff26093ac81f")},
                 {150000, uint256S("af9307f438f5c378d1a49cfd3872173a07ed4362d56155e457daffd1061742d4")},
                 {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
-                {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
-                {1471000, uint256S("dcf4a5fb69c004d0921710e09a09d10f275b3bc696e45ca03f6c322bb32f41bc")},
+                {1100000, uint256S("6fdfc12c273135a992a05f8eb9ec4a0f5db972c3f1d8941d1af336f99cf71f5b")},
             }
         };
 
@@ -616,8 +615,8 @@ public:
         consensus.BIP66Height = 0;
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -832,8 +831,8 @@ public:
         consensus.BIP66Height = 0;
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -1051,8 +1050,8 @@ public:
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.DF1AMKHeight = 10000000;
         consensus.DF2BayfrontHeight = 10000000;
-        consensus.DF3DF4BayfrontGardensHeight = 10000000;
-        consensus.BayfrontGardensHeight = 10000000;
+        consensus.DF3BayfrontMarinaHeight = 10000000;
+        consensus.DF4BayfrontGardensHeight = 10000000;
         consensus.DF5ClarkeQuayHeight = 10000000;
         consensus.DF6DakotaHeight = 10000000;
         consensus.DF7DakotaCrescentHeight = 10000000;
@@ -1316,7 +1315,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.DF1AMKHeight);
     UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.DF2BayfrontHeight);
-    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight);
+    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.DF4BayfrontGardensHeight);
     UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.DF5ClarkeQuayHeight);
     UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DF6DakotaHeight);
     UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DF7DakotaCrescentHeight);
@@ -1468,7 +1467,9 @@ void ClearCheckpoints(CChainParams &params) {
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
     std::ifstream file(fileName);
-    Require(file.good(), [=]{ return strprintf("Could not read %s. Ensure it exists and has read permissions", fileName); });
+    if (!file.good()) {
+        return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
+    }
 
     ClearCheckpoints(params);
 
@@ -1480,13 +1481,19 @@ Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName)
 
         std::istringstream iss(trimmed);
         std::string hashStr, heightStr;
-        Require((iss >> heightStr >> hashStr), [=]{ return strprintf("Error parsing line %s", trimmed); });
+        if (!(iss >> heightStr >> hashStr)) {
+            return Res::Err("Error parsing line %s", trimmed);
+        }
 
         uint256 hash;
-        Require(ParseHashStr(hashStr, hash), [=]{ return strprintf("Invalid hash: %s", hashStr); });
+        if (!ParseHashStr(hashStr, hash)) {
+            return Res::Err("Invalid hash: %s", hashStr);
+        }
 
         int32_t height;
-        Require(ParseInt32(heightStr, &height), [=]{ return strprintf("Invalid height: %s", heightStr); });
+        if (!ParseInt32(heightStr, &height)) {
+            return Res::Err("Invalid height: %s", heightStr);
+        }
 
         params.checkpointData.mapCheckpoints[height] = hash;
     }
