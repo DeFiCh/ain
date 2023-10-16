@@ -673,7 +673,9 @@ ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const uint256 &prevStakeModifier,
                                     const std::vector<unsigned char> &metadata,
                                     const Consensus::Params &consensusParams) {
-    Require(height < consensusParams.DF6DakotaHeight, "Old anchor TX type after Dakota fork. Height %d", height);
+    if (height >= consensusParams.DF6DakotaHeight) {
+        return Res::Err("Old anchor TX type after Dakota fork. Height %d", height);
+    }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessage finMsg;
@@ -753,7 +755,9 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
                                         int height,
                                         const std::vector<unsigned char> &metadata,
                                         const Consensus::Params &consensusParams) {
-    Require(height >= consensusParams.DF6DakotaHeight, "New anchor TX type before Dakota fork. Height %d", height);
+    if (height < consensusParams.DF6DakotaHeight) {
+        return Res::Err("New anchor TX type before Dakota fork. Height %d", height);
+    }
 
     CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
     CAnchorFinalizationMessagePlus finMsg;
@@ -780,29 +784,36 @@ ResVal<uint256> ApplyAnchorRewardTxPlus(CCustomCSView &mnview,
     }
 
     auto quorum = GetMinAnchorQuorum(*team);
-    Require(finMsg.sigs.size() >= quorum, "anchor sigs (%d) < min quorum (%) ", finMsg.sigs.size(), quorum);
-    Require(uniqueKeys >= quorum, "anchor unique keys (%d) < min quorum (%) ", uniqueKeys, quorum);
+    if (finMsg.sigs.size() < quorum) {
+        return Res::Err("anchor sigs (%d) < min quorum (%) ", finMsg.sigs.size(), quorum);
+    }
+    if (uniqueKeys < quorum) {
+        return Res::Err("anchor unique keys (%d) < min quorum (%) ", uniqueKeys, quorum);
+    }
 
     // Make sure anchor block height and hash exist in chain.
     auto *anchorIndex = ::ChainActive()[finMsg.anchorHeight];
-    Require(anchorIndex,
-            "Active chain does not contain block height %d. Chain height %d",
-            finMsg.anchorHeight,
-            ::ChainActive().Height());
-    Require(anchorIndex->GetBlockHash() == finMsg.dfiBlockHash,
-            "Anchor and blockchain mismatch at height %d. Expected %s found %s",
-            finMsg.anchorHeight,
-            anchorIndex->GetBlockHash().ToString(),
-            finMsg.dfiBlockHash.ToString());
+    if (!anchorIndex) {
+        return Res::Err("Active chain does not contain block height %d. Chain height %d",
+                        finMsg.anchorHeight,
+                        ::ChainActive().Height());
+    }
+    if (anchorIndex->GetBlockHash() != finMsg.dfiBlockHash) {
+        return Res::Err("Anchor and blockchain mismatch at height %d. Expected %s found %s",
+                        finMsg.anchorHeight,
+                        anchorIndex->GetBlockHash().ToString(),
+                        finMsg.dfiBlockHash.ToString());
+    }
     // check reward sum
     const auto cbValues = tx.GetValuesOut();
-    Require(cbValues.size() == 1 && cbValues.begin()->first == DCT_ID{0}, "anchor reward should be paid in DFI only");
+    if (cbValues.size() != 1 || cbValues.begin()->first != DCT_ID{0}) {
+        return Res::Err("anchor reward should be paid in DFI only");
+    }
 
     const auto anchorReward = mnview.GetCommunityBalance(CommunityAccountType::AnchorReward);
-    Require(cbValues.begin()->second == anchorReward,
-            "anchor pays wrong amount (actual=%d vs expected=%d)",
-            cbValues.begin()->second,
-            anchorReward);
+    if (cbValues.begin()->second != anchorReward) {
+        return Res::Err("anchor pays wrong amount (actual=%d vs expected=%d)", cbValues.begin()->second, anchorReward);
+    }
 
     CTxDestination destination;
     if (height < consensusParams.DF22MetachainHeight) {
@@ -964,7 +975,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
         poolIDs.clear();
     }
 
-    Require(obj.amountFrom > 0, "Input amount should be positive");
+    if (obj.amountFrom <= 0) {
+        return Res::Err("Input amount should be positive");
+    }
 
     if (height >= static_cast<uint32_t>(consensus.DF14FortCanningHillHeight) && poolIDs.size() > MAX_POOL_SWAPS) {
         return Res::Err(
@@ -976,7 +989,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     std::optional<std::pair<DCT_ID, CPoolPair> > poolPair;
     if (poolIDs.empty()) {
         poolPair = view.GetPoolPair(obj.idTokenFrom, obj.idTokenTo);
-        Require(poolPair, "Cannot find the pool pair.");
+        if (!poolPair) {
+            return Res::Err("Cannot find the pool pair.");
+        }
 
         // Add single swap pool to vector for loop
         poolIDs.push_back(poolPair->first);
@@ -1012,7 +1027,9 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
         } else  // Or get pools from IDs provided for composite swap
         {
             pool = view.GetPoolPair(currentID);
-            Require(pool, "Cannot find the pool pair.");
+            if (!pool) {
+                return Res::Err("Cannot find the pool pair.");
+            }
         }
 
         // Check if last pool swap
@@ -1021,11 +1038,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
         const auto swapAmount = swapAmountResult;
 
         if (height >= static_cast<uint32_t>(consensus.DF14FortCanningHillHeight) && lastSwap) {
-            Require(obj.idTokenTo != swapAmount.nTokenId,
-                    "Final swap should have idTokenTo as destination, not source");
+            if (obj.idTokenTo == swapAmount.nTokenId) {
+                return Res::Err("Final swap should have idTokenTo as destination, not source");
+            }
 
-            Require(pool->idTokenA == obj.idTokenTo || pool->idTokenB == obj.idTokenTo,
-                    "Final swap pool should have idTokenTo, incorrect final pool ID provided");
+            if (pool->idTokenA != obj.idTokenTo && pool->idTokenB != obj.idTokenTo) {
+                return Res::Err("Final swap pool should have idTokenTo, incorrect final pool ID provided");
+            }
         }
 
         if (view.AreTokensLocked({pool->idTokenA.v, pool->idTokenB.v})) {
@@ -1184,14 +1203,18 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
 
     auto poolSwap = CPoolSwap(obj, height);
     auto token = mnview.GetToken(tokenId);
-    Require(token, "Cannot find token with id %s!", tokenId.ToString());
+    if (!token) {
+        return Res::Err("Cannot find token with id %s!", tokenId.ToString());
+    }
 
     // TODO: Optimize double look up later when first token is DUSD.
     auto dUsdToken = mnview.GetToken("DUSD");
-    Require(dUsdToken, "Cannot find token DUSD");
+    if (!dUsdToken) {
+        return Res::Err("Cannot find token DUSD");
+    }
 
     const auto attributes = mnview.GetAttributes();
-    Require(attributes, "Attributes unavailable");
+    assert(attributes);
     CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDInterestBurn};
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
@@ -1200,7 +1223,9 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
             // direct burn dUSD
             CTokenAmount dUSD{dUsdToken->first, amount};
 
-            Require(mnview.SubBalance(from, dUSD));
+            if (auto res = mnview.SubBalance(from, dUSD); !res) {
+                return res;
+            }
 
             return mnview.AddBalance(to, dUSD);
         } else {
@@ -1210,10 +1235,14 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
     }
 
     auto pooldUSDDFI = mnview.GetPoolPair(dUsdToken->first, DCT_ID{0});
-    Require(pooldUSDDFI, "Cannot find pool pair DUSD-DFI!");
+    if (!pooldUSDDFI) {
+        return Res::Err("Cannot find pool pair DUSD-DFI!");
+    }
 
     auto poolTokendUSD = mnview.GetPoolPair(tokenId, dUsdToken->first);
-    Require(poolTokendUSD, "Cannot find pool pair %s-DUSD!", token->symbol);
+    if (!poolTokendUSD) {
+        return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
+    }
 
     if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
         obj.idTokenTo = dUsdToken->first;

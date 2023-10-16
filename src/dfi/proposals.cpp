@@ -110,7 +110,7 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId, uint8_t cycle)
     auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
     if (!pcycle) {
-        Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
+        return Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
     }
 
     if (*pcycle >= cycle) {
