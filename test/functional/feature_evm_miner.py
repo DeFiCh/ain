@@ -301,8 +301,15 @@ class EVMTest(DefiTestFramework):
 
         # Send transferdomain txs to be included in the first block
         total_unspent = len(self.nodes[0].listunspent())
-        total_transferdomain_txs = 52
+        dvm_before_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+        evm_before_balance = Decimal(
+            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+        )
+
         transferdomaintx_hashes = []
+        total_transferdomain_txs = 52
         start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
@@ -327,6 +334,17 @@ class EVMTest(DefiTestFramework):
             transferdomaintx_hashes.append(hash)
 
         self.nodes[0].generate(1)
+        dvm_after_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+        evm_after_balance = Decimal(
+            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+        )
+        dvm_balance = dvm_before_balance - dvm_after_balance
+        evm_balance = evm_after_balance - evm_before_balance
+        assert_equal(dvm_balance, Decimal(total_transferdomain_txs))
+        assert_equal(evm_balance, Decimal(total_transferdomain_txs))
+
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         assert_equal(
             len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent
@@ -388,13 +406,16 @@ class EVMTest(DefiTestFramework):
 
         self.nodes[0].minttokens("100@BTC")
         self.nodes[0].generate(1)
-        [beforeBTC] = [x for x in self.nodes[0].getaccount(self.address) if "BTC" in x]
-        assert_equal(beforeBTC, "100.00000000@BTC")
 
         # Send transferdomain txs to be included in the first block
         total_unspent = len(self.nodes[0].listunspent())
-        total_transferdomain_txs = 52
+        dvm_before_btc = Decimal([x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split("@")[0])
+        evm_before_btc = Decimal(self.btc.functions.balanceOf(self.ethAddress).call() / math.pow(10, self.btc.functions.decimals().call()))
+        assert_equal(evm_before_btc, Decimal(0))
+        assert_equal(dvm_before_btc, Decimal(100))
+
         transferdomaintx_hashes = []
+        total_transferdomain_txs = 52
         start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
@@ -419,6 +440,13 @@ class EVMTest(DefiTestFramework):
             transferdomaintx_hashes.append(hash)
 
         self.nodes[0].generate(1)
+        dvm_after_btc = Decimal([x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split("@")[0])
+        evm_after_btc = Decimal(self.btc.functions.balanceOf(self.ethAddress).call() / math.pow(10, self.btc.functions.decimals().call()))
+        dvm_balance = dvm_before_btc - dvm_after_btc
+        evm_balance = evm_after_btc - evm_before_btc
+        assert_equal(dvm_balance, Decimal(total_transferdomain_txs))
+        assert_equal(evm_balance, Decimal(total_transferdomain_txs))
+
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         assert_equal(
             len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent
