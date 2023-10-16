@@ -1315,7 +1315,7 @@ void CCustomCSView::SetCalculatedAddresses(std::shared_ptr<std::set<CScript>> &a
     calculatedAddresses = addresses;
 }
 
-std::shared_ptr<std::set<CScript>>& CCustomCSView::GetCalculatedAddresses() {
+std::shared_ptr<std::set<CScript>> &CCustomCSView::GetCalculatedAddresses() {
     return calculatedAddresses;
 }
 

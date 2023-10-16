@@ -611,7 +611,7 @@ public:
     virtual CHistoryWriters &GetHistoryWriters() { return writers; }
 
     void SetCalculatedAddresses(std::shared_ptr<std::set<CScript>> &addresses);
-    [[nodiscard]] std::shared_ptr<std::set<CScript>>& GetCalculatedAddresses();
+    [[nodiscard]] std::shared_ptr<std::set<CScript>> &GetCalculatedAddresses();
 
     // we construct it as it
     CFlushableStorageKV &GetStorage() { return static_cast<CFlushableStorageKV &>(DB()); }
