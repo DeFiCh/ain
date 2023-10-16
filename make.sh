@@ -218,10 +218,13 @@ package() {
     local build_dir="${BUILD_DIR}"
 
     local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+    if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+        pkg_path="$(_canonicalize "${build_dir}/"${pkg_name}.zip"")"
+    else        
+        pkg_path="$(_canonicalize "${build_dir}/"${pkg_name}.tar.gz"")"
+    fi
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
@@ -234,8 +237,14 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
-    _ensure_enter_dir "${versioned_build_dir}"
-    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    
+    if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+        _ensure_enter_dir "${build_dir}"
+        zip -r "${pkg_path}" "${versioned_build_dir}/"
+    else
+        _ensure_enter_dir "${versioned_build_dir}"
+        _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    fi
     sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
     _exit_dir
 
