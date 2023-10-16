@@ -409,8 +409,15 @@ class EVMTest(DefiTestFramework):
 
         # Send transferdomain txs to be included in the first block
         total_unspent = len(self.nodes[0].listunspent())
-        dvm_before_btc = Decimal([x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split("@")[0])
-        evm_before_btc = Decimal(self.btc.functions.balanceOf(self.ethAddress).call() / math.pow(10, self.btc.functions.decimals().call()))
+        dvm_before_btc = Decimal(
+            [x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split(
+                "@"
+            )[0]
+        )
+        evm_before_btc = Decimal(
+            self.btc.functions.balanceOf(self.ethAddress).call()
+            / math.pow(10, self.btc.functions.decimals().call())
+        )
         assert_equal(evm_before_btc, Decimal(0))
         assert_equal(dvm_before_btc, Decimal(100))
 
@@ -440,8 +447,15 @@ class EVMTest(DefiTestFramework):
             transferdomaintx_hashes.append(hash)
 
         self.nodes[0].generate(1)
-        dvm_after_btc = Decimal([x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split("@")[0])
-        evm_after_btc = Decimal(self.btc.functions.balanceOf(self.ethAddress).call() / math.pow(10, self.btc.functions.decimals().call()))
+        dvm_after_btc = Decimal(
+            [x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split(
+                "@"
+            )[0]
+        )
+        evm_after_btc = Decimal(
+            self.btc.functions.balanceOf(self.ethAddress).call()
+            / math.pow(10, self.btc.functions.decimals().call())
+        )
         dvm_balance = dvm_before_btc - dvm_after_btc
         evm_balance = evm_after_btc - evm_before_btc
         assert_equal(dvm_balance, Decimal(total_transferdomain_txs))
