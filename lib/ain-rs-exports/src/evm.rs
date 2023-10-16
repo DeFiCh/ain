@@ -426,7 +426,6 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
 /// Returns the EVM template ID as a `u64`.
 pub unsafe fn evm_try_unsafe_create_block_template(
     result: &mut CrossBoundaryResult,
-    lock: *mut BackendLock,
     dvm_block: u64,
     miner_address: &str,
     difficulty: u32,
@@ -443,8 +442,8 @@ pub unsafe fn evm_try_unsafe_create_block_template(
     };
 
     unsafe {
-        let backend = (*lock).get_backend_mut();
-
+        let backend_lock = get_backend_lock();
+        let backend = (*backend_lock).get_backend_mut();
         let backend_ptr = Box::into_raw(Box::new(backend));
 
         let Ok(state_root) = SERVICES.evm.core.get_state_root() else {
@@ -465,7 +464,10 @@ pub unsafe fn evm_try_unsafe_create_block_template(
             cross_boundary_error(result, "Couldnt create block template");
             return std::ptr::null_mut();
         };
-        Box::into_raw(Box::new(BlockTemplate(Box::into_raw(Box::new(ptr)), lock)))
+        Box::into_raw(Box::new(BlockTemplate(
+            Box::into_raw(Box::new(ptr)),
+            backend_lock,
+        )))
     }
 }
 
@@ -482,6 +484,7 @@ fn evm_try_unsafe_remove_block_template(template: *mut BlockTemplate, is_miner: 
         // SERVICES.evm.core.remove_block_template((*template).0);
         println!("[evm_try_unsafe_remove_block_template] done");
         free_backend_lock((*template).1); // Free Backend lock
+        println!("[evm_try_unsafe_remove_block_template] free backendlock done");
     }
     Ok(())
 }
@@ -896,7 +899,8 @@ pub fn get_backend_lock() -> *mut BackendLock {
 
 pub unsafe fn free_backend_lock(lock: *mut BackendLock) {
     if !lock.is_null() {
-        drop(Box::from_raw(lock));
+        let lock = Box::from_raw(lock);
+        lock.guard.flush();
     }
 }
 

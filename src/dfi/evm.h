@@ -58,10 +58,9 @@ public:
 };
 
 class CScopedTemplate {
-    explicit CScopedTemplate(BlockTemplate * blockTempalte, BackendLock * lock);
+    explicit CScopedTemplate(BlockTemplate * blockTempalte);
 
     BlockTemplate * blockTemplate;
-    BackendLock * lock;
 
 public:
     static std::unique_ptr<CScopedTemplate> Create(const uint64_t dvmBlockNumber,

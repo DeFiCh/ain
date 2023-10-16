@@ -54,8 +54,8 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplate::CScopedTemplate(BlockTemplate* blockTemplate, BackendLock* lock)
-    : blockTemplate(blockTemplate), lock(lock) {}
+CScopedTemplate::CScopedTemplate(BlockTemplate* blockTemplate)
+    : blockTemplate(blockTemplate) {}
 
 std::unique_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
                                                              const std::string minerAddress,
@@ -63,25 +63,26 @@ std::unique_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlock
                                                              const uint64_t timestamp) {
 
     LogPrintf("Creating a new CScopedTemplate id block number :%llu\n", dvmBlockNumber);
-    BackendLock* lock = get_backend_lock();
 
     CrossBoundaryResult result;
-    BlockTemplate * blockTemplate = evm_try_unsafe_create_block_template(result, *lock, dvmBlockNumber, minerAddress, difficulty, timestamp);
+    BlockTemplate * blockTemplate = evm_try_unsafe_create_block_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
-        return std::unique_ptr<CScopedTemplate>(new CScopedTemplate(blockTemplate, lock));
+        return std::unique_ptr<CScopedTemplate>(new CScopedTemplate(blockTemplate));
+    } else {
+        LogPrintf("Error creating new CScopedTemplate %s\n", result.reason.c_str());
     }
     return nullptr;
 }
 
 CScopedTemplate::~CScopedTemplate() {
     LogPrintf("Removing block template in ~\n");
-    CrossBoundaryResult result;
-    evm_try_unsafe_remove_block_template(result, *blockTemplate, 2);
+    // CrossBoundaryResult result;
+    // evm_try_unsafe_remove_block_template(result, *blockTemplate, 2);
 
-    LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
-    if (!result.ok) {
-        LogPrintf("Failed to destroy queue\n");
-    }
+    // LogPrintf("Result : result.ok %d, result reason :%s\n", result.ok, result.reason.c_str());
+    // if (!result.ok) {
+    //     LogPrintf("Failed to destroy queue\n");
+    // }
     // free_backend_lock(lock);
 }
 

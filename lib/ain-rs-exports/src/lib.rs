@@ -136,13 +136,12 @@ pub mod ffi {
     }
 
     extern "Rust" {
-        type BackendLock;
+        // type BackendLock;
         type BlockTemplate<'a>;
-        fn get_backend_lock() -> *mut BackendLock;
-        unsafe fn free_backend_lock(lock: *mut BackendLock);
+        // fn get_backend_lock() -> *mut BackendLock;
+        // unsafe fn free_backend_lock(lock: *mut BackendLock);
         unsafe fn evm_try_unsafe_create_block_template(
             result: &mut CrossBoundaryResult,
-            lock: &mut BackendLock,
             dvm_block: u64,
             miner_address: &str,
             difficulty: u32,

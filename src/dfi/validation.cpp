@@ -2693,11 +2693,11 @@ static Res ProcessEVMQueue(const CBlock &block,
         return Res::Err("Not enough outputs in coinbase TX");
     }
 
-    // LogPrintf("Returning before evm_try_unsafe_remove_block_template in validation \n");
-    // evm_try_unsafe_remove_block_template(result, *(evmTemplate->GetTemplate()), false);
-    // if (!result.ok) {
-    //     return Res::Err(result.reason.c_str());
-    // }
+    LogPrintf("Returning before evm_try_unsafe_remove_block_template in validation \n");
+    evm_try_unsafe_remove_block_template(result, *(evmTemplate->GetTemplate()), false);
+    if (!result.ok) {
+        return Res::Err(result.reason.c_str());
+    }
 
     auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
     if (!xvmRes) {
