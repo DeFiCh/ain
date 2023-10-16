@@ -90,21 +90,14 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
     return DeFiErrors::InvalidAuth();
 }
 
-CCustomTxVisitor::CCustomTxVisitor(const CTransaction &tx,
-                                   uint32_t height,
-                                   const CCoinsViewCache &coins,
-                                   CCustomCSView &mnview,
-                                   const Consensus::Params &consensus,
-                                   const uint64_t time,
-                                   const uint32_t txn,
-                                   const BlockContext &blockCtx)
-    : height(height),
+CCustomTxVisitor::CCustomTxVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx)
+    : height(txCtx.height),
       mnview(mnview),
-      tx(tx),
-      coins(coins),
-      consensus(consensus),
-      time(time),
-      txn(txn),
+      tx(txCtx.tx),
+      coins(txCtx.coins),
+      consensus(txCtx.consensus),
+      time(txCtx.time),
+      txn(txCtx.txn),
       evmTemplateId(blockCtx.evmTemplateId),
       isEvmEnabledForBlock(blockCtx.isEvmEnabledForBlock),
       evmPreValidate(blockCtx.evmPreValidate) {}

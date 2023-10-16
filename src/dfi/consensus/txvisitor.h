@@ -23,6 +23,7 @@ class CScopedTemplateID;
 class CTokenImplementation;
 class CTransaction;
 class CVaultAssets;
+struct TransactionContext;
 
 namespace Consensus {
 struct Params;
@@ -62,14 +63,7 @@ protected:
     bool evmPreValidate;
 
 public:
-    CCustomTxVisitor(const CTransaction &tx,
-                     uint32_t height,
-                     const CCoinsViewCache &coins,
-                     CCustomCSView &mnview,
-                     const Consensus::Params &consensus,
-                     const uint64_t time,
-                     const uint32_t txn,
-                     const BlockContext &blockCtx);
+    CCustomTxVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx);
 
 protected:
     Res HasAuth(const CScript &auth) const;

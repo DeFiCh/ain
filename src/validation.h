@@ -68,6 +68,15 @@ struct BlockContext {
     bool evmPreValidate{};
 };
 
+struct TransactionContext {
+    const CCoinsViewCache &coins;
+    const CTransaction &tx;
+    const Consensus::Params &consensus;
+    const uint32_t height;
+    const uint64_t time;
+    const uint32_t txn;
+};
+
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
 /** Default for -limitancestorcount, max number of in-mempool ancestors */

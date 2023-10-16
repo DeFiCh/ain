@@ -184,7 +184,15 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough, 
         // that it's propagated.
         BlockContext blockCtx;
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, blockCtx);
+        const auto txCtx = TransactionContext{
+                inputs,
+                tx,
+                chainparams.GetConsensus(),
+                static_cast<uint32_t>(nSpendHeight),
+                0,
+                0,
+        };
+        auto res = ApplyCustomTx(discardCache, blockCtx, txCtx, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

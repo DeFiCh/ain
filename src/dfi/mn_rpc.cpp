@@ -491,7 +491,15 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
             evmTemplateId,
             true,
         };
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, ::ChainActive().Tip()->nTime, 0, blockCtx);
+        const auto txCtx = TransactionContext{
+            coins,
+            tx,
+            consensus,
+            height,
+            ::ChainActive().Tip()->nTime,
+            0,
+        };
+        res = CustomTxVisit(view, txMessage, blockCtx, txCtx);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

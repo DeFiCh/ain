@@ -659,7 +659,16 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             true,
         };
 
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, blockCtx);
+        const auto txCtx = TransactionContext{
+                view,
+                tx,
+                consensus,
+                static_cast<uint32_t>(height),
+                static_cast<uint64_t>(nAcceptTime),
+                0,
+        };
+
+        auto res = ApplyCustomTx(mnview, blockCtx, txCtx);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2451,7 +2460,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 BlockContext blockCtx;
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, blockCtx);
+                const auto txCtx = TransactionContext{
+                        view,
+                        *block.vtx[i],
+                        chainparams.GetConsensus(),
+                        static_cast<uint32_t>(pindex->nHeight),
+                        static_cast<uint64_t>(pindex->GetBlockTime()),
+                        static_cast<uint32_t>(i),
+                };
+                const auto res = ApplyCustomTx(mnview, blockCtx, txCtx);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2751,7 +2768,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, blockCtx);
+            const auto txCtx = TransactionContext{
+                    view,
+                    tx,
+                    consensus,
+                    static_cast<uint32_t>(pindex->nHeight),
+                    static_cast<uint64_t>(pindex->GetBlockTime()),
+                    static_cast<uint32_t>(i),
+            };
+            const auto res = ApplyCustomTx(accountsView, blockCtx, txCtx);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

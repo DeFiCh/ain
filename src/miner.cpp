@@ -829,7 +829,16 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, blockCtx);
+                const auto txCtx = TransactionContext{
+                        coins,
+                        tx,
+                        chainparams.GetConsensus(),
+                        static_cast<uint32_t>(nHeight),
+                        pblock->nTime,
+                        0,
+                };
+
+                const auto res = ApplyCustomTx(cache, blockCtx, txCtx);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     failedTxSet.insert(entry);

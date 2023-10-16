@@ -674,7 +674,16 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
             isEvmEnabledForBlock,
         };
 
-        auto res = ApplyCustomTx(mnview, view, *tx, Params().GetConsensus(), nHeight, 0, nullptr, 0, blockCtx);
+        const auto txCtx = TransactionContext{
+            view,
+            *tx,
+            consensus,
+            static_cast<uint32_t>(nHeight),
+            0,
+            0,
+        };
+
+        auto res = ApplyCustomTx(mnview, blockCtx, txCtx);
 
         result.pushKV("valid", res.ok);
     } else {

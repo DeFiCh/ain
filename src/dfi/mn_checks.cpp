@@ -319,21 +319,16 @@ public:
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor {
-    const CTransaction &tx;
-    const uint32_t height;
-    const CCoinsViewCache &coins;
     CCustomCSView &mnview;
-    const Consensus::Params &consensus;
-    uint64_t time;
-    uint32_t txn;
     const BlockContext &blockCtx;
+    const TransactionContext &txCtx;
 
     template <typename T, typename T1, typename... Args>
     Res ConsensusHandler(const T &obj) const {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>) {
-            return T1{tx, height, coins, mnview, consensus, time, txn, blockCtx}(obj);
+            return T1{mnview, blockCtx, txCtx}(obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
         } else {
@@ -344,23 +339,11 @@ class CCustomTxApplyVisitor {
     }
 
 public:
-    CCustomTxApplyVisitor(const CTransaction &tx,
-                          uint32_t height,
-                          const CCoinsViewCache &coins,
-                          CCustomCSView &mnview,
-                          const Consensus::Params &consensus,
-                          uint64_t time,
-                          uint32_t txn,
-                          const BlockContext &blockCtx)
+    CCustomTxApplyVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx)
 
-        : tx(tx),
-          height(height),
-          coins(coins),
-          mnview(mnview),
-          consensus(consensus),
-          time(time),
-          txn(txn),
-          blockCtx(blockCtx) {}
+        : mnview(mnview),
+          blockCtx(blockCtx),
+          txCtx(txCtx) {}
 
     template <typename T>
     Res operator()(const T &obj) const {
@@ -428,14 +411,14 @@ bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Para
 }
 
 Res CustomTxVisit(CCustomCSView &mnview,
-                  const CCoinsViewCache &coins,
-                  const CTransaction &tx,
-                  const uint32_t height,
-                  const Consensus::Params &consensus,
                   const CCustomTxMessage &txMessage,
-                  const uint64_t time,
-                  const uint32_t txn,
-                  BlockContext &blockCtx) {
+                  BlockContext &blockCtx,
+                  const TransactionContext &txCtx) {
+    const auto &consensus = txCtx.consensus;
+    const auto height = txCtx.height;
+    const auto time = txCtx.time;
+    const auto &tx = txCtx.tx;
+
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
@@ -452,8 +435,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     try {
-        auto res =
-            std::visit(CCustomTxApplyVisitor(tx, height, coins, mnview, consensus, time, txn, blockCtx), txMessage);
+        auto res = std::visit(CCustomTxApplyVisitor(mnview, blockCtx, txCtx), txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
@@ -474,9 +456,11 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
                               CAccountsHistoryWriter &view,
                               const CCustomTxMessage &txMessage,
                               const CustomTxType txType,
-                              const uint32_t height,
-                              const uint32_t txn,
-                              const uint256 &txid) {
+                              const TransactionContext &txCtx) {
+    const auto height = txCtx.height;
+    const auto &txid = txCtx.tx.GetHash();
+    const auto txn = txCtx.txn;
+
     if (txType == CustomTxType::Vault) {
         auto obj = std::get<CVaultMessage>(txMessage);
         writers.schemeID = obj.schemeId;
@@ -532,15 +516,12 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(CCustomCSView &mnview,
-                  const CCoinsViewCache &coins,
-                  const CTransaction &tx,
-                  const Consensus::Params &consensus,
-                  uint32_t height,
-                  uint64_t time,
-                  uint256 *canSpend,
-                  uint32_t txn,
-                  BlockContext &blockCtx) {
+Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
+    const auto &consensus = txCtx.consensus;
+    const auto height = txCtx.height;
+    const auto &tx = txCtx.tx;
+    const auto &txn = txCtx.txn;
+
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -578,10 +559,10 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (mnview.GetHistoryWriters().GetVaultView()) {
-            PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
+            PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, txCtx);
         }
 
-        res = CustomTxVisit(view, coins, tx, height, consensus, txMessage, time, txn, blockCtx);
+        res = CustomTxVisit(view, txMessage, blockCtx, txCtx);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
