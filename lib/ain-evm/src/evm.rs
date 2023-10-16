@@ -252,10 +252,11 @@ impl EVMServices {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn commit_block(&self, template_ptr: *mut BlockTemplate) -> Result<()> {
-        println!("commiting block=");
+        println!("[commit_block]");
         let template = unsafe { &*template_ptr };
         {
             let Some(BlockData { block, receipts }) = template.block_data.clone() else {
+                println!("Coulndt get block data");
                 return Err(format_err!("no constructed EVM block exist in template id").into());
             };
 

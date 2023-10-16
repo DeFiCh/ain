@@ -127,7 +127,6 @@ dependencies = [
  "jsonrpsee-types 0.16.3",
  "keccak-hash",
  "kvdb",
- "kvdb-rocksdb",
  "lazy_static",
  "libsecp256k1",
  "log",
@@ -2922,20 +2921,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kvdb-rocksdb"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b644c70b92285f66bfc2032922a79000ea30af7bc2ab31902992a5dcb9b434f6"
-dependencies = [
- "kvdb",
- "num_cpus",
- "parking_lot",
- "regex",
- "rocksdb",
- "smallvec",
-]
-
-[[package]]
 name = "labs-grpc2"
 version = "0.1.0"
 dependencies = [
@@ -3033,7 +3018,6 @@ dependencies = [
  "glob",
  "libc",
  "libz-sys",
- "tikv-jemalloc-sys",
 ]
 
 [[package]]
@@ -5724,16 +5708,6 @@ checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "tikv-jemalloc-sys"
-version = "0.5.4+5.3.0-patched"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9402443cb8fd499b6f327e40565234ff34dbda27460c5b47db0db77443dd85d1"
-dependencies = [
- "cc",
- "libc",
 ]
 
 [[package]]

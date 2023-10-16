@@ -341,15 +341,11 @@ impl Backend for EVMBackendMut<'_> {
             .and_then(|account| {
                 self.with_read_storage_and_root(&account.storage_root, |trie| {
                     println!("Trying to fetch account storage for address {address:?}");
-                    let storage =
-                        trie.get(&index.as_bytes())
-                            .ok()
-                            .flatten()
-                            .map_or_else(H256::zero, |vec| {
-                                println!("vec : {:?}", vec);
-                                println!("vec.len() : {:?}", vec.len());
-                                H256::from_slice(vec.as_slice())
-                            });
+                    let storage = trie
+                        .get(&index.as_bytes())
+                        .ok()
+                        .flatten()
+                        .map_or_else(H256::zero, |vec| H256::from_slice(vec.as_slice()));
                     println!("storage : {:?}", storage);
                     Some(storage)
                 })
@@ -592,15 +588,11 @@ impl Backend for EVMBackend<'_> {
             .and_then(|account| {
                 self.with_read_storage_and_root(&account.storage_root, |trie| {
                     println!("Trying to fetch account storage for address {address:?}");
-                    let storage =
-                        trie.get(&index.as_bytes())
-                            .ok()
-                            .flatten()
-                            .map_or_else(H256::zero, |vec| {
-                                println!("vec : {:?}", vec);
-                                println!("vec.len() : {:?}", vec.len());
-                                H256::from_slice(vec.as_slice())
-                            });
+                    let storage = trie
+                        .get(&index.as_bytes())
+                        .ok()
+                        .flatten()
+                        .map_or_else(H256::zero, |vec| H256::from_slice(vec.as_slice()));
                     println!("storage : {:?}", storage);
                     Some(storage)
                 })

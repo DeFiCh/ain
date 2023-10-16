@@ -4,9 +4,12 @@ use ethereum::Account;
 use ethereum_types::{H160, H256, U256};
 use hash_db::{AsHashDB, HashDB, HashDBRef, Hasher as _, Prefix};
 use kvdb::{DBValue, KeyValueDB};
-use kvdb_rocksdb::{Database, DatabaseConfig};
 use log::debug;
 use rlp::Encodable;
+use rocksdb::{
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, FlushOptions, Options,
+    WriteBatch, WriteOptions, DB,
+};
 use sp_core::{hexdisplay::AsBytesRef, KeccakHasher};
 use sp_trie::{LayoutV1, NodeCodec, TrieDBMutBuilder, TrieHash, TrieMut as _};
 use trie_db::{NodeCodec as _, Trie as _, TrieDB, TrieDBBuilder, TrieDBMut};
@@ -19,12 +22,10 @@ pub static GENESIS_STATE_ROOT: H256 = H256([
 
 type Hasher = KeccakHasher;
 
-pub struct TrieBackend {
-    pub db: Arc<dyn KeyValueDB>,
-}
+pub struct TrieBackend(DB);
 
 impl AsHashDB<Hasher, DBValue> for TrieBackend {
-    fn as_hash_db(&self) -> &dyn hash_db::HashDB<Hasher, DBValue> {
+    fn as_hash_db(&self) -> &dyn HashDB<Hasher, DBValue> {
         &*self
     }
 
@@ -49,7 +50,7 @@ impl HashDB<Hasher, DBValue> for TrieBackend {
         }
 
         let key = sp_trie::prefixed_key::<Hasher>(key, prefix);
-        self.db.get(0, &key).expect("Database error")
+        self.0.get(&key).expect("Database error")
     }
 
     fn contains(&self, key: &H256, prefix: Prefix) -> bool {
@@ -65,16 +66,36 @@ impl HashDB<Hasher, DBValue> for TrieBackend {
 
     fn emplace(&mut self, key: H256, prefix: Prefix, value: DBValue) {
         let key = sp_trie::prefixed_key::<Hasher>(&key, prefix);
-        let mut transaction = self.db.transaction();
-        transaction.put_vec(0, &key, value);
-        self.db.write(transaction).expect("Database error")
+        // let mut transaction = self.0.transaction();
+        // transaction.put_vec(0, &key, value);
+        // self.0.write(transaction).expect("Database error")
+
+        let mut batch = WriteBatch::default();
+        batch.put(&key, &value);
+
+        let mut write_options = WriteOptions::default();
+        write_options.set_sync(true);
+
+        self.0
+            .write_opt(batch, &write_options)
+            .expect("Database error")
     }
 
     fn remove(&mut self, key: &H256, prefix: Prefix) {
         let key = sp_trie::prefixed_key::<Hasher>(key, prefix);
-        let mut transaction = self.db.transaction();
-        transaction.delete(0, &key);
-        self.db.write(transaction).expect("Database error")
+        // let mut transaction = self.0.transaction();
+        // transaction.delete(0, &key);
+        // self.0.write(transaction).expect("Database error")
+
+        let mut batch = WriteBatch::default();
+        batch.delete(&key);
+
+        let mut write_options = WriteOptions::default();
+        write_options.set_sync(true); // Ensures the write is flushed to disk
+
+        self.0
+            .write_opt(batch, &write_options)
+            .expect("Database error")
     }
 }
 
@@ -84,19 +105,27 @@ type Error = TrieError;
 type Result<T> = std::result::Result<T, Error>;
 
 impl TrieBackend {
-    const COLUMNS: u32 = 1;
-
     pub fn new(path: PathBuf) -> Result<Self> {
+        // let path = ROCKSDB_PATH;
         let datadir = ain_cpp_imports::get_datadir();
         let dir = PathBuf::from(datadir).join("evm");
         if !dir.exists() {
             std::fs::create_dir(&dir).expect("Failed to create database path");
         }
 
-        let config = DatabaseConfig::default();
-        let db = Database::open(&config, dir.join(path)).expect("Failed to open database");
+        let db = DB::open_default(dir.join(path)).expect("Error opening rocksdb trie");
+        Ok(Self(db))
+    }
 
-        Ok(Self { db: Arc::new(db) })
+    // pub fn flush(&self) -> Result<()> {
+    pub fn flush(&self) {
+        let mut flush_options = FlushOptions::default();
+        flush_options.set_wait(true);
+
+        self.0
+            .flush_opt(&flush_options)
+            .expect("Error flushing rocksdb");
+        // Ok(())
     }
 }
 
@@ -132,8 +161,6 @@ impl<'a> Trie<'a> {
 pub struct TrieMut<'a> {
     trie: TrieDBMut<'a, L>,
 }
-
-unsafe impl Send for TrieMut<'_> {}
 
 impl<'a> TrieMut<'a> {
     pub fn new(backend: &'a mut TrieBackend, root: &'a mut TrieRoot) -> Self {
