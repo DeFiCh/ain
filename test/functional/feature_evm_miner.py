@@ -9,6 +9,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    get_solc_artifact_path,
 )
 from decimal import Decimal
 from time import time
@@ -83,6 +84,8 @@ class EVMTest(DefiTestFramework):
                     "v0/params/feature/evm": "true",
                     "v0/params/feature/transferdomain": "true",
                     "v0/transferdomain/dvm-evm/enabled": "true",
+                    "v0/transferdomain/dvm-evm/dat-enabled": "true",
+                    "v0/transferdomain/evm-dvm/dat-enabled": "true",
                     "v0/transferdomain/dvm-evm/src-formats": ["p2pkh", "bech32"],
                     "v0/transferdomain/dvm-evm/dest-formats": ["erc55"],
                     "v0/transferdomain/evm-dvm/src-formats": ["erc55"],
@@ -233,6 +236,243 @@ class EVMTest(DefiTestFramework):
                 hashes[first_block_total_txs + second_block_total_txs + idx],
             )
             assert_equal(tx_infos[idx]["vm"]["msg"]["to"], self.toAddress)
+
+    def varying_block_base_fee(self):
+        self.rollback_to(self.start_height)
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        # mine a full block
+        for i in range(17):
+            # tx call actual used gas: 1_761_626
+            tx = contract.functions.loop(10_000).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                    "gas": 30_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        tx_fee = 10_000_000_000
+        tx = {
+            "nonce": hex(nonce),
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gas": "0x5209",
+            "gasPrice": hex(tx_fee),  # 10_000_000_000
+        }
+        hash = self.nodes[0].eth_sendTransaction(tx)
+        # Should not make it into the block
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"]), 1)
+        # Should make it into the block
+        self.nodes[0].generate(1)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"]), 2)
+        tx_info = block_info["tx"][1]
+        assert_equal(tx_info["vm"]["msg"]["hash"], hash[2:])
+
+    def block_with_multiple_transfer_domain_dfi_txs(self):
+        self.rollback_to(self.start_height)
+
+        # Send transferdomain txs to be included in the first block
+        total_unspent = len(self.nodes[0].listunspent())
+        dvm_before_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+        evm_before_balance = Decimal(
+            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+        )
+
+        transferdomaintx_hashes = []
+        total_transferdomain_txs = 52
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+        for i in range(total_transferdomain_txs):
+            hash = self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@DFI",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@DFI",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+            transferdomaintx_hashes.append(hash)
+
+        self.nodes[0].generate(1)
+        dvm_after_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+        evm_after_balance = Decimal(
+            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+        )
+        dvm_balance = dvm_before_balance - dvm_after_balance
+        evm_balance = evm_after_balance - evm_before_balance
+        assert_equal(dvm_balance, Decimal(total_transferdomain_txs))
+        assert_equal(evm_balance, Decimal(total_transferdomain_txs))
+
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(
+            len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent
+        )
+
+        idx = 0
+        for tx_info in block_info["tx"][1:]:
+            if tx_info["vm"]["txtype"] == "TransferDomain":
+                assert_equal(tx_info["txid"], transferdomaintx_hashes[idx])
+                idx += 1
+            else:
+                assert_equal(tx_info["vm"]["txtype"], "AutoAuth")
+
+    def block_with_multiple_transfer_domain_dst20_txs(self):
+        self.rollback_to(self.start_height)
+
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        self.contract_address_btc = self.nodes[0].w3.to_checksum_address(
+            "0xff00000000000000000000000000000000000001"
+        )
+        # should have code on contract address
+        assert (
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_btc)
+            )
+            != "0x"
+        )
+        self.abi = open(
+            get_solc_artifact_path("dst20_v1", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        assert_equal(self.btc.functions.name().call(), "BTC token")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        btc_tx = block["transactions"][0]
+        receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
+        tx = self.nodes[0].eth_getTransactionByHash(btc_tx)
+        assert_equal(
+            self.nodes[0].w3.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_btc,
+        )
+        assert_equal(receipt["from"], tx["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
+
+        self.nodes[0].minttokens("100@BTC")
+        self.nodes[0].generate(1)
+
+        # Send transferdomain txs to be included in the first block
+        total_unspent = len(self.nodes[0].listunspent())
+        dvm_before_btc = Decimal(
+            [x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split(
+                "@"
+            )[0]
+        )
+        evm_before_btc = Decimal(
+            self.btc.functions.balanceOf(self.ethAddress).call()
+            / math.pow(10, self.btc.functions.decimals().call())
+        )
+        assert_equal(evm_before_btc, Decimal(0))
+        assert_equal(dvm_before_btc, Decimal(100))
+
+        transferdomaintx_hashes = []
+        total_transferdomain_txs = 52
+        start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
+            self.address_erc55
+        )
+        for i in range(total_transferdomain_txs):
+            hash = self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {
+                            "address": self.address,
+                            "amount": "1@BTC",
+                            "domain": 2,
+                        },
+                        "dst": {
+                            "address": self.ethAddress,
+                            "amount": "1@BTC",
+                            "domain": 3,
+                        },
+                        "nonce": start_nonce_erc55 + i,
+                    }
+                ]
+            )
+            transferdomaintx_hashes.append(hash)
+
+        self.nodes[0].generate(1)
+        dvm_after_btc = Decimal(
+            [x for x in self.nodes[0].getaccount(self.address) if "BTC" in x][0].split(
+                "@"
+            )[0]
+        )
+        evm_after_btc = Decimal(
+            self.btc.functions.balanceOf(self.ethAddress).call()
+            / math.pow(10, self.btc.functions.decimals().call())
+        )
+        dvm_balance = dvm_before_btc - dvm_after_btc
+        evm_balance = evm_after_btc - evm_before_btc
+        assert_equal(dvm_balance, Decimal(total_transferdomain_txs))
+        assert_equal(evm_balance, Decimal(total_transferdomain_txs))
+
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(
+            len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent
+        )
+
+        idx = 0
+        for tx_info in block_info["tx"][1:]:
+            if tx_info["vm"]["txtype"] == "TransferDomain":
+                assert_equal(tx_info["txid"], transferdomaintx_hashes[idx])
+                idx += 1
+            else:
+                assert_equal(tx_info["vm"]["txtype"], "AutoAuth")
 
     def blocks_size_gas_limit_with_transferdomain_txs(self):
         self.rollback_to(self.start_height)
@@ -718,7 +958,7 @@ class EVMTest(DefiTestFramework):
             assert_equal(block["transactions"][11 + idx], hashes[11 + idx])
             assert_equal(gas_used, gas_used_when_false)
 
-        # TODO: Thereotical block size calculated in txqueue would be:
+        # TODO: Thereotical block size calculated in block template would be:
         # gas_used_when_true * 18 + gas_used_when_change_state = 28639540
         # But the minted block is only of size 16111252.
         correct_gas_used = (
@@ -846,6 +1086,15 @@ class EVMTest(DefiTestFramework):
 
         # Test mining multiple full blocks
         self.multiple_blocks_size_gas_limit()
+
+        # Test mining txs into blocks with varying block fees
+        self.varying_block_base_fee()
+
+        # Test mining multiple transferdomain dfi txs in the same block
+        self.block_with_multiple_transfer_domain_dfi_txs()
+
+        # Test mining multiple transferdomain dst20 txs in the same block
+        self.block_with_multiple_transfer_domain_dst20_txs()
 
         # Test mining full block with transferdomain txs
         self.blocks_size_gas_limit_with_transferdomain_txs()

@@ -36,13 +36,10 @@ pub fn ffi_fallible(_attr: TokenStream, item: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let new_fn_name = format!("evm_try_{}", name);
-    let new_fn_ident = syn::Ident::new(&new_fn_name, name.span());
-
     let expanded = quote! {
-        #input
+        pub fn #name(result: &mut ffi::CrossBoundaryResult, #inputs) -> #inner_type {
+            #input
 
-        pub fn #new_fn_ident(result: &mut ffi::CrossBoundaryResult, #inputs) -> #inner_type {
             match #name(#(#param_names),*) {
                 Ok(success_value) => {
                     cross_boundary_success_return(result, success_value)

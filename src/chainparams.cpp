@@ -8,7 +8,7 @@
 #include <chainparams.h>
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/mn_checks.h>
 #include <streams.h>
 #include <tinyformat.h>
 #include <util/system.h>
@@ -121,8 +121,8 @@ public:
         consensus.BIP66Height = 0; // 00000000000000000379eaa19dce8c9b722d46ae6a57c2f1a988119488b50931
         consensus.DF1AMKHeight = 356500; // Oct 12th, 2020.
         consensus.DF2BayfrontHeight = 405000; // Nov 2nd, 2020.
-        consensus.DF3DF4BayfrontGardensHeight = 465150; // Nov 28th, 2020.
-        consensus.BayfrontGardensHeight = 488300; // Dec 8th, 2020.
+        consensus.DF3BayfrontMarinaHeight = 465150; // Nov 28th, 2020.
+        consensus.DF4BayfrontGardensHeight = 488300; // Dec 8th, 2020.
         consensus.DF5ClarkeQuayHeight = 595738; // Jan 24th, 2021.
         consensus.DF6DakotaHeight = 678000; // Mar 1st, 2021.
         consensus.DF7DakotaCrescentHeight = 733000; // Mar 25th, 2021.
@@ -398,8 +398,8 @@ public:
         consensus.BIP66Height = 0; // 000000002104c8c45e99a8853285a3b592602a3ccde2b832481da85e9e4ba182
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -417,7 +417,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 1244000;
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
-        consensus.DF22MetachainHeight = 1948000;
+        consensus.DF22MetachainHeight = 1949500;
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
@@ -585,7 +585,6 @@ public:
                 {300000, uint256S("205b522772ce34206a08a635c800f99d2fc4e9696ab8c470dad7f5fa51dfea1a")},
                 {1445000, uint256S("6fd0cafbbd2262d5cecd2e07e73fe6703bac364e5d4986da3fe512b0eccf944d")},
                 {1471000, uint256S("dcf4a5fb69c004d0921710e09a09d10f275b3bc696e45ca03f6c322bb32f41bc")},
-                {1910000, uint256S("83b9b52e7f22ae6e9bb44e9b01aecf9bbf1bd9c93a7d09a6c1a1f1e6aafbdbf1")},
             }
         };
 
@@ -617,8 +616,8 @@ public:
         consensus.BIP66Height = 0;
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -833,8 +832,8 @@ public:
         consensus.BIP66Height = 0;
         consensus.DF1AMKHeight = 150;
         consensus.DF2BayfrontHeight = 3000;
-        consensus.DF3DF4BayfrontGardensHeight = 90470;
-        consensus.BayfrontGardensHeight = 101342;
+        consensus.DF3BayfrontMarinaHeight = 90470;
+        consensus.DF4BayfrontGardensHeight = 101342;
         consensus.DF5ClarkeQuayHeight = 155000;
         consensus.DF6DakotaHeight = 220680;
         consensus.DF7DakotaCrescentHeight = 287700;
@@ -1052,8 +1051,8 @@ public:
         consensus.BIP66Height = 1251; // BIP66 activated on regtest (Used in functional tests)
         consensus.DF1AMKHeight = 10000000;
         consensus.DF2BayfrontHeight = 10000000;
-        consensus.DF3DF4BayfrontGardensHeight = 10000000;
-        consensus.BayfrontGardensHeight = 10000000;
+        consensus.DF3BayfrontMarinaHeight = 10000000;
+        consensus.DF4BayfrontGardensHeight = 10000000;
         consensus.DF5ClarkeQuayHeight = 10000000;
         consensus.DF6DakotaHeight = 10000000;
         consensus.DF7DakotaCrescentHeight = 10000000;
@@ -1317,7 +1316,7 @@ void SetupCommonArgActivationParams(Consensus::Params &consensus) {
     UpdateHeightValidation("Segwit", "-segwitheight", consensus.SegwitHeight);
     UpdateHeightValidation("AMK", "-amkheight", consensus.DF1AMKHeight);
     UpdateHeightValidation("Bayfront", "-bayfrontheight", consensus.DF2BayfrontHeight);
-    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.BayfrontGardensHeight);
+    UpdateHeightValidation("Bayfront Gardens", "-bayfrontgardensheight", consensus.DF4BayfrontGardensHeight);
     UpdateHeightValidation("Clarke Quay", "-clarkequayheight", consensus.DF5ClarkeQuayHeight);
     UpdateHeightValidation("Dakota", "-dakotaheight", consensus.DF6DakotaHeight);
     UpdateHeightValidation("Dakota Crescent", "-dakotacrescentheight", consensus.DF7DakotaCrescentHeight);

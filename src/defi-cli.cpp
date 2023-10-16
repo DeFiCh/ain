@@ -27,7 +27,7 @@
 #include <support/events.h>
 
 #include <univalue.h>
-#include <masternodes/coinselect.h>
+#include <dfi/coinselect.h>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -327,7 +327,7 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
 
     // Check if DVM or EVM RPC
     int port = dvmport;
-    if (strMethod.rfind("eth_", 0 || strMethod == "net_version") == 0)
+    if (strMethod.rfind("eth_", 0) == 0 || strMethod.rfind("debug_", 0) == 0 || strMethod.rfind("net_", 0) == 0)
         port = evmport;
 
     // Obtain event base

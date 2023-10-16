@@ -1,7 +1,7 @@
 #include <chainparams.h>
-#include <masternodes/govvariables/attributes.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/poolpairs.h>
+#include <dfi/govvariables/attributes.h>
+#include <dfi/masternodes.h>
+#include <dfi/poolpairs.h>
 #include <validation.h>
 
 #include <test/setup_common.h>
@@ -454,7 +454,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
     });
 
     // new calculation
-    const_cast<int&>(Params().GetConsensus().BayfrontGardensHeight) = 6;
+    const_cast<int&>(Params().GetConsensus().DF4BayfrontGardensHeight) = 6;
 
     auto newRewardCalculation = [](CAmount liquidity, const CPoolPair& pool) -> CAmount {
         return COIN / 2880 * pool.rewardPct / COIN * liquidity / pool.totalLiquidity;
@@ -480,7 +480,7 @@ BOOST_AUTO_TEST_CASE(owner_rewards)
         };
         mnview.CalculatePoolRewards(idPool, onLiquidity, 1, 10,
             [&](RewardType type, CTokenAmount amount, uint32_t height) {
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().BayfrontGardensHeight)) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().DF4BayfrontGardensHeight)) {
                     if (type == RewardType::Pool) {
                         for (const auto& reward : pool.rewards.balances) {
                             auto providerReward = static_cast<CAmount>((arith_uint256(reward.second) * arith_uint256(onLiquidity()) / arith_uint256(pool.totalLiquidity)).GetLow64());

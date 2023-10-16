@@ -24,14 +24,14 @@ use vsdb_core::vsdb_set_base_dir;
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
+    blocktemplate::BlockTemplateMap,
     executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
-    trie::{TrieDBStore, GENESIS_STATE_ROOT},
-    txqueue::TransactionQueueMap,
+    trie::TrieDBStore,
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
@@ -128,7 +128,7 @@ impl TxValidationCache {
 }
 
 pub struct EVMCoreService {
-    pub tx_queues: Arc<TransactionQueueMap>,
+    pub block_templates: Arc<BlockTemplateMap>,
     pub trie_store: Arc<TrieDBStore>,
     pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
@@ -175,7 +175,7 @@ impl EVMCoreService {
         init_vsdb(path);
 
         Self {
-            tx_queues: Arc::new(TransactionQueueMap::new()),
+            block_templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
             signed_tx_cache: SignedTxCache::default(),
             storage,
@@ -193,7 +193,7 @@ impl EVMCoreService {
         init_vsdb(evm_datadir);
 
         let handler = Self {
-            tx_queues: Arc::new(TransactionQueueMap::new()),
+            block_templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
@@ -220,7 +220,7 @@ impl EVMCoreService {
                 parent_hash: genesis.parent_hash.unwrap_or_default(),
                 mix_hash: genesis.mix_hash.unwrap_or_default(),
                 nonce: genesis.nonce.unwrap_or_default(),
-                timestamp: genesis.timestamp.unwrap_or_default().as_u64(),
+                timestamp: u64::try_from(genesis.timestamp.unwrap_or_default())?,
                 difficulty: genesis.difficulty.unwrap_or_default(),
                 base_fee: genesis.base_fee.unwrap_or(INITIAL_BASE_FEE),
             },
@@ -251,7 +251,15 @@ impl EVMCoreService {
             transaction_type,
         } = arguments;
 
-        let (state_root, block_number, beneficiary, base_fee, timestamp) = self
+        let (
+            state_root,
+            block_number,
+            beneficiary,
+            base_fee,
+            timestamp,
+            block_difficulty,
+            block_gas_limit,
+        ) = self
             .storage
             .get_block_by_number(&block_number)?
             .map(|block| {
@@ -261,6 +269,8 @@ impl EVMCoreService {
                     block.header.beneficiary,
                     block.header.base_fee,
                     block.header.timestamp,
+                    block.header.difficulty,
+                    block.header.gas_limit,
                 )
             })
             .unwrap_or_default();
@@ -270,20 +280,20 @@ impl EVMCoreService {
         );
         debug!("[call] caller: {:?}", caller);
         let vicinity = Vicinity {
-            block_number,
-            origin: caller.unwrap_or_default(),
-            gas_limit: U256::from(gas_limit),
-            total_gas_used: U256::zero(),
-            block_gas_limit: U256::from(self.storage.get_attributes_or_default()?.block_gas_limit),
             gas_price: if transaction_type == Some(U256::from(2)) {
                 max_fee_per_gas.unwrap_or_default()
             } else {
                 gas_price.unwrap_or_default()
             },
+            origin: caller.unwrap_or_default(),
             beneficiary,
-            block_base_fee_per_gas: base_fee,
+            block_number,
             timestamp: U256::from(timestamp),
-            ..Vicinity::default()
+            total_gas_used: U256::zero(),
+            block_difficulty,
+            block_gas_limit,
+            block_base_fee_per_gas: base_fee,
+            block_randomness: None,
         };
         debug!("[call] vicinity: {:?}", vicinity);
 
@@ -318,7 +328,7 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The template_id template number.
     ///
     /// # Returns
     ///
@@ -329,8 +339,8 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(&self, tx: &str, queue_id: u64) -> Result<ValidateTxInfo> {
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+    pub unsafe fn validate_raw_tx(&self, tx: &str, template_id: u64) -> Result<ValidateTxInfo> {
+        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         if let Some(tx_info) = self
@@ -340,7 +350,7 @@ impl EVMCoreService {
             return Ok(tx_info);
         }
 
-        debug!("[validate_raw_tx] queue_id {}", queue_id);
+        debug!("[validate_raw_tx] template_id {}", template_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
@@ -433,19 +443,6 @@ impl EVMCoreService {
         ))
     }
 
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless cs_main lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_total_gas_used(&self, queue_id: u64) -> String {
-        let res = self
-            .tx_queues
-            .get_total_gas_used_in(queue_id)
-            .unwrap_or_default();
-        format!("{:064x}", res)
-    }
-
     /// Validates a raw transfer domain tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:
@@ -476,7 +473,7 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The template_id template number.
     ///
     /// # Returns
     ///
@@ -490,16 +487,19 @@ impl EVMCoreService {
     pub unsafe fn validate_raw_transferdomain_tx(
         &self,
         tx: &str,
-        queue_id: u64,
+        template_id: u64,
         context: TransferDomainTxInfo,
     ) -> Result<ValidateTxInfo> {
-        debug!("[validate_raw_transferdomain_tx] queue_id {}", queue_id);
+        debug!(
+            "[validate_raw_transferdomain_tx] template_id {}",
+            template_id
+        );
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
         );
 
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
         debug!(
             "[validate_raw_transferdomain_tx] state_root : {:#?}",
             state_root
@@ -738,7 +738,7 @@ impl EVMCoreService {
     }
 }
 
-// Transaction queue methods
+// Block template methods
 impl EVMCoreService {
     ///
     /// # Safety
@@ -746,16 +746,8 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn create_queue(&self, timestamp: u64) -> Result<u64> {
-        let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
-            None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis queue
-            Some(block) => (block.header.number + 1, block.header.state_root),
-        };
-
-        let queue_id = self
-            .tx_queues
-            .create(target_block, initial_state_root, timestamp);
-        Ok(queue_id)
+    pub unsafe fn remove_block_template(&self, template_id: u64) {
+        self.block_templates.remove(template_id);
     }
 
     ///
@@ -764,42 +756,21 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_queue(&self, queue_id: u64) {
-        self.tx_queues.remove(queue_id);
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn remove_txs_above_hash_in(
+    pub unsafe fn remove_txs_above_hash_in_block_template(
         &self,
-        queue_id: u64,
+        template_id: u64,
         target_hash: XHash,
     ) -> Result<Vec<XHash>> {
         let hashes = self
-            .tx_queues
-            .remove_txs_above_hash_in(queue_id, target_hash)?;
+            .block_templates
+            .remove_txs_above_hash_in(template_id, target_hash)?;
         Ok(hashes)
     }
 
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
-    pub unsafe fn get_target_block_in(&self, queue_id: u64) -> Result<U256> {
-        let target_block = self.tx_queues.get_target_block_in(queue_id)?;
-        Ok(target_block)
-    }
-
-    /// Retrieves the next valid nonce for the specified account within a particular queue.
+    /// Retrieves the next valid nonce for the specified account within a particular block template.
     /// # Arguments
     ///
-    /// * `queue_id` - The queue_id queue number.
+    /// * `template_id` - The template_id template number.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
@@ -811,22 +782,18 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn get_next_valid_nonce_in_queue(
+    pub unsafe fn get_next_valid_nonce_in_block_template(
         &self,
-        queue_id: u64,
+        template_id: u64,
         address: H160,
     ) -> Result<U256> {
-        let state_root = self.tx_queues.get_latest_state_root_in(queue_id)?;
+        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
         let backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
         trace!(
-            "[get_next_valid_nonce_in_queue] Account {address:x?} nonce {nonce:x?} in queue_id {queue_id}"
+            "[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?} in template_id {template_id}"
         );
         Ok(nonce)
-    }
-
-    pub fn clear_transaction_cache(&self) {
-        self.tx_validation_cache.clear()
     }
 }
 
@@ -948,6 +915,8 @@ impl EVMCoreService {
         )
     }
 
+    // Note that backend instance returned is only suitable for getting state information,
+    // and unsuitable for EVM execution.
     pub fn get_backend(&self, state_root: H256) -> Result<EVMBackend> {
         trace!("[get_backend] state_root : {:#x}", state_root);
         EVMBackend::from_root(
@@ -976,13 +945,19 @@ impl EVMCoreService {
 
                 let mut nonce = state_root_nonce;
                 for elem in nonce_set.range(state_root_nonce..) {
-                    if (elem - nonce) > U256::from(1) {
+                    if elem
+                        .checked_sub(nonce)
+                        .ok_or_else(|| format_err!("elem underflow"))?
+                        > U256::one()
+                    {
                         break;
                     } else {
                         nonce = *elem;
                     }
                 }
-                nonce += U256::from(1);
+                nonce = nonce
+                    .checked_add(U256::one())
+                    .ok_or_else(|| format_err!("nonce overflow"))?;
                 Ok(nonce)
             }
         }
@@ -1004,5 +979,9 @@ impl EVMCoreService {
     pub fn clear_account_nonce(&self) {
         let mut nonce_store = self.nonce_store.lock();
         nonce_store.clear()
+    }
+
+    pub fn clear_transaction_cache(&self) {
+        self.tx_validation_cache.clear()
     }
 }

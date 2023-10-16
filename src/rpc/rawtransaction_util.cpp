@@ -9,7 +9,7 @@
 #include <core_io.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/tokens.h>
+#include <dfi/tokens.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <rpc/request.h>

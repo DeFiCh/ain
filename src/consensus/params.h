@@ -7,7 +7,7 @@
 #define DEFI_CONSENSUS_PARAMS_H
 
 #include <amount.h>
-#include <masternodes/communityaccounttypes.h>
+#include <dfi/communityaccounttypes.h>
 #include <script/standard.h>
 #include <uint256.h>
 #include <limits>
@@ -79,8 +79,8 @@ struct Params {
     int DF1AMKHeight;
     /** What exactly? Changes to mint DAT, new updatetokens? */
     int DF2BayfrontHeight;
-    int DF3DF4BayfrontGardensHeight;
-    int BayfrontGardensHeight;
+    int DF3BayfrontMarinaHeight;
+    int DF4BayfrontGardensHeight;
     /** Third major fork. */
     int DF5ClarkeQuayHeight;
     /** Fourth major fork **/

@@ -1,6 +1,7 @@
 #include <ffi/ffiexports.h>
 #include <util/system.h>
-#include <masternodes/mn_rpc.h>
+#include <net.h>
+#include <dfi/mn_rpc.h>
 #include <key_io.h>
 #include <logging.h>
 #include <clientversion.h>
@@ -294,4 +295,8 @@ int32_t getNumCores() {
 
 rust::string getCORSAllowedOrigin() {
     return gArgs.GetArg("-rpcallowcors", "");
+}
+
+int32_t getNumConnections() {
+    return (int32_t)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL);
 }

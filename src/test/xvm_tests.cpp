@@ -4,7 +4,7 @@
 
 #include <test/setup_common.h>
 #include <boost/test/unit_test.hpp>
-#include <masternodes/mn_checks.h>
+#include <dfi/mn_checks.h>
 
 BOOST_FIXTURE_TEST_SUITE(xvm_tests, BasicTestingSetup)
 

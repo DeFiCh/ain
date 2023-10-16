@@ -12,7 +12,7 @@ use statrs::statistics::{Data, OrderStatistics};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
-    Result,
+    EVMError, Result,
 };
 
 pub struct BlockService {
@@ -28,6 +28,7 @@ pub struct FeeHistoryData {
 }
 
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
+pub const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 
 impl BlockService {
     pub fn new(storage: Arc<Storage>) -> Result<Self> {
@@ -76,29 +77,54 @@ impl BlockService {
         parent_base_fee: U256,
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
-    ) -> U256 {
+        max_base_fee: U256,
+    ) -> Result<U256> {
         match parent_gas_used.cmp(&parent_gas_target) {
-            Ordering::Equal => parent_base_fee,
+            Ordering::Equal => Ok(parent_base_fee),
             Ordering::Greater => {
-                let gas_used_delta = parent_gas_used - parent_gas_target;
-                let base_fee_per_gas_delta = max(
-                    parent_base_fee * gas_used_delta
-                        / parent_gas_target
-                        / base_fee_max_change_denominator,
-                    U256::one(),
-                );
-
-                max(parent_base_fee + base_fee_per_gas_delta, initial_base_fee)
+                let gas_used_delta = parent_gas_used - parent_gas_target; // sub is safe due to cmp
+                let base_fee_per_gas_delta = self.get_base_fee_per_gas_delta(
+                    gas_used_delta,
+                    parent_gas_target,
+                    parent_base_fee,
+                    base_fee_max_change_denominator,
+                )?;
+                Ok(parent_base_fee
+                    .saturating_add(base_fee_per_gas_delta)
+                    .min(max_base_fee))
             }
             Ordering::Less => {
-                let gas_used_delta = parent_gas_target - parent_gas_used;
-                let base_fee_per_gas_delta = parent_base_fee * gas_used_delta
-                    / parent_gas_target
-                    / base_fee_max_change_denominator;
-
-                max(parent_base_fee - base_fee_per_gas_delta, initial_base_fee)
+                let gas_used_delta = parent_gas_target - parent_gas_used; // sub is safe due to cmp
+                let base_fee_per_gas_delta = self.get_base_fee_per_gas_delta(
+                    gas_used_delta,
+                    parent_gas_target,
+                    parent_base_fee,
+                    base_fee_max_change_denominator,
+                )?;
+                Ok(parent_base_fee
+                    .saturating_sub(base_fee_per_gas_delta)
+                    .max(initial_base_fee))
             }
         }
+    }
+
+    fn get_base_fee_per_gas_delta(
+        &self,
+        gas_used_delta: u64,
+        parent_gas_target: u64,
+        parent_base_fee: U256,
+        base_fee_max_change_denominator: U256,
+    ) -> Result<U256> {
+        Ok(max(
+            parent_base_fee
+                .checked_mul(gas_used_delta.into())
+                .and_then(|x| x.checked_div(parent_gas_target.into()))
+                .and_then(|x| x.checked_div(base_fee_max_change_denominator))
+                .ok_or_else(|| {
+                    format_err!("Unsatisfied bounds calculating base_fee_per_gas_delta")
+                })?,
+            U256::one(),
+        ))
     }
 
     pub fn get_base_fee(
@@ -108,13 +134,15 @@ impl BlockService {
         parent_base_fee: U256,
         base_fee_max_change_denominator: U256,
         initial_base_fee: U256,
-    ) -> U256 {
+        max_base_fee: U256,
+    ) -> Result<U256> {
         self.base_fee_calculation(
             parent_gas_used,
             parent_gas_target,
             parent_base_fee,
             base_fee_max_change_denominator,
             initial_base_fee,
+            max_base_fee,
         )
     }
 
@@ -135,17 +163,18 @@ impl BlockService {
             .get_block_by_hash(&parent_hash)?
             .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
-        let parent_gas_used = parent_block.header.gas_used.as_u64();
+        let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
         let parent_gas_target =
-            parent_block.header.gas_limit.as_u64() / elasticity_multiplier.as_u64();
+            u64::try_from(parent_block.header.gas_limit / elasticity_multiplier)?; // safe to use normal division since we know elasticity_multiplier is non-zero
 
-        Ok(self.get_base_fee(
+        self.get_base_fee(
             parent_gas_used,
             parent_gas_target,
             parent_base_fee,
             base_fee_max_change_denominator,
             INITIAL_BASE_FEE,
-        ))
+            MAX_BASE_FEE,
+        )
     }
 
     pub fn calculate_next_block_base_fee(&self) -> Result<U256> {
@@ -175,26 +204,32 @@ impl BlockService {
 
             blocks.push(block);
 
-            block_number -= U256::one();
+            block_number = block_number
+                .checked_sub(U256::one())
+                .ok_or_else(|| format_err!("block_number underflow"))?;
         }
 
         let oldest_block = blocks.last().unwrap().header.number;
 
-        let (mut base_fee_per_gas, mut gas_used_ratio): (Vec<U256>, Vec<f64>) = blocks
-            .iter()
-            .map(|block| {
+        let (mut base_fee_per_gas, mut gas_used_ratio) = blocks.iter().try_fold(
+            (Vec::new(), Vec::new()),
+            |(mut base_fee_per_gas, mut gas_used_ratio), block| {
                 trace!("[fee_history] Processing block {}", block.header.number);
                 let base_fee = block.header.base_fee;
 
                 let gas_ratio = if block.header.gas_limit == U256::zero() {
                     f64::default() // empty block
                 } else {
-                    block.header.gas_used.as_u64() as f64 / block.header.gas_limit.as_u64() as f64
+                    u64::try_from(block.header.gas_used)? as f64
+                        / u64::try_from(block.header.gas_limit)? as f64 // safe due to check
                 };
 
-                (base_fee, gas_ratio)
-            })
-            .unzip();
+                base_fee_per_gas.push(base_fee);
+                gas_used_ratio.push(gas_ratio);
+
+                Ok::<_, EVMError>((base_fee_per_gas, gas_used_ratio))
+            },
+        )?;
 
         let reward = if priority_fee_percentile.is_empty() {
             None
@@ -235,8 +270,8 @@ impl BlockService {
                 let mut block_rewards = Vec::new();
                 let priority_fees = block_eip_tx
                     .iter()
-                    .map(|tx| tx.max_priority_fee_per_gas.as_u64() as f64)
-                    .collect::<Vec<f64>>();
+                    .map(|tx| Ok(u64::try_from(tx.max_priority_fee_per_gas)? as f64))
+                    .collect::<Result<Vec<f64>>>()?;
                 let mut data = Data::new(priority_fees);
 
                 for pct in &priority_fee_percentile {
@@ -251,10 +286,11 @@ impl BlockService {
         };
 
         // add another entry for baseFeePerGas
-        let next_block_base_fee = match self
-            .storage
-            .get_block_by_number(&(first_block + U256::one()))?
-        {
+        let next_block_base_fee = match self.storage.get_block_by_number(
+            &(first_block
+                .checked_add(U256::one())
+                .ok_or_else(|| format_err!("Block number overflow"))?),
+        )? {
             None => {
                 // get one block earlier (this should exist)
                 let block = self
@@ -317,7 +353,7 @@ impl BlockService {
                         continue;
                     }
                     TransactionAny::EIP1559(t) => {
-                        priority_fees.push(t.max_priority_fee_per_gas.as_u64() as f64);
+                        priority_fees.push(u64::try_from(t.max_priority_fee_per_gas)? as f64);
                     }
                 }
             }
@@ -338,7 +374,9 @@ impl BlockService {
             .header
             .base_fee;
 
-        Ok(base_fee + priority_fee)
+        Ok(base_fee
+            .checked_add(priority_fee)
+            .ok_or_else(|| format_err!("Legacy fee overflow"))?)
     }
 }
 
