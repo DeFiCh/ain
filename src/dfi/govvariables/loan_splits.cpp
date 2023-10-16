@@ -13,11 +13,15 @@ bool LP_LOAN_TOKEN_SPLITS::IsEmpty() const {
 }
 
 Res LP_LOAN_TOKEN_SPLITS::Import(const UniValue &val) {
-    Require(val.isObject(), [] { return "object of {poolId: rate,... } expected"; });
+    if (!val.isObject()) {
+        return Res::Err("object of {poolId: rate,... } expected");
+    }
 
     for (const std::string &key : val.getKeys()) {
         auto id = DCT_ID::FromString(key);
-        Require(id);
+        if (!id) {
+            return id;
+        }
         splits.emplace(*id.val, AmountFromValue(val[key]));
     }
     return Res::Ok();
@@ -32,22 +36,26 @@ UniValue LP_LOAN_TOKEN_SPLITS::Export() const {
 }
 
 Res LP_LOAN_TOKEN_SPLITS::Validate(const CCustomCSView &mnview) const {
-    Require(mnview.GetLastHeight() >= Params().GetConsensus().DF11FortCanningHeight,
-            [] { return "Cannot be set before FortCanning"; });
+    if (mnview.GetLastHeight() < Params().GetConsensus().DF11FortCanningHeight) {
+        return Res::Err("Cannot be set before FortCanning");
+    }
 
     CAmount total{0};
     for (const auto &kv : splits) {
-        Require(mnview.HasPoolPair(kv.first),
-                [=] { return strprintf("pool with id=%s not found", kv.first.ToString()); });
+        if (!mnview.HasPoolPair(kv.first)) {
+            return Res::Err("pool with id=%s not found", kv.first.ToString());
+        }
 
-        Require(kv.second >= 0 && kv.second <= COIN, [=] {
-            return strprintf(
+        if (kv.second < 0 || kv.second > COIN) {
+            return Res::Err(
                 "wrong percentage for pool with id=%s, value = %s", kv.first.ToString(), std::to_string(kv.second));
-        });
+        }
 
         total += kv.second;
     }
-    Require(total == COIN, [=] { return strprintf("total = %d vs expected %d", total, COIN); });
+    if (total != COIN) {
+        return Res::Err("total = %d vs expected %d", total, COIN);
+    }
 
     return Res::Ok();
 }

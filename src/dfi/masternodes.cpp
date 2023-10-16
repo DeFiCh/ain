@@ -317,8 +317,9 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
 Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId, const uint256 &txid, int height) {
     auto state = node.GetState(height, *this);
     if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
-        Require(state == CMasternode::ENABLED,
-                [=] { return strprintf("node %s state is not 'ENABLED'", nodeId.ToString()); });
+        if (state != CMasternode::ENABLED) {
+            return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
+        }
     } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
@@ -327,8 +328,9 @@ Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId,
     if (!timelock) {
         return Res::Err("Failed to get timelock for masternode");
     }
-    Require(timelock.value() == CMasternode::ZEROYEAR,
-            [=] { return "Trying to resign masternode before timelock expiration."; });
+    if (timelock.value() != CMasternode::ZEROYEAR) {
+        return Res::Err("Trying to resign masternode before timelock expiration.");
+    }
 
     node.resignTx = txid;
     node.resignHeight = height;
@@ -1090,14 +1092,18 @@ Res CCustomCSView::PopulateLoansData(CVaultAssets &result,
 
     for (const auto &[loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);
-        Require(token, [loanTokenId = loanTokenId] {
-            return strprintf("Loan token with id (%s) does not exist!", loanTokenId.ToString());
-        });
+        if (!token) {
+            return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
+        }
 
         const auto rate = GetInterestRate(vaultId, loanTokenId, height);
-        Require(rate, [=] { return strprintf("Cannot get interest rate for token (%s)!", token->symbol); });
+        if (!rate) {
+            return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+        }
 
-        Require(height >= rate->height, [] { return "Trying to read loans in the past"; });
+        if (height < rate->height) {
+            return Res::Err("Trying to read loans in the past");
+        }
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         if (totalAmount < 0) {
@@ -1112,7 +1118,9 @@ Res CCustomCSView::PopulateLoansData(CVaultAssets &result,
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
 
-        Require(prevLoans <= result.totalLoans, [] { return "Exceeded maximum loans"; });
+        if (prevLoans > result.totalLoans) {
+            return Res::Err("Exceeded maximum loans");
+        }
 
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
@@ -1131,18 +1139,24 @@ Res CCustomCSView::PopulateCollateralData(CVaultAssets &result,
         auto tokenAmount = col.second;
 
         auto token = HasLoanCollateralToken({tokenId, height});
-        Require(token, [=] { return strprintf("Collateral token with id (%s) does not exist!", tokenId.ToString()); });
+        if (!token) {
+            return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
+        }
 
         auto amountInCurrency =
             GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        Require(amountInCurrency);
+        if (!amountInCurrency) {
+            return amountInCurrency;
+        }
 
         auto amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
 
         auto prevCollaterals = result.totalCollaterals;
         result.totalCollaterals += amountFactor;
 
-        Require(prevCollaterals <= result.totalCollaterals, [] { return "Exceeded maximum collateral"; });
+        if (prevCollaterals > result.totalCollaterals) {
+            return Res::Err("Exceeded maximum collateral");
+        }
 
         result.collaterals.push_back({tokenId, amountInCurrency});
     }

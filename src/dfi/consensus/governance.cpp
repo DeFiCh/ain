@@ -8,7 +8,9 @@
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // check foundation auth
-    Require(HasFoundationAuth());
+    if (auto res = HasFoundationAuth(); !res) {
+        return res;
+    }
     for (const auto &gov : obj.govs) {
         if (!gov.second) {
             return Res::Err("'%s': variable does not registered", gov.first);
