@@ -325,7 +325,9 @@ class EVMTest(DefiTestFramework):
 
         self.nodes[0].generate(1)
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
-        assert_equal(len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent)
+        assert_equal(
+            len(block_info["tx"][1:]), total_transferdomain_txs * 2 - total_unspent
+        )
 
         idx = 0
         for tx_info in block_info["tx"][1:]:
