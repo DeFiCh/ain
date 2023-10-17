@@ -45,6 +45,9 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
 // redundant due to 'neg_token_amounts'
 BOOST_AUTO_TEST_CASE(neg_token_balances)
 {
+    LOCK(cs_main);
+    assert(pcustomcsview);
+
     CCustomCSView mnview(*pcustomcsview);
 
     CScript const owner = CScript(1);
@@ -84,28 +87,31 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     Consensus::Params amkCheated = Params().GetConsensus();
     amkCheated.DF1AMKHeight = 0;
 
+    LOCK(cs_main);
+    assert(pcustomcsview);
 
     CCustomCSView mnview(*pcustomcsview);
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
-    CScript owner = CScript(424242);
-    DCT_ID DFI{0};
+    CScript owner{424242};
+    DCT_ID DFI{};
 
     // add auth coin to coinview
     auto auth_out = COutPoint(uint256S("0xafaf"),42);
-    coinview.AddCoin(auth_out, Coin(CTxOut(1, owner, DFI), 1, false), false);
+    coinview.AddCoin(auth_out, Coin({1, owner, DFI}, 1, false), false);
 
     // Initial value
-    auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
+    const auto dfi100 = CTokenAmount{DFI, 100};
     auto res = mnview.AddBalance(owner, dfi100);
     BOOST_CHECK(res.ok);
-    BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
+    const auto balance = mnview.GetBalance(owner, DFI);
+    BOOST_CHECK_EQUAL(balance, dfi100);
 
     // create templates for msg and tx:
     CAccountToAccountMessage msg{};
     msg.from = owner;
     CMutableTransaction rawTx;
-    rawTx.vout = { CTxOut(0, CScript()) };
+    rawTx.vout = { CTxOut(0, {}) };
     rawTx.vin = { CTxIn(auth_out) };
 
     BlockContext blockCtx;
