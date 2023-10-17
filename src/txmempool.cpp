@@ -566,19 +566,6 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         CalculateDescendants(it, setAllRemoves);
     }
     RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
-
-    if (pcustomcsview) {
-        accountsViewDirty |= forceRebuildForReorg;
-        CTransactionRef ptx{};
-
-        CCoinsView dummy;
-        CCoinsViewCache view(&dummy);
-        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
-        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
-        view.SetBackend(viewMemPool);
-
-        rebuildAccountsView(nMemPoolHeight, view);
-    }
 }
 
 void CTxMemPool::removeConflicts(const CTransaction &tx)
