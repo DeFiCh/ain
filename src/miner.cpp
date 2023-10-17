@@ -1145,7 +1145,7 @@ void Staker::withSearchInterval(F&& f, int64_t height)
 
 void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams)
 {
-    std::set<CKeyID> nClearFlag;
+    std::map<CKeyID, uint32_t> nClearFlag;
     std::map<CKeyID, int32_t> nMinted;
     std::map<CKeyID, int32_t> nTried;
 
@@ -1207,6 +1207,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 } else if (status == Staker::Status::minted) {
                     LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
+                    nClearFlag.clear();
                 } else if (status == Staker::Status::initWaiting) {
                     LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "init_waiting", 1000 * 60 * 10, "ThreadStaker: (%s) waiting init...\n", operatorName);
                 } else if (status == Staker::Status::stakeWaiting) {
@@ -1215,14 +1216,15 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             } catch (const std::runtime_error& e) {
                 LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
 
-                if (nClearFlag.find(arg.operatorID) == nClearFlag.end()) {
+                if (!nClearFlag.count(arg.operatorID)) {
                     LOCK2(cs_main, mempool.cs);
                     mempool.rebuildCustomCSView();
-                    nClearFlag.insert(arg.operatorID);
+                    ++nClearFlag[arg.operatorID];
                 } else {
                     // Could be failed TX in mempool, wipe mempool and allow loop to continue.
                     LOCK(cs_main);
                     mempool.clear();
+                    ++nClearFlag[arg.operatorID];
                 }
             }
 
