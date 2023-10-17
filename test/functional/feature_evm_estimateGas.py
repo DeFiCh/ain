@@ -184,7 +184,7 @@ class EVMFeeTest(DefiTestFramework):
 
         receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
 
-        assert_equal(receipt["status"], 0)
+        assert_equal(receipt["status"], 1)
         assert_equal(receipt["gasUsed"], 30438)
 
         withdraw_without_exact_gas_specified_tx = (
