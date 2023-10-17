@@ -764,7 +764,7 @@ public:
 
     CCustomCSView& accountsView();
     void rebuildCustomCSView();
-    void rebuildCustomCSView(int height, const CCoinsViewCache& coinsCache);
+    void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
 

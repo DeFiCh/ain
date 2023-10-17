@@ -638,7 +638,7 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         CCoinsViewMemPool viewMemPool(&coins_cache, *this);
         view.SetBackend(viewMemPool);
 
-        rebuildCustomCSView(nBlockHeight, view);
+        rebuildAccountsView(nBlockHeight, view);
     }
 
     lastRollingFeeUpdate = GetTime();
@@ -657,7 +657,7 @@ void CTxMemPool::rebuildCustomCSView() {
     view.SetBackend(viewMemPool);
 
     setAccountViewDirty();
-    rebuildCustomCSView(::ChainActive().Tip()->nHeight, view);
+    rebuildAccountsView(::ChainActive().Tip()->nHeight, view);
 }
 
 void CTxMemPool::_clear()
@@ -1223,7 +1223,7 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
     return result;
 }
 
-void CTxMemPool::rebuildCustomCSView(int height, const CCoinsViewCache& coinsCache)
+void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
     if (!pcustomcsview || !accountsViewDirty) {
         return;
