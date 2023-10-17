@@ -922,7 +922,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             auto txMessage = customTypeToMessage(txType);
             res = CustomMetadataParse(height, consensus, metadata, txMessage);
             if (!res) {
-                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("Failed to parse EVM tx metadata"), REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
+                LogPrint(BCLog::MEMPOOL, "Failed to parse EVM tx metadata\n");
+                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
             }
 
             std::string rawEVMTx;
@@ -942,7 +943,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             CrossBoundaryResult result;
             auto txResult = evm_try_get_tx_miner_info_from_raw_tx(result, rawEVMTx);
             if (!result.ok) {
-                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, error("evm tx failed to get sender info %s", result.reason.c_str()), REJECT_INVALID, "evm-sender-info");
+                LogPrint(BCLog::MEMPOOL, "EVM tx failed to get sender info %s\n", result.reason.c_str());
+                return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_INVALID, "evm-sender-info");
             }
 
             EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
@@ -957,23 +959,25 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
             auto senderLimitFlag{false};
             if (!pool.checkAddressNonceAndFee(entry, entryTipFee, txResultSender, senderLimitFlag)) {
                 if (senderLimitFlag) {
-                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many replace-by-fee evm tx from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_RBF), REJECT_INVALID, "too-many-evm-rbf-txs-by-sender");
+                    LogPrint(BCLog::MEMPOOL, "Too many replace-by-fee EVM tx from the same sender in mempool. Limit %d.\n", MEMPOOL_MAX_ETH_RBF);
+                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "too-many-evm-rbf-txs-by-sender");
                 } else {
-                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Rejected due to same or lower fee as existing mempool entry"), REJECT_INVALID, "evm-low-fee");
+                    LogPrint(BCLog::MEMPOOL, "EVM tx rejected due to same or lower fee as existing mempool entry\n");
+                    return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "evm-low-fee");
                 }
             }
 
             const auto sender = pool.evmTxsBySender.find(txResultSender);
             if (sender != pool.evmTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
-                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, error("Too many evm tx from the same sender in mempool. Limit %d.", MEMPOOL_MAX_ETH_TXS), REJECT_INVALID, "too-many-evm-txs-by-sender");
+                LogPrint(BCLog::MEMPOOL, "Too many EVM tx from the same sender in mempool. Limit %d.\n", MEMPOOL_MAX_ETH_TXS);
+                return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, "too-many-evm-txs-by-sender");
             } else {
                 ethSender = txResultSender;
             }
 
-
             evm_try_dispatch_pending_transactions_event(result, rawEVMTx);
             if (!result.ok) {
-                LogPrint(BCLog::MEMPOOL, "evm tx failed to generate events %s\n", result.reason.c_str());
+                LogPrint(BCLog::MEMPOOL, "EVM tx failed to generate events %s\n", result.reason.c_str());
             }
         }
 
