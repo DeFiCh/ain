@@ -116,9 +116,7 @@ Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
     const Coin &auth = coins.AccessCoin(COutPoint(collateralTx, 1));  // always n=1 output
-    if (!HasAuth(auth.out.scriptPubKey)) {
-        return Res::Err("tx must have at least one input from the owner");
-    }
+    Require(HasAuth(auth.out.scriptPubKey), "tx must have at least one input from the owner");
     return Res::Ok();
 }
 
@@ -146,14 +144,10 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
 
 Res CCustomTxVisitor::CheckCustomTx() const {
     if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
-        if (tx.vout.size() != 2) {
-            return Res::Err("malformed tx vouts ((wrong number of vouts)");
-        }
+        Require(tx.vout.size() == 2, "malformed tx vouts ((wrong number of vouts)");
     }
     if (static_cast<int>(height) >= consensus.DF10EunosPayaHeight) {
-        if (tx.vout[0].nValue != 0) {
-            return Res::Err("malformed tx vouts, first vout must be OP_RETURN vout with value 0");
-        }
+        Require(tx.vout[0].nValue == 0, "malformed tx vouts, first vout must be OP_RETURN vout with value 0");
     }
     return Res::Ok();
 }
@@ -164,16 +158,12 @@ Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, const CScr
     CTokenAmount tokenAmount{id, amount};
     // if "from" not supplied it will only add balance on "to" address
     if (!from.empty()) {
-        if (auto res = mnview.SubBalance(from, tokenAmount); !res) {
-            return res;
-        }
+        Require(mnview.SubBalance(from, tokenAmount));
     }
 
     // if "to" not supplied it will only sub balance from "form" address
     if (!to.empty()) {
-        if (auto res = mnview.AddBalance(to, tokenAmount); !res) {
-            return res;
-        }
+        Require(mnview.AddBalance(to, tokenAmount));
     }
     return Res::Ok();
 }
@@ -181,9 +171,7 @@ Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, const CScr
 ResVal<CBalances> CCustomTxVisitor::MintedTokens(uint32_t mintingOutputsStart) const {
     CBalances balances;
     for (uint32_t i = mintingOutputsStart; i < (uint32_t)tx.vout.size(); i++) {
-        if (auto res = balances.Add(tx.vout[i].TokenAmount()); !res) {
-            return res;
-        }
+        Require(balances.Add(tx.vout[i].TokenAmount()));
     }
     return {balances, Res::Ok()};
 }
@@ -194,9 +182,7 @@ Res CCustomTxVisitor::SetShares(const CScript &owner, const TAmounts &balances) 
         if (token && token->IsPoolShare()) {
             const auto bal = mnview.GetBalance(owner, balance.first);
             if (bal.nValue == balance.second) {
-                if (auto res = mnview.SetShare(balance.first, owner, height); !res) {
-                    return res;
-                }
+                Require(mnview.SetShare(balance.first, owner, height));
             }
         }
     }
@@ -209,9 +195,7 @@ Res CCustomTxVisitor::DelShares(const CScript &owner, const TAmounts &balances) 
         if (token && token->IsPoolShare()) {
             const auto balance = mnview.GetBalance(owner, kv.first);
             if (balance.nValue == 0) {
-                if (auto res = mnview.DelShare(kv.first, owner); !res) {
-                    return res;
-                }
+                Require(mnview.DelShare(kv.first, owner));
             }
         }
     }
@@ -236,26 +220,20 @@ Res CCustomTxVisitor::SubBalanceDelShares(const CScript &owner, const CBalances 
 
 Res CCustomTxVisitor::AddBalanceSetShares(const CScript &owner, const CBalances &balance) const {
     CalculateOwnerRewards(owner);
-    if (auto res = mnview.AddBalances(owner, balance); !res) {
-        return res;
-    }
+    Require(mnview.AddBalances(owner, balance));
     return SetShares(owner, balance.balances);
 }
 
 Res CCustomTxVisitor::AddBalancesSetShares(const CAccounts &accounts) const {
     for (const auto &account : accounts) {
-        if (auto res = AddBalanceSetShares(account.first, account.second); !res) {
-            return res;
-        }
+        Require(AddBalanceSetShares(account.first, account.second));
     }
     return Res::Ok();
 }
 
 Res CCustomTxVisitor::SubBalancesDelShares(const CAccounts &accounts) const {
     for (const auto &account : accounts) {
-        if (auto res = SubBalanceDelShares(account.first, account.second); !res) {
-            return res;
-        }
+        Require(SubBalanceDelShares(account.first, account.second));
     }
     return Res::Ok();
 }

@@ -11,9 +11,7 @@ static ResVal<CBalances> BurntTokens(const CTransaction &tx) {
     CBalances balances;
     for (const auto &out : tx.vout) {
         if (out.scriptPubKey.size() > 0 && out.scriptPubKey[0] == OP_RETURN) {
-            if (auto res = balances.Add(out.TokenAmount()); !res) {
-                return res;
-            }
+            Require(balances.Add(out.TokenAmount()));
         }
     }
     return {balances, Res::Ok()};
@@ -22,15 +20,13 @@ static ResVal<CBalances> BurntTokens(const CTransaction &tx) {
 Res CAccountsConsensus::operator()(const CUtxosToAccountMessage &obj) const {
     // check enough tokens are "burnt"
     auto burnt = BurntTokens(tx);
-    if (!burnt) {
-        return burnt;
-    }
+    Require(burnt);
 
     const auto mustBeBurnt = SumAllTransfers(obj.to);
-    if (*burnt.val != mustBeBurnt) {
-        return Res::Err(
-            "transfer tokens mismatch burnt tokens: (%s) != (%s)", mustBeBurnt.ToString(), burnt.val->ToString());
-    }
+    Require(*burnt.val == mustBeBurnt,
+            "transfer tokens mismatch burnt tokens: (%s) != (%s)",
+            mustBeBurnt.ToString(),
+            burnt.val->ToString());
 
     // transfer
     return AddBalancesSetShares(obj.to);
@@ -38,28 +34,21 @@ Res CAccountsConsensus::operator()(const CUtxosToAccountMessage &obj) const {
 
 Res CAccountsConsensus::operator()(const CAccountToUtxosMessage &obj) const {
     // check auth
-    if (auto res = HasAuth(obj.from); !res) {
-        return res;
-    }
+    Require(HasAuth(obj.from));
 
     // check that all tokens are minted, and no excess tokens are minted
     auto minted = MintedTokens(obj.mintingOutputsStart);
-    if (!minted) {
-        return minted;
-    }
+    Require(minted);
 
-    if (obj.balances != *minted.val) {
-        return Res::Err("amount of minted tokens in UTXOs and metadata do not match: (%s) != (%s)",
-                        minted.val->ToString(),
-                        obj.balances.ToString());
-    }
+    Require(obj.balances == *minted.val,
+            "amount of minted tokens in UTXOs and metadata do not match: (%s) != (%s)",
+            minted.val->ToString(),
+            obj.balances.ToString());
 
     // block for non-DFI transactions
     for (const auto &kv : obj.balances.balances) {
         const DCT_ID &tokenId = kv.first;
-        if (tokenId != DCT_ID{0}) {
-            return Res::Err("only available for DFI transactions");
-        }
+        Require(tokenId == DCT_ID{0}, "only available for DFI transactions");
     }
 
     // transfer
@@ -68,38 +57,28 @@ Res CAccountsConsensus::operator()(const CAccountToUtxosMessage &obj) const {
 
 Res CAccountsConsensus::operator()(const CAccountToAccountMessage &obj) const {
     // check auth
-    if (auto res = HasAuth(obj.from); !res) {
-        return res;
-    }
+    Require(HasAuth(obj.from));
 
     // transfer
-    if (auto res = SubBalanceDelShares(obj.from, SumAllTransfers(obj.to)); !res) {
-        return res;
-    }
+    Require(SubBalanceDelShares(obj.from, SumAllTransfers(obj.to)));
     return AddBalancesSetShares(obj.to);
 }
 
 Res CAccountsConsensus::operator()(const CAnyAccountsToAccountsMessage &obj) const {
     // check auth
     for (const auto &kv : obj.from) {
-        if (auto res = HasAuth(kv.first); !res) {
-            return res;
-        }
+        Require(HasAuth(kv.first));
     }
 
     // compare
     const auto sumFrom = SumAllTransfers(obj.from);
     const auto sumTo = SumAllTransfers(obj.to);
 
-    if (sumFrom != sumTo) {
-        return Res::Err("sum of inputs (from) != sum of outputs (to)");
-    }
+    Require(sumFrom == sumTo, "sum of inputs (from) != sum of outputs (to)");
 
     // transfer
     // subtraction
-    if (auto res = SubBalancesDelShares(obj.from); !res) {
-        return res;
-    }
+    Require(SubBalancesDelShares(obj.from));
     // addition
     return AddBalancesSetShares(obj.to);
 }

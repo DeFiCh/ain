@@ -11,23 +11,18 @@
 #include <dfi/masternodes.h>
 
 Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
-    if (tx.vout.size() < 2 || tx.vout[0].nValue < GetMnCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
-        tx.vout[1].nValue != GetMnCollateralAmount(height) || tx.vout[1].nTokenId != DCT_ID{0}) {
-        return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
-    }
+    Require(tx.vout.size() >= 2 && tx.vout[0].nValue >= GetMnCreationFee(height) && tx.vout[0].nTokenId == DCT_ID{0} &&
+                tx.vout[1].nValue == GetMnCollateralAmount(height) && tx.vout[1].nTokenId == DCT_ID{0},
+            "malformed tx vouts (wrong creation fee or collateral amount)");
 
     return Res::Ok();
 }
 
 Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const {
-    if (auto res = CheckMasternodeCreationTx(); !res) {
-        return res;
-    }
+    Require(CheckMasternodeCreationTx());
 
     if (height >= static_cast<uint32_t>(consensus.DF8EunosHeight)) {
-        if (!HasAuth(tx.vout[1].scriptPubKey)) {
-            return Res::Err("masternode creation needs owner auth");
-        }
+        Require(HasAuth(tx.vout[1].scriptPubKey), "masternode creation needs owner auth");
     }
 
     if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight)) {
@@ -40,9 +35,7 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
                 return Res::Err("Timelock must be set to either 0, 5 or 10 years");
         }
     } else {
-        if (obj.timelock != 0) {
-            return Res::Err("collateral timelock cannot be set below EunosPaya");
-        }
+        Require(obj.timelock == 0, "collateral timelock cannot be set below EunosPaya");
     }
 
     CMasternode node;
@@ -87,9 +80,7 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Masternode exist with that owner address pending");
     }
 
-    if (auto res = mnview.CreateMasternode(tx.GetHash(), node, obj.timelock); !res) {
-        return res;
-    }
+    Require(mnview.CreateMasternode(tx.GetHash(), node, obj.timelock));
     // Build coinage from the point of masternode creation
 
     if (height >= static_cast<uint32_t>(consensus.DF10EunosPayaHeight)) {
@@ -111,10 +102,7 @@ Res CMasternodesConsensus::operator()(const CResignMasterNodeMessage &obj) const
         return DeFiErrors::MNInvalid(obj.ToString());
     }
 
-    if (auto res = HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx);
-        !res) {
-        return res;
-    }
+    Require(HasCollateralAuth(node->collateralTx.IsNull() ? static_cast<uint256>(obj) : node->collateralTx));
     return mnview.ResignMasternode(*node, obj, tx.GetHash(), height);
 }
 
@@ -133,9 +121,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
     }
 
     const auto collateralTx = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
-    if (auto res = HasCollateralAuth(collateralTx); !res) {
-        return res;
-    }
+    Require(HasCollateralAuth(collateralTx));
 
     auto state = node->GetState(height, mnview);
     if (state != CMasternode::ENABLED) {

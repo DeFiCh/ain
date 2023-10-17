@@ -11,9 +11,7 @@ Res COraclesConsensus::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &
     for (const auto &pair : tokenCurrency) {
         auto token = trim_ws(pair.first).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
         auto currency = trim_ws(pair.second).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-        if (token.empty() || currency.empty()) {
-            return Res::Err("empty token / currency");
-        }
+        Require(!token.empty() && !currency.empty(), "empty token / currency");
         trimmed.emplace(token, currency);
     }
     tokenCurrency = std::move(trimmed);
@@ -36,16 +34,12 @@ Res COraclesConsensus::operator()(const CUpdateOracleAppointMessage &obj) const 
     }
     COracle oracle;
     static_cast<CAppointOracleMessage &>(oracle) = obj.newOracleAppoint;
-    if (auto res = NormalizeTokenCurrencyPair(oracle.availablePairs); !res) {
-        return res;
-    }
+    Require(NormalizeTokenCurrencyPair(oracle.availablePairs));
     return mnview.UpdateOracle(obj.oracleId, std::move(oracle));
 }
 
 Res COraclesConsensus::operator()(const CRemoveOracleAppointMessage &obj) const {
-    if (auto res = HasFoundationAuth(); !res) {
-        return res;
-    }
+    Require(HasFoundationAuth());
 
     return mnview.RemoveOracle(obj.oracleId);
 }

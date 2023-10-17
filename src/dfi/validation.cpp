@@ -1714,16 +1714,13 @@ static Res VaultSplits(CCustomCSView &view,
         });
     }
 
-    if (failedVault != CVaultId{}) {
-        return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
-    }
+    Require(failedVault == CVaultId{},
+            [=] { return strprintf("Failed to get vault data for: %s", failedVault.ToString()); });
 
     attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
     attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
-    if (auto res = attributes.Apply(view, height); !res) {
-        return res;
-    }
+    Require(attributes.Apply(view, height));
     view.SetVariable(attributes);
 
     for (const auto &[vaultId, amount] : loanTokenAmounts) {
@@ -1738,9 +1735,7 @@ static Res VaultSplits(CCustomCSView &view,
                  oldTokenAmount.ToString(),
                  newTokenAmount.ToString());
 
-        if (auto res = view.AddLoanToken(vaultId, newTokenAmount); !res) {
-            return res;
-        }
+        Require(view.AddLoanToken(vaultId, newTokenAmount));
 
         if (const auto vault = view.GetVault(vaultId)) {
             VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
@@ -1756,9 +1751,7 @@ static Res VaultSplits(CCustomCSView &view,
     }
 
     const auto loanToken = view.GetLoanTokenByID(newTokenId);
-    if (!loanToken) {
-        return Res::Err("Failed to get loan token.");
-    }
+    Require(loanToken, [] { return "Failed to get loan token."; });
 
     // Pre-populate to save repeated calls to get loan scheme
     std::map<std::string, CAmount> loanSchemes;
@@ -1919,14 +1912,11 @@ static Res GetTokenSuffix(const CCustomCSView &view,
         const auto &[previousID, str] =
             attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
         auto previousToken = view.GetToken(DCT_ID{previousID});
-        if (!previousToken) {
-            return Res::Err("Previous token %d not found\n", id);
-        }
+        Require(previousToken, [=] { return strprintf("Previous token %d not found\n", id); });
 
         const auto found = previousToken->symbol.find(newSuffix);
-        if (found == std::string::npos) {
-            return Res::Err("Previous token name not valid: %s\n", previousToken->symbol);
-        }
+        Require(found != std::string::npos,
+                [=] { return strprintf("Previous token name not valid: %s\n", previousToken->symbol); });
 
         const auto versionNumber = previousToken->symbol.substr(found + newSuffix.size());
         uint32_t previousVersion{};

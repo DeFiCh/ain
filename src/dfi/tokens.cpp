@@ -128,9 +128,8 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
 
 Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, const bool tokenSplitUpdate) {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
-    if (!pair) {
-        return Res::Err("token with creationTx %s does not exist!", newToken.creationTx.ToString());
-    }
+    Require(pair,
+            [=] { return strprintf("token with creationTx %s does not exist!", newToken.creationTx.ToString()); });
 
     DCT_ID id = pair->first;
     CTokenImpl &oldToken = pair->second;
@@ -138,9 +137,7 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
     if (!isPreBayfront) {
         // for compatibility, in potential case when someone cheat and create finalized token with old node (and then
         // alter dat for ex.)
-        if (oldToken.IsFinalized()) {
-            return Res::Err("can't alter 'Finalized' tokens");
-        }
+        Require(!oldToken.IsFinalized(), [] { return "can't alter 'Finalized' tokens"; });
     }
 
     // 'name' and 'symbol' were trimmed in 'Apply'
@@ -148,9 +145,7 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
 
     // check new symbol correctness
     if (!tokenSplitUpdate) {
-        if (auto res = newToken.IsValidSymbol(); !res) {
-            return res;
-        }
+        Require(newToken.IsValidSymbol());
     }
 
     // deal with DB symbol indexes before touching symbols/DATs:
@@ -159,9 +154,8 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
         // create keys with regard of new flag
         std::string oldSymbolKey = oldToken.CreateSymbolKey(id);
         std::string newSymbolKey = newToken.CreateSymbolKey(id);
-        if (GetToken(newSymbolKey)) {
-            return Res::Err("token with key '%s' already exists!", newSymbolKey);
-        }
+        Require(!GetToken(newSymbolKey),
+                [=] { return strprintf("token with key '%s' already exists!", newSymbolKey); });
 
         EraseBy<Symbol>(oldSymbolKey);
         WriteBy<Symbol>(newSymbolKey, id);
@@ -232,14 +226,10 @@ Res CTokensView::BayfrontFlagsCleanup() {
 
 Res CTokensView::AddMintedTokens(DCT_ID const &id, const CAmount &amount) {
     auto tokenImpl = GetToken(id);
-    if (!tokenImpl) {
-        return Res::Err("token with id %d does not exist!", id.v);
-    }
+    Require(tokenImpl, [=] { return strprintf("token with id %d does not exist!", id.v); });
 
     auto resMinted = SafeAdd(tokenImpl->minted, amount);
-    if (!resMinted) {
-        return Res::Err("overflow when adding to minted");
-    }
+    Require(resMinted, [] { return "overflow when adding to minted"; });
 
     tokenImpl->minted = resMinted;
 
@@ -249,14 +239,10 @@ Res CTokensView::AddMintedTokens(DCT_ID const &id, const CAmount &amount) {
 
 Res CTokensView::SubMintedTokens(DCT_ID const &id, const CAmount &amount) {
     auto tokenImpl = GetToken(id);
-    if (!tokenImpl) {
-        return Res::Err("token with id %d does not exist!", id.v);
-    }
+    Require(tokenImpl, [=] { return strprintf("token with id %d does not exist!", id.v); });
 
     auto resMinted = tokenImpl->minted - amount;
-    if (resMinted < 0) {
-        return Res::Err("not enough tokens exist to subtract this amount");
-    }
+    Require(resMinted >= 0, [] { return "not enough tokens exist to subtract this amount"; });
 
     tokenImpl->minted = resMinted;
 

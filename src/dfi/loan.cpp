@@ -12,15 +12,13 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::GetLoanCollater
 
 Res CLoanView::CreateLoanCollateralToken(const CLoanSetCollateralTokenImpl &collToken) {
     // this should not happen, but for sure
-    if (GetLoanCollateralToken(collToken.creationTx)) {
-        return Res::Err("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
-    }
-    if (collToken.factor > COIN) {
-        return Res::Err("setCollateralToken factor must be lower or equal than %s!", GetDecimalString(COIN));
-    }
-    if (collToken.factor < 0) {
-        return Res::Err("setCollateralToken factor must not be negative!");
-    }
+    Require(!GetLoanCollateralToken(collToken.creationTx), [=] {
+        return strprintf("setCollateralToken with creation tx %s already exists!", collToken.creationTx.GetHex());
+    });
+    Require(collToken.factor <= COIN, [=] {
+        return strprintf("setCollateralToken factor must be lower or equal than %s!", GetDecimalString(COIN));
+    });
+    Require(collToken.factor >= 0, [] { return "setCollateralToken factor must not be negative!"; });
 
     WriteBy<LoanSetCollateralTokenCreationTx>(collToken.creationTx, collToken);
 
@@ -62,9 +60,9 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(const ui
 
 Res CLoanView::SetLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id) {
     // this should not happen, but for sure
-    if (GetLoanTokenByID(id)) {
-        return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
-    }
+    Require(!GetLoanTokenByID(id), [=] {
+        return strprintf("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
+    });
 
     WriteBy<LoanSetLoanTokenKey>(id, loanToken);
     WriteBy<LoanSetLoanTokenCreationTx>(loanToken.creationTx, id);
@@ -297,23 +295,17 @@ Res CLoanView::IncreaseInterest(const uint32_t height,
                                 const CAmount tokenInterest,
                                 const CAmount loanIncreased) {
     const auto scheme = GetLoanScheme(loanSchemeID);
-    if (!scheme) {
-        return Res::Err("No such scheme id %s", loanSchemeID);
-    }
+    Require(scheme, [=] { return strprintf("No such scheme id %s", loanSchemeID); });
 
     auto token = GetLoanTokenByID(id);
-    if (!token) {
-        return Res::Err("No such loan token id %s", id.ToString());
-    }
+    Require(token, [=] { return strprintf("No such loan token id %s", id.ToString()); });
 
     CInterestRateV3 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height)) {
         rate = *readRate;
     }
 
-    if (height < rate.height) {
-        return Res::Err("Cannot store height in the past");
-    }
+    Require(height >= rate.height, [] { return "Cannot store height in the past"; });
 
     rate.interestToHeight = TotalInterestCalculation(rate, height);
     rate.height = height;
@@ -352,27 +344,19 @@ Res CLoanView::DecreaseInterest(const uint32_t height,
                                 const CAmount loanDecreased,
                                 const CAmount interestDecreased) {
     const auto scheme = GetLoanScheme(loanSchemeID);
-    if (!scheme) {
-        return Res::Err("No such scheme id %s", loanSchemeID);
-    }
+    Require(scheme, [=] { return strprintf("No such scheme id %s", loanSchemeID); });
 
     auto token = GetLoanTokenByID(id);
-    if (!token) {
-        return Res::Err("No such loan token id %s", id.ToString());
-    }
+    Require(token, [=] { return strprintf("No such loan token id %s", id.ToString()); });
 
     CInterestRateV3 rate{};
     if (auto readRate = GetInterestRate(vaultId, id, height)) {
         rate = *readRate;
     }
 
-    if (height < rate.height) {
-        return Res::Err("Cannot store height in the past");
-    }
+    Require(height >= rate.height, [] { return "Cannot store height in the past"; });
 
-    if (rate.height == 0) {
-        return Res::Err("Data mismatch height == 0");
-    }
+    Require(rate.height != 0, [] { return "Data mismatch height == 0"; });
 
     const auto interestToHeight = TotalInterestCalculation(rate, height);
     const auto interestDecreasedHP = ToHigherPrecision(interestDecreased, height);
@@ -556,15 +540,12 @@ void CLoanView::MigrateInterestRateToV3(CVaultView &view, uint32_t height) {
 }
 
 Res CLoanView::AddLoanToken(const CVaultId &vaultId, CTokenAmount amount) {
-    if (!GetLoanTokenByID(amount.nTokenId)) {
-        return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
-    }
+    Require(GetLoanTokenByID(amount.nTokenId),
+            [=] { return strprintf("No such loan token id %s", amount.nTokenId.ToString()); });
 
     CBalances amounts;
     ReadBy<LoanTokenAmount>(vaultId, amounts);
-    if (auto res = amounts.Add(amount); !res) {
-        return res;
-    }
+    Require(amounts.Add(amount));
 
     if (!amounts.balances.empty()) {
         WriteBy<LoanTokenAmount>(vaultId, amounts);
@@ -574,18 +555,12 @@ Res CLoanView::AddLoanToken(const CVaultId &vaultId, CTokenAmount amount) {
 }
 
 Res CLoanView::SubLoanToken(const CVaultId &vaultId, CTokenAmount amount) {
-    if (!GetLoanTokenByID(amount.nTokenId)) {
-        return Res::Err("No such loan token id %s", amount.nTokenId.ToString());
-    }
+    Require(GetLoanTokenByID(amount.nTokenId),
+            [=] { return strprintf("No such loan token id %s", amount.nTokenId.ToString()); });
 
     auto amounts = GetLoanTokens(vaultId);
-    if (!amounts) {
-        return Res::Err("Loan token for vault <%s> not found", vaultId.GetHex());
-    }
-
-    if (auto res = amounts->Sub(amount); !res) {
-        return res;
-    }
+    Require(amounts && amounts->Sub(amount),
+            [=] { return strprintf("Loan token for vault <%s> not found", vaultId.GetHex()); });
 
     if (amounts->balances.empty()) {
         EraseBy<LoanTokenAmount>(vaultId);

@@ -18,11 +18,9 @@ Res CProposalsConsensus::IsOnChainGovernanceEnabled() const {
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
+    Require(attributes, "Attributes unavailable");
 
-    if (!attributes->GetValue(enabledKey, false)) {
-        return Res::Err("Cannot create tx, on-chain governance is not enabled");
-    }
+    Require(attributes->GetValue(enabledKey, false), "Cannot create tx, on-chain governance is not enabled");
 
     return Res::Ok();
 }

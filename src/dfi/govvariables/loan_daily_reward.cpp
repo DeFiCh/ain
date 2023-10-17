@@ -22,9 +22,8 @@ UniValue LP_DAILY_LOAN_TOKEN_REWARD::Export() const {
 }
 
 Res LP_DAILY_LOAN_TOKEN_REWARD::Validate(const CCustomCSView &view) const {
-    if (view.GetLastHeight() < Params().GetConsensus().DF11FortCanningHeight) {
-        return Res::Err("Cannot be set before FortCanning");
-    }
+    Require(view.GetLastHeight() >= Params().GetConsensus().DF11FortCanningHeight,
+            [] { return "Cannot be set before FortCanning"; });
     return Res::Err("Cannot be set manually.");
 }
 

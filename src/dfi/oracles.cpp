@@ -13,9 +13,8 @@ bool COracle::SupportsPair(const std::string &token, const std::string &currency
 }
 
 Res COracle::SetTokenPrice(const std::string &token, const std::string &currency, CAmount amount, int64_t timestamp) {
-    if (!SupportsPair(token, currency)) {
-        return Res::Err("token <%s> - currency <%s> is not allowed", token, currency);
-    }
+    Require(SupportsPair(token, currency),
+            [=] { return strprintf("token <%s> - currency <%s> is not allowed", token, currency); });
 
     tokenPrices[token][currency] = std::make_pair(amount, timestamp);
 
@@ -23,30 +22,25 @@ Res COracle::SetTokenPrice(const std::string &token, const std::string &currency
 }
 
 ResVal<CAmount> COracle::GetTokenPrice(const std::string &token, const std::string &currency) {
-    if (!SupportsPair(token, currency)) {
-        return Res::Err("token <%s> - currency <%s> is not allowed", token, currency);
-    }
+    Require(SupportsPair(token, currency),
+            [=] { return strprintf("token <%s> - currency <%s> is not allowed", token, currency); });
 
     return ResVal<CAmount>(tokenPrices[token][currency].first, Res::Ok());
 }
 
 Res COracleView::AppointOracle(const COracleId &oracleId, const COracle &oracle) {
-    if (!WriteBy<ByName>(oracleId, oracle)) {
-        return Res::Err("failed to appoint the new oracle <%s>", oracleId.GetHex());
-    }
+    Require(WriteBy<ByName>(oracleId, oracle),
+            [=] { return strprintf("failed to appoint the new oracle <%s>", oracleId.GetHex()); });
 
     return Res::Ok();
 }
 
 Res COracleView::UpdateOracle(const COracleId &oracleId, COracle &&newOracle) {
     COracle oracle;
-    if (!ReadBy<ByName>(oracleId, oracle)) {
-        return Res::Err("oracle <%s> not found", oracleId.GetHex());
-    }
+    Require(ReadBy<ByName>(oracleId, oracle), [=] { return strprintf("oracle <%s> not found", oracleId.GetHex()); });
 
-    if (!newOracle.tokenPrices.empty()) {
-        return Res::Err("oracle <%s> has token prices on update", oracleId.GetHex());
-    }
+    Require(newOracle.tokenPrices.empty(),
+            [=] { return strprintf("oracle <%s> has token prices on update", oracleId.GetHex()); });
 
     oracle.weightage = newOracle.weightage;
     oracle.oracleAddress = std::move(newOracle.oracleAddress);
@@ -67,53 +61,42 @@ Res COracleView::UpdateOracle(const COracleId &oracleId, COracle &&newOracle) {
     oracle.availablePairs = std::move(newOracle.availablePairs);
 
     // no need to update oracles list
-    if (!WriteBy<ByName>(oracleId, oracle)) {
-        return Res::Err("failed to save oracle <%s>", oracleId.GetHex());
-    }
+    Require(WriteBy<ByName>(oracleId, oracle),
+            [=] { return strprintf("failed to save oracle <%s>", oracleId.GetHex()); });
 
     return Res::Ok();
 }
 
 Res COracleView::RemoveOracle(const COracleId &oracleId) {
-    if (!ExistsBy<ByName>(oracleId)) {
-        return Res::Err("oracle <%s> not found", oracleId.GetHex());
-    }
+    Require(ExistsBy<ByName>(oracleId), [=] { return strprintf("oracle <%s> not found", oracleId.GetHex()); });
 
     // remove oracle
-    if (!EraseBy<ByName>(oracleId)) {
-        return Res::Err("failed to remove oracle <%s>", oracleId.GetHex());
-    }
+    Require(EraseBy<ByName>(oracleId), [=] { return strprintf("failed to remove oracle <%s>", oracleId.GetHex()); });
 
     return Res::Ok();
 }
 
 Res COracleView::SetOracleData(const COracleId &oracleId, int64_t timestamp, const CTokenPrices &tokenPrices) {
     COracle oracle;
-    if (!ReadBy<ByName>(oracleId, oracle)) {
-        return Res::Err("failed to read oracle %s from database", oracleId.GetHex());
-    }
+    Require(ReadBy<ByName>(oracleId, oracle),
+            [=] { return strprintf("failed to read oracle %s from database", oracleId.GetHex()); });
 
     for (const auto &tokenPrice : tokenPrices) {
         const auto &token = tokenPrice.first;
         for (const auto &price : tokenPrice.second) {
             const auto &currency = price.first;
-            if (auto res = oracle.SetTokenPrice(token, currency, price.second, timestamp); !res) {
-                return res;
-            }
+            Require(oracle.SetTokenPrice(token, currency, price.second, timestamp));
         }
     }
 
-    if (!WriteBy<ByName>(oracleId, oracle)) {
-        return Res::Err("failed to store oracle %s to database", oracleId.GetHex());
-    }
+    Require(WriteBy<ByName>(oracleId, oracle),
+            [=] { return strprintf("failed to store oracle %s to database", oracleId.GetHex()); });
     return Res::Ok();
 }
 
 ResVal<COracle> COracleView::GetOracleData(const COracleId &oracleId) const {
     COracle oracle;
-    if (!ReadBy<ByName>(oracleId, oracle)) {
-        return Res::Err("oracle <%s> not found", oracleId.GetHex());
-    }
+    Require(ReadBy<ByName>(oracleId, oracle), [=] { return strprintf("oracle <%s> not found", oracleId.GetHex()); });
 
     return ResVal<COracle>(oracle, Res::Ok());
 }
@@ -129,11 +112,11 @@ bool CFixedIntervalPrice::isLive(const CAmount deviationThreshold) const {
 }
 
 Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice &fixedIntervalPrice) {
-    if (!WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice)) {
-        return Res::Err("failed to set new price feed <%s/%s>",
-                        fixedIntervalPrice.priceFeedId.first,
-                        fixedIntervalPrice.priceFeedId.second);
-    }
+    Require(WriteBy<FixedIntervalPriceKey>(fixedIntervalPrice.priceFeedId, fixedIntervalPrice), [=] {
+        return strprintf("failed to set new price feed <%s/%s>",
+                         fixedIntervalPrice.priceFeedId.first,
+                         fixedIntervalPrice.priceFeedId.second);
+    });
 
     LogPrint(BCLog::ORACLE,
              "%s(): %s/%s, active - %lld, next - %lld\n",
@@ -148,10 +131,10 @@ Res COracleView::SetFixedIntervalPrice(const CFixedIntervalPrice &fixedIntervalP
 
 ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurrencyPair &fixedIntervalPriceId) {
     CFixedIntervalPrice fixedIntervalPrice;
-    if (!ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice)) {
-        return Res::Err(
+    Require(ReadBy<FixedIntervalPriceKey>(fixedIntervalPriceId, fixedIntervalPrice), [=] {
+        return strprintf(
             "fixedIntervalPrice with id <%s/%s> not found", fixedIntervalPriceId.first, fixedIntervalPriceId.second);
-    }
+    });
 
     DCT_ID firstID{}, secondID{};
     const auto firstToken = GetTokenGuessId(fixedIntervalPriceId.first, firstID);
@@ -166,9 +149,7 @@ ResVal<CFixedIntervalPrice> COracleView::GetFixedIntervalPrice(const CTokenCurre
         loanTokens.insert(secondID.v);
     }
 
-    if (AreTokensLocked(loanTokens)) {
-        return Res::Err("Fixed interval price currently disabled due to locked token");
-    }
+    Require(!AreTokensLocked(loanTokens), [] { return "Fixed interval price currently disabled due to locked token"; });
 
     LogPrint(BCLog::ORACLE,
              "%s(): %s/%s, active - %lld, next - %lld\n",

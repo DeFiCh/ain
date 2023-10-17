@@ -23,9 +23,7 @@ Res CVaultView::StoreVault(const CVaultId &vaultId, const CVaultData &vault) {
 
 Res CVaultView::EraseVault(const CVaultId &vaultId) {
     auto vault = GetVault(vaultId);
-    if (!vault) {
-        return Res::Err("Vault <%s> not found", vaultId.GetHex());
-    }
+    Require(vault, [=] { return strprintf("Vault <%s> not found", vaultId.GetHex()); });
 
     EraseBy<VaultKey>(vaultId);
     EraseBy<CollateralKey>(vaultId);
@@ -39,9 +37,7 @@ std::optional<CVaultData> CVaultView::GetVault(const CVaultId &vaultId) const {
 
 Res CVaultView::UpdateVault(const CVaultId &vaultId, const CVaultMessage &newVault) {
     auto vault = GetVault(vaultId);
-    if (!vault) {
-        return Res::Err("Vault <%s> not found", vaultId.GetHex());
-    }
+    Require(vault, [=] { return strprintf("Vault <%s> not found", vaultId.GetHex()); });
 
     EraseBy<OwnerVaultKey>(std::make_pair(vault->ownerAddress, vaultId));
 
@@ -68,9 +64,7 @@ void CVaultView::ForEachVault(std::function<bool(const CVaultId &, const CVaultD
 Res CVaultView::AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
     CBalances amounts;
     ReadBy<CollateralKey>(vaultId, amounts);
-    if (auto res = amounts.Add(amount); !res) {
-        return res;
-    }
+    Require(amounts.Add(amount));
     if (!amounts.balances.empty()) {
         WriteBy<CollateralKey>(vaultId, amounts);
     }
@@ -79,12 +73,9 @@ Res CVaultView::AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount)
 
 Res CVaultView::SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount) {
     auto amounts = GetVaultCollaterals(vaultId);
-    if (!amounts) {
-        return Res::Err("Collateral for vault <%s> not found", vaultId.GetHex());
-    }
-    if (auto res = amounts->Sub(amount); !res) {
-        return res;
-    }
+    Require(amounts && amounts->Sub(amount),
+            [=] { return strprintf("Collateral for vault <%s> not found", vaultId.GetHex()); });
+
     if (amounts->balances.empty()) {
         EraseBy<CollateralKey>(vaultId);
     } else {
