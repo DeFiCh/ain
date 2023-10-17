@@ -86,11 +86,10 @@ class EVMFeeTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(2)
-        
-        self.node = self.nodes[0]
-        
-        self.evm_key_pair = EvmKeyPair.from_node(self.node)
 
+        self.node = self.nodes[0]
+
+        self.evm_key_pair = EvmKeyPair.from_node(self.node)
 
         self.node.transferdomain(
             [
@@ -105,7 +104,6 @@ class EVMFeeTest(DefiTestFramework):
             ]
         )
         self.node.generate(1)
-
 
     def run_test(self):
         self.setup()
@@ -123,26 +121,30 @@ class EVMFeeTest(DefiTestFramework):
             ]
         )
 
-        abi, bytecode, _ = EVMContract.from_file("TestEstimateGas.sol", "TestEstimateGas").compile()
+        abi, bytecode, _ = EVMContract.from_file(
+            "TestEstimateGas.sol", "TestEstimateGas"
+        ).compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
 
-        tx = compiled.constructor().build_transaction({
-            "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
-            "maxFeePerGas": 10_000_000_000,
-            "maxPriorityFeePerGas": 1_500_000_000,
-            "gas": 1_000_000,
-            "value": 1_000_000_000
-        })
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+                "value": 1_000_000_000,
+            }
+        )
 
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
 
         hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
-        
+
         self.node.generate(1)
 
         receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
@@ -153,19 +155,25 @@ class EVMFeeTest(DefiTestFramework):
             address=test_estimate_gas_address, abi=abi
         )
 
-        estimate_gas_limit = test_estimate_gas_contract.functions.withdraw().estimate_gas({
-            "from": self.evm_key_pair.address
-        })
-        
+        estimate_gas_limit = (
+            test_estimate_gas_contract.functions.withdraw().estimate_gas(
+                {"from": self.evm_key_pair.address}
+            )
+        )
+
         assert_equal(estimate_gas_limit, 30438)
 
-        withdraw_with_exact_gas_specified_tx = test_estimate_gas_contract.functions.withdraw().build_transaction({
-            "chainId": self.node.w3.eth.chain_id,
-            "nonce": self.node.w3.eth.get_transaction_count(
-                self.evm_key_pair.address
-            ),
-            "gas": "0x76e6" # 30438
-        })
+        withdraw_with_exact_gas_specified_tx = (
+            test_estimate_gas_contract.functions.withdraw().build_transaction(
+                {
+                    "chainId": self.node.w3.eth.chain_id,
+                    "nonce": self.node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
+                    "gas": "0x76e6",  # 30438
+                }
+            )
+        )
 
         signed = self.node.w3.eth.account.sign_transaction(
             withdraw_with_exact_gas_specified_tx, self.evm_key_pair.privkey
@@ -179,12 +187,16 @@ class EVMFeeTest(DefiTestFramework):
         assert_equal(receipt["status"], 0)
         assert_equal(receipt["gasUsed"], 30438)
 
-        withdraw_without_exact_gas_specified_tx = test_estimate_gas_contract.functions.withdraw().build_transaction({
-            "chainId": self.node.w3.eth.chain_id,
-            "nonce": self.node.w3.eth.get_transaction_count(
-                self.evm_key_pair.address
+        withdraw_without_exact_gas_specified_tx = (
+            test_estimate_gas_contract.functions.withdraw().build_transaction(
+                {
+                    "chainId": self.node.w3.eth.chain_id,
+                    "nonce": self.node.w3.eth.get_transaction_count(
+                        self.evm_key_pair.address
+                    ),
+                }
             )
-        })
+        )
 
         signed = self.node.w3.eth.account.sign_transaction(
             withdraw_without_exact_gas_specified_tx, self.evm_key_pair.privkey
