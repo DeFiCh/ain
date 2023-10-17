@@ -638,14 +638,14 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
         CCoinsViewMemPool viewMemPool(&coins_cache, *this);
         view.SetBackend(viewMemPool);
 
-        rebuildAccountsView(nBlockHeight, view);
+        rebuildCustomCSView(nBlockHeight, view);
     }
 
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
 }
 
-void CTxMemPool::rebuildAccountsView() {
+void CTxMemPool::rebuildCustomCSView() {
     if (pcustomcsview) {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
@@ -654,7 +654,7 @@ void CTxMemPool::rebuildAccountsView() {
         view.SetBackend(viewMemPool);
 
         setAccountViewDirty();
-        rebuildAccountsView(::ChainActive().Tip()->nHeight, view);
+        rebuildCustomCSView(::ChainActive().Tip()->nHeight, view);
     }
 }
 
@@ -681,7 +681,7 @@ void CTxMemPool::clear()
     LOCK(cs);
     _clear();
     acview.reset();
-    rebuildAccountsView();
+    rebuildCustomCSView();
 }
 
 static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, CCustomCSView& mnviewDuplicate, const int64_t spendheight, const CChainParams& chainparams)
@@ -1221,7 +1221,7 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
     return result;
 }
 
-void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
+void CTxMemPool::rebuildCustomCSView(int height, const CCoinsViewCache& coinsCache)
 {
     if (!pcustomcsview || !accountsViewDirty) {
         return;

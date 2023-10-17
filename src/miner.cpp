@@ -1217,7 +1217,7 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
 
                 if (nClearFlag.find(arg.operatorID) == nClearFlag.end()) {
                     LOCK2(cs_main, mempool.cs);
-                    mempool.rebuildAccountsView();
+                    mempool.rebuildCustomCSView();
                     nClearFlag.insert(arg.operatorID);
                 } else {
                     // Could be failed TX in mempool, wipe mempool and allow loop to continue.

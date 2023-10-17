@@ -633,7 +633,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         const auto height = GetSpendHeight(view);
 
         // rebuild accounts view if dirty
-        pool.rebuildAccountsView(height, view);
+        pool.rebuildCustomCSView(height, view);
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
