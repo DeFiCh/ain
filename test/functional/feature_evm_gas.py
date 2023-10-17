@@ -43,7 +43,9 @@ class EVMFeeTest(DefiTestFramework):
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.ethPrivKey = "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
+        self.ethPrivKey = (
+            "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
+        )
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.nodes[0].importprivkey(self.ethPrivKey)  # ethAddress
         self.nodes[0].importprivkey(
@@ -114,7 +116,7 @@ class EVMFeeTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
-    
+
     def execute_transfer_tx_with_estimate_gas(self):
         self.rollback_to(self.start_height)
 
@@ -138,7 +140,7 @@ class EVMFeeTest(DefiTestFramework):
 
         # Get gas estimate
         estimate_gas = self.nodes[0].eth_estimateGas(tx_without_gas_specified)
-        assert_equal(estimate_gas, "0x5208") # 21000
+        assert_equal(estimate_gas, "0x5208")  # 21000
 
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         tx_with_gas_specified = {
@@ -194,15 +196,17 @@ class EVMFeeTest(DefiTestFramework):
 
         tx_with_excess_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.ethAddress
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
             "from": self.ethAddress,
             "gas": "0x8952",  # 35154
         }
 
         # Send contract call tx with excess gas specified
-        withdraw_with_exact_gas_specified_tx = test_estimate_gas_contract.functions.withdraw().build_transaction(tx_with_excess_gas_specified)
+        withdraw_with_exact_gas_specified_tx = (
+            test_estimate_gas_contract.functions.withdraw().build_transaction(
+                tx_with_excess_gas_specified
+            )
+        )
         signed = self.nodes[0].w3.eth.account.sign_transaction(
             withdraw_with_exact_gas_specified_tx, self.ethPrivKey
         )
@@ -216,24 +220,32 @@ class EVMFeeTest(DefiTestFramework):
 
         # Verify balances
         sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
-        contract_balance = int(self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16)
+        contract_balance = int(
+            self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
+        )
         assert_equal(sender_balance, 99999621213000000000)
         assert_equal(contract_balance, 49997752920000000000)
 
         # Get gas estimate
-        estimate_gas_limit = test_estimate_gas_contract.functions.withdraw().estimate_gas(tx_with_excess_gas_specified)
+        estimate_gas_limit = (
+            test_estimate_gas_contract.functions.withdraw().estimate_gas(
+                tx_with_excess_gas_specified
+            )
+        )
         assert_equal(estimate_gas_limit, 26238)
 
         # Send contract call tx with exact gas specified
         tx_with_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                self.ethAddress
-            ),
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
             "from": self.ethAddress,
             "gas": "0x80AA",  # 32938
         }
-        withdraw_with_exact_gas_specified_tx = test_estimate_gas_contract.functions.withdraw().build_transaction(tx_with_gas_specified)
+        withdraw_with_exact_gas_specified_tx = (
+            test_estimate_gas_contract.functions.withdraw().build_transaction(
+                tx_with_gas_specified
+            )
+        )
         signed = self.nodes[0].w3.eth.account.sign_transaction(
             withdraw_with_exact_gas_specified_tx, self.ethPrivKey
         )
@@ -247,7 +259,9 @@ class EVMFeeTest(DefiTestFramework):
 
         # Verify balances
         sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
-        contract_balance = int(self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16)
+        contract_balance = int(
+            self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
+        )
         assert_equal(sender_balance, 99999319476000000000)
         assert_equal(contract_balance, 49997752920000000000)
 
