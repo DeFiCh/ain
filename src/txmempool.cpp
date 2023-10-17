@@ -658,6 +658,18 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
     blockSinceLastRollingFeeBump = true;
 }
 
+void CTxMemPool::rebuildAccountsView() {
+    if (pcustomcsview) {
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+        view.SetBackend(viewMemPool);
+
+        rebuildAccountsView(::ChainActive().Tip()->nHeight, view);
+    }
+}
+
 void CTxMemPool::_clear()
 {
     mapLinks.clear();
@@ -681,6 +693,7 @@ void CTxMemPool::clear()
     LOCK(cs);
     _clear();
     acview.reset();
+    rebuildAccountsView();
 }
 
 static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, CCustomCSView& mnviewDuplicate, const int64_t spendheight, const CChainParams& chainparams)

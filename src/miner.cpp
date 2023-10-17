@@ -1145,6 +1145,7 @@ void Staker::withSearchInterval(F&& f, int64_t height)
 
 void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams)
 {
+    std::set<CKeyID> nClearFlag;
     std::map<CKeyID, int32_t> nMinted;
     std::map<CKeyID, int32_t> nTried;
 
@@ -1214,9 +1215,15 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
             } catch (const std::runtime_error& e) {
                 LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
 
-                // Could be failed TX in mempool, wipe mempool and allow loop to continue.
-                LOCK(cs_main);
-                mempool.clear();
+                if (nClearFlag.find(arg.operatorID) == nClearFlag.end()) {
+                    LOCK2(cs_main, mempool.cs);
+                    mempool.rebuildAccountsView();
+                    nClearFlag.insert(arg.operatorID);
+                } else {
+                    // Could be failed TX in mempool, wipe mempool and allow loop to continue.
+                    LOCK(cs_main);
+                    mempool.clear();
+                }
             }
 
             auto& tried = nTried[arg.operatorID];
