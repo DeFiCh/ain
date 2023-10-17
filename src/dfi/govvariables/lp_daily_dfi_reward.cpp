@@ -22,8 +22,9 @@ UniValue LP_DAILY_DFI_REWARD::Export() const {
 }
 
 Res LP_DAILY_DFI_REWARD::Validate(const CCustomCSView &view) const {
-    Require(view.GetLastHeight() < Params().GetConsensus().DF8EunosHeight,
-            [] { return "Cannot be set manually after Eunos hard fork"; });
+    if (view.GetLastHeight() >= Params().GetConsensus().DF8EunosHeight) {
+        return Res::Err("Cannot be set manually after Eunos hard fork");
+    }
     // nothing to do
     return Res::Ok();
 }
