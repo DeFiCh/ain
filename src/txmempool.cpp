@@ -653,6 +653,7 @@ void CTxMemPool::rebuildAccountsView() {
         CCoinsViewMemPool viewMemPool(&coins_cache, *this);
         view.SetBackend(viewMemPool);
 
+        setAccountViewDirty();
         rebuildAccountsView(::ChainActive().Tip()->nHeight, view);
     }
 }
