@@ -213,6 +213,7 @@ deploy() {
 
 package() {
     local target=${1:-${TARGET}}
+    local pkg_type=${2:-"tar"}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local build_dir="${BUILD_DIR}"
@@ -220,7 +221,7 @@ package() {
     local pkg_name="${img_prefix}-${img_version}-${target}"
 
     local pkg_path
-    if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+    if [[ "${pkg_type}" == "zip" ]]; then
         pkg_path="$(_canonicalize "${build_dir}/"${pkg_name}.zip"")"
     else        
         pkg_path="$(_canonicalize "${build_dir}/"${pkg_name}.tar.gz"")"
@@ -238,7 +239,7 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
     
-    if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+    if [[ "${pkg_type}" == "zip" ]]; then
         _ensure_enter_dir "${build_dir}"
         zip -r "${pkg_path}" "${versioned_build_dir}/"
     else
@@ -256,7 +257,7 @@ release() {
 
     build "${target}"
     deploy "${target}"
-    package "${target}"
+    package "${target}" "${2:-"tar"}"
     _sign "${target}"
 }
 
@@ -316,7 +317,7 @@ docker_release() {
 
     docker_build "$target"
     docker_deploy "$target"
-    package "$target"
+    package "$target" "${2:-"tar"}"
     _sign "$target"
 }
 
