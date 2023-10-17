@@ -646,16 +646,18 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
 }
 
 void CTxMemPool::rebuildCustomCSView() {
-    if (pcustomcsview) {
-        CCoinsView dummy;
-        CCoinsViewCache view(&dummy);
-        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
-        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
-        view.SetBackend(viewMemPool);
-
-        setAccountViewDirty();
-        rebuildCustomCSView(::ChainActive().Tip()->nHeight, view);
+    if (!pcustomcsview) {
+        return;
     }
+
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
+    CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+    CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+    view.SetBackend(viewMemPool);
+
+    setAccountViewDirty();
+    rebuildCustomCSView(::ChainActive().Tip()->nHeight, view);
 }
 
 void CTxMemPool::_clear()
