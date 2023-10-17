@@ -170,7 +170,7 @@ class EVMFeeTest(DefiTestFramework):
                     "nonce": self.node.w3.eth.get_transaction_count(
                         self.evm_key_pair.address
                     ),
-                    "gas": "0x76e6",  # 30438
+                    "gas": self.node.w3.to_hex(30438),
                 }
             )
         )
