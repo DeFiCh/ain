@@ -1214,18 +1214,17 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "no_kernel_found", 1000 * 60 * 10, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
             } catch (const std::runtime_error& e) {
-                LogPrintf("ThreadStaker: (%s) runtime error: %s\n", e.what(), operatorName);
-
                 if (!nClearFlag.count(arg.operatorID)) {
                     LOCK2(cs_main, mempool.cs);
                     mempool.rebuildCustomCSView();
-                    ++nClearFlag[arg.operatorID];
                 } else {
                     // Could be failed TX in mempool, wipe mempool and allow loop to continue.
                     LOCK(cs_main);
                     mempool.clear();
-                    ++nClearFlag[arg.operatorID];
                 }
+
+                ++nClearFlag[arg.operatorID];
+                LogPrintf("ThreadStaker: (%s) runtime error: %s failure count: %d\n", e.what(), operatorName, nClearFlag[arg.operatorID]);
             }
 
             auto& tried = nTried[arg.operatorID];
