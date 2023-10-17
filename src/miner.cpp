@@ -1145,7 +1145,7 @@ void Staker::withSearchInterval(F&& f, int64_t height)
 
 void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams chainparams)
 {
-    std::map<CKeyID, uint32_t> nClearFlag;
+    uint32_t nClearFlag{};
     std::map<CKeyID, int32_t> nMinted;
     std::map<CKeyID, int32_t> nTried;
 
@@ -1207,14 +1207,14 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                 } else if (status == Staker::Status::minted) {
                     LogPrintf("ThreadStaker: (%s) minted a block!\n", operatorName);
                     nMinted[arg.operatorID]++;
-                    nClearFlag.clear();
+                    nClearFlag = 0;
                 } else if (status == Staker::Status::initWaiting) {
                     LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "init_waiting", 1000 * 60 * 10, "ThreadStaker: (%s) waiting init...\n", operatorName);
                 } else if (status == Staker::Status::stakeWaiting) {
                     LogPrintCategoryOrThreadThrottled(BCLog::STAKING, "no_kernel_found", 1000 * 60 * 10, "ThreadStaker: (%s) Staked, but no kernel found yet.\n", operatorName);
                 }
             } catch (const std::runtime_error& e) {
-                if (!nClearFlag.count(arg.operatorID)) {
+                if (!nClearFlag) {
                     LOCK2(cs_main, mempool.cs);
                     mempool.rebuildCustomCSView();
                 } else {
@@ -1223,8 +1223,8 @@ void ThreadStaker::operator()(std::vector<ThreadStaker::Args> args, CChainParams
                     mempool.clear();
                 }
 
-                ++nClearFlag[arg.operatorID];
-                LogPrintf("ThreadStaker: (%s) runtime error: %s failure count: %d\n", e.what(), operatorName, nClearFlag[arg.operatorID]);
+                ++nClearFlag;
+                LogPrintf("ThreadStaker: (%s) runtime error: %s failure count: %d\n", e.what(), operatorName, nClearFlag);
             }
 
             auto& tried = nTried[arg.operatorID];
