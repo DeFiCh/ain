@@ -197,7 +197,7 @@ pub fn execute_tx<'a>(
     tx: ExecuteTx,
     base_fee: U256,
 ) -> Result<ApplyTxResult> {
-    println!("executing tx");
+    debug!("executing tx");
     match tx {
         ExecuteTx::SignedTx(signed_tx) => {
             // Validate nonce

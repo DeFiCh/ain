@@ -4,11 +4,11 @@ use anyhow::format_err;
 use ethereum::{Account, Log};
 use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
-use hash_db::Hasher as _;
+use hash_db::{HashDBRef, Hasher as _};
 use log::{debug, trace};
 use parking_lot::RwLock;
 use rlp::{Decodable, Encodable, Rlp};
-use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher};
+use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher, KeccakHasher};
 
 use crate::{
     fee::calculate_gas_fee,
@@ -39,21 +39,14 @@ pub struct Vicinity {
 }
 
 pub struct EVMBackendMut<'a> {
-    pub storage_backend: Arc<RwLock<TrieBackend>>,
     pub state: *mut TrieMut<'a>,
     storage: Arc<Storage>,
     pub vicinity: Vicinity,
 }
 
 impl<'a> EVMBackendMut<'a> {
-    pub fn from_root(
-        storage_backend: Arc<RwLock<TrieBackend>>,
-        state: *mut TrieMut<'a>,
-        storage: Arc<Storage>,
-        vicinity: Vicinity,
-    ) -> Self {
+    pub fn from_root(state: *mut TrieMut<'a>, storage: Arc<Storage>, vicinity: Vicinity) -> Self {
         Self {
-            storage_backend,
             state,
             storage,
             vicinity,
@@ -68,24 +61,25 @@ impl<'a> EVMBackendMut<'a> {
         storage: I,
         reset_storage: bool,
     ) -> Result<Account> {
+        let mut state = unsafe { &mut *self.state };
+
         let mut account = self.get_account(&address).unwrap_or(Account {
             nonce: U256::zero(),
             balance: U256::zero(),
             storage_root: H256::zero(),
             code_hash: H256::zero(),
         });
-        // println!("address : {:?}", address);
-        // println!("account : {:?}", account);
-        // println!("reset_storage : {:?}", reset_storage);
-
-        // let mut base_root = H256::zero();
+        debug!("address : {:?}", address);
+        debug!("account : {:?}", account);
+        debug!("reset_storage : {:?}", reset_storage);
 
         let storage_root = {
-            let mut storage_backend = self.storage_backend.write();
             let mut storage_trie = if reset_storage || is_empty_account(&account) {
-                TrieMut::new(&mut storage_backend, &mut account.storage_root)
+                debug!("storage new");
+                TrieMut::new(state.db_mut().as_hash_db_mut(), &mut account.storage_root)
             } else {
-                TrieMut::from_existing(&mut storage_backend, &mut account.storage_root)
+                debug!("storage from existing");
+                TrieMut::from_existing(state.db_mut().as_hash_db_mut(), &mut account.storage_root)
             };
 
             storage
@@ -124,14 +118,13 @@ impl<'a> EVMBackendMut<'a> {
             },
         };
 
-        // println!("inserting new_account : {:?}", new_account);
-        let mut state = unsafe { &mut *self.state };
+        debug!("inserting new_account : {:?}", new_account);
         state
             .insert(&address.as_bytes(), &new_account.rlp_bytes())
             .unwrap();
         // .map_err(|e| BackendError::TrieError(format!("{e}")))?;
 
-        // println!("inserted");
+        // debug!("inserted");
         Ok(new_account)
     }
 
@@ -202,8 +195,9 @@ impl ApplyBackend for EVMBackendMut<'_> {
 
 impl<'a> EVMBackendMut<'a> {
     pub fn with_read_storage_and_root<T, F: FnOnce(&Trie) -> T>(&self, root: &TrieRoot, f: F) -> T {
-        let back = self.storage_backend.read();
-        let trie = Trie::new(&*back, &root);
+        let mut state = unsafe { &mut *self.state };
+        let back = &state.db().as_hash_db() as &dyn HashDBRef<KeccakHasher, Vec<u8>>;
+        let trie = Trie::new(back, &root);
         f(&trie)
     }
 
@@ -229,14 +223,15 @@ impl<'a> EVMBackendMut<'a> {
 
     pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
         let Some(account) = self.get_account(&contract) else {
-            println!("Not finding contract");
+            debug!("Not finding contract");
             return Ok(U256::zero());
         };
+        debug!("account : {:?}", account);
 
         self.with_read_storage_and_root(&account.storage_root, |trie| {
-            println!("Trying to fetch account storage");
+            debug!("Trying to fetch account storage");
             let storage = U256::from(trie.get(storage_index)?.unwrap_or_default().as_slice());
-            println!("storage : {:?}", storage);
+            debug!("storage : {:?}", storage);
             Ok(storage)
         })
     }
@@ -247,7 +242,8 @@ impl<'a> EVMBackendMut<'a> {
         code: Vec<u8>,
         storage: Vec<(H256, H256)>,
     ) -> Result<()> {
-        // println!("deploying address : {:?}", address);
+        debug!("deploying address : {:?}", address);
+        debug!("deploying code : {:?}", code);
         self.apply(*address, None, Some(code), storage, true)?;
 
         Ok(())
@@ -340,13 +336,13 @@ impl Backend for EVMBackendMut<'_> {
         self.get_account(&address)
             .and_then(|account| {
                 self.with_read_storage_and_root(&account.storage_root, |trie| {
-                    println!("Trying to fetch account storage for address {address:?}");
+                    debug!("Trying to fetch account storage for address {address:?}");
                     let storage = trie
                         .get(&index.as_bytes())
                         .ok()
                         .flatten()
                         .map_or_else(H256::zero, |vec| H256::from_slice(vec.as_slice()));
-                    println!("storage : {:?}", storage);
+                    debug!("storage : {:?}", storage);
                     Some(storage)
                 })
             })
@@ -447,21 +443,14 @@ impl EVMBackendMut<'_> {
 }
 
 pub struct EVMBackend<'a> {
-    storage_backend: Arc<RwLock<TrieBackend>>,
     state: Trie<'a>,
     storage: Arc<Storage>,
     pub vicinity: Vicinity,
 }
 
 impl<'a> EVMBackend<'a> {
-    pub fn from_root(
-        storage_backend: Arc<RwLock<TrieBackend>>,
-        state: Trie<'a>,
-        storage: Arc<Storage>,
-        vicinity: Vicinity,
-    ) -> Self {
+    pub fn from_root(state: Trie<'a>, storage: Arc<Storage>, vicinity: Vicinity) -> Self {
         EVMBackend {
-            storage_backend,
             state,
             storage,
             vicinity,
@@ -469,8 +458,8 @@ impl<'a> EVMBackend<'a> {
     }
 
     pub fn with_read_storage_and_root<T, F: FnOnce(&Trie) -> T>(&self, root: &TrieRoot, f: F) -> T {
-        let back = self.storage_backend.read();
-        let trie = Trie::new(&*back, &root);
+        let back = self.state.db();
+        let trie = Trie::new(back, &root);
         f(&trie)
     }
 
@@ -495,14 +484,14 @@ impl<'a> EVMBackend<'a> {
 
     pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
         let Some(account) = self.get_account(&contract) else {
-            println!("Not finding contract");
+            debug!("Not finding contract");
             return Ok(U256::zero());
         };
 
         self.with_read_storage_and_root(&account.storage_root, |trie| {
-            println!("Trying to fetch account storage");
+            debug!("Trying to fetch account storage");
             let storage = U256::from(trie.get(storage_index)?.unwrap_or_default().as_slice());
-            println!("storage : {:?}", storage);
+            debug!("storage : {:?}", storage);
             Ok(storage)
         })
     }
@@ -587,13 +576,13 @@ impl Backend for EVMBackend<'_> {
         self.get_account(&address)
             .and_then(|account| {
                 self.with_read_storage_and_root(&account.storage_root, |trie| {
-                    println!("Trying to fetch account storage for address {address:?}");
+                    debug!("Trying to fetch account storage for address {address:?}");
                     let storage = trie
                         .get(&index.as_bytes())
                         .ok()
                         .flatten()
                         .map_or_else(H256::zero, |vec| H256::from_slice(vec.as_slice()));
-                    println!("storage : {:?}", storage);
+                    debug!("storage : {:?}", storage);
                     Some(storage)
                 })
             })

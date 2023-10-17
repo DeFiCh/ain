@@ -146,6 +146,7 @@ pub mod ffi {
             miner_address: &str,
             difficulty: u32,
             timestamp: u64,
+            is_miner: bool,
         ) -> *mut BlockTemplate<'static>;
 
         // In-fallible functions
@@ -210,6 +211,7 @@ pub mod ffi {
         unsafe fn evm_try_unsafe_construct_block_in_template<'a>(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplate<'a>,
+            is_miner: bool,
         ) -> FinalizeBlockCompletion;
         unsafe fn evm_try_unsafe_commit_block<'a>(
             result: &mut CrossBoundaryResult,

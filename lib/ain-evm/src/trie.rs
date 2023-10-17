@@ -12,7 +12,9 @@ use rocksdb::{
 };
 use sp_core::{hexdisplay::AsBytesRef, KeccakHasher};
 use sp_trie::{LayoutV1, NodeCodec, TrieDBMutBuilder, TrieHash, TrieMut as _};
-use trie_db::{NodeCodec as _, Trie as _, TrieDB, TrieDBBuilder, TrieDBMut};
+use trie_db::{
+    NodeCodec as _, SecTrieDB, SecTrieDBMut, Trie as _, TrieDB, TrieDBBuilder, TrieDBMut,
+};
 
 pub static ROCKSDB_PATH: &str = "trie.db";
 pub static GENESIS_STATE_ROOT: H256 = H256([
@@ -26,11 +28,11 @@ pub struct TrieBackend(DB);
 
 impl AsHashDB<Hasher, DBValue> for TrieBackend {
     fn as_hash_db(&self) -> &dyn HashDB<Hasher, DBValue> {
-        &*self
+        self
     }
 
     fn as_hash_db_mut<'a>(&'a mut self) -> &'a mut (dyn HashDB<Hasher, DBValue> + 'a) {
-        &mut *self
+        self
     }
 }
 
@@ -130,15 +132,19 @@ impl TrieBackend {
 }
 
 pub struct Trie<'a> {
-    trie: TrieDB<'a, 'a, L>,
+    trie: SecTrieDB<'a, 'a, L>,
 }
 
 impl<'a> Trie<'a> {
-    pub fn new(backend: &'a TrieBackend, root: &'a TrieRoot) -> Self {
+    pub fn new(backend: &'a dyn HashDBRef<KeccakHasher, Vec<u8>>, root: &'a TrieRoot) -> Self {
         debug!("Reading trie with state root : {:?}", root);
 
-        let trie = TrieDBBuilder::new(backend, root).build();
+        let trie = SecTrieDB::new(backend, root);
         Self { trie }
+    }
+
+    pub fn db(&self) -> &dyn HashDBRef<KeccakHasher, Vec<u8>> {
+        self.trie.raw().db()
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBValue>> {
@@ -159,24 +165,35 @@ impl<'a> Trie<'a> {
 }
 
 pub struct TrieMut<'a> {
-    trie: TrieDBMut<'a, L>,
+    trie: SecTrieDBMut<'a, L>,
 }
 
 impl<'a> TrieMut<'a> {
-    pub fn new(backend: &'a mut TrieBackend, root: &'a mut TrieRoot) -> Self {
+    pub fn new(backend: &'a mut dyn HashDB<KeccakHasher, Vec<u8>>, root: &'a mut TrieRoot) -> Self {
         // debug!("Creating trie mut with state root : {:?}", root);
 
-        let trie = TrieDBMutBuilder::new(backend, root).build();
+        let trie = SecTrieDBMut::new(backend, root);
         Self { trie }
     }
 
-    pub fn from_existing(backend: &'a mut TrieBackend, root: &'a mut TrieRoot) -> Self {
+    pub fn from_existing(
+        backend: &'a mut dyn HashDB<KeccakHasher, Vec<u8>>,
+        root: &'a mut TrieRoot,
+    ) -> Self {
         debug!(
             "Restoring from existing trie mut with state root : {:?}",
             root
         );
-        let trie = TrieDBMutBuilder::from_existing(backend, root).build();
+        let trie = SecTrieDBMut::from_existing(backend, root);
         Self { trie }
+    }
+
+    pub fn db_mut(&mut self) -> &mut dyn HashDB<KeccakHasher, Vec<u8>> {
+        self.trie.db_mut()
+    }
+
+    pub fn db(&mut self) -> &dyn HashDB<KeccakHasher, Vec<u8>> {
+        self.trie.db()
     }
 
     pub fn get(&self, key: &[u8]) -> Result<Option<DBValue>> {

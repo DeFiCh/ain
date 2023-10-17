@@ -138,14 +138,14 @@ mod tests {
             let pubkey = recover_public_key(&hash, &r, &s, rx);
             if let Ok(pubkey) = pubkey {
                 let address = public_key_to_address(&pubkey);
-                println!("address: {:x}", address);
-                println!("from: {:x}", from);
+                debug!("address: {:x}", address);
+                debug!("from: {:x}", from);
                 if address == from {
-                    println!("found: {}", rx);
+                    debug!("found: {}", rx);
                     break;
                 }
             } else {
-                println!("{:?}", pubkey.err().unwrap());
+                debug!("{:?}", pubkey.err().unwrap());
             }
         }
     }

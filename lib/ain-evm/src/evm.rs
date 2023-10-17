@@ -139,6 +139,7 @@ impl EVMServices {
     pub unsafe fn construct_block_in_template(
         &self,
         template_ptr: *mut BlockTemplate,
+        is_miner: bool,
     ) -> Result<FinalizedBlockInfo> {
         let mut block_template = unsafe { &mut *template_ptr };
         let template = &mut *block_template;
@@ -161,7 +162,6 @@ impl EVMServices {
 
         debug!("[construct_block] vicinity: {:?}", template.vicinity);
 
-        println!("template.transactions : {:?}", template.transactions);
         for template_tx in template.transactions.clone() {
             all_transactions.push(template_tx.tx);
             receipts_v3.push(template_tx.receipt_v3);
@@ -170,16 +170,10 @@ impl EVMServices {
                 .ok_or_else(|| format_err!("calculate total gas fees failed from overflow"))?;
         }
 
-        println!("total_gas_used : {:?}", template.total_gas_used);
-        println!("base_fee : {:?}", base_fee);
-        println!("total_gas_fees : {:?}", total_gas_fees);
-
         let total_burnt_fees = template
             .total_gas_used
             .checked_mul(base_fee)
             .ok_or_else(|| format_err!("total_burnt_fees overflow"))?;
-
-        println!("total_burnt_fees : {:?}", total_burnt_fees);
 
         let total_priority_fees = total_gas_fees
             .checked_sub(total_burnt_fees)
@@ -193,13 +187,13 @@ impl EVMServices {
             total_priority_fees
         );
 
-        println!("adding balance");
+        debug!("[construct_block] adding balance");
         // burn base fee and pay priority fee to miner
         backend.add_balance(beneficiary, total_priority_fees)?;
 
-        println!("getting root");
+        debug!("[construct_block] getting root");
         let root = backend.root();
-        println!("root : {:?}", root);
+        debug!("[construct_block] root : {:?}", root);
 
         let extra_data = format!("DFI: {}", template.dvm_block).into_bytes();
         let block = Block::new(
@@ -226,7 +220,7 @@ impl EVMServices {
             Vec::new(),
         );
         let block_hash = format!("{:?}", block.header.hash());
-        println!("generating receipts");
+        debug!("generating receipts");
         let receipts = self.receipt.generate_receipts(
             &all_transactions,
             receipts_v3.clone(),
@@ -236,7 +230,7 @@ impl EVMServices {
         )?;
         template.block_data = Some(BlockData { block, receipts });
 
-        println!("returning out of construct_block");
+        debug!("returning out of construct_block");
         Ok(FinalizedBlockInfo {
             block_hash,
             total_burnt_fees,
@@ -252,20 +246,16 @@ impl EVMServices {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn commit_block(&self, template_ptr: *mut BlockTemplate) -> Result<()> {
-        println!("[commit_block]");
+        debug!("[commit_block]");
         let template = unsafe { &*template_ptr };
         {
             let Some(BlockData { block, receipts }) = template.block_data.clone() else {
-                println!("Coulndt get block data");
+                debug!("Coulndt get block data");
                 return Err(format_err!("no constructed EVM block exist in template id").into());
             };
 
             debug!(
-                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
-                block.header.number, block.header.state_root
-            );
-            println!(
-                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+                "[commit_block] Finalizing block number {:#x}, state_root {:#x}",
                 block.header.number, block.header.state_root
             );
 
@@ -280,7 +270,7 @@ impl EVMServices {
                 .send(Notification::Block(block.header.hash()))
                 .map_err(|e| format_err!(e.to_string()))?;
 
-            println!("finish committing to storage");
+            debug!("[commit_block] finish committing to storage");
         }
         self.core.clear_account_nonce();
         self.core.clear_transaction_cache();
@@ -306,7 +296,7 @@ impl EVMServices {
             "[update_block_template_state_from_tx] Block base fee: {}",
             base_fee
         );
-        println!("update_block_template_state_from_tx: {:?}", tx);
+        debug!("update_block_template_state_from_tx: {:?}", tx);
 
         backend.update_vicinity_with_gas_used(template.total_gas_used);
         let apply_tx = execute_tx(&mut backend, tx, base_fee)?;
@@ -458,11 +448,11 @@ impl EVMServices {
                 logs_bloom,
             ));
 
-            println!("Getting deploy DST20 migration TX");
+            debug!("Getting deploy DST20 migration TX");
             // Deploy DST20 migration TX
-            println!("mnview_ptr : {:?}", mnview_ptr);
+            debug!("mnview_ptr : {:?}", mnview_ptr);
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
-            println!("migration_txs : {:?}", migration_txs);
+            debug!("migration_txs : {:?}", migration_txs);
             for exec_tx in migration_txs.clone() {
                 let apply_result = execute_tx(&mut backend, exec_tx, base_fee)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
@@ -479,7 +469,7 @@ impl EVMServices {
 
             backend.update_storage(&address, storage)?;
         }
-        println!("[update_state_in_block_template] done");
+        debug!("[update_state_in_block_template] done");
         Ok(())
     }
 }
@@ -532,12 +522,8 @@ impl EVMServices {
             ..Vicinity::default()
         };
 
-        let mut backend = EVMBackendMut::from_root(
-            self.core.storage_backend.clone(),
-            trie,
-            Arc::clone(&self.storage),
-            vicinity.clone(),
-        );
+        let mut backend =
+            EVMBackendMut::from_root(trie, Arc::clone(&self.storage), vicinity.clone());
         let template = BlockTemplate::new(
             vicinity,
             parent_hash,
@@ -582,20 +568,20 @@ impl EVMServices {
         let mut block_template = unsafe { &mut *template_ptr };
         let mut template = &mut *block_template;
 
-        println!("push_tx_in_block_template");
+        debug!("push_tx_in_block_template");
         debug!("push_tx_in_block_template");
         self.verify_tx_fees_in_block_template(&mut template, &tx)?;
-        println!("push_tx_in_block_template verify_tx_fees_in_block_template");
+        debug!("push_tx_in_block_template verify_tx_fees_in_block_template");
         debug!("push_tx_in_block_template verify_tx_fees_in_block_template");
         let tx_update = { self.update_block_template_state_from_tx(&mut template, tx.clone())? };
-        println!("push_tx_in_block_template update_block_template_state_from_tx");
+        debug!("push_tx_in_block_template update_block_template_state_from_tx");
         debug!("push_tx_in_block_template update_block_template_state_from_tx");
         let tx_hash = tx_update.tx.hash();
-        println!("push_tx_in_block_template hash");
+        debug!("push_tx_in_block_template hash");
         debug!("push_tx_in_block_template hash");
 
         template.add_tx(tx_update, hash)?;
-        println!("push_tx_in_block_template add_tx");
+        debug!("push_tx_in_block_template add_tx");
         debug!("push_tx_in_block_template add_tx");
         self.filters.add_tx_to_filters(tx_hash);
 

@@ -89,7 +89,7 @@ impl TransactionStorage for BlockStore {
 
     fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
         let transactions_cf = self.column::<columns::Transactions>();
-        println!(
+        debug!(
             "putting transaction k {:x?} v {:#?}",
             transaction.hash(),
             transaction
@@ -273,9 +273,9 @@ impl BlockStore {
     where
         C: TypedColumn + ColumnName,
     {
-        println!("{}", C::NAME);
+        debug!("{}", C::NAME);
         for (k, v) in self.column::<C>().iter(from, limit) {
-            println!("{:?}: {:#?}", k, v);
+            debug!("{:?}: {:#?}", k, v);
         }
     }
 }

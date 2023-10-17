@@ -430,30 +430,33 @@ pub unsafe fn evm_try_unsafe_create_block_template(
     miner_address: &str,
     difficulty: u32,
     timestamp: u64,
+    is_miner: bool,
 ) -> *mut BlockTemplate<'static> {
     let miner_address = if miner_address.is_empty() {
         H160::zero()
     } else {
         let Ok(address) = miner_address.parse::<H160>() else {
             cross_boundary_error(result, "Invalid address");
+            debug!("Invalid miner address");
             return std::ptr::null_mut();
         };
         address
     };
 
     unsafe {
-        let backend_lock = get_backend_lock();
+        let backend_lock = get_backend_lock(is_miner);
         let backend = (*backend_lock).get_backend_mut();
         let backend_ptr = Box::into_raw(Box::new(backend));
 
         let Ok(state_root) = SERVICES.evm.core.get_state_root() else {
             cross_boundary_error(result, "Error fetching latest state root");
+            debug!("Error fetching state root");
             return std::ptr::null_mut();
         };
 
         let root_ptr = Box::into_raw(Box::new(state_root));
 
-        let trie = TrieMut::from_existing(&mut *backend_ptr, &mut *root_ptr);
+        let trie = TrieMut::from_existing(*backend_ptr, &mut *root_ptr);
         let Ok(ptr) = SERVICES.evm.create_block_template(
             Box::into_raw(Box::new(trie)),
             dvm_block,
@@ -462,12 +465,17 @@ pub unsafe fn evm_try_unsafe_create_block_template(
             timestamp,
         ) else {
             cross_boundary_error(result, "Couldnt create block template");
+            debug!("Error creating block template");
             return std::ptr::null_mut();
         };
-        Box::into_raw(Box::new(BlockTemplate(
-            Box::into_raw(Box::new(ptr)),
-            backend_lock,
-        )))
+
+        cross_boundary_success_return(
+            result,
+            Box::into_raw(Box::new(BlockTemplate(
+                Box::into_raw(Box::new(ptr)),
+                backend_lock,
+            ))),
+        )
     }
 }
 
@@ -479,12 +487,13 @@ pub unsafe fn evm_try_unsafe_create_block_template(
 #[ffi_fallible]
 fn evm_try_unsafe_remove_block_template(template: *mut BlockTemplate, is_miner: i32) -> Result<()> {
     unsafe {
-        println!("is miner : {is_miner}");
-        println!("[evm_try_unsafe_remove_block_template] template {template:p}");
-        // SERVICES.evm.core.remove_block_template((*template).0);
-        println!("[evm_try_unsafe_remove_block_template] done");
-        free_backend_lock((*template).1); // Free Backend lock
-        println!("[evm_try_unsafe_remove_block_template] free backendlock done");
+        let template = Box::from_raw(template);
+        debug!("is miner : {is_miner}");
+        debug!("[evm_try_unsafe_remove_block_template] template {template:p}");
+        SERVICES.evm.core.remove_block_template(template.0);
+        debug!("[evm_try_unsafe_remove_block_template] done");
+        free_backend_lock(template.1); // Free Backend lock
+        debug!("[evm_try_unsafe_remove_block_template] free backendlock done");
     }
     Ok(())
 }
@@ -542,6 +551,7 @@ fn evm_try_unsafe_push_tx_in_template(
 #[ffi_fallible]
 fn evm_try_unsafe_construct_block_in_template(
     template: *mut BlockTemplate,
+    is_miner: bool,
 ) -> Result<ffi::FinalizeBlockCompletion> {
     unsafe {
         let FinalizedBlockInfo {
@@ -549,7 +559,9 @@ fn evm_try_unsafe_construct_block_in_template(
             total_burnt_fees,
             total_priority_fees,
             block_number,
-        } = SERVICES.evm.construct_block_in_template((*template).0)?;
+        } = SERVICES
+            .evm
+            .construct_block_in_template((*template).0, is_miner)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 
@@ -892,7 +904,7 @@ impl BackendLock {
     }
 }
 
-pub fn get_backend_lock() -> *mut BackendLock {
+pub fn get_backend_lock(is_miner: bool) -> *mut BackendLock {
     let guard = SERVICES.evm.core.trie_backend.write();
     Box::into_raw(Box::new(BackendLock::new(guard)))
 }

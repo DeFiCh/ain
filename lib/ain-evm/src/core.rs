@@ -17,9 +17,11 @@ use ethereum::{
     TransactionV2,
 };
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
+use hash_db::{AsHashDB, HashDBRef};
 use log::{debug, trace};
 use lru::LruCache;
 use parking_lot::{Mutex, RwLock};
+use sp_core::KeccakHasher;
 
 use crate::{
     backend::{BackendError, EVMBackend, EVMBackendMut, Vicinity},
@@ -129,7 +131,6 @@ impl TxValidationCache {
 
 pub struct EVMCoreService {
     pub trie_backend: RwLock<TrieBackend>,
-    pub storage_backend: Arc<RwLock<TrieBackend>>,
     pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
@@ -167,9 +168,6 @@ impl EVMCoreService {
     pub fn restore(storage: Arc<Storage>, path: PathBuf) -> Result<Self> {
         Ok(Self {
             trie_backend: RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?),
-            storage_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from(
-                "storage_trie.db",
-            ))?)),
             signed_tx_cache: SignedTxCache::default(),
             storage,
             nonce_store: Mutex::new(HashMap::new()),
@@ -186,9 +184,6 @@ impl EVMCoreService {
 
         let handler = Self {
             trie_backend: RwLock::new(TrieBackend::new(PathBuf::from("trie.db"))?),
-            storage_backend: Arc::new(RwLock::new(TrieBackend::new(PathBuf::from(
-                "storage_trie.db",
-            ))?)),
             signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
             nonce_store: Mutex::new(HashMap::new()),
@@ -287,14 +282,10 @@ impl EVMCoreService {
         };
         debug!("[call] vicinity: {:?}", vicinity);
 
-        let back = self.trie_backend.read();
-        let trie = Trie::new(&back, &state_root);
-        let backend = EVMBackend::from_root(
-            self.storage_backend.clone(),
-            trie,
-            Arc::clone(&self.storage),
-            vicinity,
-        );
+        let state = self.trie_backend.read();
+        let back = &state.as_hash_db() as &dyn HashDBRef<KeccakHasher, Vec<u8>>;
+        let trie = Trie::new(back, &state_root);
+        let backend = EVMBackend::from_root(trie, Arc::clone(&self.storage), vicinity);
         Ok(call(
             &backend,
             ExecutorContext {
@@ -736,26 +727,21 @@ impl EVMCoreService {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn remove_block_template(&self, ptr: *mut BlockTemplate) {
-        println!("Trying to remove blok template");
+        debug!("Trying to remove blok template");
         if !ptr.is_null() {
             let block_template = Box::from_raw(ptr);
-            println!("Got block template");
+            debug!("Got block template");
 
             let backend_ptr = block_template.backend;
             if !backend_ptr.is_null() {
                 let backend = Box::from_raw(backend_ptr);
-                println!(
-                    "Arc::strong_count(backend.storage_backend) : {:?}",
-                    Arc::strong_count(&backend.storage_backend)
-                );
-
-                println!("Got backend");
+                debug!("Got backend");
 
                 let trie_ptr = backend.state;
                 if !trie_ptr.is_null() {
-                    println!("Got trie");
+                    debug!("Got trie");
                     drop(Box::from_raw(trie_ptr));
-                    println!("Dropped trie");
+                    debug!("Dropped trie");
                 }
             }
         }
@@ -824,27 +810,20 @@ impl EVMCoreService {
                 "[get_account] Block number {:x?} not found",
                 block_number
             ))?;
-        let back = self.trie_backend.read();
-        let trie = Trie::new(&back, &state_root);
-        let backend = EVMBackend::from_root(
-            self.storage_backend.clone(),
-            trie,
-            Arc::clone(&self.storage),
-            Default::default(),
-        );
+
+        let state = self.trie_backend.read();
+        let back = &state.as_hash_db() as &dyn HashDBRef<KeccakHasher, Vec<u8>>;
+        let trie = Trie::new(back, &state_root);
+        let backend = EVMBackend::from_root(trie, Arc::clone(&self.storage), Default::default());
         Ok(backend.get_account(&address))
     }
 
     pub fn get_latest_contract_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
         let state_root = self.get_state_root()?;
-        let back = self.trie_backend.read();
-        let trie = Trie::new(&back, &state_root);
-        let backend = EVMBackend::from_root(
-            self.storage_backend.clone(),
-            trie,
-            Arc::clone(&self.storage),
-            Default::default(),
-        );
+        let state = self.trie_backend.read();
+        let back = &state.as_hash_db() as &dyn HashDBRef<KeccakHasher, Vec<u8>>;
+        let trie = Trie::new(back, &state_root);
+        let backend = EVMBackend::from_root(trie, Arc::clone(&self.storage), Default::default());
         backend.get_contract_storage(contract, storage_index.as_bytes())
     }
 
@@ -900,7 +879,6 @@ impl EVMCoreService {
     //     let mut back = self.trie_backend.write();
     //     let mut trie = TrieMut::from_existing(&mut back, &mut state_root);
     //     let backend = EVMBackendMut::from_root(
-    //         self.storage_backend.clone(),
     //         &mut trie,
     //         Arc::clone(&self.storage),
     //         Default::default(),
