@@ -1955,6 +1955,9 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Consortium:
+                if (view.GetLastHeight() >= Params().GetConsensus().DF22MetachainHeight && !IsRegtestNetwork()) {
+                    return Res::Err("Cannot be set after MetachainHeight");
+                }
                 switch (attrV0->key) {
                     case ConsortiumKeys::MemberValues: {
                         if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
@@ -2071,6 +2074,11 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     } else if (attrV0->key == DFIPKeys::EVMEnabled || attrV0->key == DFIPKeys::TransferDomain) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                             return Res::Err("Cannot be set before MetachainHeight");
+                        }
+                    } else if (attrV0->key == DFIPKeys::ConsortiumEnabled) {
+                        if (view.GetLastHeight() >= Params().GetConsensus().DF22MetachainHeight &&
+                            !IsRegtestNetwork()) {
+                            return Res::Err("Cannot be set after MetachainHeight");
                         }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
