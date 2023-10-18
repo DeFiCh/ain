@@ -874,17 +874,11 @@ impl EVMCoreService {
         let mut listener = crate::eventlistener::Listener::new(gasometer);
 
         let (execution_success, return_value) = using(&mut listener, move || {
-            runtime.run(&mut executor);
+            let (exit_reason, data) = executor.transact_call(caller, to.unwrap(), U256::default(), data.to_vec(), gas_limit, vec![]);
 
             Ok::<_, EVMError>((
-                runtime
-                    .machine()
-                    .position()
-                    .clone()
-                    .err()
-                    .ok_or_else(|| format_err!("Execution not completed"))?
-                    .is_succeed(),
-                runtime.machine().return_value(),
+                exit_reason.is_succeed(),
+                data,
             ))
         })?;
 
