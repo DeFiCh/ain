@@ -116,6 +116,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
     BlockContext blockCtx;
 
+    BOOST_TEST_CHECKPOINT("BlockContext created");
+
     // try to send "A:-1@DFI"
     {
         msg.to = {
@@ -130,10 +132,15 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
             amkCheated,
             1,
             0,
-            0,
+            999,
         };
 
+        BOOST_TEST_CHECKPOINT("TransactionContext created");
+
         res = ApplyCustomTx(mnview, blockCtx, txCtx);
+
+        BOOST_TEST_CHECKPOINT("ApplyCustomTx returned");
+
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -155,7 +162,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 amkCheated,
                 1,
                 0,
-                0,
+                999,
         };
 
         res = ApplyCustomTx(mnview, blockCtx, txCtx);
@@ -181,7 +188,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 amkCheated,
                 1,
                 0,
-                0,
+                999,
         };
 
         res = ApplyCustomTx(mnview, blockCtx, txCtx);
@@ -207,7 +214,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 amkCheated,
                 1,
                 0,
-                0,
+                999,
         };
 
         res = ApplyCustomTx(mnview, blockCtx, txCtx);
