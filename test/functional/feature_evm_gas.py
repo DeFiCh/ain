@@ -274,6 +274,7 @@ class EVMGasTest(DefiTestFramework):
             "chainId": self.nodes[0].w3.eth.chain_id,
             "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
             "from": self.ethAddress,
+            # Note: has to be excess by a large amount. Somehow any value below 35154 fails the tx during execution
             "gas": "0x8952",  # 35154
         }
 
@@ -291,7 +292,7 @@ class EVMGasTest(DefiTestFramework):
 
         # Verify tx is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        # assert_equal(receipt["status"], 1)
+        assert_equal(receipt["status"], 1)
         assert_equal(receipt["gasUsed"], correct_gas_used)
 
         # Verify balances
@@ -299,6 +300,7 @@ class EVMGasTest(DefiTestFramework):
         contract_balance = int(
             self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
         )
+        # Note: No drain in sender balance, no increment in contract balance
         assert_equal(sender_balance, 99999621213000000000)
         assert_equal(contract_balance, 49997752920000000000)
 
@@ -308,7 +310,8 @@ class EVMGasTest(DefiTestFramework):
                 tx_with_excess_gas_specified
             )
         )
-        assert_equal(estimate_gas_limit, 26238)
+        # Note: This currently fails, gets gas limit of 26238
+        assert_equal(estimate_gas_limit, correct_gas_used)
 
         # Send contract call tx with exact gas specified
         tx_with_exact_gas_specified = {
@@ -331,13 +334,15 @@ class EVMGasTest(DefiTestFramework):
         # Verify tx is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 1)
-        assert_equal(receipt["gasUsed"], 26238)
+        # Note: This currently fails, gets gas used of 26238
+        assert_equal(receipt["gasUsed"], correct_gas_used)
 
         # Verify balances
         sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
         contract_balance = int(
             self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
         )
+        # Note: No drain in sender balance again, no increment in contract balance again
         assert_equal(sender_balance, 99999319476000000000)
         assert_equal(contract_balance, 49997752920000000000)
 
