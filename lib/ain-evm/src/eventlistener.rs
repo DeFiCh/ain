@@ -36,7 +36,7 @@ impl RuntimeEventListener for Listener {
             } => {
                 self.trace.push(ExecutionStep {
                     pc: *position.as_ref().unwrap(),
-                    op: format!("{}", opcode::opcode_to_string(opcode)),
+                    op: opcode::opcode_to_string(opcode),
                     gas: 0,
                     gas_cost: 0,
                     stack: stack.data().to_vec(),

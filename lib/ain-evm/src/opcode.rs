@@ -3,7 +3,7 @@ use evm::gasometer::Gasometer;
 use evm::Opcode;
 use evm::{gasometer, Handler, Stack};
 
-pub fn record_cost<'a, H: Handler>(
+pub fn record_cost<H: Handler>(
     opcode: Opcode,
     gasometer: &mut Gasometer,
     to: H160,
@@ -18,7 +18,7 @@ pub fn record_cost<'a, H: Handler>(
                 opcode,
                 stack,
                 false,
-                &gasometer.config(),
+                gasometer.config(),
                 executor,
             )
             .expect("Error getting dynamic cost");
@@ -179,5 +179,5 @@ pub fn opcode_to_string(opcode: Opcode) -> String {
         _ => "UNKNOWN",
     };
 
-    return String::from(x);
+    String::from(x)
 }
