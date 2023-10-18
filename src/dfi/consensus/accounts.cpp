@@ -72,35 +72,12 @@ Res CAccountsConsensus::operator()(const CAccountToAccountMessage &obj) const {
         return res;
     }
 
-    if (txn == 999) {
-        std::cout << "CAccountToAccountMessage: from: " << obj.from.GetHex() << std::endl;
-    }
-    for (const auto &[dest, balance] : obj.to) {
-        if (txn == 999) {
-            std::cout << "CAccountToAccountMessage: to: " << dest.GetHex() << " amounts: " << balance.ToString()
-                      << std::endl;
-        }
-    }
-
     // transfer
     if (auto res = SubBalanceDelShares(obj.from, SumAllTransfers(obj.to)); !res) {
-        if (txn == 999) {
-            std::cout << "CAccountToAccountMessage: SubBalanceDelShares failure" << std::endl;
-        }
         return res;
     }
 
-    auto res = AddBalancesSetShares(obj.to);
-
-    if (!res && txn == 999) {
-        std::cout << "CAccountToAccountMessage: AddBalancesSetShares failure" << std::endl;
-    }
-
-    if (txn == 999) {
-        std::cout << "CAccountToAccountMessage: success" << std::endl;
-    }
-
-    return res;
+    return AddBalancesSetShares(obj.to);
 }
 
 Res CAccountsConsensus::operator()(const CAnyAccountsToAccountsMessage &obj) const {
