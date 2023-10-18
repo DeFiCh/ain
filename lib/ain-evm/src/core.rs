@@ -851,8 +851,7 @@ impl EVMCoreService {
         let precompiles = MetachainPrecompiles;
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
 
-        let gasometer = evm::gasometer::Gasometer::new(gas_limit, &CONFIG);
-        let mut listener = crate::eventlistener::Listener::new(gasometer);
+        let mut listener = crate::eventlistener::Listener::new();
 
         let (execution_success, return_value, used_gas) = using(&mut listener, move || {
             let access_list = access_list
