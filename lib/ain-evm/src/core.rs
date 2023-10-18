@@ -814,8 +814,8 @@ impl EVMCoreService {
     pub fn trace_transaction(
         &self,
         caller: H160,
-        to: Option<H160>,
-        _value: U256,
+        to: H160,
+        value: U256,
         data: &[u8],
         gas_limit: u64,
         access_list: AccessList,
@@ -852,34 +852,19 @@ impl EVMCoreService {
         let precompiles = MetachainPrecompiles;
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
 
-        let mut runtime = evm::Runtime::new(
-            Rc::new(match to {
-                Some(to) => self
-                    .get_code(to, block_number)
-                    .unwrap_or_default()
-                    .unwrap_or_default(),
-                None => Vec::new(),
-            }),
-            Rc::new(data.to_vec()),
-            Context {
-                caller,
-                address: to.unwrap(),
-                apparent_value: U256::default(),
-            },
-            1024,
-            usize::MAX,
-        );
-
         let gasometer = evm::gasometer::Gasometer::new(gas_limit, &CONFIG);
         let mut listener = crate::eventlistener::Listener::new(gasometer);
 
         let (execution_success, return_value) = using(&mut listener, move || {
-            let (exit_reason, data) = executor.transact_call(caller, to.unwrap(), U256::default(), data.to_vec(), gas_limit, vec![]);
+            let access_list = access_list
+                .into_iter()
+                .map(|x| (x.address, x.storage_keys))
+                .collect::<Vec<_>>();
 
-            Ok::<_, EVMError>((
-                exit_reason.is_succeed(),
-                data,
-            ))
+            let (exit_reason, data) =
+                executor.transact_call(caller, to, value, data.to_vec(), gas_limit, access_list);
+
+            Ok::<_, EVMError>((exit_reason.is_succeed(), data))
         })?;
 
         Ok((

@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use std::{cmp, sync::Arc};
 
 use ain_evm::storage::traits::{ReceiptStorage, TransactionStorage};
@@ -89,7 +90,11 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .core
             .trace_transaction(
                 signed_tx.sender,
-                signed_tx.to(),
+                signed_tx.to().ok_or_else(|| {
+                    format_err!(
+                        "debug_traceTransaction does not support contract creation transactions"
+                    )
+                })?,
                 signed_tx.value(),
                 signed_tx.data(),
                 signed_tx.gas_limit().as_u64(),
