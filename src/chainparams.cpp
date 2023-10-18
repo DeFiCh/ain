@@ -569,7 +569,7 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("testnet-seed.defichain.io");
-	vSeeds.emplace_back("35.195.186.78");
+        vSeeds.emplace_back("35.195.186.78");
 
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
@@ -785,7 +785,6 @@ public:
         vSeeds.clear();
         // nodes with support for servicebits filtering should be at the top
         vSeeds.emplace_back("35.187.53.161");
-        vSeeds.emplace_back("34.89.47.54");
         vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_changi, pnSeed6_changi + ARRAYLEN(pnSeed6_changi));
 
         fDefaultConsistencyChecks = false;
