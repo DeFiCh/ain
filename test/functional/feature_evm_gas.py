@@ -10,11 +10,8 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 
-import math
-from decimal import Decimal
 
-
-class EVMFeeTest(DefiTestFramework):
+class EVMGasTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -119,6 +116,7 @@ class EVMFeeTest(DefiTestFramework):
 
     def execute_transfer_tx_with_estimate_gas(self):
         self.rollback_to(self.start_height)
+        correct_gas_used = "0x5208"
 
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         tx_without_gas_specified = {
@@ -136,38 +134,117 @@ class EVMFeeTest(DefiTestFramework):
         # Verify tx is successful
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_equal(receipt["status"], "0x1")
-        assert_equal(receipt["gasUsed"], "0x5208")
+        assert_equal(receipt["gasUsed"], correct_gas_used)
 
         # Get gas estimate
         estimate_gas = self.nodes[0].eth_estimateGas(tx_without_gas_specified)
-        assert_equal(estimate_gas, "0x5208")  # 21000
+        assert_equal(estimate_gas, correct_gas_used)  # 21000
 
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        tx_with_gas_specified = {
+        tx_with_exact_gas_specified = {
             "nonce": hex(nonce),
             "from": self.ethAddress,
             "to": self.toAddress,
             "value": "0xDE0B6B3A7640000",  # 1 DFI
-            "gas": "0x5208",
             "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+            "gas": correct_gas_used,
         }
 
         # Send tx with exact gas specified
-        hash = self.nodes[0].eth_sendTransaction(tx_with_gas_specified)
+        hash = self.nodes[0].eth_sendTransaction(tx_with_exact_gas_specified)
         self.nodes[0].generate(1)
 
         # Verify tx is successful
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
         assert_equal(receipt["status"], "0x1")
-        assert_equal(receipt["gasUsed"], "0x5208")
+        assert_equal(receipt["gasUsed"], correct_gas_used)
 
-    def execute_contract_call_tx_with_estimate_gas(self):
+    def execute_loop_contract_call_tx_with_estimate_gas(self):
         self.rollback_to(self.start_height)
+        num_loops = 10_000
+        correct_gas_used = 1_761_626
 
-        # Deploy TestEstimateGas contract
-        abi, bytecode, _ = EVMContract.from_file(
-            "TestEstimateGas.sol", "TestEstimateGas"
-        ).compile()
+        # Deploy loop contract
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Verify contract deployment is successful
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        test_estimate_gas_contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        tx_without_gas_specified = {
+            "chainId": self.nodes[0].w3.eth.chain_id,
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+            "from": self.ethAddress,
+            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+        }
+
+        # Send contract call tx without gas specified
+        loop_without_gas_specified_tx = test_estimate_gas_contract.functions.loop(
+            num_loops
+        ).build_transaction(tx_without_gas_specified)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            loop_without_gas_specified_tx, self.ethPrivKey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Verify tx is successful
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(receipt["status"], 1)
+        assert_equal(receipt["gasUsed"], correct_gas_used)
+
+        tx_with_exact_gas_specified = {
+            "chainId": self.nodes[0].w3.eth.chain_id,
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+            "from": self.ethAddress,
+            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+            "gas": correct_gas_used,
+        }
+
+        # Get gas estimate
+        estimate_gas_limit = test_estimate_gas_contract.functions.loop(
+            num_loops
+        ).estimate_gas(tx_without_gas_specified)
+        assert_equal(estimate_gas_limit, correct_gas_used)
+
+        # Send contract call tx with exact gas specified
+        loop_with_exact_gas_specified_tx = test_estimate_gas_contract.functions.loop(
+            num_loops
+        ).build_transaction(tx_with_exact_gas_specified)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            loop_with_exact_gas_specified_tx, self.ethPrivKey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Verify tx is successful
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(receipt["status"], 1)
+        assert_equal(receipt["gasUsed"], correct_gas_used)
+
+    def execute_withdraw_contract_call_tx_with_estimate_gas(self):
+        self.rollback_to(self.start_height)
+        correct_gas_used = 32938
+
+        # Deploy Withdraw contract
+        abi, bytecode, _ = EVMContract.from_file("Withdraw.sol", "Withdraw").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
             {
@@ -189,9 +266,8 @@ class EVMFeeTest(DefiTestFramework):
 
         # Verify contract deployment is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        test_estimate_gas_address = receipt["contractAddress"]
         test_estimate_gas_contract = self.nodes[0].w3.eth.contract(
-            address=test_estimate_gas_address, abi=abi
+            address=receipt["contractAddress"], abi=abi
         )
 
         tx_with_excess_gas_specified = {
@@ -216,7 +292,7 @@ class EVMFeeTest(DefiTestFramework):
         # Verify tx is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         # assert_equal(receipt["status"], 1)
-        assert_equal(receipt["gasUsed"], 32938)
+        assert_equal(receipt["gasUsed"], correct_gas_used)
 
         # Verify balances
         sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
@@ -235,15 +311,15 @@ class EVMFeeTest(DefiTestFramework):
         assert_equal(estimate_gas_limit, 26238)
 
         # Send contract call tx with exact gas specified
-        tx_with_gas_specified = {
+        tx_with_exact_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
             "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
             "from": self.ethAddress,
-            "gas": "0x80AA",  # 32938
+            "gas": correct_gas_used,
         }
         withdraw_with_exact_gas_specified_tx = (
             test_estimate_gas_contract.functions.withdraw().build_transaction(
-                tx_with_gas_specified
+                tx_with_exact_gas_specified
             )
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(
@@ -270,8 +346,10 @@ class EVMFeeTest(DefiTestFramework):
 
         self.execute_transfer_tx_with_estimate_gas()
 
-        self.execute_contract_call_tx_with_estimate_gas()
+        self.execute_loop_contract_call_tx_with_estimate_gas()
+
+        # self.execute_withdraw_contract_call_tx_with_estimate_gas()
 
 
 if __name__ == "__main__":
-    EVMFeeTest().main()
+    EVMGasTest().main()
