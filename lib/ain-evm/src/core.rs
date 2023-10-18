@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use std::{
     collections::{BTreeSet, HashMap},
     num::NonZeroUsize,
@@ -25,7 +24,7 @@ use lru::LruCache;
 use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::precompiles::{Context, MetachainPrecompiles};
+use crate::precompiles::{MetachainPrecompiles};
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
@@ -855,7 +854,7 @@ impl EVMCoreService {
         let gasometer = evm::gasometer::Gasometer::new(gas_limit, &CONFIG);
         let mut listener = crate::eventlistener::Listener::new(gasometer);
 
-        let (execution_success, return_value) = using(&mut listener, move || {
+        let (execution_success, return_value, used_gas) = using(&mut listener, move || {
             let access_list = access_list
                 .into_iter()
                 .map(|x| (x.address, x.storage_keys))
@@ -864,14 +863,14 @@ impl EVMCoreService {
             let (exit_reason, data) =
                 executor.transact_call(caller, to, value, data.to_vec(), gas_limit, access_list);
 
-            Ok::<_, EVMError>((exit_reason.is_succeed(), data))
+            Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
         })?;
 
         Ok((
             listener.trace,
             execution_success,
             return_value,
-            listener.gasometer.total_used_gas(),
+            used_gas,
         ))
     }
 }

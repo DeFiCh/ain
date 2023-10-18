@@ -1,12 +1,8 @@
 use crate::core::ExecutionStep;
 use crate::opcode;
-use evm::gasometer::tracing::{using as using_gas, EventListener as GasEventListener};
 use evm::gasometer::Gasometer;
-use evm::{Capture, ExitReason, Trap};
-use evm_runtime::tracing::{using as using_runtime, Event, EventListener as RuntimeEventListener};
-use evm_runtime::Config;
+use evm_runtime::tracing::{Event, EventListener as RuntimeEventListener};
 use log::debug;
-use evm::Opcode;
 
 pub struct Listener<'a> {
     pub gasometer: Gasometer<'a>,
@@ -27,11 +23,11 @@ impl<'a> RuntimeEventListener for Listener<'a> {
         debug!("event runtime : {:#?}", event);
         match event {
             Event::Step {
-                context,
                 opcode,
                 position,
                 stack,
                 memory,
+                ..
             } => {
                 let gas_before = self.gasometer.gas();
                 self.trace.push(ExecutionStep {
@@ -49,37 +45,21 @@ impl<'a> RuntimeEventListener for Listener<'a> {
             } => {
                 debug!("result : {:#?}", result);
                 debug!("return_value : {:#?}", return_value);
-
-                // handle calls
-                match result.clone().err() {
-                    None => {}
-                    Some(e) => {
-                        match e {
-                            Capture::Exit(_) => {}
-                            Capture::Trap(trap) => {
-                                match trap {
-                                    Opcode::DELEGATECALL => {
-                                        debug!("need to DELETEGATECALL");
-                                    }
-                                    _ => {
-                                        debug!("not deletegatecall")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
             Event::SLoad {
                 address,
                 index,
                 value,
-            } => {}
+            } => {
+                debug!("SLOAD, address: {address:#?}, index: {index:#?}, value: {value:#?}")
+            }
             Event::SStore {
                 address,
                 index,
                 value,
-            } => {}
+            } => {
+                debug!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
+            }
         }
     }
 }
