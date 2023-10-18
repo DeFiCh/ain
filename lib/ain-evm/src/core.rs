@@ -38,7 +38,7 @@ use crate::{
     transaction::SignedTx,
     trie::TrieDBStore,
     weiamount::{try_from_satoshi, WeiAmount},
-    Result,
+    EVMError, Result,
 };
 
 pub type XHash = String;
@@ -876,17 +876,17 @@ impl EVMCoreService {
         let (execution_success, return_value) = using(&mut listener, move || {
             runtime.run(&mut executor);
 
-            (
+            Ok::<_, EVMError>((
                 runtime
                     .machine()
                     .position()
                     .clone()
                     .err()
-                    .expect("Execution not completed")
+                    .ok_or_else(|| format_err!("Execution not completed"))?
                     .is_succeed(),
                 runtime.machine().return_value(),
-            )
-        });
+            ))
+        })?;
 
         Ok((
             listener.trace,
