@@ -530,8 +530,9 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
-    if (txn == 999)
+    if (txn == 999) {
         std::cout << "ApplyCustomTx TxType: " << ToString(txType) << std::endl;
+    }
 
     auto attributes = mnview.GetAttributes();
     assert(attributes);
@@ -561,8 +562,9 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
     auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
-        if (txn == 999)
+        if (txn == 999) {
             std::cout << "ApplyCustomTx: CustomMetadataParse success" << std::endl;
+        }
         if (mnview.GetHistoryWriters().GetVaultView()) {
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, txCtx);
         }
@@ -570,8 +572,9 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
         res = CustomTxVisit(view, txMessage, blockCtx, txCtx);
 
         if (res) {
-            if (txn == 999)
+            if (txn == 999) {
                 std::cout << "ApplyCustomTx: CustomTxVisit success" << std::endl;
+            }
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
                 auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
                 for (const auto &item : obj.updates) {
@@ -610,8 +613,9 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
     }
     // list of transactions which aren't allowed to fail:
     if (!res) {
-        if (txn == 999)
+        if (txn == 999) {
             std::cout << "ApplyCustomTx: " << res.msg << std::endl;
+        }
         res.msg = strprintf("%sTx: %s", ToString(txType), res.msg);
 
         if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, height)) {
