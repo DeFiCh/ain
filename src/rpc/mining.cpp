@@ -983,7 +983,7 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
         if (amount < DEFAULT_TRANSACTION_MINFEE) {
             amount = DEFAULT_TRANSACTION_MINFEE;
         }
-        result.pushKV("feerate", amount);
+        result.pushKV("feerate", ValueFromAmount(amount));
     } else if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
         result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
