@@ -979,7 +979,11 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     FeeCalculation feeCalc;
     CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
-        result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
+        auto amount = feeRate.GetFeePerK();
+        if (amount < DEFAULT_TRANSACTION_MINFEE) {
+            amount = DEFAULT_TRANSACTION_MINFEE;
+        }
+        result.pushKV("feerate", ValueFromAmount(amount));
     } else if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
         result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {
