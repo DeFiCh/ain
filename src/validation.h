@@ -63,21 +63,30 @@ enum TxOrderings {
 };
 
 class BlockContext {
-    bool isEvmEnabledForBlock{};
+    std::shared_ptr<CCustomCSView> cache;
+    CCustomCSView *view;
+    std::optional<bool> isEvmEnabledForBlock;
     std::shared_ptr<CScopedTemplateID> evmTemplateId{};
     bool evmPreValidate{};
 
 public:
-    explicit BlockContext(const bool enabled = {}, const std::shared_ptr<CScopedTemplateID> &id = {}, const bool prevalidate = {}) :
+    explicit BlockContext(CCustomCSView *view = {},
+                          const std::optional<bool> enabled = {},
+                          const std::shared_ptr<CScopedTemplateID> &id = {},
+                          const bool prevalidate = {}) :
+            view(view),
             isEvmEnabledForBlock(enabled),
             evmTemplateId(id),
             evmPreValidate(prevalidate) {}
 
-    [[nodiscard]] bool GetEVMEnabledForBlock() const { return isEvmEnabledForBlock; }
-    [[nodiscard]] bool GetEVMPreValidate() const { return evmPreValidate; }
-    [[nodiscard]] const std::shared_ptr<CScopedTemplateID> &GetEVMTemplateId() const { return evmTemplateId; }
+    [[nodiscard]] CCustomCSView &GetView();
+    [[nodiscard]] bool GetEVMEnabledForBlock();
+    [[nodiscard]] bool GetEVMPreValidate() const;
+    [[nodiscard]] const std::shared_ptr<CScopedTemplateID> &GetEVMTemplateId() const;
 
-    void SetEVMTemplateId(const std::shared_ptr<CScopedTemplateID> &id) { evmTemplateId = id; }
+    void SetView(CCustomCSView &other);
+    void SetEVMPreValidate(const bool other);
+    void SetEVMTemplateId(const std::shared_ptr<CScopedTemplateID> &id);
 };
 
 struct TransactionContext {

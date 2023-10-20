@@ -227,7 +227,8 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    CCustomCSView mnview(*pcustomcsview);
+    BlockContext blockCtx;
+    auto mnview = blockCtx.GetView();
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
@@ -249,28 +250,25 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     }
 
     const auto attributes = mnview.GetAttributes();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
 
-    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
+    LogPrintf("XXX miner %d %d\n", isEvmEnabledForBlock, IsEVMEnabled(attributes));
+
     if (isEvmEnabledForBlock) {
-        evmTemplateId = CScopedTemplateID::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime);
+        blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime));
         if (!evmTemplateId) {
             return Res::Err("Failed to create block template");
         }
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
 
-    auto blockCtx = BlockContext {
-        isEvmEnabledForBlock,
-        evmTemplateId,
-    };
-
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, txFees, blockCtx);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, txFees, blockCtx);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, txFees, blockCtx);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, txFees, blockCtx);
     }
 
     XVM xvm{};
@@ -638,7 +636,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::map<uint256, CAmount>& txFees, BlockContext& blockCtx)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, std::map<uint256, CAmount>& txFees, BlockContext& blockCtx)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -671,7 +669,8 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto& evmTemplateId = blockCtx.GetEVMTemplateId();
+    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    auto &view = blockCtx.GetView();
 
     // Block gas limit
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
@@ -838,7 +837,11 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         0,
                 };
 
-                const auto res = ApplyCustomTx(cache, blockCtx, txCtx);
+                // Copy block context and update to cache view
+                auto blockCtxTxView{blockCtx};
+                blockCtxTxView.SetView(cache);
+
+                const auto res = ApplyCustomTx(blockCtxTxView, txCtx);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     failedTxSet.insert(entry);

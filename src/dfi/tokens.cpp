@@ -70,7 +70,7 @@ Res CTokensView::CreateDFIToken() {
 
 ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                                         bool isPreBayfront,
-                                        const BlockContext &blockCtx) {
+                                        BlockContext blockCtx) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }

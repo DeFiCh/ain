@@ -58,10 +58,10 @@ protected:
     const Consensus::Params &consensus;
     const uint64_t time;
     const uint32_t txn;
-    const BlockContext &blockCtx;
+    BlockContext &blockCtx;
 
 public:
-    CCustomTxVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx);
+    CCustomTxVisitor(BlockContext &blockCtx, const TransactionContext &txCtx);
 
 protected:
     Res HasAuth(const CScript &auth) const;

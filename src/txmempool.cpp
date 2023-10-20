@@ -1248,6 +1248,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             continue;
         }
         auto blockCtx = BlockContext{
+            &viewDuplicate,
             isEvmEnabledForBlock,
             {},
             true,
@@ -1260,7 +1261,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
                 0,
                 0,
         };
-        auto res = ApplyCustomTx(viewDuplicate, blockCtx, txCtx);
+        auto res = ApplyCustomTx(blockCtx, txCtx);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));

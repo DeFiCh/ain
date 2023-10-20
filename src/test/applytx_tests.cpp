@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
             0,
         };
 
-        res = ApplyCustomTx(mnview, blockCtx, txCtx);
+        res = ApplyCustomTx(blockCtx, txCtx);
 
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 0,
         };
 
-        res = ApplyCustomTx(mnview, blockCtx, txCtx);
+        res = ApplyCustomTx(blockCtx, txCtx);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.code, (uint32_t) CustomTxErrCodes::NotEnoughBalance);
         // check that nothing changes:
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 0,
         };
 
-        res = ApplyCustomTx(mnview, blockCtx, txCtx);
+        res = ApplyCustomTx(blockCtx, txCtx);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 0,
         };
 
-        res = ApplyCustomTx(mnview, blockCtx, txCtx);
+        res = ApplyCustomTx(blockCtx, txCtx);
         BOOST_CHECK(res.ok);
         // check result balances:
         auto const dfi90 = CTokenAmount{DFI, 90};

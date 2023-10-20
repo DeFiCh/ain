@@ -480,24 +480,18 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
         if (optAuthTx) {
             AddCoins(coins, *optAuthTx, height);
         }
-        CCustomCSView view(*pcustomcsview);
-        auto consensus = Params().GetConsensus();
-        const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
-        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
-        auto blockCtx = BlockContext{
-            isEvmEnabledForBlock,
-            evmTemplateId,
-            true,
-        };
+        BlockContext blockCtx;
+        blockCtx.SetEVMPreValidate(true);
+
         const auto txCtx = TransactionContext{
             coins,
             tx,
-            consensus,
+            Params().GetConsensus(),
             height,
             ::ChainActive().Tip()->nTime,
             0,
         };
-        res = CustomTxVisit(view, txMessage, blockCtx, txCtx);
+        res = CustomTxVisit(txMessage, blockCtx, txCtx);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {

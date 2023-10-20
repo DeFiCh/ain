@@ -319,8 +319,7 @@ public:
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor {
-    CCustomCSView &mnview;
-    const BlockContext &blockCtx;
+    BlockContext &blockCtx;
     const TransactionContext &txCtx;
 
     template <typename T, typename T1, typename... Args>
@@ -328,7 +327,7 @@ class CCustomTxApplyVisitor {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>) {
-            return T1{mnview, blockCtx, txCtx}(obj);
+            return T1{blockCtx, txCtx}(obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
         } else {
@@ -339,10 +338,9 @@ class CCustomTxApplyVisitor {
     }
 
 public:
-    CCustomTxApplyVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx)
+    CCustomTxApplyVisitor(BlockContext &blockCtx, const TransactionContext &txCtx)
 
-        : mnview(mnview),
-          blockCtx(blockCtx),
+        : blockCtx(blockCtx),
           txCtx(txCtx) {}
 
     template <typename T>
@@ -410,10 +408,7 @@ bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Para
     return IsDisabledTx(height, txType, consensus);
 }
 
-Res CustomTxVisit(CCustomCSView &mnview,
-                  const CCustomTxMessage &txMessage,
-                  BlockContext &blockCtx,
-                  const TransactionContext &txCtx) {
+Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx) {
     const auto &consensus = txCtx.consensus;
     const auto height = txCtx.height;
     const auto time = txCtx.time;
@@ -435,7 +430,7 @@ Res CustomTxVisit(CCustomCSView &mnview,
     }
 
     try {
-        auto res = std::visit(CCustomTxApplyVisitor(mnview, blockCtx, txCtx), txMessage);
+        auto res = std::visit(CCustomTxApplyVisitor(blockCtx, txCtx), txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
@@ -516,7 +511,9 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
+    auto &mnview = blockCtx.GetView();
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &consensus = txCtx.consensus;
     const auto height = txCtx.height;
     const auto &tx = txCtx.tx;
@@ -531,8 +528,6 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
     auto attributes = mnview.GetAttributes();
-
-    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
 
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
@@ -561,7 +556,13 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, txCtx);
         }
 
-        res = CustomTxVisit(view, txMessage, blockCtx, txCtx);
+        // TX changes are applied on a different view which
+        // is then used to create the TX undo based on the
+        // difference between the original and the copy.
+        auto blockCtxTxView{blockCtx};
+        blockCtxTxView.SetView(view);
+
+        res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {

@@ -662,26 +662,19 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
     result.pushKV("type", ToString(guess));
     if (!actualHeight) {
         LOCK(cs_main);
-        CCustomCSView mnview(*pcustomcsview);
+        BlockContext blockCtx;
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
-
-        const auto &consensus = Params().GetConsensus();
-        const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
-
-        auto blockCtx = BlockContext{
-            isEvmEnabledForBlock,
-        };
 
         const auto txCtx = TransactionContext{
             view,
             *tx,
-            consensus,
+            Params().GetConsensus(),
             static_cast<uint32_t>(nHeight),
             0,
             0,
         };
 
-        auto res = ApplyCustomTx(mnview, blockCtx, txCtx);
+        auto res = ApplyCustomTx(blockCtx, txCtx);
 
         result.pushKV("valid", res.ok);
     } else {

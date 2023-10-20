@@ -164,15 +164,9 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(CCustomCSView &mnview,
-                  BlockContext &blockCtx,
-                  const TransactionContext &txCtx,
-                  uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend = nullptr);
 
-Res CustomTxVisit(CCustomCSView &mnview,
-                  const CCustomTxMessage &txMessage,
-                  BlockContext &blockCtx,
-                  const TransactionContext &txCtx);
+Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,

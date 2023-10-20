@@ -90,9 +90,9 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
     return DeFiErrors::InvalidAuth();
 }
 
-CCustomTxVisitor::CCustomTxVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx)
+CCustomTxVisitor::CCustomTxVisitor(BlockContext &blockCtx, const TransactionContext &txCtx)
     : height(txCtx.height),
-      mnview(mnview),
+      mnview(blockCtx.GetView()),
       tx(txCtx.tx),
       coins(txCtx.coins),
       consensus(txCtx.consensus),
