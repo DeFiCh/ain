@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use crate::core::ExecutionStep;
 use crate::opcode;
 use evm_runtime::tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener};
@@ -7,19 +8,71 @@ use log::debug;
 
 pub struct Listener {
     pub trace: Vec<ExecutionStep>,
+    pub gas: VecDeque<u64>,
+    pub gas_cost: VecDeque<u64>,
 }
 
 impl Listener {
-    pub fn new() -> Self {
+    pub fn new(gas: VecDeque<u64>, gas_cost: VecDeque<u64>) -> Self {
         Self {
             trace: vec![],
+            gas,
+            gas_cost
         }
     }
 }
 
-impl GasEventListener for Listener {
+pub struct GasListener {
+    pub gas: VecDeque<u64>,
+    pub gas_cost: VecDeque<u64>,
+    first_cost: bool,
+}
+
+impl GasListener {
+    pub fn new() -> Self {
+        Self {
+            gas: VecDeque::new(),
+            gas_cost: VecDeque::new(),
+            first_cost: true,
+        }
+    }
+}
+
+impl GasEventListener for GasListener {
     fn event(&mut self, event: GasEvent) {
         debug!("gas event: {event:#?}");
+        match event {
+            GasEvent::RecordCost {
+                cost,
+                snapshot
+            } => {
+                if self.first_cost {
+                    self.first_cost = false;
+                    return;
+                }
+
+                self.gas_cost.push_back(cost);
+
+                if let Some(snapshot) = snapshot {
+                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas);
+                } else {
+                    panic!("No snapshot found!");
+                }
+            }
+            GasEvent::RecordDynamicCost {
+                gas_cost,
+                snapshot, ..
+            } => {
+                self.gas_cost.push_back(gas_cost);
+
+                if let Some(snapshot) = snapshot {
+                    self.gas.push_back(snapshot.gas_limit);
+                } else {
+                    panic!("No snapshot found!");
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -37,8 +90,8 @@ impl RuntimeEventListener for Listener {
                 self.trace.push(ExecutionStep {
                     pc: *position.as_ref().unwrap(),
                     op: opcode::opcode_to_string(opcode),
-                    gas: 0,
-                    gas_cost: 0,
+                    gas: self.gas.pop_front().unwrap_or_default(),
+                    gas_cost: self.gas_cost.pop_front().unwrap_or_default(),
                     stack: stack.data().to_vec(),
                     memory: memory.data().to_vec(),
                 });

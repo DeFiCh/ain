@@ -18,7 +18,8 @@ use ethereum::{
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
 use evm::Config;
-use evm_runtime::tracing::using;
+use evm_runtime::tracing::using as runtime_using;
+use evm::gasometer::tracing::using as gas_using;
 use log::{debug, trace};
 use lru::LruCache;
 use parking_lot::Mutex;
@@ -847,13 +848,28 @@ impl EVMCoreService {
 
         static CONFIG: Config = Config::shanghai();
         let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
-        let state = MemoryStackState::new(metadata, &backend);
+        let state = MemoryStackState::new(metadata.clone(), &backend);
+        let gas_state = MemoryStackState::new(metadata, &backend);
         let precompiles = MetachainPrecompiles;
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
+        let mut gas_executor = StackExecutor::new_with_precompiles(gas_state, &CONFIG, &precompiles);
 
-        let mut listener = crate::eventlistener::Listener::new();
+        let mut gas_listener = crate::eventlistener::GasListener::new();
 
-        let (execution_success, return_value, used_gas) = using(&mut listener, move || {
+        let al = access_list.clone();
+
+        gas_using(&mut gas_listener, move || {
+            let access_list = al
+                .into_iter()
+                .map(|x| (x.address, x.storage_keys))
+                .collect::<Vec<_>>();
+            gas_executor.transact_call(caller, to, value, data.to_vec(), gas_limit, access_list);
+        });
+
+        let mut listener = crate::eventlistener::Listener::new(gas_listener.gas, gas_listener.gas_cost);
+
+
+        let (execution_success, return_value, used_gas) = runtime_using(&mut listener, move || {
             let access_list = access_list
                 .into_iter()
                 .map(|x| (x.address, x.storage_keys))

@@ -1,33 +1,4 @@
-use ethereum_types::H160;
-use evm::gasometer::Gasometer;
 use evm::Opcode;
-use evm::{gasometer, Handler, Stack};
-
-pub fn record_cost<H: Handler>(
-    opcode: Opcode,
-    gasometer: &mut Gasometer,
-    to: H160,
-    stack: &Stack,
-    executor: &mut H,
-) {
-    match gasometer::static_opcode_cost(opcode) {
-        Some(cost) => gasometer.record_cost(cost).expect("Out of Gas"),
-        None => {
-            let (gas_cost, _, memory) = gasometer::dynamic_opcode_cost(
-                to,
-                opcode,
-                stack,
-                false,
-                gasometer.config(),
-                executor,
-            )
-            .expect("Error getting dynamic cost");
-            gasometer
-                .record_dynamic_cost(gas_cost, memory)
-                .expect("Error recording dynamic gas cost");
-        }
-    }
-}
 
 pub fn opcode_to_string(opcode: Opcode) -> String {
     let x = match opcode {

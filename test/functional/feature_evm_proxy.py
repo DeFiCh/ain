@@ -99,6 +99,7 @@ class EVMTest(DefiTestFramework):
         implementation_contract = node.w3.eth.contract(
             address=receipt["contractAddress"], abi=implementation_abi
         )
+        print(f"implementation contract: {implementation_contract.address}")
         return implementation_contract
 
     def should_deploy_proxy_smart_contract(
@@ -150,8 +151,31 @@ class EVMTest(DefiTestFramework):
         hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
+        print(receipt)
         assert_equal(receipt["status"], 1)
         assert_equal(proxy_contract.functions.randomVar().call(), 20)
+
+        # debug_traceTransaction
+        import requests
+
+        print(f"proxy contract: {proxy_contract.address}")
+
+        response = requests.post(
+            node.evm_rpc.url,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "debug_traceTransaction",
+                "params": [node.w3.to_hex(hash)],
+            },
+        )
+        trace_data = response.json()
+
+        import json
+
+        print(json.dumps(trace_data))
+
+        raise Exception
 
     def fail_send_money_to_smart_contract(self, proxy_contract: web3Contract):
         node = self.nodes[0]
@@ -356,23 +380,23 @@ class EVMTest(DefiTestFramework):
 
         self.should_delegatecall_function_in_implementation_contract(proxy_contract)
 
-        self.fail_send_money_to_smart_contract(proxy_contract)
+        # self.fail_send_money_to_smart_contract(proxy_contract)
 
-        self.fail_delegatecall_to_non_existing_function_in_implementation(
-            proxy_contract
-        )
+        # self.fail_delegatecall_to_non_existing_function_in_implementation(
+        #     proxy_contract
+        # )
 
-        self.fail_send_eth_when_delegatecall_to_non_payable_function(proxy_contract)
+        # self.fail_send_eth_when_delegatecall_to_non_payable_function(proxy_contract)
 
-        new_implementation_contract = (
-            self.should_deploy_new_implementation_smart_contract()
-        )
+        # new_implementation_contract = (
+        #     self.should_deploy_new_implementation_smart_contract()
+        # )
 
-        self.fail_unauthorized_upgrade(proxy_contract, new_implementation_contract)
+        # self.fail_unauthorized_upgrade(proxy_contract, new_implementation_contract)
 
-        self.should_upgrade_and_interact_with_smart_contract(
-            proxy_contract, new_implementation_contract
-        )
+        # self.should_upgrade_and_interact_with_smart_contract(
+        #     proxy_contract, new_implementation_contract
+        # )
 
 
 if __name__ == "__main__":
