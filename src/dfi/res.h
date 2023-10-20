@@ -2,6 +2,7 @@
 #define DEFI_DFI_RES_H
 
 #include <tinyformat.h>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
