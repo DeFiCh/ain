@@ -62,10 +62,22 @@ enum TxOrderings {
     ENTRYTIME_ORDERING
 };
 
-struct BlockContext {
+class BlockContext {
     bool isEvmEnabledForBlock{};
     std::shared_ptr<CScopedTemplateID> evmTemplateId{};
     bool evmPreValidate{};
+
+public:
+    explicit BlockContext(const bool enabled = {}, const std::shared_ptr<CScopedTemplateID> &id = {}, const bool prevalidate = {}) :
+            isEvmEnabledForBlock(enabled),
+            evmTemplateId(id),
+            evmPreValidate(prevalidate) {}
+
+    [[nodiscard]] bool GetEVMEnabledForBlock() const { return isEvmEnabledForBlock; }
+    [[nodiscard]] bool GetEVMPreValidate() const { return evmPreValidate; }
+    [[nodiscard]] const std::shared_ptr<CScopedTemplateID> &GetEVMTemplateId() const { return evmTemplateId; }
+
+    void SetEVMTemplateId(const std::shared_ptr<CScopedTemplateID> &id) { evmTemplateId = id; }
 };
 
 struct TransactionContext {

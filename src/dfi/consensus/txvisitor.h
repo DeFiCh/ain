@@ -11,7 +11,7 @@
 #include <dfi/res.h>
 #include <dfi/vault.h>
 
-struct BlockContext;
+class BlockContext;
 struct CBalances;
 class CCoinsViewCache;
 struct CCreateProposalMessage;

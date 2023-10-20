@@ -423,12 +423,12 @@ Res CustomTxVisit(CCustomCSView &mnview,
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
-    auto &evmTemplateId = blockCtx.evmTemplateId;
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
 
     if (!evmTemplateId && isEvmEnabledForBlock) {
         std::string minerAddress{};
-        evmTemplateId = CScopedTemplateID::Create(height, minerAddress, 0u, time);
+        blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(height, minerAddress, 0u, time));
         if (!evmTemplateId) {
             return Res::Err("Failed to create queue");
         }
@@ -532,7 +532,7 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
 
     auto attributes = mnview.GetAttributes();
 
-    const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
 
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
@@ -603,15 +603,15 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
     if (!res) {
         res.msg = strprintf("%sTx: %s", ToString(txType), res.msg);
 
-        if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, height)) {
+        if (height >= static_cast<uint32_t>(consensus.DF6DakotaHeight)) {
+            res.code |= CustomTxErrCodes::Fatal;
+        } else if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, height)) {
             if (ShouldReturnNonFatalError(tx, height)) {
                 return res;
             }
             res.code |= CustomTxErrCodes::Fatal;
         }
-        if (height >= static_cast<uint32_t>(consensus.DF6DakotaHeight)) {
-            res.code |= CustomTxErrCodes::Fatal;
-        }
+
         return res;
     }
 

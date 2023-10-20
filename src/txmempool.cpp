@@ -1247,10 +1247,9 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
         auto blockCtx = BlockContext{
             isEvmEnabledForBlock,
-            evmTemplateId,
+            {},
             true,
         };
         const auto txCtx = TransactionContext{

@@ -670,8 +670,8 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     // Quick lookup for failedNonces entries
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
-    const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
-    const auto& evmTemplateId = blockCtx.evmTemplateId;
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto& evmTemplateId = blockCtx.GetEVMTemplateId();
 
     // Block gas limit
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {

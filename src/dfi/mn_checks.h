@@ -15,7 +15,7 @@
 
 #include <variant>
 
-struct BlockContext;
+class BlockContext;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;

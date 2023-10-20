@@ -652,10 +652,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         const auto& consensus = chainparams.GetConsensus();
         const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
         auto blockCtx = BlockContext{
             isEvmEnabledForBlock,
-            evmTemplateId,
+            {},
             true,
         };
 
