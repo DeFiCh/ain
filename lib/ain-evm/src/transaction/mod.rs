@@ -1,6 +1,5 @@
 pub mod system;
 
-use crate::EVMError;
 use anyhow::format_err;
 use ethereum::{
     AccessList, EnvelopedDecoderError, EnvelopedEncodable, LegacyTransaction, TransactionAction,
@@ -10,7 +9,10 @@ use ethereum_types::{H160, H256, U256};
 use rlp::RlpStream;
 use sha3::Digest;
 
-use crate::ecrecover::{public_key_to_address, recover_public_key};
+use crate::{
+    ecrecover::{public_key_to_address, recover_public_key},
+    EVMError,
+};
 
 // Lowest acceptable value for r and s in sig.
 pub const LOWER_H256: H256 = H256([

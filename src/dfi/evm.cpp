@@ -54,29 +54,30 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplateID::CScopedTemplateID(uint64_t id)
-    : evmTemplateId(id) {}
+CScopedTemplate::CScopedTemplate(BlockTemplate *evmTemplate)
+    : evmTemplate(evmTemplate) {}
 
-std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber,
-                                                             const std::string minerAddress,
-                                                             const unsigned int difficulty,
-                                                             const uint64_t timestamp) {
+std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
+                                                         const std::string minerAddress,
+                                                         const unsigned int difficulty,
+                                                         const uint64_t timestamp) {
     CrossBoundaryResult result;
-    uint64_t templateId = evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
+    BlockTemplate *evmTemplate =
+        evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
-        return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(templateId));
+        return std::shared_ptr<CScopedTemplate>(new CScopedTemplate(evmTemplate));
     }
     return nullptr;
 }
 
-CScopedTemplateID::~CScopedTemplateID() {
+CScopedTemplate::~CScopedTemplate() {
     CrossBoundaryResult result;
-    evm_try_unsafe_remove_template(result, evmTemplateId);
+    evm_try_unsafe_remove_template(result, evmTemplate);
     if (!result.ok) {
-        LogPrintf("Failed to destroy queue %d\n", evmTemplateId);
+        LogPrintf("Failed to destroy queue %d\n", evmTemplate);
     }
 }
 
-uint64_t CScopedTemplateID::GetTemplateID() const {
-    return evmTemplateId;
+BlockTemplate *CScopedTemplate::GetTemplate() const {
+    return evmTemplate;
 }

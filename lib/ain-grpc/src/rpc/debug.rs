@@ -215,8 +215,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_block_templates(&self) -> RpcResult<()> {
-        let templates = &self.handler.core.block_templates;
-        debug!("templates : {:#?}", templates);
+        // let templates = &self.handler.core.block_templates;
+        // debug!("templates : {:#?}", templates);
         Ok(())
     }
 }
