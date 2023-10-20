@@ -23,10 +23,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             // Add to existing ATTRIBUTES instead of overwriting.
             auto govVar = mnview.GetAttributes();
 
-            if (!govVar) {
-                return Res::Err("%s: %s", var->GetName(), "Failed to get existing ATTRIBUTES");
-            }
-
             govVar->time = time;
             govVar->evmTemplateId = evmTemplateId;
 
@@ -138,7 +134,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
     }
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
+
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
     if (!attributes->GetValue(key, false)) {
         return Res::Err("Unset Gov variables not currently enabled in attributes.");
@@ -179,9 +175,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) &&
         obj.govVar->GetName() == "ATTRIBUTES") {
         auto govVar = mnview.GetAttributes();
-        if (!govVar) {
-            return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
-        }
 
         if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(obj.govVar);

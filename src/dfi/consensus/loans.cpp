@@ -30,9 +30,6 @@ static Res PaybackWithCollateral(CCustomCSView &view,
                                  uint32_t height,
                                  uint64_t time) {
     const auto attributes = view.GetAttributes();
-    if (!attributes) {
-        return DeFiErrors::MNInvalidAttribute();
-    }
 
     const auto dUsdToken = view.GetToken("DUSD");
     if (!dUsdToken) {
@@ -857,7 +854,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
 
     auto shouldSetVariable = false;
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
         const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);

@@ -11,7 +11,6 @@
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage &obj) const {
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
 
@@ -124,7 +123,6 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
     }
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     bool dfiToDUSD = !obj.source.nTokenId.v;
     const auto paramID = dfiToDUSD ? ParamIDs::DFIP2206F : ParamIDs::DFIP2203;

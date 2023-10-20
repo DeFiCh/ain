@@ -2190,7 +2190,6 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                     if (height >= consensus.DF20GrandCentralHeight)
                     {
                         const auto attributes = mnview.GetAttributes();
-                        assert(attributes);
 
                         if (kv.first == CommunityAccountType::CommunityDevFunds) {
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
@@ -2295,7 +2294,6 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                     if (height >= consensus.DF20GrandCentralHeight)
                     {
                         const auto attributes = mnview.GetAttributes();
-                        assert(attributes);
 
                         if (kv.first == CommunityAccountType::CommunityDevFunds) {
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
@@ -2677,7 +2675,6 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::vector<PrecomputedTransactionData> txdata;
 
     const auto attributes = accountsView.GetAttributes();
-    assert(attributes);
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 

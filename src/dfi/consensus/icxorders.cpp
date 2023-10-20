@@ -12,7 +12,6 @@ bool IsICXEnabled(const int height, const CCustomCSView &view, const Consensus::
     if (height >= consensus.DF22MetachainHeight) {
         const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ICXEnabled};
         auto attributes = view.GetAttributes();
-        assert(attributes);
         return attributes->GetValue(enabledKey, false);
     }
     // ICX transactions allowed before NextNetwrokUpgrade and some of these conditions

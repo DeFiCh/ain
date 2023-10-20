@@ -143,7 +143,6 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
     }
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     bool ownerType{}, operatorType{}, rewardType{};
     for (const auto &[type, addressPair] : obj.updates) {

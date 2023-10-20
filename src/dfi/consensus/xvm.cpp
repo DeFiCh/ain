@@ -22,7 +22,6 @@ static bool IsTransferDomainEnabled(const int height, const CCustomCSView &view,
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomain};
     auto attributes = view.GetAttributes();
-    assert(attributes);
     return attributes->GetValue(enabledKey, false);
 }
 

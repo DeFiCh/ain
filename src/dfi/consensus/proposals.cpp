@@ -18,7 +18,6 @@ Res CProposalsConsensus::IsOnChainGovernanceEnabled() const {
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     if (!attributes->GetValue(enabledKey, false)) {
         return Res::Err("Cannot create tx, on-chain governance is not enabled");
@@ -88,7 +87,6 @@ Res CProposalsConsensus::operator()(const CCreateProposalMessage &obj) const {
     }
 
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
     CDataStructureV0 cfpMaxCycles{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMaxCycles};
     auto maxCycles = attributes->GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
 

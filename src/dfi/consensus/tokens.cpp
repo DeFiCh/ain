@@ -149,7 +149,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     std::set<CScript> databaseMembers;
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
@@ -195,7 +194,6 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
 
     if (!toAddressEnabled && !obj.to.empty()) {
@@ -255,7 +253,6 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
         }
 
         auto attributes = mnview.GetAttributes();
-        assert(attributes);
 
         CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
@@ -401,7 +398,6 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
         }
 
         auto attributes = mnview.GetAttributes();
-        assert(attributes);
 
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
         const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});

@@ -531,7 +531,6 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     const auto isEvmEnabledForBlock = blockCtx.isEvmEnabledForBlock;
 
@@ -588,7 +587,6 @@ Res ApplyCustomTx(CCustomCSView &mnview, BlockContext &blockCtx, const Transacti
                     AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
                 auto attributes = view.GetAttributes();
-                assert(attributes);
 
                 auto burnFee = MultiplyAmounts(tx.vout[0].nValue, attributes->GetValue(burnPctKey, COIN / 2));
                 mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
@@ -970,7 +968,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     }
 
     auto attributes = view.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
     auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
@@ -1176,7 +1173,6 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
     }
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDInterestBurn};
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
@@ -1449,7 +1445,6 @@ struct TransferDomainConfigKeys {
 TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
     TransferDomainConfigKeys k{};
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     auto r = TransferDomainConfig::Default();
 
     r.dvmToEvmEnabled = attributes->GetValue(k.dvm_to_evm_enabled, r.dvmToEvmEnabled);

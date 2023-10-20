@@ -852,9 +852,6 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     }
 
     auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
@@ -1953,9 +1950,6 @@ static void ProcessTokenSplits(const CBlock &block,
         return;
     }
     const auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
@@ -2234,9 +2228,6 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
     }
 
     auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::BlockPeriod};
@@ -2387,7 +2378,6 @@ static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &ca
     }
 
     auto attributes = cache.GetAttributes();
-    assert(attributes);
 
     DCT_ID dusd{};
     const auto token = cache.GetTokenGuessId("DUSD", dusd);
@@ -2431,9 +2421,6 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     auto funds = cache.GetCommunityBalance(CommunityAccountType::CommunityDevFunds);
     if (!attributes->GetValue(enabledKey, false)) {
@@ -2627,7 +2614,6 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
     }
 
     auto attributes = cache.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
     attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
@@ -2724,7 +2710,6 @@ static Res ProcessEVMQueue(const CBlock &block,
     }
 
     auto attributes = cache.GetAttributes();
-    assert(attributes);
 
     auto stats = attributes->GetValue(CEvmBlockStatsLive::Key, CEvmBlockStatsLive{});
 
