@@ -58,9 +58,7 @@ protected:
     const Consensus::Params &consensus;
     const uint64_t time;
     const uint32_t txn;
-    const std::shared_ptr<CScopedTemplateID> &evmTemplateId;
-    bool isEvmEnabledForBlock;
-    bool evmPreValidate;
+    const BlockContext &blockCtx;
 
 public:
     CCustomTxVisitor(CCustomCSView &mnview, const BlockContext &blockCtx, const TransactionContext &txCtx);

@@ -98,9 +98,7 @@ CCustomTxVisitor::CCustomTxVisitor(CCustomCSView &mnview, const BlockContext &bl
       consensus(txCtx.consensus),
       time(txCtx.time),
       txn(txCtx.txn),
-      evmTemplateId(blockCtx.GetEVMTemplateId()),
-      isEvmEnabledForBlock(blockCtx.GetEVMEnabledForBlock()),
-      evmPreValidate(blockCtx.GetEVMPreValidate()) {}
+      blockCtx(blockCtx) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
     return ::HasAuth(tx, coins, auth);

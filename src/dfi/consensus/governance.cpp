@@ -5,6 +5,7 @@
 #include <dfi/consensus/governance.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
+#include <validation.h>
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // check foundation auth
@@ -24,7 +25,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             auto govVar = mnview.GetAttributes();
 
             govVar->time = time;
-            govVar->evmTemplateId = evmTemplateId;
+            govVar->evmTemplateId = blockCtx.GetEVMTemplateId();
 
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
             if (!newVar) {

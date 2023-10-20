@@ -13,6 +13,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <validation.h>
 
 class CTransaction;
 class UniValue;
@@ -196,8 +197,7 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(const CTokenImpl &token,
                                bool isPreBayfront = false,
-                               bool shouldCreateDst20 = false,
-                               const std::shared_ptr<CScopedTemplateID> &evmTemplateId = {});
+                               const BlockContext &blockCtx = BlockContext{});
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

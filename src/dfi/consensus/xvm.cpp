@@ -12,6 +12,7 @@
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 #include <ffi/cxx.h>
+#include <validation.h>
 
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
@@ -227,6 +228,10 @@ static Res ValidateTransferDomain(const CTransaction &tx,
 }
 
 Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    const auto evmPreValidate = blockCtx.GetEVMPreValidate();
+
     std::vector<TransferDomainInfo> contexts;
     auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock, contexts);
     if (!res) {
@@ -411,6 +416,10 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 }
 
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    const auto evmPreValidate = blockCtx.GetEVMPreValidate();
+
     if (!isEvmEnabledForBlock) {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
