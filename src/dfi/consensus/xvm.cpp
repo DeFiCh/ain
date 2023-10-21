@@ -89,7 +89,6 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
                                       const CCustomCSView &mnview,
                                       const uint32_t height,
                                       const CCoinsViewCache &coins,
-                                      const Consensus::Params &consensus,
                                       const CTransferDomainItem &src,
                                       const CTransferDomainItem &dst,
                                       TransferDomainInfo &context) {
@@ -217,7 +216,7 @@ static Res ValidateTransferDomain(const CTransaction &tx,
 
     for (const auto &[src, dst] : obj.transfers) {
         TransferDomainInfo context;
-        auto res = ValidateTransferDomainEdge(tx, config, mnview, height, coins, consensus, src, dst, context);
+        auto res = ValidateTransferDomainEdge(tx, config, mnview, height, coins, src, dst, context);
         if (!res) {
             return res;
         }
@@ -228,6 +227,10 @@ static Res ValidateTransferDomain(const CTransaction &tx,
 }
 
 Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
     const auto evmPreValidate = blockCtx.GetEVMPreValidate();
@@ -417,6 +420,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 }
 
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
+    const auto &tx = txCtx.GetTransaction();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
     const auto evmPreValidate = blockCtx.GetEVMPreValidate();

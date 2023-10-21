@@ -58,6 +58,9 @@ DCT_ID CICXOrdersConsensus::FindTokenByPartialSymbolName(const std::string &symb
 }
 
 Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
     if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
@@ -98,7 +101,11 @@ Res CICXOrdersConsensus::operator()(const CICXCreateOrderMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
+
     if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
     }
@@ -155,7 +162,11 @@ Res CICXOrdersConsensus::operator()(const CICXMakeOfferMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
+
     if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
     }
@@ -308,7 +319,11 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitDFCHTLCMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
+
     if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
     }
@@ -445,7 +460,11 @@ Res CICXOrdersConsensus::operator()(const CICXSubmitEXTHTLCMessage &obj) const {
 }
 
 Res CICXOrdersConsensus::operator()(const CICXClaimDFCHTLCMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
+
     if (!IsICXEnabled(height, mnview, consensus)) {
         return DeFiErrors::ICXDisabled();
     }
@@ -592,6 +611,8 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOrderMessage &obj) const {
         return res;
     }
 
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
     CICXCloseOrderImplemetation closeorder;
@@ -640,6 +661,9 @@ Res CICXOrdersConsensus::operator()(const CICXCloseOfferMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
     CICXCloseOfferImplemetation closeoffer;

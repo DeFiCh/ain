@@ -91,19 +91,17 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
 }
 
 CCustomTxVisitor::CCustomTxVisitor(BlockContext &blockCtx, const TransactionContext &txCtx)
-    : height(txCtx.GetHeight()),
-      tx(txCtx.GetTransaction()),
-      coins(txCtx.GetCoins()),
-      consensus(txCtx.GetConsensus()),
-      time(txCtx.GetTime()),
-      txn(txCtx.GetTxn()),
-      blockCtx(blockCtx) {}
+    : blockCtx(blockCtx),
+      txCtx(txCtx) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {
+    const auto &coins = txCtx.GetCoins();
+    const auto &tx = txCtx.GetTransaction();
     return ::HasAuth(tx, coins, auth);
 }
 
 Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
+    const auto &coins = txCtx.GetCoins();
     const Coin &auth = coins.AccessCoin(COutPoint(collateralTx, 1));  // always n=1 output
     if (!HasAuth(auth.out.scriptPubKey)) {
         return Res::Err("tx must have at least one input from the owner");
@@ -113,6 +111,10 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
 
 Res CCustomTxVisitor::HasFoundationAuth() const {
     auto &mnview = blockCtx.GetView();
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto &tx = txCtx.GetTransaction();
+
     auto members = consensus.foundationMembers;
     const auto attributes = mnview.GetAttributes();
 
@@ -135,6 +137,9 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
 }
 
 Res CCustomTxVisitor::CheckCustomTx() const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     if (static_cast<int>(height) < consensus.DF10EunosPayaHeight) {
         if (tx.vout.size() != 2) {
             return Res::Err("malformed tx vouts ((wrong number of vouts)");
@@ -171,6 +176,8 @@ Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, const CScr
 }
 
 ResVal<CBalances> CCustomTxVisitor::MintedTokens(uint32_t mintingOutputsStart) const {
+    const auto &tx = txCtx.GetTransaction();
+
     CBalances balances;
     for (uint32_t i = mintingOutputsStart; i < (uint32_t)tx.vout.size(); i++) {
         if (auto res = balances.Add(tx.vout[i].TokenAmount()); !res) {
@@ -181,6 +188,7 @@ ResVal<CBalances> CCustomTxVisitor::MintedTokens(uint32_t mintingOutputsStart) c
 }
 
 Res CCustomTxVisitor::SetShares(const CScript &owner, const TAmounts &balances) const {
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
     for (const auto &balance : balances) {
         auto token = mnview.GetToken(balance.first);
@@ -214,7 +222,9 @@ Res CCustomTxVisitor::DelShares(const CScript &owner, const TAmounts &balances) 
 
 // we need proxy view to prevent add/sub balance record
 void CCustomTxVisitor::CalculateOwnerRewards(const CScript &owner) const {
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
+
     CCustomCSView view(mnview);
     view.CalculateOwnerRewards(owner, height);
     view.Flush();
@@ -260,7 +270,10 @@ Res CCustomTxVisitor::SubBalancesDelShares(const CAccounts &accounts) const {
 Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
                                          const CVaultAssets &vaultAssets,
                                          const uint32_t ratio) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
+
     std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
@@ -360,7 +373,10 @@ ResVal<CVaultAssets> CCustomTxVisitor::CheckCollateralRatio(const CVaultId &vaul
                                                             const CBalances &collaterals,
                                                             bool useNextPrice,
                                                             bool requireLivePrice) const {
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
     auto &mnview = blockCtx.GetView();
+
     auto vaultAssets = mnview.GetVaultAssets(vaultId, collaterals, height, time, useNextPrice, requireLivePrice);
     if (!vaultAssets) {
         return vaultAssets;

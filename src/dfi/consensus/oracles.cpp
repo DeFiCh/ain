@@ -25,6 +25,7 @@ Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
         return Res::Err("tx not from foundation member");
     }
 
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
     COracle oracle;
@@ -59,7 +60,11 @@ Res COraclesConsensus::operator()(const CRemoveOracleAppointMessage &obj) const 
 }
 
 Res COraclesConsensus::operator()(const CSetOracleDataMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
     auto &mnview = blockCtx.GetView();
+
     auto oracle = mnview.GetOracleData(obj.oracleId);
     if (!oracle) {
         return Res::Err("failed to retrieve oracle <%s> from database", obj.oracleId.GetHex());

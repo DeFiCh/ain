@@ -11,7 +11,10 @@
 extern std::string ScriptToString(const CScript &script);
 
 Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
+
     auto vaultCreationFee = consensus.vaultCreationFee;
     if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimalString(vaultCreationFee));
@@ -49,6 +52,8 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
 
     // vault exists
@@ -119,6 +124,8 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
 
     // vault exists
@@ -195,6 +202,8 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
         return Res::Err("tx must have at least one input from token owner");
     }
 
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
     auto &mnview = blockCtx.GetView();
 
     // vault exists
@@ -244,6 +253,9 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
     auto &mnview = blockCtx.GetView();
 
     // vault exists
@@ -354,6 +366,8 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
         return Res::Err("tx must have at least one input from token owner");
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
 
     // vault exists

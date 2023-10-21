@@ -13,6 +13,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
     auto &mnview = blockCtx.GetView();
 
     for (const auto &gov : obj.govs) {
@@ -137,6 +140,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
         return Res::Err("tx not from foundation member");
     }
 
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
 
@@ -168,6 +172,11 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     if (obj.startHeight <= height) {
         return Res::Err("startHeight must be above the current block height");
     }
@@ -175,8 +184,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     if (obj.govVar->GetName() == "ORACLE_BLOCK_INTERVAL") {
         return Res::Err("%s: %s", obj.govVar->GetName(), "Cannot set via setgovheight.");
     }
-
-    auto &mnview = blockCtx.GetView();
 
     // Validate GovVariables before storing
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) &&

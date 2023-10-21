@@ -10,6 +10,9 @@
 #include <dfi/mn_checks.h>
 
 Res CTokensConsensus::CheckTokenCreationTx() const {
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+
     if (tx.vout.size() < 2 || tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
             tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0},
         "malformed tx vouts (wrong creation fee or collateral amount)") {
@@ -28,6 +31,11 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
                         token.destructionHeight,
                         token.destructionTx.GetHex());
     }
+
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
     // pre-bayfront logic:
@@ -89,6 +97,9 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
     token.symbol = tokenSymbol;
@@ -129,7 +140,11 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
 }
 
 Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
+
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
@@ -192,11 +207,14 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
     const auto fortCanningCrunchHeight = static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight);
     const auto grandCentralHeight = static_cast<uint32_t>(consensus.DF20GrandCentralHeight);
-
-    auto &mnview = blockCtx.GetView();
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
     const auto attributes = mnview.GetAttributes();
@@ -385,6 +403,7 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
         return Res::Err("tx must have balances to burn");
     }
 
+    const auto &consensus = txCtx.GetConsensus();
     auto &mnview = blockCtx.GetView();
 
     for (const auto &[tokenId, amount] : obj.amounts.balances) {
