@@ -91,12 +91,12 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
 }
 
 CCustomTxVisitor::CCustomTxVisitor(BlockContext &blockCtx, const TransactionContext &txCtx)
-    : height(txCtx.height),
-      tx(txCtx.tx),
-      coins(txCtx.coins),
-      consensus(txCtx.consensus),
-      time(txCtx.time),
-      txn(txCtx.txn),
+    : height(txCtx.GetHeight()),
+      tx(txCtx.GetTransaction()),
+      coins(txCtx.GetCoins()),
+      consensus(txCtx.GetConsensus()),
+      time(txCtx.GetTime()),
+      txn(txCtx.GetTxn()),
       blockCtx(blockCtx) {}
 
 Res CCustomTxVisitor::HasAuth(const CScript &auth) const {

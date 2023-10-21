@@ -832,7 +832,6 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                         chainparams.GetConsensus(),
                         static_cast<uint32_t>(nHeight),
                         pblock->nTime,
-                        0,
                 };
 
                 // Copy block context and update to cache view

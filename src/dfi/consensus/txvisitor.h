@@ -23,7 +23,7 @@ class CScopedTemplateID;
 class CTokenImplementation;
 class CTransaction;
 class CVaultAssets;
-struct TransactionContext;
+class TransactionContext;
 
 namespace Consensus {
 struct Params;

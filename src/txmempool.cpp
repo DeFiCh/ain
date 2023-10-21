@@ -1258,8 +1258,6 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
                 tx,
                 consensus,
                 static_cast<uint32_t>(height),
-                0,
-                0,
         };
         auto res = ApplyCustomTx(blockCtx, txCtx);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {

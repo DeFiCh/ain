@@ -189,8 +189,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
                 tx,
                 chainparams.GetConsensus(),
                 static_cast<uint32_t>(nSpendHeight),
-                0,
-                0,
         };
         auto res = ApplyCustomTx(blockCtx, txCtx, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

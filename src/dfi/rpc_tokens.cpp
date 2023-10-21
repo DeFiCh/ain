@@ -670,8 +670,6 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
             *tx,
             Params().GetConsensus(),
             static_cast<uint32_t>(nHeight),
-            0,
-            0,
         };
 
         auto res = ApplyCustomTx(blockCtx, txCtx);

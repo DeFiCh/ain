@@ -664,7 +664,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
                 consensus,
                 static_cast<uint32_t>(height),
                 static_cast<uint64_t>(nAcceptTime),
-                0,
         };
 
         auto res = ApplyCustomTx(blockCtx, txCtx);

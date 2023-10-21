@@ -19,7 +19,7 @@ class BlockContext;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;
-struct TransactionContext;
+class TransactionContext;
 
 class CCustomCSView;
 

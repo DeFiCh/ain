@@ -89,13 +89,34 @@ public:
     void SetEVMTemplateId(const std::shared_ptr<CScopedTemplateID> &id);
 };
 
-struct TransactionContext {
+class TransactionContext {
     const CCoinsViewCache &coins;
     const CTransaction &tx;
     const Consensus::Params &consensus;
-    const uint32_t height;
-    const uint64_t time;
-    const uint32_t txn;
+    const uint32_t height{};
+    const uint64_t time{};
+    const uint32_t txn{};
+
+public:
+    TransactionContext(const CCoinsViewCache &coins,
+                       const CTransaction &tx,
+                       const Consensus::Params &consensus,
+                       const uint32_t height = {},
+                       const uint64_t time = {},
+                       const uint32_t txn = {}) :
+                       coins(coins),
+                       tx(tx),
+                       consensus(consensus),
+                       height(height),
+                       time(time),
+                       txn(txn) {}
+
+    [[nodiscard]] const CCoinsViewCache &GetCoins() const { return coins; };
+    [[nodiscard]] const CTransaction &GetTransaction() const { return tx; };
+    [[nodiscard]] const Consensus::Params &GetConsensus() const { return consensus; };
+    [[nodiscard]] const uint32_t GetHeight() const { return height; };
+    [[nodiscard]] const uint64_t GetTime() const { return time; };
+    [[nodiscard]] const uint32_t GetTxn() const { return txn; };
 };
 
 /** Default for -minrelaytxfee, minimum relay fee for transactions */

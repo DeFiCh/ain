@@ -409,10 +409,10 @@ bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Para
 }
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx) {
-    const auto &consensus = txCtx.consensus;
-    const auto height = txCtx.height;
-    const auto time = txCtx.time;
-    const auto &tx = txCtx.tx;
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    const auto &tx = txCtx.GetTransaction();
 
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
@@ -452,9 +452,9 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
                               const CCustomTxMessage &txMessage,
                               const CustomTxType txType,
                               const TransactionContext &txCtx) {
-    const auto height = txCtx.height;
-    const auto &txid = txCtx.tx.GetHash();
-    const auto txn = txCtx.txn;
+    const auto height = txCtx.GetHeight();
+    const auto &txid = txCtx.GetTransaction().GetHash();
+    const auto txn = txCtx.GetTxn();
 
     if (txType == CustomTxType::Vault) {
         auto obj = std::get<CVaultMessage>(txMessage);
@@ -514,10 +514,10 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
 Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto &consensus = txCtx.consensus;
-    const auto height = txCtx.height;
-    const auto &tx = txCtx.tx;
-    const auto &txn = txCtx.txn;
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    const auto &txn = txCtx.GetTxn();
 
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs

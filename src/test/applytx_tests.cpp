@@ -125,9 +125,6 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
             coinview,
             tx,
             amkCheated,
-            1,
-            0,
-            0,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -152,9 +149,6 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 coinview,
                 tx,
                 amkCheated,
-                1,
-                0,
-                0,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -179,9 +173,6 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 coinview,
                 tx,
                 amkCheated,
-                1,
-                0,
-                0,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -206,9 +197,6 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 coinview,
                 tx,
                 amkCheated,
-                1,
-                0,
-                0,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);

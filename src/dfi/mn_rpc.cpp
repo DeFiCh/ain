@@ -489,7 +489,6 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
             Params().GetConsensus(),
             height,
             ::ChainActive().Tip()->nTime,
-            0,
         };
         res = CustomTxVisit(txMessage, blockCtx, txCtx);
     }
