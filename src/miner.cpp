@@ -228,7 +228,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
     BlockContext blockCtx;
-    auto mnview = blockCtx.GetView();
+    auto &mnview = blockCtx.GetView();
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
@@ -252,8 +252,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     const auto attributes = mnview.GetAttributes();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
-
-    LogPrintf("XXX miner %d %d\n", isEvmEnabledForBlock, IsEVMEnabled(attributes));
 
     if (isEvmEnabledForBlock) {
         blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime));

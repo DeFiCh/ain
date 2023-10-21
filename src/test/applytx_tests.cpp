@@ -88,7 +88,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
     LOCK(cs_main);
 
-    CCustomCSView mnview(*pcustomcsview);
+    BlockContext blockCtx;
+    auto &mnview = blockCtx.GetView();
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
     CScript owner{424242};
@@ -110,8 +111,6 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     CMutableTransaction rawTx;
     rawTx.vout = { CTxOut(0, {}) };
     rawTx.vin = { CTxIn(auth_out) };
-
-    BlockContext blockCtx;
 
     // try to send "A:-1@DFI"
     {

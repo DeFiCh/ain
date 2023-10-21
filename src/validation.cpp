@@ -3026,9 +3026,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Finalize items
     if (isEvmEnabledForBlock) {
-        LogPrintf("XXX %d\n", __LINE__);
         XResultThrowOnErr(evm_try_unsafe_commit_block(result, evmTemplateId->GetTemplateID()));
-        LogPrintf("XXX %d\n", __LINE__);
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;
