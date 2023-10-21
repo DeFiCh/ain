@@ -12,6 +12,9 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     if (auto res = HasFoundationAuth(); !res) {
         return res;
     }
+
+    auto &mnview = blockCtx.GetView();
+
     for (const auto &gov : obj.govs) {
         if (!gov.second) {
             return Res::Err("'%s': variable does not registered", gov.first);
@@ -134,6 +137,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
         return Res::Err("tx not from foundation member");
     }
 
+    auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
@@ -171,6 +175,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     if (obj.govVar->GetName() == "ORACLE_BLOCK_INTERVAL") {
         return Res::Err("%s: %s", obj.govVar->GetName(), "Cannot set via setgovheight.");
     }
+
+    auto &mnview = blockCtx.GetView();
 
     // Validate GovVariables before storing
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) &&

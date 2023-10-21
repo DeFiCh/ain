@@ -10,6 +10,7 @@
 #include <dfi/masternodes.h>
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage &obj) const {
+    auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
@@ -122,6 +123,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
         return Res::Err("Transaction must have at least one input from owner");
     }
 
+    auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
 
     bool dfiToDUSD = !obj.source.nTokenId.v;

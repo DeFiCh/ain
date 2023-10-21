@@ -11,6 +11,7 @@
 extern std::string ScriptToString(const CScript &script);
 
 Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
+    auto &mnview = blockCtx.GetView();
     auto vaultCreationFee = consensus.vaultCreationFee;
     if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimalString(vaultCreationFee));
@@ -47,6 +48,8 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
+
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
@@ -115,6 +118,8 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
+
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
@@ -190,6 +195,8 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
         return Res::Err("tx must have at least one input from token owner");
     }
 
+    auto &mnview = blockCtx.GetView();
+
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
@@ -237,6 +244,8 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
+
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
@@ -263,7 +272,7 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
 
     auto hasDUSDLoans = false;
 
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
+    std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
@@ -344,6 +353,8 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
     if (!HasAuth(obj.from)) {
         return Res::Err("tx must have at least one input from token owner");
     }
+
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);

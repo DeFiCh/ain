@@ -179,6 +179,8 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
         return Res::Err("tx not from foundation member!");
     }
 
+    auto &mnview = blockCtx.GetView();
+
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &tokenId = obj.idToken.v;
 
@@ -275,6 +277,8 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
             return Res::Err("interest rate cannot be less than 0!");
         }
     }
+
+    auto &mnview = blockCtx.GetView();
 
     CTokenImplementation token;
     auto tokenSymbol = trim_ws(obj.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
@@ -374,6 +378,8 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
             return Res::Err("interest rate cannot be less than 0!");
         }
     }
+
+    auto &mnview = blockCtx.GetView();
 
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
     if (!pair) {
@@ -483,6 +489,8 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
         return Res::Err("id cannot be empty or more than 8 chars long");
     }
 
+    auto &mnview = blockCtx.GetView();
+
     // Look for loan scheme which already has matching rate and ratio
     bool duplicateLoan = false;
     std::string duplicateID;
@@ -556,6 +564,9 @@ Res CLoansConsensus::operator()(const CDefaultLoanSchemeMessage &obj) const {
     if (obj.identifier.empty() || obj.identifier.length() > 8) {
         return Res::Err("id cannot be empty or more than 8 chars long");
     }
+
+    auto &mnview = blockCtx.GetView();
+
     if (!mnview.GetLoanScheme(obj.identifier)) {
         return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
     }
@@ -585,6 +596,9 @@ Res CLoansConsensus::operator()(const CDestroyLoanSchemeMessage &obj) const {
     if (obj.identifier.empty() || obj.identifier.length() > 8) {
         return Res::Err("id cannot be empty or more than 8 chars long");
     }
+
+    auto &mnview = blockCtx.GetView();
+
     if (!mnview.GetLoanScheme(obj.identifier)) {
         return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
     }
@@ -618,6 +632,8 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
+
     const auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
         return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
@@ -645,7 +661,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 
     auto hasDUSDLoans = false;
 
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
+    std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
@@ -797,6 +813,8 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 }
 
 Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage &obj) const {
+    auto &mnview = blockCtx.GetView();
+
     std::map<DCT_ID, CBalances> loans;
     for (auto &balance : obj.amounts.balances) {
         auto id = balance.first;
@@ -823,6 +841,8 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
     if (!res) {
         return res;
     }
+
+    auto &mnview = blockCtx.GetView();
 
     const auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
@@ -1154,6 +1174,8 @@ Res CLoansConsensus::operator()(const CPaybackWithCollateralMessage &obj) const 
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
+
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     const auto vault = mnview.GetVault(obj.vaultId);

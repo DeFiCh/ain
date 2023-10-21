@@ -24,6 +24,8 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
+
     if (height >= static_cast<uint32_t>(consensus.DF8EunosHeight)) {
         if (!HasAuth(tx.vout[1].scriptPubKey)) {
             return Res::Err("masternode creation needs owner auth");
@@ -106,6 +108,8 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
 }
 
 Res CMasternodesConsensus::operator()(const CResignMasterNodeMessage &obj) const {
+    auto &mnview = blockCtx.GetView();
+
     auto node = mnview.GetMasternode(obj);
     if (!node) {
         return DeFiErrors::MNInvalid(obj.ToString());
@@ -126,6 +130,8 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
     if (obj.updates.size() > 3) {
         return Res::Err("Too many updates provided");
     }
+
+    auto &mnview = blockCtx.GetView();
 
     auto node = mnview.GetMasternode(obj.mnId);
     if (!node) {

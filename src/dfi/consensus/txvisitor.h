@@ -52,7 +52,6 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
 class CCustomTxVisitor {
 protected:
     uint32_t height;
-    CCustomCSView &mnview;
     const CTransaction &tx;
     const CCoinsViewCache &coins;
     const Consensus::Params &consensus;

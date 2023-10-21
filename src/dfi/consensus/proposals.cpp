@@ -7,6 +7,7 @@
 #include <dfi/masternodes.h>
 
 Res CProposalsConsensus::CheckProposalTx(const CCreateProposalMessage &msg) const {
+    auto &mnview = blockCtx.GetView();
     if (tx.vout[0].nValue != GetProposalCreationFee(height, mnview, msg) || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("malformed tx vouts (wrong creation fee)");
     }
@@ -17,6 +18,7 @@ Res CProposalsConsensus::CheckProposalTx(const CCreateProposalMessage &msg) cons
 Res CProposalsConsensus::IsOnChainGovernanceEnabled() const {
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
+    auto &mnview = blockCtx.GetView();
     auto attributes = mnview.GetAttributes();
 
     if (!attributes->GetValue(enabledKey, false)) {
@@ -86,6 +88,7 @@ Res CProposalsConsensus::operator()(const CCreateProposalMessage &obj) const {
         return Res::Err("proposal context hash cannot be more than %d bytes", MAX_PROPOSAL_CONTEXT_SIZE);
     }
 
+    auto &mnview = blockCtx.GetView();
     auto attributes = mnview.GetAttributes();
     CDataStructureV0 cfpMaxCycles{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPMaxCycles};
     auto maxCycles = attributes->GetValue(cfpMaxCycles, static_cast<uint32_t>(MAX_CYCLES));
@@ -113,6 +116,7 @@ Res CProposalsConsensus::operator()(const CProposalVoteMessage &obj) const {
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
     auto prop = mnview.GetProposal(obj.propId);
     if (!prop) {
         return Res::Err("proposal <%s> does not exist", obj.propId.GetHex());

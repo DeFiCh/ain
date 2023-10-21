@@ -9,6 +9,7 @@
 #include <dfi/mn_checks.h>
 
 Res CPoolPairsConsensus::EraseEmptyBalances(TAmounts &balances) const {
+    auto &mnview = blockCtx.GetView();
     for (auto it = balances.begin(), next_it = it; it != balances.end(); it = next_it) {
         ++next_it;
 
@@ -37,6 +38,8 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
             return Res::Err("token symbol should not contain '/'");
         }
     }
+
+    auto &mnview = blockCtx.GetView();
 
     /// @todo ownerAddress validity checked only in rpc. is it enough?
     CPoolPair poolPair{};
@@ -108,6 +111,8 @@ Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
             }
         }
     }
+
+    auto &mnview = blockCtx.GetView();
     return mnview.UpdatePoolPair(obj.poolId, height, obj.status, obj.commission, obj.ownerAddress, rewards);
 }
 
@@ -117,6 +122,7 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessage &obj) const {
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
     return CPoolSwap(obj, height).ExecuteSwap(mnview, {}, consensus);
 }
 
@@ -126,6 +132,7 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
     return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs, consensus);
 }
 
@@ -143,6 +150,7 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
         return Res::Err("amount cannot be less than or equal to zero");
     }
 
+    auto &mnview = blockCtx.GetView();
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
     if (!pair) {
         return Res::Err("there is no such pool pair");
@@ -194,6 +202,7 @@ Res CPoolPairsConsensus::operator()(const CRemoveLiquidityMessage &obj) const {
         return Res::Err("amount cannot be less than or equal to zero");
     }
 
+    auto &mnview = blockCtx.GetView();
     auto pair = mnview.GetPoolPair(amount.nTokenId);
     if (!pair) {
         return Res::Err("there is no such pool pair");

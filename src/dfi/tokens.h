@@ -185,8 +185,9 @@ public:
     static const unsigned char DB_TOKEN_LASTID;  // = 'L';
 
     using CTokenImpl = CTokenImplementation;
+    using TokenIDPair = std::pair<DCT_ID, std::optional<CTokenImpl>>;
     std::optional<CTokenImpl> GetToken(DCT_ID id) const;
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> GetToken(const std::string &symbol) const;
+    std::optional<CTokensView::TokenIDPair> GetToken(const std::string &symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(const uint256 &txid) const;
     [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const = 0;

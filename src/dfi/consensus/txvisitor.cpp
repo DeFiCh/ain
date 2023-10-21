@@ -92,7 +92,6 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
 
 CCustomTxVisitor::CCustomTxVisitor(BlockContext &blockCtx, const TransactionContext &txCtx)
     : height(txCtx.height),
-      mnview(blockCtx.GetView()),
       tx(txCtx.tx),
       coins(txCtx.coins),
       consensus(txCtx.consensus),
@@ -113,6 +112,7 @@ Res CCustomTxVisitor::HasCollateralAuth(const uint256 &collateralTx) const {
 }
 
 Res CCustomTxVisitor::HasFoundationAuth() const {
+    auto &mnview = blockCtx.GetView();
     auto members = consensus.foundationMembers;
     const auto attributes = mnview.GetAttributes();
 
@@ -151,6 +151,8 @@ Res CCustomTxVisitor::CheckCustomTx() const {
 Res CCustomTxVisitor::TransferTokenBalance(DCT_ID id, CAmount amount, const CScript &from, const CScript &to) const {
     assert(!from.empty() || !to.empty());
 
+    auto &mnview = blockCtx.GetView();
+
     CTokenAmount tokenAmount{id, amount};
     // if "from" not supplied it will only add balance on "to" address
     if (!from.empty()) {
@@ -179,6 +181,7 @@ ResVal<CBalances> CCustomTxVisitor::MintedTokens(uint32_t mintingOutputsStart) c
 }
 
 Res CCustomTxVisitor::SetShares(const CScript &owner, const TAmounts &balances) const {
+    auto &mnview = blockCtx.GetView();
     for (const auto &balance : balances) {
         auto token = mnview.GetToken(balance.first);
         if (token && token->IsPoolShare()) {
@@ -194,6 +197,7 @@ Res CCustomTxVisitor::SetShares(const CScript &owner, const TAmounts &balances) 
 }
 
 Res CCustomTxVisitor::DelShares(const CScript &owner, const TAmounts &balances) const {
+    auto &mnview = blockCtx.GetView();
     for (const auto &kv : balances) {
         auto token = mnview.GetToken(kv.first);
         if (token && token->IsPoolShare()) {
@@ -210,12 +214,14 @@ Res CCustomTxVisitor::DelShares(const CScript &owner, const TAmounts &balances) 
 
 // we need proxy view to prevent add/sub balance record
 void CCustomTxVisitor::CalculateOwnerRewards(const CScript &owner) const {
+    auto &mnview = blockCtx.GetView();
     CCustomCSView view(mnview);
     view.CalculateOwnerRewards(owner, height);
     view.Flush();
 }
 
 Res CCustomTxVisitor::SubBalanceDelShares(const CScript &owner, const CBalances &balance) const {
+    auto &mnview = blockCtx.GetView();
     CalculateOwnerRewards(owner);
     auto res = mnview.SubBalances(owner, balance);
     if (!res) {
@@ -225,6 +231,7 @@ Res CCustomTxVisitor::SubBalanceDelShares(const CScript &owner, const CBalances 
 }
 
 Res CCustomTxVisitor::AddBalanceSetShares(const CScript &owner, const CBalances &balance) const {
+    auto &mnview = blockCtx.GetView();
     CalculateOwnerRewards(owner);
     if (auto res = mnview.AddBalances(owner, balance); !res) {
         return res;
@@ -253,7 +260,8 @@ Res CCustomTxVisitor::SubBalancesDelShares(const CAccounts &accounts) const {
 Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
                                          const CVaultAssets &vaultAssets,
                                          const uint32_t ratio) const {
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
+    auto &mnview = blockCtx.GetView();
+    std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
@@ -352,6 +360,7 @@ ResVal<CVaultAssets> CCustomTxVisitor::CheckCollateralRatio(const CVaultId &vaul
                                                             const CBalances &collaterals,
                                                             bool useNextPrice,
                                                             bool requireLivePrice) const {
+    auto &mnview = blockCtx.GetView();
     auto vaultAssets = mnview.GetVaultAssets(vaultId, collaterals, height, time, useNextPrice, requireLivePrice);
     if (!vaultAssets) {
         return vaultAssets;

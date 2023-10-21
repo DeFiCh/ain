@@ -24,8 +24,7 @@ std::optional<CTokensView::CTokenImpl> CTokensView::GetToken(DCT_ID id) const {
     return ReadBy<ID, CTokenImpl>(id);
 }
 
-std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> CTokensView::GetToken(
-    const std::string &symbolKey) const {
+std::optional<CTokensView::TokenIDPair> CTokensView::GetToken(const std::string &symbolKey) const {
     DCT_ID id;
     if (ReadBy<Symbol, std::string>(symbolKey, id)) {
         return std::make_pair(id, GetToken(id));

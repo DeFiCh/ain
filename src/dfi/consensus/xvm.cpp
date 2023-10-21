@@ -86,12 +86,12 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
 
 static Res ValidateTransferDomainEdge(const CTransaction &tx,
                                       const TransferDomainConfig &config,
-                                      CCustomCSView &mnview,
-                                      uint32_t height,
+                                      const CCustomCSView &mnview,
+                                      const uint32_t height,
                                       const CCoinsViewCache &coins,
                                       const Consensus::Params &consensus,
-                                      CTransferDomainItem src,
-                                      CTransferDomainItem dst,
+                                      const CTransferDomainItem &src,
+                                      const CTransferDomainItem &dst,
                                       TransferDomainInfo &context) {
     if (src.domain == dst.domain) {
         return DeFiErrors::TransferDomainSameDomain();
@@ -192,7 +192,7 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
 static Res ValidateTransferDomain(const CTransaction &tx,
                                   uint32_t height,
                                   const CCoinsViewCache &coins,
-                                  CCustomCSView &mnview,
+                                  const CCustomCSView &mnview,
                                   const Consensus::Params &consensus,
                                   const CTransferDomainMessage &obj,
                                   const bool isEvmEnabledForBlock,
@@ -231,6 +231,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
     const auto evmPreValidate = blockCtx.GetEVMPreValidate();
+    auto &mnview = blockCtx.GetView();
 
     std::vector<TransferDomainInfo> contexts;
     auto res = ValidateTransferDomain(tx, height, coins, mnview, consensus, obj, isEvmEnabledForBlock, contexts);
@@ -419,6 +420,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
     const auto evmPreValidate = blockCtx.GetEVMPreValidate();
+    auto &mnview = blockCtx.GetView();
 
     if (!isEvmEnabledForBlock) {
         return Res::Err("Cannot create tx, EVM is not enabled");
