@@ -450,7 +450,7 @@ pub unsafe fn evm_try_unsafe_create_template(
             }
         };
 
-    Box::into_raw(Box::new(BlockTemplate(template)))
+    cross_boundary_success_return(result, Box::into_raw(Box::new(BlockTemplate(template))))
 }
 
 /// /// Discards an EVM block template.
