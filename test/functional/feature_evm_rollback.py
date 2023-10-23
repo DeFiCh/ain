@@ -217,19 +217,26 @@ class EVMRolllbackTest(DefiTestFramework):
         self.rollback_to(self.start_height)
         assert_equal(self.nodes[0].eth_blockNumber(), self.startBlockNum)
         assert_equal(self.nodes[0].eth_getBlockByNumber("latest"), self.startBlock)
+        startBlockHash = self.nodes[0].getbestblockhash()
+        startdbdump = self.nodes[0].debug_dumpdb("all")
+        # assert_equal((startdbdump != None), True)
 
         evmAddresses = []
         numEvmAddresses = 10
         for i in range(numEvmAddresses):
             evmAddresses.append(self.nodes[0].getnewaddress("", "erc55"))
-        
+
         # Transferdomain txs
         tdHashes = []
         for i in range(numEvmAddresses):
             hash = self.nodes[0].transferdomain(
                 [
                     {
-                        "src": {"address": self.address, "amount": "10@DFI", "domain": 2},
+                        "src": {
+                            "address": self.address,
+                            "amount": "10@DFI",
+                            "domain": 2,
+                        },
                         "dst": {
                             "address": evmAddresses[i],
                             "amount": "10@DFI",
@@ -244,6 +251,7 @@ class EVMRolllbackTest(DefiTestFramework):
         # first block (transferdomain txs)
         firstBlockNum = self.nodes[0].eth_blockNumber()
         firstBlock = self.nodes[0].eth_getBlockByNumber(firstBlockNum)
+        firstBlockHash = self.nodes[0].getbestblockhash()
         block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
         tdtx_id = 0
         for tx_info in block_info["tx"][1:]:
@@ -252,9 +260,84 @@ class EVMRolllbackTest(DefiTestFramework):
                 assert_equal(tx_info["txid"], tdHashes[tdtx_id])
                 tdtx_id += 1
         assert_equal(tdtx_id, numEvmAddresses)
+        firstdbdump = self.nodes[0].debug_dumpdb("all")
+        # assert_equal((firstdbdump != None), True)
 
-        firstEvmDBDump = self.nodes[0].debug_dumpdb()
-        assert_equal(firstEvmDBDump, False)
+        # second block (transfer txs)
+        hashes = []
+        counts = [0] * numEvmAddresses
+        for i in range(numEvmAddresses):
+            for j in range(numEvmAddresses):
+                if i == j:
+                    continue
+
+                hash = self.nodes[0].eth_sendTransaction(
+                    {
+                        "nonce": hex(counts[i]),
+                        "from": evmAddresses[i],
+                        "to": evmAddresses[j],
+                        "value": "0xDE0B6B3A7640000",  # 1 DFI
+                        "gas": "0x5209",
+                        "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                    }
+                )
+                counts[i] += 1
+                hashes.append(hash)
+
+        self.nodes[0].generate(1)
+
+        # Second block (evm txs)
+        secondBlockNum = self.nodes[0].eth_blockNumber()
+        secondBlock = self.nodes[0].eth_getBlockByNumber(secondBlockNum)
+        secondBlockHash = self.nodes[0].getbestblockhash()
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        for idx, tx_info in enumerate(block_info["tx"][1:]):
+            assert_equal(tx_info["vm"]["vmtype"], "evm")
+            assert_equal(tx_info["vm"]["txtype"], "Evm")
+            assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx][2:])
+        assert_equal(len(block_info["tx"][1:]), numEvmAddresses * (numEvmAddresses - 1))
+        seconddbdump = self.nodes[0].debug_dumpdb("all")
+        # assert_equal((seconddbdump != None), True)
+
+        # Invalidate second block
+        self.nodes[0].invalidateblock(secondBlockHash)
+        blockByHash = self.nodes[0].eth_getBlockByHash(secondBlock["hash"])
+        assert_equal(blockByHash, None)
+        currBlockNum = self.nodes[0].eth_blockNumber()
+        currBlock = self.nodes[0].eth_getBlockByNumber(currBlockNum)
+        currBlockHash = self.nodes[0].getbestblockhash()
+        assert_equal(currBlockNum, firstBlockNum)
+        assert_equal(currBlock, firstBlock)
+        assert_equal(currBlockHash, firstBlockHash)
+        currdbdump = self.nodes[0].debug_dumpdb("all")
+        # assert_equal((currdbdump != None), True)
+        assert_equal(currdbdump, firstdbdump)
+
+        # Invalidate first block
+        self.nodes[0].invalidateblock(firstBlockHash)
+        blockByHash = self.nodes[0].eth_getBlockByHash(firstBlock["hash"])
+        assert_equal(blockByHash, None)
+        currBlockNum = self.nodes[0].eth_blockNumber()
+        currBlock = self.nodes[0].eth_getBlockByNumber(currBlockNum)
+        currBlockHash = self.nodes[0].getbestblockhash()
+        assert_equal(currBlockNum, self.startBlockNum)
+        assert_equal(currBlock, self.startBlock)
+        assert_equal(currBlockHash, startBlockHash)
+        currdbdump = self.nodes[0].debug_dumpdb("all")
+        # assert_equal((currdbdump != None), True)
+        assert_equal(currdbdump, startdbdump)
+
+        # Reconsider blocks
+        self.nodes[0].reconsiderblock(firstBlockHash)
+        reconsiderBlockNum = self.nodes[0].eth_blockNumber()
+        reconsiderBlock = self.nodes[0].eth_getBlockByNumber(reconsiderBlockNum)
+        reconsiderBlockHash = self.nodes[0].getbestblockhash()
+        assert_equal(reconsiderBlockNum, secondBlockNum)
+        assert_equal(reconsiderBlock, secondBlock)
+        assert_equal(reconsiderBlockHash, secondBlockHash)
+        currdbdump = self.nodes[0].debug_dumpdb("all")
+        # assert_equal((currdbdump != None), True)
+        assert_equal(currdbdump, seconddbdump)
 
     def run_test(self):
         self.setup()
