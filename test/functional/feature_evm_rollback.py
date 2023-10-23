@@ -253,8 +253,8 @@ class EVMRolllbackTest(DefiTestFramework):
                 tdtx_id += 1
         assert_equal(tdtx_id, numEvmAddresses)
 
-        firstEvmDBDump = self.nodes[0].debug_dumbdb()
-
+        firstEvmDBDump = self.nodes[0].debug_dumpdb()
+        assert_equal(firstEvmDBDump, False)
 
     def run_test(self):
         self.setup()
