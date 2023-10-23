@@ -183,7 +183,7 @@ pub mod ffi {
 
         fn evm_try_unsafe_get_next_valid_nonce_in_template(
             result: &mut CrossBoundaryResult,
-            block_template: &mut BlockTemplateWrapper,
+            block_template: &BlockTemplateWrapper,
             address: &str,
         ) -> u64;
 
@@ -209,13 +209,13 @@ pub mod ffi {
 
         fn evm_try_unsafe_validate_raw_tx_in_template(
             result: &mut CrossBoundaryResult,
-            block_template: &mut BlockTemplateWrapper,
+            block_template: &BlockTemplateWrapper,
             raw_tx: &str,
         );
 
         fn evm_try_unsafe_validate_transferdomain_tx_in_template(
             result: &mut CrossBoundaryResult,
-            block_template: &mut BlockTemplateWrapper,
+            block_template: &BlockTemplateWrapper,
             raw_tx: &str,
             context: TransferDomainInfo,
         );
@@ -234,7 +234,7 @@ pub mod ffi {
 
         fn evm_try_unsafe_commit_block(
             result: &mut CrossBoundaryResult,
-            block_template: &mut BlockTemplateWrapper,
+            block_template: &BlockTemplateWrapper,
         );
 
         fn evm_try_unsafe_handle_attribute_apply(
@@ -300,7 +300,7 @@ pub mod ffi {
         fn evm_try_unsafe_is_smart_contract_in_template(
             result: &mut CrossBoundaryResult,
             address: &str,
-            block_template: &mut BlockTemplateWrapper,
+            block_template: &BlockTemplateWrapper,
         ) -> bool;
 
         fn evm_try_get_tx_miner_info_from_raw_tx(

@@ -271,9 +271,7 @@ impl EVMServices {
         let base_fee = template.get_block_base_fee_per_gas();
         let mut logs_bloom = template.get_latest_logs_bloom();
 
-        let mut backend = &mut template.backend;
-
-        let mut executor = AinExecutor::new(&mut backend);
+        let mut executor = AinExecutor::new(&mut template.backend);
 
         executor.update_total_gas_used(template.total_gas_used);
         let apply_tx = executor.execute_tx(tx, base_fee)?;

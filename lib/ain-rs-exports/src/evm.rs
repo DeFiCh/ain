@@ -242,7 +242,7 @@ fn evm_try_unsafe_update_state_in_template(
 /// Returns the next valid nonce of the account in a specific template
 #[ffi_fallible]
 fn evm_try_unsafe_get_next_valid_nonce_in_template(
-    template: &mut BlockTemplateWrapper,
+    template: &BlockTemplateWrapper,
     address: &str,
 ) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
@@ -366,7 +366,7 @@ fn evm_try_unsafe_sub_balance_in_template(
 /// Returns the validation result.
 #[ffi_fallible]
 fn evm_try_unsafe_validate_raw_tx_in_template(
-    template: &mut BlockTemplateWrapper,
+    template: &BlockTemplateWrapper,
     raw_tx: &str,
 ) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_template]");
@@ -403,7 +403,7 @@ fn evm_try_unsafe_validate_raw_tx_in_template(
 /// Returns the validation result.
 #[ffi_fallible]
 fn evm_try_unsafe_validate_transferdomain_tx_in_template(
-    template: &mut BlockTemplateWrapper,
+    template: &BlockTemplateWrapper,
     raw_tx: &str,
     context: ffi::TransferDomainInfo,
 ) -> Result<()> {
@@ -561,7 +561,7 @@ fn evm_try_unsafe_construct_block_in_template(
 }
 
 #[ffi_fallible]
-fn evm_try_unsafe_commit_block(template: &mut BlockTemplateWrapper) -> Result<()> {
+fn evm_try_unsafe_commit_block(template: &BlockTemplateWrapper) -> Result<()> {
     unsafe { SERVICES.evm.commit_block(template.get_inner()?) }
 }
 
@@ -798,7 +798,7 @@ fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
 #[ffi_fallible]
 fn evm_try_unsafe_is_smart_contract_in_template(
     address: &str,
-    template: &mut BlockTemplateWrapper,
+    template: &BlockTemplateWrapper,
 ) -> Result<bool> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
