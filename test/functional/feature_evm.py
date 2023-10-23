@@ -1363,6 +1363,12 @@ class EVMTest(DefiTestFramework):
         # Check pubkey
         assert_equal(pub_key, self.nodes[0].getaddressinfo(address)["pubkey"])
 
+        # Check equivalent DVM address
+        assert_equal(
+            "bcrt1qkhd438yhrvnleflep3xlxj4xvnm4q7r0wsxzya",
+            self.nodes[0].addressmap(address, 2)["format"]["bech32"],
+        )
+
         # Fund EVM address
         self.nodes[0].transferdomain(
             [
