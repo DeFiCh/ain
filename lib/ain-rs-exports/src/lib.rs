@@ -283,7 +283,7 @@ pub mod ffi {
             token_id: u64,
             out: bool,
         );
-        
+
         fn evm_try_unsafe_is_smart_contract_in_template(
             result: &mut CrossBoundaryResult,
             address: &str,

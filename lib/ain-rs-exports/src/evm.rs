@@ -3,6 +3,7 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
+    blocktemplate::BlockTemplate,
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::ExecuteTx,
@@ -15,7 +16,7 @@ use ain_evm::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
     },
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
-    Result, blocktemplate::BlockTemplate,
+    Result,
 };
 use ain_macros::ffi_fallible;
 use anyhow::format_err;
@@ -25,9 +26,9 @@ use log::debug;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{
-    ffi::{self, TxMinerInfo, CrossBoundaryResult},
-    BlockTemplateWrapper,
+    ffi::{self, CrossBoundaryResult, TxMinerInfo},
     prelude::*,
+    BlockTemplateWrapper,
 };
 
 /// Creates and signs a transaction.
@@ -449,13 +450,17 @@ pub fn evm_try_unsafe_create_template(
     unsafe {
         match SERVICES
             .evm
-            .create_block_template(dvm_block, miner_address, difficulty, timestamp) {
-                Ok(template) => cross_boundary_success_return(result, Box::leak(Box::new(BlockTemplateWrapper(template)))),
-                Err(e) => {
-                    cross_boundary_error(result, e.to_string());
-                    return Box::leak(Box::new(BlockTemplateWrapper(BlockTemplate::default())));
-                }
+            .create_block_template(dvm_block, miner_address, difficulty, timestamp)
+        {
+            Ok(template) => cross_boundary_success_return(
+                result,
+                Box::leak(Box::new(BlockTemplateWrapper(template))),
+            ),
+            Err(e) => {
+                cross_boundary_error(result, e.to_string());
+                return Box::leak(Box::new(BlockTemplateWrapper(BlockTemplate::default())));
             }
+        }
     }
 }
 
@@ -468,7 +473,9 @@ pub fn evm_try_unsafe_create_template(
 #[ffi_fallible]
 fn evm_try_unsafe_remove_template(template: &mut BlockTemplateWrapper) -> Result<()> {
     // Will be dropped when Box out of scope (end of this fn)
-    unsafe { let _ = Box::from_raw(template); }
+    unsafe {
+        let _ = Box::from_raw(template);
+    }
     Ok(())
 }
 
@@ -502,11 +509,9 @@ fn evm_try_unsafe_push_tx_in_template(
             .try_get_or_create(raw_tx)?;
 
         let tx_hash = signed_tx.hash();
-        SERVICES.evm.push_tx_in_block_template(
-            &mut template.0,
-            signed_tx.into(),
-            native_hash,
-        )?;
+        SERVICES
+            .evm
+            .push_tx_in_block_template(&mut template.0, signed_tx.into(), native_hash)?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", tx_hash),
@@ -536,9 +541,7 @@ fn evm_try_unsafe_construct_block_in_template(
             total_burnt_fees,
             total_priority_fees,
             block_number,
-        } = SERVICES
-            .evm
-            .construct_block_in_template(&mut template.0)?;
+        } = SERVICES.evm.construct_block_in_template(&mut template.0)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 

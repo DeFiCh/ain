@@ -2,6 +2,7 @@
 #include <dfi/errors.h>
 #include <dfi/evm.h>
 #include <dfi/res.h>
+#include <ffi/ffihelpers.h>
 #include <uint256.h>
 
 Res CVMDomainGraphView::SetVMDomainBlockEdge(VMDomainEdge type, std::string blockHashKey, std::string blockHash) {
@@ -54,7 +55,7 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplate::CScopedTemplate(BlockTemplateWrapper& evmTemplate)
+CScopedTemplate::CScopedTemplate(BlockTemplateWrapper &evmTemplate)
     : evmTemplate(evmTemplate) {}
 
 std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
@@ -71,13 +72,9 @@ std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlock
 }
 
 CScopedTemplate::~CScopedTemplate() {
-    CrossBoundaryResult result;
-    evm_try_unsafe_remove_template(result, evmTemplate);
-    if (!result.ok) {
-        LogPrintf("Failed to destroy queue\n");
-    }
+    XResultStatusLogged(evm_try_unsafe_remove_template(result, evmTemplate));
 }
 
-BlockTemplateWrapper& CScopedTemplate::GetTemplate() const {
+BlockTemplateWrapper &CScopedTemplate::GetTemplate() const {
     return evmTemplate;
 }

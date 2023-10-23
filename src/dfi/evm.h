@@ -58,7 +58,7 @@ public:
 };
 
 class CScopedTemplate {
-    explicit CScopedTemplate(BlockTemplateWrapper& blockTemplate);
+    explicit CScopedTemplate(BlockTemplateWrapper &blockTemplate);
 
     BlockTemplateWrapper &evmTemplate;
 
@@ -69,7 +69,7 @@ public:
                                                    const uint64_t timestamp);
     ~CScopedTemplate();
 
-    BlockTemplateWrapper& GetTemplate() const;
+    BlockTemplateWrapper &GetTemplate() const;
 };
 
 #endif  // DEFI_DFI_EVM_H
