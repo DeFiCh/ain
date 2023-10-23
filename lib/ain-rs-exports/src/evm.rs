@@ -423,6 +423,15 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     Ok(())
 }
 
+fn block_template_err_wrapper() -> &'static mut BlockTemplateWrapper {
+    let cell = std::cell::OnceCell::new();
+    let val = cell.get_or_init(|| BlockTemplateWrapper(BlockTemplate::default()));
+    unsafe {
+        #[allow(mutable_transmutes)]
+        std::mem::transmute::<&BlockTemplateWrapper, &'static mut BlockTemplateWrapper>(val)
+    }
+}
+
 /// Creates an EVM block template.
 ///
 /// # Returns
@@ -442,7 +451,7 @@ pub fn evm_try_unsafe_create_template(
             Ok(a) => a,
             Err(_) => {
                 cross_boundary_error(result, "Invalid address");
-                return Box::leak(Box::new(BlockTemplateWrapper(BlockTemplate::default())));
+                return block_template_err_wrapper();
             }
         }
     };
@@ -458,7 +467,7 @@ pub fn evm_try_unsafe_create_template(
             ),
             Err(e) => {
                 cross_boundary_error(result, e.to_string());
-                return Box::leak(Box::new(BlockTemplateWrapper(BlockTemplate::default())));
+                return block_template_err_wrapper();
             }
         }
     }
