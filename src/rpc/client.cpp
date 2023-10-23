@@ -412,6 +412,9 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "eth_getTransactionByBlockNumberAndIndex", 1, "txIndex"},
 
     { "debug_traceTransaction", 0, "object"},
+    { "debug_dumpdb", 0, "dump"},
+    { "debug_dumpdb", 1, "from"},
+    { "debug_dumpdb", 2, "limit"},
     { "debug_feeEstimate", 0, "tx"},
 
     { "web3_sha", 0, "input"},
