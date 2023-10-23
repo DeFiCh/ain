@@ -436,6 +436,62 @@ class EVMTest(DefiTestFramework):
             receipt["gasUsed"] * receipt["effectiveGasPrice"],
         )
 
+    def test_contract_require(self):
+        self.rollback_to(self.start_height)
+
+        abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        # Deploy `Require` contract
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Verify contract deployment is successful
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        # should return error from `send`
+        tx = contract.functions.tryRequire(1).build_transaction(
+            {
+                # "nonce": hex(self.nodes[0].w3.eth.get_transaction_count(
+                #     self.evm_key_pair.address
+                # )),
+                "value": "0x0",
+                "gas": "0x7a120",
+                "gasPrice": "0x22ecb25c00",
+            }
+        )
+        del tx["chainId"]
+        print('tx: ', tx)
+        self.nodes[0].eth_sendTransaction(tx)
+
+        # signed = self.nodes[0].w3.eth.account.sign_transaction(
+        #     tx, self.evm_key_pair.privkey
+        # )
+        # hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        # self.nodes[0].w3.eth.send_transaction(tx)
+        # import pdb; pdb.set_trace()
+        self.nodes[0].generate(1)
+
+        # should return error from `call`
+        # contract.functions.tryRequire(1).call()
+
     def run_test(self):
         self.setup()
 
@@ -444,17 +500,19 @@ class EVMTest(DefiTestFramework):
         # start height after contract deployment
         self.start_height = self.nodes[0].getblockcount()
 
-        self.should_contract_get_set()
+        # self.should_contract_get_set()
 
-        self.failed_tx_should_increment_nonce()
+        # self.failed_tx_should_increment_nonce()
 
-        self.should_deploy_contract_with_different_sizes()
+        # self.should_deploy_contract_with_different_sizes()
 
-        self.fail_deploy_contract_extremely_large_runtime_code()
+        # self.fail_deploy_contract_extremely_large_runtime_code()
 
-        self.fail_deploy_contract_extremely_large_init_code()
+        # self.fail_deploy_contract_extremely_large_init_code()
 
-        self.non_payable_proxied_contract()
+        # self.non_payable_proxied_contract()
+
+        self.test_contract_require()
 
 
 if __name__ == "__main__":

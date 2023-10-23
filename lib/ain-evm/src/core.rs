@@ -305,14 +305,14 @@ impl EVMCoreService {
         )
         .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
 
-        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
+        AinExecutor::new(&mut backend).call(ExecutorContext {
             caller: caller.unwrap_or_default(),
             to,
             value,
             data,
             gas_limit,
             access_list,
-        }))
+        })
     }
 
     /// Validates a raw tx.
