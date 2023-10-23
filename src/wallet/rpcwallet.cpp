@@ -4322,7 +4322,12 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (key.IsCompressed()) {
                 key.Decompress();
             }
-            format.pushKV("erc55", EncodeDestination(WitnessV16EthHash(key)));
+            auto erc55 = EncodeDestination(WitnessV16EthHash(key));
+            // Check if it's in the wallet. 
+            // Note: Can be removed if the full wallet is migrated.
+            // Ref: https://github.com/DeFiCh/ain/issues/2604
+            AddrToPubKey(pwallet, erc55);
+            format.pushKV("erc55", erc55);
             break;
         }
         case AddressConversionType::EVMToDVMAddress: {
