@@ -94,6 +94,9 @@ class EVMTest(DefiTestFramework):
         # Toggle EVM
         self.toggle_evm_enablement()
 
+        # Test Eth on encrypted wallet
+        self.encrypt_wallet()
+
     def test_tx_without_chainid(self):
         node = self.nodes[0]
 
@@ -1339,6 +1342,56 @@ class EVMTest(DefiTestFramework):
             int(evm_first_valid_block["number"], base=16),
             int(evm_enabling_block["number"], base=16) + 1,
         )
+
+    def encrypt_wallet(self):
+        # Test address
+        address = "0xa43D1AdBe968BFE45ECfbFa623a25077fd4F5db8"
+        priv_key = "1ba6d9404e882346a236a6742722fe79d822e2182d6808ab66cc30b7dd07c5b7"
+        pub_key = "0426f07fbd27600beccd6d4a1a3bbcfd2cced7212e201c2ff2970214ed19ba92f473e102d978c65626b46e61a4b4f770e51b944f10462a111e170aad5b65e638bd"
+
+        # Encrypt wallet
+        self.nodes[0].encryptwallet("test")
+        self.stop_nodes()
+        self.start_nodes()
+
+        # Unencrypt wallet
+        self.nodes[0].walletpassphrase("test", 600)
+
+        # Import address
+        self.nodes[0].importprivkey(priv_key)
+
+        # Check pubkey
+        assert_equal(pub_key, self.nodes[0].getaddressinfo(address)["pubkey"])
+
+        # Fund EVM address
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "0.1@DFI", "domain": 2},
+                    "dst": {
+                        "address": address,
+                        "amount": "0.1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        # Transfer funds back
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": address, "amount": "0.1@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "0.1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
 
 
 if __name__ == "__main__":

@@ -4979,10 +4979,14 @@ bool CWallet::GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const
         return true;
     }
 
-    CryptedKeyMap::const_iterator mi = mapCryptedKeys.find(address);
-    if (mi != mapCryptedKeys.end())
+    if (const auto mi = mapCryptedKeys.find(address); mi != mapCryptedKeys.end())
     {
         vchPubKeyOut = (*mi).second.first;
+        if (!vchPubKeyOut.IsCompressed() && address.type == KeyAddressType::COMPRESSED) {
+            vchPubKeyOut.Compress();
+        } else if (vchPubKeyOut.IsCompressed() && address.type == KeyAddressType::UNCOMPRESSED) {
+            vchPubKeyOut.Decompress();
+        }
         return true;
     }
     // Check for watch-only pubkeys
