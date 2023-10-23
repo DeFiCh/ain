@@ -372,7 +372,7 @@ fn evm_try_unsafe_validate_raw_tx_in_template(
 ) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_template]");
     unsafe {
-        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, &mut template.0)?;
+        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, &template.0)?;
         Ok(())
     }
 }
@@ -409,7 +409,7 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
             raw_tx,
-            &mut template.0,
+            &template.0,
             TransferDomainTxInfo {
                 from: context.from,
                 to: context.to,
