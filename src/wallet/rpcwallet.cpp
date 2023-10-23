@@ -4322,7 +4322,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
             if (key.IsCompressed()) {
                 key.Decompress();
             }
-            auto erc55 = EncodeDestination(WitnessV16EthHash(key));
+            const auto erc55 = EncodeDestination(WitnessV16EthHash(key));
             // Check if it's in the wallet. 
             // Note: Can be removed if the full wallet is migrated.
             // Ref: https://github.com/DeFiCh/ain/issues/2604
