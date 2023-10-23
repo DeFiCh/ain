@@ -132,6 +132,8 @@ class EVMTest(DefiTestFramework):
         proxy_contract = node.w3.eth.contract(
             address=receipt["contractAddress"], abi=implementation_contract.abi
         )
+        print("receipt[contractAddress]", receipt["contractAddress"])
+
         assert_equal(proxy_contract.functions.randomVar().call(), 10)
         return proxy_contract
 

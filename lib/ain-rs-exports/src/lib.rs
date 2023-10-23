@@ -2,10 +2,23 @@ mod core;
 mod evm;
 mod prelude;
 
-use crate::{core::*, evm::*};
 use ain_evm::blocktemplate::BlockTemplate;
 
-pub struct BlockTemplateWrapper(BlockTemplate);
+use crate::{core::*, evm::*};
+
+pub struct BlockTemplateWrapper(Option<BlockTemplate>);
+
+impl BlockTemplateWrapper {
+    const ERROR: &'static str = "Inner block template is None";
+
+    fn get_inner(&self) -> Result<&BlockTemplate, &'static str> {
+        self.0.as_ref().ok_or(Self::ERROR)
+    }
+
+    fn get_inner_mut(&mut self) -> Result<&mut BlockTemplate, &'static str> {
+        self.0.as_mut().ok_or(Self::ERROR)
+    }
+}
 
 #[cxx::bridge]
 pub mod ffi {

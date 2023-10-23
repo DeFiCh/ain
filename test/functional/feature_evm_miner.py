@@ -621,6 +621,7 @@ class EVMTest(DefiTestFramework):
         contract = self.nodes[0].w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
+        print("contractAddress", receipt["contractAddress"])
 
         hashes = []
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)

@@ -3,7 +3,6 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
-    blocktemplate::BlockTemplate,
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
     executor::ExecuteTx,
@@ -227,7 +226,7 @@ fn evm_try_unsafe_update_state_in_template(
     unsafe {
         SERVICES
             .evm
-            .update_state_in_block_template(&mut template.0, mnview_ptr)
+            .update_state_in_block_template(template.get_inner_mut()?, mnview_ptr)
     }
 }
 
@@ -252,7 +251,7 @@ fn evm_try_unsafe_get_next_valid_nonce_in_template(
         let next_nonce = SERVICES
             .evm
             .core
-            .get_next_valid_nonce_in_block_template(&template.0, address)?;
+            .get_next_valid_nonce_in_block_template(template.get_inner()?, address)?;
 
         let nonce = u64::try_from(next_nonce)?;
         Ok(nonce)
@@ -274,7 +273,7 @@ fn evm_try_unsafe_remove_txs_above_hash_in_template(
         SERVICES
             .evm
             .core
-            .remove_txs_above_hash_in_block_template(&mut template.0, target_hash)
+            .remove_txs_above_hash_in_block_template(template.get_inner_mut()?, target_hash)
     }
 }
 
@@ -305,7 +304,7 @@ fn evm_try_unsafe_add_balance_in_template(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(&mut template.0, exec_tx, native_hash)
+            .push_tx_in_block_template(template.get_inner_mut()?, exec_tx, native_hash)
     }
 }
 
@@ -337,7 +336,7 @@ fn evm_try_unsafe_sub_balance_in_template(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(&mut template.0, exec_tx, native_hash)?;
+            .push_tx_in_block_template(template.get_inner_mut()?, exec_tx, native_hash)?;
         Ok(true)
     }
 }
@@ -372,7 +371,10 @@ fn evm_try_unsafe_validate_raw_tx_in_template(
 ) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_template]");
     unsafe {
-        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, &template.0)?;
+        let _ = SERVICES
+            .evm
+            .core
+            .validate_raw_tx(raw_tx, template.get_inner()?)?;
         Ok(())
     }
 }
@@ -409,7 +411,7 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
             raw_tx,
-            &template.0,
+            template.get_inner()?,
             TransferDomainTxInfo {
                 from: context.from,
                 to: context.to,
@@ -442,7 +444,7 @@ pub fn evm_try_unsafe_create_template(
             Ok(a) => a,
             Err(_) => {
                 cross_boundary_error(result, "Invalid address");
-                return Box::leak(Box::new(BlockTemplateWrapper(BlockTemplate::default())));
+                return Box::leak(Box::new(BlockTemplateWrapper(None)));
             }
         }
     };
@@ -454,11 +456,11 @@ pub fn evm_try_unsafe_create_template(
         {
             Ok(template) => cross_boundary_success_return(
                 result,
-                Box::leak(Box::new(BlockTemplateWrapper(template))),
+                Box::leak(Box::new(BlockTemplateWrapper(Some(template)))),
             ),
             Err(e) => {
                 cross_boundary_error(result, e.to_string());
-                return Box::leak(Box::new(BlockTemplateWrapper(BlockTemplate::default())));
+                return Box::leak(Box::new(BlockTemplateWrapper(None)));
             }
         }
     }
@@ -509,9 +511,11 @@ fn evm_try_unsafe_push_tx_in_template(
             .try_get_or_create(raw_tx)?;
 
         let tx_hash = signed_tx.hash();
-        SERVICES
-            .evm
-            .push_tx_in_block_template(&mut template.0, signed_tx.into(), native_hash)?;
+        SERVICES.evm.push_tx_in_block_template(
+            template.get_inner_mut()?,
+            signed_tx.into(),
+            native_hash,
+        )?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", tx_hash),
@@ -541,7 +545,9 @@ fn evm_try_unsafe_construct_block_in_template(
             total_burnt_fees,
             total_priority_fees,
             block_number,
-        } = SERVICES.evm.construct_block_in_template(&mut template.0)?;
+        } = SERVICES
+            .evm
+            .construct_block_in_template(template.get_inner_mut()?)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 
@@ -556,7 +562,7 @@ fn evm_try_unsafe_construct_block_in_template(
 
 #[ffi_fallible]
 fn evm_try_unsafe_commit_block(template: &mut BlockTemplateWrapper) -> Result<()> {
-    unsafe { SERVICES.evm.commit_block(&template.0) }
+    unsafe { SERVICES.evm.commit_block(template.get_inner()?) }
 }
 
 #[ffi_fallible]
@@ -730,7 +736,7 @@ fn evm_try_unsafe_create_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(&mut template.0, system_tx, native_hash)
+            .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
     }
 }
 
@@ -758,7 +764,7 @@ fn evm_try_unsafe_bridge_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(&mut template.0, system_tx, native_hash)
+            .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
     }
 }
 
@@ -799,7 +805,7 @@ fn evm_try_unsafe_is_smart_contract_in_template(
     unsafe {
         SERVICES
             .evm
-            .is_smart_contract_in_block_template(address, &template.0)
+            .is_smart_contract_in_block_template(address, template.get_inner()?)
     }
 }
 

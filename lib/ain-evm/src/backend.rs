@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::{Account, Log};
@@ -14,7 +14,7 @@ use crate::{
     fee::calculate_gas_fee,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
-    trie::TrieDBStore,
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
 };
 
@@ -38,11 +38,80 @@ pub struct Vicinity {
     pub block_randomness: Option<H256>,
 }
 
+#[derive(Debug, Clone)]
+struct OverlayData {
+    account: Account,
+    code: Option<Vec<u8>>,
+    storage: HashMap<H256, H256>,
+}
+
+#[derive(Debug, Clone)]
+struct Overlay {
+    state: HashMap<H160, OverlayData>,
+    changeset: Vec<HashMap<H160, OverlayData>>,
+}
+
+impl Overlay {
+    pub fn new() -> Self {
+        Self {
+            state: HashMap::new(),
+            changeset: Vec::new(),
+        }
+    }
+
+    pub fn apply(
+        &mut self,
+        address: H160,
+        account: Account,
+        code: Option<Vec<u8>>,
+        mut storage: HashMap<H256, H256>,
+        reset_storage: bool,
+    ) {
+        if !reset_storage {
+            if let Some(existing_storage) = self.storage(&address) {
+                for (k, v) in existing_storage {
+                    storage.entry(*k).or_insert_with(|| *v);
+                }
+            }
+        }
+
+        let data = OverlayData {
+            account,
+            code,
+            storage,
+        };
+        self.state.insert(address, data.clone());
+    }
+
+    // Keeps track of the number of TXs in the changeset.
+    // Should be called after a TX has been fully processed.
+    fn inc(&mut self) {
+        self.changeset.push(self.state.clone());
+    }
+
+    pub fn storage(&self, address: &H160) -> Option<&HashMap<H256, H256>> {
+        self.state.get(address).map(|d| &d.storage)
+    }
+
+    pub fn storage_val(&self, address: &H160, index: &H256) -> Option<H256> {
+        self.storage(address).and_then(|d| d.get(index).cloned())
+    }
+
+    pub fn get_account(&self, address: &H160) -> Option<Account> {
+        self.state.get(address).map(|d| d.account.to_owned())
+    }
+
+    pub fn get_code(&self, address: &H160) -> Option<Vec<u8>> {
+        self.state.get(address).and_then(|d| d.code.clone())
+    }
+}
+
 pub struct EVMBackend {
     state: MptOnce,
     trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
     pub vicinity: Vicinity,
+    overlay: Overlay,
 }
 
 impl EVMBackend {
@@ -62,7 +131,12 @@ impl EVMBackend {
             trie_store,
             storage,
             vicinity,
+            overlay: Overlay::new(),
         })
+    }
+
+    pub fn increase_tx_count(&mut self) {
+        self.overlay.inc()
     }
 
     pub fn apply<I: IntoIterator<Item = (H256, H256)>>(
@@ -73,70 +147,93 @@ impl EVMBackend {
         storage: I,
         reset_storage: bool,
     ) -> Result<Account> {
-        let account = self.get_account(&address).unwrap_or(Account {
+        let mut account = self.get_account(&address).unwrap_or(Account {
             nonce: U256::zero(),
             balance: U256::zero(),
             storage_root: H256::zero(),
             code_hash: H256::zero(),
         });
 
-        let mut storage_trie = if reset_storage || is_empty_account(&account) {
+        if reset_storage || is_empty_account(&account) {
             self.trie_store
                 .trie_db
                 .trie_create(address.as_bytes(), None, true)
-                .map_err(|e| BackendError::TrieCreationFailed(e.to_string()))?
-        } else {
-            self.trie_store
+                .map_err(|e| BackendError::TrieCreationFailed(e.to_string()))?;
+            account.storage_root = GENESIS_STATE_ROOT;
+        }
+
+        if let Some(code) = &code {
+            account.code_hash = Hasher::hash(code);
+        }
+
+        if let Some(basic) = basic {
+            account.balance = basic.balance;
+            account.nonce = basic.nonce;
+        }
+
+        self.overlay.apply(
+            address,
+            account.clone(),
+            code,
+            storage.into_iter().collect(),
+            reset_storage,
+        );
+        Ok(account)
+    }
+
+    pub fn clear_overlay(&mut self) {
+        self.overlay.state.clear()
+    }
+
+    pub fn reset_from_tx(&mut self, index: usize) {
+        self.overlay.state = self
+            .overlay
+            .changeset
+            .get(index)
+            .cloned()
+            .unwrap_or_default();
+        self.overlay.changeset.truncate(index + 1);
+    }
+
+    fn apply_overlay(&mut self) -> Result<()> {
+        for (
+            address,
+            OverlayData {
+                ref mut account,
+                code,
+                storage,
+            },
+        ) in self.overlay.state.drain()
+        {
+            let mut storage_trie = self
+                .trie_store
                 .trie_db
                 .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?
-        };
+                .unwrap();
 
-        storage.into_iter().for_each(|(k, v)| {
-            debug!("Apply::Modify storage, key: {:x} value: {:x}", k, v);
-            let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
-            storage_trie.commit();
-        });
+            storage.into_iter().for_each(|(k, v)| {
+                debug!(
+                    "Apply::Modify storage {address:?}, key: {:x} value: {:x}",
+                    k, v
+                );
+                let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
+            });
+            account.storage_root = storage_trie.commit().into();
 
-        let code_hash = match code {
-            None => account.code_hash,
-            Some(code) => {
-                let code_hash = Hasher::hash(&code);
-                self.storage.put_code(code_hash, code)?;
-                code_hash
+            if let Some(code) = code {
+                self.storage.put_code(account.code_hash, code)?;
             }
-        };
 
-        let new_account = match basic {
-            Some(basic) => Account {
-                nonce: basic.nonce,
-                balance: basic.balance,
-                code_hash,
-                storage_root: storage_trie.commit().into(),
-            },
-            None => Account {
-                nonce: account.nonce,
-                balance: account.balance,
-                code_hash,
-                storage_root: storage_trie.commit().into(),
-            },
-        };
-
-        self.state
-            .insert(address.as_bytes(), new_account.rlp_bytes().as_ref())
-            .map_err(|e| BackendError::TrieError(format!("{e}")))?;
-        self.state.commit();
-
-        Ok(new_account)
+            self.state
+                .insert(address.as_bytes(), account.rlp_bytes().as_ref())
+                .map_err(|e| BackendError::TrieError(format!("{e}")))?;
+        }
+        Ok(())
     }
 
-    pub fn commit(&mut self) -> H256 {
-        self.state.commit().into()
-    }
-
-    // Read-only state root. Does not commit changes to database
-    pub fn root(&self) -> H256 {
-        self.state.root().into()
+    pub fn commit(&mut self) -> Result<H256> {
+        self.apply_overlay()?;
+        Ok(self.state.commit().into())
     }
 
     pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
@@ -172,7 +269,6 @@ impl EVMBackend {
 
         self.apply(sender, Some(new_basic), None, Vec::new(), false)
             .map_err(|e| BackendError::DeductPrepayGasFailed(e.to_string()))?;
-        self.commit();
 
         Ok(())
     }
@@ -203,7 +299,6 @@ impl EVMBackend {
 
         self.apply(signed_tx.sender, Some(new_basic), None, Vec::new(), false)
             .map_err(|e| BackendError::RefundUnusedGasFailed(e.to_string()))?;
-        self.commit();
 
         Ok(())
     }
@@ -211,10 +306,12 @@ impl EVMBackend {
 
 impl EVMBackend {
     pub fn get_account(&self, address: &H160) -> Option<Account> {
-        self.state
-            .get(address.as_bytes())
-            .unwrap_or(None)
-            .and_then(|addr| Account::decode(&Rlp::new(addr.as_bytes_ref())).ok())
+        self.overlay.get_account(address).or_else(|| {
+            self.state
+                .get(address.as_bytes())
+                .unwrap_or(None)
+                .and_then(|addr| Account::decode(&Rlp::new(addr.as_bytes_ref())).ok())
+        })
     }
 
     pub fn get_nonce(&self, address: &H160) -> U256 {
@@ -229,24 +326,8 @@ impl EVMBackend {
             .unwrap_or_default()
     }
 
-    pub fn get_contract_storage(&self, contract: H160, storage_index: &[u8]) -> Result<U256> {
-        let Some(account) = self.get_account(&contract) else {
-            return Ok(U256::zero());
-        };
-
-        let state = self
-            .trie_store
-            .trie_db
-            .trie_restore(contract.as_ref(), None, account.storage_root.into())
-            .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
-
-        Ok(U256::from(
-            state
-                .get(storage_index)
-                .unwrap_or_default()
-                .unwrap_or_default()
-                .as_slice(),
-        ))
+    pub fn get_contract_storage(&self, contract: H160, index: H256) -> Result<U256> {
+        Ok(U256::from(self.storage(contract, index).as_bytes()))
     }
 
     pub fn deploy_contract(
@@ -321,7 +402,7 @@ impl Backend for EVMBackend {
     }
 
     fn exists(&self, address: H160) -> bool {
-        self.state.contains(address.as_bytes()).unwrap_or(false)
+        self.get_account(&address).is_some()
     }
 
     fn basic(&self, address: H160) -> Basic {
@@ -336,23 +417,30 @@ impl Backend for EVMBackend {
 
     fn code(&self, address: H160) -> Vec<u8> {
         trace!(target: "backend", "[EVMBackend] code for address {:x?}", address);
-        self.get_account(&address)
-            .and_then(|account| self.storage.get_code_by_hash(account.code_hash).unwrap())
-            .unwrap_or_default()
+        self.overlay.get_code(&address).unwrap_or_else(|| {
+            self.get_account(&address)
+                .and_then(|account| self.storage.get_code_by_hash(account.code_hash).unwrap())
+                .unwrap_or_default()
+        })
     }
 
     fn storage(&self, address: H160, index: H256) -> H256 {
         trace!(target: "backend", "[EVMBackend] Getting storage for address {:x?} at index {:x?}", address, index);
-        self.get_account(&address)
-            .and_then(|account| {
+        let Some(account) = self.get_account(&address) else {
+            return H256::zero();
+        };
+
+        self.overlay
+            .storage_val(&address, &index)
+            .unwrap_or_else(|| {
                 self.trie_store
                     .trie_db
-                    .trie_restore(address.as_bytes(), None, account.storage_root.into())
+                    .trie_restore(address.as_ref(), None, account.storage_root.into())
                     .ok()
+                    .and_then(|trie| trie.get(index.as_bytes()).ok().flatten())
+                    .map(|res| H256::from_slice(res.as_ref()))
+                    .unwrap_or_default()
             })
-            .and_then(|trie| trie.get(index.as_bytes()).ok().flatten())
-            .map(|res| H256::from_slice(res.as_ref()))
-            .unwrap_or_default()
     }
 
     fn original_storage(&self, address: H160, index: H256) -> Option<H256> {
