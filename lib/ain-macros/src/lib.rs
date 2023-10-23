@@ -39,14 +39,13 @@ pub fn ffi_fallible(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         pub fn #name(result: &mut ffi::CrossBoundaryResult, #inputs) -> #inner_type {
             #input
-            unsafe {
-                match #name(#(#param_names),*) {
-                    Ok(success_value) => {
-                        cross_boundary_success_return(result, success_value)
-                    }
-                    Err(err_msg) => {
-                        cross_boundary_error_return(result, err_msg.to_string())
-                    }
+
+            match #name(#(#param_names),*) {
+                Ok(success_value) => {
+                    cross_boundary_success_return(result, success_value)
+                }
+                Err(err_msg) => {
+                    cross_boundary_error_return(result, err_msg.to_string())
                 }
             }
         }
