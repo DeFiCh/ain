@@ -74,136 +74,7 @@ class EVMRolllbackTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(2)
-
-        self.creationAddress = "0xe61a3a6eb316d773c773f4ce757a542f673023c6"
-        self.nodes[0].importprivkey(
-            "957ac3be2a08afe1fafb55bd3e1d479c4ae6d7bf1c9b2a0dcc5caad6929e6617"
-        )
-
-    def test_rollback_block(self):
         self.nodes[0].generate(1)
-        initialBlockHash = self.nodes[0].getbestblockhash()
-        blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
-        blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(
-            blockNumberPreInvalidation
-        )
-        assert_equal(blockNumberPreInvalidation, "0x3")
-        assert_equal(blockPreInvalidation["number"], blockNumberPreInvalidation)
-
-        self.nodes[0].invalidateblock(initialBlockHash)
-
-        assert_raises_rpc_error(
-            -32001,
-            "Custom error: header not found",
-            self.nodes[0].eth_getBlockByNumber,
-            blockNumberPreInvalidation,
-        )
-        blockByHash = self.nodes[0].eth_getBlockByHash(blockPreInvalidation["hash"])
-        assert_equal(blockByHash, None)
-        block = self.nodes[0].eth_getBlockByNumber("latest")
-        assert_equal(block["number"], "0x2")
-
-        self.nodes[0].reconsiderblock(initialBlockHash)
-        blockNumber = self.nodes[0].eth_blockNumber()
-        block = self.nodes[0].eth_getBlockByNumber(blockNumber)
-        assert_equal(blockNumber, blockNumberPreInvalidation)
-        assert_equal(block, blockPreInvalidation)
-
-    def test_rollback_transactions(self):
-        initialBlockHash = self.nodes[0].getbestblockhash()
-
-        hash = self.nodes[0].eth_sendTransaction(
-            {
-                "from": self.ethAddress,
-                "to": self.toAddress,
-                "value": "0xa",
-                "gas": "0x7a120",
-                "gasPrice": "0x2540BE400",
-            }
-        )
-        self.nodes[0].generate(1)
-        blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-
-        # Check accounting of EVM fees
-        tx = {
-            "from": self.ethAddress,
-            "to": self.toAddress,
-            "value": "0xa",
-            "gas": "0x7a120",  # 500_000
-            "gasPrice": "0x2540BE400",  # 10_000_000_000,
-        }
-        fees = self.nodes[0].debug_feeEstimate(tx)
-        self.burnt_fee = hex_to_decimal(fees["burnt_fee"])
-        self.priority_fee = hex_to_decimal(fees["priority_fee"])
-        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt"], self.burnt_fee)
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burnt_fee
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], blockHash
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burnt_fee
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], blockHash
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], self.priority_fee
-        )
-        assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority_max"], self.priority_fee
-        )
-
-        blockNumberPreInvalidation = self.nodes[0].eth_blockNumber()
-        blockPreInvalidation = self.nodes[0].eth_getBlockByNumber(
-            blockNumberPreInvalidation
-        )
-        assert_equal(blockNumberPreInvalidation, "0x4")
-        assert_equal(blockPreInvalidation["number"], blockNumberPreInvalidation)
-
-        txPreInvalidation = self.nodes[0].eth_getTransactionByHash(hash)
-        receiptPreInvalidation = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(blockPreInvalidation["transactions"][0], txPreInvalidation["hash"])
-        assert_equal(
-            blockPreInvalidation["transactions"][0],
-            receiptPreInvalidation["transactionHash"],
-        )
-
-        self.nodes[0].invalidateblock(initialBlockHash)
-
-        tx = self.nodes[0].eth_getTransactionByHash(hash)
-        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(tx, None)
-        assert_equal(receipt, None)
-
-        self.nodes[0].reconsiderblock(initialBlockHash)
-        tx = self.nodes[0].eth_getTransactionByHash(hash)
-        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(blockPreInvalidation["transactions"][0], tx["hash"])
-        assert_equal(
-            blockPreInvalidation["transactions"][0], receipt["transactionHash"]
-        )
-
-    def run_test(self):
-        self.setup()
-
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.creationAddress,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
         self.nodes[0].transferdomain(
             [
                 {
@@ -218,9 +89,181 @@ class EVMRolllbackTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        self.startBlockNum = self.nodes[0].eth_blockNumber()
+        self.startBlock = self.nodes[0].eth_getBlockByNumber(self.startBlockNum)
+        self.start_height = self.nodes[0].getblockcount()
+
+    def test_rollback_block(self):
+        self.rollback_to(self.start_height)
+        assert_equal(self.nodes[0].eth_blockNumber(), self.startBlockNum)
+        assert_equal(self.nodes[0].eth_getBlockByNumber("latest"), self.startBlock)
+
+        self.nodes[0].generate(1)
+        nextblockHash = self.nodes[0].getbestblockhash()
+        nextBlockNum = self.nodes[0].eth_blockNumber()
+        nextBlock = self.nodes[0].eth_getBlockByNumber(nextBlockNum)
+        assert_equal(nextBlock["number"], nextBlockNum)
+
+        self.nodes[0].invalidateblock(nextblockHash)
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: header not found",
+            self.nodes[0].eth_getBlockByNumber,
+            nextBlockNum,
+        )
+        blockByHash = self.nodes[0].eth_getBlockByHash(nextBlock["hash"])
+        assert_equal(blockByHash, None)
+
+        currBlockNum = self.nodes[0].eth_blockNumber()
+        currBlock = self.nodes[0].eth_getBlockByNumber(currBlockNum)
+        assert_equal(currBlockNum, self.startBlockNum)
+        assert_equal(currBlock, self.startBlock)
+
+        self.nodes[0].reconsiderblock(nextblockHash)
+        reconsiderBlockNum = self.nodes[0].eth_blockNumber()
+        reconsiderBlock = self.nodes[0].eth_getBlockByNumber(reconsiderBlockNum)
+        assert_equal(reconsiderBlockNum, nextBlockNum)
+        assert_equal(reconsiderBlock, nextBlock)
+
+    def test_rollback_transactions(self):
+        self.rollback_to(self.start_height)
+        assert_equal(self.nodes[0].eth_blockNumber(), self.startBlockNum)
+        assert_equal(self.nodes[0].eth_getBlockByNumber("latest"), self.startBlock)
+
+        txHash = self.nodes[0].eth_sendTransaction(
+            {
+                "from": self.ethAddress,
+                "to": self.toAddress,
+                "value": "0xa",
+                "gas": "0x7a120",
+                "gasPrice": "0x2540BE400",
+            }
+        )
+        self.nodes[0].generate(1)
+        currBlockNum = self.nodes[0].getblockcount()
+        currblockHash = self.nodes[0].getblockhash(currBlockNum)
+
+        # Check accounting of EVM fees
+        txInfo = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xa",
+            "gas": "0x7a120",  # 500_000
+            "gasPrice": "0x2540BE400",  # 10_000_000_000,
+        }
+        fees = self.nodes[0].debug_feeEstimate(txInfo)
+        self.burntFee = hex_to_decimal(fees["burnt_fee"])
+        self.priorityFee = hex_to_decimal(fees["priority_fee"])
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt"], self.burntFee)
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_min"], self.burntFee
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_min_hash"], currblockHash
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_max"], self.burntFee
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_burnt_max_hash"], currblockHash
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority"], self.priorityFee
+        )
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority_max"], self.priorityFee
+        )
+
+        evmBlockNum = self.nodes[0].eth_blockNumber()
+        evmBlock = self.nodes[0].eth_getBlockByNumber(evmBlockNum)
+        assert_equal(evmBlock["number"], evmBlockNum)
+
+        tx = self.nodes[0].eth_getTransactionByHash(txHash)
+        txReceipt = self.nodes[0].eth_getTransactionReceipt(txHash)
+        assert_equal(evmBlock["transactions"][0], tx["hash"])
+        assert_equal(
+            evmBlock["transactions"][0],
+            txReceipt["transactionHash"],
+        )
+
+        # Check that chain tip is back to the starting block
+        self.nodes[0].invalidateblock(currblockHash)
+        currEvmBlockNum = self.nodes[0].eth_blockNumber()
+        currEvmBlock = self.nodes[0].eth_getBlockByNumber(currEvmBlockNum)
+        assert_equal(currEvmBlockNum, self.startBlockNum)
+        assert_equal(currEvmBlock, self.startBlock)
+
+        # Check that txs are no longer valid
+        tx = self.nodes[0].eth_getTransactionByHash(txHash)
+        receipt = self.nodes[0].eth_getTransactionReceipt(txHash)
+        assert_equal(tx, None)
+        assert_equal(receipt, None)
+
+        self.nodes[0].reconsiderblock(currblockHash)
+        reconsiderBlockNum = self.nodes[0].eth_blockNumber()
+        reconsiderBlock = self.nodes[0].eth_getBlockByNumber(reconsiderBlockNum)
+        tx = self.nodes[0].eth_getTransactionByHash(txHash)
+        receipt = self.nodes[0].eth_getTransactionReceipt(txHash)
+        assert_equal(reconsiderBlockNum, evmBlockNum)
+        assert_equal(reconsiderBlock, evmBlock)
+        assert_equal(reconsiderBlock["transactions"][0], tx["hash"])
+        assert_equal(
+            reconsiderBlock["transactions"][0],
+            receipt["transactionHash"],
+        )
+
+    def test_state_rollback(self):
+        self.rollback_to(self.start_height)
+        assert_equal(self.nodes[0].eth_blockNumber(), self.startBlockNum)
+        assert_equal(self.nodes[0].eth_getBlockByNumber("latest"), self.startBlock)
+
+        evmAddresses = []
+        numEvmAddresses = 10
+        for i in range(numEvmAddresses):
+            evmAddresses.append(self.nodes[0].getnewaddress("", "erc55"))
+        
+        # Transferdomain txs
+        tdHashes = []
+        for i in range(numEvmAddresses):
+            hash = self.nodes[0].transferdomain(
+                [
+                    {
+                        "src": {"address": self.address, "amount": "10@DFI", "domain": 2},
+                        "dst": {
+                            "address": evmAddresses[i],
+                            "amount": "10@DFI",
+                            "domain": 3,
+                        },
+                    }
+                ]
+            )
+            tdHashes.append(hash)
+        self.nodes[0].generate(1)
+
+        # first block (transferdomain txs)
+        firstBlockNum = self.nodes[0].eth_blockNumber()
+        firstBlock = self.nodes[0].eth_getBlockByNumber(firstBlockNum)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        tdtx_id = 0
+        for tx_info in block_info["tx"][1:]:
+            if tx_info["vm"]["txtype"] == "TransferDomain":
+                # Check that all transferdomain txs are minted in the first block
+                assert_equal(tx_info["txid"], tdHashes[tdtx_id])
+                tdtx_id += 1
+        assert_equal(tdtx_id, numEvmAddresses)
+
+        firstEvmDBDump = self.nodes[0].debug_dumbdb()
+
+
+    def run_test(self):
+        self.setup()
+
         self.test_rollback_block()
 
         self.test_rollback_transactions()
+
+        self.test_state_rollback()
 
 
 if __name__ == "__main__":
