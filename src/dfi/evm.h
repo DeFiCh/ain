@@ -58,9 +58,9 @@ public:
 };
 
 class CScopedTemplate {
-    explicit CScopedTemplate(BlockTemplate *blockTemplate);
+    explicit CScopedTemplate(BlockTemplateWrapper& blockTemplate);
 
-    BlockTemplate *evmTemplate;
+    BlockTemplateWrapper &evmTemplate;
 
 public:
     static std::shared_ptr<CScopedTemplate> Create(const uint64_t dvmBlockNumber,
@@ -69,7 +69,7 @@ public:
                                                    const uint64_t timestamp);
     ~CScopedTemplate();
 
-    BlockTemplate *GetTemplate() const;
+    BlockTemplateWrapper& GetTemplate() const;
 };
 
 #endif  // DEFI_DFI_EVM_H

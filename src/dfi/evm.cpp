@@ -54,7 +54,7 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplate::CScopedTemplate(BlockTemplate *evmTemplate)
+CScopedTemplate::CScopedTemplate(BlockTemplateWrapper& evmTemplate)
     : evmTemplate(evmTemplate) {}
 
 std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
@@ -62,7 +62,7 @@ std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlock
                                                          const unsigned int difficulty,
                                                          const uint64_t timestamp) {
     CrossBoundaryResult result;
-    BlockTemplate *evmTemplate =
+    BlockTemplateWrapper &evmTemplate =
         evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
         return std::shared_ptr<CScopedTemplate>(new CScopedTemplate(evmTemplate));
@@ -74,10 +74,10 @@ CScopedTemplate::~CScopedTemplate() {
     CrossBoundaryResult result;
     evm_try_unsafe_remove_template(result, evmTemplate);
     if (!result.ok) {
-        LogPrintf("Failed to destroy queue %d\n", evmTemplate);
+        LogPrintf("Failed to destroy queue\n");
     }
 }
 
-BlockTemplate *CScopedTemplate::GetTemplate() const {
+BlockTemplateWrapper& CScopedTemplate::GetTemplate() const {
     return evmTemplate;
 }
