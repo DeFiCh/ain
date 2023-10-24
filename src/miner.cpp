@@ -251,10 +251,10 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     const auto attributes = mnview.GetAttributes();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto &evmTemplate = blockCtx.GetEVMTemplateId();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
     if (isEvmEnabledForBlock) {
-        blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime));
+        blockCtx.SetEVMTemplateId(CScopedTemplate::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime));
         if (!evmTemplate) {
             return Res::Err("Failed to create block template");
         }
@@ -667,7 +667,7 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
 
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
     auto &view = blockCtx.GetView();
 
     // Block gas limit

@@ -102,8 +102,8 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
         }
 
         const auto shouldCreateDst20 = blockCtx.GetEVMEnabledForBlock();
-        const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
-        if (shouldCreateDst20 && evmTemplateId) {
+        const auto &evmTemplate = blockCtx.GetEVMTemplate();
+        if (shouldCreateDst20 && evmTemplate) {
             CrossBoundaryResult result;
             evm_try_unsafe_create_dst20(result,
                                         evmTemplate->GetTemplate(),

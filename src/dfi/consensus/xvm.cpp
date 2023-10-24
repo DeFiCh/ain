@@ -232,7 +232,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     const auto height = txCtx.GetHeight();
     const auto &tx = txCtx.GetTransaction();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
     const auto evmPreValidate = blockCtx.GetEVMPreValidate();
     auto &mnview = blockCtx.GetView();
 
@@ -422,7 +422,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
     const auto &tx = txCtx.GetTransaction();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
     const auto evmPreValidate = blockCtx.GetEVMPreValidate();
     auto &mnview = blockCtx.GetView();
 

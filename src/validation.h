@@ -47,7 +47,7 @@ class CInv;
 class CConnman;
 class CScriptCheck;
 class CBlockPolicyEstimator;
-class CScopedTemplateID;
+class CScopedTemplate;
 class CTxMemPool;
 class CValidationState;
 struct ChainTxData;
@@ -66,27 +66,27 @@ class BlockContext {
     std::shared_ptr<CCustomCSView> cache;
     CCustomCSView *view;
     std::optional<bool> isEvmEnabledForBlock;
-    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
+    std::shared_ptr<CScopedTemplate> evmTemplate{};
     bool evmPreValidate{};
 
 public:
     explicit BlockContext(CCustomCSView *view = {},
                           const std::optional<bool> enabled = {},
-                          const std::shared_ptr<CScopedTemplateID> &id = {},
+                          const std::shared_ptr<CScopedTemplate> &id = {},
                           const bool prevalidate = {}) :
             view(view),
             isEvmEnabledForBlock(enabled),
-            evmTemplateId(id),
+            evmTemplate(id),
             evmPreValidate(prevalidate) {}
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
     [[nodiscard]] bool GetEVMPreValidate() const;
-    [[nodiscard]] const std::shared_ptr<CScopedTemplateID> &GetEVMTemplateId() const;
+    [[nodiscard]] const std::shared_ptr<CScopedTemplate> &GetEVMTemplate() const;
 
     void SetView(CCustomCSView &other);
     void SetEVMPreValidate(const bool other);
-    void SetEVMTemplateId(const std::shared_ptr<CScopedTemplateID> &id);
+    void SetEVMTemplateId(const std::shared_ptr<CScopedTemplate> &id);
 };
 
 class TransactionContext {

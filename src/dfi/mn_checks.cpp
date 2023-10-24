@@ -419,11 +419,11 @@ Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, con
     }
 
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    const auto &evmTemplate = blockCtx.GetEVMTemplateId();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
     if (!evmTemplate && isEvmEnabledForBlock) {
         std::string minerAddress{};
-        blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(height, minerAddress, 0u, time));
+        blockCtx.SetEVMTemplateId(CScopedTemplate::Create(height, minerAddress, 0u, time));
         if (!evmTemplate) {
             return Res::Err("Failed to create queue");
         }

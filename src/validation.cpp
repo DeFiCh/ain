@@ -2683,7 +2683,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             IsEVMEnabled(attributes)
     };
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    auto &evmTemplate = blockCtx.GetEVMTemplateId();
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
 
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
@@ -2691,7 +2691,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to process XVM in coinbase", __func__),
                                  REJECT_INVALID, "bad-xvm-coinbase");
         }
-        blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
+        blockCtx.SetEVMTemplateId(CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
         if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to create block template", __func__),
                                  REJECT_INVALID, "bad-evm-template");
@@ -6328,8 +6328,8 @@ bool BlockContext::GetEVMPreValidate() const {
     return evmPreValidate;
 }
 
-const std::shared_ptr<CScopedTemplateID> &BlockContext::GetEVMTemplateId() const {
-    return evmTemplateId;
+const std::shared_ptr<CScopedTemplate> &BlockContext::GetEVMTemplate() const {
+    return evmTemplate;
 }
 
 void BlockContext::SetView(CCustomCSView &other) {
@@ -6340,6 +6340,6 @@ void BlockContext::SetEVMPreValidate(const bool other) {
     evmPreValidate = other;
 }
 
-void BlockContext::SetEVMTemplateId(const std::shared_ptr<CScopedTemplateID> &id) {
-    evmTemplateId = id;
+void BlockContext::SetEVMTemplateId(const std::shared_ptr<CScopedTemplate> &id) {
+    evmTemplate = id;
 }
