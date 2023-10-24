@@ -112,20 +112,13 @@ class EVMGasTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
-        block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        print("block", block)
         self.start_height = self.nodes[0].getblockcount()
 
     def execute_transfer_tx_with_estimate_gas(self):
         self.rollback_to(self.start_height)
         correct_gas_used = "0x5208"
 
-        print(
-            "self.nodes[0].eth_getBalance(self.ethAddress)",
-            self.nodes[0].eth_getBalance(self.ethAddress),
-        )
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        print("nonce", nonce)
         tx_without_gas_specified = {
             "nonce": hex(nonce),
             "from": self.ethAddress,
