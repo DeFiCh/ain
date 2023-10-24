@@ -1278,7 +1278,7 @@ void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &v
     const auto &hash = tx->GetHash();
     if (!mempoolIterMap.count(hash)) return;
     auto it = mempoolIterMap.at(hash);
-            LogPrint(BCLog::MEMPOOL, "re-stage/add TX: %s\n", hash.GetHex());
+    LogPrint(BCLog::MEMPOOL, "re-stage/add TX: %s\n", hash.GetHex());
     staged.insert(it);
     vtx.push_back(it->GetSharedTx());
 }
