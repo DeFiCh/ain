@@ -68,6 +68,8 @@ UniValue evmtx(const JSONRPCRequest &request) {
     }
     pwallet->BlockUntilSyncedToCurrentChain();
 
+    EnsureWalletIsUnlocked(pwallet);
+
     const auto fromDest = DecodeDestination(request.params[0].get_str());
     if (fromDest.index() != WitV16KeyEthHashType) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "from address not an Ethereum address");

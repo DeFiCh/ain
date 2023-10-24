@@ -425,6 +425,18 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     Ok(())
 }
 
+fn block_template_err_wrapper() -> &'static mut BlockTemplateWrapper {
+    // We don't really care if multiple thread reinitialize or use it as long as the refs live
+    // So we just use unsafe mut pattern since it's purely for err condition that is intented
+    // to never be used
+    static mut CELL: std::cell::OnceCell<BlockTemplateWrapper> = std::cell::OnceCell::new();
+    unsafe {
+        let v = CELL.get_or_init(|| BlockTemplateWrapper(None));
+        #[allow(mutable_transmutes)]
+        std::mem::transmute(v)
+    }
+}
+
 /// Creates an EVM block template.
 ///
 /// # Returns
@@ -444,7 +456,7 @@ pub fn evm_try_unsafe_create_template(
             Ok(a) => a,
             Err(_) => {
                 cross_boundary_error(result, "Invalid address");
-                return Box::leak(Box::new(BlockTemplateWrapper(None)));
+                return block_template_err_wrapper();
             }
         }
     };
@@ -460,7 +472,7 @@ pub fn evm_try_unsafe_create_template(
             ),
             Err(e) => {
                 cross_boundary_error(result, e.to_string());
-                return Box::leak(Box::new(BlockTemplateWrapper(None)));
+                return block_template_err_wrapper();
             }
         }
     }

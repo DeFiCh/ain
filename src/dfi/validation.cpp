@@ -2563,7 +2563,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
             } else {
                 assert(prop.nCycles > prop.cycle);
-                cache.UpdateProposalCycle(propId, prop.cycle + 1);
+                cache.UpdateProposalCycle(propId, prop.cycle + 1, pindex->nHeight, chainparams.GetConsensus());
             }
 
             CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};

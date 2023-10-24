@@ -107,6 +107,7 @@ impl BlockTemplate {
 
     pub fn remove_txs_above_hash(&mut self, target_hash: XHash) -> Result<Vec<XHash>> {
         let mut removed_txs = Vec::new();
+
         if let Some(index) = self
             .transactions
             .iter()

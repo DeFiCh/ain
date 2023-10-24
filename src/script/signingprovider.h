@@ -89,4 +89,12 @@ public:
 /** Return the CKeyID of the key involved in a script (if there is a unique one). */
 CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDestination& dest);
 
+inline void ResolveKeyCompression(const KeyAddressType type, CPubKey &pubkey) {
+    if (!pubkey.IsCompressed() && type == KeyAddressType::COMPRESSED) {
+        pubkey.Compress();
+    } else if (pubkey.IsCompressed() && type == KeyAddressType::UNCOMPRESSED) {
+        pubkey.Decompress();
+    }
+}
+
 #endif // DEFI_SCRIPT_SIGNINGPROVIDER_H
