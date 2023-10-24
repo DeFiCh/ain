@@ -107,12 +107,13 @@ jobs:
 
     continue-on-error: true
     env:
+      BASE_PATH: "https://storage.googleapis.com"
+      BUCKET: "team-drop"
       DATADIR : datadir-${{matrix.blocks.start}}
       STOP_BLOCK: ${{matrix.blocks.stop}}
       START_BLOCK: ${{matrix.blocks.start}}
       DEFID_BIN: ./defid
       DEFI_CLI_BIN: ./defi-cli
-      REF_LOG_DIR: master-datadir/log
       BASE_REF: master
     timeout-minutes: 4320
 
@@ -120,7 +121,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Download Snapshot
-      run: aria2c -x16 -s16 https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz
+      run: aria2c -x16 -s16 ${{ env.BASE_PATH }}/${{ env.BUCKET }}/${{ BASE_REF }}-datadir/datadir-${{matrix.blocks.start}}.tar.gz
 
     - name: Create datadir
       run: mkdir $DATADIR && tar -C $DATADIR -xvf datadir-${{matrix.blocks.start}}.tar.gz

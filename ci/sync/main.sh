@@ -16,10 +16,10 @@ setup_vars() {
     PRE_ROLLBACK_LOG="debug-pre-rollback.log"
     POST_ROLLBACK_LOG="debug-post-rollback.log"
     BASE_REF=${BASE_REF:-"master"}
-    BASE_PATH="https://storage.googleapis.com"
-    BUCKET="team-drop"
+    BASE_PATH=${BASE_PATH:-"https://storage.googleapis.com"}
+    BUCKET=${BUCKET:-"team-drop"}
     REF_LOG="debug-${STOP_BLOCK}.log"
-    REF_LOG_PATH="${BASE_PATH}/${BUCKET}/${REF_LOG_DIR}/${REF_LOG}"
+    REF_LOG_PATH="${BASE_PATH}/${BUCKET}/${BASE_REF}-datadir/log/${REF_LOG}"
 
     # Commands
     DEFID_CMD="${DEFID_BIN} -datadir=${DATADIR} -daemon -debug=accountchange -spv -checkpoints=0 -interrupt-block=$((STOP_BLOCK + 1))"
@@ -55,7 +55,7 @@ print_info() {
     ${REF_LOG_PATH}
 
   - snapshot:
-    https://storage.googleapis.com/team-drop/${BASE_REF}-datadir/datadir-${START_BLOCK}.tar.gz
+   ${BASE_PATH}/${BUCKET}/${BASE_REF}-datadir/datadir-${START_BLOCK}.tar.gz
 
   - defid:
     ${DEFID_CMD}
