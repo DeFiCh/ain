@@ -211,7 +211,9 @@ impl Rollback for BlockStore {
             }
 
             let blocks_cf = self.column::<columns::Blocks>();
+            let logs_cf = self.column::<columns::AddressLogsMap>();
             blocks_cf.delete(&block.header.number)?;
+            logs_cf.delete(&block.header.number)?;
 
             let blocks_map_cf = self.column::<columns::BlockMap>();
             blocks_map_cf.delete(&block.header.hash())?;
