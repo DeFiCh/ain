@@ -1246,7 +1246,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
         const auto& tx = it->GetTx();
         const auto removeTxBackToStage = [&it](const indexed_transaction_set& mapTx, CTxMemPool::setEntries& staged,
                                   std::vector<CTransactionRef>& vtx, const CTransaction& tx) {
-            LogPrint(BCLog::MEMPOOL, "mempool: re-stage/remove TX: %s (cause: accountsView)\n", tx.GetHash().GetHex());
+            LogPrint(BCLog::MEMPOOL, "re-stage/remove TX: %s (cause: accountsView)\n", tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
             vtx.push_back(it->GetSharedTx());
         };
