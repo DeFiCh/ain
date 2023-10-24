@@ -1278,7 +1278,7 @@ void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &v
     const auto &hash = tx->GetHash();
     if (!mempoolIterMap.count(hash)) return;
     auto it = mempoolIterMap.at(hash);
-    LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
+            LogPrint(BCLog::MEMPOOL, "re-stage/add TX: %s\n", hash.GetHex());
     staged.insert(it);
     vtx.push_back(it->GetSharedTx());
 }
