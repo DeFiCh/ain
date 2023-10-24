@@ -237,7 +237,7 @@ pub enum DumpArg {
 }
 
 impl BlockStore {
-    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) {
+    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) -> String {
         let s_to_u256 = |s| {
             U256::from_str_radix(s, 10)
                 .or(U256::from_str_radix(s, 16))
@@ -246,9 +246,7 @@ impl BlockStore {
         let s_to_h256 = |s: &str| H256::from_str(s).unwrap_or(H256::zero());
 
         match arg {
-            DumpArg::All => {
-                self.dump_all(limit);
-            }
+            DumpArg::All => self.dump_all(limit),
             DumpArg::Blocks => self.dump_column(columns::Blocks, from.map(s_to_u256), limit),
             DumpArg::Txs => self.dump_column(columns::Transactions, from.map(s_to_h256), limit),
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
@@ -257,7 +255,8 @@ impl BlockStore {
         }
     }
 
-    fn dump_all(&self, limit: usize) {
+    fn dump_all(&self, limit: usize) -> String {
+        let mut out = String::new();
         for arg in &[
             DumpArg::Blocks,
             DumpArg::Txs,
@@ -265,17 +264,19 @@ impl BlockStore {
             DumpArg::BlockMap,
             DumpArg::Logs,
         ] {
-            self.dump(arg, None, limit);
+            out.push_str(self.dump(arg, None, limit).as_str());
         }
+        out
     }
 
-    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize)
+    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize) -> String
     where
         C: TypedColumn + ColumnName,
     {
-        println!("{}", C::NAME);
+        let mut out = format!("{}\n", C::NAME);
         for (k, v) in self.column::<C>().iter(from, limit) {
-            println!("{:?}: {:#?}", k, v);
+            out.push_str(format!("{:?}: {:#?}", k, v).as_str());
         }
+        out
     }
 }
