@@ -270,7 +270,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     XVM xvm{};
     if (isEvmEnabledForBlock) {
-        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, evmTemplate->GetTemplate()));
+        auto res = XResultValueLogged(evm_try_unsafe_construct_block_in_template(result, evmTemplate->GetTemplate(), true));
         if (!res) return Res::Err("Failed to construct block");
         auto blockResult = *res;
         xvm = XVM{0, {0, std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}};

@@ -1,4 +1,8 @@
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    sync::Arc,
+};
 
 use anyhow::format_err;
 use ethereum::{Account, Log};
@@ -49,6 +53,7 @@ struct OverlayData {
 struct Overlay {
     state: HashMap<H160, OverlayData>,
     changeset: Vec<HashMap<H160, OverlayData>>,
+    deletes: HashSet<H160>,
 }
 
 impl Overlay {
@@ -56,6 +61,7 @@ impl Overlay {
         Self {
             state: HashMap::new(),
             changeset: Vec::new(),
+            deletes: HashSet::new(),
         }
     }
 
@@ -81,6 +87,10 @@ impl Overlay {
             storage,
         };
         self.state.insert(address, data.clone());
+    }
+
+    fn mark_delete(&mut self, address: H160) {
+        self.deletes.insert(address);
     }
 
     // Keeps track of the number of TXs in the changeset.
@@ -195,7 +205,7 @@ impl EVMBackend {
         self.overlay.changeset.truncate(index + 1);
     }
 
-    fn apply_overlay(&mut self) -> Result<()> {
+    fn apply_overlay(&mut self, is_miner: bool) -> Result<()> {
         for (
             address,
             OverlayData {
@@ -205,11 +215,23 @@ impl EVMBackend {
             },
         ) in self.overlay.state.drain()
         {
+            if self.overlay.deletes.contains(&address) {
+                self.state
+                    .remove(address.as_bytes())
+                    .expect("Error removing address in state");
+
+                if !is_miner {
+                    self.trie_store.trie_db.trie_remove(address.as_bytes());
+                }
+
+                continue;
+            }
+
             let mut storage_trie = self
                 .trie_store
                 .trie_db
                 .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                .unwrap();
+                .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
 
             storage.into_iter().for_each(|(k, v)| {
                 debug!(
@@ -231,8 +253,8 @@ impl EVMBackend {
         Ok(())
     }
 
-    pub fn commit(&mut self) -> Result<H256> {
-        self.apply_overlay()?;
+    pub fn commit(&mut self, is_miner: bool) -> Result<H256> {
+        self.apply_overlay(is_miner)?;
         Ok(self.state.commit().into())
     }
 
@@ -419,7 +441,12 @@ impl Backend for EVMBackend {
         trace!(target: "backend", "[EVMBackend] code for address {:x?}", address);
         self.overlay.get_code(&address).unwrap_or_else(|| {
             self.get_account(&address)
-                .and_then(|account| self.storage.get_code_by_hash(account.code_hash).unwrap())
+                .and_then(|account| {
+                    self.storage
+                        .get_code_by_hash(account.code_hash)
+                        .ok()
+                        .flatten()
+                })
                 .unwrap_or_default()
         })
     }
@@ -476,18 +503,14 @@ impl ApplyBackend for EVMBackend {
 
                     if is_empty_account(&new_account) && delete_empty {
                         debug!("Deleting empty address {:x?}", address);
-                        self.trie_store.trie_db.trie_remove(address.as_bytes());
-                        self.state
-                            .remove(address.as_bytes())
-                            .expect("Error removing address in state");
+                        self.overlay.mark_delete(address);
                     }
                 }
                 Apply::Delete { address } => {
                     debug!("Deleting address {:x?}", address);
-                    self.trie_store.trie_db.trie_remove(address.as_bytes());
-                    self.state
-                        .remove(address.as_bytes())
-                        .expect("Error removing address in state");
+                    self.apply(address, None, None, vec![], false)
+                        .expect("Error applying state");
+                    self.overlay.mark_delete(address);
                 }
             }
         }

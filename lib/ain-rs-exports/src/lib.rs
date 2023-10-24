@@ -230,6 +230,7 @@ pub mod ffi {
         fn evm_try_unsafe_construct_block_in_template(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
+            is_miner: bool,
         ) -> FinalizeBlockCompletion;
 
         fn evm_try_unsafe_commit_block(

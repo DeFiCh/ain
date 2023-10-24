@@ -550,6 +550,7 @@ fn evm_try_unsafe_push_tx_in_template(
 #[ffi_fallible]
 fn evm_try_unsafe_construct_block_in_template(
     template: &mut BlockTemplateWrapper,
+    is_miner: bool,
 ) -> Result<ffi::FinalizeBlockCompletion> {
     unsafe {
         let FinalizedBlockInfo {
@@ -559,7 +560,7 @@ fn evm_try_unsafe_construct_block_in_template(
             block_number,
         } = SERVICES
             .evm
-            .construct_block_in_template(template.get_inner_mut()?)?;
+            .construct_block_in_template(template.get_inner_mut()?, is_miner)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 

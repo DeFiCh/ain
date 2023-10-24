@@ -5,6 +5,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 from test_framework.evm_key_pair import EvmKeyPair
+from test_framework.evm_contract import EVMContract
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -14,6 +15,7 @@ from test_framework.util import (
 )
 from decimal import Decimal
 import math
+from web3 import Web3
 
 
 class EVMTest(DefiTestFramework):
@@ -62,40 +64,6 @@ class EVMTest(DefiTestFramework):
                 "-txindex=1",
             ],
         ]
-
-    def run_test(self):
-        # Check ERC55 wallet support
-        self.erc55_wallet_support()
-
-        # Test TransferDomain, OP_RETURN and EVM Gov vars
-        self.evm_gov_vars()
-
-        # Fund accounts
-        self.setup_accounts()
-
-        # Test block ordering by nonce and Eth RBF
-        self.nonce_order_and_rbf()
-
-        # Check XVM in coinbase
-        self.validate_xvm_coinbase()
-
-        # EVM rollback
-        self.evm_rollback()
-
-        # Multiple mempool fee replacement
-        self.multiple_eth_rbf()
-
-        # Test that node should not crash without chainId param
-        self.test_tx_without_chainid()
-
-        # Test evmtx auto nonce
-        self.sendtransaction_auto_nonce()
-
-        # Toggle EVM
-        self.toggle_evm_enablement()
-
-        # Test Eth on encrypted wallet
-        self.encrypt_wallet()
 
     def test_tx_without_chainid(self):
         node = self.nodes[0]
@@ -741,6 +709,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(attrs["v0/evm/block/finality_count"], "100")
 
     def setup_accounts(self):
+        self.evm_key_pair = EvmKeyPair.from_node(self.nodes[0])
+
         # Fund DFI address
         self.nodes[0].utxostoaccount({self.address: "300@DFI"})
         self.nodes[0].generate(1)
@@ -1398,6 +1368,150 @@ class EVMTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
+
+    def delete_account_from_trie(self):
+        addressA = self.nodes[0].getnewaddress("", "erc55")
+        addressB = self.nodes[0].getnewaddress("", "erc55")
+
+        # Fund EVM address
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "2@DFI", "domain": 2},
+                    "dst": {
+                        "address": addressA,
+                        "amount": "2@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].evmtx(
+            addressA, 0, 21, 21001, addressB, 0
+        )  # Touch addressB and trigger deletion as empty account
+        self.nodes[0].generate(1)
+
+        # Deploy Suicide contract to trigger deletion via Suicide opcode
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "20@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.evm_key_pair.address,
+                        "amount": "20@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        self.contract = EVMContract.from_file("Suicide.sol", "SuicideContract")
+        abi, bytecode, _ = self.contract.compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 500_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+
+        self.nodes[0].generate(1)
+
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        self.contract_address = receipt["contractAddress"]
+        self.contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        codeBefore = self.nodes[0].eth_getCode(self.contract_address)
+        assert_equal(
+            codeBefore,
+            "0x608060405234801561000f575f80fd5b5060043610610034575f3560e01c80638da5cb5b14610038578063bcea363d14610056575b5f80fd5b610040610072565b60405161004d919061017a565b60405180910390f35b610070600480360381019061006b91906101d2565b610095565b005b5f8054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b5f8054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610122576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101199061027d565b60405180910390fd5b8073ffffffffffffffffffffffffffffffffffffffff16ff5b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f6101648261013b565b9050919050565b6101748161015a565b82525050565b5f60208201905061018d5f83018461016b565b92915050565b5f80fd5b5f6101a18261013b565b9050919050565b6101b181610197565b81146101bb575f80fd5b50565b5f813590506101cc816101a8565b92915050565b5f602082840312156101e7576101e6610193565b5b5f6101f4848285016101be565b91505092915050565b5f82825260208201905092915050565b7f4f6e6c7920746865206f776e65722063616e2063616c6c20746869732066756e5f8201527f6374696f6e000000000000000000000000000000000000000000000000000000602082015250565b5f6102676025836101fd565b91506102728261020d565b604082019050919050565b5f6020820190508181035f8301526102948161025b565b905091905056fea26469706673582212205b57b3041b7e5425acf700e1f8f9234843547f79875ac6a6f66417bc1329c3ce64736f6c63430008140033",
+        )
+        storageBefore = self.nodes[0].eth_getStorageAt(self.contract_address, "0x0")
+        assert_equal(
+            Web3.to_checksum_address(storageBefore[26:]),
+            self.evm_key_pair.address,
+        )
+
+        tx = self.contract.functions.killContract(addressA).build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(
+                    self.evm_key_pair.address
+                ),
+                "gasPrice": 10_000_000_000,
+                "gas": 10_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(
+            tx, self.evm_key_pair.privkey
+        )
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        codeAfterSuicide = self.nodes[0].eth_getCode(self.contract_address)
+        assert_equal(
+            codeAfterSuicide,
+            "0x",
+        )
+        storageAfterSuicide = self.nodes[0].eth_getStorageAt(
+            self.contract_address, "0x0"
+        )
+        assert_equal(
+            storageAfterSuicide,
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+        )
+
+    def run_test(self):
+        # Check ERC55 wallet support
+        self.erc55_wallet_support()
+
+        # Test TransferDomain, OP_RETURN and EVM Gov vars
+        self.evm_gov_vars()
+
+        # Fund accounts
+        self.setup_accounts()
+
+        # Test block ordering by nonce and Eth RBF
+        self.nonce_order_and_rbf()
+
+        # Check XVM in coinbase
+        self.validate_xvm_coinbase()
+
+        # EVM rollback
+        self.evm_rollback()
+
+        # Multiple mempool fee replacement
+        self.multiple_eth_rbf()
+
+        # Test that node should not crash without chainId param
+        self.test_tx_without_chainid()
+
+        # Test evmtx auto nonce
+        self.sendtransaction_auto_nonce()
+
+        # Toggle EVM
+        self.toggle_evm_enablement()
+
+        # Test Eth on encrypted wallet
+        self.encrypt_wallet()
+
+        # Delete state account
+        self.delete_account_from_trie()
 
 
 if __name__ == "__main__":

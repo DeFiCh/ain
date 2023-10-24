@@ -83,8 +83,8 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.update_vicinity_with_gas_used(gas_used)
     }
 
-    pub fn commit(&mut self) -> Result<H256> {
-        self.backend.commit()
+    pub fn commit(&mut self, is_miner: bool) -> Result<H256> {
+        self.backend.commit(is_miner)
     }
 
     pub fn get_nonce(&self, address: &H160) -> U256 {

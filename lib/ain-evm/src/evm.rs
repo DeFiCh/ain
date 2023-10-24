@@ -138,6 +138,7 @@ impl EVMServices {
     pub unsafe fn construct_block_in_template(
         &self,
         template: &mut BlockTemplate,
+        is_miner: bool,
     ) -> Result<FinalizedBlockInfo> {
         let logs_bloom = template.get_latest_logs_bloom();
 
@@ -186,7 +187,7 @@ impl EVMServices {
             .backend
             .add_balance(beneficiary, total_priority_fees)?;
 
-        let state_root = executor.commit()?;
+        let state_root = executor.commit(is_miner)?;
 
         let extra_data = format!("DFI: {}", template.dvm_block).into_bytes();
         let block = Block::new(
