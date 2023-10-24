@@ -5,6 +5,7 @@ mod prelude;
 use crate::{core::*, evm::*};
 use ain_evm::blocktemplate::BlockTemplate;
 
+#[derive(Debug)]
 pub struct BlockTemplateWrapper(BlockTemplate);
 
 #[cxx::bridge]

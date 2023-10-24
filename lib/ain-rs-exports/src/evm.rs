@@ -1,5 +1,3 @@
-use std::ops::DerefMut;
-
 use ain_contracts::{
     get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
     get_transferdomain_native_transfer_function, FixedContract,
@@ -426,18 +424,13 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
 }
 
 fn block_template_err_wrapper() -> &'static mut BlockTemplateWrapper {
-    static CELL: std::sync::OnceLock<std::sync::Mutex<BlockTemplateWrapper>> =
-        std::sync::OnceLock::new();
-    let mut val = CELL
-        .get_or_init(|| std::sync::Mutex::new(BlockTemplateWrapper(BlockTemplate::default())))
-        .lock()
-        .unwrap();
-
+    // We don't really care if multiple thread reinitialize or use it as long as the refs live
+    // So we just use unsafe mut pattern since it's purely for err condition that is intented
+    // to never be used
+    static mut CELL: std::cell::OnceCell<BlockTemplateWrapper> = std::cell::OnceCell::new();
     unsafe {
-        #[allow(mutable_transmutes)]
-        std::mem::transmute::<&mut BlockTemplateWrapper, &'static mut BlockTemplateWrapper>(
-            val.deref_mut(),
-        )
+        let _ = CELL.get_or_init(|| BlockTemplateWrapper(BlockTemplate::default()));
+        CELL.get_mut().unwrap()
     }
 }
 
