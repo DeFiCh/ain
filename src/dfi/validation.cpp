@@ -1073,7 +1073,7 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
 static void ProcessGovEvents(const CBlockIndex *pindex,
                              CCustomCSView &cache,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                             const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
         return;
     }
@@ -1087,7 +1087,7 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
-                govVar->evmTemplateId = evmTemplateId;
+                govVar->evmTemplate = evmTemplate;
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
@@ -2657,7 +2657,7 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
                            const CChainParams &chainparams,
-                           const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                           const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -2695,7 +2695,7 @@ static Res ProcessEVMQueue(const CBlock &block,
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID());
+    const auto blockResult = evm_try_unsafe_construct_block_in_template(result, evmTemplate->GetTemplate());
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
@@ -2790,13 +2790,13 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
+                             const std::shared_ptr<CScopedTemplate> &evmTemplate,
                              const bool isEvmEnabledForBlock) {
     CCustomCSView cache(mnview);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
-        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplateId);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplate);
         if (!res) {
             return res;
         }
@@ -2814,7 +2814,7 @@ void ProcessDeFiEvent(const CBlock &block,
                       const CCoinsViewCache &view,
                       const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                      const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2841,7 +2841,7 @@ void ProcessDeFiEvent(const CBlock &block,
     ProcessFutures(pindex, cache, chainparams);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams, evmTemplateId);
+    ProcessGovEvents(pindex, cache, chainparams, evmTemplate);
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, chainparams);

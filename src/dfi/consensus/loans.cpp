@@ -290,7 +290,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
                                : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
     token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-    auto tokenId = mnview.CreateToken(token, false, isEvmEnabledForBlock, evmTemplateId);
+    auto tokenId = mnview.CreateToken(token, false, isEvmEnabledForBlock, evmTemplate);
     if (!tokenId) {
         return tokenId;
     }
@@ -300,7 +300,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
 
         auto attributes = mnview.GetAttributes();
         attributes->time = time;
-        attributes->evmTemplateId = evmTemplateId;
+        attributes->evmTemplate = evmTemplate;
 
         CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
         CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};

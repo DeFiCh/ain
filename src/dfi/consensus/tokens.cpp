@@ -104,7 +104,7 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     }
 
     auto tokenId = mnview.CreateToken(
-        token, static_cast<int>(height) < consensus.DF2BayfrontHeight, isEvmEnabledForBlock, evmTemplateId);
+        token, static_cast<int>(height) < consensus.DF2BayfrontHeight, isEvmEnabledForBlock, evmTemplate);
     return tokenId;
 }
 

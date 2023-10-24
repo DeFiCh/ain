@@ -2,6 +2,7 @@
 #include <dfi/errors.h>
 #include <dfi/evm.h>
 #include <dfi/res.h>
+#include <ffi/ffihelpers.h>
 #include <uint256.h>
 
 Res CVMDomainGraphView::SetVMDomainBlockEdge(VMDomainEdge type, std::string blockHashKey, std::string blockHash) {
@@ -54,29 +55,26 @@ void CVMDomainGraphView::ForEachVMDomainTxEdges(
         std::make_pair(static_cast<uint8_t>(start.first), start.second));
 }
 
-CScopedTemplateID::CScopedTemplateID(uint64_t id)
-    : evmTemplateId(id) {}
+CScopedTemplate::CScopedTemplate(BlockTemplateWrapper &evmTemplate)
+    : evmTemplate(evmTemplate) {}
 
-std::shared_ptr<CScopedTemplateID> CScopedTemplateID::Create(const uint64_t dvmBlockNumber,
-                                                             const std::string minerAddress,
-                                                             const unsigned int difficulty,
-                                                             const uint64_t timestamp) {
+std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
+                                                         const std::string minerAddress,
+                                                         const unsigned int difficulty,
+                                                         const uint64_t timestamp) {
     CrossBoundaryResult result;
-    uint64_t templateId = evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
+    BlockTemplateWrapper &evmTemplate =
+        evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
     if (result.ok) {
-        return std::shared_ptr<CScopedTemplateID>(new CScopedTemplateID(templateId));
+        return std::shared_ptr<CScopedTemplate>(new CScopedTemplate(evmTemplate));
     }
     return nullptr;
 }
 
-CScopedTemplateID::~CScopedTemplateID() {
-    CrossBoundaryResult result;
-    evm_try_unsafe_remove_template(result, evmTemplateId);
-    if (!result.ok) {
-        LogPrintf("Failed to destroy queue %d\n", evmTemplateId);
-    }
+CScopedTemplate::~CScopedTemplate() {
+    XResultStatusLogged(evm_try_unsafe_remove_template(result, evmTemplate));
 }
 
-uint64_t CScopedTemplateID::GetTemplateID() const {
-    return evmTemplateId;
+BlockTemplateWrapper &CScopedTemplate::GetTemplate() const {
+    return evmTemplate;
 }

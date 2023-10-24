@@ -1,6 +1,6 @@
-use anyhow::format_err;
 use std::sync::Arc;
 
+use anyhow::format_err;
 use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3};
 use ethereum_types::{H160, H256, U256};
 use keccak_hash::keccak;
