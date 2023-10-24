@@ -4961,9 +4961,9 @@ bool CWallet::GetKey(const CKeyID &address, CKey& keyOut) const
 bool CWallet::GetWatchPubKey(const CKeyID &address, CPubKey &pubkey_out) const
 {
     LOCK(cs_KeyStore);
-    WatchKeyMap::const_iterator it = mapWatchKeys.find(address);
-    if (it != mapWatchKeys.end()) {
+    if (const auto it = mapWatchKeys.find(address); it != mapWatchKeys.end()) {
         pubkey_out = it->second;
+        ResolveKeyCompression(address.type, pubkey_out);
         return true;
     }
     return false;
@@ -4982,11 +4982,7 @@ bool CWallet::GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const
     if (const auto mi = mapCryptedKeys.find(address); mi != mapCryptedKeys.end())
     {
         vchPubKeyOut = (*mi).second.first;
-        if (!vchPubKeyOut.IsCompressed() && address.type == KeyAddressType::COMPRESSED) {
-            vchPubKeyOut.Compress();
-        } else if (vchPubKeyOut.IsCompressed() && address.type == KeyAddressType::UNCOMPRESSED) {
-            vchPubKeyOut.Decompress();
-        }
+        ResolveKeyCompression(address.type, vchPubKeyOut);
         return true;
     }
     // Check for watch-only pubkeys
