@@ -763,7 +763,7 @@ public:
     boost::signals2::signal<void (CTransactionRef, MemPoolRemovalReason)> NotifyEntryRemoved;
 
     CCustomCSView& accountsView();
-    void rebuildCustomCSView();
+    void rebuildViews();
     void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
