@@ -429,8 +429,9 @@ fn block_template_err_wrapper() -> &'static mut BlockTemplateWrapper {
     // to never be used
     static mut CELL: std::cell::OnceCell<BlockTemplateWrapper> = std::cell::OnceCell::new();
     unsafe {
-        let _ = CELL.get_or_init(|| BlockTemplateWrapper(BlockTemplate::default()));
-        CELL.get_mut().unwrap()
+        let v = CELL.get_or_init(|| BlockTemplateWrapper(BlockTemplate::default()));
+        #[allow(mutable_transmutes)]
+        std::mem::transmute(v)
     }
 }
 
