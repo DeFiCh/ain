@@ -19,7 +19,7 @@ class CCustomCSView;
 struct CLoanSchemeData;
 class CPoolPair;
 class CScript;
-class CScopedTemplateID;
+class CScopedTemplate;
 class CTokenImplementation;
 class CTransaction;
 class CVaultAssets;

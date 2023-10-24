@@ -2422,10 +2422,10 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
         govVarValue.reserve(govVarVec.size());
         std::copy(govVarVec.begin(), govVarVec.end(), govVarValue.begin());
 
-        if (evmTemplateId) {
+        if (evmTemplate) {
             CrossBoundaryResult result;
             const auto rustKey = GovVarKeyDataStructure{attrV0->type, attrV0->typeId, attrV0->key, attrV0->keyId};
-            if (!evm_try_handle_attribute_apply(result, evmTemplateId->GetTemplateID(), rustKey, govVarValue)) {
+            if (!evm_try_unsafe_handle_attribute_apply(result, evmTemplate->GetTemplate(), rustKey, govVarValue)) {
                 return DeFiErrors::SettingEVMAttributeFailure();
             }
             if (!result.ok) {

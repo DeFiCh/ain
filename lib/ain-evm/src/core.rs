@@ -24,7 +24,7 @@ use vsdb_core::vsdb_set_base_dir;
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
-    blocktemplate::BlockTemplateMap,
+    blocktemplate::BlockTemplate,
     executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
@@ -128,7 +128,6 @@ impl TxValidationCache {
 }
 
 pub struct EVMCoreService {
-    pub block_templates: Arc<BlockTemplateMap>,
     pub trie_store: Arc<TrieDBStore>,
     pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
@@ -175,7 +174,6 @@ impl EVMCoreService {
         init_vsdb(path);
 
         Self {
-            block_templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::restore()),
             signed_tx_cache: SignedTxCache::default(),
             storage,
@@ -193,7 +191,6 @@ impl EVMCoreService {
         init_vsdb(evm_datadir);
 
         let handler = Self {
-            block_templates: Arc::new(BlockTemplateMap::new()),
             trie_store: Arc::new(TrieDBStore::new()),
             signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
@@ -328,7 +325,7 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `template_id` - The template_id template number.
+    /// * `template` - The EVM BlockTemplate.
     ///
     /// # Returns
     ///
@@ -339,8 +336,12 @@ impl EVMCoreService {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn validate_raw_tx(&self, tx: &str, template_id: u64) -> Result<ValidateTxInfo> {
-        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
+    pub unsafe fn validate_raw_tx(
+        &self,
+        tx: &str,
+        template: &BlockTemplate,
+    ) -> Result<ValidateTxInfo> {
+        let state_root = template.get_latest_state_root();
         debug!("[validate_raw_tx] state_root : {:#?}", state_root);
 
         if let Some(tx_info) = self
@@ -350,7 +351,6 @@ impl EVMCoreService {
             return Ok(tx_info);
         }
 
-        debug!("[validate_raw_tx] template_id {}", template_id);
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
@@ -473,7 +473,7 @@ impl EVMCoreService {
     /// # Arguments
     ///
     /// * `tx` - The raw tx.
-    /// * `template_id` - The template_id template number.
+    /// * `template` - The EVM BlockTemplate.
     ///
     /// # Returns
     ///
@@ -487,19 +487,15 @@ impl EVMCoreService {
     pub unsafe fn validate_raw_transferdomain_tx(
         &self,
         tx: &str,
-        template_id: u64,
+        template: &BlockTemplate,
         context: TransferDomainTxInfo,
     ) -> Result<ValidateTxInfo> {
-        debug!(
-            "[validate_raw_transferdomain_tx] template_id {}",
-            template_id
-        );
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
         );
 
-        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
+        let state_root = template.get_latest_state_root();
         debug!(
             "[validate_raw_transferdomain_tx] state_root : {:#?}",
             state_root
@@ -746,31 +742,19 @@ impl EVMCoreService {
     /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn remove_block_template(&self, template_id: u64) {
-        self.block_templates.remove(template_id);
-    }
-
-    ///
-    /// # Safety
-    ///
-    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
-    /// across all usages. Note: To be replaced with a proper lock flow later.
-    ///
     pub unsafe fn remove_txs_above_hash_in_block_template(
         &self,
-        template_id: u64,
+        template: &mut BlockTemplate,
         target_hash: XHash,
     ) -> Result<Vec<XHash>> {
-        let hashes = self
-            .block_templates
-            .remove_txs_above_hash_in(template_id, target_hash)?;
+        let hashes = template.remove_txs_above_hash(target_hash)?;
         Ok(hashes)
     }
 
     /// Retrieves the next valid nonce for the specified account within a particular block template.
     /// # Arguments
     ///
-    /// * `template_id` - The template_id template number.
+    /// * `template` - The EVM BlockTemplate.
     /// * `address` - The EVM address of the account whose nonce we want to retrieve.
     ///
     /// # Returns
@@ -784,15 +768,13 @@ impl EVMCoreService {
     ///
     pub unsafe fn get_next_valid_nonce_in_block_template(
         &self,
-        template_id: u64,
+        template: &BlockTemplate,
         address: H160,
     ) -> Result<U256> {
-        let state_root = self.block_templates.get_latest_state_root_in(template_id)?;
+        let state_root = template.get_latest_state_root();
         let backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
-        trace!(
-            "[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?} in template_id {template_id}"
-        );
+        trace!("[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?}");
         Ok(nonce)
     }
 }

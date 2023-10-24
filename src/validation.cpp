@@ -2683,7 +2683,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             IsEVMEnabled(attributes)
     };
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
-    auto &evmTemplateId = blockCtx.GetEVMTemplateId();
+    auto &evmTemplate = blockCtx.GetEVMTemplateId();
 
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
@@ -2692,11 +2692,11 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
                                  REJECT_INVALID, "bad-xvm-coinbase");
         }
         blockCtx.SetEVMTemplateId(CScopedTemplateID::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
-        if (!evmTemplateId) {
+        if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to create block template", __func__),
                                  REJECT_INVALID, "bad-evm-template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplateId->GetTemplateID(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
 
     // Execute TXs
@@ -2945,7 +2945,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     accountsView.Flush();
 
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplateId, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplate, isEvmEnabledForBlock);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
@@ -2962,7 +2962,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplateId);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplate);
 
     // Write any UTXO burns
     for (const auto& [key, value] : writeBurnEntries)
@@ -3025,7 +3025,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
 
     // Finalize items
     if (isEvmEnabledForBlock) {
-        XResultThrowOnErr(evm_try_unsafe_commit_block(result, evmTemplateId->GetTemplateID()));
+        XResultThrowOnErr(evm_try_unsafe_commit_block(result, evmTemplate->GetTemplate()));
     }
 
     int64_t nTime5 = GetTimeMicros(); nTimeIndex += nTime5 - nTime4;

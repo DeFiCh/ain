@@ -1,6 +1,6 @@
-use anyhow::format_err;
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::format_err;
 use ethereum::ReceiptV3;
 use ethereum_types::{H160, H256, U256};
 use log::debug;

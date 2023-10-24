@@ -22,7 +22,7 @@
 
 class CBlockIndex;
 class CChainParams;
-class CScopedTemplateID;
+class CScopedTemplate;
 class CScript;
 class CAnchor;
 struct EvmTxPreApplyContext;

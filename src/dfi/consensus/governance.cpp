@@ -31,7 +31,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             auto govVar = mnview.GetAttributes();
 
             govVar->time = time;
-            govVar->evmTemplateId = blockCtx.GetEVMTemplateId();
+            govVar->evmTemplate = blockCtx.GetEVMTemplateId();
 
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
             if (!newVar) {

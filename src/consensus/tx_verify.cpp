@@ -181,7 +181,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().DF20GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
-        // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough, 
+        // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough,
         // that it's propagated.
         BlockContext blockCtx{&discardCache};
         const auto txCtx = TransactionContext{

@@ -105,12 +105,12 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
         const auto &evmTemplateId = blockCtx.GetEVMTemplateId();
         if (shouldCreateDst20 && evmTemplateId) {
             CrossBoundaryResult result;
-            evm_try_create_dst20(result,
-                                 evmTemplateId->GetTemplateID(),
-                                 token.creationTx.GetHex(),
-                                 rust::string(token.name.c_str()),
-                                 rust::string(token.symbol.c_str()),
-                                 id.v);
+            evm_try_unsafe_create_dst20(result,
+                                        evmTemplate->GetTemplate(),
+                                        token.creationTx.GetHex(),
+                                        rust::string(token.name.c_str()),
+                                        rust::string(token.symbol.c_str()),
+                                        id.v);
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
             }

@@ -312,7 +312,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
 
         auto attributes = mnview.GetAttributes();
         attributes->time = time;
-        attributes->evmTemplateId = blockCtx.GetEVMTemplateId();
+        attributes->evmTemplate = blockCtx.GetEVMTemplateId();
 
         CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
         CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
