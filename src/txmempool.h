@@ -765,6 +765,13 @@ public:
     CCustomCSView& accountsView();
     void rebuildViews();
     void rebuildAccountsView(int height, const CCoinsViewCache& coinsCache);
+    
+    void removeTxBackToStage(const indexed_transaction_set& mapTx, 
+        CTxMemPool::setEntries& staged, 
+        std::vector<CTransactionRef>& vtx, 
+        const CTransaction& tx, 
+        const CTxMemPoolEntry& entry);
+
     void setAccountViewDirty();
     bool getAccountViewDirty() const;
 

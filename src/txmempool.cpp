@@ -1222,6 +1222,16 @@ bool CTxMemPool::checkAddressNonceAndFee(const CTxMemPoolEntry &pendingEntry, co
     return result;
 }
 
+void CTxMemPool::removeTxBackToStage(const indexed_transaction_set& mapTx, 
+        CTxMemPool::setEntries& staged,
+        std::vector<CTransactionRef>& vtx, 
+        const CTransaction& tx, 
+        const CTxMemPoolEntry& entry) {
+    LogPrint(BCLog::MEMPOOL, "re-stage TX for add/remove: %s\n", tx.GetHash().GetHex());
+    staged.insert(mapTx.project<0>(entry));
+    vtx.push_back(entry.GetSharedTx());
+}
+
 void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCache)
 {
     if (!pcustomcsview || !accountsViewDirty) {
@@ -1241,24 +1251,19 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     // Check custom TX consensus types are now not in conflict with account layer
     auto& txsByEntryTime = mapTx.get<entry_time>();
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
+        const CTxMemPoolEntry& entry = *it;
         CValidationState state;
         const auto& tx = it->GetTx();
-        const auto removeTxBackToStage = [&it](const indexed_transaction_set& mapTx, CTxMemPool::setEntries& staged,
-                                  std::vector<CTransactionRef>& vtx, const CTransaction& tx) {
-            LogPrint(BCLog::MEMPOOL, "re-stage/remove TX: %s (cause: accountsView)\n", tx.GetHash().GetHex());
-            staged.insert(mapTx.project<0>(it));
-            vtx.push_back(it->GetSharedTx());
-        };
 
         if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
-            removeTxBackToStage(mapTx, staged, vtx, tx);
+            removeTxBackToStage(mapTx, staged, vtx, tx, entry);
             continue;
         }
 
         std::shared_ptr<CScopedTemplate> evmTemplate{};
         auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, evmTemplate, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
-            removeTxBackToStage(mapTx, staged, vtx, tx);
+            removeTxBackToStage(mapTx, staged, vtx, tx, entry);
         }
     }
 
@@ -1274,13 +1279,12 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     forceRebuildForReorg = false;
 }
 
-void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap) {
+void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &vtx, 
+        const CTransactionRef tx, std::map<uint256, CTxMemPool::txiter> &mempoolIterMap) {
     const auto &hash = tx->GetHash();
     if (!mempoolIterMap.count(hash)) return;
     auto it = mempoolIterMap.at(hash);
-    LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
-    staged.insert(it);
-    vtx.push_back(it->GetSharedTx());
+    removeTxBackToStage(mapTx, staged, vtx, tx, it);
 }
 
 uint64_t CTxMemPool::CalculateDescendantMaximum(txiter entry) const {
