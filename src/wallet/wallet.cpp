@@ -4963,7 +4963,6 @@ bool CWallet::GetWatchPubKey(const CKeyID &address, CPubKey &pubkey_out) const
     LOCK(cs_KeyStore);
     if (const auto it = mapWatchKeys.find(address); it != mapWatchKeys.end()) {
         pubkey_out = it->second;
-        ResolveKeyCompression(address.type, pubkey_out);
         return true;
     }
     return false;
