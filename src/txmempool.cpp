@@ -1244,22 +1244,22 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
         CValidationState state;
         const auto& tx = it->GetTx();
-        auto removeConflict = [&it](const indexed_transaction_set& mapTx, CTxMemPool::setEntries& staged,
+        const auto removeTxFromPool = [&it](const indexed_transaction_set& mapTx, CTxMemPool::setEntries& staged,
                                   std::vector<CTransactionRef>& vtx, const CTransaction& tx) {
-            LogPrint(BCLog::MEMPOOL, "mempool: Remove conflicting TX: %s (cause: accountsView)\n", tx.GetHash().GetHex());
+            LogPrint(BCLog::MEMPOOL, "mempool: TX removed: %s (cause: accountsView)\n", tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
             vtx.push_back(it->GetSharedTx());
         };
 
         if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
-            removeConflict(mapTx, staged, vtx, tx);
+            removeTxFromPool(mapTx, staged, vtx, tx);
             continue;
         }
 
         std::shared_ptr<CScopedTemplate> evmTemplate{};
         auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, evmTemplate, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
-            removeConflict(mapTx, staged, vtx, tx);
+            removeTxFromPool(mapTx, staged, vtx, tx);
         }
     }
 
