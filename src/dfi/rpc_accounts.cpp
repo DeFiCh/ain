@@ -2196,6 +2196,8 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
+    EnsureWalletIsUnlocked(pwallet);
+
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
     UniValue srcDstArray(UniValue::VARR);

@@ -206,8 +206,7 @@ impl Storage {
 }
 
 impl Storage {
-    pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) {
-        println!("[dump_db]");
+    pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) -> String {
         self.blockstore.dump(&arg, from, limit)
     }
 }
