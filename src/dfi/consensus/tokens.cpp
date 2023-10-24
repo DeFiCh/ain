@@ -11,9 +11,8 @@
 
 Res CTokensConsensus::CheckTokenCreationTx() const {
     if (tx.vout.size() < 2 || tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
-            tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0},
-        "malformed tx vouts (wrong creation fee or collateral amount)") {
-        ;
+        tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}) {
+        return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
     }
 
     return Res::Ok();
