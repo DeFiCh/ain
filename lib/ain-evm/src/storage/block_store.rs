@@ -190,8 +190,13 @@ impl BlockStore {
         code_cf.get_bytes(hash)
     }
 
-    pub fn put_code(&self, hash: &H256, code: &[u8]) -> Result<()> {
+    pub fn put_code(&self, block_number: U256, hash: &H256, code: &[u8]) -> Result<()> {
+        let block_codes_cf = self.column::<columns::BlockCodeHashes>();
         let code_cf = self.column::<columns::CodeMap>();
+
+        let mut block_codes = block_codes_cf.get(&block_number)?.unwrap_or_default();
+        block_codes.insert(*hash);
+        block_codes_cf.put(&block_number, &block_codes)?;
         code_cf.put_bytes(hash, code)
     }
 }
@@ -222,6 +227,15 @@ impl Rollback for BlockStore {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
                 latest_block_cf.put(&"latest_block", &block.header.number)?;
             }
+
+            let block_codes_cf = self.column::<columns::BlockCodeHashes>();
+            if let Some(block_code_hashes) = block_codes_cf.get(&block.header.number)? {
+                let codes_cf = self.column::<columns::CodeMap>();
+                for code_hash in block_code_hashes {
+                    codes_cf.delete(&code_hash)?;
+                }
+            }
+            block_codes_cf.delete(&block.header.number)?;
         }
         Ok(())
     }
@@ -236,6 +250,7 @@ pub enum DumpArg {
     Receipts,
     BlockMap,
     Logs,
+    BlockCodeHashes,
 }
 
 impl BlockStore {
@@ -254,6 +269,9 @@ impl BlockStore {
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
             DumpArg::BlockMap => self.dump_column(columns::BlockMap, from.map(s_to_h256), limit),
             DumpArg::Logs => self.dump_column(columns::AddressLogsMap, from.map(s_to_u256), limit),
+            DumpArg::BlockCodeHashes => {
+                self.dump_column(columns::BlockCodeHashes, from.map(s_to_u256), limit)
+            }
         }
     }
 
@@ -265,8 +283,9 @@ impl BlockStore {
             DumpArg::Receipts,
             DumpArg::BlockMap,
             DumpArg::Logs,
+            DumpArg::BlockCodeHashes,
         ] {
-            out.push_str(self.dump(arg, None, limit).as_str());
+            out.push_str(format!("{}\n", self.dump(arg, None, limit)).as_str());
         }
         out
     }

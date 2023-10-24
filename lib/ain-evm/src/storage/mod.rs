@@ -200,8 +200,8 @@ impl Storage {
         self.blockstore.get_code_by_hash(&hash)
     }
 
-    pub fn put_code(&self, hash: H256, code: Vec<u8>) -> Result<()> {
-        self.blockstore.put_code(&hash, &code)
+    pub fn put_code(&self, block_number: U256, hash: H256, code: Vec<u8>) -> Result<()> {
+        self.blockstore.put_code(block_number, &hash, &code)
     }
 }
 
