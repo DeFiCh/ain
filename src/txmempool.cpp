@@ -566,19 +566,6 @@ void CTxMemPool::removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMem
         CalculateDescendants(it, setAllRemoves);
     }
     RemoveStaged(setAllRemoves, false, MemPoolRemovalReason::REORG);
-
-    if (pcustomcsview) {
-        accountsViewDirty |= forceRebuildForReorg;
-        CTransactionRef ptx{};
-
-        CCoinsView dummy;
-        CCoinsViewCache view(&dummy);
-        CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
-        CCoinsViewMemPool viewMemPool(&coins_cache, *this);
-        view.SetBackend(viewMemPool);
-
-        rebuildAccountsView(nMemPoolHeight, view);
-    }
 }
 
 void CTxMemPool::removeConflicts(const CTransaction &tx)
@@ -656,6 +643,21 @@ void CTxMemPool::removeForBlock(const std::vector<CTransactionRef>& vtx, unsigne
 
     lastRollingFeeUpdate = GetTime();
     blockSinceLastRollingFeeBump = true;
+}
+
+void CTxMemPool::rebuildViews() {
+    if (!pcustomcsview) {
+        return;
+    }
+
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
+    CCoinsViewCache& coins_cache = ::ChainstateActive().CoinsTip();
+    CCoinsViewMemPool viewMemPool(&coins_cache, *this);
+    view.SetBackend(viewMemPool);
+
+    setAccountViewDirty();
+    rebuildAccountsView(::ChainActive().Tip()->nHeight, view);
 }
 
 void CTxMemPool::_clear()
@@ -1241,10 +1243,15 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
     for (auto it = txsByEntryTime.begin(); it != txsByEntryTime.end(); ++it) {
         CValidationState state;
         const auto& tx = it->GetTx();
-        if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
-            LogPrintf("%s: Remove conflicting TX: %s\n", __func__, tx.GetHash().GetHex());
+        const auto removeTxBackToStage = [&it](const indexed_transaction_set& mapTx, CTxMemPool::setEntries& staged,
+                                  std::vector<CTransactionRef>& vtx, const CTransaction& tx) {
+            LogPrint(BCLog::MEMPOOL, "re-stage/remove TX: %s (cause: accountsView)\n", tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
             vtx.push_back(it->GetSharedTx());
+        };
+
+        if (!Consensus::CheckTxInputs(tx, state, coinsCache, viewDuplicate, height, txfee, Params())) {
+            removeTxBackToStage(mapTx, staged, vtx, tx);
             continue;
         }
         auto blockCtx = BlockContext{
@@ -1260,10 +1267,9 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
                 static_cast<uint32_t>(height),
         };
         auto res = ApplyCustomTx(blockCtx, txCtx);
+
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
-            LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
-            staged.insert(mapTx.project<0>(it));
-            vtx.push_back(it->GetSharedTx());
+            removeTxBackToStage(mapTx, staged, vtx, tx);
         }
     }
 
@@ -1283,7 +1289,7 @@ void CTxMemPool::AddToStaged(setEntries &staged, std::vector<CTransactionRef> &v
     const auto &hash = tx->GetHash();
     if (!mempoolIterMap.count(hash)) return;
     auto it = mempoolIterMap.at(hash);
-    LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, it->GetTx().GetHash().GetHex());
+    LogPrint(BCLog::MEMPOOL, "re-stage/add TX: %s\n", hash.GetHex());
     staged.insert(it);
     vtx.push_back(it->GetSharedTx());
 }
