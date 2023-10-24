@@ -670,7 +670,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         const auto &consensus = Params().GetConsensus();
         const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
+        std::shared_ptr<CScopedTemplate> evmTemplate{};
         auto res = ApplyCustomTx(mnview,
                                  view,
                                  *tx,
@@ -679,7 +679,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
                                  0,
                                  nullptr,
                                  0,
-                                 evmTemplateId,
+                                 evmTemplate,
                                  isEvmEnabledForBlock,
                                  false);
 

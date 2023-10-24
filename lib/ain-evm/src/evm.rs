@@ -16,9 +16,7 @@ use tokio::sync::{
 use crate::{
     backend::{EVMBackend, Vicinity},
     block::BlockService,
-    blocktemplate::{
-        BlockData, BlockTemplateData, ReceiptAndOptionalContractAddress, TemplateTxItem,
-    },
+    blocktemplate::{BlockData, BlockTemplate, ReceiptAndOptionalContractAddress, TemplateTxItem},
     contract::{
         deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
         dst20_v1_deploy_info, get_dst20_migration_txs, reserve_dst20_namespace,
@@ -140,12 +138,10 @@ impl EVMServices {
     ///
     pub unsafe fn construct_block_in_template(
         &self,
-        template_id: u64,
+        template: &mut BlockTemplate,
     ) -> Result<FinalizedBlockInfo> {
-        let block_template = self.core.block_templates.get(template_id)?;
-        let state_root = block_template.get_latest_state_root();
-        let logs_bloom = block_template.get_latest_logs_bloom();
-        let mut template = block_template.data.lock();
+        let state_root = template.get_latest_state_root();
+        let logs_bloom = template.get_latest_logs_bloom();
 
         let timestamp = template.timestamp;
         let parent_hash = template.parent_hash;
@@ -160,7 +156,6 @@ impl EVMServices {
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> = Vec::with_capacity(txs_len);
         let mut total_gas_fees = U256::zero();
 
-        debug!("[construct_block] template_id: {:?}", template_id);
         debug!("[construct_block] vicinity: {:?}", template.vicinity);
 
         let mut backend = EVMBackend::from_root(
@@ -249,10 +244,8 @@ impl EVMServices {
     /// Result cannot be used safety unless cs_main lock is taken on C++ side
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
-    pub unsafe fn commit_block(&self, template_id: u64) -> Result<()> {
+    pub unsafe fn commit_block(&self, template: &BlockTemplate) -> Result<()> {
         {
-            let block_template = self.core.block_templates.get(template_id)?;
-            let template = block_template.data.lock();
             let Some(BlockData { block, receipts }) = template.block_data.clone() else {
                 return Err(format_err!("no constructed EVM block exist in template id").into());
             };
@@ -273,7 +266,7 @@ impl EVMServices {
                 .send(Notification::Block(block.header.hash()))
                 .map_err(|e| format_err!(e.to_string()))?;
         }
-        self.core.block_templates.remove(template_id);
+        // self.core.block_templates.remove(template);
         self.core.clear_account_nonce();
         self.core.clear_transaction_cache();
 
@@ -282,18 +275,16 @@ impl EVMServices {
 
     unsafe fn update_block_template_state_from_tx(
         &self,
-        template_id: u64,
+        template: &BlockTemplate,
         tx: ExecuteTx,
     ) -> Result<ExecTxState> {
-        let block_template = self.core.block_templates.get(template_id)?;
-        let state_root = block_template.get_latest_state_root();
-        let mut logs_bloom = block_template.get_latest_logs_bloom();
+        let state_root = template.get_latest_state_root();
+        let mut logs_bloom = template.get_latest_logs_bloom();
         debug!(
             "[update_block_template_state_from_tx] state_root : {:#?}",
             state_root
         );
 
-        let template = block_template.data.lock();
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.core.trie_store),
@@ -334,16 +325,14 @@ impl EVMServices {
     ///
     pub unsafe fn update_state_in_block_template(
         &self,
-        template_id: u64,
+        template: &mut BlockTemplate,
         mnview_ptr: usize,
     ) -> Result<()> {
-        // reserve DST20 namespace
-        let block_template = self.core.block_templates.get(template_id)?;
-        let is_evm_genesis_block = block_template.get_block_number() == U256::zero();
-        let state_root = block_template.get_latest_state_root();
-        let mut logs_bloom = block_template.get_latest_logs_bloom();
+        // reserve DST20 namespace;
+        let is_evm_genesis_block = template.get_block_number() == U256::zero();
+        let state_root = template.get_latest_state_root();
+        let mut logs_bloom = template.get_latest_logs_bloom();
 
-        let mut template = block_template.data.lock();
         let mut backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.core.trie_store),
@@ -515,7 +504,7 @@ impl EVMServices {
         beneficiary: H160,
         difficulty: u32,
         timestamp: u64,
-    ) -> Result<u64> {
+    ) -> Result<BlockTemplate> {
         let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
             None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis block
             Some(block) => (
@@ -536,11 +525,8 @@ impl EVMServices {
         let block_base_fee_per_gas = self.block.calculate_base_fee(parent_hash)?;
 
         let block_gas_limit = U256::from(self.storage.get_attributes_or_default()?.block_gas_limit);
-        let template_id = self.core.block_templates.create(BlockTemplateData {
-            transactions: Vec::new(),
-            block_data: None,
-            total_gas_used: U256::zero(),
-            vicinity: Vicinity {
+        let template = BlockTemplate::new(
+            Vicinity {
                 beneficiary,
                 block_number: target_block,
                 timestamp: U256::from(timestamp),
@@ -555,18 +541,17 @@ impl EVMServices {
             dvm_block,
             timestamp,
             initial_state_root,
-        });
-        Ok(template_id)
+        );
+        Ok(template)
     }
 
     unsafe fn verify_tx_fees_in_block_template(
         &self,
-        template_id: u64,
+        template: &BlockTemplate,
         tx: &ExecuteTx,
     ) -> Result<()> {
         if let ExecuteTx::SignedTx(signed_tx) = tx {
-            let block_template = self.core.block_templates.get(template_id)?;
-            let base_fee_per_gas = block_template.get_block_base_fee_per_gas();
+            let base_fee_per_gas = template.get_block_base_fee_per_gas();
 
             let tx_gas_price = signed_tx.gas_price();
             if tx_gas_price < base_fee_per_gas {
@@ -587,21 +572,19 @@ impl EVMServices {
     ///
     pub unsafe fn push_tx_in_block_template(
         &self,
-        template_id: u64,
+        template: &mut BlockTemplate,
         tx: ExecuteTx,
         hash: XHash,
     ) -> Result<()> {
-        self.verify_tx_fees_in_block_template(template_id, &tx)?;
-        let tx_update = self.update_block_template_state_from_tx(template_id, tx.clone())?;
+        self.verify_tx_fees_in_block_template(template, &tx)?;
+        let tx_update = self.update_block_template_state_from_tx(template, tx.clone())?;
         let tx_hash = tx_update.tx.hash();
 
         debug!(
-            "[push_tx_in_block_template] Pushing new state_root {:x?} to template_id {}",
-            tx_update.state_root, template_id
+            "[push_tx_in_block_template] Pushing new state_root {:x?}",
+            tx_update.state_root
         );
-        self.core
-            .block_templates
-            .push_in(template_id, tx_update, hash)?;
+        template.add_tx(tx_update, hash)?;
         self.filters.add_tx_to_filters(tx_hash);
 
         Ok(())
@@ -616,13 +599,9 @@ impl EVMServices {
     pub unsafe fn is_smart_contract_in_block_template(
         &self,
         address: H160,
-        template_id: u64,
+        template: &BlockTemplate,
     ) -> Result<bool> {
-        let backend = self.core.get_backend(
-            self.core
-                .block_templates
-                .get_latest_state_root_in(template_id)?,
-        )?;
+        let backend = self.core.get_backend(template.get_latest_state_root())?;
 
         Ok(match backend.get_account(&address) {
             None => false,

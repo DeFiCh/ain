@@ -279,10 +279,14 @@ class TestNode:
         # net
         "net_version",
         # debug
+        "debug_traceTransaction",
+        "debug_dumpdb",
+        "debug_logaccountstates",
+        "debug_logblocktemplates",
         "debug_feeEstimate",
-        "debug_logqueues",
         # web3
         "web3_clientVersion",
+        "web3_sha3",
     }
 
     def get_genesis_keys(self):

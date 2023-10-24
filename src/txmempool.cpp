@@ -1250,8 +1250,8 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             vtx.push_back(it->GetSharedTx());
             continue;
         }
-        std::shared_ptr<CScopedTemplateID> evmTemplateId{};
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, evmTemplateId, isEvmEnabledForBlock, true);
+        std::shared_ptr<CScopedTemplate> evmTemplate{};
+        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, evmTemplate, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             LogPrintf("%s: Remove conflicting custom TX: %s\n", __func__, tx.GetHash().GetHex());
             staged.insert(mapTx.project<0>(it));
