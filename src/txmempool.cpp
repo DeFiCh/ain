@@ -683,7 +683,6 @@ void CTxMemPool::clear()
     LOCK(cs);
     _clear();
     acview.reset();
-    rebuildViews();
 }
 
 static void CheckInputsAndUpdateCoins(const CTransaction& tx, CCoinsViewCache& mempoolDuplicate, CCustomCSView& mnviewDuplicate, const int64_t spendheight, const CChainParams& chainparams)
