@@ -112,6 +112,7 @@ Res CProposalView::UpdateProposalCycle(const CProposalId &propId,
                                        const Consensus::Params &consensus) {
     auto key = std::make_pair(uint8_t(CProposalStatusType::Voting), propId);
     auto pcycle = ReadBy<ByStatus, uint8_t>(key);
+    // TODO: Remove fork guard after update
     if (!pcycle && height >= consensus.DF22MetachainHeight) {
         return Res::Err("Proposal <%s> is not in voting period", propId.GetHex());
     }
