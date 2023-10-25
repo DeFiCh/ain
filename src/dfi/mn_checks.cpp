@@ -423,7 +423,7 @@ Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, con
 
     if (!evmTemplate && isEvmEnabledForBlock) {
         std::string minerAddress{};
-        blockCtx.SetEVMTemplateId(CScopedTemplate::Create(height, minerAddress, 0u, time));
+        blockCtx.SetEVMTemplate(CScopedTemplate::Create(height, minerAddress, 0u, time));
         if (!evmTemplate) {
             return Res::Err("Failed to create queue");
         }
@@ -603,16 +603,21 @@ Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint2
     // list of transactions which aren't allowed to fail:
     if (!res) {
         res.msg = strprintf("%sTx: %s", ToString(txType), res.msg);
-
         if (height >= static_cast<uint32_t>(consensus.DF6DakotaHeight)) {
             res.code |= CustomTxErrCodes::Fatal;
-        } else if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, height)) {
+            return res;
+        }
+        
+        // Below DF6, only the following are fatal:
+        // - mint
+        // - account to utxo
+        // - explicit skip lists
+        if (IsBelowDF6MintTokenOrAccountToUtxos(txType, height)) {
             if (ShouldReturnNonFatalError(tx, height)) {
                 return res;
             }
             res.code |= CustomTxErrCodes::Fatal;
         }
-
         return res;
     }
 

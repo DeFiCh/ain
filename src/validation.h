@@ -72,11 +72,11 @@ class BlockContext {
 public:
     explicit BlockContext(CCustomCSView *view = {},
                           const std::optional<bool> enabled = {},
-                          const std::shared_ptr<CScopedTemplate> &id = {},
+                          const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
                           const bool prevalidate = {}) :
             view(view),
             isEvmEnabledForBlock(enabled),
-            evmTemplate(id),
+            evmTemplate(evmTemplate),
             evmPreValidate(prevalidate) {}
 
     [[nodiscard]] CCustomCSView &GetView();
@@ -86,7 +86,7 @@ public:
 
     void SetView(CCustomCSView &other);
     void SetEVMPreValidate(const bool other);
-    void SetEVMTemplateId(const std::shared_ptr<CScopedTemplate> &id);
+    void SetEVMTemplate(const std::shared_ptr<CScopedTemplate> &evmTemplate);
 };
 
 class TransactionContext {

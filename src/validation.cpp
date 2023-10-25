@@ -2691,7 +2691,7 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to process XVM in coinbase", __func__),
                                  REJECT_INVALID, "bad-xvm-coinbase");
         }
-        blockCtx.SetEVMTemplateId(CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
+        blockCtx.SetEVMTemplate(CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
         if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to create block template", __func__),
                                  REJECT_INVALID, "bad-evm-template");
@@ -6340,6 +6340,6 @@ void BlockContext::SetEVMPreValidate(const bool other) {
     evmPreValidate = other;
 }
 
-void BlockContext::SetEVMTemplateId(const std::shared_ptr<CScopedTemplate> &id) {
+void BlockContext::SetEVMTemplate(const std::shared_ptr<CScopedTemplate> &id) {
     evmTemplate = id;
 }
