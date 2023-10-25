@@ -227,20 +227,22 @@ impl EVMBackend {
                 continue;
             }
 
-            let mut storage_trie = self
-                .trie_store
-                .trie_db
-                .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
+            if !storage.is_empty() {
+                let mut storage_trie = self
+                    .trie_store
+                    .trie_db
+                    .trie_restore(address.as_bytes(), None, account.storage_root.into())
+                    .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
 
-            storage.into_iter().for_each(|(k, v)| {
-                debug!(
-                    "Apply::Modify storage {address:?}, key: {:x} value: {:x}",
-                    k, v
-                );
-                let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
-            });
-            account.storage_root = storage_trie.commit().into();
+                storage.into_iter().for_each(|(k, v)| {
+                    debug!(
+                        "Apply::Modify storage {address:?}, key: {:x} value: {:x}",
+                        k, v
+                    );
+                    let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
+                });
+                account.storage_root = storage_trie.commit().into();
+            }
 
             if let Some(code) = code {
                 self.storage.put_code(account.code_hash, code)?;
