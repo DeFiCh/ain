@@ -6,19 +6,19 @@
 #ifndef DEFI_MINER_H
 #define DEFI_MINER_H
 
-#include <primitives/block.h>
-#include <key.h>
 #include <dfi/res.h>
+#include <key.h>
+#include <primitives/block.h>
 #include <timedata.h>
 #include <txmempool.h>
 #include <validation.h>
 
+#include <stdint.h>
 #include <memory>
 #include <optional>
-#include <stdint.h>
 
-#include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index_container.hpp>
 
 class CBlockIndex;
 class CChainParams;
@@ -27,7 +27,9 @@ class CScript;
 class CAnchor;
 struct EvmTxPreApplyContext;
 
-namespace Consensus { struct Params; };
+namespace Consensus {
+struct Params;
+};
 
 static const bool DEFAULT_GENERATE = false;
 
@@ -35,8 +37,7 @@ static const bool DEFAULT_PRINTPRIORITY = false;
 
 extern TxOrderings txOrdering;
 
-struct CBlockTemplate
-{
+struct CBlockTemplate {
     CBlock block;
     std::vector<CAmount> vTxFees;
     std::vector<int64_t> vTxSigOpsCost;
@@ -46,8 +47,7 @@ struct CBlockTemplate
 // Container for tracking updates to ancestor feerate as we include (parent)
 // transactions in a block
 struct CTxMemPoolModifiedEntry {
-    explicit CTxMemPoolModifiedEntry(CTxMemPool::txiter entry)
-    {
+    explicit CTxMemPoolModifiedEntry(CTxMemPool::txiter entry) {
         iter = entry;
         nSizeWithAncestors = entry->GetSizeWithAncestors();
         nModFeesWithAncestors = entry->GetModFeesWithAncestors();
@@ -58,7 +58,7 @@ struct CTxMemPoolModifiedEntry {
     uint64_t GetSizeWithAncestors() const { return nSizeWithAncestors; }
     CAmount GetModFeesWithAncestors() const { return nModFeesWithAncestors; }
     size_t GetTxSize() const { return iter->GetTxSize(); }
-    const CTransaction& GetTx() const { return iter->GetTx(); }
+    const CTransaction &GetTx() const { return iter->GetTx(); }
     int64_t GetTime() const { return iter->GetTime(); }
 
     CTxMemPool::txiter iter;
@@ -73,68 +73,55 @@ struct CTxMemPoolModifiedEntry {
  *  as key in other indexes.
  */
 struct CompareCTxMemPoolIter {
-    bool operator()(const CTxMemPool::txiter& a, const CTxMemPool::txiter& b) const
-    {
-        return &(*a) < &(*b);
-    }
+    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const { return &(*a) < &(*b); }
 };
 
 struct modifiedentry_iter {
     typedef CTxMemPool::txiter result_type;
-    result_type operator() (const CTxMemPoolModifiedEntry &entry) const
-    {
-        return entry.iter;
-    }
+    result_type operator()(const CTxMemPoolModifiedEntry &entry) const { return entry.iter; }
 };
 
 // A comparator that sorts transactions based on number of ancestors.
 // This is sufficient to sort an ancestor package in an order that is valid
 // to appear in a block.
 struct CompareTxIterByAncestorCount {
-    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const
-    {
-        if (a->GetCountWithAncestors() != b->GetCountWithAncestors())
+    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const {
+        if (a->GetCountWithAncestors() != b->GetCountWithAncestors()) {
             return a->GetCountWithAncestors() < b->GetCountWithAncestors();
+        }
         return CompareTxMemPoolEntryByEntryTime()(*a, *b);
     }
 };
 
 // A comparator that sorts transactions based on tx entry time.
 struct CompareTxIterByEntryTime {
-    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const
-    {
-        if (a->GetTime() == b->GetTime())
+    bool operator()(const CTxMemPool::txiter &a, const CTxMemPool::txiter &b) const {
+        if (a->GetTime() == b->GetTime()) {
             return CompareTxIterByAncestorCount()(a, b);
+        }
         return CompareTxMemPoolEntryByEntryTime()(*a, *b);
     }
 };
 
 typedef boost::multi_index_container<
     CTxMemPoolModifiedEntry,
-    boost::multi_index::indexed_by<
-        boost::multi_index::ordered_unique<
-            modifiedentry_iter,
-            CompareCTxMemPoolIter
-        >,
-        // sorted by modified ancestor fee rate
-        boost::multi_index::ordered_non_unique<
-            // Reuse same tag from CTxMemPool's similar index
-            boost::multi_index::tag<ancestor_score>,
-            boost::multi_index::identity<CTxMemPoolModifiedEntry>,
-            CompareTxMemPoolEntryByAncestorFee
-        >
-    >
-> indexed_modified_transaction_set;
+    boost::multi_index::indexed_by<boost::multi_index::ordered_unique<modifiedentry_iter, CompareCTxMemPoolIter>,
+                                   // sorted by modified ancestor fee rate
+                                   boost::multi_index::ordered_non_unique<
+                                       // Reuse same tag from CTxMemPool's similar index
+                                       boost::multi_index::tag<ancestor_score>,
+                                       boost::multi_index::identity<CTxMemPoolModifiedEntry>,
+                                       CompareTxMemPoolEntryByAncestorFee>>>
+    indexed_modified_transaction_set;
 
 typedef indexed_modified_transaction_set::nth_index<0>::type::iterator modtxiter;
 typedef indexed_modified_transaction_set::index<ancestor_score>::type::iterator modtxscoreiter;
 
-struct update_for_parent_inclusion
-{
-    explicit update_for_parent_inclusion(CTxMemPool::txiter it) : iter(it) {}
+struct update_for_parent_inclusion {
+    explicit update_for_parent_inclusion(CTxMemPool::txiter it)
+        : iter(it) {}
 
-    void operator() (CTxMemPoolModifiedEntry &e)
-    {
+    void operator()(CTxMemPoolModifiedEntry &e) {
         e.nModFeesWithAncestors -= iter->GetFee();
         e.nSizeWithAncestors -= iter->GetTxSize();
         e.nSigOpCostWithAncestors -= iter->GetSigOpCost();
@@ -144,13 +131,12 @@ struct update_for_parent_inclusion
 };
 
 /** Generate a new block, without valid proof-of-work */
-class BlockAssembler
-{
+class BlockAssembler {
 private:
     // The constructed block template
     std::unique_ptr<CBlockTemplate> pblocktemplate;
     // A convenience pointer that always refers to the CBlock in pblocktemplate
-    CBlock* pblock;
+    CBlock *pblock;
 
     // Configuration parameters for the block size
     bool fIncludeWitness;
@@ -167,7 +153,7 @@ private:
     // Chain context for the block
     int nHeight;
     int64_t nLockTimeCutoff;
-    const CChainParams& chainparams;
+    const CChainParams &chainparams;
 
 public:
     struct Options {
@@ -176,11 +162,13 @@ public:
         CFeeRate blockMinFeeRate;
     };
 
-    explicit BlockAssembler(const CChainParams& params);
-    BlockAssembler(const CChainParams& params, const Options& options);
+    explicit BlockAssembler(const CChainParams &params);
+    BlockAssembler(const CChainParams &params, const Options &options);
 
     /** Construct a new block template with coinbase to scriptPubKeyIn */
-    ResVal<std::unique_ptr<CBlockTemplate>> CreateNewBlock(const CScript& scriptPubKeyIn, int64_t blockTime = 0, const EvmAddressData& beneficiary = {});
+    ResVal<std::unique_ptr<CBlockTemplate>> CreateNewBlock(const CScript &scriptPubKeyIn,
+                                                           int64_t blockTime = 0,
+                                                           const EvmAddressData &beneficiary = {});
 
     inline static std::optional<int64_t> m_last_block_num_txs{};
     inline static std::optional<int64_t> m_last_block_weight{};
@@ -198,88 +186,94 @@ private:
 
     // Methods for how to add transactions to a block.
     /** Add transactions based on feerate including unconfirmed ancestors
-      * Increments nPackagesSelected / nDescendantsUpdated with corresponding
-      * statistics from the package selection (for logging statistics). */
-    template<class T>
-    void addPackageTxs(int &nPackagesSelected, int &nDescendantsUpdated, int nHeight, std::map<uint256, CAmount> &txFees, BlockContext& blockCtx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+     * Increments nPackagesSelected / nDescendantsUpdated with corresponding
+     * statistics from the package selection (for logging statistics). */
+    template <class T>
+    void addPackageTxs(int &nPackagesSelected,
+                       int &nDescendantsUpdated,
+                       int nHeight,
+                       std::map<uint256, CAmount> &txFees,
+                       BlockContext &blockCtx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
 
     // helper functions for addPackageTxs()
     /** Remove confirmed (inBlock) entries from given set */
-    void onlyUnconfirmed(CTxMemPool::setEntries& testSet);
+    void onlyUnconfirmed(CTxMemPool::setEntries &testSet);
     /** Test if a new package would "fit" in the block */
     bool TestPackage(uint64_t packageSize, int64_t packageSigOpsCost) const;
     /** Perform checks on each transaction in a package:
-      * locktime, premature-witness, serialized size (if necessary)
-      * These checks should always succeed, and they're here
-      * only as an extra check in case of suboptimal node configuration */
-    bool TestPackageTransactions(const CTxMemPool::setEntries& package);
+     * locktime, premature-witness, serialized size (if necessary)
+     * These checks should always succeed, and they're here
+     * only as an extra check in case of suboptimal node configuration */
+    bool TestPackageTransactions(const CTxMemPool::setEntries &package);
     /** Return true if given transaction from mapTx has already been evaluated,
-      * or if the transaction's cached data in mapTx is incorrect. */
-    bool SkipMapTxEntry(CTxMemPool::txiter it, indexed_modified_transaction_set &mapModifiedTx, CTxMemPool::setEntries &failedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+     * or if the transaction's cached data in mapTx is incorrect. */
+    bool SkipMapTxEntry(CTxMemPool::txiter it,
+                        indexed_modified_transaction_set &mapModifiedTx,
+                        CTxMemPool::setEntries &failedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
     /** Sort the package in an order that is valid to appear in a block */
-    void SortForBlock(const CTxMemPool::setEntries& package, std::vector<CTxMemPool::txiter>& sortedEntries);
+    void SortForBlock(const CTxMemPool::setEntries &package, std::vector<CTxMemPool::txiter> &sortedEntries);
     /** Add descendants of given transactions to mapModifiedTx with ancestor
-      * state updated assuming given transactions are inBlock. Returns number
-      * of updated descendants. */
-    int UpdatePackagesForAdded(const CTxMemPool::setEntries& alreadyAdded, indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
+     * state updated assuming given transactions are inBlock. Returns number
+     * of updated descendants. */
+    int UpdatePackagesForAdded(const CTxMemPool::setEntries &alreadyAdded,
+                               indexed_modified_transaction_set &mapModifiedTx) EXCLUSIVE_LOCKS_REQUIRED(mempool.cs);
     /** Run EVM transaction checks */
-    bool EvmTxPreapply(EvmTxPreApplyContext& ctx);
+    bool EvmTxPreapply(EvmTxPreApplyContext &ctx);
 };
 
 /** Modify the extranonce in a block */
-void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
-int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
+void IncrementExtraNonce(CBlock *pblock, const CBlockIndex *pindexPrev, unsigned int &nExtraNonce);
+int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev);
 
 namespace pos {
 // The main staking routine.
 // Creates stakes using CWallet API, creates PoS kernels and mints blocks.
 // Uses Args.getWallets() to receive and update wallets list.
 
-    extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
+extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
 
-    class ThreadStaker {
-    public:
-
-        struct Args {
-            int32_t nMint = -1;
-            int64_t nMaxTries = -1;
-            CScript coinbaseScript = CScript();
-            CKey minterKey = CKey();
-            CKeyID operatorID = {};
-        };
-
-        /// always forward by value to avoid dangling pointers
-        void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
+class ThreadStaker {
+public:
+    struct Args {
+        int32_t nMint = -1;
+        int64_t nMaxTries = -1;
+        CScript coinbaseScript = CScript();
+        CKey minterKey = CKey();
+        CKeyID operatorID = {};
     };
 
-    class Staker {
-    private:
-        static uint256 lastBlockSeen;
+    /// always forward by value to avoid dangling pointers
+    void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
+};
 
-    public:
-        enum class Status {
-            error,
-            initWaiting,
-            stakeWaiting,
-            stakeReady,
-            minted,
-        };
+class Staker {
+private:
+    static uint256 lastBlockSeen;
 
-        Staker::Status init(const CChainParams& chainparams);
-        Staker::Status stake(const CChainParams& chainparams, const ThreadStaker::Args& args);
-
-        // declaration static variables
-        // Map to store [master node id : last block creation attempt timestamp] for local master nodes
-        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-
-        // Variables to manage search time across threads
-        static int64_t nLastCoinStakeSearchTime;
-        static int64_t nFutureTime;
-
-    private:
-        template <typename F>
-        void withSearchInterval(F&& f, int64_t height);
+public:
+    enum class Status {
+        error,
+        initWaiting,
+        stakeWaiting,
+        stakeReady,
+        minted,
     };
-}
 
-#endif // DEFI_MINER_H
+    Staker::Status init(const CChainParams &chainparams);
+    Staker::Status stake(const CChainParams &chainparams, const ThreadStaker::Args &args);
+
+    // declaration static variables
+    // Map to store [master node id : last block creation attempt timestamp] for local master nodes
+    static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
+
+    // Variables to manage search time across threads
+    static int64_t nLastCoinStakeSearchTime;
+    static int64_t nFutureTime;
+
+private:
+    template <typename F>
+    void withSearchInterval(F &&f, int64_t height);
+};
+}  // namespace pos
+
+#endif  // DEFI_MINER_H

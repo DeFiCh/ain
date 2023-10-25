@@ -12,6 +12,9 @@
 *.tar.gz
 *.tmp
 
+# For local use
+tmp/
+
 # Build
 build/
 build.*/

@@ -607,7 +607,7 @@ Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint2
             res.code |= CustomTxErrCodes::Fatal;
             return res;
         }
-        
+
         // Below DF6, only the following are fatal:
         // - mint
         // - account to utxo
