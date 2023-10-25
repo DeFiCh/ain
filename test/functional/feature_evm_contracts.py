@@ -11,7 +11,7 @@ from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_node import TestNode
 from test_framework.util import assert_raises_web3_error
-
+import web3
 
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
@@ -469,15 +469,14 @@ class EVMTest(DefiTestFramework):
         # should be no error
         contract.functions.gt0(1).call()
 
+
         # should throw error from `call`
-        err = ""
         try:
             contract.functions.gt0(0).call()
             raise AssertionError("should not reach here")
-        except:
-            err = "execution reverted"
+        except web3.exceptions.ContractLogicError as e:
+            assert_equal(e.message, "execution reverted")
 
-        assert_equal(err, "execution reverted")
 
     def run_test(self):
         self.setup()
