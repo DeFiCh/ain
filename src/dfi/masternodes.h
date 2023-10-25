@@ -606,7 +606,6 @@ public:
 
     uint256 MerkleRoot();
 
-    // virtual CHistoryWriters& GetHistoryWriters() { return writers; }
     virtual CHistoryWriters &GetHistoryWriters() { return writers; }
 
     // we construct it as it

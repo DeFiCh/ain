@@ -11,6 +11,7 @@
 #include <dfi/mn_checks.h>
 #include <primitives/transaction.h>
 #include <script/interpreter.h>
+#include <validation.h>
 
 // TODO remove the following dependencies
 #include <chain.h>
@@ -178,12 +179,18 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     std::vector<unsigned char> dummy;
     const auto txType = GuessCustomTxType(tx, dummy);
 
-    if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().DF20GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
+    if (IsBelowDF6MintTokenOrAccountToUtxos(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().DF20GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough,
         // that it's propagated.
-        std::shared_ptr<CScopedTemplate> evmTemplate{};
-        auto res = ApplyCustomTx(discardCache, inputs, tx, chainparams.GetConsensus(), nSpendHeight, 0, &canSpend, 0, evmTemplate, false, false);
+        BlockContext blockCtx{&discardCache};
+        const auto txCtx = TransactionContext{
+                inputs,
+                tx,
+                chainparams.GetConsensus(),
+                static_cast<uint32_t>(nSpendHeight),
+        };
+        auto res = ApplyCustomTx(blockCtx, txCtx, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-customtx", res.msg);
         }

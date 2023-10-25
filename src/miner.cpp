@@ -227,7 +227,8 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    CCustomCSView mnview(*pcustomcsview);
+    BlockContext blockCtx;
+    auto &mnview = blockCtx.GetView();
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev); // update time before tx packaging
     }
@@ -249,11 +250,11 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     }
 
     const auto attributes = mnview.GetAttributes();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
-    std::shared_ptr<CScopedTemplate> evmTemplate{};
     if (isEvmEnabledForBlock) {
-        evmTemplate = CScopedTemplate::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime);
+        blockCtx.SetEVMTemplate(CScopedTemplate::Create(nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime));
         if (!evmTemplate) {
             return Res::Err("Failed to create block template");
         }
@@ -263,9 +264,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     std::map<uint256, CAmount> txFees;
 
     if (timeOrdering) {
-        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmTemplate, txFees, isEvmEnabledForBlock);
+        addPackageTxs<entry_time>(nPackagesSelected, nDescendantsUpdated, nHeight, txFees, blockCtx);
     } else {
-        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, mnview, evmTemplate, txFees, isEvmEnabledForBlock);
+        addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, txFees, blockCtx);
     }
 
     XVM xvm{};
@@ -633,7 +634,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext& ctx)
 // mapModifiedTxs with the next transaction in the mempool to decide what
 // transaction package to work on next.
 template <class T>
-void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, CCustomCSView& view, std::shared_ptr<CScopedTemplate> &evmTemplate, std::map<uint256, CAmount>& txFees, const bool isEvmEnabledForBlock)
+void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpdated, int nHeight, std::map<uint256, CAmount>& txFees, BlockContext& blockCtx)
 {
     // mapModifiedTxSet will store sorted packages after they are modified
     // because some of their txs are already in the block
@@ -664,6 +665,10 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
 
     // Quick lookup for failedNonces entries
     std::map<uint256, CTxMemPool::FailedNonceIterator> failedNoncesLookup;
+
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
+    auto &view = blockCtx.GetView();
 
     // Block gas limit
     while (mi != mempool.mapTx.get<T>().end() || !mapModifiedTxSet.empty() || !failedNonces.empty()) {
@@ -821,7 +826,19 @@ void BlockAssembler::addPackageTxs(int& nPackagesSelected, int& nDescendantsUpda
                     }
                 }
 
-                const auto res = ApplyCustomTx(cache, coins, tx, chainparams.GetConsensus(), nHeight, pblock->nTime, nullptr, 0, evmTemplate, isEvmEnabledForBlock, false);
+                const auto txCtx = TransactionContext{
+                        coins,
+                        tx,
+                        chainparams.GetConsensus(),
+                        static_cast<uint32_t>(nHeight),
+                        pblock->nTime,
+                };
+
+                // Copy block context and update to cache view
+                auto blockCtxTxView{blockCtx};
+                blockCtxTxView.SetView(cache);
+
+                const auto res = ApplyCustomTx(blockCtxTxView, txCtx);
                 // Not okay invalidate, undo and skip
                 if (!res.ok) {
                     failedTxSet.insert(entry);

@@ -27,9 +27,6 @@ Res CGovView::SetVariable(const GovVariable &var) {
         return WriteOrEraseVar(var);
     }
     auto attributes = GetAttributes();
-    if (!attributes) {
-        return WriteOrEraseVar(var);
-    }
     auto &current = dynamic_cast<const ATTRIBUTES &>(var);
     if (current.changed.empty()) {
         return Res::Ok();
@@ -120,8 +117,9 @@ void CGovView::EraseStoredVariables(const uint32_t height) {
 }
 
 std::shared_ptr<ATTRIBUTES> CGovView::GetAttributes() const {
-    if (const auto var = GetVariable("ATTRIBUTES")) {
-        return std::dynamic_pointer_cast<ATTRIBUTES>(var);
-    }
-    return {};
+    const auto var = GetVariable("ATTRIBUTES");
+    assert(var);
+    auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+    assert(attributes);
+    return attributes;
 }

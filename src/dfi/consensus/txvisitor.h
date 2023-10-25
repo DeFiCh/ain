@@ -11,6 +11,7 @@
 #include <dfi/res.h>
 #include <dfi/vault.h>
 
+class BlockContext;
 struct CBalances;
 class CCoinsViewCache;
 struct CCreateProposalMessage;
@@ -22,6 +23,7 @@ class CScopedTemplate;
 class CTokenImplementation;
 class CTransaction;
 class CVaultAssets;
+class TransactionContext;
 
 namespace Consensus {
 struct Params;
@@ -49,28 +51,11 @@ Res GetERC55AddressFromAuth(const CTransaction &tx, const CCoinsViewCache &coins
 
 class CCustomTxVisitor {
 protected:
-    uint32_t height;
-    CCustomCSView &mnview;
-    const CTransaction &tx;
-    const CCoinsViewCache &coins;
-    const Consensus::Params &consensus;
-    const uint64_t time;
-    const uint32_t txn;
-    const std::shared_ptr<CScopedTemplate> &evmTemplate;
-    bool isEvmEnabledForBlock;
-    bool evmPreValidate;
+    BlockContext &blockCtx;
+    const TransactionContext &txCtx;
 
 public:
-    CCustomTxVisitor(const CTransaction &tx,
-                     uint32_t height,
-                     const CCoinsViewCache &coins,
-                     CCustomCSView &mnview,
-                     const Consensus::Params &consensus,
-                     const uint64_t time,
-                     const uint32_t txn,
-                     const std::shared_ptr<CScopedTemplate> &evmTemplate,
-                     const bool isEvmEnabledForBlock,
-                     const bool evmPreValidate);
+    CCustomTxVisitor(BlockContext &blockCtx, const TransactionContext &txCtx);
 
 protected:
     Res HasAuth(const CScript &auth) const;

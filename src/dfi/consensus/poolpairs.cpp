@@ -9,6 +9,7 @@
 #include <dfi/mn_checks.h>
 
 Res CPoolPairsConsensus::EraseEmptyBalances(TAmounts &balances) const {
+    auto &mnview = blockCtx.GetView();
     for (auto it = balances.begin(), next_it = it; it != balances.end(); it = next_it) {
         ++next_it;
 
@@ -31,6 +32,11 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     if (obj.commission < 0 || obj.commission > COIN) {
         return Res::Err("wrong commission");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight)) {
         if (obj.pairSymbol.find('/') != std::string::npos) {
@@ -108,6 +114,10 @@ Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
             }
         }
     }
+
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     return mnview.UpdatePoolPair(obj.poolId, height, obj.status, obj.commission, obj.ownerAddress, rewards);
 }
 
@@ -117,6 +127,10 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     return CPoolSwap(obj, height).ExecuteSwap(mnview, {}, consensus);
 }
 
@@ -125,6 +139,10 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
     if (auto res = HasAuth(obj.swapInfo.from); !res) {
         return res;
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs, consensus);
 }
@@ -142,6 +160,10 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
     if (amountA.second <= 0 || amountB.second <= 0) {
         return Res::Err("amount cannot be less than or equal to zero");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
     if (!pair) {
@@ -193,6 +215,9 @@ Res CPoolPairsConsensus::operator()(const CRemoveLiquidityMessage &obj) const {
     if (amount.nValue <= 0) {
         return Res::Err("amount cannot be less than or equal to zero");
     }
+
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     auto pair = mnview.GetPoolPair(amount.nTokenId);
     if (!pair) {
