@@ -1,6 +1,8 @@
-use ain_evm::bytes::Bytes;
-use ethereum::AccessListItem;
-use ethereum_types::{H160, U256};
+use std::collections::{BTreeMap, HashMap};
+
+use ain_evm::{backend::Overlay, bytes::Bytes};
+use ethereum::{AccessListItem, Account};
+use ethereum_types::{H160, H256, U256};
 use jsonrpsee::core::Error;
 use serde::Deserialize;
 
@@ -101,4 +103,54 @@ impl CallRequest {
             Ok(Default::default())
         }
     }
+}
+
+// State override
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct CallStateOverride {
+    /// Fake balance to set for the account before executing the call.
+    pub balance: Option<U256>,
+    /// Fake nonce to set for the account before executing the call.
+    pub nonce: Option<U256>,
+    /// Fake EVM bytecode to inject into the account before executing the call.
+    pub code: Option<Bytes>,
+    /// Fake key-value mapping to override all slots in the account storage before
+    /// executing the call.
+    pub state: Option<BTreeMap<H256, H256>>,
+    /// Fake key-value mapping to override individual slots in the account storage before
+    /// executing the call.
+    pub state_diff: Option<BTreeMap<H256, H256>>,
+}
+
+pub fn override_to_overlay(overide: BTreeMap<H160, CallStateOverride>) -> Overlay {
+    let mut overlay = Overlay::default();
+
+    for (address, state_override) in overide {
+        let code = state_override.code.map(|b| b.into_vec());
+        let mut storage = state_override
+            .state
+            .unwrap_or_default()
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+
+        let account = Account {
+            balance: state_override.balance.unwrap_or_default(),
+            nonce: state_override.nonce.unwrap_or_default(),
+            storage_root: H256::zero(),
+            code_hash: H256::zero(),
+        };
+
+        let reset_storage = storage.is_empty();
+        if let Some(diff) = state_override.state_diff {
+            for (k, v) in diff {
+                storage.insert(k, v);
+            }
+        }
+
+        overlay.apply(address, account, code, storage, reset_storage);
+    }
+
+    overlay
 }

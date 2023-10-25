@@ -208,16 +208,19 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let TxResponse { used_gas, .. } = self
             .handler
             .core
-            .call(EthCallArgs {
-                caller,
-                to: call.to,
-                value: call.value.unwrap_or_default(),
-                data,
-                gas_limit,
-                gas_price,
-                access_list: call.access_list.unwrap_or_default(),
-                block_number,
-            })
+            .call(
+                EthCallArgs {
+                    caller,
+                    to: call.to,
+                    value: call.value.unwrap_or_default(),
+                    data,
+                    gas_limit,
+                    gas_price,
+                    access_list: call.access_list.unwrap_or_default(),
+                    block_number,
+                },
+                None,
+            )
             .map_err(RPCError::EvmError)?;
 
         let used_gas = U256::from(used_gas);

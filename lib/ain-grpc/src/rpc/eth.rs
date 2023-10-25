@@ -1,4 +1,4 @@
-use std::{convert::Into, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, convert::Into, str::FromStr, sync::Arc};
 
 use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::{
@@ -23,7 +23,7 @@ use log::{debug, trace};
 
 use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
-    call_request::CallRequest,
+    call_request::{override_to_overlay, CallRequest, CallStateOverride},
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
@@ -43,7 +43,12 @@ pub trait MetachainRPC {
     /// Makes a call to the Ethereum node without creating a transaction on the blockchain.
     /// Returns the output data as a hexadecimal string.
     #[method(name = "call")]
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes>;
+    fn call(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<Bytes>;
 
     /// Retrieves the list of accounts managed by the node.
     /// Returns a vector of Ethereum addresses as hexadecimal strings.
@@ -208,8 +213,12 @@ pub trait MetachainRPC {
 
     /// Estimate gas needed for execution of given contract.
     #[method(name = "estimateGas")]
-    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockNumber>)
-        -> RpcResult<U256>;
+    fn estimate_gas(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<U256>;
 
     /// Returns current gas_price.
     #[method(name = "gasPrice")]
@@ -310,7 +319,12 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+    fn call(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
@@ -330,16 +344,19 @@ impl MetachainRPCServer for MetachainRPCModule {
         } = self
             .handler
             .core
-            .call(EthCallArgs {
-                caller,
-                to: call.to,
-                value: call.value.unwrap_or_default(),
-                data,
-                gas_limit,
-                gas_price,
-                access_list: call.access_list.unwrap_or_default(),
-                block_number: block.header.number,
-            })
+            .call(
+                EthCallArgs {
+                    caller,
+                    to: call.to,
+                    value: call.value.unwrap_or_default(),
+                    data,
+                    gas_limit,
+                    gas_price,
+                    access_list: call.access_list.unwrap_or_default(),
+                    block_number: block.header.number,
+                },
+                state_overrides.map(override_to_overlay),
+            )
             .map_err(RPCError::EvmError)?;
 
         match exit_reason {
@@ -763,6 +780,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         &self,
         call: CallRequest,
         block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
         let caller = call.from.unwrap_or_default();
@@ -774,6 +792,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let call_gas = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
+        let overlay = state_overrides.map(override_to_overlay);
         // Determine the lowest and highest possible gas limits to binary search in between
         let mut lo = Self::CONFIG.gas_transaction_call - 1;
         let mut hi = call_gas;
@@ -826,16 +845,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             let tx_response = self
                 .handler
                 .core
-                .call(EthCallArgs {
-                    caller,
-                    to: call.to,
-                    value: call.value.unwrap_or_default(),
-                    data,
-                    gas_limit,
-                    gas_price: fee_cap,
-                    access_list: call.access_list.clone().unwrap_or_default(),
-                    block_number: block.header.number,
-                })
+                .call(
+                    EthCallArgs {
+                        caller,
+                        to: call.to,
+                        value: call.value.unwrap_or_default(),
+                        data,
+                        gas_limit,
+                        gas_price: fee_cap,
+                        access_list: call.access_list.clone().unwrap_or_default(),
+                        block_number: block.header.number,
+                    },
+                    overlay.clone(),
+                )
                 .map_err(RPCError::EvmError)?;
 
             match tx_response.exit_reason {
