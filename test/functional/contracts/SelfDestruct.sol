@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-contract SuicideContract {
+contract SelfDestructContract {
     address public owner;
 
     constructor() {
