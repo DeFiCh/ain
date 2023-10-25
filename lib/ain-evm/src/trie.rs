@@ -91,11 +91,10 @@ impl TrieDBStore {
                         false,
                     )
                     .expect("Could not set account data");
-                backend.commit();
             }
         }
 
-        let state_root = backend.commit();
+        let state_root = backend.commit(false)?;
         debug!("Loaded genesis state_root : {:#x}", state_root);
         Ok((state_root, genesis))
     }
