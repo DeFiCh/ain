@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     fmt::Debug,
     iter::Iterator,
     marker::PhantomData,
@@ -69,8 +69,9 @@ impl Rocks {
             columns::Receipts::NAME,
             columns::BlockMap::NAME,
             columns::LatestBlockNumber::NAME,
-            columns::CodeMap::NAME,
             columns::AddressLogsMap::NAME,
+            columns::CodeMap::NAME,
+            columns::BlockCodeHashes::NAME,
         ]
     }
 
@@ -164,12 +165,16 @@ pub mod columns {
     pub struct LatestBlockNumber;
 
     #[derive(Debug)]
+    /// Column family for address logs map data
+    pub struct AddressLogsMap;
+
+    #[derive(Debug)]
     /// Column family for code map data
     pub struct CodeMap;
 
     #[derive(Debug)]
-    /// Column family for address logs map data
-    pub struct AddressLogsMap;
+    /// Column family for block code map data
+    pub struct BlockCodeHashes;
 }
 
 //
@@ -184,8 +189,9 @@ const TRANSACTIONS_CF: &str = "transactions";
 const RECEIPTS_CF: &str = "receipts";
 const BLOCK_MAP_CF: &str = "block_map";
 const LATEST_BLOCK_NUMBER_CF: &str = "latest_block_number";
-const CODE_MAP_CF: &str = "code_map";
 const ADDRESS_LOGS_MAP_CF: &str = "address_logs_map";
+const CODE_MAP_CF: &str = "code_map";
+const BLOCK_CODES_CF: &str = "block_codes";
 
 //
 // ColumnName impl
@@ -213,8 +219,13 @@ impl ColumnName for columns::LatestBlockNumber {
 impl ColumnName for columns::AddressLogsMap {
     const NAME: &'static str = ADDRESS_LOGS_MAP_CF;
 }
+
 impl ColumnName for columns::CodeMap {
     const NAME: &'static str = CODE_MAP_CF;
+}
+
+impl ColumnName for columns::BlockCodeHashes {
+    const NAME: &'static str = BLOCK_CODES_CF;
 }
 
 //
@@ -269,6 +280,7 @@ impl Column for columns::Receipts {
         Self::Index::from_slice(&raw_key)
     }
 }
+
 impl Column for columns::BlockMap {
     type Index = H256;
 
@@ -319,6 +331,20 @@ impl Column for columns::CodeMap {
     }
 }
 
+impl Column for columns::BlockCodeHashes {
+    type Index = U256;
+
+    fn key(index: &Self::Index) -> Vec<u8> {
+        let mut bytes = [0_u8; 32];
+        index.to_big_endian(&mut bytes);
+        bytes.to_vec()
+    }
+
+    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+        Self::Index::from(&*raw_key)
+    }
+}
+
 //
 // TypedColumn trait. Define associated value type
 //
@@ -351,6 +377,14 @@ impl TypedColumn for columns::LatestBlockNumber {
 
 impl TypedColumn for columns::AddressLogsMap {
     type Type = HashMap<H160, Vec<LogIndex>>;
+}
+
+impl TypedColumn for columns::CodeMap {
+    type Type = Vec<u8>;
+}
+
+impl TypedColumn for columns::BlockCodeHashes {
+    type Type = BTreeSet<H256>;
 }
 
 impl<C> LedgerColumn<C>

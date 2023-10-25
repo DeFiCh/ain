@@ -102,7 +102,7 @@ CustomTxType GuessCustomTxType(const CTransaction &tx,
                                bool metadataValidation = false);
 TAmounts GetNonMintedValuesOut(const CTransaction &tx);
 CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID);
-bool IsBelowDakotaMintTokenOrAccountToUtxos(CustomTxType txType, int height);
+bool IsBelowDF6MintTokenOrAccountToUtxos(CustomTxType txType, int height);
 CustomTxType CustomTxCodeToType(uint8_t ch);
 std::string ToString(CustomTxType type);
 CustomTxType FromString(const std::string &str);

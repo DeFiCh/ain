@@ -102,7 +102,8 @@ impl EVMBackend {
             None => account.code_hash,
             Some(code) => {
                 let code_hash = Hasher::hash(&code);
-                self.storage.put_code(code_hash, code)?;
+                self.storage
+                    .put_code(self.block_number(), code_hash, code)?;
                 code_hash
             }
         };

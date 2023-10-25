@@ -1254,9 +1254,20 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache& coinsCac
             removeTxBackToStage(mapTx, staged, vtx, tx);
             continue;
         }
+        auto blockCtx = BlockContext{
+            &viewDuplicate,
+            isEvmEnabledForBlock,
+            {},
+            true,
+        };
+        const auto txCtx = TransactionContext{
+                coinsCache,
+                tx,
+                consensus,
+                static_cast<uint32_t>(height),
+        };
+        auto res = ApplyCustomTx(blockCtx, txCtx);
 
-        std::shared_ptr<CScopedTemplate> evmTemplate{};
-        auto res = ApplyCustomTx(viewDuplicate, coinsCache, tx, consensus, height, 0, nullptr, 0, evmTemplate, isEvmEnabledForBlock, true);
         if (!res && (res.code & CustomTxErrCodes::Fatal)) {
             removeTxBackToStage(mapTx, staged, vtx, tx);
         }

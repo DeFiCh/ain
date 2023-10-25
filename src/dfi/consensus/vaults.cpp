@@ -11,6 +11,10 @@
 extern std::string ScriptToString(const CScript &script);
 
 Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     auto vaultCreationFee = consensus.vaultCreationFee;
     if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimalString(vaultCreationFee));
@@ -47,6 +51,10 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
@@ -115,6 +123,10 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
@@ -190,6 +202,10 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
         return Res::Err("tx must have at least one input from token owner");
     }
 
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
+
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
@@ -204,10 +220,9 @@ Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
     // If collateral token exist make sure it is enabled.
     if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
         CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
-        if (const auto attributes = mnview.GetAttributes()) {
-            if (!attributes->GetValue(collateralKey, false)) {
-                return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
-            }
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes->GetValue(collateralKey, false)) {
+            return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
         }
     }
 
@@ -238,6 +253,11 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
+
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
@@ -264,7 +284,7 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
 
     auto hasDUSDLoans = false;
 
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
+    std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
@@ -345,6 +365,10 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
     if (!HasAuth(obj.from)) {
         return Res::Err("tx must have at least one input from token owner");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);

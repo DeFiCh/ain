@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc};
+use std::{
+    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
+};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
@@ -190,8 +192,13 @@ impl BlockStore {
         code_cf.get_bytes(hash)
     }
 
-    pub fn put_code(&self, hash: &H256, code: &[u8]) -> Result<()> {
+    pub fn put_code(&self, block_number: U256, hash: &H256, code: &[u8]) -> Result<()> {
+        let block_codes_cf = self.column::<columns::BlockCodeHashes>();
         let code_cf = self.column::<columns::CodeMap>();
+
+        let mut block_codes = block_codes_cf.get(&block_number)?.unwrap_or_default();
+        block_codes.insert(*hash);
+        block_codes_cf.put(&block_number, &block_codes)?;
         code_cf.put_bytes(hash, code)
     }
 }
@@ -222,6 +229,15 @@ impl Rollback for BlockStore {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
                 latest_block_cf.put(&"latest_block", &block.header.number)?;
             }
+
+            let block_codes_cf = self.column::<columns::BlockCodeHashes>();
+            if let Some(block_code_hashes) = block_codes_cf.get(&block.header.number)? {
+                let codes_cf = self.column::<columns::CodeMap>();
+                for code_hash in block_code_hashes {
+                    codes_cf.delete(&code_hash)?;
+                }
+            }
+            block_codes_cf.delete(&block.header.number)?;
         }
         Ok(())
     }
@@ -236,10 +252,11 @@ pub enum DumpArg {
     Receipts,
     BlockMap,
     Logs,
+    BlockCodeHashes,
 }
 
 impl BlockStore {
-    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) -> String {
+    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) -> Result<String> {
         let s_to_u256 = |s| {
             U256::from_str_radix(s, 10)
                 .or(U256::from_str_radix(s, 16))
@@ -254,10 +271,13 @@ impl BlockStore {
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
             DumpArg::BlockMap => self.dump_column(columns::BlockMap, from.map(s_to_h256), limit),
             DumpArg::Logs => self.dump_column(columns::AddressLogsMap, from.map(s_to_u256), limit),
+            DumpArg::BlockCodeHashes => {
+                self.dump_column(columns::BlockCodeHashes, from.map(s_to_u256), limit)
+            }
         }
     }
 
-    fn dump_all(&self, limit: usize) -> String {
+    fn dump_all(&self, limit: usize) -> Result<String> {
         let mut out = String::new();
         for arg in &[
             DumpArg::Blocks,
@@ -265,20 +285,23 @@ impl BlockStore {
             DumpArg::Receipts,
             DumpArg::BlockMap,
             DumpArg::Logs,
+            DumpArg::BlockCodeHashes,
         ] {
-            out.push_str(self.dump(arg, None, limit).as_str());
+            writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
+                .map_err(|_| format_err!("failed to write to stream"))?;
         }
-        out
+        Ok(out)
     }
 
-    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize) -> String
+    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize) -> Result<String>
     where
         C: TypedColumn + ColumnName,
     {
         let mut out = format!("{}\n", C::NAME);
         for (k, v) in self.column::<C>().iter(from, limit) {
-            out.push_str(format!("{:?}: {:#?}", k, v).as_str());
+            writeln!(&mut out, "{:?}: {:#?}", k, v)
+                .map_err(|_| format_err!("failed to write to stream"))?;
         }
-        out
+        Ok(out)
     }
 }
