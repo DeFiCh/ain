@@ -12,8 +12,8 @@ setup_vars() {
     DATADIR=${DATADIR:-".defi"}
     DEBUG_FILE="${DATADIR}/debug.log"
     CONF_FILE="${DATADIR}/defi.conf"
-    PRE_ROLLBACK_STATE_LOG="debug-pre-rollback.log"
-    POST_ROLLBACK_STATE_LOG="debug-post-rollback.log"
+    PRE_ROLLBACK_STATE_LOG="pre-rollback.log"
+    POST_ROLLBACK_STATE_LOG="post-rollback.log"
     BASE_REF=${BASE_REF:-"master"}
     BASE_PATH=${BASE_PATH:-"https://storage.googleapis.com"}
     BUCKET=${BUCKET:-"team-drop"}
@@ -50,7 +50,7 @@ print_info() {
     ${REF_LOG_PATH}
 
   - snapshot:
-   ${BASE_PATH}/${BUCKET}/${BASE_REF}-evmdatadir/datadir-${START_BLOCK}.tar.gz
+   ${BASE_PATH}/${BUCKET}/${BASE_REF}-evm-datadir/datadir-${START_BLOCK}.tar.gz
 
   - defid:
     ${DEFID_CMD}
