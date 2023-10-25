@@ -24,6 +24,10 @@ Res COraclesConsensus::operator()(const CAppointOracleMessage &obj) const {
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member");
     }
+
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     COracle oracle;
     static_cast<CAppointOracleMessage &>(oracle) = obj;
     auto res = NormalizeTokenCurrencyPair(oracle.availablePairs);
@@ -34,6 +38,9 @@ Res COraclesConsensus::operator()(const CUpdateOracleAppointMessage &obj) const 
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member");
     }
+
+    auto &mnview = blockCtx.GetView();
+
     COracle oracle;
     static_cast<CAppointOracleMessage &>(oracle) = obj.newOracleAppoint;
     if (auto res = NormalizeTokenCurrencyPair(oracle.availablePairs); !res) {
@@ -47,10 +54,17 @@ Res COraclesConsensus::operator()(const CRemoveOracleAppointMessage &obj) const 
         return res;
     }
 
+    auto &mnview = blockCtx.GetView();
+
     return mnview.RemoveOracle(obj.oracleId);
 }
 
 Res COraclesConsensus::operator()(const CSetOracleDataMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
+
     auto oracle = mnview.GetOracleData(obj.oracleId);
     if (!oracle) {
         return Res::Err("failed to retrieve oracle <%s> from database", obj.oracleId.GetHex());

@@ -64,8 +64,6 @@ public:
 
     static Res ICXSubmitEXTInvalid() { return Res::Err("Invalid refundPubkey is not a valid pubkey!"); }
 
-    static Res MNInvalidAttribute() { return Res::Err("Attributes unavailable"); }
-
     static Res TokenInvalidForName(const std::string &tokenName) { return Res::Err("Cannot find token %s", tokenName); }
 
     static Res LoanPaybackWithCollateralDisable() {

@@ -10,8 +10,10 @@
 #include <dfi/masternodes.h>
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
 
@@ -103,6 +105,8 @@ Res CSmartContractsConsensus::operator()(const CSmartContractMessage &obj) const
     if (obj.accounts.empty()) {
         return Res::Err("Contract account parameters missing");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
     auto contracts = consensus.smartContracts;
 
     auto contract = contracts.find(obj.name);
@@ -123,8 +127,11 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
         return Res::Err("Transaction must have at least one input from owner");
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto txn = txCtx.GetTxn();
+    auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     bool dfiToDUSD = !obj.source.nTokenId.v;
     const auto paramID = dfiToDUSD ? ParamIDs::DFIP2206F : ParamIDs::DFIP2203;

@@ -6,6 +6,7 @@
 #include <dfi/balances.h>
 #include <dfi/consensus/accounts.h>
 #include <primitives/transaction.h>
+#include <validation.h>
 
 static ResVal<CBalances> BurntTokens(const CTransaction &tx) {
     CBalances balances;
@@ -20,6 +21,8 @@ static ResVal<CBalances> BurntTokens(const CTransaction &tx) {
 }
 
 Res CAccountsConsensus::operator()(const CUtxosToAccountMessage &obj) const {
+    const auto &tx = txCtx.GetTransaction();
+
     // check enough tokens are "burnt"
     auto burnt = BurntTokens(tx);
     if (!burnt) {
@@ -76,6 +79,7 @@ Res CAccountsConsensus::operator()(const CAccountToAccountMessage &obj) const {
     if (auto res = SubBalanceDelShares(obj.from, SumAllTransfers(obj.to)); !res) {
         return res;
     }
+
     return AddBalancesSetShares(obj.to);
 }
 
