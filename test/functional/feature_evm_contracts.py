@@ -505,15 +505,15 @@ class EVMTest(DefiTestFramework):
 
         self.should_contract_get_set()
 
-        # self.failed_tx_should_increment_nonce()
+        self.failed_tx_should_increment_nonce()
 
         self.should_deploy_contract_with_different_sizes()
 
-        # self.fail_deploy_contract_extremely_large_runtime_code()
+        self.fail_deploy_contract_extremely_large_runtime_code()
 
-        # self.fail_deploy_contract_extremely_large_init_code()
+        self.fail_deploy_contract_extremely_large_init_code()
 
-        # self.non_payable_proxied_contract()
+        self.non_payable_proxied_contract()
 
         self.test_contract_require_statement()
 
