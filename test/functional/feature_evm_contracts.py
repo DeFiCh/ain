@@ -70,10 +70,10 @@ class EVMTest(DefiTestFramework):
         self.node.transferdomain(
             [
                 {
-                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
+                    "src": {"address": self.address, "amount": "150@DFI", "domain": 2},
                     "dst": {
                         "address": self.evm_key_pair.address,
-                        "amount": "50@DFI",
+                        "amount": "150@DFI",
                         "domain": 3,
                     },
                 }
@@ -436,7 +436,7 @@ class EVMTest(DefiTestFramework):
             receipt["gasUsed"] * receipt["effectiveGasPrice"],
         )
 
-    def test_contract_require(self):
+    def test_contract_require_statement(self):
         self.rollback_to(self.start_height)
 
         abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
@@ -466,31 +466,34 @@ class EVMTest(DefiTestFramework):
             address=receipt["contractAddress"], abi=abi
         )
 
-        # should return error from `send`
-        tx = contract.functions.tryRequire(1).build_transaction(
+        # should be no error
+        contract.functions.gt0(1).call()
+
+        # should throw error from `call`
+        try:
+            contract.functions.gt0(0).call()
+        except Exception as e:
+            print('e: ', e)
+            # assert (
+            #     e,
+            #     "{'code': -32001, 'message': 'Custom error: VM Exception while processing transaction: revert Value must be greater than 0'}",
+            # )
+
+        # no error throw from `send`
+        # check status from receipt, 0 - failed, 1 - success
+        tx = contract.functions.gt0(0).build_transaction(
             {
-                # "nonce": hex(self.nodes[0].w3.eth.get_transaction_count(
-                #     self.evm_key_pair.address
-                # )),
                 "value": "0x0",
-                "gas": "0x7a120",
-                "gasPrice": "0x22ecb25c00",
+                "gas": "0x7530",
+                "gasPrice": "0x2540be400",
             }
         )
-        del tx["chainId"]
-        print('tx: ', tx)
-        self.nodes[0].eth_sendTransaction(tx)
+        del tx["chainId"] # web3py Contract doesn't require `chainId`
+        hash = self.nodes[0].eth_sendTransaction(tx)
 
-        # signed = self.nodes[0].w3.eth.account.sign_transaction(
-        #     tx, self.evm_key_pair.privkey
-        # )
-        # hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-        # self.nodes[0].w3.eth.send_transaction(tx)
-        # import pdb; pdb.set_trace()
         self.nodes[0].generate(1)
-
-        # should return error from `call`
-        # contract.functions.tryRequire(1).call()
+        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
+        assert_equal(receipt['status'], '0x0')
 
     def run_test(self):
         self.setup()
@@ -500,11 +503,11 @@ class EVMTest(DefiTestFramework):
         # start height after contract deployment
         self.start_height = self.nodes[0].getblockcount()
 
-        # self.should_contract_get_set()
+        self.should_contract_get_set()
 
         # self.failed_tx_should_increment_nonce()
 
-        # self.should_deploy_contract_with_different_sizes()
+        self.should_deploy_contract_with_different_sizes()
 
         # self.fail_deploy_contract_extremely_large_runtime_code()
 
@@ -512,7 +515,7 @@ class EVMTest(DefiTestFramework):
 
         # self.non_payable_proxied_contract()
 
-        self.test_contract_require()
+        self.test_contract_require_statement()
 
 
 if __name__ == "__main__":
