@@ -4,8 +4,8 @@
 
 #include <dfi/consensus/governance.h>
 #include <dfi/govvariables/attributes.h>
+#include <dfi/mn_checks.h>
 #include <dfi/masternodes.h>
-#include <validation.h>
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // check foundation auth

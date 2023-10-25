@@ -5,6 +5,7 @@
 #include <dfi/accounts.h>
 #include <dfi/balances.h>
 #include <dfi/consensus/accounts.h>
+#include <dfi/mn_checks.h>
 #include <primitives/transaction.h>
 #include <validation.h>
 

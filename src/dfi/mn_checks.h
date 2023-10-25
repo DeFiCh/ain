@@ -19,7 +19,6 @@ class BlockContext;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;
-class TransactionContext;
 
 class CCustomCSView;
 
@@ -155,6 +154,74 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CProposalVoteMessage,
                                       CTransferDomainMessage,
                                       CEvmTxMessage>;
+
+struct TransactionMessages {
+    const CustomTxType txType;
+    const Res parsingResult;
+    const CCustomTxMessage txMessage;
+};
+
+class BlockContext {
+    std::shared_ptr<CCustomCSView> cache;
+    CCustomCSView *view;
+    std::optional<bool> isEvmEnabledForBlock;
+    std::shared_ptr<CScopedTemplate> evmTemplate{};
+    bool evmPreValidate{};
+    const std::optional<std::map<uint32_t, TransactionMessages>> txMessages;
+
+public:
+    explicit BlockContext(CCustomCSView *view = {},
+                          const std::optional<bool> enabled = {},
+                          const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
+                          const bool prevalidate = {},
+                          const std::optional<std::map<uint32_t, TransactionMessages>> &txMessages = {})
+            : view(view),
+              isEvmEnabledForBlock(enabled),
+              evmTemplate(evmTemplate),
+              evmPreValidate(prevalidate),
+              txMessages(txMessages) {}
+
+    [[nodiscard]] CCustomCSView &GetView();
+    [[nodiscard]] bool GetEVMEnabledForBlock();
+    [[nodiscard]] bool GetEVMPreValidate() const;
+    [[nodiscard]] const std::shared_ptr<CScopedTemplate> &GetEVMTemplate() const;
+
+    void SetView(CCustomCSView &other);
+    void SetEVMPreValidate(const bool other);
+    void SetEVMTemplate(const std::shared_ptr<CScopedTemplate> &evmTemplate);
+    [[nodiscard]] const std::optional<std::map<uint32_t, TransactionMessages>> &GetTxMessages() const { return txMessages; };
+};
+
+class TransactionContext {
+    const CCoinsViewCache &coins;
+    const CTransaction &tx;
+    const Consensus::Params &consensus;
+    const uint32_t height{};
+    const uint64_t time{};
+    const uint32_t txn{};
+
+public:
+    TransactionContext(const CCoinsViewCache &coins,
+                       const CTransaction &tx,
+                       const Consensus::Params &consensus,
+                       const uint32_t height = {},
+                       const uint64_t time = {},
+                       const uint32_t txn = {})
+            : coins(coins),
+              tx(tx),
+              consensus(consensus),
+              height(height),
+              time(time),
+              txn(txn) {}
+
+    [[nodiscard]] const CCoinsViewCache &GetCoins() const { return coins; };
+    [[nodiscard]] const CTransaction &GetTransaction() const { return tx; };
+    [[nodiscard]] const Consensus::Params &GetConsensus() const { return consensus; };
+    [[nodiscard]] const uint32_t GetHeight() const { return height; };
+    [[nodiscard]] const uint64_t GetTime() const { return time; };
+    [[nodiscard]] const uint32_t GetTxn() const { return txn; };
+};
+
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);

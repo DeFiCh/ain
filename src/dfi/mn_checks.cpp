@@ -514,6 +514,7 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
 Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &txMessages = blockCtx.GetTxMessages();
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
     const auto &tx = txCtx.GetTransaction();
@@ -525,7 +526,12 @@ Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint2
     }
     std::vector<unsigned char> metadata;
     const auto metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
-    const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    CustomTxType txType;
+    if (txMessages && txMessages->count(txn)) {
+        txType = txMessages->at(txn).txType;
+    } else {
+        txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    }
 
     auto attributes = mnview.GetAttributes();
 
@@ -549,9 +555,17 @@ Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint2
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
 
-    auto txMessage = customTypeToMessage(txType);
+    CCustomTxMessage txMessage;
+    if (txMessages && txMessages->count(txn)) {
+        txMessage = txMessages->at(txn).txMessage;
+        res = txMessages->at(txn).parsingResult;
+    } else {
+        txMessage = customTypeToMessage(txType);
+        res = CustomMetadataParse(height, consensus, metadata, txMessage);
+    }
+
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
+    if (res) {
         if (mnview.GetHistoryWriters().GetVaultView()) {
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, txCtx);
         }

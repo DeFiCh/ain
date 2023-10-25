@@ -5,6 +5,7 @@
 #include <consensus/params.h>
 #include <dfi/consensus/oracles.h>
 #include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 
 Res COraclesConsensus::NormalizeTokenCurrencyPair(std::set<CTokenCurrencyPair> &tokenCurrency) const {
     std::set<CTokenCurrencyPair> trimmed;

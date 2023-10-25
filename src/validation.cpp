@@ -21,6 +21,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/historywriter.h>
 #include <dfi/mn_checks.h>
+#include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
@@ -64,6 +65,7 @@
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/asio.hpp>
 
 #if defined(NDEBUG)
 #error "Defi cannot be compiled without assertions."
@@ -2676,6 +2678,66 @@ bool CChainState::ConnectBlock(const CBlock &block,
         return false;
     }
 
+    const auto &consensus = chainparams.GetConsensus();
+
+    std::map<uint32_t, TransactionMessages> txMessages;
+    for (size_t i{}; i < block.vtx.size(); ++i) {
+        const auto &tx = *(block.vtx[i]);
+        if (tx.IsCoinBase()) {
+            continue;
+        }
+
+        std::vector<unsigned char> metadata;
+        const auto metadataValidation = pindex->nHeight >= consensus.DF11FortCanningHeight;
+        const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
+
+        auto txMessage = customTypeToMessage(txType);
+        auto res = CustomMetadataParse(pindex->nHeight, consensus, metadata, txMessage);
+        txMessages.emplace(i, TransactionMessages{txType, res, txMessage});
+    }
+
+    if (!txMessages.empty()) {
+
+        // Convert to vector for faster iteration in pool
+        std::vector<std::pair<uint32_t, TransactionMessages>> messageVec(txMessages.begin(), txMessages.end());
+
+        auto nWorkers = DfTxTaskPool->GetAvailableThreads();
+        if (messageVec.size() < nWorkers) {
+            nWorkers = messageVec.size();
+        }
+
+        TaskGroup g;
+        auto &pool = DfTxTaskPool->pool;
+        const auto chunkSize = messageVec.size() / nWorkers;
+        size_t processed{}, i{};
+
+        while (processed < messageVec.size()) {
+            auto start = chunkSize * i;
+            auto stop = chunkSize * (i + 1);
+
+            g.AddTask();
+            boost::asio::post(pool, [start, stop, &g, &messageVec] {
+
+                for (auto j = start; j < stop; ++j) {
+                    auto obj = std::get_if<CEvmTxMessage>(&messageVec[j].second.txMessage);
+                    if (!obj) {
+                        continue;
+                    }
+
+                    const auto evmTx = HexStr(obj->evmTx);
+
+                    CrossBoundaryResult result;
+                    evm_try_get_tx_hash(result, evmTx);
+                }
+
+                g.RemoveTask();
+            });
+
+            processed += chunkSize;
+            ++i;
+        }
+    }
+
     // Reset phanton TX to block TX count
     nPhantomBurnTx = block.vtx.size();
 
@@ -2984,9 +3046,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
     txdata.reserve(
         block.vtx.size());  // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
-    const auto &consensus = chainparams.GetConsensus();
-
-    auto blockCtx = BlockContext{&accountsView, IsEVMEnabled(attributes)};
+    auto blockCtx = BlockContext{&accountsView, IsEVMEnabled(attributes), {}, {}, txMessages};
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
