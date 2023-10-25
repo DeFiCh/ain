@@ -306,7 +306,7 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut template.backend);
         let base_fee = template.vicinity.block_base_fee_per_gas;
         debug!(
-            "[update_block_template_state_from_tx] Block base fee: {}",
+            "[update_state_in_block_template] Block base fee: {}",
             base_fee
         );
 
