@@ -1,6 +1,7 @@
 #ifndef DEFI_DFI_EVM_H
 #define DEFI_DFI_EVM_H
 
+#include <ain_rs_exports.h>
 #include <amount.h>
 #include <dfi/consensus/xvm.h>
 #include <dfi/res.h>
@@ -56,19 +57,19 @@ public:
     };
 };
 
-class CScopedTemplateID {
-    explicit CScopedTemplateID(uint64_t id);
+class CScopedTemplate {
+    explicit CScopedTemplate(BlockTemplateWrapper &blockTemplate);
 
-    uint64_t evmTemplateId;
+    BlockTemplateWrapper &evmTemplate;
 
 public:
-    static std::shared_ptr<CScopedTemplateID> Create(const uint64_t dvmBlockNumber,
-                                                     std::string minerAddress,
-                                                     unsigned int difficulty,
-                                                     const uint64_t timestamp);
-    ~CScopedTemplateID();
+    static std::shared_ptr<CScopedTemplate> Create(const uint64_t dvmBlockNumber,
+                                                   std::string minerAddress,
+                                                   unsigned int difficulty,
+                                                   const uint64_t timestamp);
+    ~CScopedTemplate();
 
-    uint64_t GetTemplateID() const;
+    BlockTemplateWrapper &GetTemplate() const;
 };
 
 #endif  // DEFI_DFI_EVM_H

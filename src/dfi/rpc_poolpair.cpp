@@ -16,7 +16,6 @@ UniValue poolToJSON(const CCustomCSView view,
 
     if (verbose) {
         const auto attributes = view.GetAttributes();
-        assert(attributes);
 
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenBFeeDir};

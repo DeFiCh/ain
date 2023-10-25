@@ -199,15 +199,18 @@ class addressmapTests(DefiTestFramework):
         address = self.nodes[0].getnewaddress("", "legacy")
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
         eth_address = self.nodes[0].getnewaddress("", "erc55")
-        assert_invalid = lambda *args: assert_raises_rpc_error(
+        assert_invalid_parameter = lambda *args: assert_raises_rpc_error(
             -8, "Invalid type parameter", self.nodes[0].addressmap, *args
         )
-        assert_invalid(address, 9)
-        assert_invalid(address, -1)
-        assert_invalid(eth_address, AddressConversionType.DVMToEVMAddress)
-        assert_invalid(address, AddressConversionType.EVMToDVMAddress)
-        assert_invalid(p2sh_address, AddressConversionType.DVMToEVMAddress)
-        assert_invalid(p2sh_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid_format = lambda *args: assert_raises_rpc_error(
+            -8, "Invalid address format", self.nodes[0].addressmap, *args
+        )
+        assert_invalid_parameter(address, 9)
+        assert_invalid_parameter(address, -1)
+        assert_invalid_format(eth_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid_format(address, AddressConversionType.EVMToDVMAddress)
+        assert_invalid_format(p2sh_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid_format(p2sh_address, AddressConversionType.DVMToEVMAddress)
 
     def addressmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
@@ -222,21 +225,21 @@ class addressmapTests(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -8,
-            "Invalid type parameter",
+            "Invalid address format",
             self.nodes[0].addressmap,
             eth_address,
             AddressConversionType.DVMToEVMAddress,
         )
         assert_raises_rpc_error(
             -8,
-            "Invalid type parameter",
+            "Invalid address format",
             self.nodes[0].addressmap,
             "test",
             AddressConversionType.DVMToEVMAddress,
         )
         assert_raises_rpc_error(
             -8,
-            "Invalid type parameter",
+            "Invalid address format",
             self.nodes[0].addressmap,
             "test",
             AddressConversionType.EVMToDVMAddress,

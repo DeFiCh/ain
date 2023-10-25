@@ -2196,6 +2196,8 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
     pwallet->BlockUntilSyncedToCurrentChain();
 
+    EnsureWalletIsUnlocked(pwallet);
+
     RPCTypeCheck(request.params, {UniValue::VARR}, false);
 
     UniValue srcDstArray(UniValue::VARR);
@@ -2432,29 +2434,27 @@ UniValue getburninfo(const JSONRPCRequest &request) {
     auto fortCanningHeight = Params().GetConsensus().DF11FortCanningHeight;
     auto burnAddress = Params().GetConsensus().burnAddress;
     auto view = *pcustomcsview;
-    auto attributes = view.GetAttributes();
+    const auto attributes = view.GetAttributes();
 
-    if (attributes) {
-        CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
-        auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
-        for (const auto &balance : tokenBalances.balances) {
-            if (balance.first == DCT_ID{0}) {
-                dfiPaybackFee = balance.second;
-            } else {
-                dfipaybacktokens.Add({balance.first, balance.second});
-            }
+    CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
+    auto tokenBalances = attributes->GetValue(liveKey, CBalances{});
+    for (const auto &balance : tokenBalances.balances) {
+        if (balance.first == DCT_ID{0}) {
+            dfiPaybackFee = balance.second;
+        } else {
+            dfipaybacktokens.Add({balance.first, balance.second});
         }
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
-        auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
-        paybackfees = std::move(paybacks.tokensFee);
-        paybacktokens = std::move(paybacks.tokensPayback);
-
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
-        dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
-
-        liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
-        dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
     }
+    liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
+    auto paybacks = attributes->GetValue(liveKey, CTokenPayback{});
+    paybackfees = std::move(paybacks.tokensFee);
+    paybacktokens = std::move(paybacks.tokensPayback);
+
+    liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2203Burned};
+    dfi2203Tokens = attributes->GetValue(liveKey, CBalances{});
+
+    liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DFIP2206FBurned};
+    dfiToDUSDTokens = attributes->GetValue(liveKey, CBalances{});
 
     for (const auto &kv : Params().GetConsensus().blockTokenRewards) {
         if (kv.first == CommunityAccountType::Unallocated || kv.first == CommunityAccountType::IncentiveFunding ||
@@ -2580,7 +2580,7 @@ UniValue getburninfo(const JSONRPCRequest &request) {
 
     GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
 
-    CDataStructureV0 liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
+    liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
     auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
 
     for (const auto &token : totalResult->nonConsortiumTokens.balances) {

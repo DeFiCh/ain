@@ -24,8 +24,7 @@ std::optional<CTokensView::CTokenImpl> CTokensView::GetToken(DCT_ID id) const {
     return ReadBy<ID, CTokenImpl>(id);
 }
 
-std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> CTokensView::GetToken(
-    const std::string &symbolKey) const {
+std::optional<CTokensView::TokenIDPair> CTokensView::GetToken(const std::string &symbolKey) const {
     DCT_ID id;
     if (ReadBy<Symbol, std::string>(symbolKey, id)) {
         return std::make_pair(id, GetToken(id));
@@ -70,8 +69,7 @@ Res CTokensView::CreateDFIToken() {
 
 ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                                         bool isPreBayfront,
-                                        bool shouldCreateDst20,
-                                        const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                                        BlockContext blockCtx) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -103,14 +101,16 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                       id.ToString().c_str());
         }
 
-        if (shouldCreateDst20) {
+        const auto shouldCreateDst20 = blockCtx.GetEVMEnabledForBlock();
+        const auto &evmTemplate = blockCtx.GetEVMTemplate();
+        if (shouldCreateDst20 && evmTemplate) {
             CrossBoundaryResult result;
-            evm_try_create_dst20(result,
-                                 evmTemplateId->GetTemplateID(),
-                                 token.creationTx.GetHex(),
-                                 rust::string(token.name.c_str()),
-                                 rust::string(token.symbol.c_str()),
-                                 id.v);
+            evm_try_unsafe_create_dst20(result,
+                                        evmTemplate->GetTemplate(),
+                                        token.creationTx.GetHex(),
+                                        rust::string(token.name.c_str()),
+                                        rust::string(token.symbol.c_str()),
+                                        id.v);
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token: %s", result.reason);
             }

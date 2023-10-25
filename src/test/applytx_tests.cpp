@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
     }
 
     { // it is possible to create neg TokenAmount, but can't manipulate with it
-        CTokenAmount val{DCT_ID{0}, -100};
+        CTokenAmount val{DCT_ID{}, -100};
         auto res = val.Add(100);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount");
@@ -45,25 +45,27 @@ BOOST_AUTO_TEST_CASE(neg_token_amounts)
 // redundant due to 'neg_token_amounts'
 BOOST_AUTO_TEST_CASE(neg_token_balances)
 {
+    LOCK(cs_main);
+
     CCustomCSView mnview(*pcustomcsview);
 
     CScript const owner = CScript(1);
-    DCT_ID const DFI{0};
+    DCT_ID const DFI{};
     {
         // Initial value
-        auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
+        auto dfi100 = CTokenAmount{DFI, 100};
         auto res = mnview.AddBalance(owner, dfi100);
         BOOST_CHECK(res.ok);
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
 
         // Fail to add negative
-        res = mnview.AddBalance(owner, CTokenAmount{DCT_ID{0}, -100});
+        res = mnview.AddBalance(owner, CTokenAmount{DFI, -100});
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
 
         // Fail to sub negative
-        res = mnview.SubBalance(owner, CTokenAmount{DCT_ID{0}, -100});
+        res = mnview.SubBalance(owner, CTokenAmount{DFI, -100});
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.msg, "negative amount: -0.00000100");
         BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
@@ -84,19 +86,21 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     Consensus::Params amkCheated = Params().GetConsensus();
     amkCheated.DF1AMKHeight = 0;
 
+    LOCK(cs_main);
 
-    CCustomCSView mnview(*pcustomcsview);
+    BlockContext blockCtx;
+    auto &mnview = blockCtx.GetView();
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
-    CScript owner = CScript(424242);
-    DCT_ID DFI{0};
+    CScript owner{424242};
+    DCT_ID DFI{};
 
     // add auth coin to coinview
     auto auth_out = COutPoint(uint256S("0xafaf"),42);
-    coinview.AddCoin(auth_out, Coin(CTxOut(1, owner, DFI), 1, false), false);
+    coinview.AddCoin(auth_out, Coin({1, owner, DFI}, 1, false), false);
 
     // Initial value
-    auto dfi100 = CTokenAmount{DCT_ID{0}, 100};
+    const auto dfi100 = CTokenAmount{DFI, 100};
     auto res = mnview.AddBalance(owner, dfi100);
     BOOST_CHECK(res.ok);
     BOOST_CHECK_EQUAL(mnview.GetBalance(owner, DFI), dfi100);
@@ -105,10 +109,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
     CAccountToAccountMessage msg{};
     msg.from = owner;
     CMutableTransaction rawTx;
-    rawTx.vout = { CTxOut(0, CScript()) };
+    rawTx.vout = { CTxOut(0, {}) };
     rawTx.vin = { CTxIn(auth_out) };
-
-    std::shared_ptr<CScopedTemplateID> evmTemplateId{};
 
     // try to send "A:-1@DFI"
     {
@@ -118,7 +120,15 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, coinview, CTransaction(rawTx), amkCheated, 1, 0, nullptr, 0, evmTemplateId, false, false);
+        const auto tx = CTransaction(rawTx);
+        const auto txCtx = TransactionContext{
+            coinview,
+            tx,
+            amkCheated,
+        };
+
+        res = ApplyCustomTx(blockCtx, txCtx);
+
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -134,7 +144,14 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, coinview, CTransaction(rawTx), amkCheated, 1, 0, nullptr, 0, evmTemplateId, false, false);
+        const auto tx = CTransaction(rawTx);
+        const auto txCtx = TransactionContext{
+                coinview,
+                tx,
+                amkCheated,
+        };
+
+        res = ApplyCustomTx(blockCtx, txCtx);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_EQUAL(res.code, (uint32_t) CustomTxErrCodes::NotEnoughBalance);
         // check that nothing changes:
@@ -151,7 +168,14 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, coinview, CTransaction(rawTx), amkCheated, 1, 0, nullptr, 0, evmTemplateId, false, false);
+        const auto tx = CTransaction(rawTx);
+        const auto txCtx = TransactionContext{
+                coinview,
+                tx,
+                amkCheated,
+        };
+
+        res = ApplyCustomTx(blockCtx, txCtx);
         BOOST_CHECK(!res.ok);
         BOOST_CHECK_NE(res.msg.find("negative amount"), std::string::npos);
         // check that nothing changes:
@@ -168,7 +192,14 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
-        res = ApplyCustomTx(mnview, coinview, CTransaction(rawTx), amkCheated, 1, 0, nullptr, 0, evmTemplateId, false, false);
+        const auto tx = CTransaction(rawTx);
+        const auto txCtx = TransactionContext{
+                coinview,
+                tx,
+                amkCheated,
+        };
+
+        res = ApplyCustomTx(blockCtx, txCtx);
         BOOST_CHECK(res.ok);
         // check result balances:
         auto const dfi90 = CTokenAmount{DFI, 90};

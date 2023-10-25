@@ -11,6 +11,9 @@
 #include <dfi/masternodes.h>
 
 Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+
     if (tx.vout.size() < 2 || tx.vout[0].nValue < GetMnCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
         tx.vout[1].nValue != GetMnCollateralAmount(height) || tx.vout[1].nTokenId != DCT_ID{0}) {
         return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
@@ -23,6 +26,13 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
     if (auto res = CheckMasternodeCreationTx(); !res) {
         return res;
     }
+
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
 
     if (height >= static_cast<uint32_t>(consensus.DF8EunosHeight)) {
         if (!HasAuth(tx.vout[1].scriptPubKey)) {
@@ -106,6 +116,10 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
 }
 
 Res CMasternodesConsensus::operator()(const CResignMasterNodeMessage &obj) const {
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     auto node = mnview.GetMasternode(obj);
     if (!node) {
         return DeFiErrors::MNInvalid(obj.ToString());
@@ -127,6 +141,12 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
         return Res::Err("Too many updates provided");
     }
 
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     auto node = mnview.GetMasternode(obj.mnId);
     if (!node) {
         return DeFiErrors::MNInvalidAltMsg(obj.mnId.ToString());
@@ -143,7 +163,6 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
     }
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     bool ownerType{}, operatorType{}, rewardType{};
     for (const auto &[type, addressPair] : obj.updates) {

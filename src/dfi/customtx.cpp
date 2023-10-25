@@ -273,8 +273,7 @@ CAmount GetNonMintedValueOut(const CTransaction &tx, DCT_ID tokenID) {
     return tx.GetValueOut(mintingOutputsStart, tokenID);
 }
 
-// it's disabled after Dakota height
-bool IsBelowDakotaMintTokenOrAccountToUtxos(CustomTxType txType, int height) {
+bool IsBelowDF6MintTokenOrAccountToUtxos(CustomTxType txType, int height) {
     return (height < Params().GetConsensus().DF6DakotaHeight &&
             (txType == CustomTxType::MintToken || txType == CustomTxType::AccountToUtxos));
 }

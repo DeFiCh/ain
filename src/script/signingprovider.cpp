@@ -98,13 +98,8 @@ bool FillableSigningProvider::GetPubKey(const CKeyID &address, CPubKey &vchPubKe
     if (!GetKey(address, key)) {
         return false;
     }
-    auto pubkey = key.GetPubKey();
-    if (!pubkey.IsCompressed() && address.type == KeyAddressType::COMPRESSED) {
-        pubkey.Compress();
-    } else if (pubkey.IsCompressed() && address.type == KeyAddressType::UNCOMPRESSED) {
-        pubkey.Decompress();
-    }
-    vchPubKeyOut = pubkey;
+    vchPubKeyOut = key.GetPubKey();
+    ResolveKeyCompression(address.type, vchPubKeyOut);
     return true;
 }
 

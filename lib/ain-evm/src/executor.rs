@@ -13,7 +13,7 @@ pub use evm::{
 use log::{debug, trace};
 
 use crate::{
-    backend::EVMBackend,
+    backend::{BackendError, EVMBackend},
     blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
@@ -86,8 +86,8 @@ impl<'backend> AinExecutor<'backend> {
         self.backend.update_vicinity_with_gas_used(gas_used)
     }
 
-    pub fn commit(&mut self) -> H256 {
-        self.backend.commit()
+    pub fn commit(&mut self, is_miner: bool) -> Result<H256> {
+        self.backend.commit(is_miner)
     }
 
     pub fn get_nonce(&self, address: &H160) -> U256 {
@@ -169,6 +169,9 @@ impl<'backend> AinExecutor<'backend> {
         } else {
             calculate_current_prepay_gas_fee(signed_tx, base_fee)?
         };
+
+        let old_basic = self.backend.basic(signed_tx.sender); // Keep old basic values to restore state if block size limit exceeded
+
         if !system_tx {
             self.backend
                 .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
@@ -211,6 +214,9 @@ impl<'backend> AinExecutor<'backend> {
                 .ok_or_else(|| format_err!("total_gas_used overflow"))?
                 > block_gas_limit
         {
+            self.backend
+                .apply(signed_tx.sender, Some(old_basic), None, Vec::new(), false)
+                .map_err(|e| BackendError::DeductPrepayGasFailed(e.to_string()))?;
             return Err(format_err!(
                 "[exec] block size limit exceeded, tx cannot make it into the block"
             )
@@ -220,7 +226,6 @@ impl<'backend> AinExecutor<'backend> {
         let logs = logs.into_iter().collect::<Vec<_>>();
 
         ApplyBackend::apply(self.backend, values, logs.clone(), true);
-        self.backend.commit();
 
         if !system_tx {
             self.backend
@@ -333,7 +338,6 @@ impl<'backend> AinExecutor<'backend> {
                     let storage = bridge_dfi(self.backend, amount, direction)?;
                     self.update_storage(fixed_address, storage)?;
                     self.add_balance(fixed_address, amount)?;
-                    self.commit();
                 }
 
                 let (tx_response, receipt) =
@@ -345,7 +349,6 @@ impl<'backend> AinExecutor<'backend> {
                     )
                     .into());
                 }
-                self.commit();
 
                 debug!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
@@ -397,12 +400,10 @@ impl<'backend> AinExecutor<'backend> {
                     let DST20BridgeInfo { address, storage } =
                         bridge_dst20_in(self.backend, contract_address, amount)?;
                     self.update_storage(address, storage)?;
-                    self.commit();
                 }
 
                 let allowance = dst20_allowance(direction, signed_tx.sender, amount);
                 self.update_storage(contract_address, allowance)?;
-                self.commit();
 
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
@@ -419,8 +420,6 @@ impl<'backend> AinExecutor<'backend> {
                     )
                     .into());
                 }
-
-                self.commit();
 
                 debug!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",

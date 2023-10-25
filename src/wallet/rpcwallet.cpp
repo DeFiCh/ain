@@ -4283,13 +4283,14 @@ UniValue addressmap(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+    auto throwInvalidParamType = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+    auto throwInvalidAddressFmt = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid address format")); };
 
     const std::string input = request.params[0].get_str();
 
     int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= AddressConversionTypeCount) {
-        throwInvalidParam();
+        throwInvalidParamType();
     }
 
     CTxDestination dest = DecodeDestination(input);
@@ -4315,7 +4316,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
     switch (type) {
         case AddressConversionType::DVMToEVMAddress: {
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
-                throwInvalidParam();
+                throwInvalidAddressFmt();
             }
             CPubKey key = AddrToPubKey(pwallet, input);
             if (key.IsCompressed()) {
@@ -4326,7 +4327,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
         }
         case AddressConversionType::EVMToDVMAddress: {
             if (dest.index() != WitV16KeyEthHashType) {
-                throwInvalidParam();
+                throwInvalidAddressFmt();
             }
             CPubKey key = AddrToPubKey(pwallet, input);
             if (!key.IsCompressed()) {
@@ -4336,7 +4337,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
             break;
         }
         default:
-            throwInvalidParam();
+            throwInvalidParamType();
     }
 
     ret.pushKV("format", format);

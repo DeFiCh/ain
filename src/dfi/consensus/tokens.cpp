@@ -10,10 +10,12 @@
 #include <dfi/mn_checks.h>
 
 Res CTokensConsensus::CheckTokenCreationTx() const {
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+
     if (tx.vout.size() < 2 || tx.vout[0].nValue < GetTokenCreationFee(height) || tx.vout[0].nTokenId != DCT_ID{0} ||
-            tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0},
-        "malformed tx vouts (wrong creation fee or collateral amount)") {
-        ;
+        tx.vout[1].nValue != GetTokenCollateralAmount() || tx.vout[1].nTokenId != DCT_ID{0}) {
+        return Res::Err("malformed tx vouts (wrong creation fee or collateral amount)");
     }
 
     return Res::Ok();
@@ -28,6 +30,11 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
                         token.destructionHeight,
                         token.destructionTx.GetHex());
     }
+
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
     // pre-bayfront logic:
@@ -52,6 +59,7 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
 
     static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
     // may be different logic with LPS, so, dedicated check:
+    auto &mnview = blockCtx.GetView();
     if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id))) {
         return Res::Err("token %s is not mintable!", id.ToString());
     }
@@ -88,6 +96,11 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
     auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     token.symbol = tokenSymbol;
     token.name = tokenName;
     token.creationTx = tx.GetHash();
@@ -103,12 +116,12 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         }
     }
 
-    auto tokenId = mnview.CreateToken(
-        token, static_cast<int>(height) < consensus.DF2BayfrontHeight, isEvmEnabledForBlock, evmTemplateId);
+    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, blockCtx);
     return tokenId;
 }
 
 Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
+    auto &mnview = blockCtx.GetView();
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
@@ -126,6 +139,11 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
 }
 
 Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist", obj.tokenTx.ToString());
@@ -149,7 +167,6 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     std::set<CScript> databaseMembers;
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
@@ -189,13 +206,17 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
+    const auto &coins = txCtx.GetCoins();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     const auto isRegTestSimulateMainnet = gArgs.GetArg("-regtest-minttoken-simulate-mainnet", false);
     const auto fortCanningCrunchHeight = static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight);
     const auto grandCentralHeight = static_cast<uint32_t>(consensus.DF20GrandCentralHeight);
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
 
     if (!toAddressEnabled && !obj.to.empty()) {
@@ -255,7 +276,6 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
         }
 
         auto attributes = mnview.GetAttributes();
-        assert(attributes);
 
         CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
@@ -382,6 +402,9 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
         return Res::Err("tx must have balances to burn");
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    auto &mnview = blockCtx.GetView();
+
     for (const auto &[tokenId, amount] : obj.amounts.balances) {
         // check auth
         if (!HasAuth(obj.from)) {
@@ -401,7 +424,6 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
         }
 
         auto attributes = mnview.GetAttributes();
-        assert(attributes);
 
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
         const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});

@@ -10,6 +10,7 @@
 #include <dfi/loan.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <validation.h>
 
 static bool IsPaybackWithCollateral(CCustomCSView &view, const std::map<DCT_ID, CBalances> &loans) {
     auto tokenDUSD = view.GetToken("DUSD");
@@ -30,9 +31,6 @@ static Res PaybackWithCollateral(CCustomCSView &view,
                                  uint32_t height,
                                  uint64_t time) {
     const auto attributes = view.GetAttributes();
-    if (!attributes) {
-        return DeFiErrors::MNInvalidAttribute();
-    }
 
     const auto dUsdToken = view.GetToken("DUSD");
     if (!dUsdToken) {
@@ -169,6 +167,8 @@ static Res PaybackWithCollateral(CCustomCSView &view,
 }
 
 bool CLoansConsensus::IsTokensMigratedToGovVar() const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
     return static_cast<int>(height) > consensus.DF16FortCanningCrunchHeight + 1;
 }
 
@@ -180,6 +180,12 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member!");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &tokenId = obj.idToken.v;
@@ -272,6 +278,12 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
         return Res::Err("tx not from foundation member!");
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     if (height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
         if (obj.interest < 0) {
             return Res::Err("interest rate cannot be less than 0!");
@@ -290,7 +302,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
                                : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
     token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-    auto tokenId = mnview.CreateToken(token, false, isEvmEnabledForBlock, evmTemplateId);
+    auto tokenId = mnview.CreateToken(token, false, blockCtx);
     if (!tokenId) {
         return tokenId;
     }
@@ -300,7 +312,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
 
         auto attributes = mnview.GetAttributes();
         attributes->time = time;
-        attributes->evmTemplateId = evmTemplateId;
+        attributes->evmTemplate = blockCtx.GetEVMTemplate();
 
         CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
         CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
@@ -370,6 +382,11 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member!");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
 
     if (height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
         if (obj.interest < 0) {
@@ -485,6 +502,9 @@ Res CLoansConsensus::operator()(const CLoanSchemeMessage &obj) const {
         return Res::Err("id cannot be empty or more than 8 chars long");
     }
 
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     // Look for loan scheme which already has matching rate and ratio
     bool duplicateLoan = false;
     std::string duplicateID;
@@ -558,6 +578,9 @@ Res CLoansConsensus::operator()(const CDefaultLoanSchemeMessage &obj) const {
     if (obj.identifier.empty() || obj.identifier.length() > 8) {
         return Res::Err("id cannot be empty or more than 8 chars long");
     }
+
+    auto &mnview = blockCtx.GetView();
+
     if (!mnview.GetLoanScheme(obj.identifier)) {
         return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
     }
@@ -587,6 +610,10 @@ Res CLoansConsensus::operator()(const CDestroyLoanSchemeMessage &obj) const {
     if (obj.identifier.empty() || obj.identifier.length() > 8) {
         return Res::Err("id cannot be empty or more than 8 chars long");
     }
+
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     if (!mnview.GetLoanScheme(obj.identifier)) {
         return Res::Err("Cannot find existing loan scheme with id %s", obj.identifier);
     }
@@ -620,6 +647,11 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
+
     const auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
         return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
@@ -647,7 +679,7 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 
     auto hasDUSDLoans = false;
 
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
+    std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
@@ -799,6 +831,8 @@ Res CLoansConsensus::operator()(const CLoanTakeLoanMessage &obj) const {
 }
 
 Res CLoansConsensus::operator()(const CLoanPaybackLoanMessage &obj) const {
+    auto &mnview = blockCtx.GetView();
+
     std::map<DCT_ID, CBalances> loans;
     for (auto &balance : obj.amounts.balances) {
         auto id = balance.first;
@@ -825,6 +859,11 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
     if (!res) {
         return res;
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
 
     const auto vault = mnview.GetVault(obj.vaultId);
     if (!vault) {
@@ -857,7 +896,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
 
     auto shouldSetVariable = false;
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
         const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
@@ -1157,6 +1195,10 @@ Res CLoansConsensus::operator()(const CPaybackWithCollateralMessage &obj) const 
     if (auto res = CheckCustomTx(); !res) {
         return res;
     }
+
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     const auto vault = mnview.GetVault(obj.vaultId);

@@ -319,25 +319,15 @@ public:
 // -- -- -- -- -- -- -- -DONE
 
 class CCustomTxApplyVisitor {
-    const CTransaction &tx;
-    const uint32_t height;
-    const CCoinsViewCache &coins;
-    CCustomCSView &mnview;
-    const Consensus::Params &consensus;
-    uint64_t time;
-    uint32_t txn;
-    const std::shared_ptr<CScopedTemplateID> &evmTemplateId;
-    bool isEvmEnabledForBlock;
-    bool evmPreValidate;
+    BlockContext &blockCtx;
+    const TransactionContext &txCtx;
 
     template <typename T, typename T1, typename... Args>
     Res ConsensusHandler(const T &obj) const {
         static_assert(std::is_base_of_v<CCustomTxVisitor, T1>, "CCustomTxVisitor base required");
 
         if constexpr (std::is_invocable_v<T1, T>) {
-            return T1{
-                tx, height, coins, mnview, consensus, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate}(
-                obj);
+            return T1{blockCtx, txCtx}(obj);
         } else if constexpr (sizeof...(Args) != 0) {
             return ConsensusHandler<T, Args...>(obj);
         } else {
@@ -348,27 +338,10 @@ class CCustomTxApplyVisitor {
     }
 
 public:
-    CCustomTxApplyVisitor(const CTransaction &tx,
-                          uint32_t height,
-                          const CCoinsViewCache &coins,
-                          CCustomCSView &mnview,
-                          const Consensus::Params &consensus,
-                          uint64_t time,
-                          uint32_t txn,
-                          const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
-                          const bool isEvmEnabledForBlock,
-                          const bool evmPreValidate)
+    CCustomTxApplyVisitor(BlockContext &blockCtx, const TransactionContext &txCtx)
 
-        : tx(tx),
-          height(height),
-          coins(coins),
-          mnview(mnview),
-          consensus(consensus),
-          time(time),
-          txn(txn),
-          evmTemplateId(evmTemplateId),
-          isEvmEnabledForBlock(isEvmEnabledForBlock),
-          evmPreValidate(evmPreValidate) {}
+        : blockCtx(blockCtx),
+          txCtx(txCtx) {}
 
     template <typename T>
     Res operator()(const T &obj) const {
@@ -435,34 +408,29 @@ bool IsDisabledTx(uint32_t height, const CTransaction &tx, const Consensus::Para
     return IsDisabledTx(height, txType, consensus);
 }
 
-Res CustomTxVisit(CCustomCSView &mnview,
-                  const CCoinsViewCache &coins,
-                  const CTransaction &tx,
-                  const uint32_t height,
-                  const Consensus::Params &consensus,
-                  const CCustomTxMessage &txMessage,
-                  const uint64_t time,
-                  const uint32_t txn,
-                  std::shared_ptr<CScopedTemplateID> &evmTemplateId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate) {
+Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx) {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    const auto &tx = txCtx.GetTransaction();
+
     if (IsDisabledTx(height, tx, consensus)) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Disabled custom transaction");
     }
 
-    if (!evmTemplateId && isEvmEnabledForBlock) {
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
+
+    if (!evmTemplate && isEvmEnabledForBlock) {
         std::string minerAddress{};
-        evmTemplateId = CScopedTemplateID::Create(height, minerAddress, 0u, time);
-        if (!evmTemplateId) {
+        blockCtx.SetEVMTemplate(CScopedTemplate::Create(height, minerAddress, 0u, time));
+        if (!evmTemplate) {
             return Res::Err("Failed to create queue");
         }
     }
 
     try {
-        auto res = std::visit(
-            CCustomTxApplyVisitor(
-                tx, height, coins, mnview, consensus, time, txn, evmTemplateId, isEvmEnabledForBlock, evmPreValidate),
-            txMessage);
+        auto res = std::visit(CCustomTxApplyVisitor(blockCtx, txCtx), txMessage);
         return res;
     } catch (const std::bad_variant_access &e) {
         return Res::Err(e.what());
@@ -483,9 +451,11 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
                               CAccountsHistoryWriter &view,
                               const CCustomTxMessage &txMessage,
                               const CustomTxType txType,
-                              const uint32_t height,
-                              const uint32_t txn,
-                              const uint256 &txid) {
+                              const TransactionContext &txCtx) {
+    const auto height = txCtx.GetHeight();
+    const auto &txid = txCtx.GetTransaction().GetHash();
+    const auto txn = txCtx.GetTxn();
+
     if (txType == CustomTxType::Vault) {
         auto obj = std::get<CVaultMessage>(txMessage);
         writers.schemeID = obj.schemeId;
@@ -541,17 +511,14 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(CCustomCSView &mnview,
-                  const CCoinsViewCache &coins,
-                  const CTransaction &tx,
-                  const Consensus::Params &consensus,
-                  uint32_t height,
-                  uint64_t time,
-                  uint256 *canSpend,
-                  uint32_t txn,
-                  std::shared_ptr<CScopedTemplateID> &evmTemplateId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate) {
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
+    auto &mnview = blockCtx.GetView();
+    const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    const auto &txn = txCtx.GetTxn();
+
     auto res = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
         return res;
@@ -561,7 +528,6 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
 
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
@@ -587,20 +553,16 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
     if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
         if (mnview.GetHistoryWriters().GetVaultView()) {
-            PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, height, txn, tx.GetHash());
+            PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, txCtx);
         }
 
-        res = CustomTxVisit(view,
-                            coins,
-                            tx,
-                            height,
-                            consensus,
-                            txMessage,
-                            time,
-                            txn,
-                            evmTemplateId,
-                            isEvmEnabledForBlock,
-                            evmPreValidate);
+        // TX changes are applied on a different view which
+        // is then used to create the TX undo based on the
+        // difference between the original and the copy.
+        auto blockCtxTxView{blockCtx};
+        blockCtxTxView.SetView(view);
+
+        res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
         if (res) {
             if (canSpend && txType == CustomTxType::UpdateMasternode) {
@@ -626,7 +588,6 @@ Res ApplyCustomTx(CCustomCSView &mnview,
                     AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
                 auto attributes = view.GetAttributes();
-                assert(attributes);
 
                 auto burnFee = MultiplyAmounts(tx.vout[0].nValue, attributes->GetValue(burnPctKey, COIN / 2));
                 mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
@@ -642,14 +603,19 @@ Res ApplyCustomTx(CCustomCSView &mnview,
     // list of transactions which aren't allowed to fail:
     if (!res) {
         res.msg = strprintf("%sTx: %s", ToString(txType), res.msg);
+        if (height >= static_cast<uint32_t>(consensus.DF6DakotaHeight)) {
+            res.code |= CustomTxErrCodes::Fatal;
+            return res;
+        }
 
-        if (IsBelowDakotaMintTokenOrAccountToUtxos(txType, height)) {
+        // Below DF6, only the following are fatal:
+        // - mint
+        // - account to utxo
+        // - explicit skip lists
+        if (IsBelowDF6MintTokenOrAccountToUtxos(txType, height)) {
             if (ShouldReturnNonFatalError(tx, height)) {
                 return res;
             }
-            res.code |= CustomTxErrCodes::Fatal;
-        }
-        if (height >= static_cast<uint32_t>(consensus.DF6DakotaHeight)) {
             res.code |= CustomTxErrCodes::Fatal;
         }
         return res;
@@ -1008,7 +974,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     }
 
     auto attributes = view.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
     auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
@@ -1214,7 +1179,6 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
     }
 
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDInterestBurn};
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
@@ -1487,7 +1451,6 @@ struct TransferDomainConfigKeys {
 TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
     TransferDomainConfigKeys k{};
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
     auto r = TransferDomainConfig::Default();
 
     r.dvmToEvmEnabled = attributes->GetValue(k.dvm_to_evm_enabled, r.dvmToEvmEnabled);
