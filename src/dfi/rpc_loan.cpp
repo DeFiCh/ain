@@ -282,9 +282,6 @@ UniValue listcollateraltokens(const JSONRPCRequest &request) {
     }
 
     auto attributes = view.GetAttributes();
-    if (!attributes) {
-        return ret;
-    }
 
     attributes->ForEach(
         [&](const CDataStructureV0 &attr, const CAttributeValue &) {
@@ -622,9 +619,6 @@ UniValue listloantokens(const JSONRPCRequest &request) {
     }
 
     auto attributes = view.GetAttributes();
-    if (!attributes) {
-        return ret;
-    }
 
     attributes->ForEach(
         [&](const CDataStructureV0 &attr, const CAttributeValue &) {
@@ -1548,9 +1542,6 @@ UniValue getloaninfo(const JSONRPCRequest &request) {
 
         // Now, let's go over attributes. If it's on attributes, the above calls would have done nothing.
         auto attributes = view.GetAttributes();
-        if (!attributes) {
-            throw JSONRPCError(RPC_INTERNAL_ERROR, "attributes access failure");
-        }
 
         attributes->ForEach(
             [&](const CDataStructureV0 &attr, const CAttributeValue &) {

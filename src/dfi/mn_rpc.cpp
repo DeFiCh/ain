@@ -294,7 +294,6 @@ static std::vector<CTxIn> GetInputs(const UniValue &inputs) {
 std::optional<CScript> AmIFounder(CWallet *const pwallet) {
     auto members = Params().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
-    assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
         if (const auto databaseMembers = attributes->GetValue(
@@ -385,7 +384,6 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker &pwallet,
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwallet) {
     auto members = Params().GetConsensus().foundationMembers;
     const auto attributes = pcustomcsview->GetAttributes();
-    assert(attributes);
     if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
                              false)) {
         if (const auto databaseMembers = attributes->GetValue(
@@ -482,21 +480,17 @@ void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuth
         if (optAuthTx) {
             AddCoins(coins, *optAuthTx, height);
         }
-        CCustomCSView view(*pcustomcsview);
-        auto consensus = Params().GetConsensus();
-        const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
-        std::shared_ptr<CScopedTemplate> evmTemplate{};
-        res = CustomTxVisit(view,
-                            coins,
-                            tx,
-                            height,
-                            consensus,
-                            txMessage,
-                            ::ChainActive().Tip()->nTime,
-                            0,
-                            evmTemplate,
-                            isEvmEnabledForBlock,
-                            true);
+        BlockContext blockCtx;
+        blockCtx.SetEVMPreValidate(true);
+
+        const auto txCtx = TransactionContext{
+            coins,
+            tx,
+            Params().GetConsensus(),
+            height,
+            ::ChainActive().Tip()->nTime,
+        };
+        res = CustomTxVisit(txMessage, blockCtx, txCtx);
     }
     if (!res) {
         if (res.code == CustomTxErrCodes::NotEnoughBalance) {
@@ -522,9 +516,6 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId) {
     LOCK(cs_main);
 
     const auto attributes = pcustomcsview->GetAttributes();
-    if (!attributes) {
-        return {};
-    }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, typeId, DFIPKeys::Active};
     const auto active = attributes->GetValue(activeKey, false);

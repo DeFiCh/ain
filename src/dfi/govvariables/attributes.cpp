@@ -879,7 +879,7 @@ static void TrackLiveBalance(CCustomCSView &mnview,
                              const EconomyKeys dataKey,
                              const bool add) {
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
+
     CDataStructureV0 key{AttributeTypes::Live, ParamIDs::Economy, dataKey};
     auto balances = attributes->GetValue(key, CBalances{});
     Res res{};
@@ -911,7 +911,7 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount) {
 
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key) {
     auto attributes = mnview.GetAttributes();
-    assert(attributes);
+
     const CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Auction, key};
     auto storedBalances = attributes->GetValue(liveKey, CBalances{});
     for (const auto &[tokenID, amount] : balances.balances) {
@@ -932,7 +932,6 @@ bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
 
 bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus) {
     auto attributes = view.GetAttributes();
-    assert(attributes);
 
     return IsEVMEnabled(attributes);
 }

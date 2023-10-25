@@ -650,10 +650,23 @@ static bool AcceptToMemoryPoolWorker(const CChainParams& chainparams, CTxMemPool
         }
 
         const auto& consensus = chainparams.GetConsensus();
-        const auto isEvmEnabledForBlock = IsEVMEnabled(mnview, consensus);
 
-        std::shared_ptr<CScopedTemplate> evmTemplate{};
-        auto res = ApplyCustomTx(mnview, view, tx, consensus, height, nAcceptTime, nullptr, 0, evmTemplate, isEvmEnabledForBlock, true);
+        auto blockCtx = BlockContext{
+            &mnview,
+            IsEVMEnabled(mnview, consensus),
+            {},
+            true,
+        };
+
+        const auto txCtx = TransactionContext{
+                view,
+                tx,
+                consensus,
+                static_cast<uint32_t>(height),
+                static_cast<uint64_t>(nAcceptTime),
+        };
+
+        auto res = ApplyCustomTx(blockCtx, txCtx);
         if (!res.ok || (res.code & CustomTxErrCodes::Fatal)) {
             return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, REJECT_INVALID, res.msg);
         }
@@ -2175,7 +2188,6 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView & mnview, CTransaction const & tx, int 
                     if (height >= consensus.DF20GrandCentralHeight)
                     {
                         const auto attributes = mnview.GetAttributes();
-                        assert(attributes);
 
                         if (kv.first == CommunityAccountType::CommunityDevFunds) {
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
@@ -2280,7 +2292,6 @@ void ReverseGeneralCoinbaseTx(CCustomCSView & mnview, int height, const Consensu
                     if (height >= consensus.DF20GrandCentralHeight)
                     {
                         const auto attributes = mnview.GetAttributes();
-                        assert(attributes);
 
                         if (kv.first == CommunityAccountType::CommunityDevFunds) {
                             CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
@@ -2448,8 +2459,16 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                std::shared_ptr<CScopedTemplate> evmTemplate{};
-                const auto res = ApplyCustomTx(mnview, view, *block.vtx[i], chainparams.GetConsensus(), pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmTemplate, false, false);
+                BlockContext blockCtx{&mnview};
+                const auto txCtx = TransactionContext{
+                        view,
+                        *block.vtx[i],
+                        chainparams.GetConsensus(),
+                        static_cast<uint32_t>(pindex->nHeight),
+                        static_cast<uint64_t>(pindex->GetBlockTime()),
+                        static_cast<uint32_t>(i),
+                };
+                const auto res = ApplyCustomTx(blockCtx, txCtx);
                 if (!res.ok) {
                     return error("%s: Genesis block ApplyCustomTx failed. TX: %s Error: %s",
                                  __func__, block.vtx[i]->GetHash().ToString(), res.msg);
@@ -2654,22 +2673,28 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
     std::vector<PrecomputedTransactionData> txdata;
 
     const auto attributes = accountsView.GetAttributes();
-    assert(attributes);
 
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     const auto& consensus = chainparams.GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(attributes);
-    std::shared_ptr<CScopedTemplate> evmTemplate{};
+
+    auto blockCtx = BlockContext{
+            &accountsView,
+            IsEVMEnabled(attributes)
+    };
+    auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
 
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
         if (!xvmRes) {
-            return Res::Err("Failed to process XVM in coinbase");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to process XVM in coinbase", __func__),
+                                 REJECT_INVALID, "bad-xvm-coinbase");
         }
-        evmTemplate = CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime());
+        blockCtx.SetEVMTemplate(CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
         if (!evmTemplate) {
-            return Res::Err("Failed to create block template");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: Failed to create block template", __func__),
+                                 REJECT_INVALID, "bad-evm-template");
         }
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
     }
@@ -2744,7 +2769,15 @@ bool CChainState::ConnectBlock(const CBlock& block, CValidationState& state, CBl
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto res = ApplyCustomTx(accountsView, view, tx, consensus, pindex->nHeight, pindex->GetBlockTime(), nullptr, i, evmTemplate, isEvmEnabledForBlock, false);
+            const auto txCtx = TransactionContext{
+                    view,
+                    tx,
+                    consensus,
+                    static_cast<uint32_t>(pindex->nHeight),
+                    static_cast<uint64_t>(pindex->GetBlockTime()),
+                    static_cast<uint32_t>(i),
+            };
+            const auto res = ApplyCustomTx(blockCtx, txCtx);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
@@ -6275,3 +6308,38 @@ public:
     }
 };
 static CMainCleanup instance_of_cmaincleanup;
+
+CCustomCSView &BlockContext::GetView() {
+    if (!view) {
+        cache = std::make_shared<CCustomCSView>(*pcustomcsview);
+        view = cache.get();
+    }
+    return *view;
+}
+
+bool BlockContext::GetEVMEnabledForBlock() {
+    if (!isEvmEnabledForBlock) {
+        isEvmEnabledForBlock = IsEVMEnabled(GetView(), Params().GetConsensus());
+    }
+    return *isEvmEnabledForBlock;
+}
+
+bool BlockContext::GetEVMPreValidate() const {
+    return evmPreValidate;
+}
+
+const std::shared_ptr<CScopedTemplate> &BlockContext::GetEVMTemplate() const {
+    return evmTemplate;
+}
+
+void BlockContext::SetView(CCustomCSView &other) {
+    view = &other;
+}
+
+void BlockContext::SetEVMPreValidate(const bool other) {
+    evmPreValidate = other;
+}
+
+void BlockContext::SetEVMTemplate(const std::shared_ptr<CScopedTemplate> &id) {
+    evmTemplate = id;
+}
