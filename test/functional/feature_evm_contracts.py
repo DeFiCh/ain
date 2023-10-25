@@ -70,10 +70,10 @@ class EVMTest(DefiTestFramework):
         self.node.transferdomain(
             [
                 {
-                    "src": {"address": self.address, "amount": "150@DFI", "domain": 2},
+                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
                     "dst": {
                         "address": self.evm_key_pair.address,
-                        "amount": "150@DFI",
+                        "amount": "50@DFI",
                         "domain": 3,
                     },
                 }
@@ -470,14 +470,14 @@ class EVMTest(DefiTestFramework):
         contract.functions.gt0(1).call()
 
         # should throw error from `call`
+        err = ""
         try:
             contract.functions.gt0(0).call()
-        except Exception as e:
-            print("e: ", e)
-            # assert (
-            #     e,
-            #     "{'code': -32001, 'message': 'Custom error: VM Exception while processing transaction: revert Value must be greater than 0'}",
-            # )
+            raise AssertionError("should not reach here")
+        except:
+            err = "execution reverted"
+
+        assert_equal(err, "execution reverted")
 
         # no error throw from `send`
         # check status from receipt, 0 - failed, 1 - success
