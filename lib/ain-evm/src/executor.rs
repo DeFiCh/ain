@@ -5,7 +5,10 @@ use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    Config, CreateScheme, ExitError, ExitReason,
+    Config, CreateScheme,
+};
+pub use evm::{
+   ExitError, ExitReason
 };
 use log::{debug, trace};
 
@@ -96,7 +99,7 @@ impl<'backend> AinExecutor<'backend> {
     const CONFIG: Config = Config::shanghai();
 
     /// Read-only call
-    pub fn call(&mut self, ctx: ExecutorContext) -> Result<TxResponse> {
+    pub fn call(&mut self, ctx: ExecutorContext) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
         let precompiles = MetachainPrecompiles;
@@ -131,14 +134,11 @@ impl<'backend> AinExecutor<'backend> {
             }
         };
 
-        match error_on_execution_failure(&exit_reason, &data) {
-            Ok(_) => Ok(TxResponse {
-                exit_reason,
-                data,
-                logs: Vec::new(),
-                used_gas: executor.used_gas(),
-            }),
-            Err(e) => Err(e),
+        TxResponse {
+            exit_reason,
+            data,
+            logs: Vec::new(),
+            used_gas: executor.used_gas(),
         }
     }
 
@@ -474,41 +474,6 @@ impl<'backend> AinExecutor<'backend> {
             }
         }
     }
-}
-
-pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> Result<()> {
-	match reason {
-		ExitReason::Succeed(_) => Ok(()),
-		ExitReason::Error(err) => {
-			if *err == ExitError::OutOfGas {
-				// `ServerError(0)` will be useful in estimate gas
-				return Err(format_err!("out of gas").into());
-			}
-			Err(format_err!("evm error: {err:?}").into())
-		}
-		ExitReason::Revert(_) => {
-			const LEN_START: usize = 36;
-			const MESSAGE_START: usize = 68;
-
-			let mut message = "execution reverted: ".to_string();
-			// A minimum size of error function selector (4) + offset (32) + string length (32)
-			// should contain a utf-8 encoded revert reason.
-			if data.len() > MESSAGE_START {
-				let message_len =
-					U256::from(&data[LEN_START..MESSAGE_START]).as_usize();
-				let message_end = MESSAGE_START.saturating_add(message_len);
-
-				if data.len() >= message_end {
-					let body: &[u8] = &data[MESSAGE_START..message_end];
-					if let Ok(reason) = std::str::from_utf8(body) {
-						message = format!("{message} {reason}");
-					}
-				}
-			}
-            Err(format_err!(message).into())
-		}
-		ExitReason::Fatal(err) => Err(format_err!("evm fatal: {err:?}").into())
-	}
 }
 
 #[derive(Debug)]
