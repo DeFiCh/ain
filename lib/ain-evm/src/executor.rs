@@ -490,7 +490,7 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> Result<()
 			const LEN_START: usize = 36;
 			const MESSAGE_START: usize = 68;
 
-			let mut message = "VM Exception while processing transaction: revert".to_string();
+			let mut message = "execution reverted: ".to_string();
 			// A minimum size of error function selector (4) + offset (32) + string length (32)
 			// should contain a utf-8 encoded revert reason.
 			if data.len() > MESSAGE_START {
