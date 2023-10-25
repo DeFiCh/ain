@@ -175,11 +175,11 @@ public:
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
                           const bool prevalidate = {},
                           const std::optional<std::map<uint32_t, TransactionMessages>> &txMessages = {})
-            : view(view),
-              isEvmEnabledForBlock(enabled),
-              evmTemplate(evmTemplate),
-              evmPreValidate(prevalidate),
-              txMessages(txMessages) {}
+        : view(view),
+          isEvmEnabledForBlock(enabled),
+          evmTemplate(evmTemplate),
+          evmPreValidate(prevalidate),
+          txMessages(txMessages) {}
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
@@ -189,7 +189,9 @@ public:
     void SetView(CCustomCSView &other);
     void SetEVMPreValidate(const bool other);
     void SetEVMTemplate(const std::shared_ptr<CScopedTemplate> &evmTemplate);
-    [[nodiscard]] const std::optional<std::map<uint32_t, TransactionMessages>> &GetTxMessages() const { return txMessages; };
+    [[nodiscard]] const std::optional<std::map<uint32_t, TransactionMessages>> &GetTxMessages() const {
+        return txMessages;
+    };
 };
 
 class TransactionContext {
@@ -207,12 +209,12 @@ public:
                        const uint32_t height = {},
                        const uint64_t time = {},
                        const uint32_t txn = {})
-            : coins(coins),
-              tx(tx),
-              consensus(consensus),
-              height(height),
-              time(time),
-              txn(txn) {}
+        : coins(coins),
+          tx(tx),
+          consensus(consensus),
+          height(height),
+          time(time),
+          txn(txn) {}
 
     [[nodiscard]] const CCoinsViewCache &GetCoins() const { return coins; };
     [[nodiscard]] const CTransaction &GetTransaction() const { return tx; };
@@ -221,7 +223,6 @@ public:
     [[nodiscard]] const uint64_t GetTime() const { return time; };
     [[nodiscard]] const uint32_t GetTxn() const { return txn; };
 };
-
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);

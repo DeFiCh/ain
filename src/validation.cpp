@@ -2697,7 +2697,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
     }
 
     if (!txMessages.empty()) {
-
         // Convert to vector for faster iteration in pool
         std::vector<std::pair<uint32_t, TransactionMessages>> messageVec(txMessages.begin(), txMessages.end());
 
@@ -2717,7 +2716,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
             g.AddTask();
             boost::asio::post(pool, [start, stop, &g, &messageVec] {
-
                 for (auto j = start; j < stop; ++j) {
                     auto obj = std::get_if<CEvmTxMessage>(&messageVec[j].second.txMessage);
                     if (!obj) {
