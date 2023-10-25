@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc};
+use std::{
+    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
+};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
@@ -254,7 +256,7 @@ pub enum DumpArg {
 }
 
 impl BlockStore {
-    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) -> String {
+    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) -> Result<String> {
         let s_to_u256 = |s| {
             U256::from_str_radix(s, 10)
                 .or(U256::from_str_radix(s, 16))
@@ -275,7 +277,7 @@ impl BlockStore {
         }
     }
 
-    fn dump_all(&self, limit: usize) -> String {
+    fn dump_all(&self, limit: usize) -> Result<String> {
         let mut out = String::new();
         for arg in &[
             DumpArg::Blocks,
@@ -285,19 +287,21 @@ impl BlockStore {
             DumpArg::Logs,
             DumpArg::BlockCodeHashes,
         ] {
-            out.push_str(format!("{}\n", self.dump(arg, None, limit)).as_str());
+            writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
+                .map_err(|_| format_err!("failed to write to stream"))?;
         }
-        out
+        Ok(out)
     }
 
-    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize) -> String
+    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize) -> Result<String>
     where
         C: TypedColumn + ColumnName,
     {
         let mut out = format!("{}\n", C::NAME);
         for (k, v) in self.column::<C>().iter(from, limit) {
-            out.push_str(format!("{:?}: {:#?}", k, v).as_str());
+            writeln!(&mut out, "{:?}: {:#?}", k, v)
+                .map_err(|_| format_err!("failed to write to stream"))?;
         }
-        out
+        Ok(out)
     }
 }

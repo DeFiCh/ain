@@ -77,10 +77,10 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let limit = limit
             .map_or(Ok(default_limit), |s| s.parse())
             .map_err(|e| Error::Custom(e.to_string()))?;
-        Ok(self
-            .handler
+        self.handler
             .storage
-            .dump_db(arg.unwrap_or(DumpArg::All), start, limit))
+            .dump_db(arg.unwrap_or(DumpArg::All), start, limit)
+            .map_err(to_jsonrpsee_custom_error)
     }
 
     fn log_account_states(&self) -> RpcResult<()> {
