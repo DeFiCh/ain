@@ -111,14 +111,13 @@ create_pre_sync_rollback_log() {
 
     cp -r "$DATADIR" "$DATADIR_ROLLBACK"
     rm -f "$DEBUG_FILE"
-    start_node_and_wait "$DATADIR_ROLLBACK"
+    start_node_and_wait "$DATADIR_ROLLBACK" "$START_BLOCK"
     rollback_and_log > "$PRE_ROLLBACK_LOG"
     stop_node
 }
 
 start_node_and_wait() {
     local data_dir=${1:-${DATADIR}}
-    echo "Syncing to block height: ${STOP_BLOCK}"
     $DEFID_CMD
     sleep 90
 
