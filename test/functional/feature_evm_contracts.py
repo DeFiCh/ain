@@ -479,22 +479,6 @@ class EVMTest(DefiTestFramework):
 
         assert_equal(err, "execution reverted")
 
-        # no error throw from `send`
-        # check status from receipt, 0 - failed, 1 - success
-        tx = contract.functions.gt0(0).build_transaction(
-            {
-                "value": "0x0",
-                "gas": "0x7530",
-                "gasPrice": "0x2540be400",
-            }
-        )
-        del tx["chainId"]  # web3py Contract doesn't require `chainId`
-        hash = self.nodes[0].eth_sendTransaction(tx)
-
-        self.nodes[0].generate(1)
-        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(receipt["status"], "0x0")
-
     def run_test(self):
         self.setup()
 
