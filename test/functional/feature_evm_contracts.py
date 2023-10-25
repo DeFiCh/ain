@@ -473,7 +473,7 @@ class EVMTest(DefiTestFramework):
         try:
             contract.functions.gt0(0).call()
         except Exception as e:
-            print('e: ', e)
+            print("e: ", e)
             # assert (
             #     e,
             #     "{'code': -32001, 'message': 'Custom error: VM Exception while processing transaction: revert Value must be greater than 0'}",
@@ -488,12 +488,12 @@ class EVMTest(DefiTestFramework):
                 "gasPrice": "0x2540be400",
             }
         )
-        del tx["chainId"] # web3py Contract doesn't require `chainId`
+        del tx["chainId"]  # web3py Contract doesn't require `chainId`
         hash = self.nodes[0].eth_sendTransaction(tx)
 
         self.nodes[0].generate(1)
         receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(receipt['status'], '0x0')
+        assert_equal(receipt["status"], "0x0")
 
     def run_test(self):
         self.setup()
