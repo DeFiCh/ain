@@ -275,17 +275,24 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut template.backend);
 
         executor.update_total_gas_used(template.total_gas_used);
-        let apply_tx = executor.execute_tx(tx, base_fee)?;
-        EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
-        template.backend.increase_tx_count();
+        match executor.execute_tx(tx, base_fee) {
+            Ok(apply_tx) => {
+                EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
+                template.backend.increase_tx_count();
 
-        Ok(ExecTxState {
-            tx: apply_tx.tx,
-            receipt: apply_tx.receipt,
-            logs_bloom,
-            gas_used: apply_tx.used_gas,
-            gas_fees: apply_tx.gas_fee,
-        })
+                Ok(ExecTxState {
+                    tx: apply_tx.tx,
+                    receipt: apply_tx.receipt,
+                    logs_bloom,
+                    gas_used: apply_tx.used_gas,
+                    gas_fees: apply_tx.gas_fee,
+                })
+            }
+            Err(e) => {
+                template.backend.reset_to_last_changeset();
+                Err(e)
+            }
+        }
     }
 
     ///
