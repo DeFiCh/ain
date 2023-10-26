@@ -245,7 +245,7 @@ impl EVMBackend {
             }
 
             if let Some(code) = code {
-                self.storage.put_code(account.code_hash, code)?;
+                self.storage.put_code(self.block_number(), account.code_hash, code)?;
             }
 
             self.state
