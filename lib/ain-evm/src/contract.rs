@@ -230,7 +230,7 @@ pub fn bridge_dst20_in(
     let contract_balance_storage_index = get_address_storage_index(H256::zero(), fixed_address);
 
     let total_supply_index = H256::from_low_u64_be(2);
-    let total_supply = backend.get_contract_storage(contract, total_supply_index)?;
+    let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
 
     let new_total_supply = total_supply
         .checked_add(amount)
@@ -265,7 +265,7 @@ pub fn bridge_dst20_out(
     let contract_balance_storage_index = get_address_storage_index(H256::zero(), fixed_address);
 
     let total_supply_index = H256::from_low_u64_be(2);
-    let total_supply = backend.get_contract_storage(contract, total_supply_index)?;
+    let total_supply = backend.get_contract_storage(contract, total_supply_index.as_bytes())?;
 
     let new_total_supply = total_supply
         .checked_sub(amount)
@@ -310,7 +310,8 @@ pub fn bridge_dfi(
     let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
 
     let total_supply_index = H256::from_low_u64_be(1);
-    let total_supply = backend.get_contract_storage(fixed_address, total_supply_index)?;
+    let total_supply =
+        backend.get_contract_storage(fixed_address, total_supply_index.as_bytes())?;
 
     let new_total_supply = if direction == TransferDirection::EvmOut {
         total_supply.checked_sub(amount)

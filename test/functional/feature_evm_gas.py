@@ -83,7 +83,7 @@ class EVMGasTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
 
         self.nodes[0] = self.nodes[0]
         self.evm_key_pair = EvmKeyPair.from_node(self.nodes[0])

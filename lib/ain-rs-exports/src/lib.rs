@@ -2,23 +2,11 @@ mod core;
 mod evm;
 mod prelude;
 
+use crate::{core::*, evm::*};
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*};
-
-pub struct BlockTemplateWrapper(Option<BlockTemplate>);
-
-impl BlockTemplateWrapper {
-    const ERROR: &'static str = "Inner block template is None";
-
-    fn get_inner(&self) -> Result<&BlockTemplate, &'static str> {
-        self.0.as_ref().ok_or(Self::ERROR)
-    }
-
-    fn get_inner_mut(&mut self) -> Result<&mut BlockTemplate, &'static str> {
-        self.0.as_mut().ok_or(Self::ERROR)
-    }
-}
+#[derive(Debug)]
+pub struct BlockTemplateWrapper(BlockTemplate);
 
 #[cxx::bridge]
 pub mod ffi {
@@ -183,7 +171,7 @@ pub mod ffi {
 
         fn evm_try_unsafe_get_next_valid_nonce_in_template(
             result: &mut CrossBoundaryResult,
-            block_template: &BlockTemplateWrapper,
+            block_template: &mut BlockTemplateWrapper,
             address: &str,
         ) -> u64;
 
@@ -209,13 +197,13 @@ pub mod ffi {
 
         fn evm_try_unsafe_validate_raw_tx_in_template(
             result: &mut CrossBoundaryResult,
-            block_template: &BlockTemplateWrapper,
+            block_template: &mut BlockTemplateWrapper,
             raw_tx: &str,
         );
 
         fn evm_try_unsafe_validate_transferdomain_tx_in_template(
             result: &mut CrossBoundaryResult,
-            block_template: &BlockTemplateWrapper,
+            block_template: &mut BlockTemplateWrapper,
             raw_tx: &str,
             context: TransferDomainInfo,
         );
@@ -230,12 +218,11 @@ pub mod ffi {
         fn evm_try_unsafe_construct_block_in_template(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
-            is_miner: bool,
         ) -> FinalizeBlockCompletion;
 
         fn evm_try_unsafe_commit_block(
             result: &mut CrossBoundaryResult,
-            block_template: &BlockTemplateWrapper,
+            block_template: &mut BlockTemplateWrapper,
         );
 
         fn evm_try_unsafe_handle_attribute_apply(
@@ -301,7 +288,7 @@ pub mod ffi {
         fn evm_try_unsafe_is_smart_contract_in_template(
             result: &mut CrossBoundaryResult,
             address: &str,
-            block_template: &BlockTemplateWrapper,
+            block_template: &mut BlockTemplateWrapper,
         ) -> bool;
 
         fn evm_try_get_tx_miner_info_from_raw_tx(

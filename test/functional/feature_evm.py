@@ -5,7 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 from test_framework.evm_key_pair import EvmKeyPair
-from test_framework.evm_contract import EVMContract
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
@@ -15,7 +14,6 @@ from test_framework.util import (
 )
 from decimal import Decimal
 import math
-from web3 import Web3
 
 
 class EVMTest(DefiTestFramework):
@@ -64,6 +62,40 @@ class EVMTest(DefiTestFramework):
                 "-txindex=1",
             ],
         ]
+
+    def run_test(self):
+        # Check ERC55 wallet support
+        self.erc55_wallet_support()
+
+        # Test TransferDomain, OP_RETURN and EVM Gov vars
+        self.evm_gov_vars()
+
+        # Fund accounts
+        self.setup_accounts()
+
+        # Test block ordering by nonce and Eth RBF
+        self.nonce_order_and_rbf()
+
+        # Check XVM in coinbase
+        self.validate_xvm_coinbase()
+
+        # EVM rollback
+        self.evm_rollback()
+
+        # Multiple mempool fee replacement
+        self.multiple_eth_rbf()
+
+        # Test that node should not crash without chainId param
+        self.test_tx_without_chainid()
+
+        # Test evmtx auto nonce
+        self.sendtransaction_auto_nonce()
+
+        # Toggle EVM
+        self.toggle_evm_enablement()
+
+        # Test Eth on encrypted wallet
+        self.encrypt_wallet()
 
     def test_tx_without_chainid(self):
         node = self.nodes[0]
@@ -709,8 +741,6 @@ class EVMTest(DefiTestFramework):
         assert_equal(attrs["v0/evm/block/finality_count"], "100")
 
     def setup_accounts(self):
-        self.evm_key_pair = EvmKeyPair.from_node(self.nodes[0])
-
         # Fund DFI address
         self.nodes[0].utxostoaccount({self.address: "300@DFI"})
         self.nodes[0].generate(1)
@@ -1368,152 +1398,6 @@ class EVMTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
-
-    def delete_account_from_trie(self):
-        addressA = self.nodes[0].getnewaddress("", "erc55")
-        addressB = self.nodes[0].getnewaddress("", "erc55")
-
-        # Fund EVM address
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "2@DFI", "domain": 2},
-                    "dst": {
-                        "address": addressA,
-                        "amount": "2@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        self.nodes[0].evmtx(
-            addressA, 0, 21, 21001, addressB, 0
-        )  # Touch addressB and trigger deletion as empty account
-        self.nodes[0].generate(1)
-
-        # Deploy SelfDestruct contract to trigger deletion via SELFDESTRUCT opcode
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "20@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.evm_key_pair.address,
-                        "amount": "20@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        self.contract = EVMContract.from_file(
-            "SelfDestruct.sol", "SelfDestructContract"
-        )
-        abi, bytecode, deployedBytecode = self.contract.compile()
-        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
-
-        tx = compiled.constructor().build_transaction(
-            {
-                "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
-                "maxFeePerGas": 10_000_000_000,
-                "maxPriorityFeePerGas": 500_000,
-                "gas": 1_000_000,
-            }
-        )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-
-        self.nodes[0].generate(1)
-
-        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        self.contract_address = receipt["contractAddress"]
-        self.contract = self.nodes[0].w3.eth.contract(
-            address=receipt["contractAddress"], abi=abi
-        )
-
-        codeBefore = self.nodes[0].eth_getCode(self.contract_address)
-        assert_equal(
-            codeBefore[2:],
-            deployedBytecode,
-        )
-        storageBefore = self.nodes[0].eth_getStorageAt(self.contract_address, "0x0")
-        assert_equal(
-            Web3.to_checksum_address(storageBefore[26:]),
-            self.evm_key_pair.address,
-        )
-
-        tx = self.contract.functions.killContract(addressA).build_transaction(
-            {
-                "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
-                "gasPrice": 10_000_000_000,
-                "gas": 10_000_000,
-            }
-        )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-        self.nodes[0].generate(1)
-
-        codeAfterSelfDestruct = self.nodes[0].eth_getCode(self.contract_address)
-        assert_equal(
-            codeAfterSelfDestruct,
-            "0x",
-        )
-        storageAfterSelfDestruct = self.nodes[0].eth_getStorageAt(
-            self.contract_address, "0x0"
-        )
-        assert_equal(
-            storageAfterSelfDestruct,
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-        )
-
-    def run_test(self):
-        # Check ERC55 wallet support
-        self.erc55_wallet_support()
-
-        # Test TransferDomain, OP_RETURN and EVM Gov vars
-        self.evm_gov_vars()
-
-        # Fund accounts
-        self.setup_accounts()
-
-        # Test block ordering by nonce and Eth RBF
-        self.nonce_order_and_rbf()
-
-        # Check XVM in coinbase
-        self.validate_xvm_coinbase()
-
-        # EVM rollback
-        self.evm_rollback()
-
-        # Multiple mempool fee replacement
-        self.multiple_eth_rbf()
-
-        # Test that node should not crash without chainId param
-        self.test_tx_without_chainid()
-
-        # Test evmtx auto nonce
-        self.sendtransaction_auto_nonce()
-
-        # Toggle EVM
-        self.toggle_evm_enablement()
-
-        # Test Eth on encrypted wallet
-        self.encrypt_wallet()
-
-        # Delete state account
-        self.delete_account_from_trie()
 
 
 if __name__ == "__main__":

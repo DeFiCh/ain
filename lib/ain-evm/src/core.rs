@@ -81,6 +81,7 @@ impl SignedTxCache {
 }
 
 struct TxValidationCache {
+    validated: spin::Mutex<LruCache<(H256, String), ValidateTxInfo>>,
     stateless: spin::Mutex<LruCache<String, ValidateTxInfo>>,
 }
 
@@ -93,18 +94,36 @@ impl Default for TxValidationCache {
 impl TxValidationCache {
     pub fn new(capacity: usize) -> Self {
         Self {
+            validated: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
             stateless: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
         }
+    }
+
+    pub fn get(&self, key: &(H256, String)) -> Option<ValidateTxInfo> {
+        self.validated.lock().get(key).cloned()
     }
 
     pub fn get_stateless(&self, key: &str) -> Option<ValidateTxInfo> {
         self.stateless.lock().get(key).cloned()
     }
 
+    pub fn set(&self, key: (H256, String), value: ValidateTxInfo) -> ValidateTxInfo {
+        let mut cache = self.validated.lock();
+        cache.put(key, value.clone());
+        value
+    }
+
     pub fn set_stateless(&self, key: String, value: ValidateTxInfo) -> ValidateTxInfo {
         let mut cache = self.stateless.lock();
         cache.put(key, value.clone());
         value
+    }
+
+    // To be used on new block or any known state changes. Only clears fully validated TX cache.
+    // Stateless cache can be kept across blocks and is handled by LRU itself
+    pub fn clear(&self) {
+        let mut cache = self.validated.lock();
+        cache.clear()
     }
 }
 
@@ -322,6 +341,16 @@ impl EVMCoreService {
         tx: &str,
         template: &BlockTemplate,
     ) -> Result<ValidateTxInfo> {
+        let state_root = template.get_latest_state_root();
+        debug!("[validate_raw_tx] state_root : {:#?}", state_root);
+
+        if let Some(tx_info) = self
+            .tx_validation_cache
+            .get(&(state_root, String::from(tx)))
+        {
+            return Ok(tx_info);
+        }
+
         debug!("[validate_raw_tx] raw transaction : {:#?}", tx);
 
         let ValidateTxInfo {
@@ -381,7 +410,7 @@ impl EVMCoreService {
 
         // Start of stateful checks
         // Validate tx prepay fees with account balance
-        let backend = &template.backend;
+        let backend = self.get_backend(state_root)?;
         let balance = backend.get_balance(&signed_tx.sender);
         debug!("[validate_raw_tx] Account balance : {:x?}", balance);
         if balance < max_prepay_fee {
@@ -405,10 +434,13 @@ impl EVMCoreService {
             .into());
         }
 
-        Ok(ValidateTxInfo {
-            signed_tx,
-            max_prepay_fee,
-        })
+        Ok(self.tx_validation_cache.set(
+            (state_root, String::from(tx)),
+            ValidateTxInfo {
+                signed_tx,
+                max_prepay_fee,
+            },
+        ))
     }
 
     /// Validates a raw transfer domain tx.
@@ -461,6 +493,12 @@ impl EVMCoreService {
         debug!(
             "[validate_raw_transferdomain_tx] raw transaction : {:#?}",
             tx
+        );
+
+        let state_root = template.get_latest_state_root();
+        debug!(
+            "[validate_raw_transferdomain_tx] state_root : {:#?}",
+            state_root
         );
 
         let ValidateTxInfo {
@@ -657,7 +695,7 @@ impl EVMCoreService {
             }
         };
 
-        let backend = &template.backend;
+        let backend = self.get_backend(state_root)?;
 
         let nonce = backend.get_nonce(&signed_tx.sender);
         debug!(
@@ -733,7 +771,9 @@ impl EVMCoreService {
         template: &BlockTemplate,
         address: H160,
     ) -> Result<U256> {
-        let nonce = template.backend.get_nonce(&address);
+        let state_root = template.get_latest_state_root();
+        let backend = self.get_backend(state_root)?;
+        let nonce = backend.get_nonce(&address);
         trace!("[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?}");
         Ok(nonce)
     }
@@ -765,6 +805,18 @@ impl EVMCoreService {
             Vicinity::default(),
         )?;
         Ok(backend.get_account(&address))
+    }
+
+    pub fn get_latest_contract_storage(&self, contract: H160, storage_index: H256) -> Result<U256> {
+        let state_root = self.get_state_root()?;
+        let backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            Vicinity::default(),
+        )?;
+
+        backend.get_contract_storage(contract, storage_index.as_bytes())
     }
 
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>> {
@@ -832,7 +884,6 @@ impl EVMCoreService {
             block_number,
             state_root
         );
-
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -910,5 +961,9 @@ impl EVMCoreService {
     pub fn clear_account_nonce(&self) {
         let mut nonce_store = self.nonce_store.lock();
         nonce_store.clear()
+    }
+
+    pub fn clear_transaction_cache(&self) {
+        self.tx_validation_cache.clear()
     }
 }

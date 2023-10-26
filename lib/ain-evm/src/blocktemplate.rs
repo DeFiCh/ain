@@ -2,11 +2,7 @@ use ethereum::{Block, ReceiptV3, TransactionV2};
 use ethereum_types::{Bloom, H160, H256, U256};
 
 use crate::{
-    backend::{EVMBackend, Vicinity},
-    core::XHash,
-    evm::ExecTxState,
-    receipt::Receipt,
-    transaction::SignedTx,
+    backend::Vicinity, core::XHash, evm::ExecTxState, receipt::Receipt, transaction::SignedTx,
 };
 
 type Result<T> = std::result::Result<T, BlockTemplateError>;
@@ -17,8 +13,9 @@ pub type ReceiptAndOptionalContractAddress = (ReceiptV3, Option<H160>);
 pub struct TemplateTxItem {
     pub tx: Box<SignedTx>,
     pub tx_hash: XHash,
-    pub gas_fees: U256,
     pub gas_used: U256,
+    pub gas_fees: U256,
+    pub state_root: H256,
     pub logs_bloom: Bloom,
     pub receipt_v3: ReceiptAndOptionalContractAddress,
 }
@@ -27,13 +24,15 @@ impl TemplateTxItem {
     pub fn new_system_tx(
         tx: Box<SignedTx>,
         receipt_v3: ReceiptAndOptionalContractAddress,
+        state_root: H256,
         logs_bloom: Bloom,
     ) -> Self {
         TemplateTxItem {
             tx,
             tx_hash: Default::default(),
-            gas_fees: U256::zero(),
             gas_used: U256::zero(),
+            gas_fees: U256::zero(),
+            state_root,
             logs_bloom,
             receipt_v3,
         }
@@ -53,10 +52,11 @@ pub struct BlockData {
 /// 4. Backend vicinity
 /// 5. Block template timestamp
 /// 6. DVM block number
-/// 7. EVM backend
+/// 7. Initial state root
 ///
 /// The template is used to construct a valid EVM block.
 ///
+#[derive(Clone, Debug, Default)]
 pub struct BlockTemplate {
     pub transactions: Vec<TemplateTxItem>,
     pub block_data: Option<BlockData>,
@@ -65,7 +65,7 @@ pub struct BlockTemplate {
     pub parent_hash: H256,
     pub dvm_block: u64,
     pub timestamp: u64,
-    pub backend: EVMBackend,
+    pub initial_state_root: H256,
 }
 
 impl BlockTemplate {
@@ -74,7 +74,7 @@ impl BlockTemplate {
         parent_hash: H256,
         dvm_block: u64,
         timestamp: u64,
-        backend: EVMBackend,
+        initial_state_root: H256,
     ) -> Self {
         Self {
             transactions: Vec::new(),
@@ -84,7 +84,7 @@ impl BlockTemplate {
             parent_hash,
             dvm_block,
             timestamp,
-            backend,
+            initial_state_root,
         }
     }
 
@@ -97,8 +97,9 @@ impl BlockTemplate {
         self.transactions.push(TemplateTxItem {
             tx: tx_update.tx,
             tx_hash,
-            gas_fees: tx_update.gas_fees,
             gas_used: tx_update.gas_used,
+            gas_fees: tx_update.gas_fees,
+            state_root: tx_update.state_root,
             logs_bloom: tx_update.logs_bloom,
             receipt_v3: tx_update.receipt,
         });
@@ -122,11 +123,23 @@ impl BlockTemplate {
             self.total_gas_used = self.transactions.iter().try_fold(U256::zero(), |acc, tx| {
                 acc.checked_add(tx.gas_used)
                     .ok_or(BlockTemplateError::ValueOverflow)
-            })?;
-            self.backend.reset_from_tx(index);
+            })?
         }
 
         Ok(removed_txs)
+    }
+
+    pub fn get_state_root_from_native_hash(&self, hash: XHash) -> Option<H256> {
+        self.transactions
+            .iter()
+            .find(|tx_item| tx_item.tx_hash == hash)
+            .map(|tx_item| tx_item.state_root)
+    }
+
+    pub fn get_latest_state_root(&self) -> H256 {
+        self.transactions
+            .last()
+            .map_or(self.initial_state_root, |tx_item| tx_item.state_root)
     }
 
     pub fn get_latest_logs_bloom(&self) -> Bloom {
