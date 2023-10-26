@@ -13,6 +13,7 @@ from test_framework.test_node import TestNode
 from test_framework.util import assert_raises_web3_error
 import web3
 
+
 class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
@@ -469,14 +470,12 @@ class EVMTest(DefiTestFramework):
         # should be no error
         contract.functions.gt0(1).call()
 
-
         # should throw error from `call`
         try:
             contract.functions.gt0(0).call()
             raise AssertionError("should not reach here")
         except web3.exceptions.ContractLogicError as e:
             assert_equal(e.message, "execution reverted")
-
 
     def run_test(self):
         self.setup()
