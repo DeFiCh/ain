@@ -195,6 +195,10 @@ impl EVMBackend {
         self.overlay.state.clear()
     }
 
+    pub fn reset_to_last_changeset(&mut self) {
+        self.overlay.state = self.overlay.changeset.last().cloned().unwrap_or_default();
+    }
+
     pub fn reset_from_tx(&mut self, index: usize) {
         self.overlay.state = self
             .overlay
@@ -245,7 +249,12 @@ impl EVMBackend {
             }
 
             if let Some(code) = code {
-                self.storage.put_code(account.code_hash, code)?;
+                self.storage.put_code(
+                    self.vicinity.block_number,
+                    address,
+                    account.code_hash,
+                    code,
+                )?;
             }
 
             self.state
@@ -445,7 +454,7 @@ impl Backend for EVMBackend {
             self.get_account(&address)
                 .and_then(|account| {
                     self.storage
-                        .get_code_by_hash(account.code_hash)
+                        .get_code_by_hash(address, account.code_hash)
                         .ok()
                         .flatten()
                 })

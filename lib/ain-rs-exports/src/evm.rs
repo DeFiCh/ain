@@ -13,6 +13,7 @@ use ain_evm::{
     transaction::{
         self,
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        SignedTx,
     },
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
     Result,
@@ -472,7 +473,7 @@ pub fn evm_try_unsafe_create_template(
             ),
             Err(e) => {
                 cross_boundary_error(result, e.to_string());
-                return block_template_err_wrapper();
+                block_template_err_wrapper()
             }
         }
     }
@@ -797,6 +798,23 @@ fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
         .signed_tx_cache
         .try_get_or_create(raw_tx)?;
     Ok(format!("{:?}", signed_tx.hash()))
+}
+
+#[ffi_fallible]
+fn evm_try_unsafe_make_signed_tx(raw_tx: &str) -> Result<usize> {
+    let ptr = Box::leak(Box::new(SignedTx::try_from(raw_tx)?));
+    Ok(ptr as *const SignedTx as usize)
+}
+
+#[ffi_fallible]
+fn evm_try_unsafe_cache_signed_tx(raw_tx: &str, instance: usize) -> Result<()> {
+    let signed_tx = unsafe { Box::from_raw(instance as *mut SignedTx) };
+    SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .pre_populate(raw_tx, *signed_tx)?;
+    Ok(())
 }
 
 /// Checks if the given address is a smart contract
