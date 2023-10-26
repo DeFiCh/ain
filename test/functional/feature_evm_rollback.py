@@ -74,7 +74,7 @@ class EVMRolllbackTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
         self.nodes[0].transferdomain(
             [
                 {

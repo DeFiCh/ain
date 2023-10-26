@@ -210,7 +210,7 @@ class EVMTest(DefiTestFramework):
                 }
             }
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
         assert_raises_rpc_error(
             -32600,

@@ -405,6 +405,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_code(address, block_number)
             .map_err(to_jsonrpsee_custom_error)?;
 
+        debug!("code : {:?} for address {address:?}", code);
         match code {
             Some(code) => Ok(format!("0x{}", hex::encode(code))),
             None => Ok(String::from("0x")),
