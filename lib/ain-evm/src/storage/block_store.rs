@@ -199,13 +199,10 @@ impl BlockStore {
         hash: &H256,
         code: &[u8],
     ) -> Result<()> {
-        let address_codes_cf: LedgerColumn<columns::AddressCodeMap> =
-            self.column::<columns::AddressCodeMap>();
+        let address_codes_cf = self.column::<columns::AddressCodeMap>();
         address_codes_cf.put_bytes(&(address, *hash), code)?;
 
-        let block_deployed_codes_cf: LedgerColumn<columns::BlockDeployedCodeHashes> =
-            self.column::<columns::BlockDeployedCodeHashes>();
-
+        let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
         block_deployed_codes_cf.put(&(block_number, address), &hash)
     }
 }
@@ -245,7 +242,6 @@ impl Rollback for BlockStore {
             while let Some(((block_number, address), hash)) = iter.next() {
                 if block_number == block.header.number {
                     address_codes_cf.delete(&(address, hash))?;
-
                     block_deployed_codes_cf.delete(&(block.header.number, address))?;
                 } else {
                     break;
@@ -265,7 +261,6 @@ pub enum DumpArg {
     Receipts,
     BlockMap,
     Logs,
-    // BlockDeployedCodeHashes,
 }
 
 impl BlockStore {
@@ -284,9 +279,6 @@ impl BlockStore {
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
             DumpArg::BlockMap => self.dump_column(columns::BlockMap, from.map(s_to_h256), limit),
             DumpArg::Logs => self.dump_column(columns::AddressLogsMap, from.map(s_to_u256), limit),
-            // DumpArg::BlockDeployedCodeHashes => {
-            //     self.dump_column(columns::BlockDeployedCodeHashes, from.map(s_to_u256), limit)
-            // }
         }
     }
 
@@ -298,7 +290,6 @@ impl BlockStore {
             DumpArg::Receipts,
             DumpArg::BlockMap,
             DumpArg::Logs,
-            // DumpArg::BlockDeployedCodeHashes,
         ] {
             writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
                 .map_err(|_| format_err!("failed to write to stream"))?;
