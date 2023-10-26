@@ -52,7 +52,6 @@ pub struct EVMServices {
 pub struct ExecTxState {
     pub tx: Box<SignedTx>,
     pub receipt: ReceiptAndOptionalContractAddress,
-    pub state_root: H256,
     pub logs_bloom: Bloom,
     pub gas_used: U256,
     pub gas_fees: U256,
@@ -139,8 +138,8 @@ impl EVMServices {
     pub unsafe fn construct_block_in_template(
         &self,
         template: &mut BlockTemplate,
+        is_miner: bool,
     ) -> Result<FinalizedBlockInfo> {
-        let state_root = template.get_latest_state_root();
         let logs_bloom = template.get_latest_logs_bloom();
 
         let timestamp = template.timestamp;
@@ -158,14 +157,7 @@ impl EVMServices {
 
         debug!("[construct_block] vicinity: {:?}", template.vicinity);
 
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.core.trie_store),
-            Arc::clone(&self.storage),
-            template.vicinity.clone(),
-        )?;
-
-        let mut executor = AinExecutor::new(&mut backend);
+        let mut executor = AinExecutor::new(&mut template.backend);
         for template_tx in template.transactions.clone() {
             all_transactions.push(template_tx.tx);
             receipts_v3.push(template_tx.receipt_v3);
@@ -194,14 +186,15 @@ impl EVMServices {
         executor
             .backend
             .add_balance(beneficiary, total_priority_fees)?;
-        executor.commit();
+
+        let state_root = executor.commit(is_miner)?;
 
         let extra_data = format!("DFI: {}", template.dvm_block).into_bytes();
         let block = Block::new(
             PartialHeader {
                 parent_hash,
                 beneficiary,
-                state_root: backend.commit(),
+                state_root,
                 receipts_root: ReceiptService::get_receipts_root(&receipts_v3),
                 logs_bloom,
                 difficulty,
@@ -266,51 +259,29 @@ impl EVMServices {
                 .send(Notification::Block(block.header.hash()))
                 .map_err(|e| format_err!(e.to_string()))?;
         }
-        // self.core.block_templates.remove(template);
         self.core.clear_account_nonce();
-        self.core.clear_transaction_cache();
 
         Ok(())
     }
 
     unsafe fn update_block_template_state_from_tx(
         &self,
-        template: &BlockTemplate,
+        template: &mut BlockTemplate,
         tx: ExecuteTx,
     ) -> Result<ExecTxState> {
-        let state_root = template.get_latest_state_root();
+        let base_fee = template.get_block_base_fee_per_gas();
         let mut logs_bloom = template.get_latest_logs_bloom();
-        debug!(
-            "[update_block_template_state_from_tx] state_root : {:#?}",
-            state_root
-        );
 
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.core.trie_store),
-            Arc::clone(&self.storage),
-            template.vicinity.clone(),
-        )?;
-        let mut executor = AinExecutor::new(&mut backend);
-
-        let (parent_hash, _) = self
-            .block
-            .get_latest_block_hash_and_number()?
-            .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
-        let base_fee = self.block.calculate_base_fee(parent_hash)?;
-        debug!(
-            "[update_block_template_state_from_tx] Block base fee: {}",
-            base_fee
-        );
+        let mut executor = AinExecutor::new(&mut template.backend);
 
         executor.update_total_gas_used(template.total_gas_used);
         let apply_tx = executor.execute_tx(tx, base_fee)?;
         EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
+        template.backend.increase_tx_count();
 
         Ok(ExecTxState {
             tx: apply_tx.tx,
             receipt: apply_tx.receipt,
-            state_root: backend.commit(),
             logs_bloom,
             gas_used: apply_tx.used_gas,
             gas_fees: apply_tx.gas_fee,
@@ -330,19 +301,12 @@ impl EVMServices {
     ) -> Result<()> {
         // reserve DST20 namespace;
         let is_evm_genesis_block = template.get_block_number() == U256::zero();
-        let state_root = template.get_latest_state_root();
         let mut logs_bloom = template.get_latest_logs_bloom();
 
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.core.trie_store),
-            Arc::clone(&self.storage),
-            template.vicinity.clone(),
-        )?;
-        let mut executor = AinExecutor::new(&mut backend);
+        let mut executor = AinExecutor::new(&mut template.backend);
         let base_fee = template.vicinity.block_base_fee_per_gas;
         debug!(
-            "[update_block_template_state_from_tx] Block base fee: {}",
+            "[update_state_in_block_template] Block base fee: {}",
             base_fee
         );
 
@@ -359,7 +323,6 @@ impl EVMServices {
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
 
             // DFIIntrinsicsRegistry contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -371,7 +334,6 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
                 logs_bloom,
             ));
 
@@ -384,7 +346,6 @@ impl EVMServices {
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
 
             // DFIIntrinsics contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -394,7 +355,6 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
                 logs_bloom,
             ));
 
@@ -407,7 +367,6 @@ impl EVMServices {
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
 
             // Transferdomain_v1 contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -417,7 +376,6 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
                 logs_bloom,
             ));
 
@@ -430,7 +388,6 @@ impl EVMServices {
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
 
             // Transferdomain contract deployment TX
             let (tx, receipt) = deploy_contract_tx(
@@ -440,7 +397,6 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
                 logs_bloom,
             ));
 
@@ -453,7 +409,6 @@ impl EVMServices {
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
 
             executor.deploy_contract(address, bytecode, storage)?;
-            executor.commit();
 
             // DST20 implementation contract deployment TX
             let (tx, receipt) =
@@ -461,7 +416,6 @@ impl EVMServices {
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
-                executor.commit(),
                 logs_bloom,
             ));
 
@@ -473,7 +427,6 @@ impl EVMServices {
                 template.transactions.push(TemplateTxItem::new_system_tx(
                     apply_result.tx,
                     apply_result.receipt,
-                    executor.commit(),
                     logs_bloom,
                 ));
             }
@@ -483,9 +436,8 @@ impl EVMServices {
             } = dfi_intrinsics_v1_deploy_info(template.dvm_block, template.vicinity.block_number)?;
 
             executor.update_storage(address, storage)?;
-            executor.commit();
-            template.initial_state_root = backend.commit();
         }
+        template.backend.increase_tx_count();
         Ok(())
     }
 }
@@ -525,34 +477,30 @@ impl EVMServices {
         let block_base_fee_per_gas = self.block.calculate_base_fee(parent_hash)?;
 
         let block_gas_limit = U256::from(self.storage.get_attributes_or_default()?.block_gas_limit);
-        let template = BlockTemplate::new(
-            Vicinity {
-                beneficiary,
-                block_number: target_block,
-                timestamp: U256::from(timestamp),
-                total_gas_used: U256::zero(),
-                block_difficulty,
-                block_gas_limit,
-                block_base_fee_per_gas,
-                block_randomness: None,
-                ..Vicinity::default()
-            },
-            parent_hash,
-            dvm_block,
-            timestamp,
+        let vicinity = Vicinity {
+            beneficiary,
+            block_number: target_block,
+            timestamp: U256::from(timestamp),
+            block_difficulty,
+            block_gas_limit,
+            block_base_fee_per_gas,
+            block_randomness: None,
+            ..Vicinity::default()
+        };
+
+        let backend = EVMBackend::from_root(
             initial_state_root,
-        );
+            Arc::clone(&self.core.trie_store),
+            Arc::clone(&self.storage),
+            vicinity.clone(),
+        )?;
+
+        let template = BlockTemplate::new(vicinity, parent_hash, dvm_block, timestamp, backend);
         Ok(template)
     }
 
-    unsafe fn verify_tx_fees_in_block_template(
-        &self,
-        template: &BlockTemplate,
-        tx: &ExecuteTx,
-    ) -> Result<()> {
+    unsafe fn verify_tx_fees(&self, base_fee_per_gas: U256, tx: &ExecuteTx) -> Result<()> {
         if let ExecuteTx::SignedTx(signed_tx) = tx {
-            let base_fee_per_gas = template.get_block_base_fee_per_gas();
-
             let tx_gas_price = signed_tx.gas_price();
             if tx_gas_price < base_fee_per_gas {
                 return Err(format_err!(
@@ -576,14 +524,10 @@ impl EVMServices {
         tx: ExecuteTx,
         hash: XHash,
     ) -> Result<()> {
-        self.verify_tx_fees_in_block_template(template, &tx)?;
+        self.verify_tx_fees(template.get_block_base_fee_per_gas(), &tx)?;
         let tx_update = self.update_block_template_state_from_tx(template, tx.clone())?;
         let tx_hash = tx_update.tx.hash();
 
-        debug!(
-            "[push_tx_in_block_template] Pushing new state_root {:x?}",
-            tx_update.state_root
-        );
         template.add_tx(tx_update, hash)?;
         self.filters.add_tx_to_filters(tx_hash);
 
@@ -601,7 +545,7 @@ impl EVMServices {
         address: H160,
         template: &BlockTemplate,
     ) -> Result<bool> {
-        let backend = self.core.get_backend(template.get_latest_state_root())?;
+        let backend = &template.backend;
 
         Ok(match backend.get_account(&address) {
             None => false,
