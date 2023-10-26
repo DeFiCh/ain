@@ -7,9 +7,7 @@ use evm::{
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
     Config, CreateScheme,
 };
-pub use evm::{
-   ExitError, ExitReason
-};
+pub use evm::{ExitError, ExitReason};
 use log::{debug, trace};
 
 use crate::{
