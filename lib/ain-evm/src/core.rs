@@ -71,7 +71,7 @@ impl SignedTxCache {
         let mut guard = self.inner.lock();
         debug!("[signed-tx-cache]::pre_populate: {}", key);
         let _ = guard.get_or_insert(key.to_string(), move || {
-            debug!("[signed-tx-cache]::prepopulate:: create {}", key);
+            debug!("[signed-tx-cache]::pre_populate:: create {}", key);
             signed_tx
         });
 

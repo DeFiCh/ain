@@ -3015,7 +3015,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 
-            for (auto const txRef: block.vtx) {
+            for (auto const &txRef: block.vtx) {
                 const auto &tx = *txRef;
                 if (tx.IsCoinBase()) {
                     continue;
@@ -3045,7 +3045,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             }
 
             // We move ahead eagerly
-            // g.WaitForCompletion();
+            g.WaitForCompletion();
         }
     }
 
