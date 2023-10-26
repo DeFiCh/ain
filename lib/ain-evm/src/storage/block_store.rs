@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc};
+use std::{
+    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
+};
 
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
@@ -185,14 +187,23 @@ impl FlushableStorage for BlockStore {
 }
 
 impl BlockStore {
-    pub fn get_code_by_hash(&self, hash: &H256) -> Result<Option<Vec<u8>>> {
-        let code_cf = self.column::<columns::CodeMap>();
-        code_cf.get_bytes(hash)
+    pub fn get_code_by_hash(&self, address: H160, hash: &H256) -> Result<Option<Vec<u8>>> {
+        let address_codes_cf = self.column::<columns::AddressCodeMap>();
+        address_codes_cf.get_bytes(&(address, *hash))
     }
 
-    pub fn put_code(&self, hash: &H256, code: &[u8]) -> Result<()> {
-        let code_cf = self.column::<columns::CodeMap>();
-        code_cf.put_bytes(hash, code)
+    pub fn put_code(
+        &self,
+        block_number: U256,
+        address: H160,
+        hash: &H256,
+        code: &[u8],
+    ) -> Result<()> {
+        let address_codes_cf = self.column::<columns::AddressCodeMap>();
+        address_codes_cf.put_bytes(&(address, *hash), code)?;
+
+        let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
+        block_deployed_codes_cf.put(&(block_number, address), hash)
     }
 }
 
@@ -220,6 +231,23 @@ impl Rollback for BlockStore {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
                 latest_block_cf.put(&"latest_block", &block.header.number)?;
             }
+
+            let logs_cf = self.column::<columns::AddressLogsMap>();
+            logs_cf.delete(&block.header.number)?;
+
+            let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
+            let mut iter =
+                block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), usize::MAX);
+
+            let address_codes_cf = self.column::<columns::AddressCodeMap>();
+            for ((block_number, address), hash) in &mut iter {
+                if block_number == block.header.number {
+                    address_codes_cf.delete(&(address, hash))?;
+                    block_deployed_codes_cf.delete(&(block.header.number, address))?;
+                } else {
+                    break;
+                }
+            }
         }
         Ok(())
     }
@@ -237,7 +265,7 @@ pub enum DumpArg {
 }
 
 impl BlockStore {
-    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) {
+    pub fn dump(&self, arg: &DumpArg, from: Option<&str>, limit: usize) -> Result<String> {
         let s_to_u256 = |s| {
             U256::from_str_radix(s, 10)
                 .or(U256::from_str_radix(s, 16))
@@ -246,9 +274,7 @@ impl BlockStore {
         let s_to_h256 = |s: &str| H256::from_str(s).unwrap_or(H256::zero());
 
         match arg {
-            DumpArg::All => {
-                self.dump_all(limit);
-            }
+            DumpArg::All => self.dump_all(limit),
             DumpArg::Blocks => self.dump_column(columns::Blocks, from.map(s_to_u256), limit),
             DumpArg::Txs => self.dump_column(columns::Transactions, from.map(s_to_h256), limit),
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
@@ -257,7 +283,8 @@ impl BlockStore {
         }
     }
 
-    fn dump_all(&self, limit: usize) {
+    fn dump_all(&self, limit: usize) -> Result<String> {
+        let mut out = String::new();
         for arg in &[
             DumpArg::Blocks,
             DumpArg::Txs,
@@ -265,17 +292,21 @@ impl BlockStore {
             DumpArg::BlockMap,
             DumpArg::Logs,
         ] {
-            self.dump(arg, None, limit);
+            writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
+                .map_err(|_| format_err!("failed to write to stream"))?;
         }
+        Ok(out)
     }
 
-    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize)
+    fn dump_column<C>(&self, _: C, from: Option<C::Index>, limit: usize) -> Result<String>
     where
         C: TypedColumn + ColumnName,
     {
-        println!("{}", C::NAME);
+        let mut out = format!("{}\n", C::NAME);
         for (k, v) in self.column::<C>().iter(from, limit) {
-            println!("{:?}: {:#?}", k, v);
+            writeln!(&mut out, "{:?}: {:#?}", k, v)
+                .map_err(|_| format_err!("failed to write to stream"))?;
         }
+        Ok(out)
     }
 }
