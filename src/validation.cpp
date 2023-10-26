@@ -3015,7 +3015,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 
-            for (auto const &txRef: block.vtx) {
+            for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
                 if (tx.IsCoinBase()) {
                     continue;
@@ -3024,8 +3024,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 const auto txType = GuessCustomTxType(tx, metadata, true);
                 if (txType == CustomTxType::EvmTx) {
                     CCustomTxMessage txMessage{CEvmTxMessage{}};
-                    const auto res = CustomMetadataParse(
-                        std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
+                    const auto res =
+                        CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
                     if (!res) {
                         continue;
                     }
