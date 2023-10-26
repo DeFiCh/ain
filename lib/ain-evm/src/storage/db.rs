@@ -323,8 +323,12 @@ impl Column for columns::AddressCodeMap {
     type Index = (H160, H256);
 
     fn key(index: &Self::Index) -> Vec<u8> {
-        let mut bytes = index.0.to_fixed_bytes().to_vec();
-        bytes.append(&mut index.1.to_fixed_bytes().to_vec());
+        let mut h160_bytes = [0_u8; 20];
+        index.0.to_big_endian(&mut h160_bytes);
+
+        let mut bytes = Vec::with_capacity(20 + 32);
+        bytes.extend_from_slice(&h160_bytes);
+        bytes.extend_from_slice(&index.1.to_fixed_bytes());
         bytes
     }
 
