@@ -203,7 +203,7 @@ impl BlockStore {
         address_codes_cf.put_bytes(&(address, *hash), code)?;
 
         let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-        block_deployed_codes_cf.put(&(block_number, address), &hash)
+        block_deployed_codes_cf.put(&(block_number, address), hash)
     }
 }
 
@@ -239,7 +239,7 @@ impl Rollback for BlockStore {
                 block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), usize::MAX);
 
             let address_codes_cf = self.column::<columns::AddressCodeMap>();
-            while let Some(((block_number, address), hash)) = iter.next() {
+            for ((block_number, address), hash) in &mut iter {
                 if block_number == block.header.number {
                     address_codes_cf.delete(&(address, hash))?;
                     block_deployed_codes_cf.delete(&(block.header.number, address))?;
