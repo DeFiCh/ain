@@ -289,7 +289,7 @@ impl EVMServices {
                 })
             }
             Err(e) => {
-                template.backend.reset();
+                template.backend.reset_to_last_changeset();
                 Err(e)
             }
         }
