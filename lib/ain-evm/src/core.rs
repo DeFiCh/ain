@@ -70,10 +70,10 @@ impl SignedTxCache {
     pub fn pre_populate(&self, key: &str, signed_tx: SignedTx) -> Result<()> {
         let mut guard = self.inner.lock();
         debug!("[signed-tx-cache]::pre_populate: {}", key);
-        let _ = guard.try_get_or_insert(key.to_string(), move || -> Result<SignedTx> {
+        let _ = guard.get_or_insert(key.to_string(), move || {
             debug!("[signed-tx-cache]::prepopulate:: create {}", key);
-            Ok(signed_tx)
-        })?;
+            signed_tx
+        });
 
         Ok(())
     }

@@ -3009,44 +3009,44 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
-    }
 
-    {
-        // Pre-warm validation cache
-        TaskGroup g;
-        auto &pool = DfTxTaskPool->pool;
+        {
+            // Pre-warm validation cache
+            TaskGroup g;
+            auto &pool = DfTxTaskPool->pool;
 
-        for (size_t i{}; i < block.vtx.size(); ++i) {
-            const auto &tx = *(block.vtx[i]);
-            if (tx.IsCoinBase()) {
-                continue;
-            }
-
-            std::vector<unsigned char> metadata;
-            const auto txType = GuessCustomTxType(tx, metadata, true);
-            if (txType == CustomTxType::EvmTx) {
-                CCustomTxMessage txMessage{CEvmTxMessage{}};
-                const auto res = CustomMetadataParse(
-                    std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
-                if (!res) {
+            for (auto const txRef: block.vtx) {
+                const auto &tx = *txRef;
+                if (tx.IsCoinBase()) {
                     continue;
                 }
-
-                const auto obj = std::get<CEvmTxMessage>(txMessage);
-                const auto rawEvmTx = HexStr(obj.evmTx);
-
-                g.AddTask();
-                boost::asio::post(pool, [&g, rawEvmTx] {
-                    auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
-                    if (v) {
-                        XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                std::vector<unsigned char> metadata;
+                const auto txType = GuessCustomTxType(tx, metadata, true);
+                if (txType == CustomTxType::EvmTx) {
+                    CCustomTxMessage txMessage{CEvmTxMessage{}};
+                    const auto res = CustomMetadataParse(
+                        std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
+                    if (!res) {
+                        continue;
                     }
-                    g.RemoveTask();
-                });
-            }
-        }
 
-        g.WaitForCompletion();
+                    const auto obj = std::get<CEvmTxMessage>(txMessage);
+                    const auto rawEvmTx = HexStr(obj.evmTx);
+
+                    g.AddTask();
+                    boost::asio::post(pool, [&g, rawEvmTx] {
+                        auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
+                        if (v) {
+                            XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                        }
+                        g.RemoveTask();
+                    });
+                }
+            }
+
+            // We move ahead eagerly
+            // g.WaitForCompletion();
+        }
     }
 
     // Execute TXs
