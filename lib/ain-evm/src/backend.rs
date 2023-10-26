@@ -195,6 +195,10 @@ impl EVMBackend {
         self.overlay.state.clear()
     }
 
+    pub fn reset(&mut self) {
+        self.overlay.state = self.overlay.changeset.last().cloned().unwrap_or_default();
+    }
+
     pub fn reset_from_tx(&mut self, index: usize) {
         self.overlay.state = self
             .overlay
