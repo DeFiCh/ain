@@ -472,7 +472,7 @@ pub fn evm_try_unsafe_create_template(
             ),
             Err(e) => {
                 cross_boundary_error(result, e.to_string());
-                return block_template_err_wrapper();
+                block_template_err_wrapper()
             }
         }
     }
