@@ -10,7 +10,7 @@ use evm::{
 use log::{debug, trace};
 
 use crate::{
-    backend::{BackendError, EVMBackend},
+    backend::EVMBackend,
     blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
@@ -167,8 +167,6 @@ impl<'backend> AinExecutor<'backend> {
             calculate_current_prepay_gas_fee(signed_tx, base_fee)?
         };
 
-        let old_basic = self.backend.basic(signed_tx.sender); // Keep old basic values to restore state if block size limit exceeded
-
         if !system_tx {
             self.backend
                 .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
@@ -211,9 +209,6 @@ impl<'backend> AinExecutor<'backend> {
                 .ok_or_else(|| format_err!("total_gas_used overflow"))?
                 > block_gas_limit
         {
-            self.backend
-                .apply(signed_tx.sender, Some(old_basic), None, Vec::new(), false)
-                .map_err(|e| BackendError::DeductPrepayGasFailed(e.to_string()))?;
             return Err(format_err!(
                 "[exec] block size limit exceeded, tx cannot make it into the block"
             )
