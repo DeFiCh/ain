@@ -21,8 +21,8 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/historywriter.h>
 #include <dfi/mn_checks.h>
-#include <dfi/validation.h>
 #include <dfi/threadpool.h>
+#include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
 #include <flatfile.h>
@@ -3012,7 +3012,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
     }
 
     {
-        // Pre-warm validation cache        
+        // Pre-warm validation cache
         TaskGroup g;
         auto &pool = DfTxTaskPool->pool;
 
@@ -3026,7 +3026,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
             const auto txType = GuessCustomTxType(tx, metadata, true);
             if (txType == CustomTxType::EvmTx) {
                 CCustomTxMessage txMessage{CEvmTxMessage{}};
-                const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
+                const auto res = CustomMetadataParse(
+                    std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
                 if (!res) {
                     continue;
                 }

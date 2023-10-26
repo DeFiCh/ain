@@ -269,7 +269,11 @@ pub mod ffi {
 
         fn evm_try_unsafe_make_signed_tx(result: &mut CrossBoundaryResult, raw_tx: &str) -> usize;
 
-        fn evm_try_unsafe_cache_signed_tx(result: &mut CrossBoundaryResult, raw_tx: &str, instance: usize);
+        fn evm_try_unsafe_cache_signed_tx(
+            result: &mut CrossBoundaryResult,
+            raw_tx: &str,
+            instance: usize,
+        );
 
         fn evm_try_unsafe_create_dst20(
             result: &mut CrossBoundaryResult,
