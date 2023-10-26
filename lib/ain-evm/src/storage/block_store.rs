@@ -224,9 +224,6 @@ impl Rollback for BlockStore {
             let blocks_cf = self.column::<columns::Blocks>();
             blocks_cf.delete(&block.header.number)?;
 
-            let logs_cf = self.column::<columns::AddressLogsMap>();
-            logs_cf.delete(&block.header.number)?;
-
             let blocks_map_cf = self.column::<columns::BlockMap>();
             blocks_map_cf.delete(&block.header.hash())?;
 
@@ -234,6 +231,9 @@ impl Rollback for BlockStore {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
                 latest_block_cf.put(&"latest_block", &block.header.number)?;
             }
+
+            let logs_cf = self.column::<columns::AddressLogsMap>();
+            logs_cf.delete(&block.header.number)?;
 
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
             let mut iter =
