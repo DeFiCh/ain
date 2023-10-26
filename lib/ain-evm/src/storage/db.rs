@@ -70,8 +70,8 @@ impl Rocks {
             columns::BlockMap::NAME,
             columns::LatestBlockNumber::NAME,
             columns::AddressLogsMap::NAME,
-            columns::CodeMap::NAME,
-            columns::BlockCodeHashes::NAME,
+            columns::AddressCodeMap::NAME,
+            columns::BlockDeployedCodeHashes::NAME,
         ]
     }
 
@@ -170,11 +170,11 @@ pub mod columns {
 
     #[derive(Debug)]
     /// Column family for code map data
-    pub struct CodeMap;
+    pub struct AddressCodeMap;
 
     #[derive(Debug)]
     /// Column family for block code map data
-    pub struct BlockCodeHashes;
+    pub struct BlockDeployedCodeHashes;
 }
 
 //
@@ -190,8 +190,8 @@ const RECEIPTS_CF: &str = "receipts";
 const BLOCK_MAP_CF: &str = "block_map";
 const LATEST_BLOCK_NUMBER_CF: &str = "latest_block_number";
 const ADDRESS_LOGS_MAP_CF: &str = "address_logs_map";
-const CODE_MAP_CF: &str = "code_map";
-const BLOCK_CODES_CF: &str = "block_codes";
+const ADDRESS_CODE_MAP_CF: &str = "address_code_map";
+const BLOCK_DEPLOYED_CODES_CF: &str = "block_deployed_codes";
 
 //
 // ColumnName impl
@@ -220,12 +220,12 @@ impl ColumnName for columns::AddressLogsMap {
     const NAME: &'static str = ADDRESS_LOGS_MAP_CF;
 }
 
-impl ColumnName for columns::CodeMap {
-    const NAME: &'static str = CODE_MAP_CF;
+impl ColumnName for columns::AddressCodeMap {
+    const NAME: &'static str = ADDRESS_CODE_MAP_CF;
 }
 
-impl ColumnName for columns::BlockCodeHashes {
-    const NAME: &'static str = BLOCK_CODES_CF;
+impl ColumnName for columns::BlockDeployedCodeHashes {
+    const NAME: &'static str = BLOCK_DEPLOYED_CODES_CF;
 }
 
 //
@@ -319,19 +319,23 @@ impl Column for columns::AddressLogsMap {
     }
 }
 
-impl Column for columns::CodeMap {
-    type Index = H256;
+impl Column for columns::AddressCodeMap {
+    type Index = (H160, H256);
 
     fn key(index: &Self::Index) -> Vec<u8> {
-        index.to_fixed_bytes().to_vec()
+        let mut bytes = index.0.to_fixed_bytes().to_vec();
+        bytes.append(&mut index.1.to_fixed_bytes().to_vec());
+        bytes
     }
 
     fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        H256::from_slice(&raw_key)
+        let address = H160::from_slice(&raw_key[..20]);
+        let code_hash = H256::from_slice(&raw_key[20..]);
+        (address, code_hash)
     }
 }
 
-impl Column for columns::BlockCodeHashes {
+impl Column for columns::BlockDeployedCodeHashes {
     type Index = U256;
 
     fn key(index: &Self::Index) -> Vec<u8> {
@@ -379,12 +383,12 @@ impl TypedColumn for columns::AddressLogsMap {
     type Type = HashMap<H160, Vec<LogIndex>>;
 }
 
-impl TypedColumn for columns::CodeMap {
+impl TypedColumn for columns::AddressCodeMap {
     type Type = Vec<u8>;
 }
 
-impl TypedColumn for columns::BlockCodeHashes {
-    type Type = BTreeSet<H256>;
+impl TypedColumn for columns::BlockDeployedCodeHashes {
+    type Type = BTreeSet<(H160, H256)>;
 }
 
 impl<C> LedgerColumn<C>

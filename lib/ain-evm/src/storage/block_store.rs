@@ -187,19 +187,27 @@ impl FlushableStorage for BlockStore {
 }
 
 impl BlockStore {
-    pub fn get_code_by_hash(&self, hash: &H256) -> Result<Option<Vec<u8>>> {
-        let code_cf = self.column::<columns::CodeMap>();
-        code_cf.get_bytes(hash)
+    pub fn get_code_by_hash(&self, address: H160, hash: &H256) -> Result<Option<Vec<u8>>> {
+        let address_codes_cf = self.column::<columns::AddressCodeMap>();
+        address_codes_cf.get_bytes(&(address, *hash))
     }
 
-    pub fn put_code(&self, block_number: U256, hash: &H256, code: &[u8]) -> Result<()> {
-        let block_codes_cf = self.column::<columns::BlockCodeHashes>();
-        let code_cf = self.column::<columns::CodeMap>();
+    pub fn put_code(
+        &self,
+        block_number: U256,
+        address: H160,
+        hash: &H256,
+        code: &[u8],
+    ) -> Result<()> {
+        let address_codes_cf = self.column::<columns::AddressCodeMap>();
+        address_codes_cf.put_bytes(&(address, *hash), code)?;
 
-        let mut block_codes = block_codes_cf.get(&block_number)?.unwrap_or_default();
-        block_codes.insert(*hash);
-        block_codes_cf.put(&block_number, &block_codes)?;
-        code_cf.put_bytes(hash, code)
+        let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
+        let mut deployed_codes = block_deployed_codes_cf
+            .get(&block_number)?
+            .unwrap_or_default();
+        deployed_codes.insert((address, *hash));
+        block_deployed_codes_cf.put(&block_number, &deployed_codes)
     }
 }
 
@@ -230,14 +238,14 @@ impl Rollback for BlockStore {
                 latest_block_cf.put(&"latest_block", &block.header.number)?;
             }
 
-            let block_codes_cf = self.column::<columns::BlockCodeHashes>();
-            if let Some(block_code_hashes) = block_codes_cf.get(&block.header.number)? {
-                let codes_cf = self.column::<columns::CodeMap>();
-                for code_hash in block_code_hashes {
-                    codes_cf.delete(&code_hash)?;
+            let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
+            if let Some(block_code_hashes) = block_deployed_codes_cf.get(&block.header.number)? {
+                let address_codes_cf = self.column::<columns::AddressCodeMap>();
+                for hash in block_code_hashes {
+                    address_codes_cf.delete(&hash)?;
                 }
             }
-            block_codes_cf.delete(&block.header.number)?;
+            block_deployed_codes_cf.delete(&block.header.number)?;
         }
         Ok(())
     }
@@ -252,7 +260,7 @@ pub enum DumpArg {
     Receipts,
     BlockMap,
     Logs,
-    BlockCodeHashes,
+    BlockDeployedCodeHashes,
 }
 
 impl BlockStore {
@@ -271,8 +279,8 @@ impl BlockStore {
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
             DumpArg::BlockMap => self.dump_column(columns::BlockMap, from.map(s_to_h256), limit),
             DumpArg::Logs => self.dump_column(columns::AddressLogsMap, from.map(s_to_u256), limit),
-            DumpArg::BlockCodeHashes => {
-                self.dump_column(columns::BlockCodeHashes, from.map(s_to_u256), limit)
+            DumpArg::BlockDeployedCodeHashes => {
+                self.dump_column(columns::BlockDeployedCodeHashes, from.map(s_to_u256), limit)
             }
         }
     }
@@ -285,7 +293,7 @@ impl BlockStore {
             DumpArg::Receipts,
             DumpArg::BlockMap,
             DumpArg::Logs,
-            DumpArg::BlockCodeHashes,
+            DumpArg::BlockDeployedCodeHashes,
         ] {
             writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
                 .map_err(|_| format_err!("failed to write to stream"))?;

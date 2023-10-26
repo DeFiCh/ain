@@ -770,7 +770,7 @@ impl EVMCoreService {
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>> {
         self.get_account(address, block_number)?
             .map_or(Ok(None), |account| {
-                self.storage.get_code_by_hash(account.code_hash)
+                self.storage.get_code_by_hash(address, account.code_hash)
             })
     }
 
