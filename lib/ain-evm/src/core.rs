@@ -67,6 +67,17 @@ impl SignedTxCache {
         Ok(res.clone())
     }
 
+    pub fn pre_populate(&self, key: &str, signed_tx: SignedTx) -> Result<()> {
+        let mut guard = self.inner.lock();
+        debug!("[signed-tx-cache]::pre_populate: {}", key);
+        let _ = guard.try_get_or_insert(key.to_string(), move || -> Result<SignedTx> {
+            debug!("[signed-tx-cache]::prepopulate:: create {}", key);
+            Ok(signed_tx)
+        })?;
+
+        Ok(())
+    }
+
     pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
         let data = EnvelopedEncodable::encode(tx);
         let key = hex::encode(&data);

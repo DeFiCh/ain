@@ -3036,7 +3036,10 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
                 g.AddTask();
                 boost::asio::post(pool, [&g, rawEvmTx] {
-                    XResultStatusLogged(evm_try_get_tx_hash(result, rawEvmTx));
+                    auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
+                    if (v) {
+                        XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                    }
                     g.RemoveTask();
                 });
             }
