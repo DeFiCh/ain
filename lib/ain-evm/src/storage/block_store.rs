@@ -199,15 +199,14 @@ impl BlockStore {
         hash: &H256,
         code: &[u8],
     ) -> Result<()> {
-        let address_codes_cf = self.column::<columns::AddressCodeMap>();
+        let address_codes_cf: LedgerColumn<columns::AddressCodeMap> =
+            self.column::<columns::AddressCodeMap>();
         address_codes_cf.put_bytes(&(address, *hash), code)?;
 
-        let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-        let mut deployed_codes = block_deployed_codes_cf
-            .get(&block_number)?
-            .unwrap_or_default();
-        deployed_codes.insert((address, *hash));
-        block_deployed_codes_cf.put(&block_number, &deployed_codes)
+        let block_deployed_codes_cf: LedgerColumn<columns::BlockDeployedCodeHashes> =
+            self.column::<columns::BlockDeployedCodeHashes>();
+
+        block_deployed_codes_cf.put(&(block_number, address), &hash)
     }
 }
 
@@ -239,13 +238,19 @@ impl Rollback for BlockStore {
             }
 
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-            if let Some(block_code_hashes) = block_deployed_codes_cf.get(&block.header.number)? {
-                let address_codes_cf = self.column::<columns::AddressCodeMap>();
-                for hash in block_code_hashes {
-                    address_codes_cf.delete(&hash)?;
+            let mut iter =
+                block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), usize::MAX);
+
+            let address_codes_cf = self.column::<columns::AddressCodeMap>();
+            while let Some(((block_number, address), hash)) = iter.next() {
+                if block_number == block.header.number {
+                    address_codes_cf.delete(&(address, hash))?;
+
+                    block_deployed_codes_cf.delete(&(block.header.number, address))?;
+                } else {
+                    break;
                 }
             }
-            block_deployed_codes_cf.delete(&block.header.number)?;
         }
         Ok(())
     }
@@ -260,7 +265,7 @@ pub enum DumpArg {
     Receipts,
     BlockMap,
     Logs,
-    BlockDeployedCodeHashes,
+    // BlockDeployedCodeHashes,
 }
 
 impl BlockStore {
@@ -279,9 +284,9 @@ impl BlockStore {
             DumpArg::Receipts => self.dump_column(columns::Receipts, from.map(s_to_h256), limit),
             DumpArg::BlockMap => self.dump_column(columns::BlockMap, from.map(s_to_h256), limit),
             DumpArg::Logs => self.dump_column(columns::AddressLogsMap, from.map(s_to_u256), limit),
-            DumpArg::BlockDeployedCodeHashes => {
-                self.dump_column(columns::BlockDeployedCodeHashes, from.map(s_to_u256), limit)
-            }
+            // DumpArg::BlockDeployedCodeHashes => {
+            //     self.dump_column(columns::BlockDeployedCodeHashes, from.map(s_to_u256), limit)
+            // }
         }
     }
 
@@ -293,7 +298,7 @@ impl BlockStore {
             DumpArg::Receipts,
             DumpArg::BlockMap,
             DumpArg::Logs,
-            DumpArg::BlockDeployedCodeHashes,
+            // DumpArg::BlockDeployedCodeHashes,
         ] {
             writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
                 .map_err(|_| format_err!("failed to write to stream"))?;

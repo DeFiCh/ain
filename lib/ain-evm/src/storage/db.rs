@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::HashMap,
     fmt::Debug,
     iter::Iterator,
     marker::PhantomData,
@@ -336,16 +336,26 @@ impl Column for columns::AddressCodeMap {
 }
 
 impl Column for columns::BlockDeployedCodeHashes {
-    type Index = U256;
+    type Index = (U256, H160);
 
     fn key(index: &Self::Index) -> Vec<u8> {
-        let mut bytes = [0_u8; 32];
-        index.to_big_endian(&mut bytes);
-        bytes.to_vec()
+        let mut u256_bytes = [0_u8; 32];
+        index.0.to_big_endian(&mut u256_bytes);
+
+        let mut bytes = Vec::with_capacity(32 + 20);
+        bytes.extend_from_slice(&u256_bytes);
+        bytes.extend_from_slice(&index.1.to_fixed_bytes());
+        bytes
     }
 
     fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        Self::Index::from(&*raw_key)
+        let u256_bytes = &raw_key[0..32];
+        let h160_bytes = &raw_key[32..52];
+
+        let u256 = U256::from_big_endian(u256_bytes);
+        let h160 = H160::from_slice(h160_bytes);
+
+        (u256, h160)
     }
 }
 
@@ -388,7 +398,7 @@ impl TypedColumn for columns::AddressCodeMap {
 }
 
 impl TypedColumn for columns::BlockDeployedCodeHashes {
-    type Type = BTreeSet<(H160, H256)>;
+    type Type = H256;
 }
 
 impl<C> LedgerColumn<C>
