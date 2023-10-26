@@ -196,18 +196,24 @@ impl FlushableStorage for Storage {
 }
 
 impl Storage {
-    pub fn get_code_by_hash(&self, hash: H256) -> Result<Option<Vec<u8>>> {
-        self.blockstore.get_code_by_hash(&hash)
+    pub fn get_code_by_hash(&self, address: H160, hash: H256) -> Result<Option<Vec<u8>>> {
+        self.blockstore.get_code_by_hash(address, &hash)
     }
 
-    pub fn put_code(&self, hash: H256, code: Vec<u8>) -> Result<()> {
-        self.blockstore.put_code(&hash, &code)
+    pub fn put_code(
+        &self,
+        block_number: U256,
+        address: H160,
+        hash: H256,
+        code: Vec<u8>,
+    ) -> Result<()> {
+        self.blockstore
+            .put_code(block_number, address, &hash, &code)
     }
 }
 
 impl Storage {
-    pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) {
-        println!("[dump_db]");
+    pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) -> Result<String> {
         self.blockstore.dump(&arg, from, limit)
     }
 }
