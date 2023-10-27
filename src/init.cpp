@@ -1583,7 +1583,7 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& evmEndpoints, 
 
     // Determine which addresses to bind to EVM RPC server
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
-        evmEndpoints.emplace_back("127.0.0.1", evm_rpc_port);
+        evmEndpoints.emplace_back("127.0.0.1", eth_rpc_port);
         evmEndpoints.emplace_back("127.0.0.1", websockets_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
             LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
@@ -1593,7 +1593,7 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& evmEndpoints, 
         }
     } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
         for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
-            int port = evm_rpc_port;
+            int port = eth_rpc_port;
             int ws_port = websockets_port;
 
             std::string host;

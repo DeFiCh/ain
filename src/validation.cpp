@@ -3011,7 +3011,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
         if (gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS) != 0) {
-            LogPrintf("XXX here\n");
             // Pre-warm validation cache
             TaskGroup g;
             auto &pool = EvmTxTaskPool->pool;
