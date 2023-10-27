@@ -100,6 +100,9 @@ mod ffi {
     pub fn getNumConnections() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEvmCacheSizeLimit() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
