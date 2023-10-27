@@ -282,7 +282,7 @@ def wait_until(predicate, *, attempts=float("inf"), timeout=float("inf"), lock=N
 # Utility function to assert value of U256 output
 def int_to_eth_u256(value):
     """
-    Convert a non-negative integer to an Ethereum U256-compatible format.
+    Convert a non-negative integer to an EVM U256-compatible format.
 
     The input value is multiplied by a fixed factor of 10^18 (1 ether in wei)
     and represented as a hexadecimal string. This function validates that the

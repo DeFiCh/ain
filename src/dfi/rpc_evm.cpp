@@ -72,7 +72,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
 
     const auto fromDest = DecodeDestination(request.params[0].get_str());
     if (fromDest.index() != WitV16KeyEthHashType) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "from address not an Ethereum address");
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "from address not an EVM address");
     }
 
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
@@ -106,7 +106,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     if (!toStr.empty()) {
         const auto toDest = DecodeDestination(toStr);
         if (toDest.index() != WitV16KeyEthHashType) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "to address not an Ethereum address");
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "to address not an EVM address");
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
