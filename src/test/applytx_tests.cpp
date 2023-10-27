@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
         const auto tx = CTransaction(rawTx);
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             coinview,
             tx,
             amkCheated,
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
         const auto tx = CTransaction(rawTx);
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
                 coinview,
                 tx,
                 amkCheated,
@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
         const auto tx = CTransaction(rawTx);
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
                 coinview,
                 tx,
                 amkCheated,
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         rawTx.vout[0].scriptPubKey = CreateMetaA2A(msg);
 
         const auto tx = CTransaction(rawTx);
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
                 coinview,
                 tx,
                 amkCheated,

@@ -167,10 +167,10 @@ public:
                           const std::optional<bool> enabled = {},
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
                           const bool prevalidate = {})
-            : view(view),
-              isEvmEnabledForBlock(enabled),
-              evmTemplate(evmTemplate),
-              evmPreValidate(prevalidate) {}
+        : view(view),
+          isEvmEnabledForBlock(enabled),
+          evmTemplate(evmTemplate),
+          evmPreValidate(prevalidate) {}
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
@@ -190,26 +190,28 @@ class TransactionContext {
     const uint64_t time{};
     const uint32_t txn{};
 
+    std::vector<unsigned char> metadata;
+    std::optional<CustomTxType> txType;
+    std::optional<std::pair<Res, CCustomTxMessage>> txMessageResult;
+    bool metadataValidation{};
+
 public:
     TransactionContext(const CCoinsViewCache &coins,
                        const CTransaction &tx,
                        const Consensus::Params &consensus,
                        const uint32_t height = {},
                        const uint64_t time = {},
-                       const uint32_t txn = {})
-            : coins(coins),
-              tx(tx),
-              consensus(consensus),
-              height(height),
-              time(time),
-              txn(txn) {}
+                       const uint32_t txn = {});
 
-    [[nodiscard]] const CCoinsViewCache &GetCoins() const { return coins; };
-    [[nodiscard]] const CTransaction &GetTransaction() const { return tx; };
-    [[nodiscard]] const Consensus::Params &GetConsensus() const { return consensus; };
-    [[nodiscard]] const uint32_t GetHeight() const { return height; };
-    [[nodiscard]] const uint64_t GetTime() const { return time; };
-    [[nodiscard]] const uint32_t GetTxn() const { return txn; };
+    [[nodiscard]] const CCoinsViewCache &GetCoins() const;
+    [[nodiscard]] const CTransaction &GetTransaction() const;
+    [[nodiscard]] const Consensus::Params &GetConsensus() const;
+    [[nodiscard]] uint32_t GetHeight() const;
+    [[nodiscard]] uint64_t GetTime() const;
+    [[nodiscard]] uint32_t GetTxn() const;
+    [[nodiscard]] CustomTxType GetTxType();
+    [[nodiscard]] std::pair<Res, CCustomTxMessage> &GetTxMessage();
+    [[nodiscard]] bool GetMetadataValidation() const;
 };
 
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
@@ -220,7 +222,7 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend = nullptr);
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 

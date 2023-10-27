@@ -665,7 +665,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         BlockContext blockCtx;
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             view,
             *tx,
             Params().GetConsensus(),

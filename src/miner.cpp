@@ -869,7 +869,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     }
                 }
 
-                const auto txCtx = TransactionContext{
+                auto txCtx = TransactionContext{
                     coins,
                     tx,
                     chainparams.GetConsensus(),

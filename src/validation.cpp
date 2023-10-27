@@ -727,7 +727,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             true,
         };
 
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             view,
             tx,
             consensus,
@@ -1045,8 +1045,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         // TODO: We do multiple guess and parses. Streamline this later.
         // We also have IsEvmTx,  but we need the metadata here.
         std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
-        auto isEvmTx = txType == CustomTxType::EvmTx;
+        const auto txType = txCtx.GetTxType();
+        const auto isEvmTx = txType == CustomTxType::EvmTx;
         entry.SetCustomTxType(txType);
 
         if (!isEvmTx &&
@@ -1061,9 +1061,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         std::optional<EvmAddressData> ethSender{};
 
         if (isEvmTx || txType == CustomTxType::TransferDomain) {
-            auto txMessage = customTypeToMessage(txType);
-            res = CustomMetadataParse(height, consensus, metadata, txMessage);
-            if (!res) {
+            const auto &[r, txMessage] = txCtx.GetTxMessage();
+            if (!r) {
                 LogPrint(BCLog::MEMPOOL, "Failed to parse EVM tx metadata\n");
                 return state.Invalid(
                     ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
@@ -2637,21 +2636,24 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) 
     return false;
 }
 
-static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
+static void LogApplyCustomTx(TransactionContext &txCtx, const int64_t start) {
+    const auto &tx = txCtx.GetTransaction();
+    const auto txType = txCtx.GetTxType();
+
     // Only log once for one of the following categories. Log BENCH first for consistent formatting.
     if (LogAcceptCategory(BCLog::BENCH)) {
         std::vector<unsigned char> metadata;
         LogPrint(BCLog::BENCH,
                  "    - ApplyCustomTx: %s Type: %s Time: %.2fms\n",
                  tx.GetHash().ToString(),
-                 ToString(GuessCustomTxType(tx, metadata, false)),
+                 ToString(txType),
                  (GetTimeMicros() - start) * MILLI);
     } else if (LogAcceptCategory(BCLog::CUSTOMTXBENCH)) {
         std::vector<unsigned char> metadata;
         LogPrint(BCLog::CUSTOMTXBENCH,
                  "Bench::ApplyCustomTx: %s Type: %s Time: %.2fms\n",
                  tx.GetHash().ToString(),
-                 ToString(GuessCustomTxType(tx, metadata, false)),
+                 ToString(txType),
                  (GetTimeMicros() - start) * MILLI);
     }
 }
@@ -2738,7 +2740,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 BlockContext blockCtx{&mnview};
-                const auto txCtx = TransactionContext{
+                auto txCtx = TransactionContext{
                     view,
                     *block.vtx[i],
                     chainparams.GetConsensus(),
@@ -2991,6 +2993,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
+    std::map<size_t, TransactionContext> txContexts;
+
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
         if (!xvmRes) {
@@ -3015,18 +3019,27 @@ bool CChainState::ConnectBlock(const CBlock &block,
             TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 
-            for (const auto &txRef : block.vtx) {
-                const auto &tx = *txRef;
+            for (uint32_t i{}; i < block.vtx.size(); i++) {
+                const auto &tx = *(block.vtx[i]);
                 if (tx.IsCoinBase()) {
                     continue;
                 }
-                std::vector<unsigned char> metadata;
-                const auto txType = GuessCustomTxType(tx, metadata, true);
+
+                auto txCtx = TransactionContext{
+                    view,
+                    tx,
+                    consensus,
+                    static_cast<uint32_t>(pindex->nHeight),
+                    static_cast<uint64_t>(pindex->GetBlockTime()),
+                    static_cast<uint32_t>(i),
+                };
+
+                const auto txType = txCtx.GetTxType();
+                txContexts.emplace(i, txCtx);
+
                 if (txType == CustomTxType::EvmTx) {
-                    CCustomTxMessage txMessage{CEvmTxMessage{}};
-                    const auto res =
-                        CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
-                    if (!res) {
+                    const auto &[r, txMessage] = txCtx.GetTxMessage();
+                    if (!r) {
                         continue;
                     }
 
@@ -3143,17 +3156,19 @@ bool CChainState::ConnectBlock(const CBlock &block,
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto txCtx = TransactionContext{
-                view,
-                tx,
-                consensus,
-                static_cast<uint32_t>(pindex->nHeight),
-                static_cast<uint64_t>(pindex->GetBlockTime()),
-                static_cast<uint32_t>(i),
-            };
+
+            auto txCtx = txContexts.count(i) ? txContexts.at(i)
+                                             : TransactionContext{
+                                                   view,
+                                                   tx,
+                                                   consensus,
+                                                   static_cast<uint32_t>(pindex->nHeight),
+                                                   static_cast<uint64_t>(pindex->GetBlockTime()),
+                                                   static_cast<uint32_t>(i),
+                                               };
             const auto res = ApplyCustomTx(blockCtx, txCtx);
 
-            LogApplyCustomTx(tx, applyCustomTxTime);
+            LogApplyCustomTx(txCtx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= consensus.DF8EunosHeight) {
                     return state.Invalid(
