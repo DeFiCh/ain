@@ -10,7 +10,6 @@
 #include <dfi/loan.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
-#include <validation.h>
 
 static bool IsPaybackWithCollateral(CCustomCSView &view, const std::map<DCT_ID, CBalances> &loans) {
     auto tokenDUSD = view.GetToken("DUSD");
@@ -302,7 +301,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
                                : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
     token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-    auto tokenId = mnview.CreateToken(token, false, blockCtx);
+    auto tokenId = mnview.CreateToken(token, false, &blockCtx);
     if (!tokenId) {
         return tokenId;
     }

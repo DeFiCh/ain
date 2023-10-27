@@ -15,6 +15,7 @@
 #include <uint256.h>
 #include <validation.h>
 
+class BlockContext;
 class CTransaction;
 class UniValue;
 
@@ -198,7 +199,7 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(const CTokenImpl &token,
                                bool isPreBayfront = false,
-                               BlockContext blockCtx = BlockContext{});
+                               BlockContext *blockCtx = nullptr);
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

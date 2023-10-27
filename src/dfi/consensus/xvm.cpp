@@ -12,7 +12,6 @@
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 #include <ffi/cxx.h>
-#include <validation.h>
 
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 

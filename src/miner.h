@@ -20,6 +20,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+class BlockContext;
 class CBlockIndex;
 class CChainParams;
 class CScopedTemplate;
