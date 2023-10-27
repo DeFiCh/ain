@@ -3013,7 +3013,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         if (gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS) != 0) {
             // Pre-warm validation cache
             TaskGroup g;
-            auto &pool = EvmTxTaskPool->pool;
+            auto &pool = DfTxTaskPool->pool;
 
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;

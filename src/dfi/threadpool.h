@@ -32,9 +32,6 @@ private:
 void InitDfTxGlobalTaskPool();
 void ShutdownDfTxGlobalTaskPool();
 
-void InitEvmTxGlobalTaskPool();
-void ShutdownEvmTxGlobalTaskPool();
-
 class TaskGroup {
 public:
     void AddTask();
@@ -80,6 +77,5 @@ private:
 };
 
 extern std::unique_ptr<TaskPool> DfTxTaskPool;
-extern std::unique_ptr<TaskPool> EvmTxTaskPool;
 
 #endif  // DEFI_DFI_THREADPOOL_H

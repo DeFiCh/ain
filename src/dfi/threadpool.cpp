@@ -31,28 +31,6 @@ void ShutdownDfTxGlobalTaskPool() {
     LogPrintf("DfTxTaskPool: Shutdown\n");
 }
 
-void InitEvmTxGlobalTaskPool() {
-    auto threadPoolThreads = gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS);
-    LogPrintf("EvmTxTaskPool: Init (%d)\n", threadPoolThreads);
-    if (threadPoolThreads == 0) {
-        threadPoolThreads = 1;
-    } else if (threadPoolThreads < 0) {
-        auto n = GetNumCores() - 1;
-        threadPoolThreads = std::max(1, n);
-    }
-    LogPrintf("EvmTxTaskPool: Size: %d\n", threadPoolThreads);
-    EvmTxTaskPool = std::make_unique<TaskPool>(static_cast<size_t>(threadPoolThreads));
-}
-
-void ShutdownEvmTxGlobalTaskPool() {
-    if (!EvmTxTaskPool) {
-        return;
-    }
-    LogPrintf("EvmTxTaskPool: Waiting for tasks\n");
-    EvmTxTaskPool->Shutdown();
-    LogPrintf("EvmTxTaskPool: Shutdown\n");
-}
-
 void TaskGroup::AddTask() {
     tasks.fetch_add(1, std::memory_order_release);
 }
@@ -72,4 +50,3 @@ void TaskGroup::WaitForCompletion(bool checkForPrematureCompletion) {
 }
 
 std::unique_ptr<TaskPool> DfTxTaskPool;
-std::unique_ptr<TaskPool> EvmTxTaskPool;

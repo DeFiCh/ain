@@ -289,7 +289,6 @@ void Shutdown(InitInterfaces& interfaces)
     // next startup faster by avoiding rescan.
 
     ShutdownDfTxGlobalTaskPool();
-    ShutdownEvmTxGlobalTaskPool();
     XResultStatusLogged(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
@@ -1783,7 +1782,6 @@ bool AppInitMain(InitInterfaces& interfaces)
     CacheSizes nCacheSizes;
     SetupCacheSizes(nCacheSizes);
     InitDfTxGlobalTaskPool();
-    InitEvmTxGlobalTaskPool();
 
     bool fLoaded = false;
     fReindex = gArgs.GetBoolArg("-reindex", false);
