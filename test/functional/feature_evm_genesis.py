@@ -22,7 +22,7 @@ class EVMTest(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             [
-                "-ethstartstate={}".format(genesis),
+                "-evmstartstate={}".format(genesis),
                 "-dummypos=0",
                 "-txnotokens=0",
                 "-amkheight=50",

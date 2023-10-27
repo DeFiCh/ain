@@ -1,6 +1,6 @@
 use std::{convert::Into, str::FromStr, sync::Arc};
 
-use ain_cpp_imports::get_eth_priv_key;
+use ain_cpp_imports::get_evm_priv_key;
 use ain_evm::{
     bytes::Bytes,
     core::EthCallArgs,
@@ -727,7 +727,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
 
-        match ain_cpp_imports::publish_eth_transaction(hex) {
+        match ain_cpp_imports::publish_evm_transaction(hex) {
             Ok(res_string) => {
                 if res_string.is_empty() {
                     let signed_tx: SignedTx = self
@@ -1130,7 +1130,7 @@ fn sign(
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
     debug!("sign address {:#x}", address);
     let key = format!("{address:?}");
-    let priv_key = get_eth_priv_key(key).unwrap();
+    let priv_key = get_evm_priv_key(key).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
 
     match message {

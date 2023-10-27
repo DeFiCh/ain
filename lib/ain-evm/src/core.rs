@@ -42,11 +42,9 @@ pub struct SignedTxCache {
     inner: spin::Mutex<LruCache<String, SignedTx>>,
 }
 
-const DEFAULT_CACHE_SIZE: usize = 10000;
-
 impl Default for SignedTxCache {
     fn default() -> Self {
-        Self::new(DEFAULT_CACHE_SIZE)
+        Self::new(ain_cpp_imports::get_evm_cache_size_limit())
     }
 }
 
@@ -97,7 +95,7 @@ struct TxValidationCache {
 
 impl Default for TxValidationCache {
     fn default() -> Self {
-        Self::new(DEFAULT_CACHE_SIZE)
+        Self::new(ain_cpp_imports::get_evm_cache_size_limit())
     }
 }
 

@@ -34,7 +34,7 @@ mod ffi {
     pub fn isMining() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn publishEthTransaction(_data: Vec<u8>) -> String {
+    pub fn publishEvmTransaction(_data: Vec<u8>) -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getAccounts() -> Vec<String> {
@@ -43,7 +43,7 @@ mod ffi {
     pub fn getDatadir() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthMaxConnections() -> u32 {
+    pub fn getEvmMaxConnections() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getNetwork() -> String {
@@ -64,7 +64,7 @@ mod ffi {
     pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthPrivKey(_key: String) -> [u8; 32] {
+    pub fn getEvmPrivKey(_key: String) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getStateInputJSON() -> String {
@@ -118,8 +118,8 @@ pub fn is_mining() -> Result<bool, Box<dyn Error>> {
     Ok(is_mining)
 }
 
-pub fn publish_eth_transaction(data: Vec<u8>) -> Result<String, Box<dyn Error>> {
-    let publish = ffi::publishEthTransaction(data);
+pub fn publish_evm_transaction(data: Vec<u8>) -> Result<String, Box<dyn Error>> {
+    let publish = ffi::publishEvmTransaction(data);
     Ok(publish)
 }
 
@@ -133,7 +133,7 @@ pub fn get_datadir() -> String {
 }
 
 pub fn get_max_connections() -> u32 {
-    ffi::getEthMaxConnections()
+    ffi::getEvmMaxConnections()
 }
 
 pub fn get_network() -> String {
@@ -165,9 +165,9 @@ pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
     Ok(tx_fee)
 }
 
-pub fn get_eth_priv_key(key: String) -> Result<[u8; 32], Box<dyn Error>> {
-    let eth_key = ffi::getEthPrivKey(key);
-    Ok(eth_key)
+pub fn get_evm_priv_key(key: String) -> Result<[u8; 32], Box<dyn Error>> {
+    let evm_key = ffi::getEvmPrivKey(key);
+    Ok(evm_key)
 }
 
 pub fn get_state_input_json() -> Option<String> {
@@ -209,6 +209,10 @@ pub fn get_cors_allowed_origin() -> String {
 
 pub fn get_num_connections() -> i32 {
     ffi::getNumConnections()
+}
+
+pub fn get_evm_cache_size_limit() -> usize {
+    ffi::getEvmCacheSizeLimit()
 }
 
 #[cfg(test)]

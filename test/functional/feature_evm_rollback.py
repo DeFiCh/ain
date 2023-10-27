@@ -37,7 +37,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = self.nodes[0].getnewaddress("", "erc55")
+        self.evmAddress = self.nodes[0].getnewaddress("", "erc55")
         self.toAddress = self.nodes[0].getnewaddress("", "erc55")
 
         # Generate chain
@@ -47,7 +47,7 @@ class EVMRolllbackTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -80,7 +80,7 @@ class EVMRolllbackTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -132,7 +132,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
         txHash = self.nodes[0].eth_sendTransaction(
             {
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "to": self.toAddress,
                 "value": "0xa",
                 "gas": "0x7a120",
@@ -145,7 +145,7 @@ class EVMRolllbackTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         txInfo = {
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "to": self.toAddress,
             "value": "0xa",
             "gas": "0x7a120",  # 500_000

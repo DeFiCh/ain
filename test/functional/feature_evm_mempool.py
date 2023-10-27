@@ -44,15 +44,15 @@ class EVMTest(DefiTestFramework):
         self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
             "erc55"
         ]
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.ethPrivKey = (
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.toPrivKey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )
-        self.nodes[0].importprivkey(self.ethPrivKey)  # ethAddress
+        self.nodes[0].importprivkey(self.evmPrivKey)  # evmAddress
         self.nodes[0].importprivkey(self.toPrivKey)  # toAddress
 
         # Generate chain
@@ -62,7 +62,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -95,7 +95,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -107,13 +107,13 @@ class EVMTest(DefiTestFramework):
 
     def same_nonce_transferdomain_and_evm_txs(self):
         self.rollback_to(self.start_height)
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce, 30, 21001, self.toAddress, 1)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
+        self.nodes[0].evmtx(self.evmAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce, 30, 21001, self.toAddress, 1)
         tx = self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "src": {"address": self.evmAddress, "amount": "1@DFI", "domain": 3},
                     "dst": {
                         "address": self.address,
                         "amount": "1@DFI",
@@ -191,12 +191,12 @@ class EVMTest(DefiTestFramework):
 
     def mempool_tx_limit(self):
         self.rollback_to(self.start_height)
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
 
         # Test max limit of TX from a specific sender
         for i in range(64):
             self.nodes[0].evmtx(
-                self.ethAddress, nonce + i, 21, 21001, self.toAddress, 1
+                self.evmAddress, nonce + i, 21, 21001, self.toAddress, 1
             )
 
         # Test error at the 64th EVM TX
@@ -204,7 +204,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "too-many-evm-txs-by-sender",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             nonce + 64,
             21,
             21001,
@@ -223,7 +223,7 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         txLegacy = {
             "nonce": "0x1",
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x4e3b29200",  # 21_000_000_000,
@@ -268,7 +268,7 @@ class EVMTest(DefiTestFramework):
 
         # Check Eth balances after transfer
         assert_equal(
-            int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16),
+            int(self.nodes[0].eth_getBalance(self.evmAddress)[2:], 16),
             35971776000000000000,
         )
         assert_equal(
@@ -278,7 +278,7 @@ class EVMTest(DefiTestFramework):
 
         # Try and send another TX to make sure mempool has removed entries
         tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce + 64, 21, 21001, self.toAddress, 1
+            self.evmAddress, nonce + 64, 21, 21001, self.toAddress, 1
         )
         self.nodes[0].generate(1)
         self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
@@ -325,9 +325,9 @@ class EVMTest(DefiTestFramework):
         self.rollback_to(self.start_height)
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
         value = 21
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce, value, 21001, self.toAddress, 1
+            self.evmAddress, nonce, value, 21001, self.toAddress, 1
         )
         mempool_info = self.nodes[0].getrawmempool()
         assert_equal(len(mempool_info), 1)
@@ -337,7 +337,7 @@ class EVMTest(DefiTestFramework):
             # Check evmtx RBF succeeds
             value = math.ceil(value * 1.1)
             tx = self.nodes[0].evmtx(
-                self.ethAddress, nonce, value, 21001, self.toAddress, 1
+                self.evmAddress, nonce, value, 21001, self.toAddress, 1
             )
             mempool_info = self.nodes[0].getrawmempool()
             assert_equal(len(mempool_info), 1)
@@ -349,7 +349,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "too-many-evm-rbf-txs-by-sender",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             nonce,
             value,
             21001,
@@ -367,13 +367,13 @@ class EVMTest(DefiTestFramework):
         # Check mempool allows sender to do RBF once sender's evm tx is minted
         value = 21
         tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce + 1, value, 21001, self.toAddress, 1
+            self.evmAddress, nonce + 1, value, 21001, self.toAddress, 1
         )
         for i in range(40):
             # Check evmtx RBF succeeds
             value = math.ceil(value * 1.1)
             tx = self.nodes[0].evmtx(
-                self.ethAddress, nonce + 1, value, 21001, self.toAddress, 1
+                self.evmAddress, nonce + 1, value, 21001, self.toAddress, 1
             )
             mempool_info = self.nodes[0].getrawmempool()
             assert_equal(len(mempool_info), 1)
@@ -384,7 +384,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "too-many-evm-rbf-txs-by-sender",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             nonce + 1,
             62,
             21001,
@@ -396,18 +396,18 @@ class EVMTest(DefiTestFramework):
         self.rollback_to(self.start_height)
         assert_equal(len(self.nodes[0].getrawmempool()), 0)
 
-        # Check ethAddress balance
+        # Check evmAddress balance
         assert_equal(
-            int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16),
+            int(self.nodes[0].eth_getBalance(self.evmAddress)[2:], 16),
             100000000000000000000,
         )
 
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce + 1, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce + 2, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce + 3, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce + 4, 21, 21001, self.toAddress, 1)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
+        self.nodes[0].evmtx(self.evmAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce + 1, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce + 2, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce + 3, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce + 4, 21, 21001, self.toAddress, 1)
         assert_equal(len(self.nodes[0].getrawmempool()), 5)
 
         # send a transferdomain to drain eth address of balance
@@ -415,7 +415,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -446,11 +446,11 @@ class EVMTest(DefiTestFramework):
         self.rollback_to(self.start_height)
 
         # Create out-of-order pending nonces
-        self.nodes[0].evmtx(self.ethAddress, 5, 21, 21000, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, 3, 21, 21000, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, 4, 21, 21000, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, 2, 21, 21000, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, 1, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 5, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 3, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 4, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 2, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 1, 21, 21000, self.toAddress, 1)
 
         # Check number of TXs in mempool
         assert_equal(len(self.nodes[0].getrawmempool()), 5)
@@ -462,7 +462,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(len(self.nodes[0].getrawmempool()), 5)
 
         # Create missing nonce TX
-        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
         # All TXs are now minted

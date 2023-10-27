@@ -72,7 +72,7 @@ class addressmapTests(DefiTestFramework):
             ],
         ]
 
-        self.ethAddress = addr_keys[0][0]
+        self.evmAddress = addr_keys[0][0]
         self.toAddress = addr_keys[1][0]
 
         for [addr, key] in addr_keys:
@@ -85,7 +85,7 @@ class addressmapTests(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -185,12 +185,12 @@ class addressmapTests(DefiTestFramework):
     def addressmap_valid_address_not_present_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
-        eth_address = self.nodes[1].getnewaddress("", "erc55")
+        evm_address = self.nodes[1].getnewaddress("", "erc55")
         assert_raises_rpc_error(
             -5,
-            "no full public key for address " + eth_address,
+            "no full public key for address " + evm_address,
             self.nodes[0].addressmap,
-            eth_address,
+            evm_address,
             AddressConversionType.EVMToDVMAddress,
         )
 
@@ -198,7 +198,7 @@ class addressmapTests(DefiTestFramework):
         self.rollback_to(self.start_block_height)
         address = self.nodes[0].getnewaddress("", "legacy")
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
-        eth_address = self.nodes[0].getnewaddress("", "erc55")
+        evm_address = self.nodes[0].getnewaddress("", "erc55")
         assert_invalid_parameter = lambda *args: assert_raises_rpc_error(
             -8, "Invalid type parameter", self.nodes[0].addressmap, *args
         )
@@ -207,7 +207,7 @@ class addressmapTests(DefiTestFramework):
         )
         assert_invalid_parameter(address, 9)
         assert_invalid_parameter(address, -1)
-        assert_invalid_format(eth_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid_format(evm_address, AddressConversionType.DVMToEVMAddress)
         assert_invalid_format(address, AddressConversionType.EVMToDVMAddress)
         assert_invalid_format(p2sh_address, AddressConversionType.DVMToEVMAddress)
         assert_invalid_format(p2sh_address, AddressConversionType.DVMToEVMAddress)
@@ -215,19 +215,19 @@ class addressmapTests(DefiTestFramework):
     def addressmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Check that addressmap is failing on wrong input
-        eth_address = "0x0000000000000000000000000000000000000000"
+        evm_address = "0x0000000000000000000000000000000000000000"
         assert_raises_rpc_error(
             -5,
-            eth_address + " does not refer to a key",
+            evm_address + " does not refer to a key",
             self.nodes[0].addressmap,
-            eth_address,
+            evm_address,
             AddressConversionType.EVMToDVMAddress,
         )
         assert_raises_rpc_error(
             -8,
             "Invalid address format",
             self.nodes[0].addressmap,
-            eth_address,
+            evm_address,
             AddressConversionType.DVMToEVMAddress,
         )
         assert_raises_rpc_error(

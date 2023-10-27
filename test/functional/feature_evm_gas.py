@@ -39,12 +39,12 @@ class EVMGasTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.ethPrivKey = (
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.nodes[0].importprivkey(self.ethPrivKey)  # ethAddress
+        self.nodes[0].importprivkey(self.evmPrivKey)  # evmAddress
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
@@ -56,7 +56,7 @@ class EVMGasTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -104,7 +104,7 @@ class EVMGasTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -118,10 +118,10 @@ class EVMGasTest(DefiTestFramework):
         self.rollback_to(self.start_height)
         correct_gas_used = "0x5208"
 
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         tx_without_gas_specified = {
             "nonce": hex(nonce),
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "to": self.toAddress,
             "value": "0xDE0B6B3A7640000",  # 1 DFI
             "gasPrice": "0x5D21DBA00",  # 25_000_000_000
@@ -140,10 +140,10 @@ class EVMGasTest(DefiTestFramework):
         estimate_gas = self.nodes[0].eth_estimateGas(tx_without_gas_specified)
         assert_equal(estimate_gas, correct_gas_used)  # 21000
 
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         tx_with_exact_gas_specified = {
             "nonce": hex(nonce),
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "to": self.toAddress,
             "value": "0xDE0B6B3A7640000",  # 1 DFI
             "gasPrice": "0x5D21DBA00",  # 25_000_000_000
@@ -170,7 +170,7 @@ class EVMGasTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
@@ -190,8 +190,8 @@ class EVMGasTest(DefiTestFramework):
 
         tx_without_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
+            "from": self.evmAddress,
             "gasPrice": "0x5D21DBA00",  # 25_000_000_000
         }
 
@@ -200,7 +200,7 @@ class EVMGasTest(DefiTestFramework):
             num_loops
         ).build_transaction(tx_without_gas_specified)
         signed = self.nodes[0].w3.eth.account.sign_transaction(
-            loop_without_gas_specified_tx, self.ethPrivKey
+            loop_without_gas_specified_tx, self.evmPrivKey
         )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
@@ -212,8 +212,8 @@ class EVMGasTest(DefiTestFramework):
 
         tx_with_exact_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
+            "from": self.evmAddress,
             "gasPrice": "0x5D21DBA00",  # 25_000_000_000
             "gas": correct_gas_used,
         }
@@ -229,7 +229,7 @@ class EVMGasTest(DefiTestFramework):
             num_loops
         ).build_transaction(tx_with_exact_gas_specified)
         signed = self.nodes[0].w3.eth.account.sign_transaction(
-            loop_with_exact_gas_specified_tx, self.ethPrivKey
+            loop_with_exact_gas_specified_tx, self.evmPrivKey
         )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
@@ -272,8 +272,8 @@ class EVMGasTest(DefiTestFramework):
 
         tx_with_excess_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
+            "from": self.evmAddress,
             # Note: has to be excess by a large amount. Somehow any value below 35154 fails the tx during execution
             "gas": "0x8952",  # 35154
         }
@@ -285,7 +285,7 @@ class EVMGasTest(DefiTestFramework):
             )
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(
-            withdraw_with_exact_gas_specified_tx, self.ethPrivKey
+            withdraw_with_exact_gas_specified_tx, self.evmPrivKey
         )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
@@ -296,7 +296,7 @@ class EVMGasTest(DefiTestFramework):
         assert_equal(receipt["gasUsed"], correct_gas_used)
 
         # Verify balances
-        sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
+        sender_balance = int(self.nodes[0].eth_getBalance(self.evmAddress)[2:], 16)
         contract_balance = int(
             self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
         )
@@ -316,8 +316,8 @@ class EVMGasTest(DefiTestFramework):
         # Send contract call tx with exact gas specified
         tx_with_exact_gas_specified = {
             "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
+            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
+            "from": self.evmAddress,
             "gas": correct_gas_used,
         }
         withdraw_with_exact_gas_specified_tx = (
@@ -326,7 +326,7 @@ class EVMGasTest(DefiTestFramework):
             )
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(
-            withdraw_with_exact_gas_specified_tx, self.ethPrivKey
+            withdraw_with_exact_gas_specified_tx, self.evmPrivKey
         )
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
@@ -338,7 +338,7 @@ class EVMGasTest(DefiTestFramework):
         assert_equal(receipt["gasUsed"], correct_gas_used)
 
         # Verify balances
-        sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
+        sender_balance = int(self.nodes[0].eth_getBalance(self.evmAddress)[2:], 16)
         contract_balance = int(
             self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
         )

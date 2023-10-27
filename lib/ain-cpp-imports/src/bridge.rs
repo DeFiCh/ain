@@ -29,17 +29,17 @@ pub mod ffi {
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
-        fn publishEthTransaction(data: Vec<u8>) -> String;
+        fn publishEvmTransaction(data: Vec<u8>) -> String;
         fn getAccounts() -> Vec<String>;
         fn getDatadir() -> String;
         fn getNetwork() -> String;
-        fn getEthMaxConnections() -> u32;
+        fn getEvmMaxConnections() -> u32;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
         fn getPoolTransactions() -> Vec<TransactionData>;
         fn getNativeTxSize(data: Vec<u8>) -> u64;
         fn getMinRelayTxFee() -> u64;
-        fn getEthPrivKey(key: String) -> [u8; 32];
+        fn getEvmPrivKey(key: String) -> [u8; 32];
         fn getStateInputJSON() -> String;
         fn getHighestBlock() -> i32;
         fn getCurrentHeight() -> i32;
@@ -50,5 +50,6 @@ pub mod ffi {
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;
         fn getNumConnections() -> i32;
+        fn getEvmCacheSizeLimit() -> usize;
     }
 }

@@ -46,11 +46,11 @@ class VMMapTests(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.nodes[0].importprivkey(
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
+        )  # evmAddress
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
@@ -61,7 +61,7 @@ class VMMapTests(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -100,7 +100,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -115,7 +115,7 @@ class VMMapTests(DefiTestFramework):
             num_txs = 5
             for j in range(num_txs):
                 self.nodes[0].evmtx(
-                    self.ethAddress, nonce, 21, 21000, self.toAddress, 1
+                    self.evmAddress, nonce, 21, 21000, self.toAddress, 1
                 )
                 nonce += 1
             self.nodes[0].generate(1)
@@ -186,7 +186,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -196,7 +196,7 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         block_maps = []
         for i in range(5):
-            self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
+            self.nodes[0].evmtx(self.evmAddress, i, 21, 21000, self.toAddress, 1)
             self.nodes[0].generate(1)
             dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
@@ -239,7 +239,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -249,7 +249,7 @@ class VMMapTests(DefiTestFramework):
         self.nodes[0].generate(1)
         block_maps = []
         for i in range(5):
-            self.nodes[0].evmtx(self.ethAddress, i, 21, 21000, self.toAddress, 1)
+            self.nodes[0].evmtx(self.evmAddress, i, 21, 21000, self.toAddress, 1)
             self.nodes[0].generate(1)
             dfi_block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
             eth_block = self.nodes[0].eth_getBlockByNumber("latest", False)
@@ -321,7 +321,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -330,7 +330,7 @@ class VMMapTests(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         base_block = self.nodes[0].eth_getBlockByNumber("latest", False)["hash"]
-        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        tx = self.nodes[0].evmtx(self.evmAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         base_block_dvm = self.nodes[0].getbestblockhash()
         new_block = self.nodes[0].eth_getBlockByNumber("latest", False)["hash"]
@@ -357,7 +357,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -365,7 +365,7 @@ class VMMapTests(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
-        tx = self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        tx = self.nodes[0].evmtx(self.evmAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
         list_tx = self.nodes[0].logvmmaps(2)
         eth_tx = self.nodes[0].eth_getBlockByNumber("latest", False)["transactions"][0]
@@ -412,7 +412,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -432,7 +432,7 @@ class VMMapTests(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -485,7 +485,7 @@ class VMMapTests(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "1@BTC",
                         "domain": 3,
                     },
@@ -504,7 +504,7 @@ class VMMapTests(DefiTestFramework):
         tx = self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.ethAddress, "amount": "1@BTC", "domain": 3},
+                    "src": {"address": self.evmAddress, "amount": "1@BTC", "domain": 3},
                     "dst": {
                         "address": self.address,
                         "amount": "1@BTC",

@@ -47,15 +47,15 @@ class EVMTest(DefiTestFramework):
         self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
             "erc55"
         ]
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.ethPrivKey = (
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.toPrivKey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )
-        self.nodes[0].importprivkey(self.ethPrivKey)  # ethAddress
+        self.nodes[0].importprivkey(self.evmPrivKey)  # evmAddress
         self.nodes[0].importprivkey(self.toPrivKey)  # toAddress
 
         # Generate chain
@@ -65,7 +65,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -100,7 +100,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -117,13 +117,13 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -132,7 +132,7 @@ class EVMTest(DefiTestFramework):
         )
 
         hashes = []
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         for i in range(40):
             # tx call actual used gas: 1_761_626
             tx = contract.functions.loop(10_000).build_transaction(
@@ -143,14 +143,14 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append(signed.hash.hex().lower()[2:])
 
         hash = self.nodes[0].eth_sendTransaction(
             {
                 "nonce": hex(start_nonce + 40),
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "to": self.toAddress,
                 "value": "0xDE0B6B3A7640000",  # 1 DFI
                 "gas": "0x5209",
@@ -161,7 +161,7 @@ class EVMTest(DefiTestFramework):
         hash = self.nodes[0].eth_sendTransaction(
             {
                 "nonce": hex(start_nonce + 41),
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "to": self.toAddress,
                 "value": "0xDE0B6B3A7640000",  # 1 DFI
                 "gas": "0x5209",
@@ -181,7 +181,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + idx)
             assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx])
             assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
@@ -193,7 +193,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
             )
@@ -211,7 +211,7 @@ class EVMTest(DefiTestFramework):
         for idx in range(1, (40 - first_block_total_txs - second_block_total_txs)):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
             assert_equal(tx_infos[idx]["vm"]["txtype"], "Evm")
-            assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_infos[idx]["vm"]["msg"]["nonce"],
                 start_nonce + first_block_total_txs + second_block_total_txs + idx,
@@ -226,7 +226,7 @@ class EVMTest(DefiTestFramework):
         for idx in range(6, third_block_total_txs):
             assert_equal(tx_infos[idx]["vm"]["vmtype"], "evm")
             assert_equal(tx_infos[idx]["vm"]["txtype"], "Evm")
-            assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_infos[idx]["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_infos[idx]["vm"]["msg"]["nonce"],
                 start_nonce + first_block_total_txs + second_block_total_txs + idx,
@@ -244,13 +244,13 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -258,7 +258,7 @@ class EVMTest(DefiTestFramework):
             address=receipt["contractAddress"], abi=abi
         )
 
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         # mine a full block
         for i in range(17):
             # tx call actual used gas: 1_761_626
@@ -270,15 +270,15 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         tx_fee = 10_000_000_000
         tx = {
             "nonce": hex(nonce),
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "to": self.toAddress,
             "value": "0xDE0B6B3A7640000",  # 1 DFI
             "gas": "0x5209",
@@ -305,7 +305,7 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].getaccount(self.address)[0].split("@")[0]
         )
         evm_before_balance = Decimal(
-            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+            self.nodes[0].getaccount(self.evmAddress)[0].split("@")[0]
         )
 
         transferdomaintx_hashes = []
@@ -323,7 +323,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.ethAddress,
+                            "address": self.evmAddress,
                             "amount": "1@DFI",
                             "domain": 3,
                         },
@@ -338,7 +338,7 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].getaccount(self.address)[0].split("@")[0]
         )
         evm_after_balance = Decimal(
-            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+            self.nodes[0].getaccount(self.evmAddress)[0].split("@")[0]
         )
         dvm_balance = dvm_before_balance - dvm_after_balance
         evm_balance = evm_after_balance - evm_before_balance
@@ -415,7 +415,7 @@ class EVMTest(DefiTestFramework):
             )[0]
         )
         evm_before_btc = Decimal(
-            self.btc.functions.balanceOf(self.ethAddress).call()
+            self.btc.functions.balanceOf(self.evmAddress).call()
             / math.pow(10, self.btc.functions.decimals().call())
         )
         assert_equal(evm_before_btc, Decimal(0))
@@ -436,7 +436,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.ethAddress,
+                            "address": self.evmAddress,
                             "amount": "1@BTC",
                             "domain": 3,
                         },
@@ -453,7 +453,7 @@ class EVMTest(DefiTestFramework):
             )[0]
         )
         evm_after_btc = Decimal(
-            self.btc.functions.balanceOf(self.ethAddress).call()
+            self.btc.functions.balanceOf(self.evmAddress).call()
             / math.pow(10, self.btc.functions.decimals().call())
         )
         dvm_balance = dvm_before_btc - dvm_after_btc
@@ -481,13 +481,13 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -496,7 +496,7 @@ class EVMTest(DefiTestFramework):
         )
 
         evmtx_hashes = []
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         for i in range(18):
             # tx call actual used gas: 1_761_626
             tx = contract.functions.loop(10_000).build_transaction(
@@ -507,7 +507,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             evmtx_hashes.append(signed.hash.hex().lower()[2:])
 
@@ -530,7 +530,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.ethAddress,
+                            "address": self.evmAddress,
                             "amount": "1@DFI",
                             "domain": 3,
                         },
@@ -555,7 +555,7 @@ class EVMTest(DefiTestFramework):
                 # Check that the first 17 evm contract call txs is minted in the current block
                 assert_equal(tx_info["vm"]["vmtype"], "evm")
                 assert_equal(tx_info["vm"]["txtype"], "Evm")
-                assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+                assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
                 assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + evmtx_id)
                 assert_equal(tx_info["vm"]["msg"]["hash"], evmtx_hashes[evmtx_id])
                 assert_equal(
@@ -590,7 +590,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"],
                 start_nonce + first_block_total_evm_txs + idx,
@@ -608,13 +608,13 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -623,7 +623,7 @@ class EVMTest(DefiTestFramework):
         )
 
         hashes = []
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         start_time = time()
         gas_price = 25_000_000_000
         for i in range(64):
@@ -636,7 +636,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append(signed.hash.hex().lower()[2:])
 
@@ -651,7 +651,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes[0] = signed.hash.hex().lower()[2:]
 
@@ -668,7 +668,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(tx_info["vm"]["msg"]["nonce"], start_nonce + idx)
             assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx])
             assert_equal(tx_info["vm"]["msg"]["to"], receipt["contractAddress"].lower())
@@ -680,7 +680,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"], start_nonce + first_block_total_txs + idx
             )
@@ -696,7 +696,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"],
                 start_nonce + first_block_total_txs + second_block_total_txs + idx,
@@ -714,7 +714,7 @@ class EVMTest(DefiTestFramework):
         for idx, tx_info in enumerate(block_info["tx"][1:]):
             assert_equal(tx_info["vm"]["vmtype"], "evm")
             assert_equal(tx_info["vm"]["txtype"], "Evm")
-            assert_equal(tx_info["vm"]["msg"]["sender"], self.ethAddress)
+            assert_equal(tx_info["vm"]["msg"]["sender"], self.evmAddress)
             assert_equal(
                 tx_info["vm"]["msg"]["nonce"],
                 start_nonce
@@ -743,14 +743,14 @@ class EVMTest(DefiTestFramework):
     def invalid_evm_tx_in_block_creation(self):
         self.rollback_to(self.start_height)
         before_balance = Decimal(
-            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+            self.nodes[0].getaccount(self.evmAddress)[0].split("@")[0]
         )
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         for idx in range(20):
             self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": hex(start_nonce + idx),
-                    "from": self.ethAddress,
+                    "from": self.evmAddress,
                     "to": self.toAddress,
                     "value": "0x8AC7230489E80000",  # 10 DFI
                     "gas": "0x5209",
@@ -771,7 +771,7 @@ class EVMTest(DefiTestFramework):
         correct_gas_fees = gas_fee * Decimal("20")
         correct_balance = correct_transfer + correct_gas_fees
         deducted_balance = before_balance - Decimal(
-            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+            self.nodes[0].getaccount(self.evmAddress)[0].split("@")[0]
         )
         assert_equal(deducted_balance, correct_balance)
 
@@ -782,7 +782,7 @@ class EVMTest(DefiTestFramework):
     def state_dependent_txs_in_block_and_queue(self):
         self.rollback_to(self.start_height)
         before_balance = Decimal(
-            self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
+            self.nodes[0].getaccount(self.evmAddress)[0].split("@")[0]
         )
         assert_equal(before_balance, Decimal("100"))
 
@@ -793,13 +793,13 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         contract_address = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)[
@@ -816,24 +816,24 @@ class EVMTest(DefiTestFramework):
         tx = contract.functions.changeState(True).build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "gasPrice": 25_000_000_000,
                 "gas": 30_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
         tx = contract.functions.loop(9_000).build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "gasPrice": 25_000_000_000,
                 "gas": 30_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         gas_used = Decimal(
@@ -845,12 +845,12 @@ class EVMTest(DefiTestFramework):
         tx = contract.functions.changeState(False).build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "gasPrice": 25_000_000_000,
                 "gas": 30_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         gas_used = Decimal(
@@ -861,12 +861,12 @@ class EVMTest(DefiTestFramework):
         tx = contract.functions.loop(9_000).build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "gasPrice": 25_000_000_000,
                 "gas": 30_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
         gas_used = Decimal(
@@ -878,17 +878,17 @@ class EVMTest(DefiTestFramework):
         tx = contract.functions.changeState(True).build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "gasPrice": 25_000_000_000,
                 "gas": 30_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
         hashes = []
-        count = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        count = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         for idx in range(10):
             tx = contract.functions.loop(9_000).build_transaction(
                 {
@@ -898,7 +898,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append((signed.hash.hex()))
 
@@ -911,7 +911,7 @@ class EVMTest(DefiTestFramework):
                 "gas": 30_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         hashes.append(signed.hash.hex())
 
@@ -924,7 +924,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
             hashes.append(signed.hash.hex())
 
@@ -978,17 +978,17 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.evmAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         start_nonce_erc55 = self.nodes[0].w3.eth.get_transaction_count(
             self.address_erc55
         )
@@ -1008,7 +1008,7 @@ class EVMTest(DefiTestFramework):
                     "gas": 30_000_000,
                 }
             )
-            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.evmPrivKey)
             self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
 
         for i in range(6):
@@ -1021,7 +1021,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.ethAddress,
+                            "address": self.evmAddress,
                             "amount": "1@DFI",
                             "domain": 3,
                         },
@@ -1047,7 +1047,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.ethAddress,
+                            "address": self.evmAddress,
                             "amount": "1@DFI",
                             "domain": 3,
                         },
@@ -1072,7 +1072,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.ethAddress,
+                            "address": self.evmAddress,
                             "amount": "1@DFI",
                             "domain": 3,
                         },

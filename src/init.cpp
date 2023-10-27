@@ -424,6 +424,8 @@ void SetupServerArgs()
     gArgs.AddArg("-datadir=<dir>", "Specify data directory", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbbatchsize", strprintf("Maximum database write batch size in bytes (default: %u)", nDefaultDbBatchSize), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbcache=<n>", strprintf("Maximum database cache size <n> MiB (%d to %d, default: %d). In addition, unused mempool memory is shared for this cache (see -maxmempool).", nMinDbCache, nMaxDbCache, nDefaultDbCache), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-evmcachesize=<n>", strprintf("Maximum EVM database cache size <n> items (default: %d).", DEFAULT_EVM_CACHE_SIZE_LIMIT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-eccprecache", "Flag to use parrallel ecc recovery of signed EVM transactions on block validation (default: true).", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-includeconf=<file>", "Specify additional configuration file, relative to the -datadir path (only useable from configuration file, not command line)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -524,7 +526,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dexstats", strprintf("Enable storing live dex data in DB (default: %u)", DEFAULT_DEXSTATS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-blocktimeordering", strprintf("(Deprecated) Whether to order transactions by time, otherwise ordered by fee (default: %u)", false), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-txordering", strprintf("Whether to order transactions by entry time, fee or both randomly (0: mixed, 1: fee based, 2: entry time) (default: %u)", DEFAULT_TX_ORDERING), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-ethstartstate", strprintf("Initialise Ethereum state trie using JSON input"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-evmstartstate", strprintf("Initialise EVM state trie using JSON input"), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
 #ifdef USE_UPNP
 #if USE_UPNP
     gArgs.AddArg("-upnp", "Use UPnP to map the listening port (default: 1 when listening and no -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -648,10 +650,10 @@ void SetupServerArgs()
     gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-grpcbind=<addr>[:port]", "Bind to given address to listen for JSON-gRPC connections. Do not expose the gRPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -grpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), changiBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-ethrpcbind=<addr>[:port]", "Bind to given address to listen for ETH-JSON-RPC connections. Do not expose the ETH-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -ethrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-wsport=<port>", strprintf("Listen for ETH-WebSockets connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->WSPort(), testnetBaseParams->WSPort(), changiBaseParams->WSPort(), devnetBaseParams->WSPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-ethmaxconnections=<connections>", strprintf("Set the maximum number of connections allowed by the ETH-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS, DEFAULT_ETH_MAX_CONNECTIONS), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-evmrpcbind=<addr>[:port]", "Bind to given address to listen for EVM-JSON-RPC connections. Do not expose the EVM-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -evmrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-evmrpcport=<port>", strprintf("Listen for EVM-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->evmrpcport(), testnetBaseParams->evmrpcport(), changiBaseParams->evmrpcport(), devnetBaseParams->evmrpcport(), regtestBaseParams->evmrpcport()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-wsport=<port>", strprintf("Listen for EVM-WebSockets connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->WSPort(), testnetBaseParams->WSPort(), changiBaseParams->WSPort(), devnetBaseParams->WSPort(), regtestBaseParams->evmrpcport()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-evmmaxconnections=<connections>", strprintf("Set the maximum number of connections allowed by the EVM-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1571,32 +1573,32 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 }
 
-void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
-    // Current API only allows for one ETH RPC/gRPC server to bind to one address.
+void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& evmEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
+    // Current API only allows for one EVM RPC/gRPC server to bind to one address.
     // By default, we will take the first address, if multiple addresses are specified.
-    int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
+    int evm_rpc_port = gArgs.GetArg("-evmrpcport", BaseParams().evmrpcport());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
     int websockets_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
 
-    // Determine which addresses to bind to ETH RPC server
-    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
-        ethEndpoints.emplace_back("127.0.0.1", eth_rpc_port);
-        ethEndpoints.emplace_back("127.0.0.1", websockets_port);
+    // Determine which addresses to bind to EVM RPC server
+    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-evmrpcbind"))) { // Default to loopback if not allowing external IPs
+        evmEndpoints.emplace_back("127.0.0.1", evm_rpc_port);
+        evmEndpoints.emplace_back("127.0.0.1", websockets_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
-            LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
+            LogPrintf("WARNING: option -rpcallowip was specified without -evmrpcbind; this doesn't usually make sense\n");
         }
-        if (gArgs.IsArgSet("-ethrpcbind")) {
-            LogPrintf("WARNING: option -ethrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
+        if (gArgs.IsArgSet("-evmrpcbind")) {
+            LogPrintf("WARNING: option -evmrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
         }
-    } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
-        for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
-            int port = eth_rpc_port;
+    } else if (gArgs.IsArgSet("-evmrpcbind")) { // Specific bind address
+        for (const std::string& strEVMRPCBind : gArgs.GetArgs("-evmrpcbind")) {
+            int port = evm_rpc_port;
             int ws_port = websockets_port;
 
             std::string host;
-            SplitHostPort(strETHRPCBind, port, host);
-            ethEndpoints.emplace_back(host, port);
-            ethEndpoints.emplace_back(host, ws_port);
+            SplitHostPort(strEVMRPCBind, port, host);
+            evmEndpoints.emplace_back(host, port);
+            evmEndpoints.emplace_back(host, ws_port);
         }
     }
 
@@ -2268,17 +2270,17 @@ bool AppInitMain(InitInterfaces& interfaces)
     // ********************************************************* Step 14: finished
 
     SetRPCWarmupFinished();
-    // Start the GRPC and ETH RPC servers
+    // Start the GRPC and EVM RPC servers
     // We start the evm RPC servers as late as possible.
     {
-        std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
+        std::vector<std::pair<std::string, uint16_t>> evm_endpoints;
         std::vector<std::pair<std::string, uint16_t>> g_endpoints;
-        SetupRPCPorts(eth_endpoints, g_endpoints);
+        SetupRPCPorts(evm_endpoints, g_endpoints);
         // Default to using the first address passed to bind
-        auto eth_endpoint = eth_endpoints[0].first + ":" + std::to_string(eth_endpoints[0].second);
-        auto websockets_endpoint = eth_endpoints[1].first + ":" + std::to_string(eth_endpoints[1].second);
+        auto evm_endpoint = evm_endpoints[0].first + ":" + std::to_string(evm_endpoints[0].second);
+        auto websockets_endpoint = evm_endpoints[1].first + ":" + std::to_string(evm_endpoints[1].second);
         auto grpc_endpoint = g_endpoints[0].first + "." + std::to_string(g_endpoints[0].second);
-        auto res = XResultStatusLogged(ain_rs_init_network_services(result, eth_endpoint, grpc_endpoint, websockets_endpoint));
+        auto res = XResultStatusLogged(ain_rs_init_network_services(result, evm_endpoint, grpc_endpoint, websockets_endpoint));
         if (!res) return false;
     }
     uiInterface.InitMessage(_("Done loading").translated);

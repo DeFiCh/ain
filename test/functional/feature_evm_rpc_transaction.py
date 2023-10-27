@@ -51,11 +51,11 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.nodes[0].importprivkey(
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
+        )  # evmAddress
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
@@ -67,7 +67,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -101,7 +101,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "50@DFI",
                         "domain": 3,
                     },
@@ -110,13 +110,13 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        balance = self.nodes[0].eth_getBalance(self.evmAddress, "latest")
         assert_equal(balance, int_to_eth_u256(50))
 
     def test_sign_and_send_raw_transaction(self):
         txLegacy = {
             "nonce": "0x0",
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x00",
             "data": CONTRACT_BYTECODE,
             "gas": "0x7a120",  # 500_000
@@ -179,7 +179,7 @@ class EVMTest(DefiTestFramework):
         )
 
         tx2930 = {
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "nonce": "0x1",
             "value": "0x0",
             "data": CONTRACT_BYTECODE,
@@ -187,7 +187,7 @@ class EVMTest(DefiTestFramework):
             "gasPrice": "0x22ecb25c00",  # 150_000_000_000,
             "accessList": [
                 {
-                    "address": self.ethAddress,
+                    "address": self.evmAddress,
                     "storageKeys": [
                         "0x0000000000000000000000000000000000000000000000000000000000000000"
                     ],
@@ -263,7 +263,7 @@ class EVMTest(DefiTestFramework):
 
         tx1559 = {
             "nonce": "0x2",
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x0",
             "data": CONTRACT_BYTECODE,
             "gas": "0x7a120",  # 500_000
@@ -330,7 +330,7 @@ class EVMTest(DefiTestFramework):
 
     def test_send_transaction(self):
         txLegacy = {
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x00",
             "data": CONTRACT_BYTECODE,
             "gas": "0x7a120",  # 500_000
@@ -380,14 +380,14 @@ class EVMTest(DefiTestFramework):
         )
 
         tx2930 = {
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x00",
             "data": CONTRACT_BYTECODE,
             "gas": "0x7a120",  # 500_000
             "gasPrice": "0x22ecb25c00",  # 150_000_000_000,
             "accessList": [
                 {
-                    "address": self.ethAddress,
+                    "address": self.evmAddress,
                     "storageKeys": [
                         "0x0000000000000000000000000000000000000000000000000000000000000000"
                     ],
@@ -439,7 +439,7 @@ class EVMTest(DefiTestFramework):
         )
 
         tx1559 = {
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x0",
             "data": CONTRACT_BYTECODE,
             "gas": "0x18e70",  # 102_000
@@ -491,11 +491,11 @@ class EVMTest(DefiTestFramework):
         )
 
     def test_auto_nonce_for_multiple_transaction(self):
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evmAddress)
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "src": {"address": self.evmAddress, "amount": "1@DFI", "domain": 3},
                     "dst": {
                         "address": self.address,
                         "amount": "1@DFI",
@@ -505,11 +505,11 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        self.nodes[0].evmtx(self.ethAddress, nonce + 5, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, nonce + 5, 21, 21001, self.toAddress, 1)
         self.nodes[0].eth_sendTransaction(
             {
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "to": self.toAddress,
                 "nonce": hex(nonce + 3),
                 "value": "0xDE0B6B3A7640000",  # 1 DFI
@@ -520,7 +520,7 @@ class EVMTest(DefiTestFramework):
         # test auto nonce for the 2nd evm tx (nonce + 1)
         hash = self.nodes[0].eth_sendTransaction(
             {
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "to": self.toAddress,
                 "value": "0xDE0B6B3A7640000",  # 1 DFI
                 "gas": "0x7a120",
@@ -531,7 +531,7 @@ class EVMTest(DefiTestFramework):
         tf_hash = self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "src": {"address": self.evmAddress, "amount": "1@DFI", "domain": 3},
                     "dst": {
                         "address": self.address,
                         "amount": "1@DFI",

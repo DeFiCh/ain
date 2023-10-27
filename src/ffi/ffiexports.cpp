@@ -23,7 +23,7 @@ bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }
 
-rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
+rust::string publishEvmTransaction(rust::Vec<uint8_t> rawTransaction) {
     std::vector<uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -227,19 +227,19 @@ uint64_t getMinRelayTxFee() {
     return ::minRelayTxFee.GetFeePerK() * 10000000;
 }
 
-std::array<uint8_t, 32> getEthPrivKey(rust::string key) {
+std::array<uint8_t, 32> getEvmPrivKey(rust::string key) {
     const auto dest = DecodeDestination(std::string(key.begin(), key.length()));
     if (dest.index() != WitV16KeyEthHashType) {
         return {};
     }
     const auto keyID = std::get<WitnessV16EthHash>(dest);
-    const CKeyID ethKeyID{keyID};
+    const CKeyID evmKeyID{keyID};
 
-    CKey ethPrivKey;
+    CKey evmPrivKey;
     for (const auto &wallet: GetWallets()) {
-        if (wallet->GetKey(ethKeyID, ethPrivKey)) {
+        if (wallet->GetKey(evmKeyID, evmPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
-            std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
+            std::copy(evmPrivKey.begin(), evmPrivKey.end(), privKeyArray.begin());
             return privKeyArray;
         }
     }
@@ -247,7 +247,7 @@ std::array<uint8_t, 32> getEthPrivKey(rust::string key) {
 }
 
 rust::string getStateInputJSON() {
-    return gArgs.GetArg("-ethstartstate", "");
+    return gArgs.GetArg("-evmstartstate", "");
 }
 
 int getHighestBlock() {
@@ -269,8 +269,8 @@ Attributes getAttributeDefaults() {
     return Attributes::Default();
 }
 
-uint32_t getEthMaxConnections() {
-    return gArgs.GetArg("-ethmaxconnections", DEFAULT_ETH_MAX_CONNECTIONS);
+uint32_t getEvmMaxConnections() {
+    return gArgs.GetArg("-evmmaxconnections", DEFAULT_EVM_MAX_CONNECTIONS);
 }
 
 rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
@@ -299,4 +299,8 @@ rust::string getCORSAllowedOrigin() {
 
 int32_t getNumConnections() {
     return (int32_t)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL);
+}
+
+size_t getEvmCacheSizeLimit() {
+    return gArgs.GetArg("-evmcachesize", DEFAULT_EVM_CACHE_SIZE_LIMIT);
 }

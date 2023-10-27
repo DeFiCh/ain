@@ -169,7 +169,7 @@ UniValue importprivkey(const JSONRPCRequest& request)
         }
 
         CKey key;
-        if (const auto ethKey{IsHex(strSecret)}; ethKey) {
+        if (const auto evmKey{IsHex(strSecret)}; evmKey) {
             const auto vch = ParseHex(strSecret);
             key.Set(vch.begin(), vch.end(), true);
         } else {

@@ -9,7 +9,8 @@
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET = 15000000;
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
-static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
+static constexpr uint32_t DEFAULT_EVM_MAX_CONNECTIONS = 100;
+static constexpr uint32_t DEFAULT_EVM_CACHE_SIZE_LIMIT = 10000;
 
 struct Attributes {
     uint64_t blockGasTarget;
@@ -50,17 +51,17 @@ enum class TransactionDataDirection : uint8_t {
 
 uint64_t getChainId();
 bool isMining();
-rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
+rust::string publishEvmTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
 rust::string getDatadir();
 rust::string getNetwork();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
-uint32_t getEthMaxConnections();
+uint32_t getEvmMaxConnections();
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<TransactionData> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
-std::array<uint8_t, 32> getEthPrivKey(rust::string key);
+std::array<uint8_t, 32> getEvmPrivKey(rust::string key);
 rust::string getStateInputJSON();
 int getHighestBlock();
 int getCurrentHeight();
@@ -71,5 +72,6 @@ rust::string getClientVersion();
 int32_t getNumCores();
 rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
+size_t getEvmCacheSizeLimit();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

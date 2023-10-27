@@ -62,13 +62,13 @@ class EVMTest(DefiTestFramework):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.address_2nd = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.address1 = self.nodes[1].get_genesis_keys().ownerAuthAddress
-        self.eth_address = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.eth_address_bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8"
-        self.eth_address_privkey = (
+        self.evm_address = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evm_address_bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8"
+        self.evm_address_privkey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
-        self.eth_address1 = self.nodes[0].getnewaddress("", "erc55")
-        self.no_auth_eth_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
+        self.evm_address1 = self.nodes[0].getnewaddress("", "erc55")
+        self.no_auth_evm_address = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.address_erc55 = self.nodes[0].addressmap(self.address, 1)["format"][
             "erc55"
         ]
@@ -86,9 +86,9 @@ class EVMTest(DefiTestFramework):
         self.symbolBTCDFI = "BTC-DFI"
         symbolUSER = "USER"
 
-        # Import eth_address and validate Bech32 eqivilent is part of the wallet
-        self.nodes[0].importprivkey(self.eth_address_privkey)
-        result = self.nodes[0].getaddressinfo(self.eth_address_bech32)
+        # Import evm_address and validate Bech32 eqivilent is part of the wallet
+        self.nodes[0].importprivkey(self.evm_address_privkey)
+        result = self.nodes[0].getaddressinfo(self.evm_address_bech32)
         assert_equal(
             result["scriptPubKey"], "00145f4fbcf30273f770702297e8e0fc55f1bb213db3"
         )
@@ -165,7 +165,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+                self.nodes[0], self.address, self.evm_address, "100@DFI", 2, 3
             ),
         )
 
@@ -176,7 +176,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot create tx, transfer domain is not enabled",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+                self.nodes[0], self.address, self.evm_address, "100@DFI", 2, 3
             ),
         )
 
@@ -191,7 +191,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot create tx, transfer domain is not enabled",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+                self.nodes[0], self.address, self.evm_address, "100@DFI", 2, 3
             ),
         )
 
@@ -216,14 +216,14 @@ class EVMTest(DefiTestFramework):
             -32600,
             "DVM to EVM is not currently enabled",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+                self.nodes[0], self.address, self.evm_address, "100@DFI", 2, 3
             ),
         )
         assert_raises_rpc_error(
             -32600,
             "EVM to DVM is not currently enabled",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "100@DFI", 3, 2
+                self.nodes[0], self.address, self.evm_address, "100@DFI", 3, 2
             ),
         )
 
@@ -241,14 +241,14 @@ class EVMTest(DefiTestFramework):
             -32600,
             "transferdomain for DST20 from DVM to EVM is not enabled",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "1@BTC", 2, 3
+                self.nodes[0], self.address, self.evm_address, "1@BTC", 2, 3
             ),
         )
         assert_raises_rpc_error(
             -32600,
             "transferdomain for DST20 from EVM to DVM is not enabled",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "1@BTC", 3, 2
+                self.nodes[0], self.address, self.evm_address, "1@BTC", 3, 2
             ),
         )
 
@@ -270,10 +270,10 @@ class EVMTest(DefiTestFramework):
 
         # Check initial balances
         self.dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
-        self.eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        self.eth_balance = self.nodes[0].eth_getBalance(self.evm_address)
         assert_equal(self.dfi_balance, Decimal("101"))
         assert_equal(self.eth_balance, int_to_eth_u256(0))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
+        assert_equal(len(self.nodes[0].getaccount(self.evm_address, {}, True)), 0)
 
     def invalid_parameters(self):
         self.rollback_to(self.start_height)
@@ -287,7 +287,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -302,7 +302,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -317,7 +317,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI"},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -336,7 +336,7 @@ class EVMTest(DefiTestFramework):
                         "domain": "dvm",
                     },
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -351,7 +351,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": "evm",
                     },
@@ -366,7 +366,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 0},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
@@ -381,7 +381,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 4,
                     },
@@ -396,7 +396,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": "blablabla", "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -429,7 +429,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot transfer inside same domain",
             lambda: transfer_domain(
-                self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 2
+                self.nodes[0], self.address, self.evm_address, "100@DFI", 2, 2
             ),
         )
         assert_raises_rpc_error(
@@ -440,7 +440,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "101@DFI",
                         "domain": 3,
                     },
@@ -453,7 +453,7 @@ class EVMTest(DefiTestFramework):
             lambda: transfer_domain(
                 self.nodes[0],
                 self.address,
-                self.eth_address,
+                self.evm_address,
                 "1@" + self.symbolUSER,
                 2,
                 3,
@@ -465,7 +465,7 @@ class EVMTest(DefiTestFramework):
             lambda: transfer_domain(
                 self.nodes[0],
                 self.address,
-                self.eth_address,
+                self.evm_address,
                 "1@" + self.symbolBTCDFI,
                 2,
                 3,
@@ -477,7 +477,7 @@ class EVMTest(DefiTestFramework):
 
         # Transfer 100 DFI from DVM to EVM
         tx1 = transfer_domain(
-            self.nodes[0], self.address, self.eth_address, "100@DFI", 2, 3
+            self.nodes[0], self.address, self.evm_address, "100@DFI", 2, 3
         )
         self.nodes[0].generate(1)
 
@@ -486,7 +486,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result["src"]["address"], self.address)
         assert_equal(result["src"]["amount"], "100.00000000@0")
         assert_equal(result["src"]["domain"], "DVM")
-        assert_equal(result["dst"]["address"], self.eth_address)
+        assert_equal(result["dst"]["address"], self.evm_address)
         assert_equal(result["dst"]["amount"], "100.00000000@0")
         assert_equal(result["dst"]["domain"], "EVM")
 
@@ -498,11 +498,11 @@ class EVMTest(DefiTestFramework):
 
         # Check new balances
         new_dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
-        new_eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        new_eth_balance = self.nodes[0].eth_getBalance(self.evm_address)
         assert_equal(new_dfi_balance, self.dfi_balance - Decimal("100"))
         assert_equal(new_eth_balance, int_to_eth_u256(100))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 1)
-        assert_equal(self.nodes[0].getaccount(self.eth_address)[0], "100.00000000@DFI")
+        assert_equal(len(self.nodes[0].getaccount(self.evm_address, {}, True)), 1)
+        assert_equal(self.nodes[0].getaccount(self.evm_address)[0], "100.00000000@DFI")
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
@@ -550,12 +550,12 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
@@ -569,7 +569,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -584,7 +584,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -599,7 +599,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address1,
+                        "address": self.evm_address1,
                         "amount": "10@DFI",
                         "domain": 3,
                     },
@@ -607,7 +607,7 @@ class EVMTest(DefiTestFramework):
                 },
                 {
                     "src": {
-                        "address": self.eth_address1,
+                        "address": self.evm_address1,
                         "amount": "10@DFI",
                         "domain": 3,
                     },
@@ -631,7 +631,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "1@" + self.symbolUSER,
                         "domain": 2,
                     },
@@ -650,7 +650,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "1@" + self.symbolBTCDFI,
                         "domain": 2,
                     },
@@ -666,13 +666,13 @@ class EVMTest(DefiTestFramework):
 
         # Transfer 100 DFI from EVM to DVM
         tx = transfer_domain(
-            self.nodes[0], self.eth_address, self.address, "100@DFI", 3, 2
+            self.nodes[0], self.evm_address, self.address, "100@DFI", 3, 2
         )
         self.nodes[0].generate(1)
 
         # Check tx fields
         result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
-        assert_equal(result["src"]["address"], self.eth_address)
+        assert_equal(result["src"]["address"], self.evm_address)
         assert_equal(result["src"]["amount"], "100.00000000@0")
         assert_equal(result["src"]["domain"], "EVM")
         assert_equal(result["dst"]["address"], self.address)
@@ -681,10 +681,10 @@ class EVMTest(DefiTestFramework):
 
         # Check new balances
         new_dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
-        new_eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        new_eth_balance = self.nodes[0].eth_getBalance(self.evm_address)
         assert_equal(new_dfi_balance, self.dfi_balance)
         assert_equal(new_eth_balance, self.eth_balance)
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
+        assert_equal(len(self.nodes[0].getaccount(self.evm_address, {}, True)), 0)
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
@@ -800,7 +800,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address1, "amount": "1@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "1@DFI",
                         "domain": 3,
                     },
@@ -814,7 +814,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.no_auth_eth_address,
+                        "address": self.no_auth_evm_address,
                         "amount": "1@DFI",
                         "domain": 3,
                     },
@@ -860,7 +860,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "101@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "101@DFI",
                         "domain": 3,
                     },
@@ -874,7 +874,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(result["src"]["address"], self.address)
         assert_equal(result["src"]["amount"], "101.00000000@0")
         assert_equal(result["src"]["domain"], "DVM")
-        assert_equal(result["dst"]["address"], self.eth_address)
+        assert_equal(result["dst"]["address"], self.evm_address)
         assert_equal(result["dst"]["amount"], "101.00000000@0")
         assert_equal(result["dst"]["domain"], "EVM")
 
@@ -885,10 +885,10 @@ class EVMTest(DefiTestFramework):
         )
 
         # Check new balances
-        new_eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        new_eth_balance = self.nodes[0].eth_getBalance(self.evm_address)
         assert_equal(new_eth_balance, int_to_eth_u256(101))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 1)
-        assert_equal(self.nodes[0].getaccount(self.eth_address)[0], "101.00000000@DFI")
+        assert_equal(len(self.nodes[0].getaccount(self.evm_address, {}, True)), 1)
+        assert_equal(self.nodes[0].getaccount(self.evm_address)[0], "101.00000000@DFI")
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
@@ -914,11 +914,11 @@ class EVMTest(DefiTestFramework):
         )
 
         # Move from one EVM address to another
-        self.nodes[0].evmtx(self.eth_address, 0, 21, 21001, self.eth_address1, 100)
+        self.nodes[0].evmtx(self.evm_address, 0, 21, 21001, self.evm_address1, 100)
         self.nodes[0].generate(1)
         blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
-        new_eth1_balance = self.nodes[0].eth_getBalance(self.eth_address1)
+        new_eth1_balance = self.nodes[0].eth_getBalance(self.evm_address1)
         assert_equal(new_eth1_balance, int_to_eth_u256(100))
 
         # Check accounting of EVM fees 21 Gwei * 21000 = 44100 sat, burnt 21000, paid 44100 - 21000 = 23100
@@ -961,7 +961,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address1,
+                        "address": self.evm_address1,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -973,7 +973,7 @@ class EVMTest(DefiTestFramework):
 
         # Check tx fields
         result = self.nodes[0].getcustomtx(tx)["results"]["transfers"][0]
-        assert_equal(result["src"]["address"], self.eth_address1)
+        assert_equal(result["src"]["address"], self.evm_address1)
         assert_equal(result["src"]["amount"], "100.00000000@0")
         assert_equal(result["src"]["domain"], "EVM")
         assert_equal(result["dst"]["address"], self.address)
@@ -983,9 +983,9 @@ class EVMTest(DefiTestFramework):
         # Check new balances
         new_dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
         assert_equal(new_dfi_balance, dfi_balance + Decimal("100"))
-        new_eth1_balance = self.nodes[0].eth_getBalance(self.eth_address1)
+        new_eth1_balance = self.nodes[0].eth_getBalance(self.evm_address1)
         assert_equal(new_eth1_balance, "0x0")
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address1, {}, True)), 0)
+        assert_equal(len(self.nodes[0].getaccount(self.evm_address1, {}, True)), 0)
 
         # Check accounting of DVM->EVM transfer
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
@@ -1028,12 +1028,12 @@ class EVMTest(DefiTestFramework):
         # Transfer 100 DFI from DVM to EVM
         self.valid_transfer_dvm_evm()
 
-        balance = self.nodes[0].eth_getBalance(self.eth_address)
+        balance = self.nodes[0].eth_getBalance(self.evm_address)
         assert_equal(balance, "0x56bc75e2d63100000")  # 100 DFI
         erc55_address = self.nodes[0].getnewaddress("", "erc55")
 
         tx1 = self.nodes[0].evmtx(
-            self.eth_address, 0, 21, 21001, erc55_address, 50
+            self.evm_address, 0, 21, 21001, erc55_address, 50
         )  # Spend half balance
         self.nodes[0].generate(1)
 

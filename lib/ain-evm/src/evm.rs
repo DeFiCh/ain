@@ -65,7 +65,7 @@ pub struct FinalizedBlockInfo {
 }
 
 impl EVMServices {
-    /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
+    /// Constructs a new Handlers instance. Depending on whether the defid -evmstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
     /// This JSON-based initialization is exclusively reserved for regtest environments.
     ///

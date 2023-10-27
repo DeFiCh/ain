@@ -44,11 +44,11 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.nodes[0].importprivkey(
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
+        )  # evmAddress
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
@@ -60,7 +60,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -105,7 +105,7 @@ class EVMTest(DefiTestFramework):
     def test_gas(self):
         estimate_gas = self.nodes[0].eth_estimateGas(
             {
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "to": self.toAddress,
                 "value": "0x0",
             }
@@ -117,7 +117,7 @@ class EVMTest(DefiTestFramework):
 
     def test_accounts(self):
         eth_accounts = self.nodes[0].eth_accounts()
-        assert_equal(eth_accounts.sort(), [self.ethAddress, self.toAddress].sort())
+        assert_equal(eth_accounts.sort(), [self.evmAddress, self.toAddress].sort())
 
     def test_address_state(self, address):
         assert_raises_rpc_error(
@@ -140,7 +140,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "50@DFI",
                         "domain": 3,
                     },
@@ -162,7 +162,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(latest_block["number"], "0x2")
 
         # Test full transaction block
-        self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
+        self.nodes[0].evmtx(self.evmAddress, 0, 21, 21000, self.toAddress, 1)
         self.nodes[0].generate(1)
 
         # Test evm tx RPC
@@ -173,7 +173,7 @@ class EVMTest(DefiTestFramework):
             "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497",
         )
         # Note: This will fail. Re-evaluate
-        assert_equal(res["results"]["sender"].lower(), self.ethAddress)
+        assert_equal(res["results"]["sender"].lower(), self.evmAddress)
         assert_equal(res["results"]["gasPrice"], Decimal("2"))
         assert_equal(res["results"]["gasLimit"], 21000)
         assert_equal(res["results"]["createTx"], False)
@@ -195,7 +195,7 @@ class EVMTest(DefiTestFramework):
             latest_full_block["transactions"][0]["blockNumber"],
             latest_full_block["number"],
         )
-        assert_equal(latest_full_block["transactions"][0]["from"], self.ethAddress)
+        assert_equal(latest_full_block["transactions"][0]["from"], self.evmAddress)
         assert_equal(latest_full_block["transactions"][0]["gas"], "0x5208")
         assert_equal(latest_full_block["transactions"][0]["gasPrice"], "0x4e3b29200")
         assert_equal(
@@ -221,7 +221,7 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         txLegacy = {
             "nonce": "0x1",
-            "from": self.ethAddress,
+            "from": self.evmAddress,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x4e3b29200",  # 21_000_000_000,
@@ -284,7 +284,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -293,7 +293,7 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        self.test_address_state(self.ethAddress)  # TODO test smart contract
+        self.test_address_state(self.evmAddress)  # TODO test smart contract
 
         self.test_block()
         self.test_web3_client_version()

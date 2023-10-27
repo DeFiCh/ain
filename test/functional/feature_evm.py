@@ -104,9 +104,9 @@ class EVMTest(DefiTestFramework):
     def erc55_wallet_support(self):
         # Addresses and keys
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.eth_address = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.eth_address_bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8"
-        self.eth_address_privkey = (
+        self.evm_address = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evm_address_bech32 = "bcrt1qta8meuczw0mhqupzjl5wplz47xajz0dn0wxxr8"
+        self.evm_address_privkey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
         self.to_address = "0x6C34CBb9219d8cAa428835D2073E8ec88BA0a110"
@@ -214,7 +214,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(addr_info["witness_version"], 16)
 
         # Import addresses
-        self.nodes[0].importprivkey(self.eth_address_privkey)  # eth_address
+        self.nodes[0].importprivkey(self.evm_address_privkey)  # evm_address
         self.nodes[0].importprivkey(self.to_address_privkey)  # self.to_address
 
         # Generate chain
@@ -238,7 +238,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.eth_address,
+            self.evm_address,
             0,
             21,
             21000,
@@ -325,7 +325,7 @@ class EVMTest(DefiTestFramework):
                 -32600,
                 "Cannot create tx, EVM is not enabled",
                 self.nodes[0].evmtx,
-                self.eth_address,
+                self.evm_address,
                 0,
                 21,
                 21000,
@@ -344,7 +344,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.eth_address,
+                            "address": self.evm_address,
                             "amount": "100@DFI",
                             "domain": 3,
                         },
@@ -366,7 +366,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 2,
                         },
                         "dst": {
-                            "address": self.eth_address,
+                            "address": self.evm_address,
                             "amount": "100@DFI",
                             "domain": 3,
                         },
@@ -401,7 +401,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -430,7 +430,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -452,12 +452,12 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address_bech32,
+                        "address": self.evm_address_bech32,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -488,12 +488,12 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address_bech32,
+                        "address": self.evm_address_bech32,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -518,27 +518,27 @@ class EVMTest(DefiTestFramework):
                     "vout": 1,
                 }
             ],
-            [{self.eth_address: 1}],
+            [{self.evm_address: 1}],
         )
         assert_raises_rpc_error(
             -5,
             "ERC55 addresses not supported",
             self.nodes[0].sendmany,
             "",
-            {self.eth_address: 1},
+            {self.evm_address: 1},
         )
         assert_raises_rpc_error(
             -5,
             "ERC55 addresses not supported",
             self.nodes[0].sendmany,
             "",
-            {self.eth_address: 1},
+            {self.evm_address: 1},
         )
         assert_raises_rpc_error(
             -5,
             "ERC55 addresses not supported",
             self.nodes[0].sendtoaddress,
-            self.eth_address,
+            self.evm_address,
             1,
         )
         assert_raises_rpc_error(
@@ -546,7 +546,7 @@ class EVMTest(DefiTestFramework):
             "ERC55 addresses not supported",
             self.nodes[0].accounttoaccount,
             self.address,
-            {self.eth_address: "1@DFI"},
+            {self.evm_address: "1@DFI"},
         )
 
         # Deactivate transferdomain DVM to EVM
@@ -564,7 +564,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 3},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
@@ -592,7 +592,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -621,7 +621,7 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
@@ -644,12 +644,12 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
                     "dst": {
-                        "address": self.eth_address_bech32,
+                        "address": self.evm_address_bech32,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
@@ -681,12 +681,12 @@ class EVMTest(DefiTestFramework):
             [
                 {
                     "src": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "100@DFI",
                         "domain": 3,
                     },
                     "dst": {
-                        "address": self.eth_address_bech32,
+                        "address": self.evm_address_bech32,
                         "amount": "100@DFI",
                         "domain": 2,
                     },
@@ -721,7 +721,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "200@DFI", "domain": 2},
                     "dst": {
-                        "address": self.eth_address,
+                        "address": self.evm_address,
                         "amount": "200@DFI",
                         "domain": 3,
                     },
@@ -733,14 +733,14 @@ class EVMTest(DefiTestFramework):
 
         # Check initial balances
         dfi_balance = self.nodes[0].getaccount(self.address, {}, True)["0"]
-        eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
+        eth_balance = self.nodes[0].eth_getBalance(self.evm_address)
         assert_equal(dfi_balance, Decimal("100"))
         assert_equal(eth_balance, int_to_eth_u256(200))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 1)
+        assert_equal(len(self.nodes[0].getaccount(self.evm_address, {}, True)), 1)
 
         # Check Eth balances before transfer
         assert_equal(
-            int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
+            int(self.nodes[0].eth_getBalance(self.evm_address)[2:], 16),
             200000000000000000000,
         )
         assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
@@ -757,12 +757,12 @@ class EVMTest(DefiTestFramework):
 
     def nonce_order_and_rbf(self):
         # Get burn address and miner account balance before transaction
-        self.miner_eth_address = self.nodes[0].addressmap(
+        self.miner_evm_address = self.nodes[0].addressmap(
             self.nodes[0].get_genesis_keys().operatorAuthAddress, 1
         )["format"]["erc55"]
         self.before_blockheight = self.nodes[0].getblockcount()
         self.miner_before = Decimal(
-            self.nodes[0].w3.eth.get_balance(self.miner_eth_address)
+            self.nodes[0].w3.eth.get_balance(self.miner_evm_address)
         )
 
         # Check accounting of EVM fees
@@ -773,15 +773,15 @@ class EVMTest(DefiTestFramework):
         )
 
         # Test EVM Tx added first in time ordering
-        self.nodes[0].evmtx(self.eth_address, 0, 21, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.evm_address, 0, 21, 21001, self.to_address, 1)
         self.sync_mempools()
 
         # Add more EVM Txs to test block ordering
-        tx5 = self.nodes[0].evmtx(self.eth_address, 5, 21, 21001, self.to_address, 1)
-        tx4 = self.nodes[0].evmtx(self.eth_address, 4, 21, 21001, self.to_address, 1)
-        tx2 = self.nodes[0].evmtx(self.eth_address, 2, 21, 21001, self.to_address, 1)
-        tx1 = self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, self.to_address, 1)
-        tx3 = self.nodes[0].evmtx(self.eth_address, 3, 21, 21001, self.to_address, 1)
+        tx5 = self.nodes[0].evmtx(self.evm_address, 5, 21, 21001, self.to_address, 1)
+        tx4 = self.nodes[0].evmtx(self.evm_address, 4, 21, 21001, self.to_address, 1)
+        tx2 = self.nodes[0].evmtx(self.evm_address, 2, 21, 21001, self.to_address, 1)
+        tx1 = self.nodes[0].evmtx(self.evm_address, 1, 21, 21001, self.to_address, 1)
+        tx3 = self.nodes[0].evmtx(self.evm_address, 3, 21, 21001, self.to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
@@ -792,7 +792,7 @@ class EVMTest(DefiTestFramework):
             "0x0000000000000000000000000000000000000000000000000000000000000000",
         )
         assert_equal(result[0]["blockNumber"], "null")
-        assert_equal(result[0]["from"], self.eth_address)
+        assert_equal(result[0]["from"], self.evm_address)
         assert_equal(result[0]["gas"], "0x5209")
         assert_equal(result[0]["gasPrice"], "0x4e3b29200")
         assert_equal(
@@ -819,7 +819,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
-            self.eth_address,
+            self.evm_address,
             0,
             22,
             21001,
@@ -828,7 +828,7 @@ class EVMTest(DefiTestFramework):
         )
 
         # Create replacement for nonce 0 TX with higher fee
-        tx0 = self.nodes[0].evmtx(self.eth_address, 0, 24, 21001, self.to_address, 1)
+        tx0 = self.nodes[0].evmtx(self.evm_address, 0, 24, 21001, self.to_address, 1)
         assert_equal(len(self.nodes[0].getrawmempool()), 6)
 
         self.sync_mempools()
@@ -845,14 +845,14 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         txLegacy = {
             "nonce": "0x1",
-            "from": self.eth_address,
+            "from": self.evm_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x4e3b29200",  # 21_000_000_000,
         }
         txLegacy0 = {
             "nonce": "0x0",
-            "from": self.eth_address,
+            "from": self.evm_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x59682F000",  # 24_000_000_000,
@@ -916,7 +916,7 @@ class EVMTest(DefiTestFramework):
 
         # Check Eth balances after transfer
         assert_equal(
-            int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
+            int(self.nodes[0].eth_getBalance(self.evm_address)[2:], 16),
             193997291000000000000,
         )
         assert_equal(
@@ -925,7 +925,7 @@ class EVMTest(DefiTestFramework):
         )
 
         # Get miner account balance after transfer
-        miner_after = Decimal(self.nodes[0].w3.eth.get_balance(self.miner_eth_address))
+        miner_after = Decimal(self.nodes[0].w3.eth.get_balance(self.miner_evm_address))
         self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -972,48 +972,48 @@ class EVMTest(DefiTestFramework):
 
         # Check EVM beneficiary address
         opreturn_miner_address = coinbase_xvm["msg"]["evm"]["beneficiary"][2:]
-        miner_eth_address = (
+        miner_evm_address = (
             self.nodes[0]
             .addressmap(self.nodes[0].get_genesis_keys().operatorAuthAddress, 1)[
                 "format"
             ]["erc55"][2:]
             .lower()
         )
-        assert_equal(opreturn_miner_address, miner_eth_address)
+        assert_equal(opreturn_miner_address, miner_evm_address)
 
     def evm_rollback(self):
         # Test rollback of EVM TX
         self.rollback_to(self.before_blockheight, self.nodes)
         miner_rollback = Decimal(
-            self.nodes[0].w3.eth.get_balance(self.miner_eth_address)
+            self.nodes[0].w3.eth.get_balance(self.miner_evm_address)
         )
         assert_equal(self.miner_before, miner_rollback)
 
         # Check Eth balances before transfer
         assert_equal(
-            int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
+            int(self.nodes[0].eth_getBalance(self.evm_address)[2:], 16),
             200000000000000000000,
         )
         assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
 
     def multiple_eth_rbf(self):
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evm_address)
 
         # Transfer some balance to to_address
-        self.nodes[0].evmtx(self.eth_address, nonce, 11, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.evm_address, nonce, 11, 21001, self.to_address, 1)
         self.nodes[0].generate(1)
         blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
         # Test multiple replacement TXs with differing fees
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
-        self.nodes[0].evmtx(self.eth_address, nonce, 21, 21001, self.to_address, 1)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evm_address)
+        self.nodes[0].evmtx(self.evm_address, nonce, 21, 21001, self.to_address, 1)
 
         # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
-            self.eth_address,
+            self.evm_address,
             nonce,
             22,
             21001,
@@ -1022,11 +1022,11 @@ class EVMTest(DefiTestFramework):
         )
 
         # Valid RBF
-        self.nodes[0].evmtx(self.eth_address, nonce, 23, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.evm_address, nonce, 23, 21001, self.to_address, 1)
 
         # Valid RBF
         tx0 = self.nodes[0].evmtx(
-            self.eth_address, nonce, 25, 21001, self.to_address, 1
+            self.evm_address, nonce, 25, 21001, self.to_address, 1
         )
 
         # Below current fees
@@ -1034,7 +1034,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
-            self.eth_address,
+            self.evm_address,
             nonce,
             21,
             21001,
@@ -1047,7 +1047,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
-            self.eth_address,
+            self.evm_address,
             nonce,
             24,
             21001,
@@ -1060,7 +1060,7 @@ class EVMTest(DefiTestFramework):
             -26,
             "evm-low-fee",
             self.nodes[0].evmtx,
-            self.eth_address,
+            self.evm_address,
             nonce,
             26,
             21001,
@@ -1069,7 +1069,7 @@ class EVMTest(DefiTestFramework):
         )
 
         to_nonce = self.nodes[0].w3.eth.get_transaction_count(self.to_address)
-        self.nodes[0].evmtx(self.to_address, to_nonce, 30, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 30, 21001, self.evm_address, 1)
 
         # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
@@ -1080,12 +1080,12 @@ class EVMTest(DefiTestFramework):
             to_nonce,
             31,
             21001,
-            self.eth_address,
+            self.evm_address,
             1,
         )
 
         # Send tx with exactly 10% in increase fees, RBF should happen
-        self.nodes[0].evmtx(self.to_address, to_nonce, 32, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 32, 21001, self.evm_address, 1)
 
         # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
@@ -1096,13 +1096,13 @@ class EVMTest(DefiTestFramework):
             to_nonce,
             34,
             21001,
-            self.eth_address,
+            self.evm_address,
             1,
         )
 
         # Valid RBF
         tx1 = self.nodes[0].evmtx(
-            self.to_address, to_nonce, 37, 21001, self.eth_address, 1
+            self.to_address, to_nonce, 37, 21001, self.evm_address, 1
         )
 
         # Below current fees
@@ -1114,7 +1114,7 @@ class EVMTest(DefiTestFramework):
             to_nonce,
             31,
             21001,
-            self.eth_address,
+            self.evm_address,
             1,
         )
 
@@ -1127,7 +1127,7 @@ class EVMTest(DefiTestFramework):
             to_nonce,
             34,
             21001,
-            self.eth_address,
+            self.evm_address,
             1,
         )
 
@@ -1140,7 +1140,7 @@ class EVMTest(DefiTestFramework):
             to_nonce,
             38,
             21001,
-            self.eth_address,
+            self.evm_address,
             1,
         )
 
@@ -1153,7 +1153,7 @@ class EVMTest(DefiTestFramework):
             to_nonce,
             39,
             21001,
-            self.eth_address,
+            self.evm_address,
             1,
         )
 
@@ -1170,7 +1170,7 @@ class EVMTest(DefiTestFramework):
         # Check accounting of EVM fees
         txLegacy = {
             "nonce": "0x1",
-            "from": self.eth_address,
+            "from": self.evm_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x28FA6AE00",  # 11_000_000_000,
@@ -1180,7 +1180,7 @@ class EVMTest(DefiTestFramework):
         self.priority_fee = hex_to_decimal(fees["priority_fee"])
         txLegacy1 = {
             "nonce": "0x1",
-            "from": self.eth_address,
+            "from": self.evm_address,
             "value": "0x1",
             "gas": "0x5208",  # 21000
             "gasPrice": "0x89D5F3200",  # 25_000_000_000,
@@ -1245,7 +1245,7 @@ class EVMTest(DefiTestFramework):
 
     def sendtransaction_auto_nonce(self):
         self.nodes[0].clearmempool()
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.evm_address)
 
         evm_nonces = [nonce, nonce + 2, nonce + 3]
 
@@ -1254,7 +1254,7 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": self.nodes[0].w3.to_hex(nonce),
-                    "from": self.eth_address,
+                    "from": self.evm_address,
                     "to": "0x0000000000000000000000000000000000000000",
                     "value": "0x1",
                     "gas": "0x100000",
@@ -1265,7 +1265,7 @@ class EVMTest(DefiTestFramework):
         # send transferdomain without specifying nonce
         self.nodes[0].eth_sendTransaction(
             {
-                "from": self.eth_address,
+                "from": self.evm_address,
                 "to": "0x0000000000000000000000000000000000000000",
                 "value": "0x1",
                 "gas": "0x100000",

@@ -47,11 +47,11 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
+        self.evmAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.nodes[0].importprivkey(
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
+        )  # evmAddress
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
@@ -63,7 +63,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
@@ -97,7 +97,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
                     "dst": {
-                        "address": self.ethAddress,
+                        "address": self.evmAddress,
                         "amount": "50@DFI",
                         "domain": 3,
                     },
@@ -105,14 +105,14 @@ class EVMTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
-        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
+        balance = self.nodes[0].eth_getBalance(self.evmAddress, "latest")
         assert_equal(balance, int_to_eth_u256(50))
 
     def send_transaction(self, gasPrice, count):
         self.nodes[0].eth_sendTransaction(
             {
                 "nonce": count,
-                "from": self.ethAddress,
+                "from": self.evmAddress,
                 "value": "0x0",
                 "data": CONTRACT_BYTECODE,
                 "gas": "0x100000",
@@ -121,7 +121,7 @@ class EVMTest(DefiTestFramework):
         )
 
     def should_not_replace_transaction_with_gas_price_lower_than_mininum_rbf_fee(self):
-        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
+        count = self.nodes[0].eth_getTransactionCount(self.evmAddress)
         invalidGasPrices = [
             "0x2540be401",
             "0x2540be402",
@@ -155,7 +155,7 @@ class EVMTest(DefiTestFramework):
     def should_prioritize_transaction_with_the_higher_gas_price(self):
         gasPrice = 10_000_000_000
         gasPrices = []
-        count = self.nodes[0].eth_getTransactionCount(self.ethAddress)
+        count = self.nodes[0].eth_getTransactionCount(self.evmAddress)
         for i in range(10):
             hexGasPrice = self.nodes[0].w3.to_hex(gasPrice)
             gasPrices.append(hexGasPrice)

@@ -39,7 +39,7 @@ class EVMTest(DefiTestFramework):
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.ethAddress = self.nodes[0].getnewaddress("", "erc55")
+        self.evmAddress = self.nodes[0].getnewaddress("", "erc55")
         self.to_address = self.nodes[0].getnewaddress("", "erc55")
 
         # Generate chain
@@ -49,7 +49,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "called before Metachain height",
             self.nodes[0].evmtx,
-            self.ethAddress,
+            self.evmAddress,
             0,
             21,
             21000,
