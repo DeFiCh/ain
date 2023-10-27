@@ -15,9 +15,11 @@
 
 #include <variant>
 
+class BlockContext;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;
+class TransactionContext;
 
 class CCustomCSView;
 
@@ -162,29 +164,9 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(CCustomCSView &mnview,
-                  const CCoinsViewCache &coins,
-                  const CTransaction &tx,
-                  const Consensus::Params &consensus,
-                  uint32_t height,
-                  uint64_t time,
-                  uint256 *canSpend,
-                  uint32_t txn,
-                  std::shared_ptr<CScopedTemplateID> &evmTemplateId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate);
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend = nullptr);
 
-Res CustomTxVisit(CCustomCSView &mnview,
-                  const CCoinsViewCache &coins,
-                  const CTransaction &tx,
-                  const uint32_t height,
-                  const Consensus::Params &consensus,
-                  const CCustomTxMessage &txMessage,
-                  const uint64_t time,
-                  const uint32_t txn,
-                  std::shared_ptr<CScopedTemplateID> &evmTemplateId,
-                  const bool isEvmEnabledForBlock,
-                  const bool evmPreValidate);
+Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 
 ResVal<uint256> ApplyAnchorRewardTx(CCustomCSView &mnview,
                                     const CTransaction &tx,

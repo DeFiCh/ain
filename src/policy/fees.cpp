@@ -6,6 +6,7 @@
 #include <policy/fees.h>
 
 #include <clientversion.h>
+#include <consensus/tx_check.h>
 #include <primitives/transaction.h>
 #include <streams.h>
 #include <txmempool.h>
@@ -516,6 +517,9 @@ CBlockPolicyEstimator::~CBlockPolicyEstimator()
 void CBlockPolicyEstimator::processTransaction(const CTxMemPoolEntry& entry, bool validFeeEstimate)
 {
     LOCK(m_cs_fee_estimator);
+    if (IsEVMTx(entry.GetTx())) {
+        return;
+    }
     unsigned int txHeight = entry.GetHeight();
     uint256 hash = entry.GetTx().GetHash();
     if (mapMemPoolTxs.count(hash)) {

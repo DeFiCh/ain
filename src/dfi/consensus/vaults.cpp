@@ -11,10 +11,14 @@
 extern std::string ScriptToString(const CScript &script);
 
 Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
+    const auto &consensus = txCtx.GetConsensus();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     auto vaultCreationFee = consensus.vaultCreationFee;
-    Require(tx.vout[0].nValue == vaultCreationFee && tx.vout[0].nTokenId == DCT_ID{0},
-            "Malformed tx vouts, creation vault fee is %s DFI",
-            GetDecimalString(vaultCreationFee));
+    if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
+        return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimalString(vaultCreationFee));
+    }
 
     CVaultData vault{};
     static_cast<CVaultMessage &>(vault) = obj;
@@ -22,42 +26,64 @@ Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
     // set loan scheme to default if non provided
     if (obj.schemeId.empty()) {
         auto defaultScheme = mnview.GetDefaultLoanScheme();
-        Require(defaultScheme, "There is no default loan scheme");
+        if (!defaultScheme) {
+            return Res::Err("There is no default loan scheme");
+        }
         vault.schemeId = *defaultScheme;
     }
 
     // loan scheme exists
-    Require(mnview.GetLoanScheme(vault.schemeId), "Cannot find existing loan scheme with id %s", vault.schemeId);
+    if (!mnview.GetLoanScheme(vault.schemeId)) {
+        return Res::Err("Cannot find existing loan scheme with id %s", vault.schemeId);
+    }
 
     // check loan scheme is not to be destroyed
     auto height = mnview.GetDestroyLoanScheme(obj.schemeId);
-    Require(!height, "Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
+    if (height) {
+        return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
+    }
 
     auto vaultId = tx.GetHash();
     return mnview.StoreVault(vaultId, vault);
 }
 
 Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
-    Require(CheckCustomTx());
+    if (auto res = CheckCustomTx(); !res) {
+        return res;
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
-    Require(vault, "Vault <%s> not found", obj.vaultId.GetHex());
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+    }
 
     // vault under liquidation
-    Require(!vault->isUnderLiquidation, "Cannot close vault under liquidation");
+    if (vault->isUnderLiquidation) {
+        return Res::Err("Cannot close vault under liquidation");
+    }
 
     // owner auth
-    Require(HasAuth(vault->ownerAddress), "tx must have at least one input from token owner");
+    if (!HasAuth(vault->ownerAddress)) {
+        return Res::Err("tx must have at least one input from token owner");
+    }
 
     if (const auto loans = mnview.GetLoanTokens(obj.vaultId)) {
         for (const auto &[tokenId, amount] : loans->balances) {
             const auto rate = mnview.GetInterestRate(obj.vaultId, tokenId, height);
-            Require(rate, "Cannot get interest rate for this token (%d)", tokenId.v);
+            if (!rate) {
+                return Res::Err("Cannot get interest rate for this token (%d)", tokenId.v);
+            }
 
             const auto totalInterest = TotalInterest(*rate, height);
 
-            Require(amount + totalInterest <= 0, "Vault <%s> has loans", obj.vaultId.GetHex());
+            if (amount + totalInterest > 0) {
+                return Res::Err("Vault <%s> has loans", obj.vaultId.GetHex());
+            }
 
             // If there is an amount negated by interested remove it from loan tokens.
             if (amount > 0) {
@@ -74,43 +100,65 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
     CalculateOwnerRewards(obj.to);
     if (auto collaterals = mnview.GetVaultCollaterals(obj.vaultId)) {
         for (const auto &col : collaterals->balances) {
-            Require(mnview.AddBalance(obj.to, {col.first, col.second}));
+            if (auto res = mnview.AddBalance(obj.to, {col.first, col.second}); !res) {
+                return res;
+            }
         }
     }
 
     // delete all interest to vault
-    Require(mnview.EraseInterest(obj.vaultId, height));
+    if (auto res = mnview.EraseInterest(obj.vaultId, height); !res) {
+        return res;
+    }
 
     // return half fee, the rest is burned at creation
     auto feeBack = consensus.vaultCreationFee / 2;
-    Require(mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack}));
+    if (auto res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack}); !res) {
+        return res;
+    }
     return mnview.EraseVault(obj.vaultId);
 }
 
 Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
-    Require(CheckCustomTx());
+    if (auto res = CheckCustomTx(); !res) {
+        return res;
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
-    Require(vault, "Vault <%s> not found", obj.vaultId.GetHex());
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+    }
 
     // vault under liquidation
-    Require(!vault->isUnderLiquidation, "Cannot update vault under liquidation");
+    if (vault->isUnderLiquidation) {
+        return Res::Err("Cannot update vault under liquidation");
+    }
 
     // owner auth
-    Require(HasAuth(vault->ownerAddress), "tx must have at least one input from token owner");
+    if (!HasAuth(vault->ownerAddress)) {
+        return Res::Err("tx must have at least one input from token owner");
+    }
 
     // loan scheme exists
     const auto scheme = mnview.GetLoanScheme(obj.schemeId);
-    Require(scheme, "Cannot find existing loan scheme with id %s", obj.schemeId);
+    if (!scheme) {
+        return Res::Err("Cannot find existing loan scheme with id %s", obj.schemeId);
+    }
 
     // loan scheme is not set to be destroyed
     auto destroyHeight = mnview.GetDestroyLoanScheme(obj.schemeId);
-    Require(
-        !destroyHeight, "Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *destroyHeight);
+    if (destroyHeight) {
+        return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *destroyHeight);
+    }
 
-    Require(IsVaultPriceValid(mnview, obj.vaultId, height),
-            "Cannot update vault while any of the asset's price is invalid");
+    if (!IsVaultPriceValid(mnview, obj.vaultId, height)) {
+        return Res::Err("Cannot update vault while any of the asset's price is invalid");
+    }
 
     // don't allow scheme change when vault is going to be in liquidation
     if (vault->schemeId != obj.schemeId) {
@@ -129,8 +177,11 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
                 for (const auto &[tokenId, tokenAmount] : loanTokens->balances) {
                     const auto loanToken = mnview.GetLoanTokenByID(tokenId);
                     assert(loanToken);
-                    Require(
-                        mnview.IncreaseInterest(height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0));
+                    if (auto res =
+                            mnview.IncreaseInterest(height, obj.vaultId, obj.schemeId, tokenId, loanToken->interest, 0);
+                        !res) {
+                        return res;
+                    }
                 }
             }
         }
@@ -142,66 +193,98 @@ Res CVaultsConsensus::operator()(const CUpdateVaultMessage &obj) const {
 }
 
 Res CVaultsConsensus::operator()(const CDepositToVaultMessage &obj) const {
-    Require(CheckCustomTx());
+    if (auto res = CheckCustomTx(); !res) {
+        return res;
+    }
 
     // owner auth
-    Require(HasAuth(obj.from), "tx must have at least one input from token owner");
+    if (!HasAuth(obj.from)) {
+        return Res::Err("tx must have at least one input from token owner");
+    }
+
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
-    Require(vault, "Vault <%s> not found", obj.vaultId.GetHex());
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+    }
 
     // vault under liquidation
-    Require(!vault->isUnderLiquidation, "Cannot deposit to vault under liquidation");
+    if (vault->isUnderLiquidation) {
+        return Res::Err("Cannot deposit to vault under liquidation");
+    }
 
     // If collateral token exist make sure it is enabled.
     if (mnview.GetCollateralTokenFromAttributes(obj.amount.nTokenId)) {
         CDataStructureV0 collateralKey{AttributeTypes::Token, obj.amount.nTokenId.v, TokenKeys::LoanCollateralEnabled};
-        if (const auto attributes = mnview.GetAttributes()) {
-            Require(
-                attributes->GetValue(collateralKey, false), "Collateral token (%d) is disabled", obj.amount.nTokenId.v);
+        const auto attributes = mnview.GetAttributes();
+        if (!attributes->GetValue(collateralKey, false)) {
+            return Res::Err("Collateral token (%d) is disabled", obj.amount.nTokenId.v);
         }
     }
 
     // check balance
     CalculateOwnerRewards(obj.from);
-    Require(mnview.SubBalance(obj.from, obj.amount), [&](const std::string &msg) {
-        return strprintf("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), msg);
-    });
+    if (auto res = mnview.SubBalance(obj.from, obj.amount); !res) {
+        return Res::Err("Insufficient funds: can't subtract balance of %s: %s\n", ScriptToString(obj.from), res.msg);
+    }
 
-    Require(mnview.AddVaultCollateral(obj.vaultId, obj.amount));
+    if (auto res = mnview.AddVaultCollateral(obj.vaultId, obj.amount); !res) {
+        return res;
+    }
 
     bool useNextPrice = false, requireLivePrice = false;
     auto collaterals = mnview.GetVaultCollaterals(obj.vaultId);
 
     auto vaultAssets = mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-    Require(vaultAssets);
+    if (!vaultAssets) {
+        return vaultAssets;
+    }
 
     auto scheme = mnview.GetLoanScheme(vault->schemeId);
     return CheckCollateralRatio(obj.vaultId, *scheme, *collaterals, useNextPrice, requireLivePrice);
 }
 
 Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
-    Require(CheckCustomTx());
+    if (auto res = CheckCustomTx(); !res) {
+        return res;
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
-    Require(vault, "Vault <%s> not found", obj.vaultId.GetHex());
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+    }
 
     // vault under liquidation
-    Require(!vault->isUnderLiquidation, "Cannot withdraw from vault under liquidation");
+    if (vault->isUnderLiquidation) {
+        return Res::Err("Cannot withdraw from vault under liquidation");
+    }
 
     // owner auth
-    Require(HasAuth(vault->ownerAddress), "tx must have at least one input from token owner");
+    if (!HasAuth(vault->ownerAddress)) {
+        return Res::Err("tx must have at least one input from token owner");
+    }
 
-    Require(IsVaultPriceValid(mnview, obj.vaultId, height),
-            "Cannot withdraw from vault while any of the asset's price is invalid");
+    if (!IsVaultPriceValid(mnview, obj.vaultId, height)) {
+        return Res::Err("Cannot withdraw from vault while any of the asset's price is invalid");
+    }
 
-    Require(mnview.SubVaultCollateral(obj.vaultId, obj.amount));
+    if (auto res = mnview.SubVaultCollateral(obj.vaultId, obj.amount); !res) {
+        return res;
+    }
 
     auto hasDUSDLoans = false;
 
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl> > > tokenDUSD;
+    std::optional<CTokensView::TokenIDPair> tokenDUSD;
     if (static_cast<int>(height) >= consensus.DF15FortCanningRoadHeight) {
         tokenDUSD = mnview.GetToken("DUSD");
     }
@@ -230,7 +313,9 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
                 TrackDUSDSub(mnview, {tokenId, subAmount});
             }
 
-            Require(mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount}));
+            if (auto res = mnview.SubLoanToken(obj.vaultId, CTokenAmount{tokenId, subAmount}); !res) {
+                return res;
+            }
 
             TrackNegativeInterest(mnview, {tokenId, subAmount});
 
@@ -244,14 +329,20 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
                 bool useNextPrice = i > 0, requireLivePrice = true;
                 auto vaultAssets =
                     mnview.GetVaultAssets(obj.vaultId, *collaterals, height, time, useNextPrice, requireLivePrice);
-                Require(vaultAssets);
+                if (!vaultAssets) {
+                    return vaultAssets;
+                }
 
-                Require(vaultAssets.val->ratio() >= scheme->ratio,
+                if (vaultAssets.val->ratio() < scheme->ratio) {
+                    return Res::Err(
                         "Vault does not have enough collateralization ratio defined by loan scheme - %d < %d",
                         vaultAssets.val->ratio(),
                         scheme->ratio);
+                }
 
-                Require(CollateralPctCheck(hasDUSDLoans, vaultAssets, scheme->ratio));
+                if (auto res = CollateralPctCheck(hasDUSDLoans, vaultAssets, scheme->ratio); !res) {
+                    return res;
+                }
             }
         } else {
             return Res::Err("Cannot withdraw all collaterals as there are still active loans in this vault");
@@ -266,32 +357,51 @@ Res CVaultsConsensus::operator()(const CWithdrawFromVaultMessage &obj) const {
 }
 
 Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
-    Require(CheckCustomTx());
+    if (auto res = CheckCustomTx(); !res) {
+        return res;
+    }
 
     // owner auth
-    Require(HasAuth(obj.from), "tx must have at least one input from token owner");
+    if (!HasAuth(obj.from)) {
+        return Res::Err("tx must have at least one input from token owner");
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     // vault exists
     auto vault = mnview.GetVault(obj.vaultId);
-    Require(vault, "Vault <%s> not found", obj.vaultId.GetHex());
+    if (!vault) {
+        return Res::Err("Vault <%s> not found", obj.vaultId.GetHex());
+    }
 
     // vault under liquidation
-    Require(vault->isUnderLiquidation, "Cannot bid to vault which is not under liquidation");
+    if (!vault->isUnderLiquidation) {
+        return Res::Err("Cannot bid to vault which is not under liquidation");
+    }
 
     auto data = mnview.GetAuction(obj.vaultId, height);
-    Require(data, "No auction data to vault %s", obj.vaultId.GetHex());
+    if (!data) {
+        return Res::Err("No auction data to vault %s", obj.vaultId.GetHex());
+    }
 
     auto batch = mnview.GetAuctionBatch({obj.vaultId, obj.index});
-    Require(batch, "No batch to vault/index %s/%d", obj.vaultId.GetHex(), obj.index);
+    if (!batch) {
+        return Res::Err("No batch to vault/index %s/%d", obj.vaultId.GetHex(), obj.index);
+    }
 
-    Require(obj.amount.nTokenId == batch->loanAmount.nTokenId, "Bid token does not match auction one");
+    if (obj.amount.nTokenId != batch->loanAmount.nTokenId) {
+        return Res::Err("Bid token does not match auction one");
+    }
 
     auto bid = mnview.GetAuctionBid({obj.vaultId, obj.index});
     if (!bid) {
         auto amount = MultiplyAmounts(batch->loanAmount.nValue, COIN + data->liquidationPenalty);
-        Require(amount <= obj.amount.nValue,
-                "First bid should include liquidation penalty of %d%%",
-                data->liquidationPenalty * 100 / COIN);
+        if (amount > obj.amount.nValue) {
+            return Res::Err("First bid should include liquidation penalty of %d%%",
+                            data->liquidationPenalty * 100 / COIN);
+        }
 
         if (static_cast<int>(height) >= consensus.DF12FortCanningMuseumHeight && data->liquidationPenalty &&
             obj.amount.nValue == batch->loanAmount.nValue) {
@@ -299,7 +409,9 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
         }
     } else {
         auto amount = MultiplyAmounts(bid->second.nValue, COIN + (COIN / 100));
-        Require(amount <= obj.amount.nValue, "Bid override should be at least 1%% higher than current one");
+        if (amount > obj.amount.nValue) {
+            return Res::Err("Bid override should be at least 1%% higher than current one");
+        }
 
         if (static_cast<int>(height) >= consensus.DF12FortCanningMuseumHeight &&
             obj.amount.nValue == bid->second.nValue) {
@@ -312,6 +424,8 @@ Res CVaultsConsensus::operator()(const CAuctionBidMessage &obj) const {
     }
     // check balance
     CalculateOwnerRewards(obj.from);
-    Require(mnview.SubBalance(obj.from, obj.amount));
+    if (auto res = mnview.SubBalance(obj.from, obj.amount); !res) {
+        return res;
+    }
     return mnview.StoreAuctionBid({obj.vaultId, obj.index}, {obj.from, obj.amount});
 }

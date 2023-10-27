@@ -852,9 +852,6 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     }
 
     auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2203, DFIPKeys::BlockPeriod};
@@ -1073,7 +1070,7 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
 static void ProcessGovEvents(const CBlockIndex *pindex,
                              CCustomCSView &cache,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                             const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
         return;
     }
@@ -1087,7 +1084,7 @@ static void ProcessGovEvents(const CBlockIndex *pindex,
             if (var->GetName() == "ATTRIBUTES") {
                 auto govVar = cache.GetAttributes();
                 govVar->time = pindex->GetBlockTime();
-                govVar->evmTemplateId = evmTemplateId;
+                govVar->evmTemplate = evmTemplate;
                 auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
                 assert(newVar);
 
@@ -1714,13 +1711,16 @@ static Res VaultSplits(CCustomCSView &view,
         });
     }
 
-    Require(failedVault == CVaultId{},
-            [=] { return strprintf("Failed to get vault data for: %s", failedVault.ToString()); });
+    if (failedVault != CVaultId{}) {
+        return Res::Err("Failed to get vault data for: %s", failedVault.ToString());
+    }
 
     attributes.EraseKey(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, oldTokenId.v});
     attributes.SetValue(CDataStructureV0{AttributeTypes::Locks, ParamIDs::TokenID, newTokenId.v}, true);
 
-    Require(attributes.Apply(view, height));
+    if (auto res = attributes.Apply(view, height); !res) {
+        return res;
+    }
     view.SetVariable(attributes);
 
     for (const auto &[vaultId, amount] : loanTokenAmounts) {
@@ -1735,7 +1735,9 @@ static Res VaultSplits(CCustomCSView &view,
                  oldTokenAmount.ToString(),
                  newTokenAmount.ToString());
 
-        Require(view.AddLoanToken(vaultId, newTokenAmount));
+        if (auto res = view.AddLoanToken(vaultId, newTokenAmount); !res) {
+            return res;
+        }
 
         if (const auto vault = view.GetVault(vaultId)) {
             VaultHistoryKey subKey{static_cast<uint32_t>(height), vaultId, GetNextAccPosition(), vault->ownerAddress};
@@ -1751,7 +1753,9 @@ static Res VaultSplits(CCustomCSView &view,
     }
 
     const auto loanToken = view.GetLoanTokenByID(newTokenId);
-    Require(loanToken, [] { return "Failed to get loan token."; });
+    if (!loanToken) {
+        return Res::Err("Failed to get loan token.");
+    }
 
     // Pre-populate to save repeated calls to get loan scheme
     std::map<std::string, CAmount> loanSchemes;
@@ -1912,11 +1916,14 @@ static Res GetTokenSuffix(const CCustomCSView &view,
         const auto &[previousID, str] =
             attributes.GetValue(ascendantKey, AscendantValue{std::numeric_limits<uint32_t>::max(), ""});
         auto previousToken = view.GetToken(DCT_ID{previousID});
-        Require(previousToken, [=] { return strprintf("Previous token %d not found\n", id); });
+        if (!previousToken) {
+            return Res::Err("Previous token %d not found\n", id);
+        }
 
         const auto found = previousToken->symbol.find(newSuffix);
-        Require(found != std::string::npos,
-                [=] { return strprintf("Previous token name not valid: %s\n", previousToken->symbol); });
+        if (found == std::string::npos) {
+            return Res::Err("Previous token name not valid: %s\n", previousToken->symbol);
+        }
 
         const auto versionNumber = previousToken->symbol.substr(found + newSuffix.size());
         uint32_t previousVersion{};
@@ -1943,9 +1950,6 @@ static void ProcessTokenSplits(const CBlock &block,
         return;
     }
     const auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
     const auto splits = attributes->GetValue(splitKey, OracleSplits{});
@@ -2224,9 +2228,6 @@ static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, 
     }
 
     auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::BlockPeriod};
@@ -2377,7 +2378,6 @@ static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &ca
     }
 
     auto attributes = cache.GetAttributes();
-    assert(attributes);
 
     DCT_ID dusd{};
     const auto token = cache.GetTokenGuessId("DUSD", dusd);
@@ -2421,9 +2421,6 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
     auto attributes = cache.GetAttributes();
-    if (!attributes) {
-        return;
-    }
 
     auto funds = cache.GetCommunityBalance(CommunityAccountType::CommunityDevFunds);
     if (!attributes->GetValue(enabledKey, false)) {
@@ -2553,7 +2550,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
             } else {
                 assert(prop.nCycles > prop.cycle);
-                cache.UpdateProposalCycle(propId, prop.cycle + 1);
+                cache.UpdateProposalCycle(propId, prop.cycle + 1, pindex->nHeight, chainparams.GetConsensus());
             }
 
             CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
@@ -2617,7 +2614,6 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
     }
 
     auto attributes = cache.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
     attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
@@ -2647,7 +2643,7 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
                            const CChainParams &chainparams,
-                           const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                           const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -2685,7 +2681,7 @@ static Res ProcessEVMQueue(const CBlock &block,
     }
 
     CrossBoundaryResult result;
-    const auto blockResult = evm_try_unsafe_construct_block_in_template(result, evmTemplateId->GetTemplateID());
+    const auto blockResult = evm_try_unsafe_construct_block_in_template(result, evmTemplate->GetTemplate(), false);
     if (!result.ok) {
         return Res::Err(result.reason.c_str());
     }
@@ -2714,7 +2710,6 @@ static Res ProcessEVMQueue(const CBlock &block,
     }
 
     auto attributes = cache.GetAttributes();
-    assert(attributes);
 
     auto stats = attributes->GetValue(CEvmBlockStatsLive::Key, CEvmBlockStatsLive{});
 
@@ -2780,13 +2775,13 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplateID> &evmTemplateId,
+                             const std::shared_ptr<CScopedTemplate> &evmTemplate,
                              const bool isEvmEnabledForBlock) {
     CCustomCSView cache(mnview);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
-        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplateId);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplate);
         if (!res) {
             return res;
         }
@@ -2804,7 +2799,7 @@ void ProcessDeFiEvent(const CBlock &block,
                       const CCoinsViewCache &view,
                       const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplateID> &evmTemplateId) {
+                      const std::shared_ptr<CScopedTemplate> &evmTemplate) {
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
@@ -2831,7 +2826,7 @@ void ProcessDeFiEvent(const CBlock &block,
     ProcessFutures(pindex, cache, chainparams);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams, evmTemplateId);
+    ProcessGovEvents(pindex, cache, chainparams, evmTemplate);
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, chainparams);

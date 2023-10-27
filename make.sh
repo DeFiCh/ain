@@ -477,6 +477,11 @@ _run_clang_format() {
     # shellcheck disable=SC2086
     find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
         xargs -0 -I{} "${clang_formatters[$index]}" $fmt_args -i -style=file {}
+
+    local whitelist_files=(src/miner.{cpp,h} src/txmempool.{cpp,h} src/validation.{cpp,h})
+
+    # shellcheck disable=SC2086
+    "${clang_formatters[$index]}" $fmt_args -i -style=file "${whitelist_files[@]}"
 }
 
 fmt_lib() {

@@ -1001,11 +1001,11 @@ class DST20(DefiTestFramework):
         self.test_pre_evm_token()
 
         self.test_deploy_token()
+
         self.test_deploy_multiple_tokens()
 
         self.node.minttokens("10@BTC")
         self.node.generate(1)
-
         self.start_height = self.nodes[
             0
         ].getblockcount()  # Use post-token deployment as start height
@@ -1013,12 +1013,19 @@ class DST20(DefiTestFramework):
         self.test_dst20_dvm_to_evm_bridge()
 
         self.test_dst20_evm_to_dvm_bridge()
+
         self.test_multiple_dvm_evm_bridge()
+
         self.test_conflicting_bridge()
+
         self.test_invalid_token()
+
         self.test_bridge_when_no_balance()
+
         self.test_negative_transfer()
+
         self.test_different_tokens()
+
         self.test_loan_token()
 
         self.test_dst20_back_and_forth()

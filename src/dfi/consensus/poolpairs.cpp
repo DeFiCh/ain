@@ -9,10 +9,13 @@
 #include <dfi/mn_checks.h>
 
 Res CPoolPairsConsensus::EraseEmptyBalances(TAmounts &balances) const {
+    auto &mnview = blockCtx.GetView();
     for (auto it = balances.begin(), next_it = it; it != balances.end(); it = next_it) {
         ++next_it;
 
-        Require(mnview.GetToken(it->first), "reward token %d does not exist!", it->first.v);
+        if (!mnview.GetToken(it->first)) {
+            return Res::Err("reward token %d does not exist!", it->first.v);
+        }
 
         if (it->second == 0) {
             balances.erase(it);
@@ -23,11 +26,22 @@ Res CPoolPairsConsensus::EraseEmptyBalances(TAmounts &balances) const {
 
 Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     // check foundation auth
-    Require(HasFoundationAuth());
-    Require(obj.commission >= 0 && obj.commission <= COIN, "wrong commission");
+    if (auto res = HasFoundationAuth(); !res) {
+        return res;
+    }
+    if (obj.commission < 0 || obj.commission > COIN) {
+        return Res::Err("wrong commission");
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight)) {
-        Require(obj.pairSymbol.find('/') == std::string::npos, "token symbol should not contain '/'");
+        if (obj.pairSymbol.find('/') != std::string::npos) {
+            return Res::Err("token symbol should not contain '/'");
+        }
     }
 
     /// @todo ownerAddress validity checked only in rpc. is it enough?
@@ -39,10 +53,14 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     auto &rewards = poolPair.rewards;
 
     auto tokenA = mnview.GetToken(poolPair.idTokenA);
-    Require(tokenA, "token %s does not exist!", poolPair.idTokenA.ToString());
+    if (!tokenA) {
+        return Res::Err("token %s does not exist!", poolPair.idTokenA.ToString());
+    }
 
     auto tokenB = mnview.GetToken(poolPair.idTokenB);
-    Require(tokenB, "token %s does not exist!", poolPair.idTokenB.ToString());
+    if (!tokenB) {
+        return Res::Err("token %s does not exist!", poolPair.idTokenB.ToString());
+    }
 
     const auto symbolLength = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight)
                                   ? CToken::MAX_TOKEN_POOLPAIR_LENGTH
@@ -63,12 +81,16 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     token.creationHeight = height;
 
     auto tokenId = mnview.CreateToken(token, false);
-    Require(tokenId);
+    if (!tokenId) {
+        return tokenId;
+    }
 
     rewards = obj.rewards;
     if (!rewards.balances.empty()) {
         // Check tokens exist and remove empty reward amounts
-        Require(EraseEmptyBalances(rewards.balances));
+        if (auto res = EraseEmptyBalances(rewards.balances); !res) {
+            return res;
+        }
     }
 
     return mnview.SetPoolPair(tokenId, height, poolPair);
@@ -76,7 +98,9 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
 
 Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
     // check foundation auth
-    Require(HasFoundationAuth());
+    if (auto res = HasFoundationAuth(); !res) {
+        return res;
+    }
 
     auto rewards = obj.rewards;
     if (!rewards.balances.empty()) {
@@ -85,46 +109,78 @@ Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
               rewards.balances.cbegin()->first == DCT_ID{std::numeric_limits<uint32_t>::max()} &&
               rewards.balances.cbegin()->second == std::numeric_limits<CAmount>::max())) {
             // Check if tokens exist and remove empty reward amounts
-            Require(EraseEmptyBalances(rewards.balances));
+            if (auto res = EraseEmptyBalances(rewards.balances); !res) {
+                return res;
+            }
         }
     }
+
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     return mnview.UpdatePoolPair(obj.poolId, height, obj.status, obj.commission, obj.ownerAddress, rewards);
 }
 
 Res CPoolPairsConsensus::operator()(const CPoolSwapMessage &obj) const {
     // check auth
-    Require(HasAuth(obj.from));
+    if (auto res = HasAuth(obj.from); !res) {
+        return res;
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     return CPoolSwap(obj, height).ExecuteSwap(mnview, {}, consensus);
 }
 
 Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
     // check auth
-    Require(HasAuth(obj.swapInfo.from));
+    if (auto res = HasAuth(obj.swapInfo.from); !res) {
+        return res;
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     return CPoolSwap(obj.swapInfo, height).ExecuteSwap(mnview, obj.poolIDs, consensus);
 }
 
 Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
     CBalances sumTx = SumAllTransfers(obj.from);
-    Require(sumTx.balances.size() == 2, "the pool pair requires two tokens");
+    if (sumTx.balances.size() != 2) {
+        return Res::Err("the pool pair requires two tokens");
+    }
 
     std::pair<DCT_ID, CAmount> amountA = *sumTx.balances.begin();
     std::pair<DCT_ID, CAmount> amountB = *(std::next(sumTx.balances.begin(), 1));
 
     // checked internally too. remove here?
-    Require(amountA.second > 0 && amountB.second > 0, "amount cannot be less than or equal to zero");
+    if (amountA.second <= 0 || amountB.second <= 0) {
+        return Res::Err("amount cannot be less than or equal to zero");
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     auto pair = mnview.GetPoolPair(amountA.first, amountB.first);
-    Require(pair, "there is no such pool pair");
+    if (!pair) {
+        return Res::Err("there is no such pool pair");
+    }
 
     for (const auto &kv : obj.from) {
-        Require(HasAuth(kv.first));
+        if (auto res = HasAuth(kv.first); !res) {
+            return res;
+        }
     }
 
     for (const auto &kv : obj.from) {
         CalculateOwnerRewards(kv.first);
-        Require(mnview.SubBalances(kv.first, kv.second));
+        if (auto res = mnview.SubBalances(kv.first, kv.second); !res) {
+            return res;
+        }
     }
 
     const auto &lpTokenID = pair->first;
@@ -136,14 +192,18 @@ Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {
     }
 
     bool slippageProtection = static_cast<int>(height) >= consensus.DF3BayfrontMarinaHeight;
-    Require(pool.AddLiquidity(
-        amountA.second,
-        amountB.second,
-        [&] /*onMint*/ (CAmount liqAmount) {
-            CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
-            return AddBalanceSetShares(obj.shareAddress, balance);
-        },
-        slippageProtection));
+    if (auto res = pool.AddLiquidity(
+            amountA.second,
+            amountB.second,
+            [&] /*onMint*/ (CAmount liqAmount) {
+                CBalances balance{TAmounts{{lpTokenID, liqAmount}}};
+                return AddBalanceSetShares(obj.shareAddress, balance);
+            },
+            slippageProtection);
+        !res) {
+        return res;
+    }
+
     return mnview.SetPoolPair(lpTokenID, height, pool);
 }
 
@@ -152,26 +212,41 @@ Res CPoolPairsConsensus::operator()(const CRemoveLiquidityMessage &obj) const {
     auto amount = obj.amount;
 
     // checked internally too. remove here?
-    Require(amount.nValue > 0, "amount cannot be less than or equal to zero");
+    if (amount.nValue <= 0) {
+        return Res::Err("amount cannot be less than or equal to zero");
+    }
+
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
 
     auto pair = mnview.GetPoolPair(amount.nTokenId);
-    Require(pair, "there is no such pool pair");
+    if (!pair) {
+        return Res::Err("there is no such pool pair");
+    }
 
-    Require(HasAuth(from));
+    if (auto res = HasAuth(from); !res) {
+        return res;
+    }
 
     CPoolPair &pool = pair.value();
 
     // subtract liq.balance BEFORE RemoveLiquidity call to check balance correctness
     CBalances balance{TAmounts{{amount.nTokenId, amount.nValue}}};
-    Require(SubBalanceDelShares(from, balance));
+    if (auto res = SubBalanceDelShares(from, balance); !res) {
+        return res;
+    }
 
-    Require(pool.RemoveLiquidity(amount.nValue, [&](CAmount amountA, CAmount amountB) {
-        CalculateOwnerRewards(from);
-        CBalances balances{
-            TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}
-        };
-        return mnview.AddBalances(from, balances);
-    }));
+    if (auto res = pool.RemoveLiquidity(amount.nValue,
+                                        [&](CAmount amountA, CAmount amountB) {
+                                            CalculateOwnerRewards(from);
+                                            CBalances balances{
+                                                TAmounts{{pool.idTokenA, amountA}, {pool.idTokenB, amountB}}
+                                            };
+                                            return mnview.AddBalances(from, balances);
+                                        });
+        !res) {
+        return res;
+    }
 
     return mnview.SetPoolPair(amount.nTokenId, height, pool);
 }

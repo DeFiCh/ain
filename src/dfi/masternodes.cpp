@@ -78,7 +78,6 @@ CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProp
     auto type = static_cast<CProposalType>(msg.type);
     auto options = static_cast<CProposalOption>(msg.options);
     auto attributes = view.GetAttributes();
-    assert(attributes);
 
     CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
@@ -317,8 +316,9 @@ Res CMasternodesView::CreateMasternode(const uint256 &nodeId, const CMasternode 
 Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId, const uint256 &txid, int height) {
     auto state = node.GetState(height, *this);
     if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
-        Require(state == CMasternode::ENABLED,
-                [=] { return strprintf("node %s state is not 'ENABLED'", nodeId.ToString()); });
+        if (state != CMasternode::ENABLED) {
+            return Res::Err("node %s state is not 'ENABLED'", nodeId.ToString());
+        }
     } else if ((state != CMasternode::PRE_ENABLED && state != CMasternode::ENABLED)) {
         return Res::Err("node %s state is not 'PRE_ENABLED' or 'ENABLED'", nodeId.ToString());
     }
@@ -327,8 +327,9 @@ Res CMasternodesView::ResignMasternode(CMasternode &node, const uint256 &nodeId,
     if (!timelock) {
         return Res::Err("Failed to get timelock for masternode");
     }
-    Require(timelock.value() == CMasternode::ZEROYEAR,
-            [=] { return "Trying to resign masternode before timelock expiration."; });
+    if (timelock.value() != CMasternode::ZEROYEAR) {
+        return Res::Err("Trying to resign masternode before timelock expiration.");
+    }
 
     node.resignTx = txid;
     node.resignHeight = height;
@@ -1090,14 +1091,18 @@ Res CCustomCSView::PopulateLoansData(CVaultAssets &result,
 
     for (const auto &[loanTokenId, loanTokenAmount] : loanTokens->balances) {
         const auto token = GetLoanTokenByID(loanTokenId);
-        Require(token, [loanTokenId = loanTokenId] {
-            return strprintf("Loan token with id (%s) does not exist!", loanTokenId.ToString());
-        });
+        if (!token) {
+            return Res::Err("Loan token with id (%s) does not exist!", loanTokenId.ToString());
+        }
 
         const auto rate = GetInterestRate(vaultId, loanTokenId, height);
-        Require(rate, [=] { return strprintf("Cannot get interest rate for token (%s)!", token->symbol); });
+        if (!rate) {
+            return Res::Err("Cannot get interest rate for token (%s)!", token->symbol);
+        }
 
-        Require(height >= rate->height, [] { return "Trying to read loans in the past"; });
+        if (height < rate->height) {
+            return Res::Err("Trying to read loans in the past");
+        }
 
         auto totalAmount = loanTokenAmount + TotalInterest(*rate, height);
         if (totalAmount < 0) {
@@ -1112,7 +1117,9 @@ Res CCustomCSView::PopulateLoansData(CVaultAssets &result,
         auto prevLoans = result.totalLoans;
         result.totalLoans += *amountInCurrency.val;
 
-        Require(prevLoans <= result.totalLoans, [] { return "Exceeded maximum loans"; });
+        if (prevLoans > result.totalLoans) {
+            return Res::Err("Exceeded maximum loans");
+        }
 
         result.loans.push_back({loanTokenId, amountInCurrency});
     }
@@ -1131,18 +1138,24 @@ Res CCustomCSView::PopulateCollateralData(CVaultAssets &result,
         auto tokenAmount = col.second;
 
         auto token = HasLoanCollateralToken({tokenId, height});
-        Require(token, [=] { return strprintf("Collateral token with id (%s) does not exist!", tokenId.ToString()); });
+        if (!token) {
+            return Res::Err("Collateral token with id (%s) does not exist!", tokenId.ToString());
+        }
 
         auto amountInCurrency =
             GetAmountInCurrency(tokenAmount, token->fixedIntervalPriceId, useNextPrice, requireLivePrice);
-        Require(amountInCurrency);
+        if (!amountInCurrency) {
+            return amountInCurrency;
+        }
 
         auto amountFactor = MultiplyAmounts(token->factor, *amountInCurrency.val);
 
         auto prevCollaterals = result.totalCollaterals;
         result.totalCollaterals += amountFactor;
 
-        Require(prevCollaterals <= result.totalCollaterals, [] { return "Exceeded maximum collateral"; });
+        if (prevCollaterals > result.totalCollaterals) {
+            return Res::Err("Exceeded maximum collateral");
+        }
 
         result.collaterals.push_back({tokenId, amountInCurrency});
     }
@@ -1184,9 +1197,6 @@ uint256 CCustomCSView::MerkleRoot() {
 
 bool CCustomCSView::AreTokensLocked(const std::set<uint32_t> &tokenIds) const {
     const auto attributes = GetAttributes();
-    if (!attributes) {
-        return false;
-    }
 
     for (const auto &tokenId : tokenIds) {
         CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, tokenId};
@@ -1265,21 +1275,20 @@ std::map<CKeyID, CKey> AmISignerNow(int height, const CAnchorData::CTeam &team) 
 }
 
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID &id) const {
-    if (const auto attributes = GetAttributes()) {
-        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-        CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-        CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+    const auto attributes = GetAttributes();
+    CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+    CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+    CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
 
-        if (const auto token = GetToken(id); token && attributes->CheckKey(pairKey) &&
-                                             attributes->CheckKey(interestKey) && attributes->CheckKey(mintableKey)) {
-            CLoanView::CLoanSetLoanTokenImpl loanToken;
-            loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-            loanToken.interest = attributes->GetValue(interestKey, CAmount{});
-            loanToken.mintable = attributes->GetValue(mintableKey, false);
-            loanToken.symbol = token->symbol;
-            loanToken.name = token->name;
-            return loanToken;
-        }
+    if (const auto token = GetToken(id); token && attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) &&
+                                         attributes->CheckKey(mintableKey)) {
+        CLoanView::CLoanSetLoanTokenImpl loanToken;
+        loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+        loanToken.interest = attributes->GetValue(interestKey, CAmount{});
+        loanToken.mintable = attributes->GetValue(mintableKey, false);
+        loanToken.symbol = token->symbol;
+        loanToken.name = token->name;
+        return loanToken;
     }
 
     return {};
@@ -1287,50 +1296,42 @@ std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromA
 
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(
     const DCT_ID &id) const {
-    if (const auto attributes = GetAttributes()) {
-        CLoanSetCollateralTokenImplementation collToken;
+    const auto attributes = GetAttributes();
+    CLoanSetCollateralTokenImplementation collToken;
 
-        CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-        CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
+    CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+    CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
 
-        if (attributes->CheckKey(pairKey) && attributes->CheckKey(factorKey)) {
-            collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-            collToken.factor = attributes->GetValue(factorKey, CAmount{0});
-            collToken.idToken = id;
+    if (attributes->CheckKey(pairKey) && attributes->CheckKey(factorKey)) {
+        collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
+        collToken.factor = attributes->GetValue(factorKey, CAmount{0});
+        collToken.idToken = id;
 
-            auto token = GetToken(id);
-            if (token) {
-                collToken.creationTx = token->creationTx;
-            }
-
-            return collToken;
+        auto token = GetToken(id);
+        if (token) {
+            collToken.creationTx = token->creationTx;
         }
+
+        return collToken;
     }
 
     return {};
 }
 
 uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {
-    auto attributes = GetAttributes();
-    assert(attributes);
-
+    const auto attributes = GetAttributes();
     CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
-
     return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
 }
 
 uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CProposalType &type) const {
-    auto attributes = GetAttributes();
-    assert(attributes);
-
+    const auto attributes = GetAttributes();
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
     return attributes->GetValue(VOCKey, Params().GetConsensus().props.emergencyPeriod);
 }
 
 CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CProposalType &type) const {
-    auto attributes = GetAttributes();
-    assert(attributes);
-
+    const auto attributes = GetAttributes();
     CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPApprovalThreshold};
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCApprovalThreshold};
 
@@ -1345,8 +1346,7 @@ CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CProposalType &t
 }
 
 CAmount CCustomCSView::GetQuorumFromAttributes(const CProposalType &type, bool emergency) const {
-    auto attributes = GetAttributes();
-    assert(attributes);
+    const auto attributes = GetAttributes();
 
     CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
     CDataStructureV0 vocEmergencyQuorumKey{
@@ -1360,8 +1360,7 @@ CAmount CCustomCSView::GetQuorumFromAttributes(const CProposalType &type, bool e
 }
 
 CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
-    auto attributes = GetAttributes();
-    assert(attributes);
+    const auto attributes = GetAttributes();
 
     CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 

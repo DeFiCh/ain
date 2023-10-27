@@ -13,6 +13,7 @@ use ain_evm::{
     transaction::{
         self,
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        SignedTx,
     },
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
     Result,
@@ -25,8 +26,9 @@ use log::debug;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{
-    ffi::{self, TxMinerInfo},
+    ffi::{self, CrossBoundaryResult, TxMinerInfo},
     prelude::*,
+    BlockTemplateWrapper,
 };
 
 /// Creates and signs a transaction.
@@ -207,44 +209,50 @@ fn evm_try_get_balance(address: &str) -> Result<u64> {
     Ok(amount)
 }
 
-/// Updates the block template in a specific template_id as a `u64`
+/// Updates the block template in a specific template
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `mnview_ptr` - The pointer to the DVM accounts view.
 ///
 /// # Returns
 ///
 /// The state update results.
 #[ffi_fallible]
-fn evm_try_unsafe_update_state_in_template(template_id: u64, mnview_ptr: usize) -> Result<()> {
+fn evm_try_unsafe_update_state_in_template(
+    template: &mut BlockTemplateWrapper,
+    mnview_ptr: usize,
+) -> Result<()> {
     unsafe {
         SERVICES
             .evm
-            .update_state_in_block_template(template_id, mnview_ptr)
+            .update_state_in_block_template(template.get_inner_mut()?, mnview_ptr)
     }
 }
 
-/// Retrieves the next valid nonce of an EVM account in a specific template_id
+/// Retrieves the next valid nonce of an EVM account in a specific template
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `address` - The EVM address of the account.
 ///
 /// # Returns
 ///
-/// Returns the next valid nonce of the account in a specific template_id as a `u64`
+/// Returns the next valid nonce of the account in a specific template
 #[ffi_fallible]
-fn evm_try_unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &str) -> Result<u64> {
+fn evm_try_unsafe_get_next_valid_nonce_in_template(
+    template: &BlockTemplateWrapper,
+    address: &str,
+) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe {
         let next_nonce = SERVICES
             .evm
             .core
-            .get_next_valid_nonce_in_block_template(template_id, address)?;
+            .get_next_valid_nonce_in_block_template(template.get_inner()?, address)?;
 
         let nonce = u64::try_from(next_nonce)?;
         Ok(nonce)
@@ -255,18 +263,18 @@ fn evm_try_unsafe_get_next_valid_nonce_in_template(template_id: u64, address: &s
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `target_hash` - The native hash of the tx to be targeted and removed.
 #[ffi_fallible]
 fn evm_try_unsafe_remove_txs_above_hash_in_template(
-    template_id: u64,
+    template: &mut BlockTemplateWrapper,
     target_hash: String,
 ) -> Result<Vec<String>> {
     unsafe {
         SERVICES
             .evm
             .core
-            .remove_txs_above_hash_in_block_template(template_id, target_hash)
+            .remove_txs_above_hash_in_block_template(template.get_inner_mut()?, target_hash)
     }
 }
 
@@ -274,12 +282,12 @@ fn evm_try_unsafe_remove_txs_above_hash_in_template(
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `raw_tx` - The raw transparent transferdomain tx.
 /// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
 fn evm_try_unsafe_add_balance_in_template(
-    template_id: u64,
+    template: &mut BlockTemplateWrapper,
     raw_tx: &str,
     native_hash: &str,
 ) -> Result<()> {
@@ -294,11 +302,10 @@ fn evm_try_unsafe_add_balance_in_template(
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmIn,
     }));
-
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, exec_tx, native_hash)
+            .push_tx_in_block_template(template.get_inner_mut()?, exec_tx, native_hash)
     }
 }
 
@@ -306,12 +313,12 @@ fn evm_try_unsafe_add_balance_in_template(
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `raw_tx` - The raw transparent transferdomain tx.
 /// * `hash` - The native hash of the transferdomain tx.
 #[ffi_fallible]
 fn evm_try_unsafe_sub_balance_in_template(
-    template_id: u64,
+    template: &mut BlockTemplateWrapper,
     raw_tx: &str,
     native_hash: &str,
 ) -> Result<bool> {
@@ -330,7 +337,7 @@ fn evm_try_unsafe_sub_balance_in_template(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, exec_tx, native_hash)?;
+            .push_tx_in_block_template(template.get_inner_mut()?, exec_tx, native_hash)?;
         Ok(true)
     }
 }
@@ -340,7 +347,7 @@ fn evm_try_unsafe_sub_balance_in_template(
 /// # Arguments
 ///
 /// * `result` - Result object
-/// * `template_id` - The EVM template ID
+/// * `template` - The EVM BlockTemplate
 /// * `tx` - The raw transaction string.
 ///
 /// # Errors
@@ -359,10 +366,16 @@ fn evm_try_unsafe_sub_balance_in_template(
 ///
 /// Returns the validation result.
 #[ffi_fallible]
-fn evm_try_unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) -> Result<()> {
+fn evm_try_unsafe_validate_raw_tx_in_template(
+    template: &BlockTemplateWrapper,
+    raw_tx: &str,
+) -> Result<()> {
     debug!("[unsafe_validate_raw_tx_in_template]");
     unsafe {
-        let _ = SERVICES.evm.core.validate_raw_tx(raw_tx, template_id)?;
+        let _ = SERVICES
+            .evm
+            .core
+            .validate_raw_tx(raw_tx, template.get_inner()?)?;
         Ok(())
     }
 }
@@ -372,7 +385,7 @@ fn evm_try_unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) ->
 /// # Arguments
 ///
 /// * `result` - Result object
-/// * `template_id` - The EVM template ID
+/// * `template` - The EVM BlockTemplate
 /// * `tx` - The raw transaction string.
 ///
 /// # Errors
@@ -391,7 +404,7 @@ fn evm_try_unsafe_validate_raw_tx_in_template(template_id: u64, raw_tx: &str) ->
 /// Returns the validation result.
 #[ffi_fallible]
 fn evm_try_unsafe_validate_transferdomain_tx_in_template(
-    template_id: u64,
+    template: &BlockTemplateWrapper,
     raw_tx: &str,
     context: ffi::TransferDomainInfo,
 ) -> Result<()> {
@@ -399,7 +412,7 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
             raw_tx,
-            template_id,
+            template.get_inner()?,
             TransferDomainTxInfo {
                 from: context.from,
                 to: context.to,
@@ -409,34 +422,60 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
                 token_id: context.token_id,
             },
         )?;
-        Ok(())
+    }
+    Ok(())
+}
+
+fn block_template_err_wrapper() -> &'static mut BlockTemplateWrapper {
+    // We don't really care if multiple thread reinitialize or use it as long as the refs live
+    // So we just use unsafe mut pattern since it's purely for err condition that is intented
+    // to never be used
+    static mut CELL: std::cell::OnceCell<BlockTemplateWrapper> = std::cell::OnceCell::new();
+    unsafe {
+        let v = CELL.get_or_init(|| BlockTemplateWrapper(None));
+        #[allow(mutable_transmutes)]
+        std::mem::transmute(v)
     }
 }
 
-/// Retrieves the EVM template ID.
+/// Creates an EVM block template.
 ///
 /// # Returns
 ///
-/// Returns the EVM template ID as a `u64`.
-#[ffi_fallible]
-fn evm_try_unsafe_create_template(
+/// Returns the EVM template.
+pub fn evm_try_unsafe_create_template(
+    result: &mut CrossBoundaryResult,
     dvm_block: u64,
     miner_address: &str,
     difficulty: u32,
     timestamp: u64,
-) -> Result<u64> {
+) -> &'static mut BlockTemplateWrapper {
     let miner_address = if miner_address.is_empty() {
         H160::zero()
     } else {
-        miner_address
-            .parse::<H160>()
-            .map_err(|_| "Invalid address")?
+        match miner_address.parse::<H160>() {
+            Ok(a) => a,
+            Err(_) => {
+                cross_boundary_error(result, "Invalid address");
+                return block_template_err_wrapper();
+            }
+        }
     };
 
     unsafe {
-        SERVICES
+        match SERVICES
             .evm
             .create_block_template(dvm_block, miner_address, difficulty, timestamp)
+        {
+            Ok(template) => cross_boundary_success_return(
+                result,
+                Box::leak(Box::new(BlockTemplateWrapper(Some(template)))),
+            ),
+            Err(e) => {
+                cross_boundary_error(result, e.to_string());
+                block_template_err_wrapper()
+            }
+        }
     }
 }
 
@@ -444,11 +483,14 @@ fn evm_try_unsafe_create_template(
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 ///
 #[ffi_fallible]
-fn evm_try_unsafe_remove_template(template_id: u64) -> Result<()> {
-    unsafe { SERVICES.evm.core.remove_block_template(template_id) }
+fn evm_try_unsafe_remove_template(template: &mut BlockTemplateWrapper) -> Result<()> {
+    // Will be dropped when Box out of scope (end of this fn)
+    unsafe {
+        let _ = Box::from_raw(template);
+    }
     Ok(())
 }
 
@@ -456,7 +498,7 @@ fn evm_try_unsafe_remove_template(template_id: u64) -> Result<()> {
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `raw_tx` - The raw transaction string.
 /// * `hash` - The native transaction hash.
 ///
@@ -468,7 +510,7 @@ fn evm_try_unsafe_remove_template(template_id: u64) -> Result<()> {
 ///
 #[ffi_fallible]
 fn evm_try_unsafe_push_tx_in_template(
-    template_id: u64,
+    template: &mut BlockTemplateWrapper,
     raw_tx: &str,
     native_hash: &str,
 ) -> Result<ffi::ValidateTxCompletion> {
@@ -482,9 +524,11 @@ fn evm_try_unsafe_push_tx_in_template(
             .try_get_or_create(raw_tx)?;
 
         let tx_hash = signed_tx.hash();
-        SERVICES
-            .evm
-            .push_tx_in_block_template(template_id, signed_tx.into(), native_hash)?;
+        SERVICES.evm.push_tx_in_block_template(
+            template.get_inner_mut()?,
+            signed_tx.into(),
+            native_hash,
+        )?;
 
         Ok(ffi::ValidateTxCompletion {
             tx_hash: format!("{:?}", tx_hash),
@@ -496,7 +540,7 @@ fn evm_try_unsafe_push_tx_in_template(
 ///
 /// # Arguments
 ///
-/// * `template_id` - The template ID.
+/// * `template` - The EVM BlockTemplate.
 /// * `difficulty` - The block's difficulty.
 /// * `miner_address` - The miner's EVM address as a byte array.
 /// * `timestamp` - The block's timestamp.
@@ -506,7 +550,8 @@ fn evm_try_unsafe_push_tx_in_template(
 /// Returns a `FinalizeBlockResult` containing the block hash, failed transactions, burnt fees and priority fees (in satoshis) on success.
 #[ffi_fallible]
 fn evm_try_unsafe_construct_block_in_template(
-    template_id: u64,
+    template: &mut BlockTemplateWrapper,
+    is_miner: bool,
 ) -> Result<ffi::FinalizeBlockCompletion> {
     unsafe {
         let FinalizedBlockInfo {
@@ -514,7 +559,9 @@ fn evm_try_unsafe_construct_block_in_template(
             total_burnt_fees,
             total_priority_fees,
             block_number,
-        } = SERVICES.evm.construct_block_in_template(template_id)?;
+        } = SERVICES
+            .evm
+            .construct_block_in_template(template.get_inner_mut()?, is_miner)?;
         let total_burnt_fees = u64::try_from(WeiAmount(total_burnt_fees).to_satoshi()?)?;
         let total_priority_fees = u64::try_from(WeiAmount(total_priority_fees).to_satoshi()?)?;
 
@@ -528,8 +575,8 @@ fn evm_try_unsafe_construct_block_in_template(
 }
 
 #[ffi_fallible]
-fn evm_try_unsafe_commit_block(template_id: u64) -> Result<()> {
-    unsafe { SERVICES.evm.commit_block(template_id) }
+fn evm_try_unsafe_commit_block(template: &BlockTemplateWrapper) -> Result<()> {
+    unsafe { SERVICES.evm.commit_block(template.get_inner()?) }
 }
 
 #[ffi_fallible]
@@ -539,8 +586,8 @@ fn evm_try_disconnect_latest_block() -> Result<()> {
 }
 
 #[ffi_fallible]
-fn evm_try_handle_attribute_apply(
-    _template_id: u64,
+fn evm_try_unsafe_handle_attribute_apply(
+    _template: &mut BlockTemplateWrapper,
     _attribute_type: ffi::GovVarKeyDataStructure,
     _value: Vec<u8>,
 ) -> Result<bool> {
@@ -682,8 +729,8 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
-fn evm_try_create_dst20(
-    template_id: u64,
+fn evm_try_unsafe_create_dst20(
+    template: &mut BlockTemplateWrapper,
     native_hash: &str,
     name: &str,
     symbol: &str,
@@ -703,13 +750,13 @@ fn evm_try_create_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, system_tx, native_hash)
+            .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
     }
 }
 
 #[ffi_fallible]
 fn evm_try_unsafe_bridge_dst20(
-    template_id: u64,
+    template: &mut BlockTemplateWrapper,
     raw_tx: &str,
     native_hash: &str,
     token_id: u64,
@@ -731,7 +778,7 @@ fn evm_try_unsafe_bridge_dst20(
     unsafe {
         SERVICES
             .evm
-            .push_tx_in_block_template(template_id, system_tx, native_hash)
+            .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
     }
 }
 
@@ -753,6 +800,23 @@ fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
     Ok(format!("{:?}", signed_tx.hash()))
 }
 
+#[ffi_fallible]
+fn evm_try_unsafe_make_signed_tx(raw_tx: &str) -> Result<usize> {
+    let ptr = Box::leak(Box::new(SignedTx::try_from(raw_tx)?));
+    Ok(ptr as *const SignedTx as usize)
+}
+
+#[ffi_fallible]
+fn evm_try_unsafe_cache_signed_tx(raw_tx: &str, instance: usize) -> Result<()> {
+    let signed_tx = unsafe { Box::from_raw(instance as *mut SignedTx) };
+    SERVICES
+        .evm
+        .core
+        .signed_tx_cache
+        .pre_populate(raw_tx, *signed_tx)?;
+    Ok(())
+}
+
 /// Checks if the given address is a smart contract
 ///
 /// # Arguments
@@ -763,13 +827,16 @@ fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
 ///
 /// Returns `true` if the address is a contract, `false` otherwise
 #[ffi_fallible]
-fn evm_try_unsafe_is_smart_contract_in_template(address: &str, template_id: u64) -> Result<bool> {
+fn evm_try_unsafe_is_smart_contract_in_template(
+    address: &str,
+    template: &BlockTemplateWrapper,
+) -> Result<bool> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
 
     unsafe {
         SERVICES
             .evm
-            .is_smart_contract_in_block_template(address, template_id)
+            .is_smart_contract_in_block_template(address, template.get_inner()?)
     }
 }
 
@@ -814,28 +881,4 @@ fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
         .sender
         .send(Notification::Transaction(signed_tx.hash()))
         .map_err(|e| format_err!(e.to_string()))?)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_hash_type_string() {
-        use ethereum_types::H160;
-        let num = 0b11010111_11010111_11010111_11010111_11010111_11010111_11010111_11010111;
-        let num_h160 = H160::from_low_u64_be(num);
-        let num_h160_string = format!("{:?}", num_h160);
-        println!("{}", num_h160_string);
-
-        let num_h160_test: H160 = num_h160_string.parse().unwrap();
-        assert_eq!(num_h160_test, num_h160);
-
-        use ethereum_types::H256;
-        let num_h256: H256 = "0x3186715414c5fbd73586662d26b83b66b5754036379d56e896a560a90e409351"
-            .parse()
-            .unwrap();
-        let num_h256_string = format!("{:?}", num_h256);
-        println!("{}", num_h256_string);
-        let num_h256_test: H256 = num_h256_string.parse().unwrap();
-        assert_eq!(num_h256_test, num_h256);
-    }
 }

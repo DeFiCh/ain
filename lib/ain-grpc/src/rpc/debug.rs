@@ -39,7 +39,7 @@ pub trait MetachainDebugRPC {
         arg: Option<DumpArg>,
         from: Option<&str>,
         limit: Option<&str>,
-    ) -> RpcResult<()>;
+    ) -> RpcResult<String>;
 
     // Log accounts state
     #[method(name = "logaccountstates")]
@@ -118,15 +118,15 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         arg: Option<DumpArg>,
         start: Option<&str>,
         limit: Option<&str>,
-    ) -> RpcResult<()> {
+    ) -> RpcResult<String> {
         let default_limit = 100usize;
         let limit = limit
             .map_or(Ok(default_limit), |s| s.parse())
             .map_err(|e| Error::Custom(e.to_string()))?;
         self.handler
             .storage
-            .dump_db(arg.unwrap_or(DumpArg::All), start, limit);
-        Ok(())
+            .dump_db(arg.unwrap_or(DumpArg::All), start, limit)
+            .map_err(to_jsonrpsee_custom_error)
     }
 
     fn log_account_states(&self) -> RpcResult<()> {
@@ -261,8 +261,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_block_templates(&self) -> RpcResult<()> {
-        let templates = &self.handler.core.block_templates;
-        debug!("templates : {:#?}", templates);
+        // let templates = &self.handler.core.block_templates;
+        // debug!("templates : {:#?}", templates);
         Ok(())
     }
 }

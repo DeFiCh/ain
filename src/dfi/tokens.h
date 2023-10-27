@@ -13,6 +13,7 @@
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>
+#include <validation.h>
 
 class CTransaction;
 class UniValue;
@@ -184,8 +185,9 @@ public:
     static const unsigned char DB_TOKEN_LASTID;  // = 'L';
 
     using CTokenImpl = CTokenImplementation;
+    using TokenIDPair = std::pair<DCT_ID, std::optional<CTokenImpl>>;
     std::optional<CTokenImpl> GetToken(DCT_ID id) const;
-    std::optional<std::pair<DCT_ID, std::optional<CTokensView::CTokenImpl>>> GetToken(const std::string &symbol) const;
+    std::optional<CTokensView::TokenIDPair> GetToken(const std::string &symbol) const;
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(const uint256 &txid) const;
     [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const = 0;
@@ -196,8 +198,7 @@ public:
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(const CTokenImpl &token,
                                bool isPreBayfront = false,
-                               bool shouldCreateDst20 = false,
-                               const std::shared_ptr<CScopedTemplateID> &evmTemplateId = {});
+                               BlockContext blockCtx = BlockContext{});
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

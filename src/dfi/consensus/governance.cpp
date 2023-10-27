@@ -5,10 +5,19 @@
 #include <dfi/consensus/governance.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
+#include <validation.h>
 
 Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     // check foundation auth
-    Require(HasFoundationAuth());
+    if (auto res = HasFoundationAuth(); !res) {
+        return res;
+    }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto time = txCtx.GetTime();
+    auto &mnview = blockCtx.GetView();
+
     for (const auto &gov : obj.govs) {
         if (!gov.second) {
             return Res::Err("'%s': variable does not registered", gov.first);
@@ -21,12 +30,8 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             // Add to existing ATTRIBUTES instead of overwriting.
             auto govVar = mnview.GetAttributes();
 
-            if (!govVar) {
-                return Res::Err("%s: %s", var->GetName(), "Failed to get existing ATTRIBUTES");
-            }
-
             govVar->time = time;
-            govVar->evmTemplateId = evmTemplateId;
+            govVar->evmTemplate = blockCtx.GetEVMTemplate();
 
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
             if (!newVar) {
@@ -135,8 +140,10 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
         return Res::Err("tx not from foundation member");
     }
 
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
     const auto attributes = mnview.GetAttributes();
-    assert(attributes);
+
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
     if (!attributes->GetValue(key, false)) {
         return Res::Err("Unset Gov variables not currently enabled in attributes.");
@@ -165,6 +172,11 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     if (!HasFoundationAuth()) {
         return Res::Err("tx not from foundation member");
     }
+
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    auto &mnview = blockCtx.GetView();
+
     if (obj.startHeight <= height) {
         return Res::Err("startHeight must be above the current block height");
     }
@@ -177,9 +189,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) &&
         obj.govVar->GetName() == "ATTRIBUTES") {
         auto govVar = mnview.GetAttributes();
-        if (!govVar) {
-            return Res::Err("%s: %s", obj.govVar->GetName(), "Failed to get existing ATTRIBUTES");
-        }
 
         if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(obj.govVar);
