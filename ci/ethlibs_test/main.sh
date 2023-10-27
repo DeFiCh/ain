@@ -31,7 +31,7 @@ start_node() {
         -rpcallowip=0.0.0.0/0 \
         -rpcbind=0.0.0.0 \
         -grpcbind=0.0.0.0 \
-        -evmrpcbind=0.0.0.0 \
+        -ethrpcbind=0.0.0.0 \
         -masternode_operator="$OPERATORAUTHADDR" \
         -masternode_owner="$OWNERAUTHADDR" \
         -dummypos=0 \

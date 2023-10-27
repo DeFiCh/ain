@@ -429,7 +429,7 @@ def initialize_datadir(dirname, n, chain):
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n, 1)) + "\n")
         f.write("grpcport=" + str(rpc_port(n, 2)) + "\n")  # GRPC will use two ports
-        f.write("evmrpcport=" + str(rpc_port(n, 3)) + "\n")
+        f.write("ethrpcport=" + str(rpc_port(n, 3)) + "\n")
         f.write("wsport=" + str(rpc_port(n, 4)) + "\n")
         f.write("server=1\n")
         f.write("keypool=1\n")

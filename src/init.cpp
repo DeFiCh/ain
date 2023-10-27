@@ -650,8 +650,8 @@ void SetupServerArgs()
     gArgs.AddArg("-maxaddrprocessingtokenbucket=<n>", strprintf("Sets MAX_ADDR_PROCESSING_TOKEN_BUCKET limit for ADDR messages(default: %d)", MAX_ADDR_PROCESSING_TOKEN_BUCKET), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-grpcbind=<addr>[:port]", "Bind to given address to listen for JSON-gRPC connections. Do not expose the gRPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -grpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), changiBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-evmrpcbind=<addr>[:port]", "Bind to given address to listen for EVM-JSON-RPC connections. Do not expose the EVM-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -evmrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-evmrpcport=<port>", strprintf("Listen for EVM-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->EVMRPCPort(), testnetBaseParams->EVMRPCPort(), changiBaseParams->EVMRPCPort(), devnetBaseParams->EVMRPCPort(), regtestBaseParams->EVMRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcbind=<addr>[:port]", "Bind to given address to listen for EVM-JSON-RPC connections. Do not expose the EVM-RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -ethrpcport. This option can be specified multiple times (default: 127.0.0.1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for EVM-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-wsport=<port>", strprintf("Listen for EVM-WebSockets connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->WSPort(), testnetBaseParams->WSPort(), changiBaseParams->WSPort(), devnetBaseParams->WSPort(), regtestBaseParams->WSPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-evmmaxconnections=<connections>", strprintf("Set the maximum number of connections allowed by the EVM-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS, DEFAULT_EVM_MAX_CONNECTIONS), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
@@ -1576,27 +1576,27 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& evmEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints) {
     // Current API only allows for one EVM RPC/gRPC server to bind to one address.
     // By default, we will take the first address, if multiple addresses are specified.
-    int evm_rpc_port = gArgs.GetArg("-evmrpcport", BaseParams().EVMRPCPort());
+    int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     int grpc_port = gArgs.GetArg("-grpcport", BaseParams().GRPCPort());
     int websockets_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
 
     // Determine which addresses to bind to EVM RPC server
-    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-evmrpcbind"))) { // Default to loopback if not allowing external IPs
+    if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
         evmEndpoints.emplace_back("127.0.0.1", evm_rpc_port);
         evmEndpoints.emplace_back("127.0.0.1", websockets_port);
         if (gArgs.IsArgSet("-rpcallowip")) {
-            LogPrintf("WARNING: option -rpcallowip was specified without -evmrpcbind; this doesn't usually make sense\n");
+            LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
         }
-        if (gArgs.IsArgSet("-evmrpcbind")) {
-            LogPrintf("WARNING: option -evmrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
+        if (gArgs.IsArgSet("-ethrpcbind")) {
+            LogPrintf("WARNING: option -ethrpcbind was ignored because -rpcallowip was not specified, refusing to allow everyone to connect\n");
         }
-    } else if (gArgs.IsArgSet("-evmrpcbind")) { // Specific bind address
-        for (const std::string& strEVMRPCBind : gArgs.GetArgs("-evmrpcbind")) {
+    } else if (gArgs.IsArgSet("-ethrpcbind")) { // Specific bind address
+        for (const std::string& strETHRPCBind : gArgs.GetArgs("-ethrpcbind")) {
             int port = evm_rpc_port;
             int ws_port = websockets_port;
 
             std::string host;
-            SplitHostPort(strEVMRPCBind, port, host);
+            SplitHostPort(strETHRPCBind, port, host);
             evmEndpoints.emplace_back(host, port);
             evmEndpoints.emplace_back(host, ws_port);
         }

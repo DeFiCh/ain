@@ -63,7 +63,7 @@ static void SetupCliArgs()
     gArgs.AddArg("-stdin", "Read extra arguments from standard input, one per line until EOF/Ctrl-D (recommended for sensitive information such as passphrases). When combined with -stdinrpcpass, the first line from standard input is used for the RPC password.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-stdinrpcpass", "Read RPC password from standard input as a single line. When combined with -stdin, the first line from standard input is used for the RPC password.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), changiBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
-    gArgs.AddArg("-evmrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->EVMRPCPort(), testnetBaseParams->EVMRPCPort(), changiBaseParams->EVMRPCPort(), devnetBaseParams->EVMRPCPort(), regtestBaseParams->EVMRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-wsport=<port>", strprintf("Listen for ETH-WebSockets connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->WSPort(), testnetBaseParams->WSPort(), changiBaseParams->WSPort(), devnetBaseParams->WSPort(), regtestBaseParams->WSPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     RPCMetadata::SetupArgs(gArgs);
 }
@@ -320,15 +320,15 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     dvmport = gArgs.GetArg("-rpcport", dvmport);
 
     // For EVM RPCs, in preference order, we choose the following for the evm port:
-    //     1. -evmrpcport
+    //     1. -ethrpcport
     //     2. default evm port for chain
-    int evmport = BaseParams().EVMRPCPort();
-    evmport = gArgs.GetArg("-evmrpcport", evmport);
+    int ethport = BaseParams().ETHRPCPort();
+    ethport = gArgs.GetArg("-ethrpcport", ethport);
 
     // Check if DVM or EVM RPC
     int port = dvmport;
     if (strMethod.rfind("eth_", 0) == 0 || strMethod.rfind("debug_", 0) == 0 || strMethod.rfind("net_", 0) == 0 || strMethod.rfind("web3_", 0) == 0)
-        port = evmport;
+        port = ethport;
 
     // Obtain event base
     raii_event_base base = obtain_event_base();
