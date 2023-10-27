@@ -67,6 +67,17 @@ impl SignedTxCache {
         Ok(res.clone())
     }
 
+    pub fn pre_populate(&self, key: &str, signed_tx: SignedTx) -> Result<()> {
+        let mut guard = self.inner.lock();
+        debug!("[signed-tx-cache]::pre_populate: {}", key);
+        let _ = guard.get_or_insert(key.to_string(), move || {
+            debug!("[signed-tx-cache]::pre_populate:: create {}", key);
+            signed_tx
+        });
+
+        Ok(())
+    }
+
     pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
         let data = EnvelopedEncodable::encode(tx);
         let key = hex::encode(&data);
@@ -770,7 +781,7 @@ impl EVMCoreService {
     pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>> {
         self.get_account(address, block_number)?
             .map_or(Ok(None), |account| {
-                self.storage.get_code_by_hash(account.code_hash)
+                self.storage.get_code_by_hash(address, account.code_hash)
             })
     }
 
