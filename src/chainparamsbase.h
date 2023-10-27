@@ -25,7 +25,7 @@ public:
     const std::string& DataDir() const { return strDataDir; }
     int RPCPort() const { return nRPCPort; }
     int GRPCPort() const { return nGRPCPort; }
-    int evmrpcport() const { return nEVMRPCPort; }
+    int EVMRPCPort() const { return nEVMRPCPort; }
     int WSPort() const { return nWSPort; }
 
     CBaseChainParams() = delete;
