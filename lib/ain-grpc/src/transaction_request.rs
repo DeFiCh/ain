@@ -34,9 +34,8 @@ pub struct TransactionRequest {
     /// Value of transaction in wei
     pub value: Option<U256>,
     /// Additional data sent with transaction
+    #[serde(deserialize_with = "deserialize_data_or_input", flatten)]
     pub data: Option<Bytes>,
-    /// Input
-    pub input: Option<Bytes>,
     /// Transaction's nonce
     pub nonce: Option<U256>,
     /// Pre-pay to warm storage access.
@@ -56,11 +55,7 @@ impl From<TransactionRequest> for Option<TransactionMessage> {
                 gas_price: req.gas_price.unwrap_or_default(),
                 gas_limit: req.gas.unwrap_or_default(),
                 value: req.value.unwrap_or_default(),
-                input: req
-                    .input
-                    .or(req.data)
-                    .map(Bytes::into_vec)
-                    .unwrap_or_default(),
+                input: req.data.map(Bytes::into_vec).unwrap_or_default(),
                 action: match req.to {
                     Some(to) => ethereum::TransactionAction::Call(to),
                     None => ethereum::TransactionAction::Create,

@@ -23,9 +23,8 @@ pub struct CallRequest {
     /// Value
     pub value: Option<U256>,
     /// Data
+    #[serde(deserialize_with = "deserialize_data_or_input", flatten)]
     pub data: Option<Bytes>,
-    /// Input
-    pub input: Option<Bytes>,
     /// Nonce
     pub nonce: Option<U256>,
     /// AccessList
