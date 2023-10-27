@@ -289,6 +289,7 @@ void Shutdown(InitInterfaces& interfaces)
     // next startup faster by avoiding rescan.
 
     ShutdownDfTxGlobalTaskPool();
+    ShutdownEvmTxGlobalTaskPool();
     XResultStatusLogged(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
@@ -425,7 +426,7 @@ void SetupServerArgs()
     gArgs.AddArg("-dbbatchsize", strprintf("Maximum database write batch size in bytes (default: %u)", nDefaultDbBatchSize), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbcache=<n>", strprintf("Maximum database cache size <n> MiB (%d to %d, default: %d). In addition, unused mempool memory is shared for this cache (see -maxmempool).", nMinDbCache, nMaxDbCache, nDefaultDbCache), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-evmcachesize=<n>", strprintf("Maximum EVM database cache size <n> items (default: %d).", DEFAULT_EVM_CACHE_SIZE_LIMIT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-eccprecache", "Flag to use parrallel ecc recovery of signed EVM transactions on block validation (default: true).", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-eccprecache=<n>", strprintf("No. of parallel workers set in the work pool to use for parrallel ecc recovery of signed EVM txs on block validation (default: %d, auto: %d, disable: 0, no. of threads: <n>).", DEFAULT_EVMTX_WORKERS, DEFAULT_EVMTX_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-includeconf=<file>", "Specify additional configuration file, relative to the -datadir path (only useable from configuration file, not command line)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1782,6 +1783,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     CacheSizes nCacheSizes;
     SetupCacheSizes(nCacheSizes);
     InitDfTxGlobalTaskPool();
+    InitEvmTxGlobalTaskPool();
 
     bool fLoaded = false;
     fReindex = gArgs.GetBoolArg("-reindex", false);

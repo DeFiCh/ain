@@ -7,6 +7,7 @@
 #include <condition_variable>
 
 static const int DEFAULT_DFTX_WORKERS = 0;
+static const int DEFAULT_EVMTX_WORKERS = -1;
 
 // Until C++20x concurrency impls make it into standard, std::future and std::async impls
 // doesn't have the primitives needed for working with many at the same time efficiently
@@ -30,6 +31,9 @@ private:
 
 void InitDfTxGlobalTaskPool();
 void ShutdownDfTxGlobalTaskPool();
+
+void InitEvmTxGlobalTaskPool();
+void ShutdownEvmTxGlobalTaskPool();
 
 class TaskGroup {
 public:
@@ -76,5 +80,6 @@ private:
 };
 
 extern std::unique_ptr<TaskPool> DfTxTaskPool;
+extern std::unique_ptr<TaskPool> EvmTxTaskPool;
 
 #endif  // DEFI_DFI_THREADPOOL_H

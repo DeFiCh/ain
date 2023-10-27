@@ -29,7 +29,7 @@ public:
     int WSPort() const { return nWSPort; }
 
     CBaseChainParams() = delete;
-    CBaseChainParams(const std::string& data_dir, int rpc_port, int grpc_port, int evmrpc_port, int ws_port) : nRPCPort(rpc_port), nGRPCPort(grpc_port), nEVMRPCPort(evmrpc_port), nWSPort(ws_port), strDataDir(data_dir) {}
+    CBaseChainParams(const std::string& data_dir, int rpc_port, int grpc_port, int evmrpc_port, int ws_port) : nRPCPort(rpc_port), nGRPCPort(grpc_port), nETHRPCPort(evmrpc_port), nWSPort(ws_port), strDataDir(data_dir) {}
 
 private:
     int nRPCPort;

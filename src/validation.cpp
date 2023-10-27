@@ -3010,10 +3010,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
-        if (gArgs.GetBoolArg("-eccprecache", true)) {
+        if (gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS) != 0) {
+            LogPrintf("XXX here\n");
             // Pre-warm validation cache
             TaskGroup g;
-            auto &pool = DfTxTaskPool->pool;
+            auto &pool = EvmTxTaskPool->pool;
 
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
