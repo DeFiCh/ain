@@ -3012,7 +3012,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
         if (gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS) != false) {
             // Pre-warm validation cache
-            LogPrintf("XXXX here");
             TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 

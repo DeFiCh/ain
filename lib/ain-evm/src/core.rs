@@ -44,7 +44,6 @@ pub struct SignedTxCache {
 
 impl Default for SignedTxCache {
     fn default() -> Self {
-        debug!("XXX cache size {}", ain_cpp_imports::get_lru_cache_size_limit());
         Self::new(ain_cpp_imports::get_lru_cache_size_limit())
     }
 }
