@@ -300,3 +300,7 @@ rust::string getCORSAllowedOrigin() {
 int32_t getNumConnections() {
     return (int32_t)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL);
 }
+
+size_t getLruCacheSizeLimit() {
+    return gArgs.GetArg("-lrucache", DEFAULT_LRU_CACHE_SIZE_LIMIT);
+}

@@ -10,6 +10,7 @@ static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET = 15000000;
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
+static constexpr uint32_t DEFAULT_LRU_CACHE_SIZE_LIMIT = 10000;
 
 struct Attributes {
     uint64_t blockGasTarget;
@@ -71,5 +72,6 @@ rust::string getClientVersion();
 int32_t getNumCores();
 rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
+size_t getLruCacheSizeLimit();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

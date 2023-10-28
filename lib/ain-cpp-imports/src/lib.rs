@@ -100,6 +100,9 @@ mod ffi {
     pub fn getNumConnections() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getLruCacheSizeLimit() -> usize {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -209,6 +212,10 @@ pub fn get_cors_allowed_origin() -> String {
 
 pub fn get_num_connections() -> i32 {
     ffi::getNumConnections()
+}
+
+pub fn get_lru_cache_size_limit() -> usize {
+    ffi::getLruCacheSizeLimit()
 }
 
 #[cfg(test)]
