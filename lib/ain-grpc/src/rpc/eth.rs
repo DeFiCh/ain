@@ -828,30 +828,32 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         // Normalize the max fee per gas the call is willing to spend.
         let fee_cap = call.get_effective_gas_price(block_base_fee)?;
-        let balance = self
-            .handler
-            .core
-            .get_balance(caller, block_number)
-            .map_err(to_custom_err)?;
 
         // Recap the highest gas allowance with account's balance
-        let mut available = balance;
-        if let Some(value) = call.value {
-            if balance < value {
-                return Err(RPCError::InsufficientFunds.into());
+        if call.from.is_some() {
+            let balance = self
+                .handler
+                .core
+                .get_balance(caller, block_number)
+                .map_err(to_custom_err)?;
+            let mut available = balance;
+            if let Some(value) = call.value {
+                if balance < value {
+                    return Err(RPCError::InsufficientFunds.into());
+                }
+                available = balance.checked_sub(value).ok_or(RPCError::ValueOverflow)?;
             }
-            available = balance.checked_sub(value).ok_or(RPCError::ValueOverflow)?;
-        }
-        let allowance = u64::try_from(
-            available
-                .checked_div(fee_cap)
-                .ok_or(RPCError::ValueOverflow)?,
-        )
-        .map_err(to_custom_err)?;
+            let allowance = u64::try_from(
+                available
+                    .checked_div(fee_cap)
+                    .ok_or(RPCError::ValueOverflow)?,
+            )
+            .map_err(to_custom_err)?;
 
-        if hi > allowance {
-            debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
-            hi = allowance;
+            if hi > allowance {
+                debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
+                hi = allowance;
+            }
         }
         let cap = hi;
 
