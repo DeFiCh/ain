@@ -309,9 +309,9 @@ impl MetachainRPCModule {
             // BlockNumber::Pending => todo!(),
             _ => self.handler.storage.get_latest_block(),
         }
-        .map_err(to_custom_err)?
+        .map_err(RPCError::EvmError)?
         .map(|block| block.header.number)
-        .ok_or(Error::Custom(String::from("header not found")))
+        .ok_or(RPCError::BlockNotFound.into())
     }
 }
 
@@ -338,7 +338,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_block_by_number(&block_number)
-            .map_err(RPCError::EvmCall)?
+            .map_err(RPCError::EvmError)?
             .map(|block| block.header.base_fee)
             .unwrap_or(INITIAL_BASE_FEE);
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
@@ -356,7 +356,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 access_list: call.access_list.unwrap_or_default(),
                 block_number,
             })
-            .map_err(RPCError::EvmCall)?;
+            .map_err(RPCError::EvmError)?;
         Ok(Bytes(data))
     }
 
@@ -444,9 +444,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn chain_id(&self) -> RpcResult<String> {
-        let chain_id = ain_cpp_imports::get_chain_id()
-            .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
-
+        let chain_id = ain_cpp_imports::get_chain_id().map_err(RPCError::Error)?;
         Ok(format!("{chain_id:#x}"))
     }
 
@@ -487,7 +485,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn mining(&self) -> RpcResult<bool> {
-        ain_cpp_imports::is_mining().map_err(|e| Error::Custom(e.to_string()))
+        ain_cpp_imports::is_mining().map_err(|e| RPCError::Error(e).into())
     }
 
     fn get_transaction_by_hash(&self, hash: H256) -> RpcResult<Option<EthTransactionInfo>> {
@@ -628,17 +626,15 @@ impl MetachainRPCServer for MetachainRPCModule {
 
                 match accounts.get(0) {
                     Some(account) => H160::from_str(account.as_str()).unwrap(),
-                    None => return Err(Error::Custom(String::from("from is not available"))),
+                    None => return Err(to_custom_err("from is not available")),
                 }
             }
         };
         debug!(target:"rpc", "[sign_transaction] from: {:?}", from);
 
-        let chain_id = ain_cpp_imports::get_chain_id()
-            .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
-
+        let chain_id = ain_cpp_imports::get_chain_id().map_err(RPCError::Error)?;
         let Ok(state_root) = self.handler.core.get_state_root() else {
-            return Err(Error::Custom(String::from("Could not get state root")));
+            return Err(RPCError::StateRootNotFound.into());
         };
         let nonce = match request.nonce {
             Some(nonce) => nonce,
@@ -646,9 +642,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 .handler
                 .core
                 .get_next_account_nonce(from, state_root)
-                .map_err(|e| {
-                    Error::Custom(format!("Error getting address transaction count : {e:?}"))
-                })?,
+                .map_err(RPCError::EvmError)?,
         };
 
         let gas_price = request.gas_price;
@@ -689,27 +683,21 @@ impl MetachainRPCServer for MetachainRPCModule {
                 TransactionMessage::EIP1559(m)
             }
             _ => {
-                return Err(Error::Custom(String::from(
-                    "invalid transaction parameters",
-                )));
+                return Err(RPCError::InvalidTransactionMessage.into());
             }
         };
 
         let signed = sign(from, message).unwrap();
-
         let encoded = hex::encode(signed.encode());
-
         Ok(encoded)
     }
 
     fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
         debug!(target:"rpc", "Sending transaction: {:?}", request);
-
         let signed = self.sign_transaction(request)?;
-
         let hash = self.send_raw_transaction(signed.as_str())?;
-        debug!(target:"rpc", "[send_transaction] signed: {:?}", hash);
 
+        debug!(target:"rpc", "[send_transaction] signed: {:?}", hash);
         Ok(hash)
     }
 
@@ -717,55 +705,43 @@ impl MetachainRPCServer for MetachainRPCModule {
         debug!(target:"rpc", "Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
-            hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
+            hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Error decoding TX {e:?}")))?;
 
-        match ain_cpp_imports::publish_eth_transaction(hex) {
-            Ok(res_string) => {
-                if res_string.is_empty() {
-                    let signed_tx: SignedTx = self
-                        .handler
-                        .core
-                        .signed_tx_cache
-                        .try_get_or_create(raw_tx)
-                        .map_err(|e| Error::Custom(format!("TX error {e:?}")))?;
+        let res_string = ain_cpp_imports::publish_eth_transaction(hex).map_err(RPCError::Error)?;
+        if res_string.is_empty() {
+            let signed_tx: SignedTx = self
+                .handler
+                .core
+                .signed_tx_cache
+                .try_get_or_create(raw_tx)
+                .map_err(RPCError::EvmError)?;
 
-                    debug!(target:"rpc",
-                        "[send_raw_transaction] signed_tx sender : {:#x}",
-                        signed_tx.sender
-                    );
-                    debug!(target:"rpc",
-                        "[send_raw_transaction] signed_tx nonce : {:#x}",
-                        signed_tx.nonce()
-                    );
-                    debug!(target:"rpc",
-                        "[send_raw_transaction] transaction hash : {:#x}",
-                        signed_tx.hash()
-                    );
+            debug!(target:"rpc",
+                "[send_raw_transaction] signed_tx sender : {:#x}",
+                signed_tx.sender
+            );
+            debug!(target:"rpc",
+                "[send_raw_transaction] signed_tx nonce : {:#x}",
+                signed_tx.nonce()
+            );
+            debug!(target:"rpc",
+                "[send_raw_transaction] transaction hash : {:#x}",
+                signed_tx.hash()
+            );
 
-                    if !self
-                        .handler
-                        .core
-                        .store_account_nonce(signed_tx.sender, signed_tx.nonce())
-                    {
-                        return Err(Error::Custom(format!(
-                            "Could not cache nonce {:x?} for {:x?}",
-                            signed_tx.nonce(),
-                            signed_tx.sender
-                        )));
-                    }
-
-                    Ok(format!("{:#x}", signed_tx.hash()))
-                } else {
-                    debug!(target:"rpc", "[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
-                    Err(Error::Custom(format!(
-                        "Could not publish raw transaction: {tx} reason: {res_string}"
-                    )))
-                }
+            if !self
+                .handler
+                .core
+                .store_account_nonce(signed_tx.sender, signed_tx.nonce())
+            {
+                return Err(RPCError::NonceCacheError.into());
             }
-            Err(e) => {
-                debug!(target:"rpc", "[send_raw_transaction] Error publishing TX {e:?}");
-                Err(Error::Custom(format!("Error publishing TX {e:?}")))
-            }
+            Ok(format!("{:#x}", signed_tx.hash()))
+        } else {
+            debug!(target:"rpc", "[send_raw_transaction] Could not publish raw transaction: {tx} reason: {res_string}");
+            Err(Error::Custom(format!(
+                "Could not publish raw transaction: {tx} reason: {res_string}"
+            )))
         }
     }
 
@@ -822,7 +798,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_block_by_number(&block_number)
-            .map_err(RPCError::EvmCall)?
+            .map_err(RPCError::EvmError)?
             .map(|block| block.header.base_fee)
             .unwrap_or(INITIAL_BASE_FEE);
 
@@ -875,7 +851,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     access_list: call.access_list.clone().unwrap_or_default(),
                     block_number,
                 })
-                .map_err(RPCError::EvmCall)?;
+                .map_err(RPCError::EvmError)?;
 
             match tx_response.exit_reason {
                 ExitReason::Error(ExitError::OutOfGas) => Ok((true, true)),
@@ -954,7 +930,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .block
             .fee_history(block_count, first_block_number, priority_fee_percentile)
-            .map_err(|e| Error::Custom(format!("{e:?}")))?;
+            .map_err(RPCError::EvmError)?;
 
         Ok(RpcFeeHistory::from(fee_history))
     }
@@ -967,10 +943,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn syncing(&self) -> RpcResult<SyncState> {
-        let (current_native_height, highest_native_block) = ain_cpp_imports::get_sync_status()
-            .map_err(|e| {
-                Error::Custom(format!("ain_cpp_imports::get_sync_status error : {e:?}"))
-            })?;
+        let (current_native_height, highest_native_block) =
+            ain_cpp_imports::get_sync_status().map_err(RPCError::Error)?;
 
         if current_native_height == -1 {
             return Err(Error::Custom(String::from("Block index not available")));
@@ -984,7 +958,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .get_latest_block()
                     .map_err(to_custom_err)?
                     .map(|block| block.header.number)
-                    .ok_or_else(|| Error::Custom(String::from("Unable to get current block")))?;
+                    .ok_or(RPCError::BlockNotFound)?;
 
                 let starting_block = self.handler.block.get_starting_block_number();
 
@@ -1017,10 +991,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
-        if let (Some(_), Some(_)) = (input.block_hash, input.to_block.or(input.from_block)) {
-            return Err(Error::Custom(String::from(
-                "cannot specify both blockHash and fromBlock/toBlock, choose one or the other",
-            )));
+        if input.block_hash.is_some() && (input.to_block.is_some() || input.from_block.is_some()) {
+            return Err(RPCError::InvalidBlockInput.into());
         }
 
         let block_numbers = match input.block_hash {
@@ -1029,22 +1001,16 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let mut block_number = self.block_number_to_u256(input.from_block)?;
                 let to_block_number = self.block_number_to_u256(input.to_block)?;
                 let mut block_numbers = Vec::new();
-
                 if block_number > to_block_number {
-                    return Err(Error::Custom(format!(
-                        "fromBlock ({}) > toBlock ({})",
-                        format_u256(block_number),
-                        format_u256(to_block_number)
-                    )));
+                    return Err(RPCError::FromBlockGreaterThanToBlock.into());
                 }
 
                 while block_number <= to_block_number {
                     block_numbers.push(block_number);
                     block_number = block_number
                         .checked_add(U256::one())
-                        .ok_or_else(|| Error::Custom("block_number overflow".to_string()))?;
+                        .ok_or(RPCError::ValueOverflow)?;
                 }
-
                 Ok::<Vec<U256>, Error>(block_numbers)
             }
             Some(block_hash) => {
@@ -1053,7 +1019,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .storage
                     .get_block_by_hash(&block_hash)
                     .map_err(to_custom_err)?
-                    .ok_or_else(|| Error::Custom(String::from("Unable to find block hash")))?
+                    .ok_or(RPCError::BlockNotFound)?
                     .header
                     .number;
                 Ok(vec![block_number])
@@ -1079,13 +1045,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
         let from_block_number = self.block_number_to_u256(input.from_block)?;
         let to_block_number = self.block_number_to_u256(input.to_block)?;
-
         if from_block_number > to_block_number {
-            return Err(Error::Custom(format!(
-                "fromBlock ({}) > toBlock ({})",
-                format_u256(from_block_number),
-                format_u256(to_block_number)
-            )));
+            return Err(RPCError::FromBlockGreaterThanToBlock.into());
         }
 
         Ok(self
@@ -1115,9 +1076,9 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .handler
                     .storage
                     .get_latest_block()
-                    .map_err(to_custom_err)?
+                    .map_err(RPCError::EvmError)?
                 {
-                    None => return Err(Error::Custom(String::from("Latest block unavailable"))),
+                    None => return Err(RPCError::BlockNotFound.into()),
                     Some(block) => block.header.number,
                 };
 
@@ -1178,7 +1139,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .collect();
                 Ok(logs)
             }
-            _ => Err(Error::Custom(String::from("Filter is not a log filter"))),
+            _ => Err(RPCError::InvalidLogFilter.into()),
         }
     }
 

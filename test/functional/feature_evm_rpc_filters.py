@@ -189,7 +189,7 @@ class EVMTest(DefiTestFramework):
     def fail_new_filter_to_greater_than_from(self):
         assert_raises_rpc_error(
             -32001,
-            "Custom error: fromBlock (0x1) > toBlock (0x0)",
+            "Custom error: fromBlock is greater than toBlock",
             self.nodes[0].eth_newFilter,
             {"fromBlock": "0x1", "toBlock": "0x0"},
         )
@@ -197,7 +197,7 @@ class EVMTest(DefiTestFramework):
     def fail_new_filter_unavailable_block(self):
         assert_raises_rpc_error(
             -32001,
-            "Custom error: header not found",
+            "Custom error: block not found",
             self.nodes[0].eth_newFilter,
             {"fromBlock": "0x1", "toBlock": "0x999999999"},
         )

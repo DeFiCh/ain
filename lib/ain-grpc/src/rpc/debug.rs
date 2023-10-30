@@ -154,7 +154,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 access_list: call.access_list.unwrap_or_default(),
                 block_number,
             })
-            .map_err(RPCError::EvmCall)?;
+            .map_err(RPCError::EvmError)?;
 
         let used_gas = U256::from(used_gas);
         let gas_fee = used_gas
