@@ -62,6 +62,7 @@
 #include <warnings.h>
 
 #include <future>
+#include <memory>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -3012,8 +3013,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
         {
             // Pre-warm validation cache
-            TaskGroup g;
-            auto &pool = DfTxTaskPool->pool;
+            std::vector<CEvmTxMessage> evmTxMsgs;
 
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
@@ -3031,21 +3031,48 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     }
 
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
-                    const auto rawEvmTx = HexStr(obj.evmTx);
+                    evmTxMsgs.push_back(obj);
+                }
+            }
 
+            if (evmTxMsgs.size() > 0) {
+                auto nWorkers = DfTxTaskPool->GetAvailableThreads();
+                auto nItemsSize = evmTxMsgs.size();
+                if (nItemsSize < nWorkers) {
+                    nWorkers = nItemsSize;
+                }
+
+                const auto chunkSize = nItemsSize / nWorkers;
+                auto &pool = DfTxTaskPool->pool;
+                TaskGroup g;
+
+                std::vector<std::vector<CEvmTxMessage>> evmTxMsgsPools;
+                evmTxMsgsPools.reserve(nWorkers);
+                for (auto i = 0; i < nWorkers; i++) {
+                    std::vector<CEvmTxMessage> v;
+                    v.reserve(chunkSize);
+                    for (auto j = chunkSize * i; j < chunkSize * (i + 1); j++) {
+                        v.push_back(std::move(evmTxMsgs[j]));
+                    }
+                    evmTxMsgsPools.push_back(std::move(v));
+                }
+
+                for (auto &evmTxPool: evmTxMsgsPools) {
                     g.AddTask();
-                    boost::asio::post(pool, [&g, rawEvmTx] {
-                        auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
-                        if (v) {
-                            XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                    boost::asio::post(pool, [&g, &evmTxPool] {
+                        for (const auto &msg: evmTxPool) {
+                            const auto rawEvmTx = HexStr(msg.evmTx);
+                            auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
+                            if (v) {
+                                XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                            }
                         }
                         g.RemoveTask();
                     });
                 }
-            }
 
-            // We move ahead eagerly
-            g.WaitForCompletion();
+                g.WaitForCompletion();
+            }
         }
     }
 
