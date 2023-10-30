@@ -17,15 +17,15 @@ use ethereum::{
 };
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
+use evm::gasometer::tracing::using as gas_using;
 use evm::Config;
 use evm_runtime::tracing::using as runtime_using;
-use evm::gasometer::tracing::using as gas_using;
 use log::{debug, trace};
 use lru::LruCache;
 use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::precompiles::{MetachainPrecompiles};
+use crate::precompiles::MetachainPrecompiles;
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
@@ -764,6 +764,7 @@ impl EVMCoreService {
         Ok(nonce)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn trace_transaction(
         &self,
         caller: H160,
@@ -805,7 +806,8 @@ impl EVMCoreService {
         let gas_state = MemoryStackState::new(metadata, &backend);
         let precompiles = MetachainPrecompiles;
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
-        let mut gas_executor = StackExecutor::new_with_precompiles(gas_state, &CONFIG, &precompiles);
+        let mut gas_executor =
+            StackExecutor::new_with_precompiles(gas_state, &CONFIG, &precompiles);
 
         let mut gas_listener = crate::eventlistener::GasListener::new();
 
@@ -819,27 +821,29 @@ impl EVMCoreService {
             gas_executor.transact_call(caller, to, value, data.to_vec(), gas_limit, access_list);
         });
 
-        let mut listener = crate::eventlistener::Listener::new(gas_listener.gas, gas_listener.gas_cost);
+        let mut listener =
+            crate::eventlistener::Listener::new(gas_listener.gas, gas_listener.gas_cost);
 
+        let (execution_success, return_value, used_gas) =
+            runtime_using(&mut listener, move || {
+                let access_list = access_list
+                    .into_iter()
+                    .map(|x| (x.address, x.storage_keys))
+                    .collect::<Vec<_>>();
 
-        let (execution_success, return_value, used_gas) = runtime_using(&mut listener, move || {
-            let access_list = access_list
-                .into_iter()
-                .map(|x| (x.address, x.storage_keys))
-                .collect::<Vec<_>>();
+                let (exit_reason, data) = executor.transact_call(
+                    caller,
+                    to,
+                    value,
+                    data.to_vec(),
+                    gas_limit,
+                    access_list,
+                );
 
-            let (exit_reason, data) =
-                executor.transact_call(caller, to, value, data.to_vec(), gas_limit, access_list);
+                Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
+            })?;
 
-            Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
-        })?;
-
-        Ok((
-            listener.trace,
-            execution_success,
-            return_value,
-            used_gas,
-        ))
+        Ok((listener.trace, execution_success, return_value, used_gas))
     }
 }
 

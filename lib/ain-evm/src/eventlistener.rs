@@ -1,9 +1,9 @@
-use std::collections::VecDeque;
 use crate::core::ExecutionStep;
 use crate::opcode;
-use evm_runtime::tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener};
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
+use evm_runtime::tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener};
 use evm_runtime::Opcode;
+use std::collections::VecDeque;
 
 use log::debug;
 
@@ -18,7 +18,7 @@ impl Listener {
         Self {
             trace: vec![],
             gas,
-            gas_cost
+            gas_cost,
         }
     }
 }
@@ -43,10 +43,7 @@ impl GasEventListener for GasListener {
     fn event(&mut self, event: GasEvent) {
         debug!("gas event: {event:#?}");
         match event {
-            GasEvent::RecordCost {
-                cost,
-                snapshot
-            } => {
+            GasEvent::RecordCost { cost, snapshot } => {
                 if self.first_cost {
                     self.first_cost = false;
                     return;
@@ -55,7 +52,10 @@ impl GasEventListener for GasListener {
                 self.gas_cost.push_back(cost);
 
                 if let Some(snapshot) = snapshot {
-                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas + snapshot.refunded_gas as u64);
+                    self.gas.push_back(
+                        snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas
+                            + snapshot.refunded_gas as u64,
+                    );
                 } else {
                     panic!("No snapshot found!");
                 }
@@ -64,11 +64,16 @@ impl GasEventListener for GasListener {
                 gas_cost,
                 memory_gas,
                 gas_refund,
-                snapshot, ..
+                snapshot,
+                ..
             } => {
                 if let Some(snapshot) = snapshot {
-                    self.gas_cost.push_back(gas_cost + memory_gas - snapshot.memory_gas + gas_refund as u64);
-                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas + snapshot.refunded_gas as u64);
+                    self.gas_cost
+                        .push_back(gas_cost + memory_gas - snapshot.memory_gas + gas_refund as u64);
+                    self.gas.push_back(
+                        snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas
+                            + snapshot.refunded_gas as u64,
+                    );
                 } else {
                     panic!("No snapshot found!");
                 }
@@ -91,7 +96,8 @@ impl RuntimeEventListener for Listener {
             } => {
                 let mut gas_cost = self.gas_cost.pop_front().unwrap_or_default();
 
-                if opcode == Opcode::DELEGATECALL { // consume additional gas entries from call cost
+                if opcode == Opcode::DELEGATECALL {
+                    // consume additional gas entries from call cost
                     gas_cost += self.gas_cost.pop_front().unwrap_or_default();
                     gas_cost += self.gas_cost.pop_front().unwrap_or_default();
                 }

@@ -146,7 +146,7 @@ impl From<ExecutionStep> for TraceLogs {
             gas: step.gas,
             gas_cost: step.gas_cost,
             stack: step.stack.iter().map(|&item| format_h256(item)).collect(),
-            memory: format!("{}", hex::encode(step.memory)),
+            memory: hex::encode(step.memory).to_string(),
         }
     }
 }

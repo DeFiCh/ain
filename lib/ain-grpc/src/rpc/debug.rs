@@ -74,7 +74,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .storage
             .get_receipt(&tx_hash)
             .map_err(to_jsonrpsee_custom_error)?
-            .ok_or_else(|| Error::Custom(format!("Error")))?;
+            .ok_or_else(|| {
+                Error::Custom(format!("Could not find receipt for transaction {tx_hash}"))
+            })?;
 
         let tx = self
             .handler
@@ -108,7 +110,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         Ok(TraceTransactionResult {
             gas: U256::from(gas_used),
             failed: !succeeded,
-            return_value: format!("{}", hex::encode(return_data)),
+            return_value: hex::encode(return_data).to_string(),
             struct_logs: trace_logs,
         })
     }
