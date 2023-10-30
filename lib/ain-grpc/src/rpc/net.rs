@@ -6,6 +6,8 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 
+use crate::errors::RPCError;
+
 #[rpc(server, client, namespace = "net")]
 pub trait MetachainNetRPC {
     /// Returns the current network ID as a string.
@@ -30,8 +32,7 @@ impl MetachainNetRPCModule {
 impl MetachainNetRPCServer for MetachainNetRPCModule {
     fn net_version(&self) -> RpcResult<String> {
         let chain_id = ain_cpp_imports::get_chain_id()
-            .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
-
+            .map_err(RPCError::Error)?;
         Ok(format!("{chain_id}"))
     }
 
