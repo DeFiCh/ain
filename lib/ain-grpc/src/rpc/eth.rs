@@ -317,7 +317,7 @@ impl MetachainRPCModule {
 
 impl MetachainRPCServer for MetachainRPCModule {
     fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
-        debug!(target:"rpc",  "[RPC] Call input {:#?}", call);
+        debug!(target:"rpc",  "Call, input {:#?}", call);
         let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
@@ -397,7 +397,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_code(address, block_number)
             .map_err(to_custom_err)?;
 
-        debug!("code : {:?} for address {address:?}", code);
+        debug!(target:"rpc", "code : {:?} for address {address:?}", code);
         match code {
             Some(code) => Ok(format!("0x{}", hex::encode(code))),
             None => Ok(String::from("0x")),
@@ -619,7 +619,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn sign_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
-        debug!(target:"rpc", "[sign_transaction] signing transaction: {:?}", request);
+        debug!(target:"rpc", "Signing transaction: {:?}", request);
 
         let from = match request.from {
             Some(from) => from,
@@ -632,7 +632,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 }
             }
         };
-        debug!(target:"rpc", "[send_transaction] from: {:?}", from);
+        debug!(target:"rpc", "[sign_transaction] from: {:?}", from);
 
         let chain_id = ain_cpp_imports::get_chain_id()
             .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
@@ -703,7 +703,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_transaction(&self, request: TransactionRequest) -> RpcResult<String> {
-        debug!(target:"rpc", "[send_transaction] Sending transaction: {:?}", request);
+        debug!(target:"rpc", "Sending transaction: {:?}", request);
 
         let signed = self.sign_transaction(request)?;
 
@@ -714,7 +714,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
-        debug!(target:"rpc", "[send_raw_transaction] Sending raw transaction: {:?}", tx);
+        debug!(target:"rpc", "Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
         let hex =
             hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Eror decoding TX {e:?}")))?;
@@ -794,7 +794,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         call: CallRequest,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
-        debug!(target:"rpc",  "[RPC] Estimate gas call input {:#?}", call);
+        debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
         let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
@@ -850,7 +850,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         .map_err(to_custom_err)?;
 
         if hi > allowance {
-            debug!("gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
+            debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
             hi = allowance;
         }
         let cap = hi;
@@ -906,7 +906,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         }
 
-        debug!(target:"rpc",  "estimateGas: {:#?} at block {:#x}", hi, block_number);
+        debug!(target:"rpc",  "[estimate_gas] estimated gas: {:#?} at block {:#x}", hi, block_number);
         Ok(U256::from(hi))
     }
 
@@ -987,7 +987,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let starting_block = self.handler.block.get_starting_block_number();
 
                 let highest_block = current_block + (highest_native_block - current_native_height); // safe since current height cannot be higher than seen height
-                debug!("Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");
+                debug!(target:"rpc", "Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");
 
                 Ok(SyncState::Syncing(SyncInfo {
                     starting_block,
@@ -1189,7 +1189,7 @@ fn sign(
     address: H160,
     message: TransactionMessage,
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
-    debug!("sign address {:#x}", address);
+    debug!(target:"rpc", "sign address {:#x}", address);
     let key = format!("{address:?}");
     let priv_key = get_eth_priv_key(key).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
