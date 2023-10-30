@@ -1428,6 +1428,12 @@ class GovsetTest(DefiTestFramework):
             {"ATTRIBUTES": {"v0/oracles/splits/4000": "4/2"}},
         )
         assert_raises_rpc_error(
+            -5,
+            "Token should be defined as numeric ID",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/abc": "4/2"}},
+        )
+        assert_raises_rpc_error(
             -32600,
             "ATTRIBUTES: Price feed DUFF/USD does not belong to any oracle",
             self.nodes[0].setgov,
@@ -1558,6 +1564,12 @@ class GovsetTest(DefiTestFramework):
             "Fixed interval price currency pair must be set first",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/token/5/loan_minting_interest": "1"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Token should be defined as numeric ID",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/locks/token/abc": "true"}},
         )
 
         # Set locks
