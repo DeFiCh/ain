@@ -55,7 +55,7 @@ impl GasEventListener for GasListener {
                 self.gas_cost.push_back(cost);
 
                 if let Some(snapshot) = snapshot {
-                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas);
+                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas + snapshot.refunded_gas as u64);
                 } else {
                     panic!("No snapshot found!");
                 }
@@ -63,11 +63,12 @@ impl GasEventListener for GasListener {
             GasEvent::RecordDynamicCost {
                 gas_cost,
                 memory_gas,
+                gas_refund,
                 snapshot, ..
             } => {
                 if let Some(snapshot) = snapshot {
-                    self.gas_cost.push_back(gas_cost + memory_gas - snapshot.memory_gas);
-                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas);
+                    self.gas_cost.push_back(gas_cost + memory_gas - snapshot.memory_gas + gas_refund as u64);
+                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas + snapshot.refunded_gas as u64);
                 } else {
                     panic!("No snapshot found!");
                 }
