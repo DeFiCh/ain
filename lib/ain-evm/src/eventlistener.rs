@@ -65,9 +65,8 @@ impl GasEventListener for GasListener {
                 memory_gas,
                 snapshot, ..
             } => {
-                self.gas_cost.push_back(gas_cost + memory_gas);
-
                 if let Some(snapshot) = snapshot {
+                    self.gas_cost.push_back(gas_cost + memory_gas - snapshot.memory_gas);
                     self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas);
                 } else {
                     panic!("No snapshot found!");
