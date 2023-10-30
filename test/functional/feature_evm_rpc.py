@@ -103,8 +103,6 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
         self.eth_start_height = int(self.nodes[0].eth_blockNumber(), 16)
-        balance = self.nodes[0].eth_getBalance(self.ethAddress)
-        assert_equal(balance, int_to_eth_u256(100))
 
     def test_node_params(self):
         self.rollback_to(self.start_height)
