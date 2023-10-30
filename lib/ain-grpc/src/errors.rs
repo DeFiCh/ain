@@ -25,7 +25,7 @@ impl From<RPCError> for Error {
     fn from(e: RPCError) -> Self {
         match e {
             RPCError::AccountError => to_custom_err("error getting account"),
-            RPCError::BlockNotFound => to_custom_err("block not found"),
+            RPCError::BlockNotFound => to_custom_err("header not found"),
             RPCError::Error(e) => Error::Custom(format!("{e:?}")),
             RPCError::EvmError(e) => Error::Custom(format!("error calling EVM : {e:?}")),
             RPCError::FromBlockGreaterThanToBlock => {

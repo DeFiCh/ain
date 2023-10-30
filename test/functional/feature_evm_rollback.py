@@ -107,7 +107,7 @@ class EVMRolllbackTest(DefiTestFramework):
         self.nodes[0].invalidateblock(nextblockHash)
         assert_raises_rpc_error(
             -32001,
-            "Custom error: block not found",
+            "Custom error: header not found",
             self.nodes[0].eth_getBlockByNumber,
             nextBlockNum,
         )

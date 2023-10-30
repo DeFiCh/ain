@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ain_evm::evm::EVMServices;
 use jsonrpsee::{
-    core::{Error, RpcResult},
+    core::RpcResult,
     proc_macros::rpc,
 };
 

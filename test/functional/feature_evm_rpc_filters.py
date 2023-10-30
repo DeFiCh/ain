@@ -197,7 +197,7 @@ class EVMTest(DefiTestFramework):
     def fail_new_filter_unavailable_block(self):
         assert_raises_rpc_error(
             -32001,
-            "Custom error: block not found",
+            "Custom error: header not found",
             self.nodes[0].eth_newFilter,
             {"fromBlock": "0x1", "toBlock": "0x999999999"},
         )
