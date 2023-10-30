@@ -96,10 +96,13 @@ impl RuntimeEventListener for Listener {
             } => {
                 let mut gas_cost = self.gas_cost.pop_front().unwrap_or_default();
 
-                if opcode == Opcode::DELEGATECALL {
+                match opcode {
                     // consume additional gas entries from call cost
-                    gas_cost += self.gas_cost.pop_front().unwrap_or_default();
-                    gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                    Opcode::DELEGATECALL | Opcode::CALLCODE | Opcode::CALL => {
+                        gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                        gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                    }
+                    _ => {}
                 }
 
                 self.trace.push(ExecutionStep {
