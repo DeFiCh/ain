@@ -177,9 +177,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance, int_to_eth_u256(150))
 
         # Test querying previous block
-        balance = self.nodes[0].eth_getBalance(
-            self.ethAddress, blockNumber
-        )
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, blockNumber)
         assert_equal(balance, int_to_eth_u256(100))
 
     def test_block(self):
@@ -306,7 +304,7 @@ class EVMTest(DefiTestFramework):
 
         self.test_accounts()
 
-        self.test_address_state() # TODO test smart contract
+        self.test_address_state()  # TODO test smart contract
 
         self.test_block()
 
