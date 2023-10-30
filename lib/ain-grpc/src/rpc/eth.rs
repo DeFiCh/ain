@@ -794,7 +794,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         call: CallRequest,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
-        debug!(target:"rpc",  "[RPC] Call input {:#?}", call);
+        debug!(target:"rpc",  "[RPC] Estimate gas call input {:#?}", call);
         let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
@@ -883,7 +883,8 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
 
         while lo + 1 < hi {
-            let mid = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
+            let sum = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
+            let mid = sum.checked_div(2u64).ok_or(RPCError::ValueOverflow)?;
 
             let (failed, ..) = executable(mid)?;
             if failed {
