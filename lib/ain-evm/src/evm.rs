@@ -343,7 +343,6 @@ impl EVMServices {
                 (receipt, Some(address)),
                 logs_bloom,
             ));
-            executor.increase_tx_count();
 
             // Deploy DFIIntrinsics contract
             let DeployContractInfo {
@@ -365,7 +364,6 @@ impl EVMServices {
                 (receipt, Some(address)),
                 logs_bloom,
             ));
-            executor.increase_tx_count();
 
             // Deploy transfer domain contract on the first block
             let DeployContractInfo {
@@ -387,7 +385,6 @@ impl EVMServices {
                 (receipt, Some(address)),
                 logs_bloom,
             ));
-            executor.increase_tx_count();
 
             // Deploy transfer domain proxy
             let DeployContractInfo {
@@ -409,7 +406,6 @@ impl EVMServices {
                 (receipt, Some(address)),
                 logs_bloom,
             ));
-            executor.increase_tx_count();
 
             // Deploy DST20 implementation contract
             let DeployContractInfo {
@@ -429,7 +425,6 @@ impl EVMServices {
                 (receipt, Some(address)),
                 logs_bloom,
             ));
-            executor.increase_tx_count();
 
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
@@ -441,7 +436,6 @@ impl EVMServices {
                     apply_result.receipt,
                     logs_bloom,
                 ));
-                executor.increase_tx_count();
             }
         } else {
             let DeployContractInfo {
@@ -449,8 +443,8 @@ impl EVMServices {
             } = dfi_intrinsics_v1_deploy_info(template.dvm_block, template.vicinity.block_number)?;
 
             executor.update_storage(address, storage)?;
-            executor.increase_tx_count();
         }
+        template.backend.increase_tx_count();
         Ok(())
     }
 }

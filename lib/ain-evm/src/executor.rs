@@ -90,10 +90,6 @@ impl<'backend> AinExecutor<'backend> {
     pub fn get_nonce(&self, address: &H160) -> U256 {
         self.backend.get_nonce(address)
     }
-
-    pub fn increase_tx_count(&mut self) {
-        self.backend.increase_tx_count()
-    }
 }
 
 impl<'backend> AinExecutor<'backend> {
