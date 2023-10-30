@@ -3,6 +3,7 @@ use crate::core::ExecutionStep;
 use crate::opcode;
 use evm_runtime::tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener};
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
+use evm_runtime::Opcode;
 
 use log::debug;
 
@@ -54,19 +55,20 @@ impl GasEventListener for GasListener {
                 self.gas_cost.push_back(cost);
 
                 if let Some(snapshot) = snapshot {
-                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas);
+                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas);
                 } else {
                     panic!("No snapshot found!");
                 }
             }
             GasEvent::RecordDynamicCost {
                 gas_cost,
+                memory_gas,
                 snapshot, ..
             } => {
-                self.gas_cost.push_back(gas_cost);
+                self.gas_cost.push_back(gas_cost + memory_gas);
 
                 if let Some(snapshot) = snapshot {
-                    self.gas.push_back(snapshot.gas_limit);
+                    self.gas.push_back(snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas);
                 } else {
                     panic!("No snapshot found!");
                 }
@@ -87,11 +89,18 @@ impl RuntimeEventListener for Listener {
                 memory,
                 ..
             } => {
+                let mut gas_cost = self.gas_cost.pop_front().unwrap_or_default();
+
+                if opcode == Opcode::DELEGATECALL { // consume additional gas entries from call cost
+                    gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                    gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                }
+
                 self.trace.push(ExecutionStep {
                     pc: *position.as_ref().unwrap(),
                     op: opcode::opcode_to_string(opcode),
                     gas: self.gas.pop_front().unwrap_or_default(),
-                    gas_cost: self.gas_cost.pop_front().unwrap_or_default(),
+                    gas_cost,
                     stack: stack.data().to_vec(),
                     memory: memory.data().to_vec(),
                 });
