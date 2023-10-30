@@ -110,7 +110,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
-        debug!(target:"rpc",  "[RPC] Fee estimate call input {:#?}", call);
+        debug!(target:"rpc",  "Fee estimate");
         let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
