@@ -63,10 +63,22 @@ impl MetachainDebugRPCModule {
     pub fn new(handler: Arc<EVMServices>) -> Self {
         Self { handler }
     }
+
+    fn is_enabled(&self) -> RpcResult<()> {
+        if !ain_cpp_imports::is_debug_enabled() {
+            return Err(Error::Custom(
+                "debug_* RPCs have not been enabled".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+        self.is_enabled()?;
+
         debug!(target: "rpc", "Tracing transaction {tx_hash}");
 
         let receipt = self
@@ -121,6 +133,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         start: Option<&str>,
         limit: Option<&str>,
     ) -> RpcResult<String> {
+        self.is_enabled()?;
+
         let default_limit = 100usize;
         let limit = limit
             .map_or(Ok(default_limit), |s| s.parse())
@@ -132,6 +146,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_account_states(&self) -> RpcResult<()> {
+        self.is_enabled()?;
+
         let backend = self
             .handler
             .core
@@ -156,6 +172,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate> {
+        self.is_enabled()?;
+
         let CallRequest {
             from,
             to,
@@ -263,6 +281,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_block_templates(&self) -> RpcResult<()> {
+        self.is_enabled()?;
+
         // let templates = &self.handler.core.block_templates;
         // debug!("templates : {:#?}", templates);
         Ok(())
