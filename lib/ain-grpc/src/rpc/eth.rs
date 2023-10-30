@@ -318,7 +318,7 @@ impl MetachainRPCModule {
 impl MetachainRPCServer for MetachainRPCModule {
     fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
-        let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
+        let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 
@@ -795,7 +795,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
-        let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
+        let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 

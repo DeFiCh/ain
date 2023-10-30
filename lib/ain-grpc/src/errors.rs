@@ -3,7 +3,6 @@ use jsonrpsee::core::Error;
 
 pub enum RPCError {
     EvmCall(EVMError),
-    NoSenderAddress,
     InsufficientFunds,
     ValueOverflow,
     InvalidGasPrice,
@@ -17,7 +16,6 @@ impl From<RPCError> for Error {
     fn from(e: RPCError) -> Self {
         match e {
             RPCError::EvmCall(e) => Error::Custom(format!("error calling EVM : {e:?}")),
-            RPCError::NoSenderAddress => to_custom_err("no from address specified"),
             RPCError::InsufficientFunds => to_custom_err("insufficient funds for transfer"),
             RPCError::ValueOverflow => to_custom_err("value overflow"),
             RPCError::InvalidGasPrice => {
