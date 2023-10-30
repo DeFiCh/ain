@@ -14,7 +14,7 @@ use rlp::{Decodable, Rlp};
 
 use crate::{
     call_request::CallRequest,
-    errors::{evm_call_err, no_sender_address_err, to_custom_err, value_overflow_err},
+    errors::{to_custom_err, RPCError},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -111,7 +111,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
         debug!(target:"rpc",  "[RPC] Call input {:#?}", call);
-        let caller = call.from.ok_or_else(no_sender_address_err)?;
+        let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 
@@ -154,18 +154,18 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 access_list: call.access_list.unwrap_or_default(),
                 block_number,
             })
-            .map_err(evm_call_err)?;
+            .map_err(RPCError::EvmCall)?;
 
         let used_gas = U256::from(used_gas);
         let gas_fee = used_gas
-            .checked_mul(used_gas)
-            .ok_or_else(value_overflow_err)?;
+            .checked_mul(gas_price)
+            .ok_or(RPCError::ValueOverflow)?;
         let burnt_fee = used_gas
             .checked_mul(block_base_fee)
-            .ok_or_else(value_overflow_err)?;
+            .ok_or(RPCError::ValueOverflow)?;
         let priority_fee = gas_fee
             .checked_sub(burnt_fee)
-            .ok_or_else(value_overflow_err)?;
+            .ok_or(RPCError::ValueOverflow)?;
 
         Ok(FeeEstimate {
             used_gas,

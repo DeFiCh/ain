@@ -1,44 +1,40 @@
 use ain_evm::EVMError;
 use jsonrpsee::core::Error;
 
+pub enum RPCError {
+    EvmCall(EVMError),
+    NoSenderAddress,
+    InsufficientFunds,
+    ValueOverflow,
+    InvalidGasPrice,
+    InvalidTransactionType,
+    InvalidDataInput,
+    TxExecutionFailed,
+    GasCapTooLow(u64),
+}
+
+impl From<RPCError> for Error {
+    fn from(e: RPCError) -> Self {
+        match e {
+            RPCError::EvmCall(e) => Error::Custom(format!("error calling EVM : {e:?}")),
+            RPCError::NoSenderAddress => to_custom_err("no from address specified"),
+            RPCError::InsufficientFunds => to_custom_err("insufficient funds for transfer"),
+            RPCError::ValueOverflow => to_custom_err("value overflow"),
+            RPCError::InvalidGasPrice => {
+                to_custom_err("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+            }
+            RPCError::InvalidTransactionType => to_custom_err("invalid transaction type specified"),
+            RPCError::InvalidDataInput => {
+                to_custom_err("data and input fields are mutually exclusive")
+            }
+            RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
+            RPCError::GasCapTooLow(cap) => {
+                Error::Custom(format!("gas required exceeds allowance {:#?}", cap))
+            }
+        }
+    }
+}
+
 pub fn to_custom_err<T: ToString>(e: T) -> Error {
-    jsonrpsee::core::Error::Custom(e.to_string())
-}
-
-pub fn evm_call_err(e: EVMError) -> Error {
-    Error::Custom(format!("error calling EVM : {e:?}"))
-}
-
-pub fn no_sender_address_err() -> Error {
-    Error::Custom(String::from("no from address specified"))
-}
-
-pub fn insufficient_funds_for_transfer_err() -> Error {
-    Error::Custom(String::from("insufficient funds for transfer"))
-}
-
-pub fn value_overflow_err() -> Error {
-    Error::Custom(String::from("value overflow"))
-}
-
-pub fn invalid_specified_gas_price_err() -> Error {
-    Error::Custom(String::from(
-        "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
-    ))
-}
-
-pub fn invalid_transaction_type_err() -> Error {
-    Error::Custom(String::from("invalid transaction type specified"))
-}
-
-pub fn invalid_data_err() -> Error {
-    Error::Custom(String::from("data and input fields are mutually exclusive"))
-}
-
-pub fn tx_execution_failure_err() -> Error {
-    Error::Custom(String::from("transaction execution failed"))
-}
-
-pub fn gas_cap_too_low_err(cap: u64) -> Error {
-    Error::Custom(format!("gas required exceeds allowance {:#?}", cap))
+    Error::Custom(e.to_string())
 }

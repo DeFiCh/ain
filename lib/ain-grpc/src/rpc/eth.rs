@@ -27,10 +27,7 @@ use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
     call_request::CallRequest,
     codegen::types::EthTransactionInfo,
-    errors::{
-        evm_call_err, gas_cap_too_low_err, insufficient_funds_for_transfer_err,
-        no_sender_address_err, to_custom_err, tx_execution_failure_err, value_overflow_err,
-    },
+    errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
@@ -321,7 +318,7 @@ impl MetachainRPCModule {
 impl MetachainRPCServer for MetachainRPCModule {
     fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "[RPC] Call input {:#?}", call);
-        let caller = call.from.ok_or_else(no_sender_address_err)?;
+        let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 
@@ -341,7 +338,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_block_by_number(&block_number)
-            .map_err(evm_call_err)?
+            .map_err(RPCError::EvmCall)?
             .map(|block| block.header.base_fee)
             .unwrap_or(INITIAL_BASE_FEE);
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
@@ -359,7 +356,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 access_list: call.access_list.unwrap_or_default(),
                 block_number,
             })
-            .map_err(evm_call_err)?;
+            .map_err(RPCError::EvmCall)?;
         Ok(Bytes(data))
     }
 
@@ -798,7 +795,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "[RPC] Call input {:#?}", call);
-        let caller = call.from.ok_or_else(no_sender_address_err)?;
+        let caller = call.from.ok_or(RPCError::NoSenderAddress)?;
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 
@@ -825,7 +822,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .handler
             .storage
             .get_block_by_number(&block_number)
-            .map_err(evm_call_err)?
+            .map_err(RPCError::EvmCall)?
             .map(|block| block.header.base_fee)
             .unwrap_or(INITIAL_BASE_FEE);
 
@@ -841,14 +838,14 @@ impl MetachainRPCServer for MetachainRPCModule {
         let mut available = balance;
         if let Some(value) = call.value {
             if balance < value {
-                return Err(insufficient_funds_for_transfer_err());
+                return Err(RPCError::InsufficientFunds.into());
             }
-            available = balance.checked_sub(value).ok_or_else(value_overflow_err)?;
+            available = balance.checked_sub(value).ok_or(RPCError::ValueOverflow)?;
         }
         let allowance = u64::try_from(
             available
                 .checked_div(fee_cap)
-                .ok_or_else(value_overflow_err)?,
+                .ok_or(RPCError::ValueOverflow)?,
         )
         .map_err(to_custom_err)?;
 
@@ -876,7 +873,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     access_list: call.access_list.clone().unwrap_or_default(),
                     block_number,
                 })
-                .map_err(evm_call_err)?;
+                .map_err(RPCError::EvmCall)?;
 
             match tx_response.exit_reason {
                 ExitReason::Error(ExitError::OutOfGas) => Ok((true, true)),
@@ -886,7 +883,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
 
         while lo + 1 < hi {
-            let mid = hi.checked_add(lo).ok_or_else(value_overflow_err)?;
+            let mid = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
 
             let (failed, ..) = executable(mid)?;
             if failed {
@@ -901,9 +898,9 @@ impl MetachainRPCServer for MetachainRPCModule {
             let (failed, out_of_gas) = executable(hi)?;
             if failed {
                 if !out_of_gas {
-                    return Err(tx_execution_failure_err());
+                    return Err(RPCError::TxExecutionFailed.into());
                 } else {
-                    return Err(gas_cap_too_low_err(cap));
+                    return Err(RPCError::GasCapTooLow(cap).into());
                 }
             }
         }

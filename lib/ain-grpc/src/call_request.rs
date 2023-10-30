@@ -4,9 +4,7 @@ use ethereum_types::{H160, U256};
 use jsonrpsee::core::Error;
 use serde::Deserialize;
 
-use crate::errors::{
-    invalid_data_err, invalid_specified_gas_price_err, invalid_transaction_type_err,
-};
+use crate::errors::RPCError;
 
 /// Call request
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
@@ -45,7 +43,7 @@ impl CallRequest {
         if self.gas_price.is_some()
             && (self.max_fee_per_gas.is_some() || self.max_priority_fee_per_gas.is_some())
         {
-            return Err(invalid_specified_gas_price_err());
+            return Err(RPCError::InvalidGasPrice.into());
         }
 
         match self.transaction_type {
@@ -74,7 +72,7 @@ impl CallRequest {
                 }
             }
             None => (),
-            _ => return Err(invalid_transaction_type_err()),
+            _ => return Err(RPCError::InvalidTransactionType.into()),
         }
 
         if let Some(gas_price) = self.gas_price {
@@ -92,7 +90,7 @@ impl CallRequest {
     // 	Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
     pub fn get_data(&self) -> Result<Bytes, Error> {
         if self.data.is_some() && self.input.is_some() {
-            return Err(invalid_data_err());
+            return Err(RPCError::InvalidDataInput.into());
         }
 
         if let Some(data) = self.data.clone() {
