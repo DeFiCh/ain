@@ -31,8 +31,7 @@ impl MetachainNetRPCModule {
 
 impl MetachainNetRPCServer for MetachainNetRPCModule {
     fn net_version(&self) -> RpcResult<String> {
-        let chain_id = ain_cpp_imports::get_chain_id()
-            .map_err(RPCError::Error)?;
+        let chain_id = ain_cpp_imports::get_chain_id().map_err(RPCError::Error)?;
         Ok(format!("{chain_id}"))
     }
 
