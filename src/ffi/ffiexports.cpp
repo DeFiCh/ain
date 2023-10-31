@@ -272,7 +272,12 @@ Attributes getAttributeDefaults(std::size_t mnview_ptr) {
     LOCK(cs_main);
     auto* cache = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
 
-    const auto attributes = cache->GetAttributes();
+    std::shared_ptr<ATTRIBUTES> attributes;
+    if (cache) {
+        attributes = cache->GetAttributes();
+    } else {
+        attributes = pcustomcsview->GetAttributes();
+    }
     assert(attributes);
 
     CDataStructureV0 blockGasTargetKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTarget};
