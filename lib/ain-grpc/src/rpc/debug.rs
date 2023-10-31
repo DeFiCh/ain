@@ -72,7 +72,7 @@ impl MetachainDebugRPCModule {
     }
 
     fn is_enabled(&self) -> RpcResult<()> {
-        if !ain_cpp_imports::is_debug_enabled() {
+        if !ain_cpp_imports::is_eth_debug_rpc_enabled() {
             return Err(Error::Custom(
                 "debug_* RPCs have not been enabled".to_string(),
             ));
@@ -82,7 +82,7 @@ impl MetachainDebugRPCModule {
     }
 
     fn is_trace_enabled(&self) -> RpcResult<()> {
-        if !ain_cpp_imports::is_debug_trace_enabled() {
+        if !ain_cpp_imports::is_eth_debug_trace_rpc_enabled() {
             return Err(Error::Custom(
                 "debug_trace* RPCs have not been enabled".to_string(),
             ));

@@ -50,7 +50,7 @@ pub mod ffi {
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;
         fn getNumConnections() -> i32;
-        fn isDebugEnabled() -> bool;
-        fn isDebugTraceEnabled() -> bool;
+        fn isEthDebugRPCEnabled() -> bool;
+        fn isEthDebugTraceRPCEnabled() -> bool;
     }
 }

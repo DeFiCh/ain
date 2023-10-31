@@ -74,7 +74,7 @@ rust::string getClientVersion();
 int32_t getNumCores();
 rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
-bool isDebugEnabled();
-bool isDebugTraceEnabled();
+bool isEthDebugRPCEnabled();
+bool isEthDebugTraceRPCEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

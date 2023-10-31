@@ -301,10 +301,10 @@ int32_t getNumConnections() {
     return (int32_t)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL);
 }
 
-bool isDebugEnabled() {
+bool isEthDebugRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebug", false);
 }
 
-bool isDebugTraceEnabled() {
+bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", true);
 }
