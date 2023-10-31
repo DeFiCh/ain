@@ -36,12 +36,16 @@ public:
     void AddTask();
     void RemoveTask();
     void WaitForCompletion(bool checkForPrematureCompletion = true);
-    void MarkCancellation() { is_cancelled.store(true); }
+    void MarkCancelled() { is_cancelled.store(true); }
     bool IsCancelled() { return is_cancelled.load(); }
-    void EnsureFinishedOrCancel(bool checkForPrematureCompletion = true);
+    void EnsureCompletedOrCancelled(bool checkForPrematureCompletion = true);
     void Leak() { is_leaked.store(true); }
 
-    ~TaskGroup() { if (!is_leaked.load()) EnsureFinishedOrCancel(); }
+    ~TaskGroup() {
+        if (!is_leaked.load()) {
+            EnsureCompletedOrCancelled(true);
+        }
+    }
 
 private:
     std::atomic<uint64_t> tasks{0};
