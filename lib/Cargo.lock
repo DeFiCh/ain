@@ -168,6 +168,7 @@ dependencies = [
  "env_logger",
  "ethereum",
  "ethereum-types",
+ "evm",
  "heck 0.4.1",
  "hex",
  "hyper",
