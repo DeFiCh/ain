@@ -1514,6 +1514,22 @@ class EVMTest(DefiTestFramework):
             "0x0000000000000000000000000000000000000000000000000000000000000000",
         )
 
+    def test_attributes_update(self):
+        # Set OP_RETURN
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {
+                    "v0/evm/block/gas_limit": "60000000",
+            }}
+        )
+
+        self.nodes[0].generate(1)
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(block["gasLimit"], hex(30000000))
+
+        self.nodes[0].generate(1)
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(block["gasLimit"], hex(60000000))
+
     def run_test(self):
         # Check ERC55 wallet support
         self.erc55_wallet_support()
@@ -1550,6 +1566,9 @@ class EVMTest(DefiTestFramework):
 
         # Delete state account
         self.delete_account_from_trie()
+
+        # Check attributes values update
+        self.test_attributes_update()
 
 
 if __name__ == "__main__":
