@@ -3016,7 +3016,9 @@ bool CChainState::ConnectBlock(const CBlock &block,
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
-        if (gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS) != false) {
+        auto eccPreCacheControl = gArgs.GetArg("-eccprecache", DEFAULT_ECC_PRECACHE_WORKERS);
+        auto isEccPreCacheEnabled = eccPreCacheControl == -1 || eccPreCacheControl > 0;
+        if (isEccPreCacheEnabled) {
             // Pre-warm validation cache
             auto &pool = DfTxTaskPool->pool;
 

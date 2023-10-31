@@ -51,7 +51,7 @@ pub struct SignedTxCache {
 
 impl Default for SignedTxCache {
     fn default() -> Self {
-        Self::new(ain_cpp_imports::get_lru_cache_size_limit())
+        Self::new(ain_cpp_imports::get_ecc_lru_cache_size_limit())
     }
 }
 
@@ -102,7 +102,7 @@ struct TxValidationCache {
 
 impl Default for TxValidationCache {
     fn default() -> Self {
-        Self::new(ain_cpp_imports::get_lru_cache_size_limit())
+        Self::new(ain_cpp_imports::get_evmv_lru_cache_size_limit())
     }
 }
 

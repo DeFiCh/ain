@@ -7,7 +7,7 @@
 #include <condition_variable>
 
 static const int DEFAULT_DFTX_WORKERS = 0;
-static const int DEFAULT_EVMTX_WORKERS = -1;
+static const int DEFAULT_ECC_PRECACHE_WORKERS = -1;
 
 // Until C++20x concurrency impls make it into standard, std::future and std::async impls
 // doesn't have the primitives needed for working with many at the same time efficiently
