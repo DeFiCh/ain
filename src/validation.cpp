@@ -3063,8 +3063,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 }
             }
 
-            // We move ahead eagerly
-            evmEccPreCacheTaskPool.WaitForCompletion();
         }
     }
 
