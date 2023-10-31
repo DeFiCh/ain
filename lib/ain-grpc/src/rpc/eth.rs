@@ -353,13 +353,13 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         match exit_reason {
             ExitReason::Succeed(_) => Ok(Bytes(data)),
-            ExitReason::Error(e) => Err(Error::Custom(format!("evm error: {e:?}"))),
+            ExitReason::Error(e) => Err(Error::Custom(format!("exit error {e:?}"))),
             ExitReason::Revert(_) => {
                 let revert_msg = try_get_reverted_error_or_default(&data);
                 let encoded_data = format!("0x{}", hex::encode(data));
                 Err(RPCError::RevertError(revert_msg, encoded_data).into())
             }
-            ExitReason::Fatal(e) => Err(Error::Custom(format!("fatal error: {e:?}"))),
+            ExitReason::Fatal(e) => Err(Error::Custom(format!("fatal error {e:?}"))),
         }
     }
 
