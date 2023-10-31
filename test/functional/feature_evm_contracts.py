@@ -475,11 +475,11 @@ class EVMTest(DefiTestFramework):
         contract.functions.gt0(1).call()
 
         # should throw error from `call`
-        try:
-            contract.functions.gt0(0).call()
-            raise AssertionError("should not reach here")
-        except web3.exceptions.ContractLogicError as e:
-            assert_equal(e.message, "execution reverted")
+        assert_raises_web3_error(
+           -32603,
+           "execution reverted",
+           contract.functions.gt0(0).call,
+        )
 
     def run_test(self):
         self.setup()

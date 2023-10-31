@@ -15,6 +15,7 @@ import random
 import re
 from subprocess import CalledProcessError
 import time
+import web3
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
@@ -70,6 +71,8 @@ def assert_raises_web3_error(code, message, fun, *args, **kwargs):
 
         if message not in e.args[0]["message"]:
             raise AssertionError("Expected substring not found:" + e.args[0]["message"])
+    except web3.exceptions.ContractLogicError as e:
+        assert_equal(e.message, "execution reverted")
 
 
 def assert_raises_message(exc, message, fun, *args, **kwds):
