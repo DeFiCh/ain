@@ -100,6 +100,12 @@ mod ffi {
     pub fn getNumConnections() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn isDebugEnabled() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn isDebugTraceEnabled() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -209,6 +215,14 @@ pub fn get_cors_allowed_origin() -> String {
 
 pub fn get_num_connections() -> i32 {
     ffi::getNumConnections()
+}
+
+pub fn is_debug_enabled() -> bool {
+    ffi::isDebugEnabled()
+}
+
+pub fn is_debug_trace_enabled() -> bool {
+    ffi::isDebugTraceEnabled()
 }
 
 #[cfg(test)]

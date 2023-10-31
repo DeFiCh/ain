@@ -3029,12 +3029,10 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     if (!res) {
                         continue;
                     }
-
-                    const auto obj = std::get<CEvmTxMessage>(txMessage);
-                    const auto rawEvmTx = HexStr(obj.evmTx);
-
                     g.AddTask();
-                    boost::asio::post(pool, [&g, rawEvmTx] {
+                    boost::asio::post(pool, [&g, evmMsg = std::move(txMessage)] {
+                        const auto obj = std::get<CEvmTxMessage>(evmMsg);
+                        const auto rawEvmTx = HexStr(obj.evmTx);
                         auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
                         if (v) {
                             XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
@@ -3044,7 +3042,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 }
             }
 
-            // We move ahead eagerly
+            // Ensure it's all done since otherwise, we need to keep `g` for the entire scope of connectBlock
             g.WaitForCompletion();
         }
     }
