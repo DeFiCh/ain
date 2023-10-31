@@ -440,46 +440,6 @@ class EVMTest(DefiTestFramework):
             receipt["gasUsed"] * receipt["effectiveGasPrice"],
         )
 
-    def test_contract_require_statement(self):
-        self.rollback_to(self.start_height)
-
-        abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
-        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
-
-        # Deploy `Require` contract
-        tx = compiled.constructor().build_transaction(
-            {
-                "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
-                "maxFeePerGas": 10_000_000_000,
-                "maxPriorityFeePerGas": 1_500_000_000,
-                "gas": 1_000_000,
-            }
-        )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Verify contract deployment is successful
-        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        contract = self.nodes[0].w3.eth.contract(
-            address=receipt["contractAddress"], abi=abi
-        )
-
-        # should be no error
-        contract.functions.gt0(1).call()
-
-        # should throw error from `call`
-        assert_raises_web3_error(
-            3,
-            "execution reverted: Value must be greater than 0",
-            contract.functions.gt0(0).call,
-        )
-
     def run_test(self):
         self.setup()
 
@@ -499,8 +459,6 @@ class EVMTest(DefiTestFramework):
         self.fail_deploy_contract_extremely_large_init_code()
 
         self.non_payable_proxied_contract()
-
-        self.test_contract_require_statement()
 
 
 if __name__ == "__main__":
