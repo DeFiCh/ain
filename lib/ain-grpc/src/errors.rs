@@ -103,7 +103,7 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
             Err(Error::Call(CallError::Custom(ErrorObject::owned(
                 3,
                 message.to_string(),
-                data.map(|bytes| {
+                Some(data).map(|bytes| {
                     jsonrpsee::core::to_json_raw_value(&format!("0x{}", hex::encode(bytes)))
                         .expect("fail to serialize data")
                 }),
