@@ -324,13 +324,13 @@ class EVMTest(DefiTestFramework):
         )
 
         # should be no error
-        contract.functions.gt0(1).call()
+        contract.functions.value_check(1).call()
 
         # should throw error from `call`
         assert_raises_web3_error(
             3,
             "execution reverted: Value must be greater than 0",
-            contract.functions.gt0(0).call,
+            contract.functions.value_check(0).call,
         )
 
     def run_test(self):
