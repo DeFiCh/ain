@@ -531,6 +531,12 @@ impl EVMServices {
         tx: ExecuteTx,
         hash: XHash,
     ) -> Result<()> {
+        if template.is_genesis_block() {
+            return Err(
+                format_err!("genesis block, tx cannot be added into block template").into(),
+            );
+        }
+
         self.verify_tx_fees(template.get_block_base_fee_per_gas(), &tx)?;
         let tx_update = self.update_block_template_state_from_tx(template, tx.clone())?;
         let tx_hash = tx_update.tx.hash();
