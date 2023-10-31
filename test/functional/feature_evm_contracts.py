@@ -477,7 +477,7 @@ class EVMTest(DefiTestFramework):
         # should throw error from `call`
         assert_raises_web3_error(
             3,
-            "execution reverted",
+            "execution reverted: Value must be greater than 0",
             contract.functions.gt0(0).call,
         )
 
