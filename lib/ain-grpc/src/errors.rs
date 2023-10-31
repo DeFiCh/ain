@@ -1,5 +1,8 @@
 use ain_evm::EVMError;
-use jsonrpsee::core::Error;
+use jsonrpsee::{
+    core::{to_json_raw_value, Error},
+    types::error::{CallError, ErrorObject},
+};
 
 pub enum RPCError {
     AccountError,
@@ -16,6 +19,7 @@ pub enum RPCError {
     InvalidTransactionMessage,
     InvalidTransactionType,
     NonceCacheError,
+    RevertError(String, String),
     StateRootNotFound,
     TxExecutionFailed,
     ValueOverflow,
@@ -50,6 +54,10 @@ impl From<RPCError> for Error {
             }
             RPCError::InvalidTransactionType => to_custom_err("invalid transaction type specified"),
             RPCError::NonceCacheError => to_custom_err("could not cache account nonce"),
+            RPCError::RevertError(msg, data) => {
+                let raw_value = to_json_raw_value(&data).ok();
+                Error::Call(CallError::Custom(ErrorObject::owned(3, msg, raw_value)))
+            }
             RPCError::StateRootNotFound => to_custom_err("state root not found"),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
             RPCError::ValueOverflow => to_custom_err("value overflow"),

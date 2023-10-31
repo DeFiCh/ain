@@ -33,7 +33,7 @@ use crate::{
     sync::{SyncInfo, SyncState},
     transaction_log::{GetLogsRequest, LogResult},
     transaction_request::{TransactionMessage, TransactionRequest},
-    utils::{format_h256, format_u256},
+    utils::{format_h256, format_u256, try_get_reverted_error_or_default},
 };
 
 #[rpc(server, client, namespace = "eth")]
@@ -343,7 +343,9 @@ impl MetachainRPCServer for MetachainRPCModule {
             .unwrap_or(INITIAL_BASE_FEE);
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
 
-        let TxResponse { data, .. } = self
+        let TxResponse {
+            data, exit_reason, ..
+        } = self
             .handler
             .core
             .call(EthCallArgs {
@@ -357,7 +359,17 @@ impl MetachainRPCServer for MetachainRPCModule {
                 block_number,
             })
             .map_err(RPCError::EvmError)?;
-        Ok(Bytes(data))
+
+        match exit_reason {
+            ExitReason::Succeed(_) => Ok(Bytes(data)),
+            ExitReason::Error(e) => Err(Error::Custom(format!("evm error: {e:?}"))),
+            ExitReason::Revert(_) => {
+                let revert_msg = try_get_reverted_error_or_default(&data);
+                let encoded_data = format!("0x{}", hex::encode(data));
+                Err(RPCError::RevertError(revert_msg, encoded_data).into())
+            }
+            ExitReason::Fatal(e) => Err(Error::Custom(format!("fatal error: {e:?}"))),
+        }
     }
 
     fn accounts(&self) -> RpcResult<Vec<String>> {
@@ -947,7 +959,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             ain_cpp_imports::get_sync_status().map_err(RPCError::Error)?;
 
         if current_native_height == -1 {
-            return Err(Error::Custom(String::from("Block index not available")));
+            return Err(to_custom_err("Block index not available"));
         }
 
         match current_native_height != highest_native_block {
@@ -1160,7 +1172,7 @@ fn sign(
     match message {
         TransactionMessage::Legacy(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
+                .map_err(|_| to_custom_err("invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let v = match m.chain_id {
                 None => 27 + u64::from(recid.serialize()),
@@ -1174,9 +1186,8 @@ fn sign(
                 nonce: m.nonce,
                 value: m.value,
                 input: m.input,
-                signature: ethereum::TransactionSignature::new(v, r, s).ok_or_else(|| {
-                    Error::Custom(String::from("signer generated invalid signature"))
-                })?,
+                signature: ethereum::TransactionSignature::new(v, r, s)
+                    .ok_or(to_custom_err("signer generated invalid signature"))?,
                 gas_price: m.gas_price,
                 gas_limit: m.gas_limit,
                 action: m.action,
@@ -1184,7 +1195,7 @@ fn sign(
         }
         TransactionMessage::EIP2930(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
+                .map_err(|_| to_custom_err("invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
@@ -1206,7 +1217,7 @@ fn sign(
         }
         TransactionMessage::EIP1559(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| Error::Custom(String::from("invalid signing message")))?;
+                .map_err(|_| to_custom_err("invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
