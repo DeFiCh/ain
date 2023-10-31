@@ -48,7 +48,9 @@ class EVMTest(DefiTestFramework):
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.ethPrivKey = "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
+        self.ethPrivKey = (
+            "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
+        )
         self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
         self.nodes[0].importprivkey(self.ethPrivKey)
         self.nodes[0].importprivkey(
@@ -305,17 +307,13 @@ class EVMTest(DefiTestFramework):
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                    self.ethAddress
-                ),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.ethPrivKey
-        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
