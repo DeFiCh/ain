@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::format_err;
-use ethereum::{Account, Log};
+use ethereum::{Account, Header, Log};
 use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
@@ -30,16 +30,31 @@ fn is_empty_account(account: &Account) -> bool {
 
 #[derive(Default, Debug, Clone)]
 pub struct Vicinity {
-    pub gas_price: U256,
     pub origin: H160,
+    pub gas_price: U256,
+    pub total_gas_used: U256,
     pub beneficiary: H160,
     pub block_number: U256,
     pub timestamp: U256,
-    pub total_gas_used: U256,
     pub block_difficulty: U256,
     pub block_gas_limit: U256,
     pub block_base_fee_per_gas: U256,
     pub block_randomness: Option<H256>,
+}
+
+impl From<Header> for Vicinity {
+    fn from(header: Header) -> Self {
+        Vicinity {
+            beneficiary: header.beneficiary,
+            block_number: header.number,
+            timestamp: U256::from(header.timestamp),
+            block_difficulty: header.difficulty,
+            block_gas_limit: header.gas_limit,
+            block_base_fee_per_gas: header.base_fee,
+            block_randomness: None,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -269,11 +284,13 @@ impl EVMBackend {
         Ok(self.state.commit().into())
     }
 
-    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) {
+    pub fn update_vicinity_from_tx(&mut self, tx: &SignedTx) -> Result<()> {
         self.vicinity = Vicinity {
             origin: tx.sender,
+            gas_price: tx.effective_gas_price(self.block_base_fee_per_gas())?,
             ..self.vicinity
         };
+        Ok(())
     }
 
     pub fn update_vicinity_with_gas_used(&mut self, gas_used: U256) {

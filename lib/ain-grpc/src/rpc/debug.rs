@@ -1,4 +1,3 @@
-use anyhow::format_err;
 use std::sync::Arc;
 
 use ain_evm::{
@@ -119,21 +118,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let (logs, succeeded, return_data, gas_used) = self
             .handler
             .core
-            .trace_transaction(
-                signed_tx.sender,
-                signed_tx.to().ok_or_else(|| {
-                    format_err!(
-                        "debug_traceTransaction does not support contract creation transactions"
-                    )
-                })?,
-                signed_tx.value(),
-                signed_tx.data(),
-                signed_tx.gas_limit().as_u64(),
-                signed_tx.access_list(),
-                receipt.block_number,
-            )
+            .trace_transaction(&signed_tx, receipt.block_number)
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
-
         let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
         Ok(TraceTransactionResult {
