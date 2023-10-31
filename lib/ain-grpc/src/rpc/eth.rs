@@ -19,7 +19,6 @@ use evm::{Config, ExitError, ExitReason};
 use jsonrpsee::{
     core::{Error, RpcResult},
     proc_macros::rpc,
-    types::error::{CallError, ErrorObject, INTERNAL_ERROR_CODE},
 };
 use libsecp256k1::SecretKey;
 use log::{debug, trace};
@@ -28,7 +27,7 @@ use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
     call_request::CallRequest,
     codegen::types::EthTransactionInfo,
-    errors::{to_custom_err, RPCError},
+    errors::{to_custom_err, RPCError, error_on_execution_failure},
     filters::{GetFilterChangesResult, NewFilterRequest},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
@@ -1233,56 +1232,4 @@ fn sign(
             }))
         }
     }
-}
-
-fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult<()> {
-    match reason {
-        ExitReason::Succeed(_) => Ok(()),
-        ExitReason::Error(err) => {
-            if *err == ExitError::OutOfGas {
-                return Err(internal_err("out of gas"));
-            }
-            Err(internal_err_with_data(format!("evm error: {err:?}"), &[]))
-        }
-        ExitReason::Revert(_) => {
-            const LEN_START: usize = 36;
-            const MESSAGE_START: usize = 68;
-
-            let mut message = "execution reverted:".to_string();
-            // A minimum size of error function selector (4) + offset (32) + string length (32)
-            // should contain a utf-8 encoded revert reason.
-            if data.len() > MESSAGE_START {
-                let message_len = U256::from(&data[LEN_START..MESSAGE_START]).as_usize();
-                let message_end = MESSAGE_START.saturating_add(message_len);
-
-                if data.len() >= message_end {
-                    let body: &[u8] = &data[MESSAGE_START..message_end];
-                    if let Ok(reason) = std::str::from_utf8(body) {
-                        message = format!("{message} {reason}");
-                    }
-                }
-            }
-            Err(internal_err_with_data(message, data))
-        }
-        ExitReason::Fatal(err) => Err(internal_err_with_data(format!("evm error: {err:?}"), &[])),
-    }
-}
-
-fn err<T: ToString>(code: i32, message: T, data: Option<&[u8]>) -> Error {
-    Error::Call(CallError::Custom(ErrorObject::owned(
-        code,
-        message.to_string(),
-        data.map(|bytes| {
-            jsonrpsee::core::to_json_raw_value(&format!("0x{}", hex::encode(bytes)))
-                .expect("fail to serialize data")
-        }),
-    )))
-}
-
-fn internal_err<T: ToString>(message: T) -> Error {
-    err(INTERNAL_ERROR_CODE, message, None)
-}
-
-fn internal_err_with_data<T: ToString>(message: T, data: &[u8]) -> Error {
-    err(INTERNAL_ERROR_CODE, message, Some(data))
 }
