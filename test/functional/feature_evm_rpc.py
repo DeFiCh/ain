@@ -88,8 +88,25 @@ class EVMTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(2)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "100@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        self.start_height = self.nodes[0].getblockcount()
+        self.eth_start_height = int(self.nodes[0].eth_blockNumber(), 16)
 
     def test_node_params(self):
+        self.rollback_to(self.start_height)
+
         is_miningA = self.nodes[0].eth_mining()
         assert_equal(is_miningA, False)
 
@@ -103,6 +120,8 @@ class EVMTest(DefiTestFramework):
         assert_equal(chainid, "0x46d")
 
     def test_gas(self):
+        self.rollback_to(self.start_height)
+
         estimate_gas = self.nodes[0].eth_estimateGas(
             {
                 "from": self.ethAddress,
@@ -116,10 +135,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(gas_price, "0x2540be400")  # 10_000_000_000
 
     def test_accounts(self):
+        self.rollback_to(self.start_height)
+
         eth_accounts = self.nodes[0].eth_accounts()
         assert_equal(eth_accounts.sort(), [self.ethAddress, self.toAddress].sort())
 
-    def test_address_state(self, address):
+    def test_address_state(self):
+        self.rollback_to(self.start_height)
+
         assert_raises_rpc_error(
             -32602,
             "invalid length 7, expected a (both 0x-prefixed or not) hex string or byte array containing 20 bytes at line 1 column 9",
@@ -127,14 +150,13 @@ class EVMTest(DefiTestFramework):
             "test123",
         )
 
-        balance = self.nodes[0].eth_getBalance(address)
+        balance = self.nodes[0].eth_getBalance(self.ethAddress)
         assert_equal(balance, int_to_eth_u256(100))
 
-        code = self.nodes[0].eth_getCode(address)
+        code = self.nodes[0].eth_getCode(self.ethAddress)
         assert_equal(code, "0x")
 
         blockNumber = self.nodes[0].eth_blockNumber()
-
         self.nodes[0].transferdomain(
             [
                 {
@@ -149,17 +171,18 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        balance = self.nodes[0].eth_getBalance(address, "latest")
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(balance, int_to_eth_u256(150))
 
-        balance = self.nodes[0].eth_getBalance(
-            address, blockNumber
-        )  # Test querying previous block
+        # Test querying previous block
+        balance = self.nodes[0].eth_getBalance(self.ethAddress, blockNumber)
         assert_equal(balance, int_to_eth_u256(100))
 
     def test_block(self):
+        self.rollback_to(self.start_height)
+
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block["number"], "0x2")
+        assert_equal(latest_block["number"], hex(self.eth_start_height))
 
         # Test full transaction block
         self.nodes[0].evmtx(self.ethAddress, 0, 21, 21000, self.toAddress, 1)
@@ -180,14 +203,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(res["results"]["to"].lower(), self.toAddress)
 
         latest_block = self.nodes[0].eth_getBlockByNumber("latest", False)
-        assert_equal(latest_block["number"], "0x3")
+        assert_equal(latest_block["number"], hex(self.eth_start_height + 1))
         assert_equal(
             latest_block["transactions"][0],
             "0x8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497",
         )
 
         latest_full_block = self.nodes[0].eth_getBlockByNumber("latest", True)
-        assert_equal(latest_full_block["number"], "0x3")
+        assert_equal(latest_full_block["number"], hex(self.eth_start_height + 1))
         assert_equal(
             latest_full_block["transactions"][0]["blockHash"], latest_full_block["hash"]
         )
@@ -279,23 +302,10 @@ class EVMTest(DefiTestFramework):
 
         self.test_accounts()
 
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.ethAddress,
-                        "amount": "100@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        self.test_address_state(self.ethAddress)  # TODO test smart contract
+        self.test_address_state()  # TODO test smart contract
 
         self.test_block()
+
         self.test_web3_client_version()
 
 
