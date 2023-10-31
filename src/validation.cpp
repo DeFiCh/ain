@@ -111,10 +111,10 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 }
 
 namespace {
-BlockManager g_blockman;
+    BlockManager g_blockman;
 
-// Store subsidy at each reduction
-std::map<uint32_t, CAmount> subsidyReductions;
+    // Store subsidy at each reduction
+    std::map<uint32_t, CAmount> subsidyReductions;
 }  // namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -182,22 +182,22 @@ TBytes compactEnd;
 
 // Internal stuff
 namespace {
-CBlockIndex *pindexBestInvalid = nullptr;
+    CBlockIndex *pindexBestInvalid = nullptr;
 
-CCriticalSection cs_LastBlockFile;
-std::vector<CBlockFileInfo> vinfoBlockFile;
-int nLastBlockFile = 0;
-/** Global flag to indicate we should check to see if there are
- *  block/undo files that should be deleted.  Set on startup
- *  or if we allocate more file space when we're in prune mode
- */
-bool fCheckForPruning = false;
+    CCriticalSection cs_LastBlockFile;
+    std::vector<CBlockFileInfo> vinfoBlockFile;
+    int nLastBlockFile = 0;
+    /** Global flag to indicate we should check to see if there are
+     *  block/undo files that should be deleted.  Set on startup
+     *  or if we allocate more file space when we're in prune mode
+     */
+    bool fCheckForPruning = false;
 
-/** Dirty block index entries. */
-std::set<CBlockIndex *> setDirtyBlockIndex;
+    /** Dirty block index entries. */
+    std::set<CBlockIndex *> setDirtyBlockIndex;
 
-/** Dirty block file entries. */
-std::set<int> setDirtyFileInfo;
+    /** Dirty block file entries. */
+    std::set<int> setDirtyFileInfo;
 }  // namespace
 
 extern std::string ScriptToString(const CScript &script);
