@@ -82,6 +82,13 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
             let mut message = "execution reverted:".to_string();
             // A minimum size of error function selector (4) + offset (32) + string length (32)
             // should contain a utf-8 encoded revert reason.
+            //
+            // 0x08c379a0                                                         // Function selector for Error(string)
+            // 0x0000000000000000000000000000000000000000000000000000000000000020 // Data offset
+            // 0x000000000000000000000000000000000000000000000000000000000000001a // String length
+            // 0x4e6f7420656e6f7567682045746865722070726f76696465642e000000000000 // String data
+            //
+            // https://docs.soliditylang.org/en/latest/control-structures.html#revert
             if data.len() > MESSAGE_START {
                 let message_len = U256::from(&data[LEN_START..MESSAGE_START]).as_usize();
                 let message_end = MESSAGE_START.saturating_add(message_len);
