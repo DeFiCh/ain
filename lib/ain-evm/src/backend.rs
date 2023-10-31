@@ -83,7 +83,7 @@ impl Overlay {
 
         let data = OverlayData {
             account,
-            code,
+            code: code.or(self.get_code(&address)),
             storage,
         };
         self.state.insert(address, data.clone());
