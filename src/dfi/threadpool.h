@@ -39,7 +39,10 @@ public:
     void MarkCancelled() { is_cancelled.store(true); }
     bool IsCancelled() { return is_cancelled.load(); }
     void EnsureCompletedOrCancelled(bool checkForPrematureCompletion = true);
-    void Leak() { is_leaked.store(true); }
+    void SetLeak(bool val = true) { is_leaked.store(val); }
+
+    TaskGroup() = default;
+    TaskGroup(const TaskGroup &) = delete;
 
     ~TaskGroup() {
         if (!is_leaked.load()) {
