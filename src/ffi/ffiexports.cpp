@@ -266,7 +266,7 @@ int getCurrentHeight() {
     return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
 }
 
-Attributes getAttributeDefaults(std::size_t mnview_ptr) {
+Attributes getAttributeValues(std::size_t mnview_ptr) {
     auto defaults = Attributes::Default();
 
     LOCK(cs_main);
@@ -278,12 +278,11 @@ Attributes getAttributeDefaults(std::size_t mnview_ptr) {
     } else {
         attributes = pcustomcsview->GetAttributes();
     }
-    assert(attributes);
 
     CDataStructureV0 blockGasTargetKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTarget};
     CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
     CDataStructureV0 finalityCountKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::Finalized};
-    CDataStructureV0 rbfFeeIncrementKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RBFFeeIncrement};
+    CDataStructureV0 rbfIncrementMinPctKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RbfIncrementMinPct};
 
     if (attributes->CheckKey(blockGasTargetKey)) {
         defaults.blockGasTarget = attributes->GetValue(blockGasTargetKey, DEFAULT_EVM_BLOCK_GAS_TARGET);
@@ -294,8 +293,8 @@ Attributes getAttributeDefaults(std::size_t mnview_ptr) {
     if (attributes->CheckKey(finalityCountKey)) {
         defaults.finalityCount = attributes->GetValue(finalityCountKey, DEFAULT_EVM_FINALITY_COUNT);
     }
-    if (attributes->CheckKey(rbfFeeIncrementKey)) {
-        defaults.rbfFeeIncrement = attributes->GetValue(rbfFeeIncrementKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
+    if (attributes->CheckKey(rbfIncrementMinPctKey)) {
+        defaults.rbfIncrementMinPct = attributes->GetValue(rbfIncrementMinPctKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
     }
 
     return defaults;

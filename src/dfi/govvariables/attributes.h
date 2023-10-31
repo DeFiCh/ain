@@ -55,10 +55,10 @@ enum EVMIDs : uint8_t {
 };
 
 enum EVMKeys : uint8_t {
-    Finalized = 'a',
-    GasLimit = 'b',
-    GasTarget = 'c',
-    RBFFeeIncrement = 'd',
+    Finalized          = 'a',
+    GasLimit           = 'b',
+    GasTarget          = 'c',
+    RbfIncrementMinPct = 'd',
 };
 
 enum GovernanceIDs : uint8_t {

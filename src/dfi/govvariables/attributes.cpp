@@ -23,7 +23,7 @@ enum class EVMAttributesTypes : uint32_t {
     Finalized = 1,
     GasLimit = 2,
     GasTarget = 3,
-    RBFFeeIncrement = 4,
+    RbfIncrementMinPct = 4,
 };
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
@@ -289,7 +289,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"finality_count", EVMKeys::Finalized},
              {"gas_limit", EVMKeys::GasLimit},
              {"gas_target", EVMKeys::GasTarget},
-             {"rbf_fee_increment", EVMKeys::RBFFeeIncrement},
+             {"rbf_increment_fee_pct", EVMKeys::RbfIncrementMinPct},
          }},
         {AttributeTypes::Governance,
          {
@@ -394,7 +394,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {EVMKeys::Finalized, "finality_count"},
              {EVMKeys::GasLimit, "gas_limit"},
              {EVMKeys::GasTarget, "gas_target"},
-             {EVMKeys::RBFFeeIncrement, "rbf_fee_increment"},
+             {EVMKeys::RbfIncrementMinPct, "rbf_increment_fee_pct"},
          }},
         {AttributeTypes::Live,
          {
@@ -831,7 +831,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {EVMKeys::Finalized, VerifyUInt64},
                  {EVMKeys::GasLimit, VerifyUInt64},
                  {EVMKeys::GasTarget, VerifyUInt64},
-                 {EVMKeys::RBFFeeIncrement, VerifyPct},
+                 {EVMKeys::RbfIncrementMinPct, VerifyPct},
              }},
             {AttributeTypes::Governance,
              {
@@ -995,7 +995,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
     } else if (type == AttributeTypes::EVMType) {
         if (typeId == EVMIDs::Block) {
             if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTarget &&
-                typeKey != EVMKeys::RBFFeeIncrement) {
+                typeKey != EVMKeys::RbfIncrementMinPct) {
                 return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
             }
         } else {

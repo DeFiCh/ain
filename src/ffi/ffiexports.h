@@ -22,7 +22,7 @@ struct Attributes {
     uint64_t blockGasTarget;
     uint64_t blockGasLimit;
     uint64_t finalityCount;
-    uint64_t rbfFeeIncrement;
+    uint64_t rbfIncrementMinPct;
 
     static Attributes Default() {
         return Attributes {
@@ -73,7 +73,7 @@ std::array<uint8_t, 32> getEthPrivKey(rust::string key);
 rust::string getStateInputJSON();
 int getHighestBlock();
 int getCurrentHeight();
-Attributes getAttributeDefaults(std::size_t mnview_ptr);
+Attributes getAttributeValues(std::size_t mnview_ptr);
 void CppLogPrintf(rust::string message);
 rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr);
 rust::string getClientVersion();
