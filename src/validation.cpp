@@ -3045,7 +3045,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     if (!res) {
                         continue;
                     }
-
+                  
                     evmEccPreCacheTaskPool.AddTask();
                     boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage)] {
                         if (!evmEccPreCacheTaskPool.IsCancelled()) {
