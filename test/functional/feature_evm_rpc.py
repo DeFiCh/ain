@@ -7,9 +7,11 @@
 
 import re
 from test_framework.test_framework import DefiTestFramework
+from test_framework.evm_contract import EVMContract
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    assert_raises_web3_error,
     int_to_eth_u256,
     hex_to_decimal,
 )
@@ -46,10 +48,11 @@ class EVMTest(DefiTestFramework):
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.nodes[0].importprivkey(
+        self.ethPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
+        )
+        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
+        self.nodes[0].importprivkey(self.ethPrivKey)
         self.nodes[0].importprivkey(
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
         )  # toAddress
@@ -294,6 +297,42 @@ class EVMTest(DefiTestFramework):
         assert match.group(4).startswith("rustc-")
         assert len(match.group(4)) > 7
 
+    def test_contract_require_statement(self):
+        self.rollback_to(self.start_height)
+
+        abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+
+        # Deploy `Require` contract
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Verify contract deployment is successful
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        # should be no error
+        contract.functions.value_check(1).call()
+
+        # should throw error from `call`
+        assert_raises_web3_error(
+            3,
+            "execution reverted: Value must be greater than 0",
+            contract.functions.value_check(0).call,
+        )
+
     def run_test(self):
         self.setup()
 
@@ -308,6 +347,8 @@ class EVMTest(DefiTestFramework):
         self.test_block()
 
         self.test_web3_client_version()
+
+        self.test_contract_require_statement()
 
 
 if __name__ == "__main__":
