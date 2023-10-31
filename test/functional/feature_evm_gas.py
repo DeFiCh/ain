@@ -12,7 +12,6 @@ from test_framework.util import (
     assert_raises_web3_error,
 )
 from test_framework.evm_contract import EVMContract
-from test_framework.evm_key_pair import EvmKeyPair
 
 
 class EVMGasTest(DefiTestFramework):
