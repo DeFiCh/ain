@@ -3016,7 +3016,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
-
         {
             // Pre-warm validation cache
             auto &pool = DfTxTaskPool->pool;
@@ -3035,11 +3034,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
                         // it will result in a single duplicated computation of the first cache
                         // not being available since validation will hit the cache request before
                         // the pool completes the ECC recovery of the first one. This duplicate
-                        // adds up during fresh sync.  
+                        // adds up during fresh sync.
                         isFirstTx = false;
                         continue;
                     }
-                    
+
                     CCustomTxMessage txMessage{CEvmTxMessage{}};
                     const auto res =
                         CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
@@ -3050,7 +3049,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
 
                     evmEccPreCacheTaskPool.AddTask();
-                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMessage = std::move(obj) ] {
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMessage = std::move(obj)] {
                         if (!evmEccPreCacheTaskPool.IsCancelled()) {
                             const auto rawEvmTx = HexStr(evmMessage.evmTx);
                             auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
@@ -3146,7 +3145,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                              fCacheResults,
                              txdata[i],
                              g_parallel_script_checks ? &vChecks : nullptr)) {
-
                 evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
 
                 if (state.GetReason() == ValidationInvalidReason::TX_NOT_STANDARD) {
@@ -3528,7 +3526,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
              nTimeCallbacks * MICRO,
              nTimeCallbacks * MILLI / nBlocksTotal);
 
-    
     evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
     return true;
 }
