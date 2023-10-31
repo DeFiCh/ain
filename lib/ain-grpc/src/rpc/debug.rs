@@ -1,10 +1,17 @@
 use std::sync::Arc;
 
 use ain_evm::{
-    core::EthCallArgs, evm::EVMServices, executor::TxResponse, storage::block_store::DumpArg,
+    core::EthCallArgs,
+    evm::EVMServices,
+    executor::TxResponse,
+    storage::{
+        block_store::DumpArg,
+        traits::{ReceiptStorage, TransactionStorage},
+    },
+    transaction::SignedTx,
 };
 use ethereum::Account;
-use ethereum_types::U256;
+use ethereum_types::{H256, U256};
 use jsonrpsee::{
     core::{Error, RpcResult},
     proc_macros::rpc,
@@ -15,6 +22,7 @@ use rlp::{Decodable, Rlp};
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
+    transaction::{TraceLogs, TraceTransactionResult},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -28,7 +36,7 @@ pub struct FeeEstimate {
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self) -> RpcResult<()>;
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
 
     // Dump full db
     #[method(name = "dumpdb")]
@@ -61,12 +69,65 @@ impl MetachainDebugRPCModule {
     pub fn new(handler: Arc<EVMServices>) -> Self {
         Self { handler }
     }
+
+    fn is_enabled(&self) -> RpcResult<()> {
+        if !ain_cpp_imports::is_eth_debug_rpc_enabled() {
+            return Err(Error::Custom(
+                "debug_* RPCs have not been enabled".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn is_trace_enabled(&self) -> RpcResult<()> {
+        if !ain_cpp_imports::is_eth_debug_trace_rpc_enabled() {
+            return Err(Error::Custom(
+                "debug_trace* RPCs have not been enabled".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self) -> RpcResult<()> {
-        debug!(target: "rpc", "Tracing transaction");
-        Ok(())
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        debug!(target: "rpc", "Tracing transaction {tx_hash}");
+
+        let receipt = self
+            .handler
+            .storage
+            .get_receipt(&tx_hash)
+            .map_err(to_custom_err)?
+            .ok_or_else(|| {
+                Error::Custom(format!("Could not find receipt for transaction {tx_hash}"))
+            })?;
+
+        let tx = self
+            .handler
+            .storage
+            .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
+            .expect("Unable to find TX hash")
+            .ok_or_else(|| Error::Custom("Error".to_string()))?;
+
+        let signed_tx = SignedTx::try_from(tx).expect("Unable to construct signed TX");
+
+        let (logs, succeeded, return_data, gas_used) = self
+            .handler
+            .core
+            .trace_transaction(&signed_tx, receipt.block_number)
+            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
+        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
+
+        Ok(TraceTransactionResult {
+            gas: U256::from(gas_used),
+            failed: !succeeded,
+            return_value: hex::encode(return_data).to_string(),
+            struct_logs: trace_logs,
+        })
     }
 
     fn dump_db(
@@ -75,6 +136,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         start: Option<&str>,
         limit: Option<&str>,
     ) -> RpcResult<String> {
+        self.is_enabled()?;
+
         let default_limit = 100usize;
         let limit = limit
             .map_or(Ok(default_limit), |s| s.parse())
@@ -86,6 +149,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_account_states(&self) -> RpcResult<()> {
+        self.is_enabled()?;
+
         let backend = self
             .handler
             .core
@@ -110,6 +175,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
+        self.is_enabled()?;
+
         debug!(target:"rpc",  "Fee estimate");
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
@@ -176,6 +243,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_block_templates(&self) -> RpcResult<()> {
+        self.is_enabled()?;
+
         // let templates = &self.handler.core.block_templates;
         // debug!("templates : {:#?}", templates);
         Ok(())

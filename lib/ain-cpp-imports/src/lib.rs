@@ -103,6 +103,13 @@ mod ffi {
     pub fn getLruCacheSizeLimit() -> usize {
         unimplemented!("{}", UNIMPL_MSG)
     }
+
+    pub fn isEthDebugRPCEnabled() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn isEthDebugTraceRPCEnabled() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
@@ -216,6 +223,15 @@ pub fn get_num_connections() -> i32 {
 
 pub fn get_lru_cache_size_limit() -> usize {
     ffi::getLruCacheSizeLimit()
+}
+
+
+pub fn is_eth_debug_rpc_enabled() -> bool {
+    ffi::isEthDebugRPCEnabled()
+}
+
+pub fn is_eth_debug_trace_rpc_enabled() -> bool {
+    ffi::isEthDebugTraceRPCEnabled()
 }
 
 #[cfg(test)]

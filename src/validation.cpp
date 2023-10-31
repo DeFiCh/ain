@@ -62,6 +62,7 @@
 #include <warnings.h>
 
 #include <future>
+#include <memory>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -2991,6 +2992,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
+    // Note: TaskGroup needs to be alive until the end of the boost IO pool completion.
+    // So, we allocate it outside of the pre-cache scope, and ensure it's cancelled on
+    // all return paths.
+    TaskGroup evmEccPreCacheTaskPool;
+
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
         if (!xvmRes) {
@@ -3012,9 +3018,9 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
         if (gArgs.GetArg("-eccprecache", DEFAULT_EVMTX_WORKERS) != false) {
             // Pre-warm validation cache
-            TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 
+            auto isFirstTx = true;
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
                 if (tx.IsCoinBase()) {
@@ -3023,6 +3029,16 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 std::vector<unsigned char> metadata;
                 const auto txType = GuessCustomTxType(tx, metadata, true);
                 if (txType == CustomTxType::EvmTx) {
+                    if (isFirstTx) {
+                        // Minor optimization: We skip the first one, since in most scenarios
+                        // it will result in a single duplicated computation of the first cache
+                        // not being available since validation will hit the cache request before
+                        // the pool completes the ECC recovery of the first one. This duplicate
+                        // adds up during fresh sync.
+                        isFirstTx = false;
+                        continue;
+                    }
+
                     CCustomTxMessage txMessage{CEvmTxMessage{}};
                     const auto res =
                         CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
@@ -3030,22 +3046,21 @@ bool CChainState::ConnectBlock(const CBlock &block,
                         continue;
                     }
 
-                    const auto obj = std::get<CEvmTxMessage>(txMessage);
-                    const auto rawEvmTx = HexStr(obj.evmTx);
+                    evmEccPreCacheTaskPool.AddTask();
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage)] {
+                        if (!evmEccPreCacheTaskPool.IsCancelled()) {
+                            const auto obj = std::get<CEvmTxMessage>(evmMsg);
 
-                    g.AddTask();
-                    boost::asio::post(pool, [&g, rawEvmTx] {
-                        auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
-                        if (v) {
-                            XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                            const auto rawEvmTx = HexStr(obj.evmTx);
+                            auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
+                            if (v) {
+                                XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                            }
                         }
-                        g.RemoveTask();
+                        evmEccPreCacheTaskPool.RemoveTask();
                     });
                 }
             }
-
-            // We move ahead eagerly
-            g.WaitForCompletion();
         }
     }
 

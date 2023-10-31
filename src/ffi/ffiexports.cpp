@@ -304,3 +304,11 @@ int32_t getNumConnections() {
 size_t getLruCacheSizeLimit() {
     return gArgs.GetArg("-lrucache", DEFAULT_LRU_CACHE_SIZE_LIMIT);
 }
+
+bool isEthDebugRPCEnabled() {
+    return gArgs.GetBoolArg("-ethdebug", false);
+}
+
+bool isEthDebugTraceRPCEnabled() {
+    return gArgs.GetBoolArg("-ethdebugtrace", true);
+}

@@ -51,5 +51,7 @@ pub mod ffi {
         fn getCORSAllowedOrigin() -> String;
         fn getNumConnections() -> i32;
         fn getLruCacheSizeLimit() -> usize;
+        fn isEthDebugRPCEnabled() -> bool;
+        fn isEthDebugTraceRPCEnabled() -> bool;
     }
 }
