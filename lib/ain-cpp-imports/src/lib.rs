@@ -76,7 +76,7 @@ mod ffi {
     pub fn getCurrentHeight() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getAttributeDefaults(mnview_ptr: usize) -> Attributes {
+    pub fn getAttributeDefaults(_mnview_ptr: usize) -> Attributes {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
