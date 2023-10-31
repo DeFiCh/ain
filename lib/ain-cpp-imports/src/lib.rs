@@ -100,6 +100,12 @@ mod ffi {
     pub fn getNumConnections() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEccLruCacheCount() -> usize {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getEvmValidationLruCacheCount() -> usize {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn isEthDebugRPCEnabled() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -215,6 +221,14 @@ pub fn get_cors_allowed_origin() -> String {
 
 pub fn get_num_connections() -> i32 {
     ffi::getNumConnections()
+}
+
+pub fn get_ecc_lru_cache_count() -> usize {
+    ffi::getEccLruCacheCount()
+}
+
+pub fn get_evmv_lru_cache_count() -> usize {
+    ffi::getEvmValidationLruCacheCount()
 }
 
 pub fn is_eth_debug_rpc_enabled() -> bool {
