@@ -161,7 +161,6 @@ class EVMGasTest(DefiTestFramework):
         self.invalid_balance_transfer_tx_insufficient_funds = {
             "from": self.ethAddress,
             "to": self.toAddress,
-            "value": "0xDE0B6B3A7640000",  # 1 DFI
             "value": "0x152D02C7E14AF6800000",  # 100_000 DFI
             "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
