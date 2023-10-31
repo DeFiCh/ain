@@ -73,6 +73,7 @@ def assert_raises_web3_error(code, message, fun, *args, **kwargs):
     except web3.exceptions.ContractLogicError as e:
         assert_equal(message, e.message)
 
+
 def assert_raises_message(exc, message, fun, *args, **kwds):
     try:
         fun(*args, **kwds)
