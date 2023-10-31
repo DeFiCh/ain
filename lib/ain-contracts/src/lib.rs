@@ -6,8 +6,8 @@ use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
-pub const DST20_ADDR_PREFIX_BYTE: u8 = 0xff;
-pub const INTRINSICS_ADDR_PREFIX_BYTE: u8 = 0xdf;
+const DST20_ADDR_PREFIX_BYTE: u8 = 0xff;
+const INTRINSICS_ADDR_PREFIX_BYTE: u8 = 0xdf;
 
 // Impl slots used for proxies: 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
 pub const IMPLEMENTATION_SLOT: H256 = H256([
