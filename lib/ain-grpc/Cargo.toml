@@ -36,7 +36,6 @@ hyper.workspace = true
 rand.workspace = true
 
 [build-dependencies]
-cxx-gen.workspace = true
 heck.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
