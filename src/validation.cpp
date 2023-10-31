@@ -3006,7 +3006,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                  "bad-xvm-coinbase");
         }
         blockCtx.SetEVMTemplate(
-            CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+            CScopedTemplate::Create(pindex->nHeight,
+                                    xvmRes->evm.beneficiary,
+                                    block.nBits,
+                                    pindex->GetBlockTime(),
+                                    static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: Failed to create block template", __func__),
