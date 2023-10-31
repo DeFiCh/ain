@@ -62,6 +62,7 @@
 #include <warnings.h>
 
 #include <future>
+#include <memory>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -110,10 +111,10 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 }
 
 namespace {
-BlockManager g_blockman;
+    BlockManager g_blockman;
 
-// Store subsidy at each reduction
-std::map<uint32_t, CAmount> subsidyReductions;
+    // Store subsidy at each reduction
+    std::map<uint32_t, CAmount> subsidyReductions;
 }  // namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -181,22 +182,22 @@ TBytes compactEnd;
 
 // Internal stuff
 namespace {
-CBlockIndex *pindexBestInvalid = nullptr;
+    CBlockIndex *pindexBestInvalid = nullptr;
 
-CCriticalSection cs_LastBlockFile;
-std::vector<CBlockFileInfo> vinfoBlockFile;
-int nLastBlockFile = 0;
-/** Global flag to indicate we should check to see if there are
- *  block/undo files that should be deleted.  Set on startup
- *  or if we allocate more file space when we're in prune mode
- */
-bool fCheckForPruning = false;
+    CCriticalSection cs_LastBlockFile;
+    std::vector<CBlockFileInfo> vinfoBlockFile;
+    int nLastBlockFile = 0;
+    /** Global flag to indicate we should check to see if there are
+     *  block/undo files that should be deleted.  Set on startup
+     *  or if we allocate more file space when we're in prune mode
+     */
+    bool fCheckForPruning = false;
 
-/** Dirty block index entries. */
-std::set<CBlockIndex *> setDirtyBlockIndex;
+    /** Dirty block index entries. */
+    std::set<CBlockIndex *> setDirtyBlockIndex;
 
-/** Dirty block file entries. */
-std::set<int> setDirtyFileInfo;
+    /** Dirty block file entries. */
+    std::set<int> setDirtyFileInfo;
 }  // namespace
 
 extern std::string ScriptToString(const CScript &script);
@@ -2991,6 +2992,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
+    // Note: TaskGroup needs to be alive until the end of the boost IO pool completion.
+    // So, we allocate it outside of the pre-cache scope, and ensure it's cancelled on
+    // all return paths.
+    TaskGroup evmEccPreCacheTaskPool;
+
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
         if (!xvmRes) {
@@ -3000,7 +3006,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                  "bad-xvm-coinbase");
         }
         blockCtx.SetEVMTemplate(
-            CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
+            CScopedTemplate::Create(pindex->nHeight,
+                                    xvmRes->evm.beneficiary,
+                                    block.nBits,
+                                    pindex->GetBlockTime(),
+                                    static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: Failed to create block template", __func__),
@@ -3010,11 +3020,13 @@ bool CChainState::ConnectBlock(const CBlock &block,
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
-        {
+        auto eccPreCacheControl = gArgs.GetArg("-eccprecache", DEFAULT_ECC_PRECACHE_WORKERS);
+        auto isEccPreCacheEnabled = eccPreCacheControl == -1 || eccPreCacheControl > 0;
+        if (isEccPreCacheEnabled) {
             // Pre-warm validation cache
-            TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 
+            auto isFirstTx = true;
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
                 if (tx.IsCoinBase()) {
@@ -3023,27 +3035,38 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 std::vector<unsigned char> metadata;
                 const auto txType = GuessCustomTxType(tx, metadata, true);
                 if (txType == CustomTxType::EvmTx) {
+                    if (isFirstTx) {
+                        // Minor optimization: We skip the first one, since in most scenarios
+                        // it will result in a single duplicated computation of the first cache
+                        // not being available since validation will hit the cache request before
+                        // the pool completes the ECC recovery of the first one. This duplicate
+                        // adds up during fresh sync.
+                        isFirstTx = false;
+                        continue;
+                    }
+
                     CCustomTxMessage txMessage{CEvmTxMessage{}};
                     const auto res =
                         CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
                     if (!res) {
                         continue;
                     }
-                    g.AddTask();
-                    boost::asio::post(pool, [&g, evmMsg = std::move(txMessage)] {
-                        const auto obj = std::get<CEvmTxMessage>(evmMsg);
-                        const auto rawEvmTx = HexStr(obj.evmTx);
-                        auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
-                        if (v) {
-                            XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+
+                    evmEccPreCacheTaskPool.AddTask();
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage)] {
+                        if (!evmEccPreCacheTaskPool.IsCancelled()) {
+                            const auto obj = std::get<CEvmTxMessage>(evmMsg);
+
+                            const auto rawEvmTx = HexStr(obj.evmTx);
+                            auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
+                            if (v) {
+                                XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                            }
                         }
-                        g.RemoveTask();
+                        evmEccPreCacheTaskPool.RemoveTask();
                     });
                 }
             }
-
-            // Ensure it's all done since otherwise, we need to keep `g` for the entire scope of connectBlock
-            g.WaitForCompletion();
         }
     }
 

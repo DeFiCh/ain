@@ -13,6 +13,7 @@ mod ffi {
         pub block_gas_target: u64,
         pub block_gas_limit: u64,
         pub finality_count: u64,
+        pub rbf_fee_increment: u64,
     }
 
     pub struct DST20Token {
@@ -76,7 +77,7 @@ mod ffi {
     pub fn getCurrentHeight() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getAttributeDefaults() -> Attributes {
+    pub fn getAttributeValues(_mnview_ptr: usize) -> Attributes {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -98,6 +99,12 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getNumConnections() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getEccLruCacheCount() -> usize {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getEvmValidationLruCacheCount() -> usize {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn isEthDebugRPCEnabled() -> bool {
@@ -192,8 +199,8 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     Ok((current_block, highest_block))
 }
 
-pub fn get_attribute_defaults() -> ffi::Attributes {
-    ffi::getAttributeDefaults()
+pub fn get_attribute_defaults(mnview_ptr: Option<usize>) -> ffi::Attributes {
+    ffi::getAttributeValues(mnview_ptr.unwrap_or_default())
 }
 
 pub fn log_print(message: &str) {
@@ -215,6 +222,14 @@ pub fn get_cors_allowed_origin() -> String {
 
 pub fn get_num_connections() -> i32 {
     ffi::getNumConnections()
+}
+
+pub fn get_ecc_lru_cache_count() -> usize {
+    ffi::getEccLruCacheCount()
+}
+
+pub fn get_evmv_lru_cache_count() -> usize {
+    ffi::getEvmValidationLruCacheCount()
 }
 
 pub fn is_eth_debug_rpc_enabled() -> bool {

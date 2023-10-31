@@ -10,8 +10,6 @@
 #include <serialize.h>
 #include <uint256.h>
 
-constexpr const uint16_t EVM_TX_SIZE = 32768;
-
 // EIP-2718 transaction type: legacy - 0x0, EIP2930 - 0x1, EIP1559 - 0x2
 enum CEVMTxType {
     LegacyTransaction = 0,
@@ -66,7 +64,8 @@ public:
     static std::shared_ptr<CScopedTemplate> Create(const uint64_t dvmBlockNumber,
                                                    std::string minerAddress,
                                                    unsigned int difficulty,
-                                                   const uint64_t timestamp);
+                                                   const uint64_t timestamp,
+                                                   const std::size_t mnview_ptr);
     ~CScopedTemplate();
 
     BlockTemplateWrapper &GetTemplate() const;

@@ -449,6 +449,7 @@ pub fn evm_try_unsafe_create_template(
     miner_address: &str,
     difficulty: u32,
     timestamp: u64,
+    mnview_ptr: usize,
 ) -> &'static mut BlockTemplateWrapper {
     let miner_address = if miner_address.is_empty() {
         H160::zero()
@@ -463,10 +464,13 @@ pub fn evm_try_unsafe_create_template(
     };
 
     unsafe {
-        match SERVICES
-            .evm
-            .create_block_template(dvm_block, miner_address, difficulty, timestamp)
-        {
+        match SERVICES.evm.create_block_template(
+            dvm_block,
+            miner_address,
+            difficulty,
+            timestamp,
+            mnview_ptr,
+        ) {
             Ok(template) => cross_boundary_success_return(
                 result,
                 Box::leak(Box::new(BlockTemplateWrapper(Some(template)))),

@@ -463,6 +463,7 @@ impl EVMServices {
         beneficiary: H160,
         difficulty: u32,
         timestamp: u64,
+        mnview_ptr: usize,
     ) -> Result<BlockTemplate> {
         let (target_block, initial_state_root) = match self.storage.get_latest_block()? {
             None => (U256::zero(), GENESIS_STATE_ROOT), // Genesis block
@@ -483,7 +484,8 @@ impl EVMServices {
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
         let block_base_fee_per_gas = self.block.calculate_base_fee(parent_hash)?;
 
-        let block_gas_limit = U256::from(self.storage.get_attributes_or_default()?.block_gas_limit);
+        let block_gas_limit =
+            U256::from(ain_cpp_imports::get_attribute_defaults(Some(mnview_ptr)).block_gas_limit);
         let vicinity = Vicinity {
             beneficiary,
             block_number: target_block,
