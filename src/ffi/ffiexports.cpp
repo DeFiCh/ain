@@ -300,3 +300,11 @@ rust::string getCORSAllowedOrigin() {
 int32_t getNumConnections() {
     return (int32_t)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL);
 }
+
+bool isDebugEnabled() {
+    return gArgs.GetBoolArg("-ethdebug", false);
+}
+
+bool isDebugTraceEnabled() {
+    return gArgs.GetBoolArg("-ethdebugtrace", true);
+}
