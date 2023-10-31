@@ -267,17 +267,14 @@ int getCurrentHeight() {
 }
 
 Attributes getAttributeValues(std::size_t mnview_ptr) {
-    auto defaults = Attributes::Default();
+    auto val = Attributes::Default();
 
     LOCK(cs_main);
-    auto* cache = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
+    auto view = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
+    if (!view) view = pcustomcsview.get();
 
     std::shared_ptr<ATTRIBUTES> attributes;
-    if (cache) {
-        attributes = cache->GetAttributes();
-    } else {
-        attributes = pcustomcsview->GetAttributes();
-    }
+    attributes = view->GetAttributes();
 
     CDataStructureV0 blockGasTargetKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTarget};
     CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
@@ -285,19 +282,19 @@ Attributes getAttributeValues(std::size_t mnview_ptr) {
     CDataStructureV0 rbfIncrementMinPctKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RbfIncrementMinPct};
 
     if (attributes->CheckKey(blockGasTargetKey)) {
-        defaults.blockGasTarget = attributes->GetValue(blockGasTargetKey, DEFAULT_EVM_BLOCK_GAS_TARGET);
+        val.blockGasTarget = attributes->GetValue(blockGasTargetKey, DEFAULT_EVM_BLOCK_GAS_TARGET);
     }
     if (attributes->CheckKey(blockGasLimitKey)) {
-        defaults.blockGasLimit = attributes->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);
+        val.blockGasLimit = attributes->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);
     }
     if (attributes->CheckKey(finalityCountKey)) {
-        defaults.finalityCount = attributes->GetValue(finalityCountKey, DEFAULT_EVM_FINALITY_COUNT);
+        val.finalityCount = attributes->GetValue(finalityCountKey, DEFAULT_EVM_FINALITY_COUNT);
     }
     if (attributes->CheckKey(rbfIncrementMinPctKey)) {
-        defaults.rbfIncrementMinPct = attributes->GetValue(rbfIncrementMinPctKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
+        val.rbfIncrementMinPct = attributes->GetValue(rbfIncrementMinPctKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
     }
 
-    return defaults;
+    return val;
 }
 
 uint32_t getEthMaxConnections() {
