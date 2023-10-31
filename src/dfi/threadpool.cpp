@@ -49,4 +49,9 @@ void TaskGroup::WaitForCompletion(bool checkForPrematureCompletion) {
     cv.wait(l, [&] { return tasks.load() == 0; });
 }
 
+void TaskGroup::EnsureCompletedOrCancelled(bool checkForPrematureCompletion) {
+    MarkCancelled();
+    WaitForCompletion(checkForPrematureCompletion);
+}
+
 std::unique_ptr<TaskPool> DfTxTaskPool;
