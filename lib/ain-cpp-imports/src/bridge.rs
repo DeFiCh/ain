@@ -5,6 +5,7 @@ pub mod ffi {
         pub block_gas_target: u64,
         pub block_gas_limit: u64,
         pub finality_count: u64,
+        pub rbf_fee_increment: u64,
     }
 
     #[derive(Debug, Clone)]
