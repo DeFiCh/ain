@@ -38,6 +38,7 @@ public:
     void WaitForCompletion(bool checkForPrematureCompletion = true);
     void MarkCancellation() { is_cancelled.store(true); }
     bool IsCancelled() { return is_cancelled.load(); }
+    void MarkCancelAndWaitForCompletion(bool checkForPrematureCompletion = true);
 
 private:
     std::atomic<uint64_t> tasks{0};

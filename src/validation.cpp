@@ -2992,6 +2992,10 @@ bool CChainState::ConnectBlock(const CBlock &block,
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
+    std::vector<CEvmTxMessage> evmTxMsgs;
+    std::vector<std::vector<CEvmTxMessage>> evmTxMsgsPools;
+    TaskGroup evmEccPreCacheTaskPool;
+
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
         if (!xvmRes) {
@@ -3011,9 +3015,10 @@ bool CChainState::ConnectBlock(const CBlock &block,
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
+
         {
             // Pre-warm validation cache
-            std::vector<CEvmTxMessage> evmTxMsgs;
+            evmTxMsgs.reserve(block.vtx.size());
 
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
@@ -3031,7 +3036,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     }
 
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
-                    evmTxMsgs.push_back(obj);
+                    evmTxMsgs.push_back(std::move(obj));
                 }
             }
 
@@ -3044,9 +3049,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
                 const auto chunkSize = nItemsSize / nWorkers;
                 auto &pool = DfTxTaskPool->pool;
-                TaskGroup g;
 
-                std::vector<std::vector<CEvmTxMessage>> evmTxMsgsPools;
                 evmTxMsgsPools.reserve(nWorkers);
                 for (auto i = 0; i < nWorkers; i++) {
                     std::vector<CEvmTxMessage> v;
@@ -3057,21 +3060,24 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     evmTxMsgsPools.push_back(std::move(v));
                 }
 
-                for (auto &evmTxPool: evmTxMsgsPools) {
-                    g.AddTask();
-                    boost::asio::post(pool, [&g, &evmTxPool] {
+                for (const auto &item: evmTxMsgsPools) {
+                    evmEccPreCacheTaskPool.AddTask();
+                    const auto evmTxPool = std::move(item); 
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmTxPool = std::move(evmTxPool)] {
                         for (const auto &msg: evmTxPool) {
+                            if (evmEccPreCacheTaskPool.IsCancelled()) {
+                                evmEccPreCacheTaskPool.RemoveTask();
+                                return;
+                            }
                             const auto rawEvmTx = HexStr(msg.evmTx);
                             auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
                             if (v) {
                                 XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
                             }
                         }
-                        g.RemoveTask();
+                        evmEccPreCacheTaskPool.RemoveTask();
                     });
                 }
-
-                g.WaitForCompletion();
             }
         }
     }
@@ -3084,6 +3090,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         if (!tx.IsCoinBase()) {
             CAmount txfee = 0;
             if (!Consensus::CheckTxInputs(tx, state, view, accountsView, pindex->nHeight, txfee, chainparams)) {
+                evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
                 if (!IsBlockReason(state.GetReason())) {
                     // CheckTxInputs may return MISSING_INPUTS or
                     // PREMATURE_SPEND but we can't return that, as it's not
@@ -3102,6 +3109,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             }
             nFees += txfee;
             if (!MoneyRange(nFees)) {
+                evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
                 return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                      error("%s: accumulated fee in the block out of range.", __func__),
                                      REJECT_INVALID,
@@ -3117,6 +3125,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             }
 
             if (!SequenceLocks(tx, nLockTimeFlags, &prevheights, *pindex)) {
+                evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
                 return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                      error("%s: contains a non-BIP68-final transaction", __func__),
                                      REJECT_INVALID,
@@ -3130,6 +3139,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         // * witness (when witness enabled in flags and excludes coinbase)
         nSigOpsCost += GetTransactionSigOpCost(tx, view, flags);
         if (nSigOpsCost > MAX_BLOCK_SIGOPS_COST) {
+            evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: too many sigops", __func__),
                                  REJECT_INVALID,
@@ -3150,6 +3160,9 @@ bool CChainState::ConnectBlock(const CBlock &block,
                              fCacheResults,
                              txdata[i],
                              g_parallel_script_checks ? &vChecks : nullptr)) {
+
+                evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
+
                 if (state.GetReason() == ValidationInvalidReason::TX_NOT_STANDARD) {
                     // CheckInputs may return NOT_STANDARD for extra flags we passed,
                     // but we can't return that, as it's not defined for a block, so
@@ -3163,6 +3176,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                   state.GetRejectReason(),
                                   state.GetDebugMessage());
                 }
+
                 return error("%s: CheckInputs on %s failed with %s",
                              __func__,
                              tx.GetHash().ToString(),
@@ -3182,6 +3196,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
+                evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
+
                 if (pindex->nHeight >= consensus.DF8EunosHeight) {
                     return state.Invalid(
                         ValidationInvalidReason::CONSENSUS,
@@ -3215,6 +3231,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 }
                 ResVal<uint256> res = ApplyAnchorRewardTxPlus(mnview, tx, pindex->nHeight, metadata, consensus);
                 if (!res.ok) {
+                    evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("%s: %s", __func__, res.msg),
                                          REJECT_INVALID,
@@ -3243,6 +3260,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                                           metadata,
                                                           consensus);
                 if (!res.ok) {
+                    evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
                     return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                          error("%s: %s", __func__, res.msg),
                                          REJECT_INVALID,
@@ -3293,11 +3311,13 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // check main coinbase
     Res res = ApplyGeneralCoinbaseTx(accountsView, *block.vtx[0], pindex->nHeight, nFees, consensus);
     if (!res.ok) {
+        evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
         return state.Invalid(
             ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
 
     if (!control.Wait()) {
+        evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
         return state.Invalid(ValidationInvalidReason::CONSENSUS,
                              error("%s: CheckQueue failed", __func__),
                              REJECT_INVALID,
@@ -3332,6 +3352,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         uint256 tokenCreationTx{};
         std::vector<uint256> poolCreationTx;
         if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
+            evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: coinbase missing split token creation TX", __func__),
                                  REJECT_INVALID,
@@ -3364,6 +3385,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         LogPrintf("Pools to migrate for token %d: (count: %d, ids: %s)\n", id, poolsToMigrate.size(), poolIdStr.str());
 
         if (poolsToMigrate.size() != poolCreationTx.size()) {
+            evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: coinbase missing split pool creation TX", __func__),
                                  REJECT_INVALID,
@@ -3382,6 +3404,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
     }
 
     if (fJustCheck) {
+        evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
         return accountsView.Flush();  // keeps compatibility
     }
 
@@ -3390,6 +3413,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         bool mutated;
         uint256 hashMerkleRoot2 = BlockMerkleRoot(block, &mutated);
         if (block.hashMerkleRoot != Hash2(hashMerkleRoot2, accountsView.MerkleRoot())) {
+            evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
             return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED,
                                  false,
                                  REJECT_INVALID,
@@ -3401,6 +3425,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
         // of transactions in a block without affecting the merkle root of a block,
         // while still invalidating it.
         if (mutated) {
+            evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
             return state.Invalid(ValidationInvalidReason::BLOCK_MUTATED,
                                  false,
                                  REJECT_INVALID,
@@ -3415,11 +3440,13 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // Execute EVM Queue
     res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplate, isEvmEnabledForBlock);
     if (!res.ok) {
+        evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
         return state.Invalid(
             ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), REJECT_INVALID, res.dbgMsg);
     }
 
     if (!WriteUndoDataForBlock(blockundo, state, pindex, chainparams)) {
+        evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
         return false;
     }
 
@@ -3515,6 +3542,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
              nTimeCallbacks * MICRO,
              nTimeCallbacks * MILLI / nBlocksTotal);
 
+    
+    evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
     return true;
 }
 
