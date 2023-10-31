@@ -70,10 +70,7 @@ mod ffi {
     pub fn getStateInputJSON() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getHighestBlock() -> i32 {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
-    pub fn getCurrentHeight() -> i32 {
+    pub fn getEthSyncStatus() -> [i64; 2] {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getAttributeDefaults() -> Attributes {
@@ -193,9 +190,8 @@ pub fn get_state_input_json() -> Option<String> {
 
 /// Returns current DVM block height and highest DVM block header seen
 pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
-    let current_block = ffi::getCurrentHeight();
-    let highest_block = ffi::getHighestBlock();
-    Ok((current_block, highest_block))
+    let [current_block, highest_block] = ffi::getEthSyncStatus();
+    Ok((current_block as i32, highest_block as i32))
 }
 
 pub fn get_attribute_defaults() -> ffi::Attributes {

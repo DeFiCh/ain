@@ -6,6 +6,8 @@
 #include <logging.h>
 #include <clientversion.h>
 #include <httprpc.h>
+#include <array>
+#include <cstdint>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -250,19 +252,19 @@ rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
 }
 
-int getHighestBlock() {
-    return pindexBestHeader ? pindexBestHeader->nHeight
-                            : (int) ::ChainActive().Height(); // return current block count if no peers
-}
-
 // Returns Major, Minor, Revision in format: "X.Y.Z"
 rust::string getClientVersion() {
     return rust::String(FormatVersionAndSuffix());
 }
 
-int getCurrentHeight() {
+std::array<int64_t, 2> getEthSyncStatus() {
     LOCK(cs_main);
-    return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
+    
+    auto currentHeight = ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
+    auto highestBlock = pindexBestHeader ? pindexBestHeader->nHeight
+                            : (int) ::ChainActive().Height(); // return current block count if no peers
+
+    return std::array<int64_t, 2>{ currentHeight, highestBlock };
 }
 
 Attributes getAttributeDefaults() {

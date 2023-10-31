@@ -41,8 +41,7 @@ pub mod ffi {
         fn getMinRelayTxFee() -> u64;
         fn getEthPrivKey(key: String) -> [u8; 32];
         fn getStateInputJSON() -> String;
-        fn getHighestBlock() -> i32;
-        fn getCurrentHeight() -> i32;
+        fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeDefaults() -> Attributes;
         fn CppLogPrintf(message: String);
         fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
