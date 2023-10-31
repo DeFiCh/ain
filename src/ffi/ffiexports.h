@@ -25,11 +25,11 @@ struct Attributes {
     uint64_t rbfIncrementMinPct;
 
     static Attributes Default() {
-        return Attributes {
-                DEFAULT_EVM_BLOCK_GAS_TARGET,
-                DEFAULT_EVM_BLOCK_GAS_LIMIT,
-                DEFAULT_EVM_FINALITY_COUNT,
-                DEFAULT_EVM_RBF_FEE_INCREMENT,
+        return Attributes{
+            DEFAULT_EVM_BLOCK_GAS_TARGET,
+            DEFAULT_EVM_BLOCK_GAS_LIMIT,
+            DEFAULT_EVM_FINALITY_COUNT,
+            DEFAULT_EVM_RBF_FEE_INCREMENT,
         };
     }
 };

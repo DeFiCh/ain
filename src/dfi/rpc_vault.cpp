@@ -8,278 +8,280 @@ extern std::string tokenAmountString(const CTokenAmount &amount, AmountFormat fo
 
 namespace {
 
-enum class VaultState : uint32_t {
-    Unknown = 0,
-    Active = (1 << 0),
-    InLiquidation = (1 << 1),
-    Frozen = (1 << 2),
-    MayLiquidate = (1 << 3)
-};
+    enum class VaultState : uint32_t {
+        Unknown = 0,
+        Active = (1 << 0),
+        InLiquidation = (1 << 1),
+        Frozen = (1 << 2),
+        MayLiquidate = (1 << 3)
+    };
 
-std::string VaultStateToString(const VaultState &state) {
-    switch (state) {
-        case VaultState::Active:
-            return "active";
-        case VaultState::Frozen:
-            return "frozen";
-        case VaultState::InLiquidation:
-            return "inLiquidation";
-        case VaultState::MayLiquidate:
-            return "mayLiquidate";
-        default:
-            return "unknown";
-    }
-}
-
-VaultState StringToVaultState(const std::string &stateStr) {
-    if (stateStr == "active") {
-        return VaultState::Active;
-    }
-    if (stateStr == "frozen") {
-        return VaultState::Frozen;
-    }
-    if (stateStr == "inLiquidation") {
-        return VaultState::InLiquidation;
-    }
-    if (stateStr == "mayLiquidate") {
-        return VaultState::MayLiquidate;
-    }
-    return VaultState::Unknown;
-}
-
-bool WillLiquidateNext(const CVaultId &vaultId, const CVaultData &vault) {
-    auto height = ::ChainActive().Height();
-    auto blockTime = ::ChainActive()[height]->GetBlockTime();
-
-    auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-    if (!collaterals) {
-        return false;
-    }
-
-    bool useNextPrice = true, requireLivePrice = false;
-    auto vaultRate =
-        pcustomcsview->GetVaultAssets(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
-    if (!vaultRate) {
-        return false;
-    }
-
-    auto loanScheme = pcustomcsview->GetLoanScheme(vault.schemeId);
-    return (vaultRate.val->ratio() < loanScheme->ratio);
-}
-
-VaultState GetVaultState(const CVaultId &vaultId, const CVaultData &vault) {
-    auto height = ::ChainActive().Height();
-    auto inLiquidation = vault.isUnderLiquidation;
-    auto priceIsValid = IsVaultPriceValid(*pcustomcsview, vaultId, height);
-    auto willLiquidateNext = WillLiquidateNext(vaultId, vault);
-
-    // Can possibly optimize with flags, but provides clarity for now.
-    if (!inLiquidation && priceIsValid && !willLiquidateNext) {
-        return VaultState::Active;
-    }
-    if (!inLiquidation && priceIsValid && willLiquidateNext) {
-        return VaultState::MayLiquidate;
-    }
-    if (!inLiquidation && !priceIsValid) {
-        return VaultState::Frozen;
-    }
-    if (inLiquidation && priceIsValid) {
-        return VaultState::InLiquidation;
-    }
-    return VaultState::Unknown;
-}
-
-UniValue BatchToJSON(const CVaultId &vaultId, uint32_t batchCount) {
-    UniValue batchArray{UniValue::VARR};
-    for (uint32_t i = 0; i < batchCount; i++) {
-        UniValue batchObj{UniValue::VOBJ};
-        auto batch = pcustomcsview->GetAuctionBatch({vaultId, i});
-        batchObj.pushKV("index", int(i));
-        batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
-        batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
-        if (auto bid = pcustomcsview->GetAuctionBid({vaultId, i})) {
-            UniValue bidObj{UniValue::VOBJ};
-            bidObj.pushKV("owner", ScriptToString(bid->first));
-            bidObj.pushKV("amount", tokenAmountString(bid->second));
-            batchObj.pushKV("highestBid", bidObj);
+    std::string VaultStateToString(const VaultState &state) {
+        switch (state) {
+            case VaultState::Active:
+                return "active";
+            case VaultState::Frozen:
+                return "frozen";
+            case VaultState::InLiquidation:
+                return "inLiquidation";
+            case VaultState::MayLiquidate:
+                return "mayLiquidate";
+            default:
+                return "unknown";
         }
-        batchArray.push_back(batchObj);
     }
-    return batchArray;
-}
 
-UniValue AuctionToJSON(const CVaultId &vaultId, const CAuctionData &data) {
-    UniValue auctionObj{UniValue::VOBJ};
-    auto vault = pcustomcsview->GetVault(vaultId);
-    auctionObj.pushKV("vaultId", vaultId.GetHex());
-    auctionObj.pushKV("loanSchemeId", vault->schemeId);
-    auctionObj.pushKV("ownerAddress", ScriptToString(vault->ownerAddress));
-    auctionObj.pushKV("state", VaultStateToString(VaultState::InLiquidation));
-    auctionObj.pushKV("liquidationHeight", int64_t(data.liquidationHeight));
-    auctionObj.pushKV("batchCount", int64_t(data.batchCount));
-    auctionObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
-    auctionObj.pushKV("batches", BatchToJSON(vaultId, data.batchCount));
-    return auctionObj;
-}
+    VaultState StringToVaultState(const std::string &stateStr) {
+        if (stateStr == "active") {
+            return VaultState::Active;
+        }
+        if (stateStr == "frozen") {
+            return VaultState::Frozen;
+        }
+        if (stateStr == "inLiquidation") {
+            return VaultState::InLiquidation;
+        }
+        if (stateStr == "mayLiquidate") {
+            return VaultState::MayLiquidate;
+        }
+        return VaultState::Unknown;
+    }
 
-UniValue VaultToJSON(const CVaultId &vaultId, const CVaultData &vault, const bool verbose = false) {
-    UniValue result{UniValue::VOBJ};
-    auto vaultState = GetVaultState(vaultId, vault);
-    auto height = ::ChainActive().Height();
+    bool WillLiquidateNext(const CVaultId &vaultId, const CVaultData &vault) {
+        auto height = ::ChainActive().Height();
+        auto blockTime = ::ChainActive()[height]->GetBlockTime();
 
-    const auto scheme = pcustomcsview->GetLoanScheme(vault.schemeId);
-    assert(scheme);
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if (!collaterals) {
+            return false;
+        }
 
-    if (vaultState == VaultState::InLiquidation) {
-        if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
-            result.pushKVs(AuctionToJSON(vaultId, *data));
-        } else {
-            LogPrintf("Warning: Vault in liquidation, but no auctions found\n");
+        bool useNextPrice = true, requireLivePrice = false;
+        auto vaultRate =
+            pcustomcsview->GetVaultAssets(vaultId, *collaterals, height, blockTime, useNextPrice, requireLivePrice);
+        if (!vaultRate) {
+            return false;
+        }
+
+        auto loanScheme = pcustomcsview->GetLoanScheme(vault.schemeId);
+        return (vaultRate.val->ratio() < loanScheme->ratio);
+    }
+
+    VaultState GetVaultState(const CVaultId &vaultId, const CVaultData &vault) {
+        auto height = ::ChainActive().Height();
+        auto inLiquidation = vault.isUnderLiquidation;
+        auto priceIsValid = IsVaultPriceValid(*pcustomcsview, vaultId, height);
+        auto willLiquidateNext = WillLiquidateNext(vaultId, vault);
+
+        // Can possibly optimize with flags, but provides clarity for now.
+        if (!inLiquidation && priceIsValid && !willLiquidateNext) {
+            return VaultState::Active;
+        }
+        if (!inLiquidation && priceIsValid && willLiquidateNext) {
+            return VaultState::MayLiquidate;
+        }
+        if (!inLiquidation && !priceIsValid) {
+            return VaultState::Frozen;
+        }
+        if (inLiquidation && priceIsValid) {
+            return VaultState::InLiquidation;
+        }
+        return VaultState::Unknown;
+    }
+
+    UniValue BatchToJSON(const CVaultId &vaultId, uint32_t batchCount) {
+        UniValue batchArray{UniValue::VARR};
+        for (uint32_t i = 0; i < batchCount; i++) {
+            UniValue batchObj{UniValue::VOBJ};
+            auto batch = pcustomcsview->GetAuctionBatch({vaultId, i});
+            batchObj.pushKV("index", int(i));
+            batchObj.pushKV("collaterals", AmountsToJSON(batch->collaterals.balances));
+            batchObj.pushKV("loan", tokenAmountString(batch->loanAmount));
+            if (auto bid = pcustomcsview->GetAuctionBid({vaultId, i})) {
+                UniValue bidObj{UniValue::VOBJ};
+                bidObj.pushKV("owner", ScriptToString(bid->first));
+                bidObj.pushKV("amount", tokenAmountString(bid->second));
+                batchObj.pushKV("highestBid", bidObj);
+            }
+            batchArray.push_back(batchObj);
+        }
+        return batchArray;
+    }
+
+    UniValue AuctionToJSON(const CVaultId &vaultId, const CAuctionData &data) {
+        UniValue auctionObj{UniValue::VOBJ};
+        auto vault = pcustomcsview->GetVault(vaultId);
+        auctionObj.pushKV("vaultId", vaultId.GetHex());
+        auctionObj.pushKV("loanSchemeId", vault->schemeId);
+        auctionObj.pushKV("ownerAddress", ScriptToString(vault->ownerAddress));
+        auctionObj.pushKV("state", VaultStateToString(VaultState::InLiquidation));
+        auctionObj.pushKV("liquidationHeight", int64_t(data.liquidationHeight));
+        auctionObj.pushKV("batchCount", int64_t(data.batchCount));
+        auctionObj.pushKV("liquidationPenalty", ValueFromAmount(data.liquidationPenalty * 100));
+        auctionObj.pushKV("batches", BatchToJSON(vaultId, data.batchCount));
+        return auctionObj;
+    }
+
+    UniValue VaultToJSON(const CVaultId &vaultId, const CVaultData &vault, const bool verbose = false) {
+        UniValue result{UniValue::VOBJ};
+        auto vaultState = GetVaultState(vaultId, vault);
+        auto height = ::ChainActive().Height();
+
+        const auto scheme = pcustomcsview->GetLoanScheme(vault.schemeId);
+        assert(scheme);
+
+        if (vaultState == VaultState::InLiquidation) {
+            if (auto data = pcustomcsview->GetAuction(vaultId, height)) {
+                result.pushKVs(AuctionToJSON(vaultId, *data));
+            } else {
+                LogPrintf("Warning: Vault in liquidation, but no auctions found\n");
+            }
+            return result;
+        }
+
+        UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0},
+            nextCollateralRatio{0}, totalInterestsPerBlockValue{0};
+
+        auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
+        if (!collaterals) {
+            collaterals = CBalances{};
+        }
+
+        auto blockTime = ::ChainActive().Tip()->GetBlockTime();
+        bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
+
+        if (auto rate = pcustomcsview->GetVaultAssets(
+                vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+            collValue = ValueFromUint(rate.val->totalCollaterals);
+            loanValue = ValueFromUint(rate.val->totalLoans);
+            ratioValue = ValueFromAmount(rate.val->precisionRatio());
+            collateralRatio = int(rate.val->ratio());
+        }
+
+        bool isVaultTokenLocked{false};
+        for (const auto &collateral : collaterals->balances) {
+            if (pcustomcsview->AreTokensLocked({collateral.first.v})) {
+                isVaultTokenLocked = true;
+                break;
+            }
+        }
+
+        UniValue loanBalances{UniValue::VARR};
+        UniValue interestAmounts{UniValue::VARR};
+        UniValue interestsPerBlockBalances{UniValue::VARR};
+        std::map<DCT_ID, CInterestAmount> interestsPerBlockHighPrecission;
+        CInterestAmount interestsPerBlockValueHighPrecision;
+        TAmounts interestsPerBlock{};
+        CAmount totalInterestsPerBlock{0};
+
+        if (const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
+            TAmounts totalBalances{};
+            TAmounts interestBalances{};
+            CAmount totalInterests{0};
+
+            for (const auto &[tokenId, amount] : loanTokens->balances) {
+                auto token = pcustomcsview->GetLoanTokenByID(tokenId);
+                if (!token) {
+                    continue;
+                }
+                auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
+                if (!rate) {
+                    continue;
+                }
+                auto totalInterest = TotalInterest(*rate, height + 1);
+                auto value = amount + totalInterest;
+                if (value > 0) {
+                    if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
+                        auto price = priceFeed.val->priceRecord[0];
+                        if (const auto interestCalculation = MultiplyAmounts(price, totalInterest)) {
+                            totalInterests += interestCalculation;
+                        }
+                        if (verbose) {
+                            if (height >= Params().GetConsensus().DF18FortCanningGreatWorldHeight) {
+                                interestsPerBlockValueHighPrecision = InterestAddition(
+                                    interestsPerBlockValueHighPrecision,
+                                    {rate->interestPerBlock.negative,
+                                     static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
+                                interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
+                            } else if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
+                                interestsPerBlockValueHighPrecision.amount +=
+                                    static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN;
+                                interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
+                            } else {
+                                const auto interestPerBlock = rate->interestPerBlock.amount.GetLow64();
+                                interestsPerBlock.insert({tokenId, interestPerBlock});
+                                totalInterestsPerBlock +=
+                                    MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
+                            }
+                        }
+                    }
+
+                    totalBalances.insert({tokenId, value});
+                    interestBalances.insert({tokenId, totalInterest});
+                }
+                if (pcustomcsview->AreTokensLocked({tokenId.v})) {
+                    isVaultTokenLocked = true;
+                }
+            }
+            interestValue = ValueFromAmount(totalInterests);
+            loanBalances = AmountsToJSON(totalBalances);
+            interestAmounts = AmountsToJSON(interestBalances);
+        }
+
+        result.pushKV("vaultId", vaultId.GetHex());
+        result.pushKV("loanSchemeId", vault.schemeId);
+        result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
+        result.pushKV("state", VaultStateToString(vaultState));
+        result.pushKV("collateralAmounts", AmountsToJSON(collaterals->balances));
+        result.pushKV("loanAmounts", loanBalances);
+        result.pushKV("interestAmounts", interestAmounts);
+        if (isVaultTokenLocked) {
+            collValue = -1;
+            loanValue = -1;
+            interestValue = -1;
+            ratioValue = -1;
+            collateralRatio = -1;
+            totalInterestsPerBlockValue = -1;
+            interestsPerBlockValueHighPrecision.negative =
+                true;  // Not really an invalid amount as it could actually be -1
+            interestsPerBlockValueHighPrecision.amount = 1;
+        }
+        result.pushKV("collateralValue", collValue);
+        result.pushKV("loanValue", loanValue);
+        result.pushKV("interestValue", interestValue);
+        result.pushKV("informativeRatio", ratioValue);
+        result.pushKV("collateralRatio", collateralRatio);
+        if (verbose) {
+            useNextPrice = true;
+            if (auto rate = pcustomcsview->GetVaultAssets(
+                    vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
+                nextCollateralRatio = int(rate.val->ratio());
+                result.pushKV("nextCollateralRatio", nextCollateralRatio);
+            }
+            if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
+                if (isVaultTokenLocked) {
+                    result.pushKV("interestPerBlockValue", -1);
+                } else {
+                    result.pushKV("interestPerBlockValue",
+                                  GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecision));
+                    for (const auto &[id, interestPerBlock] : interestsPerBlockHighPrecission) {
+                        auto tokenId = id;
+                        auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
+                        auto token = pcustomcsview->GetToken(tokenId);
+                        assert(token);
+                        auto tokenSymbol = token->CreateSymbolKey(tokenId);
+                        interestsPerBlockBalances.push_back(amountStr.append("@").append(tokenSymbol));
+                    }
+                }
+            } else {
+                interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
+                totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
+                result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
+            }
+            result.pushKV("interestsPerBlock", interestsPerBlockBalances);
         }
         return result;
     }
-
-    UniValue ratioValue{0}, collValue{0}, loanValue{0}, interestValue{0}, collateralRatio{0}, nextCollateralRatio{0},
-        totalInterestsPerBlockValue{0};
-
-    auto collaterals = pcustomcsview->GetVaultCollaterals(vaultId);
-    if (!collaterals) {
-        collaterals = CBalances{};
-    }
-
-    auto blockTime = ::ChainActive().Tip()->GetBlockTime();
-    bool useNextPrice = false, requireLivePrice = vaultState != VaultState::Frozen;
-
-    if (auto rate = pcustomcsview->GetVaultAssets(
-            vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
-        collValue = ValueFromUint(rate.val->totalCollaterals);
-        loanValue = ValueFromUint(rate.val->totalLoans);
-        ratioValue = ValueFromAmount(rate.val->precisionRatio());
-        collateralRatio = int(rate.val->ratio());
-    }
-
-    bool isVaultTokenLocked{false};
-    for (const auto &collateral : collaterals->balances) {
-        if (pcustomcsview->AreTokensLocked({collateral.first.v})) {
-            isVaultTokenLocked = true;
-            break;
-        }
-    }
-
-    UniValue loanBalances{UniValue::VARR};
-    UniValue interestAmounts{UniValue::VARR};
-    UniValue interestsPerBlockBalances{UniValue::VARR};
-    std::map<DCT_ID, CInterestAmount> interestsPerBlockHighPrecission;
-    CInterestAmount interestsPerBlockValueHighPrecision;
-    TAmounts interestsPerBlock{};
-    CAmount totalInterestsPerBlock{0};
-
-    if (const auto loanTokens = pcustomcsview->GetLoanTokens(vaultId)) {
-        TAmounts totalBalances{};
-        TAmounts interestBalances{};
-        CAmount totalInterests{0};
-
-        for (const auto &[tokenId, amount] : loanTokens->balances) {
-            auto token = pcustomcsview->GetLoanTokenByID(tokenId);
-            if (!token) {
-                continue;
-            }
-            auto rate = pcustomcsview->GetInterestRate(vaultId, tokenId, height);
-            if (!rate) {
-                continue;
-            }
-            auto totalInterest = TotalInterest(*rate, height + 1);
-            auto value = amount + totalInterest;
-            if (value > 0) {
-                if (auto priceFeed = pcustomcsview->GetFixedIntervalPrice(token->fixedIntervalPriceId)) {
-                    auto price = priceFeed.val->priceRecord[0];
-                    if (const auto interestCalculation = MultiplyAmounts(price, totalInterest)) {
-                        totalInterests += interestCalculation;
-                    }
-                    if (verbose) {
-                        if (height >= Params().GetConsensus().DF18FortCanningGreatWorldHeight) {
-                            interestsPerBlockValueHighPrecision = InterestAddition(
-                                interestsPerBlockValueHighPrecision,
-                                {rate->interestPerBlock.negative,
-                                 static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN});
-                            interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
-                        } else if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
-                            interestsPerBlockValueHighPrecision.amount +=
-                                static_cast<base_uint<128>>(price) * rate->interestPerBlock.amount / COIN;
-                            interestsPerBlockHighPrecission[tokenId] = rate->interestPerBlock;
-                        } else {
-                            const auto interestPerBlock = rate->interestPerBlock.amount.GetLow64();
-                            interestsPerBlock.insert({tokenId, interestPerBlock});
-                            totalInterestsPerBlock += MultiplyAmounts(price, static_cast<CAmount>(interestPerBlock));
-                        }
-                    }
-                }
-
-                totalBalances.insert({tokenId, value});
-                interestBalances.insert({tokenId, totalInterest});
-            }
-            if (pcustomcsview->AreTokensLocked({tokenId.v})) {
-                isVaultTokenLocked = true;
-            }
-        }
-        interestValue = ValueFromAmount(totalInterests);
-        loanBalances = AmountsToJSON(totalBalances);
-        interestAmounts = AmountsToJSON(interestBalances);
-    }
-
-    result.pushKV("vaultId", vaultId.GetHex());
-    result.pushKV("loanSchemeId", vault.schemeId);
-    result.pushKV("ownerAddress", ScriptToString(vault.ownerAddress));
-    result.pushKV("state", VaultStateToString(vaultState));
-    result.pushKV("collateralAmounts", AmountsToJSON(collaterals->balances));
-    result.pushKV("loanAmounts", loanBalances);
-    result.pushKV("interestAmounts", interestAmounts);
-    if (isVaultTokenLocked) {
-        collValue = -1;
-        loanValue = -1;
-        interestValue = -1;
-        ratioValue = -1;
-        collateralRatio = -1;
-        totalInterestsPerBlockValue = -1;
-        interestsPerBlockValueHighPrecision.negative = true;  // Not really an invalid amount as it could actually be -1
-        interestsPerBlockValueHighPrecision.amount = 1;
-    }
-    result.pushKV("collateralValue", collValue);
-    result.pushKV("loanValue", loanValue);
-    result.pushKV("interestValue", interestValue);
-    result.pushKV("informativeRatio", ratioValue);
-    result.pushKV("collateralRatio", collateralRatio);
-    if (verbose) {
-        useNextPrice = true;
-        if (auto rate = pcustomcsview->GetVaultAssets(
-                vaultId, *collaterals, height + 1, blockTime, useNextPrice, requireLivePrice)) {
-            nextCollateralRatio = int(rate.val->ratio());
-            result.pushKV("nextCollateralRatio", nextCollateralRatio);
-        }
-        if (height >= Params().GetConsensus().DF14FortCanningHillHeight) {
-            if (isVaultTokenLocked) {
-                result.pushKV("interestPerBlockValue", -1);
-            } else {
-                result.pushKV("interestPerBlockValue",
-                              GetInterestPerBlockHighPrecisionString(interestsPerBlockValueHighPrecision));
-                for (const auto &[id, interestPerBlock] : interestsPerBlockHighPrecission) {
-                    auto tokenId = id;
-                    auto amountStr = GetInterestPerBlockHighPrecisionString(interestPerBlock);
-                    auto token = pcustomcsview->GetToken(tokenId);
-                    assert(token);
-                    auto tokenSymbol = token->CreateSymbolKey(tokenId);
-                    interestsPerBlockBalances.push_back(amountStr.append("@").append(tokenSymbol));
-                }
-            }
-        } else {
-            interestsPerBlockBalances = AmountsToJSON(interestsPerBlock);
-            totalInterestsPerBlockValue = ValueFromAmount(totalInterestsPerBlock);
-            result.pushKV("interestPerBlockValue", totalInterestsPerBlockValue);
-        }
-        result.pushKV("interestsPerBlock", interestsPerBlockBalances);
-    }
-    return result;
-}
 }  // namespace
 
 UniValue createvault(const JSONRPCRequest &request) {

@@ -12,7 +12,7 @@
 #include <dfi/oracles.h>
 
 namespace Consensus {
-struct Params;
+    struct Params;
 }
 
 enum VersionTypes : uint8_t {

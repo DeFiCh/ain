@@ -1517,9 +1517,11 @@ class EVMTest(DefiTestFramework):
     def test_attributes_update(self):
         # Set OP_RETURN
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {
+            {
+                "ATTRIBUTES": {
                     "v0/evm/block/gas_limit": "60000000",
-            }}
+                }
+            }
         )
 
         self.nodes[0].generate(1)
