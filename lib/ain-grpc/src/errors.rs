@@ -71,7 +71,7 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
         ExitReason::Succeed(_) => Ok(()),
         ExitReason::Error(err) => {
             if *err == ExitError::OutOfGas {
-                return Err(Error::Custom(format!("out of gas")))
+                return Err(Error::Custom(format!("out of gas")));
             }
             Err(Error::Custom(format!("evm error: {err:?}")))
         }
