@@ -301,10 +301,18 @@ int32_t getNumConnections() {
     return (int32_t)g_connman->GetNodeCount(CConnman::CONNECTIONS_ALL);
 }
 
-bool isDebugEnabled() {
-    return gArgs.GetBoolArg("-ethdebug", false);
+size_t getEccLruCacheCount() {
+    return gArgs.GetArg("-ecclrucache", DEFAULT_ECC_LRU_CACHE_COUNT);
 }
 
-bool isDebugTraceEnabled() {
-    return gArgs.GetBoolArg("-ethdebugtrace", true);
+size_t getEvmValidationLruCacheCount() {
+    return gArgs.GetArg("-evmvlrucache", DEFAULT_EVMV_LRU_CACHE_COUNT);
+}
+
+bool isEthDebugRPCEnabled() {
+    return gArgs.GetBoolArg("-ethdebug", DEFAULT_ETH_DEBUG_ENABLED);
+}
+
+bool isEthDebugTraceRPCEnabled() {
+    return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
 }

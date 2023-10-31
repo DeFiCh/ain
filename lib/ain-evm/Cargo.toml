@@ -36,7 +36,6 @@ hash-db.workspace = true
 sp-core.workspace = true
 vsdb_trie_db = { workspace = true, features = ["rocks_engine"] }
 vsdb_core = { workspace = true, features = ["rocks_engine", "compress"] }
-vsdbsled = { workspace = true }
 
 # Runtime dependencies
 lazy_static.workspace = true
