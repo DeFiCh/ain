@@ -6,7 +6,11 @@
 """Test EVM behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    assert_raises_web3_error,
+)
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 
@@ -243,7 +247,7 @@ class EVMGasTest(DefiTestFramework):
             gas = contract.functions.loop(num).estimate_gas()
             gas_estimates.append(gas)
 
-            # Do actual contract call
+            # Do actual contract function call
             tx = contract.functions.loop(num).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
@@ -265,12 +269,61 @@ class EVMGasTest(DefiTestFramework):
             tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
             assert_equal(gas_estimates[idx], tx_receipt["gasUsed"])
 
+    def test_estimate_gas_revert(self):
+        self.rollback_to(self.start_height)
+
+        abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        # Test valid contract function eth call
+        gas = contract.functions.value_check(1).estimate_gas()
+
+        # Do actual contract function call
+        tx = contract.functions.value_check(1).build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "gasPrice": 25_000_000_000,
+                "gas": 30_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(gas, tx_receipt["gasUsed"])
+
+        # Test invalid contract function eth call with revert
+        assert_raises_web3_error(
+            -32001,
+            "Custom error: transaction execution failed",
+            contract.functions.value_check(0).estimate_gas,
+        )
+
     def run_test(self):
         self.setup()
 
         self.test_estimate_gas_balance_transfer()
 
         self.test_estimate_gas_contract()
+
+        self.test_estimate_gas_revert()
 
 
 if __name__ == "__main__":
