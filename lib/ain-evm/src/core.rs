@@ -208,7 +208,7 @@ impl EVMCoreService {
             genesis_path,
         )?;
 
-        let gas_limit = storage.get_attributes_or_default()?.block_gas_limit;
+        let gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
         let block: Block<TransactionV2> = Block::new(
             PartialHeader {
                 state_root,
@@ -357,7 +357,7 @@ impl EVMCoreService {
 
             // Validate gas limit
             let gas_limit = signed_tx.gas_limit();
-            let block_gas_limit = self.storage.get_attributes_or_default()?.block_gas_limit;
+            let block_gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
             if gas_limit > U256::from(block_gas_limit) {
                 debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
                 return Err(format_err!("gas limit higher than max_gas_per_block").into());
@@ -931,7 +931,7 @@ impl EVMCoreService {
             Arc::clone(&self.storage),
             Vicinity {
                 block_gas_limit: U256::from(
-                    self.storage.get_attributes_or_default()?.block_gas_limit,
+                    ain_cpp_imports::get_attribute_defaults(None).block_gas_limit,
                 ),
                 ..Vicinity::default()
             },

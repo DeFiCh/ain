@@ -5,6 +5,7 @@ pub mod ffi {
         pub block_gas_target: u64,
         pub block_gas_limit: u64,
         pub finality_count: u64,
+        pub rbf_fee_increment: u64,
     }
 
     #[derive(Debug, Clone)]
@@ -43,7 +44,7 @@ pub mod ffi {
         fn getStateInputJSON() -> String;
         fn getHighestBlock() -> i32;
         fn getCurrentHeight() -> i32;
-        fn getAttributeDefaults() -> Attributes;
+        fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
         fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
         fn getClientVersion() -> String;

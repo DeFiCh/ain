@@ -266,6 +266,32 @@ class EVMTest(DefiTestFramework):
             {"ATTRIBUTES": {"v0/rules/tx/dvm_op_return_max_size_bytes": 4096}},
         )
 
+        # Try and set vars before height
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/finality_count": "100"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/gas_limit": "100"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/gas_target": "100"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/rbf_increment_fee_pct": "0.1"}},
+        )
+
         # Check that a transferdomain default is not present in listgovs
         assert (
             "v0/transferdomain/dvm-evm/enabled"
@@ -307,6 +333,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
+                    "v0/evm/block/finality_count": "100",
+                    "v0/evm/block/gas_limit": "30000000",
+                    "v0/evm/block/gas_target": "15000000",
+                    "v0/evm/block/rbf_increment_fee_pct": "0.1",
                     "v0/rules/tx/core_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/dvm_op_return_max_size_bytes": 20000,
@@ -317,6 +347,10 @@ class EVMTest(DefiTestFramework):
 
         # Check OP_RETURN set
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(result["v0/evm/block/finality_count"], "100")
+        assert_equal(result["v0/evm/block/gas_limit"], "30000000")
+        assert_equal(result["v0/evm/block/gas_target"], "15000000")
+        assert_equal(result["v0/evm/block/rbf_increment_fee_pct"], "0.1")
         assert_equal(result["v0/rules/tx/core_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/dvm_op_return_max_size_bytes"], "20000")
@@ -1480,6 +1514,24 @@ class EVMTest(DefiTestFramework):
             "0x0000000000000000000000000000000000000000000000000000000000000000",
         )
 
+    def test_attributes_update(self):
+        # Set OP_RETURN
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/gas_limit": "60000000",
+                }
+            }
+        )
+
+        self.nodes[0].generate(1)
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(block["gasLimit"], hex(30000000))
+
+        self.nodes[0].generate(1)
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(block["gasLimit"], hex(60000000))
+
     def run_test(self):
         # Check ERC55 wallet support
         self.erc55_wallet_support()
@@ -1516,6 +1568,9 @@ class EVMTest(DefiTestFramework):
 
         # Delete state account
         self.delete_account_from_trie()
+
+        # Check attributes values update
+        self.test_attributes_update()
 
 
 if __name__ == "__main__":

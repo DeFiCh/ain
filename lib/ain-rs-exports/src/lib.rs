@@ -163,6 +163,7 @@ pub mod ffi {
             miner_address: &str,
             difficulty: u32,
             timestamp: u64,
+            mnview_ptr: usize,
         ) -> &'static mut BlockTemplateWrapper;
 
         fn evm_try_unsafe_remove_template(
