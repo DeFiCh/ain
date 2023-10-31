@@ -3015,7 +3015,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
         XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
             result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
 
-
         {
             // Pre-warm validation cache
             evmTxMsgs.reserve(block.vtx.size());
@@ -3047,31 +3046,29 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     nWorkers = nItemsSize;
                 }
 
-                const auto chunkSize = nItemsSize / nWorkers;
                 auto &pool = DfTxTaskPool->pool;
-
                 evmTxMsgsPools.reserve(nWorkers);
 
                 // Pre-allocate the vectors to avoid allocation on insert
                 for (auto i = 0; i < nWorkers; i++) {
                     std::vector<CEvmTxMessage> v;
-                    v.reserve(chunkSize);
+                    v.reserve(nItemsSize / nWorkers);
                     evmTxMsgsPools.push_back(std::move(v));
                 }
 
                 // We evenly distrubute over the workers.
                 auto nEvmTxCount = 0;
-                while (evmTxMsgs.size() > nEvmTxCount + 1) {
+                while (nItemsSize > nEvmTxCount + 1) {
                     auto evmTxPool = evmTxMsgsPools[nEvmTxCount % nWorkers];
                     evmTxPool.push_back(std::move(evmTxMsgs[nEvmTxCount]));
                     nEvmTxCount++;
                 }
 
-                for (const auto &item: evmTxMsgsPools) {
+                for (const auto &item : evmTxMsgsPools) {
                     evmEccPreCacheTaskPool.AddTask();
                     boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmTxPool = std::move(item)] {
-                        for (const auto &msg: evmTxPool) {
-                            if (evmEccPreCacheTaskPool.IsCancelled()) { 
+                        for (const auto &msg : evmTxPool) {
+                            if (evmEccPreCacheTaskPool.IsCancelled()) {
                                 break;
                             }
                             const auto rawEvmTx = HexStr(msg.evmTx);
@@ -3165,7 +3162,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                              fCacheResults,
                              txdata[i],
                              g_parallel_script_checks ? &vChecks : nullptr)) {
-
                 evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
 
                 if (state.GetReason() == ValidationInvalidReason::TX_NOT_STANDARD) {
@@ -3547,7 +3543,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
              nTimeCallbacks * MICRO,
              nTimeCallbacks * MILLI / nBlocksTotal);
 
-    
     evmEccPreCacheTaskPool.MarkCancelAndWaitForCompletion();
     return true;
 }
