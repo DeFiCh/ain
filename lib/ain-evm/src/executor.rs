@@ -5,9 +5,8 @@ use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    Config, CreateScheme,
+    Config, CreateScheme, ExitReason,
 };
-pub use evm::{ExitError, ExitReason};
 use log::{debug, trace};
 
 use crate::{
