@@ -1145,11 +1145,15 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         typeKey = ParamIDs::TokenID;
         if (const auto keyValue = VerifyInt32(keys[3])) {
             attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            return DeFiErrors::GovVarTokenAsString();
         }
     } else if (type == AttributeTypes::Oracles) {
         typeKey = OracleIDs::Splits;
         if (const auto keyValue = VerifyPositiveInt32(keys[3])) {
             attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            return DeFiErrors::GovVarTokenAsString();
         }
     } else {
         auto ikey = allowedKeys().find(type);

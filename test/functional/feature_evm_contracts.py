@@ -235,6 +235,7 @@ class EVMTest(DefiTestFramework):
                     self.evm_key_pair.address
                 ),
                 "gasPrice": 10_000_000_000,
+                "gas": 100_000,
             }
         )
         signed = self.node.w3.eth.account.sign_transaction(
@@ -304,6 +305,7 @@ class EVMTest(DefiTestFramework):
                 ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
             }
         )
         signed = self.node.w3.eth.account.sign_transaction(
@@ -338,6 +340,7 @@ class EVMTest(DefiTestFramework):
                 ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
             }
         )
         # to check the init code is larger than 49152
@@ -414,6 +417,7 @@ class EVMTest(DefiTestFramework):
                 "from": self.evm_key_pair.address,
                 "data": "0xffffffffffffffff",
                 "value": self.node.w3.to_hex(self.node.w3.to_wei("1", "ether")),
+                "gas": 100_000,
             }
         )
         self.node.generate(1)
