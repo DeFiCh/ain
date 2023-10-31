@@ -3051,23 +3051,36 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 auto &pool = DfTxTaskPool->pool;
 
                 evmTxMsgsPools.reserve(nWorkers);
+
+                // Note: TODO: validate left overs.
+                auto nEvmTxCount = 0;
                 for (auto i = 0; i < nWorkers; i++) {
                     std::vector<CEvmTxMessage> v;
                     v.reserve(chunkSize);
                     for (auto j = chunkSize * i; j < chunkSize * (i + 1); j++) {
-                        v.push_back(std::move(evmTxMsgs[j]));
+                        if (evmTxMsgs.size() > nEvmTxCount + 1) {
+                            v.push_back(std::move(evmTxMsgs[j]));
+                            nEvmTxCount++;
+                        } else {
+                            break;
+                        }
                     }
                     evmTxMsgsPools.push_back(std::move(v));
                 }
 
+                // We evenly distrubute left overs.
+                while (evmTxMsgs.size() > nEvmTxCount + 1) {
+                    auto evmTxPool = evmTxMsgsPools[nEvmTxCount % nWorkers];
+                    evmTxPool.push_back(std::move(evmTxMsgs[nEvmTxCount]));
+                    nEvmTxCount++;
+                }
+
                 for (const auto &item: evmTxMsgsPools) {
                     evmEccPreCacheTaskPool.AddTask();
-                    const auto evmTxPool = std::move(item); 
-                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmTxPool = std::move(evmTxPool)] {
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmTxPool = std::move(item)] {
                         for (const auto &msg: evmTxPool) {
-                            if (evmEccPreCacheTaskPool.IsCancelled()) {
-                                evmEccPreCacheTaskPool.RemoveTask();
-                                return;
+                            if (evmEccPreCacheTaskPool.IsCancelled()) { 
+                                break;
                             }
                             const auto rawEvmTx = HexStr(msg.evmTx);
                             auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
