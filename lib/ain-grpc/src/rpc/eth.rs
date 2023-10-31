@@ -344,7 +344,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .unwrap_or(INITIAL_BASE_FEE);
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
 
-        let TxResponse { data, .. } = self
+        let TxResponse { data, exit_reason, .. } = self
             .handler
             .core
             .call(EthCallArgs {
