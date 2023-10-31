@@ -1,10 +1,14 @@
-use anyhow::format_err;
 use std::sync::Arc;
 
-use ain_evm::storage::traits::{ReceiptStorage, TransactionStorage};
-use ain_evm::transaction::SignedTx;
 use ain_evm::{
-    core::EthCallArgs, evm::EVMServices, executor::TxResponse, storage::block_store::DumpArg,
+    core::EthCallArgs,
+    evm::EVMServices,
+    executor::TxResponse,
+    storage::{
+        block_store::DumpArg,
+        traits::{ReceiptStorage, TransactionStorage},
+    },
+    transaction::SignedTx,
 };
 use ethereum::Account;
 use ethereum_types::{H256, U256};
@@ -15,10 +19,10 @@ use jsonrpsee::{
 use log::debug;
 use rlp::{Decodable, Rlp};
 
-use crate::transaction::{TraceLogs, TraceTransactionResult};
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
+    transaction::{TraceLogs, TraceTransactionResult},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -67,7 +71,7 @@ impl MetachainDebugRPCModule {
     }
 
     fn is_enabled(&self) -> RpcResult<()> {
-        if !ain_cpp_imports::is_debug_enabled() {
+        if !ain_cpp_imports::is_eth_debug_rpc_enabled() {
             return Err(Error::Custom(
                 "debug_* RPCs have not been enabled".to_string(),
             ));
@@ -77,7 +81,7 @@ impl MetachainDebugRPCModule {
     }
 
     fn is_trace_enabled(&self) -> RpcResult<()> {
-        if !ain_cpp_imports::is_debug_trace_enabled() {
+        if !ain_cpp_imports::is_eth_debug_trace_rpc_enabled() {
             return Err(Error::Custom(
                 "debug_trace* RPCs have not been enabled".to_string(),
             ));
@@ -114,21 +118,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let (logs, succeeded, return_data, gas_used) = self
             .handler
             .core
-            .trace_transaction(
-                signed_tx.sender,
-                signed_tx.to().ok_or_else(|| {
-                    format_err!(
-                        "debug_traceTransaction does not support contract creation transactions"
-                    )
-                })?,
-                signed_tx.value(),
-                signed_tx.data(),
-                signed_tx.gas_limit().as_u64(),
-                signed_tx.access_list(),
-                receipt.block_number,
-            )
+            .trace_transaction(&signed_tx, receipt.block_number)
             .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
-
         let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
         Ok(TraceTransactionResult {
