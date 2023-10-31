@@ -288,7 +288,7 @@ class EVMGasTest(DefiTestFramework):
         contract = self.nodes[0].w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
-        
+
         exact_gas = contract.functions.loop(5_000).estimate_gas()
         # Do actual contract function call
         tx = contract.functions.loop(5_000).build_transaction(
