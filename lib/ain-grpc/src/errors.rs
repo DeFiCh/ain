@@ -55,6 +55,7 @@ impl From<RPCError> for Error {
             }
             RPCError::InvalidTransactionType => to_custom_err("invalid transaction type specified"),
             RPCError::NonceCacheError => to_custom_err("could not cache account nonce"),
+            RPCError::OutOfGas => to_custom_err("out of gas"),
             RPCError::StateRootNotFound => to_custom_err("state root not found"),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
             RPCError::ValueOverflow => to_custom_err("value overflow"),
@@ -71,9 +72,9 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
         ExitReason::Succeed(_) => Ok(()),
         ExitReason::Error(err) => {
             if *err == ExitError::OutOfGas {
-                return Err(internal_err("out of gas"));
+                return RPCError::OutOfGas
             }
-            Err(internal_err_with_data(format!("evm error: {err:?}"), &[]))
+            RPCError::EvmError(err)
         }
         ExitReason::Revert(_) => {
             const LEN_START: usize = 36;
@@ -100,27 +101,15 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
                     }
                 }
             }
-            Err(internal_err_with_data(message, data))
+            Error::Call(CallError::Custom(ErrorObject::owned(
+                "3",
+                message.to_string(),
+                data.map(|bytes| {
+                    jsonrpsee::core::to_json_raw_value(&format!("0x{}", hex::encode(bytes)))
+                        .expect("fail to serialize data")
+                }),
+            )))
         }
-        ExitReason::Fatal(err) => Err(internal_err_with_data(format!("evm error: {err:?}"), &[])),
+        ExitReason::Fatal(err) => RPCError::EvmError(err),
     }
-}
-
-fn err<T: ToString>(code: i32, message: T, data: Option<&[u8]>) -> Error {
-    Error::Call(CallError::Custom(ErrorObject::owned(
-        code,
-        message.to_string(),
-        data.map(|bytes| {
-            jsonrpsee::core::to_json_raw_value(&format!("0x{}", hex::encode(bytes)))
-                .expect("fail to serialize data")
-        }),
-    )))
-}
-
-fn internal_err<T: ToString>(message: T) -> Error {
-    err(INTERNAL_ERROR_CODE, message, None)
-}
-
-fn internal_err_with_data<T: ToString>(message: T, data: &[u8]) -> Error {
-    err(INTERNAL_ERROR_CODE, message, Some(data))
 }
