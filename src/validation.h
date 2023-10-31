@@ -266,8 +266,8 @@ extern uint64_t nPruneTarget;
 extern bool fIsFakeNet;
 
 namespace spv {
-class CSpvWrapper;
-extern std::unique_ptr<CSpvWrapper> pspv;
+    class CSpvWrapper;
+    extern std::unique_ptr<CSpvWrapper> pspv;
 }  // namespace spv
 
 /** Block files containing a block-height within MIN_BLOCKS_TO_KEEP of ::ChainActive().Tip() will not be pruned. */

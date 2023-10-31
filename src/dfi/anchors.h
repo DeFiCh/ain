@@ -30,12 +30,12 @@ class CKey;
 class CPubkey;
 
 namespace spv {
-class CSpvWrapper;
-struct BtcAnchorTx;
+    class CSpvWrapper;
+    struct BtcAnchorTx;
 }  // namespace spv
 
 namespace Consensus {
-struct Params;
+    struct Params;
 }
 
 typedef uint32_t THeight;  // cause not decided yet which type to use for heights
@@ -499,10 +499,10 @@ extern std::unique_ptr<CAnchorIndex> panchors;
 extern std::unique_ptr<CAnchorAwaitingConfirms> panchorAwaitingConfirms;
 
 namespace spv {
-// Define comparator and set to hold pending anchors
-using PendingOrderType = std::function<bool(const CAnchorIndex::AnchorRec &, const CAnchorIndex::AnchorRec &)>;
-using PendingSet = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
-extern const PendingOrderType PendingOrder;
+    // Define comparator and set to hold pending anchors
+    using PendingOrderType = std::function<bool(const CAnchorIndex::AnchorRec &, const CAnchorIndex::AnchorRec &)>;
+    using PendingSet = std::set<CAnchorIndex::AnchorRec, PendingOrderType>;
+    extern const PendingOrderType PendingOrder;
 }  // namespace spv
 
 #endif  // DEFI_DFI_ANCHORS_H

@@ -10,63 +10,63 @@ extern CTokenCurrencyPair DecodePriceFeedUni(const UniValue &value);
 extern CTokenCurrencyPair DecodePriceFeedString(const std::string &value);
 /// names of oracle json fields
 namespace oraclefields {
-constexpr auto Alive = "live";
-constexpr auto Token = "token";
-constexpr auto State = "state";
-constexpr auto Amount = "amount";
-constexpr auto Expired = "expired";
-constexpr auto Currency = "currency";
-constexpr auto OracleId = "oracleid";
-constexpr auto RawPrice = "rawprice";
-constexpr auto Timestamp = "timestamp";
-constexpr auto Weightage = "weightage";
-constexpr auto AggregatedPrice = "price";
-constexpr auto TokenAmount = "tokenAmount";
-constexpr auto ValidityFlag = "ok";
-constexpr auto FlagIsValid = true;
-constexpr auto PriceFeeds = "priceFeeds";
-constexpr auto OracleAddress = "address";
-constexpr auto TokenPrices = "tokenPrices";
-constexpr auto MaxWeightage = 255;
-constexpr auto MinWeightage = 0;
+    constexpr auto Alive = "live";
+    constexpr auto Token = "token";
+    constexpr auto State = "state";
+    constexpr auto Amount = "amount";
+    constexpr auto Expired = "expired";
+    constexpr auto Currency = "currency";
+    constexpr auto OracleId = "oracleid";
+    constexpr auto RawPrice = "rawprice";
+    constexpr auto Timestamp = "timestamp";
+    constexpr auto Weightage = "weightage";
+    constexpr auto AggregatedPrice = "price";
+    constexpr auto TokenAmount = "tokenAmount";
+    constexpr auto ValidityFlag = "ok";
+    constexpr auto FlagIsValid = true;
+    constexpr auto PriceFeeds = "priceFeeds";
+    constexpr auto OracleAddress = "address";
+    constexpr auto TokenPrices = "tokenPrices";
+    constexpr auto MaxWeightage = 255;
+    constexpr auto MinWeightage = 0;
 };  // namespace oraclefields
 
 namespace {
-CTokenCurrencyPair DecodeTokenCurrencyPair(const UniValue &value) {
-    if (!value.exists(oraclefields::Currency)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
-    }
-    if (!value.exists(oraclefields::Token)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
-    }
+    CTokenCurrencyPair DecodeTokenCurrencyPair(const UniValue &value) {
+        if (!value.exists(oraclefields::Currency)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Currency).msg);
+        }
+        if (!value.exists(oraclefields::Token)) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, Res::Err("%s is required field", oraclefields::Token).msg);
+        }
 
-    auto token = value[oraclefields::Token].getValStr();
-    auto currency = value[oraclefields::Currency].getValStr();
+        auto token = value[oraclefields::Token].getValStr();
+        auto currency = value[oraclefields::Currency].getValStr();
 
-    token = trim_ws(token).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
-    currency = trim_ws(currency).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        token = trim_ws(token).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
+        currency = trim_ws(currency).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
 
-    if (token.empty() || currency.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER,
-                           strprintf("%s/%s is empty", oraclefields::Token, oraclefields::Currency));
-    }
+        if (token.empty() || currency.empty()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER,
+                               strprintf("%s/%s is empty", oraclefields::Token, oraclefields::Currency));
+        }
 
-    return std::make_pair(token, currency);
-}
-
-std::set<CTokenCurrencyPair> DecodeTokenCurrencyPairs(const UniValue &values) {
-    if (!values.isArray()) {
-        throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
+        return std::make_pair(token, currency);
     }
 
-    std::set<CTokenCurrencyPair> pairs;
+    std::set<CTokenCurrencyPair> DecodeTokenCurrencyPairs(const UniValue &values) {
+        if (!values.isArray()) {
+            throw JSONRPCError(RPC_INVALID_REQUEST, "data is not array");
+        }
 
-    for (const auto &value : values.get_array().getValues()) {
-        pairs.insert(DecodeTokenCurrencyPair(value));
+        std::set<CTokenCurrencyPair> pairs;
+
+        for (const auto &value : values.get_array().getValues()) {
+            pairs.insert(DecodeTokenCurrencyPair(value));
+        }
+
+        return pairs;
     }
-
-    return pairs;
-}
 }  // namespace
 
 UniValue appointoracle(const JSONRPCRequest &request) {
@@ -588,46 +588,46 @@ std::pair<int, int> GetFixedIntervalPriceBlocks(int currentHeight, const CCustom
 }
 
 namespace {
-UniValue PriceFeedToJSON(const CTokenCurrencyPair &priceFeed) {
-    UniValue pair(UniValue::VOBJ);
-    pair.pushKV(oraclefields::Token, priceFeed.first);
-    pair.pushKV(oraclefields::Currency, priceFeed.second);
-    return pair;
-}
-
-UniValue OracleToJSON(const COracleId &oracleId, const COracle &oracle) {
-    UniValue result{UniValue::VOBJ};
-    result.pushKV(oraclefields::Weightage, oracle.weightage);
-    result.pushKV(oraclefields::OracleId, oracleId.GetHex());
-    result.pushKV(oraclefields::OracleAddress, oracle.oracleAddress.GetHex());
-
-    UniValue priceFeeds{UniValue::VARR};
-    for (const auto &feed : oracle.availablePairs) {
-        priceFeeds.push_back(PriceFeedToJSON(feed));
+    UniValue PriceFeedToJSON(const CTokenCurrencyPair &priceFeed) {
+        UniValue pair(UniValue::VOBJ);
+        pair.pushKV(oraclefields::Token, priceFeed.first);
+        pair.pushKV(oraclefields::Currency, priceFeed.second);
+        return pair;
     }
 
-    result.pushKV(oraclefields::PriceFeeds, priceFeeds);
+    UniValue OracleToJSON(const COracleId &oracleId, const COracle &oracle) {
+        UniValue result{UniValue::VOBJ};
+        result.pushKV(oraclefields::Weightage, oracle.weightage);
+        result.pushKV(oraclefields::OracleId, oracleId.GetHex());
+        result.pushKV(oraclefields::OracleAddress, oracle.oracleAddress.GetHex());
 
-    UniValue tokenPrices{UniValue::VARR};
-    for (const auto &tokenPrice : oracle.tokenPrices) {
-        for (const auto &price : tokenPrice.second) {
-            const auto &currency = price.first;
-            const auto &pricePair = price.second;
-            auto amount = pricePair.first;
-            auto timestamp = pricePair.second;
-
-            UniValue item(UniValue::VOBJ);
-            item.pushKV(oraclefields::Token, tokenPrice.first);
-            item.pushKV(oraclefields::Currency, currency);
-            item.pushKV(oraclefields::Amount, ValueFromAmount(amount));
-            item.pushKV(oraclefields::Timestamp, timestamp);
-            tokenPrices.push_back(item);
+        UniValue priceFeeds{UniValue::VARR};
+        for (const auto &feed : oracle.availablePairs) {
+            priceFeeds.push_back(PriceFeedToJSON(feed));
         }
-    }
 
-    result.pushKV(oraclefields::TokenPrices, tokenPrices);
-    return result;
-}
+        result.pushKV(oraclefields::PriceFeeds, priceFeeds);
+
+        UniValue tokenPrices{UniValue::VARR};
+        for (const auto &tokenPrice : oracle.tokenPrices) {
+            for (const auto &price : tokenPrice.second) {
+                const auto &currency = price.first;
+                const auto &pricePair = price.second;
+                auto amount = pricePair.first;
+                auto timestamp = pricePair.second;
+
+                UniValue item(UniValue::VOBJ);
+                item.pushKV(oraclefields::Token, tokenPrice.first);
+                item.pushKV(oraclefields::Currency, currency);
+                item.pushKV(oraclefields::Amount, ValueFromAmount(amount));
+                item.pushKV(oraclefields::Timestamp, timestamp);
+                tokenPrices.push_back(item);
+            }
+        }
+
+        result.pushKV(oraclefields::TokenPrices, tokenPrices);
+        return result;
+    }
 }  // namespace
 
 UniValue getoracledata(const JSONRPCRequest &request) {
@@ -930,64 +930,64 @@ ResVal<CAmount> GetAggregatePrice(CCustomCSView &view,
 
 namespace {
 
-UniValue GetAllAggregatePrices(CCustomCSView &view, uint64_t lastBlockTime, const UniValue &paginationObj) {
-    size_t limit = 100;
-    uint32_t start = 0;
-    bool including_start = true;
-    if (!paginationObj.empty()) {
-        if (!paginationObj["limit"].isNull()) {
-            limit = (size_t)paginationObj["limit"].get_int64();
+    UniValue GetAllAggregatePrices(CCustomCSView &view, uint64_t lastBlockTime, const UniValue &paginationObj) {
+        size_t limit = 100;
+        uint32_t start = 0;
+        bool including_start = true;
+        if (!paginationObj.empty()) {
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t)paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start = false;
+                start = paginationObj["start"].get_int();
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
         }
-        if (!paginationObj["start"].isNull()) {
-            including_start = false;
-            start = paginationObj["start"].get_int();
-        }
-        if (!paginationObj["including_start"].isNull()) {
-            including_start = paginationObj["including_start"].getBool();
-        }
-    }
-    if (limit == 0) {
-        limit = std::numeric_limits<decltype(limit)>::max();
-    }
-
-    if (!including_start) {
-        start++;
-    }
-
-    UniValue result(UniValue::VARR);
-    std::set<CTokenCurrencyPair> setTokenCurrency;
-    view.ForEachOracle([&](const COracleId &, COracle oracle) {
-        const auto &pairs = oracle.availablePairs;
-        setTokenCurrency.insert(pairs.begin(), pairs.end());
-        return true;
-    });
-
-    if (start >= setTokenCurrency.size()) {
-        throw JSONRPCError(RPC_MISC_ERROR, "start index greater than number of prices available");
-    }
-
-    for (auto tokenCurrency :
-         std::set<CTokenCurrencyPair>(std::next(setTokenCurrency.begin(), start), setTokenCurrency.end())) {
-        UniValue item{UniValue::VOBJ};
-        const auto &token = tokenCurrency.first;
-        const auto &currency = tokenCurrency.second;
-        item.pushKV(oraclefields::Token, token);
-        item.pushKV(oraclefields::Currency, currency);
-        auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
-        if (aggregatePrice) {
-            item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
-            item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
-        } else {
-            item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
-        }
-        result.push_back(item);
-        limit--;
         if (limit == 0) {
-            break;
+            limit = std::numeric_limits<decltype(limit)>::max();
         }
+
+        if (!including_start) {
+            start++;
+        }
+
+        UniValue result(UniValue::VARR);
+        std::set<CTokenCurrencyPair> setTokenCurrency;
+        view.ForEachOracle([&](const COracleId &, COracle oracle) {
+            const auto &pairs = oracle.availablePairs;
+            setTokenCurrency.insert(pairs.begin(), pairs.end());
+            return true;
+        });
+
+        if (start >= setTokenCurrency.size()) {
+            throw JSONRPCError(RPC_MISC_ERROR, "start index greater than number of prices available");
+        }
+
+        for (auto tokenCurrency :
+             std::set<CTokenCurrencyPair>(std::next(setTokenCurrency.begin(), start), setTokenCurrency.end())) {
+            UniValue item{UniValue::VOBJ};
+            const auto &token = tokenCurrency.first;
+            const auto &currency = tokenCurrency.second;
+            item.pushKV(oraclefields::Token, token);
+            item.pushKV(oraclefields::Currency, currency);
+            auto aggregatePrice = GetAggregatePrice(view, token, currency, lastBlockTime);
+            if (aggregatePrice) {
+                item.pushKV(oraclefields::AggregatedPrice, ValueFromAmount(*aggregatePrice.val));
+                item.pushKV(oraclefields::ValidityFlag, oraclefields::FlagIsValid);
+            } else {
+                item.pushKV(oraclefields::ValidityFlag, aggregatePrice.msg);
+            }
+            result.push_back(item);
+            limit--;
+            if (limit == 0) {
+                break;
+            }
+        }
+        return result;
     }
-    return result;
-}
 }  // namespace
 
 UniValue getprice(const JSONRPCRequest &request) {

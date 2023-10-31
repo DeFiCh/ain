@@ -23,10 +23,10 @@ struct Attributes {
     uint64_t finalityCount;
 
     static Attributes Default() {
-        return Attributes {
-                DEFAULT_EVM_BLOCK_GAS_TARGET,
-                DEFAULT_EVM_BLOCK_GAS_LIMIT,
-                DEFAULT_EVM_FINALITY_COUNT,
+        return Attributes{
+            DEFAULT_EVM_BLOCK_GAS_TARGET,
+            DEFAULT_EVM_BLOCK_GAS_LIMIT,
+            DEFAULT_EVM_FINALITY_COUNT,
         };
     }
 };

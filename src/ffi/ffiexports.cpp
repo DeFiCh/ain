@@ -1,13 +1,13 @@
-#include <ffi/ffiexports.h>
-#include <util/system.h>
-#include <net.h>
+#include <clientversion.h>
 #include <dfi/mn_rpc.h>
+#include <ffi/ffiexports.h>
+#include <httprpc.h>
 #include <key_io.h>
 #include <logging.h>
-#include <clientversion.h>
-#include <httprpc.h>
 #include <array>
 #include <cstdint>
+#include <net.h>
+#include <util/system.h>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -29,8 +29,7 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
     std::vector<uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
-             << CEvmTxMessage{evmTx};
+    metadata << static_cast<unsigned char>(CustomTxType::EvmTx) << CEvmTxMessage{evmTx};
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -70,12 +69,13 @@ rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction) {
 
 rust::vec<rust::string> getAccounts() {
     rust::vec<rust::string> addresses;
-    std::vector<std::shared_ptr<CWallet>> const wallets = GetWallets();
-    for (const std::shared_ptr<CWallet> &wallet: wallets) {
-        for (auto &it: wallet->mapAddressBook)
+    const std::vector<std::shared_ptr<CWallet>> wallets = GetWallets();
+    for (const std::shared_ptr<CWallet> &wallet : wallets) {
+        for (auto &it : wallet->mapAddressBook) {
             if (std::holds_alternative<WitnessV16EthHash>(it.first)) {
                 addresses.push_back(EncodeDestination(it.first));
             }
+        }
     }
     return addresses;
 }
@@ -85,7 +85,7 @@ rust::string getDatadir() {
     // https://learn.microsoft.com/en-us/cpp/cpp/char-wchar-t-char16-t-char32-t?view=msvc-170
     // We're sidestepping this for now unsafely making an assumption. Can crash on Windows
     // if odd paths are used. Require testing.
-    return rust::String(reinterpret_cast<const char16_t*>(GetDataDir().c_str()));
+    return rust::String(reinterpret_cast<const char16_t *>(GetDataDir().c_str()));
 #else
     return GetDataDir().c_str();
 #endif
@@ -146,22 +146,23 @@ rust::vec<TransactionData> getPoolTransactions() {
         const auto txType = GuessCustomTxType(tx, metadata, true);
         if (txType == CustomTxType::EvmTx) {
             CCustomTxMessage txMessage{CEvmTxMessage{}};
-            const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
-                                                 txMessage);
+            const auto res =
+                CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
             if (!res) {
                 continue;
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
-            poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(), TransactionData{
-                static_cast<uint8_t>(TransactionDataTxType::EVM),
-                HexStr(obj.evmTx),
-                static_cast<uint8_t>(TransactionDataDirection::None),
-            });
+            poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
+                                          TransactionData{
+                                              static_cast<uint8_t>(TransactionDataTxType::EVM),
+                                              HexStr(obj.evmTx),
+                                              static_cast<uint8_t>(TransactionDataDirection::None),
+                                          });
         } else if (txType == CustomTxType::TransferDomain) {
             CCustomTxMessage txMessage{CTransferDomainMessage{}};
-            const auto res = CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata,
-                                                 txMessage);
+            const auto res =
+                CustomMetadataParse(std::numeric_limits<uint32_t>::max(), Params().GetConsensus(), metadata, txMessage);
             if (!res) {
                 continue;
             }
@@ -171,18 +172,22 @@ rust::vec<TransactionData> getPoolTransactions() {
                 continue;
             }
 
-            if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(), TransactionData{
-                    static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
-                    HexStr(obj.transfers[0].second.data),
-                    static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
-                });
-            } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) && obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(), TransactionData{
-                    static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
-                    HexStr(obj.transfers[0].first.data),
-                    static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
-                });
+            if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) &&
+                obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
+                                              TransactionData{
+                                                  static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                                                  HexStr(obj.transfers[0].second.data),
+                                                  static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                                              });
+            } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                       obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
+                                              TransactionData{
+                                                  static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                                                  HexStr(obj.transfers[0].first.data),
+                                                  static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
+                                              });
             }
         }
     }
@@ -199,8 +204,7 @@ uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction) {
     std::vector<uint8_t> evmTx(rawTransaction.size());
     std::copy(rawTransaction.begin(), rawTransaction.end(), evmTx.begin());
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::EvmTx)
-             << CEvmTxMessage{evmTx};
+    metadata << static_cast<unsigned char>(CustomTxType::EvmTx) << CEvmTxMessage{evmTx};
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
@@ -238,7 +242,7 @@ std::array<uint8_t, 32> getEthPrivKey(rust::string key) {
     const CKeyID ethKeyID{keyID};
 
     CKey ethPrivKey;
-    for (const auto &wallet: GetWallets()) {
+    for (const auto &wallet : GetWallets()) {
         if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
             std::copy(ethPrivKey.begin(), ethPrivKey.end(), privKeyArray.begin());
@@ -279,14 +283,17 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
     LOCK(cs_main);
 
     rust::vec<DST20Token> tokens;
-    CCustomCSView* cache = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
-    cache->ForEachToken([&](DCT_ID const &id, CTokensView::CTokenImpl token) {
-        if (!token.IsDAT() || token.IsPoolShare())
-            return true;
+    CCustomCSView *cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
+    cache->ForEachToken(
+        [&](DCT_ID const &id, CTokensView::CTokenImpl token) {
+            if (!token.IsDAT() || token.IsPoolShare()) {
+                return true;
+            }
 
-        tokens.push_back({id.v, token.name, token.symbol});
-        return true;
-    }, DCT_ID{1});  // start from non-DFI
+            tokens.push_back({id.v, token.name, token.symbol});
+            return true;
+        },
+        DCT_ID{1});  // start from non-DFI
     return tokens;
 }
 
