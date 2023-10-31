@@ -38,13 +38,17 @@ public:
     void WaitForCompletion(bool checkForPrematureCompletion = true);
     void MarkCancellation() { is_cancelled.store(true); }
     bool IsCancelled() { return is_cancelled.load(); }
-    void MarkCancelAndWaitForCompletion(bool checkForPrematureCompletion = true);
+    void EnsureFinishedOrCancel(bool checkForPrematureCompletion = true);
+    void Leak() { is_leaked.store(true); }
+
+    ~TaskGroup() { if (!is_leaked.load()) EnsureFinishedOrCancel(); }
 
 private:
     std::atomic<uint64_t> tasks{0};
     std::mutex cv_m;
     std::condition_variable cv;
     std::atomic_bool is_cancelled{false};
+    std::atomic_bool is_leaked{false};
 };
 
 template <typename T>

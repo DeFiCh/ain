@@ -49,7 +49,7 @@ void TaskGroup::WaitForCompletion(bool checkForPrematureCompletion) {
     cv.wait(l, [&] { return tasks.load() == 0; });
 }
 
-void TaskGroup::MarkCancelAndWaitForCompletion(bool checkForPrematureCompletion) {
+void TaskGroup::CancelAndWait(bool checkForPrematureCompletion) {
     MarkCancellation();
     WaitForCompletion(checkForPrematureCompletion);
 }
