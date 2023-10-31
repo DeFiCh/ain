@@ -4,10 +4,10 @@
 #include <httprpc.h>
 #include <key_io.h>
 #include <logging.h>
-#include <array>
-#include <cstdint>
 #include <net.h>
 #include <util/system.h>
+#include <array>
+#include <cstdint>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -263,12 +263,12 @@ rust::string getClientVersion() {
 
 std::array<int64_t, 2> getEthSyncStatus() {
     LOCK(cs_main);
-    
-    auto currentHeight = ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
-    auto highestBlock = pindexBestHeader ? pindexBestHeader->nHeight
-                            : (int) ::ChainActive().Height(); // return current block count if no peers
 
-    return std::array<int64_t, 2>{ currentHeight, highestBlock };
+    auto currentHeight = ::ChainActive().Height() ? (int)::ChainActive().Height() : -1;
+    auto highestBlock = pindexBestHeader ? pindexBestHeader->nHeight
+                                         : (int)::ChainActive().Height();  // return current block count if no peers
+
+    return std::array<int64_t, 2>{currentHeight, highestBlock};
 }
 
 Attributes getAttributeDefaults() {
