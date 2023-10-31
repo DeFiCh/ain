@@ -6259,3 +6259,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "vsdbsled"
+version = "0.34.8"
+source = "git+https://github.com/defich/vsdbsled.git#a20d135447652d6d8ca97ce5830267515a7322e6"
