@@ -23,21 +23,21 @@ pub fn calculate_max_tip_gas_fee(signed_tx: &SignedTx, base_fee: U256) -> Result
 }
 
 pub fn calculate_min_rbf_tip_gas_fee(signed_tx: &SignedTx, tip_fee: U256) -> Result<U256> {
-    let mut incremental_fee = tip_fee
+    let incremental_fee = tip_fee
         .checked_div(MEMPOOL_MINIMUM_INCREMENT_FEE_PERCENTAGE)
         .ok_or_else(|| format_err!("calculate incremental fees failed from overflow"))?;
     let min_incremental_fee = signed_tx
         .gas_limit()
         .checked_mul(MEMPOOL_MINIMUM_RBF_FEE_PER_GAS)
         .ok_or_else(|| format_err!("calculate incremental fees failed from overflow"))?;
-    incremental_fee = if incremental_fee < min_incremental_fee {
+    let additional_fee = if incremental_fee < min_incremental_fee {
         min_incremental_fee
     } else {
         incremental_fee
     };
 
     tip_fee
-        .checked_add(incremental_fee)
+        .checked_add(additional_fee)
         .ok_or_else(|| format_err!("calculate incremental fees failed from overflow").into())
 }
 
