@@ -3046,12 +3046,12 @@ bool CChainState::ConnectBlock(const CBlock &block,
                         continue;
                     }
 
-                    const auto obj = std::get<CEvmTxMessage>(txMessage);
-
                     evmEccPreCacheTaskPool.AddTask();
-                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMessage = std::move(obj)] {
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage) ] {
                         if (!evmEccPreCacheTaskPool.IsCancelled()) {
-                            const auto rawEvmTx = HexStr(evmMessage.evmTx);
+                            const auto obj = std::get<CEvmTxMessage>(evmMsg);
+
+                            const auto rawEvmTx = HexStr(obj.evmTx);
                             auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
                             if (v) {
                                 XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
@@ -3062,8 +3062,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 }
             }
 
-            // We move ahead eagerly
-            evmEccPreCacheTaskPool.WaitForCompletion();
         }
     }
 
