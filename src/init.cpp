@@ -424,8 +424,8 @@ void SetupServerArgs()
     gArgs.AddArg("-datadir=<dir>", "Specify data directory", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbbatchsize", strprintf("Maximum database write batch size in bytes (default: %u)", nDefaultDbBatchSize), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-dbcache=<n>", strprintf("Maximum database cache size <n> MiB (%d to %d, default: %d). In addition, unused mempool memory is shared for this cache (see -maxmempool).", nMinDbCache, nMaxDbCache, nDefaultDbCache), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-ecclrucache=<n>", strprintf("Maximum ECC LRU cache size <n> items (default: %d).", DEFAULT_ECC_LRU_CACHE_SIZE_LIMIT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
-    gArgs.AddArg("-evmvlrucache=<n>", strprintf("Maximum EVM TX Validator LRU cache size <n> items (default: %d).", DEFAULT_EVMV_LRU_CACHE_SIZE_LIMIT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-ecclrucache=<n>", strprintf("Maximum ECC LRU cache size <n> items (default: %d).", DEFAULT_ECC_LRU_CACHE_COUNT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-evmvlrucache=<n>", strprintf("Maximum EVM TX Validator LRU cache size <n> items (default: %d).", DEFAULT_EVMV_LRU_CACHE_COUNT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-eccprecache=<n>", strprintf("ECC pre-cache concurrency control (default: %d, (-1: auto, 0: disable, <n>: workers).", DEFAULT_ECC_PRECACHE_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);

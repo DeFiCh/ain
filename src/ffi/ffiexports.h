@@ -11,8 +11,8 @@ static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
 
-static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_SIZE_LIMIT = 10000;
-static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_SIZE_LIMIT = 10000;
+static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_COUNT = 10000;
+static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
 
 static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
@@ -77,8 +77,8 @@ rust::string getClientVersion();
 int32_t getNumCores();
 rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
-size_t getEccLruCacheSizeLimit();
-size_t getEvmValidationLruCacheSizeLimit();
+size_t getEccLruCacheCount();
+size_t getEvmValidationLruCacheCount();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
 
