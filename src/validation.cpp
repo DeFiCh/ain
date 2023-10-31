@@ -3043,7 +3043,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     if (!res) {
                         continue;
                     }
-
                     const auto obj = std::get<CEvmTxMessage>(txMessage);
                     evmTxMsgs.push_back(std::move(obj));
                 }
