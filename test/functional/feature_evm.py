@@ -266,6 +266,32 @@ class EVMTest(DefiTestFramework):
             {"ATTRIBUTES": {"v0/rules/tx/dvm_op_return_max_size_bytes": 4096}},
         )
 
+        # Try and set vars before height
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/finality_count": "100"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/gas_limit": "100"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/gas_target": "100"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before Metachain",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/evm/block/rbf_fee_increment": "0.1"}},
+        )
+
         # Check that a transferdomain default is not present in listgovs
         assert (
             "v0/transferdomain/dvm-evm/enabled"
@@ -307,6 +333,10 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
+                    "v0/evm/block/finality_count": "100",
+                    "v0/evm/block/gas_limit": "30000000",
+                    "v0/evm/block/gas_target": "15000000",
+                    "v0/evm/block/rbf_fee_increment": "0.1",
                     "v0/rules/tx/core_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/dvm_op_return_max_size_bytes": 20000,
@@ -317,6 +347,10 @@ class EVMTest(DefiTestFramework):
 
         # Check OP_RETURN set
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(result["v0/evm/block/finality_count"], "100")
+        assert_equal(result["v0/evm/block/gas_limit"], "30000000")
+        assert_equal(result["v0/evm/block/gas_target"], "15000000")
+        assert_equal(result["v0/evm/block/rbf_fee_increment"], "0.1")
         assert_equal(result["v0/rules/tx/core_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/dvm_op_return_max_size_bytes"], "20000")

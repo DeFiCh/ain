@@ -76,7 +76,7 @@ mod ffi {
     pub fn getCurrentHeight() -> i32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getAttributeDefaults() -> Attributes {
+    pub fn getAttributeDefaults(mnview_ptr: usize) -> Attributes {
         unimplemented!("{}", UNIMPL_MSG)
     }
 
@@ -198,8 +198,8 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     Ok((current_block, highest_block))
 }
 
-pub fn get_attribute_defaults() -> ffi::Attributes {
-    ffi::getAttributeDefaults()
+pub fn get_attribute_defaults(mnview_ptr: usize) -> ffi::Attributes {
+    ffi::getAttributeDefaults(mnview_ptr)
 }
 
 pub fn log_print(message: &str) {

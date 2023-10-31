@@ -1,6 +1,7 @@
 #include <ffi/ffiexports.h>
 #include <util/system.h>
 #include <net.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <key_io.h>
 #include <logging.h>
@@ -265,8 +266,34 @@ int getCurrentHeight() {
     return ::ChainActive().Height() ? (int) ::ChainActive().Height() : -1;
 }
 
-Attributes getAttributeDefaults() {
-    return Attributes::Default();
+Attributes getAttributeDefaults(std::size_t mnview_ptr) {
+    auto defaults = Attributes::Default();
+
+    LOCK(cs_main);
+    auto* cache = reinterpret_cast<CCustomCSView*>(static_cast<uintptr_t>(mnview_ptr));
+
+    const auto attributes = cache->GetAttributes();
+    assert(attributes);
+
+    CDataStructureV0 blockGasTargetKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTarget};
+    CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
+    CDataStructureV0 finalityCountKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::Finalized};
+    CDataStructureV0 rbfFeeIncrementKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RBFFeeIncrement};
+
+    if (attributes->CheckKey(blockGasTargetKey)) {
+        defaults.blockGasTarget = attributes->GetValue(blockGasTargetKey, DEFAULT_EVM_BLOCK_GAS_TARGET);
+    }
+    if (attributes->CheckKey(blockGasLimitKey)) {
+        defaults.blockGasLimit = attributes->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);
+    }
+    if (attributes->CheckKey(finalityCountKey)) {
+        defaults.finalityCount = attributes->GetValue(finalityCountKey, DEFAULT_EVM_FINALITY_COUNT);
+    }
+    if (attributes->CheckKey(rbfFeeIncrementKey)) {
+        defaults.rbfFeeIncrement = attributes->GetValue(rbfFeeIncrementKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
+    }
+
+    return defaults;
 }
 
 uint32_t getEthMaxConnections() {
