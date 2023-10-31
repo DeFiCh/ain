@@ -3047,7 +3047,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     }
 
                     evmEccPreCacheTaskPool.AddTask();
-                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage) ] {
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage)] {
                         if (!evmEccPreCacheTaskPool.IsCancelled()) {
                             const auto obj = std::get<CEvmTxMessage>(evmMsg);
 
@@ -3061,7 +3061,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                     });
                 }
             }
-
         }
     }
 
