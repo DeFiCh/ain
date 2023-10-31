@@ -3059,14 +3059,14 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 evmTxMsgsPools.reserve(nWorkers);
 
                 // Pre-allocate the vectors to avoid allocation on insert
-                for (auto i = 0; i < nWorkers; i++) {
+                for (size_t i{}; i < nWorkers; i++) {
                     std::vector<CEvmTxMessage> v;
                     v.reserve(nItemsSize / nWorkers);
                     evmTxMsgsPools.push_back(std::move(v));
                 }
 
                 // We evenly distrubute over the workers.
-                auto nEvmTxCount = 0;
+                size_t nEvmTxCount{};
                 while (nItemsSize > nEvmTxCount + 1) {
                     auto evmTxPool = evmTxMsgsPools[nEvmTxCount % nWorkers];
                     evmTxPool.push_back(std::move(evmTxMsgs[nEvmTxCount]));
