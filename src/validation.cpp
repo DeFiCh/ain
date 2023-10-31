@@ -3042,7 +3042,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 }
             }
 
-            // Ensure it's all done since otherwise, we need to keep `g` for the entire scope of connectBlock 
+            // Ensure it's all done since otherwise, we need to keep `g` for the entire scope of connectBlock
             g.WaitForCompletion();
         }
     }
