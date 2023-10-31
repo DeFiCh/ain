@@ -11,6 +11,9 @@ static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
 
+static constexpr bool DEFAULT_DEBUG_ENABLED = false;
+static constexpr bool DEFAULT_DEBUG_TRACE_ENABLED = true;
+
 struct Attributes {
     uint64_t blockGasTarget;
     uint64_t blockGasLimit;
@@ -72,5 +75,6 @@ int32_t getNumCores();
 rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
 bool isDebugEnabled();
+bool isDebugTraceEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

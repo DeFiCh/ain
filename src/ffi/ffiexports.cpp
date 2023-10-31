@@ -304,3 +304,7 @@ int32_t getNumConnections() {
 bool isDebugEnabled() {
     return gArgs.GetBoolArg("-ethdebug", false);
 }
+
+bool isDebugTraceEnabled() {
+    return gArgs.GetBoolArg("-ethdebugtrace", true);
+}

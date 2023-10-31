@@ -73,11 +73,21 @@ impl MetachainDebugRPCModule {
 
         Ok(())
     }
+
+    fn is_trace_enabled(&self) -> RpcResult<()> {
+        if !ain_cpp_imports::is_debug_trace_enabled() {
+            return Err(Error::Custom(
+                "debug_trace* RPCs have not been enabled".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
-        self.is_enabled()?;
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         debug!(target: "rpc", "Tracing transaction {tx_hash}");
 

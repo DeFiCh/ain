@@ -51,5 +51,6 @@ pub mod ffi {
         fn getCORSAllowedOrigin() -> String;
         fn getNumConnections() -> i32;
         fn isDebugEnabled() -> bool;
+        fn isDebugTraceEnabled() -> bool;
     }
 }
