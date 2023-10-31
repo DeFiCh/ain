@@ -245,13 +245,12 @@ class EVMGasTest(DefiTestFramework):
             gas = contract.functions.loop(num).estimate_gas()
             gas_estimates.append(gas)
 
-            # Do actual contract function call
+            # Do actual contract function call without specifying gas
             tx = contract.functions.loop(num).build_transaction(
                 {
                     "chainId": self.nodes[0].w3.eth.chain_id,
                     "nonce": start_nonce + i,
                     "gasPrice": 25_000_000_000,
-                    "gas": 30_000_000,
                 }
             )
             signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
@@ -265,7 +264,48 @@ class EVMGasTest(DefiTestFramework):
         # Verify gas estimation with tx receipts
         for idx, hash in enumerate(hashes):
             tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-            assert_equal(gas_estimates[idx], tx_receipt["gasUsed"])
+            assert_equal(tx_receipt["status"], 1)
+            assert_equal(tx_receipt["gasUsed"], gas_estimates[idx])
+
+    def test_estimate_gas_contract_exact_gas(self):
+        self.rollback_to(self.start_height)
+
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+        
+        exact_gas = contract.functions.loop(5_000).estimate_gas()
+        # Do actual contract function call
+        tx = contract.functions.loop(5_000).build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "gasPrice": 25_000_000_000,
+                "gas": exact_gas,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(tx_receipt["gasUsed"], exact_gas)
+        assert_equal(tx_receipt["status"], 1)
 
     def test_estimate_gas_revert(self):
         self.rollback_to(self.start_height)
@@ -320,6 +360,8 @@ class EVMGasTest(DefiTestFramework):
         self.test_estimate_gas_balance_transfer()
 
         self.test_estimate_gas_contract()
+
+        self.test_estimate_gas_contract_exact_gas()
 
         self.test_estimate_gas_revert()
 
