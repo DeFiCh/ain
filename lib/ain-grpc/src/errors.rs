@@ -3,7 +3,7 @@ use ethereum_types::U256;
 use evm::{ExitError, ExitReason};
 use jsonrpsee::{
     core::{Error, RpcResult},
-    types::error::{CallError, ErrorObject, INTERNAL_ERROR_CODE},
+    types::error::{CallError, ErrorObject},
 };
 
 pub enum RPCError {
@@ -55,7 +55,6 @@ impl From<RPCError> for Error {
             }
             RPCError::InvalidTransactionType => to_custom_err("invalid transaction type specified"),
             RPCError::NonceCacheError => to_custom_err("could not cache account nonce"),
-            RPCError::OutOfGas => to_custom_err("out of gas"),
             RPCError::StateRootNotFound => to_custom_err("state root not found"),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
             RPCError::ValueOverflow => to_custom_err("value overflow"),
@@ -72,9 +71,9 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
         ExitReason::Succeed(_) => Ok(()),
         ExitReason::Error(err) => {
             if *err == ExitError::OutOfGas {
-                return RPCError::OutOfGas
+                return Err(Error::Custom(format!("out of gas")))
             }
-            RPCError::EvmError(err)
+            Err(Error::Custom(format!("evm error: {err:?}")))
         }
         ExitReason::Revert(_) => {
             const LEN_START: usize = 36;
@@ -101,15 +100,15 @@ pub fn error_on_execution_failure(reason: &ExitReason, data: &[u8]) -> RpcResult
                     }
                 }
             }
-            Error::Call(CallError::Custom(ErrorObject::owned(
-                "3",
+            Err(Error::Call(CallError::Custom(ErrorObject::owned(
+                3,
                 message.to_string(),
                 data.map(|bytes| {
                     jsonrpsee::core::to_json_raw_value(&format!("0x{}", hex::encode(bytes)))
                         .expect("fail to serialize data")
                 }),
-            )))
+            ))))
         }
-        ExitReason::Fatal(err) => RPCError::EvmError(err),
+        ExitReason::Fatal(err) => Err(Error::Custom(format!("evm error: {err:?}"))),
     }
 }

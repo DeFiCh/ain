@@ -476,9 +476,9 @@ class EVMTest(DefiTestFramework):
 
         # should throw error from `call`
         assert_raises_web3_error(
-           -32603,
-           "execution reverted",
-           contract.functions.gt0(0).call,
+            3,
+            "execution reverted",
+            contract.functions.gt0(0).call,
         )
 
     def run_test(self):
