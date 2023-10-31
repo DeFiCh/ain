@@ -1,5 +1,7 @@
-use ain_evm::core::ExecutionStep;
-use ain_evm::transaction::{SignedTx, TransactionError};
+use ain_evm::{
+    core::ExecutionStep,
+    transaction::{SignedTx, TransactionError},
+};
 use ethereum::{AccessListItem, BlockAny, EnvelopedEncodable, TransactionV2};
 use ethereum_types::{H256, U256};
 

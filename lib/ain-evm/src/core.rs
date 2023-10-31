@@ -16,16 +16,17 @@ use ethereum::{
     TransactionV2,
 };
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
-use evm::executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata};
-use evm::gasometer::tracing::using as gas_using;
-use evm::Config;
+use evm::{
+    executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
+    gasometer::tracing::using as gas_using,
+    Config,
+};
 use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
 use lru::LruCache;
 use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
 
-use crate::precompiles::MetachainPrecompiles;
 use crate::{
     backend::{BackendError, EVMBackend, Vicinity},
     block::INITIAL_BASE_FEE,
@@ -33,6 +34,7 @@ use crate::{
     executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
+    precompiles::MetachainPrecompiles,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
@@ -273,7 +275,11 @@ impl EVMCoreService {
                     block.header.gas_limit,
                 )
             })
-            .unwrap_or_default();
+            .ok_or(format_err!(
+                "[call] Block number {:x?} not found",
+                block_number
+            ))?;
+
         debug!(
             "Calling EVM at block number : {:#x}, state_root : {:#x}",
             block_number, state_root
@@ -767,11 +773,29 @@ impl EVMCoreService {
         access_list: AccessList,
         block_number: U256,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        let (state_root, block_number) = self
+        let (
+            state_root,
+            block_number,
+            beneficiary,
+            base_fee,
+            timestamp,
+            block_difficulty,
+            block_gas_limit,
+        ) = self
             .storage
             .get_block_by_number(&block_number)?
             .ok_or_else(|| format_err!("Cannot find block"))
-            .map(|block| (block.header.state_root, block.header.number))?;
+            .map(|block| {
+                (
+                    block.header.state_root,
+                    block.header.number,
+                    block.header.beneficiary,
+                    block.header.base_fee,
+                    block.header.timestamp,
+                    block.header.difficulty,
+                    block.header.gas_limit,
+                )
+            })?;
 
         debug!(
             "Calling EVM at block number : {:#x}, state_root : {:#x}",
@@ -779,9 +803,16 @@ impl EVMCoreService {
         );
 
         let vicinity = Vicinity {
-            block_number,
+            gas_price: base_fee,
             origin: caller,
-            ..Default::default()
+            beneficiary,
+            block_number,
+            timestamp: U256::from(timestamp),
+            total_gas_used: U256::zero(),
+            block_difficulty,
+            block_gas_limit,
+            block_base_fee_per_gas: base_fee,
+            block_randomness: None,
         };
 
         let backend = EVMBackend::from_root(
@@ -921,28 +952,56 @@ impl EVMCoreService {
     }
 
     pub fn get_latest_block_backend(&self) -> Result<EVMBackend> {
-        let (state_root, block_number) = self
+        let (
+            state_root,
+            block_number,
+            beneficiary,
+            base_fee,
+            timestamp,
+            block_difficulty,
+            block_gas_limit,
+        ) = self
             .storage
             .get_latest_block()?
-            .map(|block| (block.header.state_root, block.header.number))
-            .unwrap_or_default();
+            .map(|block| {
+                (
+                    block.header.state_root,
+                    block.header.number,
+                    block.header.beneficiary,
+                    block.header.base_fee,
+                    block.header.timestamp,
+                    block.header.difficulty,
+                    block.header.gas_limit,
+                )
+            })
+            .ok_or(format_err!(
+                "[get_latest_block_backend] Latest block not found",
+            ))?;
 
         trace!(
             "[get_latest_block_backend] At block number : {:#x}, state_root : {:#x}",
             block_number,
-            state_root
+            state_root,
         );
+
+        let vicinity = Vicinity {
+            gas_price: base_fee,
+            beneficiary,
+            block_number,
+            timestamp: U256::from(timestamp),
+            total_gas_used: U256::zero(),
+            block_difficulty,
+            block_gas_limit,
+            block_base_fee_per_gas: base_fee,
+            block_randomness: None,
+            ..Vicinity::default()
+        };
 
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            Vicinity {
-                block_gas_limit: U256::from(
-                    self.storage.get_attributes_or_default()?.block_gas_limit,
-                ),
-                ..Vicinity::default()
-            },
+            vicinity,
         )
     }
 
