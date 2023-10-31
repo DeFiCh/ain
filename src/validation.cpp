@@ -3019,6 +3019,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             // Pre-warm validation cache
             evmTxMsgs.reserve(block.vtx.size());
 
+            auto isFirstTx = true;
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
                 if (tx.IsCoinBase()) {
@@ -3027,6 +3028,15 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 std::vector<unsigned char> metadata;
                 const auto txType = GuessCustomTxType(tx, metadata, true);
                 if (txType == CustomTxType::EvmTx) {
+                    if (isFirstTx) {
+                        // Minor optimization: We skip the first one, since in most scenarios
+                        // it will result in a single duplicated computation of the first cache
+                        // not being available since validation will hit the cache request before
+                        // the pool completes the ECC recovery of the first one. This duplicate
+                        // adds up during fresh sync.
+                        isFirstTx = false;
+                        continue;
+                    }
                     CCustomTxMessage txMessage{CEvmTxMessage{}};
                     const auto res =
                         CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
