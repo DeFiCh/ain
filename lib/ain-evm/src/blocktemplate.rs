@@ -142,6 +142,10 @@ impl BlockTemplate {
     pub fn get_block_number(&self) -> U256 {
         self.vicinity.block_number
     }
+
+    pub fn is_genesis_block(&self) -> bool {
+        self.get_block_number() == U256::zero()
+    }
 }
 
 #[derive(Debug)]

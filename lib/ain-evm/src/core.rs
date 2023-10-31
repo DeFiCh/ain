@@ -125,16 +125,14 @@ pub struct EVMCoreService {
     tx_validation_cache: TxValidationCache,
 }
 pub struct EthCallArgs<'a> {
-    pub caller: Option<H160>,
+    pub caller: H160,
     pub to: Option<H160>,
     pub value: U256,
     pub data: &'a [u8],
     pub gas_limit: u64,
-    pub gas_price: Option<U256>,
-    pub max_fee_per_gas: Option<U256>,
+    pub gas_price: U256,
     pub access_list: AccessList,
     pub block_number: U256,
-    pub transaction_type: Option<U256>,
 }
 
 #[derive(Clone, Debug)]
@@ -232,10 +230,8 @@ impl EVMCoreService {
             data,
             gas_limit,
             gas_price,
-            max_fee_per_gas,
             access_list,
             block_number,
-            transaction_type,
         } = arguments;
 
         let (
@@ -267,12 +263,8 @@ impl EVMCoreService {
         );
         debug!("[call] caller: {:?}", caller);
         let vicinity = Vicinity {
-            gas_price: if transaction_type == Some(U256::from(2)) {
-                max_fee_per_gas.unwrap_or_default()
-            } else {
-                gas_price.unwrap_or_default()
-            },
-            origin: caller.unwrap_or_default(),
+            gas_price,
+            origin: caller,
             beneficiary,
             block_number,
             timestamp: U256::from(timestamp),
@@ -293,7 +285,7 @@ impl EVMCoreService {
         .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
 
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller: caller.unwrap_or_default(),
+            caller,
             to,
             value,
             data,

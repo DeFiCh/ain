@@ -260,6 +260,8 @@ public:
 
     static Res GovVarValidateExcessAmount() { return Res::Err("Percentage exceeds 100%%"); }
 
+    static Res GovVarTokenAsString() { return Res::Err("Token should be defined as numeric ID"); }
+
     static Res GovVarValidateNegativeAmount() { return Res::Err("Amount must be a positive value"); }
 
     static Res GovVarValidateCurrencyPair() { return Res::Err("Fixed interval price currency pair must be set first"); }
