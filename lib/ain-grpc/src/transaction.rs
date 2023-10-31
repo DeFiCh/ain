@@ -1,4 +1,7 @@
-use ain_evm::transaction::{SignedTx, TransactionError};
+use ain_evm::{
+    core::ExecutionStep,
+    transaction::{SignedTx, TransactionError},
+};
 use ethereum::{AccessListItem, BlockAny, EnvelopedEncodable, TransactionV2};
 use ethereum_types::{H256, U256};
 
@@ -124,4 +127,37 @@ impl EthTransactionInfo {
             ..self
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceLogs {
+    pub pc: usize,
+    pub op: String,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<String>,
+    pub memory: String,
+}
+
+impl From<ExecutionStep> for TraceLogs {
+    fn from(step: ExecutionStep) -> Self {
+        TraceLogs {
+            pc: step.pc,
+            op: step.op,
+            gas: step.gas,
+            gas_cost: step.gas_cost,
+            stack: step.stack.iter().map(|&item| format_h256(item)).collect(),
+            memory: hex::encode(step.memory).to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceTransactionResult {
+    pub gas: U256,
+    pub failed: bool,
+    pub return_value: String,
+    pub struct_logs: Vec<TraceLogs>,
 }

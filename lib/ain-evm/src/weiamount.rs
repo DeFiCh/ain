@@ -5,10 +5,8 @@ use crate::{EVMError, Result};
 
 pub struct WeiAmount(pub U256);
 
-pub const WEI_TO_GWEI: U256 = U256([1_000_000_000, 0, 0, 0]);
-pub const WEI_TO_SATS: U256 = U256([10_000_000_000, 0, 0, 0]);
-pub const WEI_TO_SATS_DOUBLE: f64 = 10_000_000_000.0;
-pub const GWEI_TO_SATS: U256 = U256([10, 0, 0, 0]);
+const WEI_TO_GWEI: U256 = U256([1_000_000_000, 0, 0, 0]);
+const WEI_TO_SATS: U256 = U256([10_000_000_000, 0, 0, 0]);
 pub const MAX_MONEY_SATS: U256 = U256([120_000_000_000_000_000, 0, 0, 0]);
 
 impl WeiAmount {

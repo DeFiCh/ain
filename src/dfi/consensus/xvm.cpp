@@ -429,10 +429,6 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
         return Res::Err("Cannot create tx, EVM is not enabled");
     }
 
-    if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE)) {
-        return Res::Err("evm tx size too large");
-    }
-
     CrossBoundaryResult result;
     if (evmPreValidate) {
         evm_try_unsafe_validate_raw_tx_in_template(result, evmTemplate->GetTemplate(), HexStr(obj.evmTx));

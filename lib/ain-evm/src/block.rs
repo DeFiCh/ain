@@ -28,7 +28,7 @@ pub struct FeeHistoryData {
 }
 
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
-pub const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
+const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 
 impl BlockService {
     pub fn new(storage: Arc<Storage>) -> Result<Self> {

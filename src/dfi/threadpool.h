@@ -7,6 +7,7 @@
 #include <condition_variable>
 
 static const int DEFAULT_DFTX_WORKERS = 0;
+static const int DEFAULT_ECC_PRECACHE_WORKERS = -1;
 
 // Until C++20x concurrency impls make it into standard, std::future and std::async impls
 // doesn't have the primitives needed for working with many at the same time efficiently
@@ -36,14 +37,26 @@ public:
     void AddTask();
     void RemoveTask();
     void WaitForCompletion(bool checkForPrematureCompletion = true);
-    void MarkCancellation() { is_cancelled.store(true); }
+    void MarkCancelled() { is_cancelled.store(true); }
     bool IsCancelled() { return is_cancelled.load(); }
+    void EnsureCompletedOrCancelled(bool checkForPrematureCompletion = true);
+    void SetLeak(bool val = true) { is_leaked.store(val); }
+
+    TaskGroup() = default;
+    TaskGroup(const TaskGroup &) = delete;
+
+    ~TaskGroup() {
+        if (!is_leaked.load()) {
+            EnsureCompletedOrCancelled(true);
+        }
+    }
 
 private:
     std::atomic<uint64_t> tasks{0};
     std::mutex cv_m;
     std::condition_variable cv;
     std::atomic_bool is_cancelled{false};
+    std::atomic_bool is_leaked{false};
 };
 
 template <typename T>

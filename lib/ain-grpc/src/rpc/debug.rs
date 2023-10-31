@@ -1,10 +1,17 @@
-use std::{cmp, sync::Arc};
+use std::sync::Arc;
 
 use ain_evm::{
-    core::EthCallArgs, evm::EVMServices, executor::TxResponse, storage::block_store::DumpArg,
+    core::EthCallArgs,
+    evm::EVMServices,
+    executor::TxResponse,
+    storage::{
+        block_store::DumpArg,
+        traits::{ReceiptStorage, TransactionStorage},
+    },
+    transaction::SignedTx,
 };
 use ethereum::Account;
-use ethereum_types::U256;
+use ethereum_types::{H256, U256};
 use jsonrpsee::{
     core::{Error, RpcResult},
     proc_macros::rpc,
@@ -12,8 +19,11 @@ use jsonrpsee::{
 use log::debug;
 use rlp::{Decodable, Rlp};
 
-use super::to_jsonrpsee_custom_error;
-use crate::call_request::CallRequest;
+use crate::{
+    call_request::CallRequest,
+    errors::{to_custom_err, RPCError},
+    transaction::{TraceLogs, TraceTransactionResult},
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
@@ -26,7 +36,7 @@ pub struct FeeEstimate {
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self) -> RpcResult<()>;
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
 
     // Dump full db
     #[method(name = "dumpdb")]
@@ -47,7 +57,7 @@ pub trait MetachainDebugRPC {
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
-    fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate>;
+    fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate>;
 }
 
 pub struct MetachainDebugRPCModule {
@@ -59,12 +69,65 @@ impl MetachainDebugRPCModule {
     pub fn new(handler: Arc<EVMServices>) -> Self {
         Self { handler }
     }
+
+    fn is_enabled(&self) -> RpcResult<()> {
+        if !ain_cpp_imports::is_eth_debug_rpc_enabled() {
+            return Err(Error::Custom(
+                "debug_* RPCs have not been enabled".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn is_trace_enabled(&self) -> RpcResult<()> {
+        if !ain_cpp_imports::is_eth_debug_trace_rpc_enabled() {
+            return Err(Error::Custom(
+                "debug_trace* RPCs have not been enabled".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self) -> RpcResult<()> {
-        debug!(target: "rpc", "Tracing transaction");
-        Ok(())
+    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        debug!(target: "rpc", "Tracing transaction {tx_hash}");
+
+        let receipt = self
+            .handler
+            .storage
+            .get_receipt(&tx_hash)
+            .map_err(to_custom_err)?
+            .ok_or_else(|| {
+                Error::Custom(format!("Could not find receipt for transaction {tx_hash}"))
+            })?;
+
+        let tx = self
+            .handler
+            .storage
+            .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
+            .expect("Unable to find TX hash")
+            .ok_or_else(|| Error::Custom("Error".to_string()))?;
+
+        let signed_tx = SignedTx::try_from(tx).expect("Unable to construct signed TX");
+
+        let (logs, succeeded, return_data, gas_used) = self
+            .handler
+            .core
+            .trace_transaction(&signed_tx, receipt.block_number)
+            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
+        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
+
+        Ok(TraceTransactionResult {
+            gas: U256::from(gas_used),
+            failed: !succeeded,
+            return_value: hex::encode(return_data).to_string(),
+            struct_logs: trace_logs,
+        })
     }
 
     fn dump_db(
@@ -73,6 +136,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         start: Option<&str>,
         limit: Option<&str>,
     ) -> RpcResult<String> {
+        self.is_enabled()?;
+
         let default_limit = 100usize;
         let limit = limit
             .map_or(Ok(default_limit), |s| s.parse())
@@ -80,10 +145,12 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         self.handler
             .storage
             .dump_db(arg.unwrap_or(DumpArg::All), start, limit)
-            .map_err(to_jsonrpsee_custom_error)
+            .map_err(to_custom_err)
     }
 
     fn log_account_states(&self) -> RpcResult<()> {
+        self.is_enabled()?;
+
         let backend = self
             .handler
             .core
@@ -107,104 +174,65 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         Ok(())
     }
 
-    fn fee_estimate(&self, input: CallRequest) -> RpcResult<FeeEstimate> {
-        let CallRequest {
-            from,
-            to,
-            gas,
-            value,
-            data,
-            access_list,
-            transaction_type,
-            gas_price,
-            max_fee_per_gas,
-            max_priority_fee_per_gas,
-            ..
-        } = input;
+    fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
+        self.is_enabled()?;
 
+        debug!(target:"rpc",  "Fee estimate");
+        let caller = call.from.unwrap_or_default();
+        let byte_data = call.get_data()?;
+        let data = byte_data.0.as_slice();
+
+        // Get latest block information
         let (block_hash, block_number) = self
             .handler
             .block
             .get_latest_block_hash_and_number()
-            .map_err(to_jsonrpsee_custom_error)?
-            .ok_or(Error::Custom(
-                "Error fetching latest block hash and number".to_string(),
-            ))?;
-        let base_fee = self
+            .map_err(to_custom_err)?
+            .unwrap_or_default();
+
+        // Get gas
+        let block_gas_limit = self
+            .handler
+            .storage
+            .get_attributes_or_default()
+            .map_err(to_custom_err)?
+            .block_gas_limit;
+        let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
+            .map_err(to_custom_err)?;
+
+        // Get gas price
+        let block_base_fee = self
             .handler
             .block
             .calculate_base_fee(block_hash)
-            .map_err(to_jsonrpsee_custom_error)?;
-        let Ok(gas_limit) = u64::try_from(gas.ok_or(Error::Custom(
-            "Cannot get fee estimate without specifying gas limit".to_string(),
-        ))?) else {
-            return Err(Error::Custom(
-                "Cannot get fee estimate, gas value overflow".to_string(),
-            ));
-        };
+            .map_err(to_custom_err)?;
+        let gas_price = call.get_effective_gas_price(block_base_fee)?;
 
         let TxResponse { used_gas, .. } = self
             .handler
             .core
             .call(EthCallArgs {
-                caller: from,
-                to,
-                value: value.unwrap_or_default(),
-                data: &data.map(|d| d.0).unwrap_or_default(),
+                caller,
+                to: call.to,
+                value: call.value.unwrap_or_default(),
+                data,
                 gas_limit,
                 gas_price,
-                max_fee_per_gas,
-                access_list: access_list.unwrap_or_default(),
+                access_list: call.access_list.unwrap_or_default(),
                 block_number,
-                transaction_type,
             })
-            .map_err(|e| Error::Custom(format!("Error calling EVM : {e:?}")))?;
+            .map_err(RPCError::EvmError)?;
 
         let used_gas = U256::from(used_gas);
-        let gas_fee = match transaction_type {
-            // Legacy
-            None => {
-                let Some(gas_price) = gas_price else {
-                    return Err(Error::Custom(
-                        "Cannot get Legacy TX fee estimate without gas price".to_string()
-                    ));
-                };
-                used_gas.checked_mul(gas_price)
-            }
-            // EIP2930
-            Some(typ) if typ == U256::one() => {
-                let Some(gas_price) = gas_price else {
-                    return Err(Error::Custom(
-                        "Cannot get EIP2930 TX fee estimate without gas price".to_string()
-                    ));
-                };
-                used_gas.checked_mul(gas_price)
-            }
-            // EIP1559
-            Some(typ) if typ == U256::from(2) => {
-                let (Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) =
-                    (max_fee_per_gas, max_priority_fee_per_gas)
-                else {
-                    return Err(Error::Custom("Cannot get EIP1559 TX fee estimate without max_fee_per_gas and max_priority_fee_per_gas".to_string()));
-                };
-                let gas_fee = cmp::min(max_fee_per_gas, max_priority_fee_per_gas.checked_add(base_fee).ok_or_else(|| Error::Custom("max_priority_fee_per_gas overflow".to_string()))?);
-                used_gas.checked_mul(gas_fee)
-            }
-            _ => {
-                return Err(Error::Custom(
-                    "Wrong transaction type. Should be either None, 1 or 2".to_string()
-                ))
-            }
-        }.ok_or(Error::Custom(
-            "Cannot get fee estimate, fee value overflow".to_string()
-        ))?;
-
+        let gas_fee = used_gas
+            .checked_mul(gas_price)
+            .ok_or(RPCError::ValueOverflow)?;
         let burnt_fee = used_gas
-            .checked_mul(base_fee)
-            .ok_or_else(|| Error::Custom("burnt_fee overflow".to_string()))?;
+            .checked_mul(block_base_fee)
+            .ok_or(RPCError::ValueOverflow)?;
         let priority_fee = gas_fee
             .checked_sub(burnt_fee)
-            .ok_or_else(|| Error::Custom("priority_fee underflow".to_string()))?;
+            .ok_or(RPCError::ValueOverflow)?;
 
         Ok(FeeEstimate {
             used_gas,
@@ -215,6 +243,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     }
 
     fn log_block_templates(&self) -> RpcResult<()> {
+        self.is_enabled()?;
+
         // let templates = &self.handler.core.block_templates;
         // debug!("templates : {:#?}", templates);
         Ok(())
