@@ -12,7 +12,6 @@ use ain_evm::{
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
-
 use ethereum::{EnvelopedEncodable, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use evm::{Config, ExitError, ExitReason};
@@ -290,11 +289,8 @@ impl MetachainRPCModule {
             BlockNumber::Safe | BlockNumber::Finalized => {
                 self.handler.storage.get_latest_block().and_then(|block| {
                     block.map_or(Ok(None), |block| {
-                        let finality_count = self
-                            .handler
-                            .storage
-                            .get_attributes_or_default()?
-                            .finality_count;
+                        let finality_count =
+                            ain_cpp_imports::get_attribute_defaults(None).finality_count;
 
                         block
                             .header
@@ -323,12 +319,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let data = byte_data.0.as_slice();
 
         // Get gas
-        let block_gas_limit = self
-            .handler
-            .storage
-            .get_attributes_or_default()
-            .map_err(to_custom_err)?
-            .block_gas_limit;
+        let block_gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
         let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
@@ -775,12 +766,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 
-        let block_gas_limit = self
-            .handler
-            .storage
-            .get_attributes_or_default()
-            .map_err(to_custom_err)?
-            .block_gas_limit;
+        let block_gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
 
         let call_gas = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;

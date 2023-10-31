@@ -198,8 +198,8 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     Ok((current_block, highest_block))
 }
 
-pub fn get_attribute_defaults(mnview_ptr: usize) -> ffi::Attributes {
-    ffi::getAttributeDefaults(mnview_ptr)
+pub fn get_attribute_defaults(mnview_ptr: Option<usize>) -> ffi::Attributes {
+    ffi::getAttributeDefaults(mnview_ptr.unwrap_or_default())
 }
 
 pub fn log_print(message: &str) {

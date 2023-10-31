@@ -262,7 +262,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     if (isEvmEnabledForBlock) {
         blockCtx.SetEVMTemplate(CScopedTemplate::Create(
-            nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime));
+            nHeight, evmBeneficiary, pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus), blockTime, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!evmTemplate) {
             return Res::Err("Failed to create block template");
         }

@@ -66,7 +66,8 @@ public:
     static std::shared_ptr<CScopedTemplate> Create(const uint64_t dvmBlockNumber,
                                                    std::string minerAddress,
                                                    unsigned int difficulty,
-                                                   const uint64_t timestamp);
+                                                   const uint64_t timestamp,
+                                                   const std::size_t mnview_ptr);
     ~CScopedTemplate();
 
     BlockTemplateWrapper &GetTemplate() const;
