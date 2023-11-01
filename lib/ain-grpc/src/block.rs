@@ -36,9 +36,6 @@ pub struct RpcBlockHeader {
     pub timestamp: U256,
     pub total_difficulty: U256,
     pub transactions_root: H256,
-
-
-
 }
 
 impl From<Header> for RpcBlockHeader {
