@@ -50,6 +50,11 @@ jobs:
 
     - name: Build deps and configure
       run: ./make.sh build
+
+      # Temp. workaround: Clean up build artifacts to clear up disk space
+      # or the GH runners run out
+    - name: Cleanup build artifacts
+      run: find build ! -name 'defid' ! -name 'defi-cli' -delete || true
       
     - name: E2E tests
       run: ./make.sh test
