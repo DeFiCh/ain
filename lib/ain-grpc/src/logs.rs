@@ -26,7 +26,7 @@ impl From<LogIndex> for LogResult {
             block_number: log.block_number,
             data: Bytes::from(log.data),
             log_index: log.log_index,
-            removed: false,
+            removed: log.removed,
             topics: log.topics,
             transaction_hash: log.transaction_hash,
             transaction_index: log.transaction_index,
