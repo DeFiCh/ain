@@ -10,7 +10,7 @@ use bridge::ffi;
 #[allow(non_snake_case)]
 mod ffi {
     pub struct Attributes {
-        pub block_gas_target: u64,
+        pub block_gas_limit_multiplier: u64,
         pub block_gas_limit: u64,
         pub finality_count: u64,
         pub rbf_fee_increment: u64,
@@ -195,7 +195,7 @@ pub fn get_sync_status() -> Result<(i32, i32), Box<dyn Error>> {
     Ok((current_block as i32, highest_block as i32))
 }
 
-pub fn get_attribute_defaults(mnview_ptr: Option<usize>) -> ffi::Attributes {
+pub fn get_attribute_values(mnview_ptr: Option<usize>) -> ffi::Attributes {
     ffi::getAttributeValues(mnview_ptr.unwrap_or_default())
 }
 

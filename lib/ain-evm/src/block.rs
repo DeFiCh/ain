@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use ain_cpp_imports::get_attribute_defaults;
+use ain_cpp_imports::get_attribute_values;
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionAny};
 use ethereum_types::U256;
@@ -150,6 +150,7 @@ impl BlockService {
     pub fn calculate_base_fee(&self, parent_hash: H256, mnview_ptr: Option<usize>) -> Result<U256> {
         // constants
         let base_fee_max_change_denominator = U256::from(8);
+        let elasticity_multiplier = get_attribute_values(mnview_ptr).block_gas_limit_multiplier;
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {
@@ -164,7 +165,8 @@ impl BlockService {
             .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
         let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
-        let parent_gas_target = get_attribute_defaults(mnview_ptr).block_gas_target; // TODO: this is using the current target but it should be using the target from the previous block
+        let parent_gas_target =
+            u64::try_from(parent_block.header.gas_limit / elasticity_multiplier)?; // safe to use normal division since we know elasticity_multiplier is non-zero
         self.get_base_fee(
             parent_gas_used,
             parent_gas_target,

@@ -191,7 +191,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .unwrap_or_default();
 
         // Get gas
-        let block_gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
+        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
         let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 

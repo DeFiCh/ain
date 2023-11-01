@@ -487,7 +487,7 @@ impl EVMServices {
             .calculate_base_fee(parent_hash, Some(mnview_ptr))?;
 
         let block_gas_limit =
-            U256::from(ain_cpp_imports::get_attribute_defaults(Some(mnview_ptr)).block_gas_limit);
+            U256::from(ain_cpp_imports::get_attribute_values(Some(mnview_ptr)).block_gas_limit);
         let vicinity = Vicinity {
             beneficiary,
             block_number: target_block,

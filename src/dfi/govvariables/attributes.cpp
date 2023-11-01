@@ -22,7 +22,7 @@
 enum class EVMAttributesTypes : uint32_t {
     Finalized = 1,
     GasLimit = 2,
-    GasTarget = 3,
+    GasLimitMultipler = 3,
     RbfIncrementMinPct = 4,
 };
 
@@ -288,7 +288,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          {
              {"finality_count", EVMKeys::Finalized},
              {"gas_limit", EVMKeys::GasLimit},
-             {"gas_target", EVMKeys::GasTarget},
+             {"gas_limit_multiplier", EVMKeys::GasLimitMultipler},
              {"rbf_increment_fee_pct", EVMKeys::RbfIncrementMinPct},
          }},
         {AttributeTypes::Governance,
@@ -393,7 +393,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          {
              {EVMKeys::Finalized, "finality_count"},
              {EVMKeys::GasLimit, "gas_limit"},
-             {EVMKeys::GasTarget, "gas_target"},
+             {EVMKeys::GasLimitMultipler, "gas_limit_multiplier"},
              {EVMKeys::RbfIncrementMinPct, "rbf_increment_fee_pct"},
          }},
         {AttributeTypes::Live,
@@ -486,6 +486,18 @@ static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
         return DeFiErrors::GovVarVerifyInt();
     }
     return {x, Res::Ok()};
+}
+
+static ResVal<CAttributeValue> VerifyMoreThenZeroUInt64(const std::string &str) {
+    auto resVal = VerifyUInt64(str);
+    if (!resVal) {
+        return resVal;
+    }
+    const auto value = std::get<uint64_t>(*resVal.val);
+    if (value == 0) {
+        return DeFiErrors::GovVarVerifyMultiplier();
+    }
+    return resVal;
 }
 
 static ResVal<CAttributeValue> VerifyInt64(const std::string &str) {
@@ -830,7 +842,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              {
                  {EVMKeys::Finalized, VerifyUInt64},
                  {EVMKeys::GasLimit, VerifyUInt64},
-                 {EVMKeys::GasTarget, VerifyUInt64},
+                 {EVMKeys::GasLimitMultipler, VerifyMoreThenZeroUInt64},
                  {EVMKeys::RbfIncrementMinPct, VerifyPctInt64},
              }},
             {AttributeTypes::Governance,
@@ -994,8 +1006,8 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         }
     } else if (type == AttributeTypes::EVMType) {
         if (typeId == EVMIDs::Block) {
-            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTarget &&
-                typeKey != EVMKeys::RbfIncrementMinPct) {
+            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit &&
+                typeKey != EVMKeys::GasLimitMultipler && typeKey != EVMKeys::RbfIncrementMinPct) {
                 return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
             }
         } else {
