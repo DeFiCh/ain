@@ -6,7 +6,7 @@
 #include <httprpc.h>
 
 // Defaults for attributes relating to EVM functionality
-static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR = 15000000;
+static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR = 2;
 static constexpr uint64_t DEFAULT_EVM_BLOCK_GAS_LIMIT = 30000000;
 static constexpr uint64_t DEFAULT_EVM_FINALITY_COUNT = 100;
 static constexpr CAmount DEFAULT_EVM_RBF_FEE_INCREMENT = COIN / 10;
