@@ -283,13 +283,13 @@ Attributes getAttributeValues(std::size_t mnview_ptr) {
 
     const auto attributes = view->GetAttributes();
 
-    CDataStructureV0 blockGasLimitFactorKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimitFactor};
+    CDataStructureV0 blockGasTargetFactorKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTargetFactor};
     CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
     CDataStructureV0 finalityCountKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::Finalized};
     CDataStructureV0 rbfIncrementMinPctKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RbfIncrementMinPct};
 
-    if (attributes->CheckKey(blockGasLimitFactorKey)) {
-        val.blockGasLimitFactor = attributes->GetValue(blockGasLimitFactorKey, DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR);
+    if (attributes->CheckKey(blockGasTargetFactorKey)) {
+        val.blockGasTargetFactor = attributes->GetValue(blockGasTargetFactorKey, DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR);
     }
     if (attributes->CheckKey(blockGasLimitKey)) {
         val.blockGasLimit = attributes->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);

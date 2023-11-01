@@ -22,50 +22,28 @@ class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [
-            [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-dakotaheight=50",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-metachainheight=105",
-                "-subsidytest=1",
-                "-txindex=1",
-                "-ethdebug=1",
-            ],
-            [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-dakotaheight=50",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-metachainheight=105",
-                "-subsidytest=1",
-                "-txindex=1",
-                "-ethdebug=1",
-            ],
+        args = [
+            "-txordering=2",
+            "-dummypos=0",
+            "-txnotokens=0",
+            "-amkheight=50",
+            "-bayfrontheight=51",
+            "-dakotaheight=50",
+            "-eunosheight=80",
+            "-fortcanningheight=82",
+            "-fortcanninghillheight=84",
+            "-fortcanningroadheight=86",
+            "-fortcanningcrunchheight=88",
+            "-fortcanningspringheight=90",
+            "-fortcanninggreatworldheight=94",
+            "-fortcanningepilogueheight=96",
+            "-grandcentralheight=101",
+            "-metachainheight=105",
+            "-subsidytest=1",
+            "-txindex=1",
+            "-ethdebug=1",
         ]
+        self.extra_args = [args, args]
 
     def test_tx_without_chainid(self):
         node = self.nodes[0]
@@ -99,7 +77,8 @@ class EVMTest(DefiTestFramework):
             "gasPrice": node.w3.to_wei(10, "gwei"),
         }
 
-        signed_tx = node.w3.eth.account.sign_transaction(tx, evmkeypair.privkey)
+        signed_tx = node.w3.eth.account.sign_transaction(
+            tx, evmkeypair.privkey)
         node.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
         node.generate(1)
 
@@ -283,7 +262,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot be set before Metachain",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/evm/block/gas_limit_factor": "100"}},
+            {"ATTRIBUTES": {"v0/evm/block/gas_target_factor": "100"}},
         )
         assert_raises_rpc_error(
             -32600,
@@ -311,11 +290,14 @@ class EVMTest(DefiTestFramework):
         assert_equal(
             result["v0/transferdomain/dvm-evm/src-formats"], ["bech32", "p2pkh"]
         )
-        assert_equal(result["v0/transferdomain/dvm-evm/dest-formats"], ["erc55"])
-        assert_equal(result["v0/transferdomain/dvm-evm/native-enabled"], "true")
+        assert_equal(
+            result["v0/transferdomain/dvm-evm/dest-formats"], ["erc55"])
+        assert_equal(
+            result["v0/transferdomain/dvm-evm/native-enabled"], "true")
         assert_equal(result["v0/transferdomain/dvm-evm/dat-enabled"], "false")
         assert_equal(result["v0/transferdomain/evm-dvm/enabled"], "true")
-        assert_equal(result["v0/transferdomain/evm-dvm/src-formats"], ["erc55"])
+        assert_equal(
+            result["v0/transferdomain/evm-dvm/src-formats"], ["erc55"])
         assert_equal(
             result["v0/transferdomain/evm-dvm/dest-formats"], ["bech32", "p2pkh"]
         )
@@ -323,11 +305,15 @@ class EVMTest(DefiTestFramework):
             result["v0/transferdomain/evm-dvm/auth-formats"],
             ["bech32-erc55", "p2pkh-erc55"],
         )
-        assert_equal(result["v0/transferdomain/evm-dvm/native-enabled"], "true")
+        assert_equal(
+            result["v0/transferdomain/evm-dvm/native-enabled"], "true")
         assert_equal(result["v0/transferdomain/evm-dvm/dat-enabled"], "false")
-        assert_equal(result["v0/rules/tx/core_op_return_max_size_bytes"], "1024")
-        assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "65536")
-        assert_equal(result["v0/rules/tx/dvm_op_return_max_size_bytes"], "4096")
+        assert_equal(
+            result["v0/rules/tx/core_op_return_max_size_bytes"], "1024")
+        assert_equal(
+            result["v0/rules/tx/evm_op_return_max_size_bytes"], "65536")
+        assert_equal(
+            result["v0/rules/tx/dvm_op_return_max_size_bytes"], "4096")
 
         # Set OP_RETURN
         self.nodes[0].setgov(
@@ -335,7 +321,7 @@ class EVMTest(DefiTestFramework):
                 "ATTRIBUTES": {
                     "v0/evm/block/finality_count": "100",
                     "v0/evm/block/gas_limit": "30000000",
-                    "v0/evm/block/gas_limit_factor": "2",
+                    "v0/evm/block/gas_target_factor": "2",
                     "v0/evm/block/rbf_increment_fee_pct": "0.1",
                     "v0/rules/tx/core_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
@@ -349,11 +335,14 @@ class EVMTest(DefiTestFramework):
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(result["v0/evm/block/finality_count"], "100")
         assert_equal(result["v0/evm/block/gas_limit"], "30000000")
-        assert_equal(result["v0/evm/block/gas_limit_factor"], "2")
+        assert_equal(result["v0/evm/block/gas_target_factor"], "2")
         assert_equal(result["v0/evm/block/rbf_increment_fee_pct"], "0.1")
-        assert_equal(result["v0/rules/tx/core_op_return_max_size_bytes"], "20000")
-        assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
-        assert_equal(result["v0/rules/tx/dvm_op_return_max_size_bytes"], "20000")
+        assert_equal(
+            result["v0/rules/tx/core_op_return_max_size_bytes"], "20000")
+        assert_equal(
+            result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
+        assert_equal(
+            result["v0/rules/tx/dvm_op_return_max_size_bytes"], "20000")
 
         def verify_evm_not_enabled():
             # Check error before EVM enabled
@@ -453,7 +442,8 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain PKHash address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/dvm-evm/src-formats": ["bech32"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/dvm-evm/src-formats": ["bech32"]}}
         )
         self.nodes[0].generate(1)
 
@@ -476,7 +466,8 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain PKHash address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/dvm-evm/src-formats": ["p2pkh"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/dvm-evm/src-formats": ["p2pkh"]}}
         )
         self.nodes[0].generate(1)
 
@@ -512,7 +503,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/dvm-evm/dest-formats": ["bech32"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/dvm-evm/dest-formats": ["bech32"]}}
         )
         self.nodes[0].generate(1)
 
@@ -539,7 +531,8 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/dvm-evm/dest-formats": ["erc55"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/dvm-evm/dest-formats": ["erc55"]}}
         )
         self.nodes[0].generate(1)
 
@@ -616,7 +609,8 @@ class EVMTest(DefiTestFramework):
 
         # Deactivate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/evm-dvm/src-formats": ["bech32"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/evm-dvm/src-formats": ["bech32"]}}
         )
         self.nodes[0].generate(1)
 
@@ -639,13 +633,15 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/evm-dvm/src-formats": ["erc55"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/evm-dvm/src-formats": ["erc55"]}}
         )
         self.nodes[0].generate(1)
 
         # Dectivate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/evm-dvm/dest-formats": ["bech32"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/evm-dvm/dest-formats": ["bech32"]}}
         )
         self.nodes[0].generate(1)
 
@@ -668,7 +664,8 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/evm-dvm/dest-formats": ["p2pkh"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/evm-dvm/dest-formats": ["p2pkh"]}}
         )
         self.nodes[0].generate(1)
 
@@ -705,7 +702,8 @@ class EVMTest(DefiTestFramework):
 
         # Dectivate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/evm-dvm/auth-formats": ["p2pkh-erc55"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/evm-dvm/auth-formats": ["p2pkh-erc55"]}}
         )
         self.nodes[0].generate(1)
 
@@ -732,12 +730,14 @@ class EVMTest(DefiTestFramework):
 
         # Activate transferdomain ERC55 address
         self.nodes[0].setgov(
-            {"ATTRIBUTES": {"v0/transferdomain/evm-dvm/auth-formats": ["bech32-erc55"]}}
+            {"ATTRIBUTES": {
+                "v0/transferdomain/evm-dvm/auth-formats": ["bech32-erc55"]}}
         )
         self.nodes[0].generate(1)
 
         # Test setting of finalized block
-        self.nodes[0].setgov({"ATTRIBUTES": {"v0/evm/block/finality_count": "100"}})
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {"v0/evm/block/finality_count": "100"}})
         self.nodes[0].generate(1)
 
         # Check Gov var is present
@@ -772,14 +772,16 @@ class EVMTest(DefiTestFramework):
         eth_balance = self.nodes[0].eth_getBalance(self.eth_address)
         assert_equal(dfi_balance, Decimal("100"))
         assert_equal(eth_balance, int_to_eth_u256(200))
-        assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 1)
+        assert_equal(len(self.nodes[0].getaccount(
+            self.eth_address, {}, True)), 1)
 
         # Check Eth balances before transfer
         assert_equal(
             int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
             200000000000000000000,
         )
-        assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
+        assert_equal(
+            int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
 
         # Send tokens to burn address
         self.burn_address = "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"
@@ -788,7 +790,8 @@ class EVMTest(DefiTestFramework):
         )
         result = self.nodes[0].getburninfo()
         assert_equal(result["address"], self.burn_address)
-        self.nodes[0].accounttoaccount(self.address, {self.burn_address: "1@DFI"})
+        self.nodes[0].accounttoaccount(
+            self.address, {self.burn_address: "1@DFI"})
         self.nodes[0].generate(1)
 
     def nonce_order_and_rbf(self):
@@ -803,9 +806,11 @@ class EVMTest(DefiTestFramework):
 
         # Check accounting of EVM fees
         attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(attributes["v0/live/economy/evm/block/fee_burnt"], Decimal("0E-8"))
         assert_equal(
-            attributes["v0/live/economy/evm/block/fee_priority"], Decimal("0E-8")
+            attributes["v0/live/economy/evm/block/fee_burnt"], Decimal("0E-8"))
+        assert_equal(
+            attributes["v0/live/economy/evm/block/fee_priority"], Decimal(
+                "0E-8")
         )
 
         # Test EVM Tx added first in time ordering
@@ -813,11 +818,16 @@ class EVMTest(DefiTestFramework):
         self.sync_mempools()
 
         # Add more EVM Txs to test block ordering
-        tx5 = self.nodes[0].evmtx(self.eth_address, 5, 21, 21001, self.to_address, 1)
-        tx4 = self.nodes[0].evmtx(self.eth_address, 4, 21, 21001, self.to_address, 1)
-        tx2 = self.nodes[0].evmtx(self.eth_address, 2, 21, 21001, self.to_address, 1)
-        tx1 = self.nodes[0].evmtx(self.eth_address, 1, 21, 21001, self.to_address, 1)
-        tx3 = self.nodes[0].evmtx(self.eth_address, 3, 21, 21001, self.to_address, 1)
+        tx5 = self.nodes[0].evmtx(
+            self.eth_address, 5, 21, 21001, self.to_address, 1)
+        tx4 = self.nodes[0].evmtx(
+            self.eth_address, 4, 21, 21001, self.to_address, 1)
+        tx2 = self.nodes[0].evmtx(
+            self.eth_address, 2, 21, 21001, self.to_address, 1)
+        tx1 = self.nodes[0].evmtx(
+            self.eth_address, 1, 21, 21001, self.to_address, 1)
+        tx3 = self.nodes[0].evmtx(
+            self.eth_address, 3, 21, 21001, self.to_address, 1)
         raw_tx = self.nodes[0].getrawtransaction(tx5)
         self.sync_mempools()
 
@@ -864,7 +874,8 @@ class EVMTest(DefiTestFramework):
         )
 
         # Create replacement for nonce 0 TX with higher fee
-        tx0 = self.nodes[0].evmtx(self.eth_address, 0, 24, 21001, self.to_address, 1)
+        tx0 = self.nodes[0].evmtx(
+            self.eth_address, 0, 24, 21001, self.to_address, 1)
         assert_equal(len(self.nodes[0].getrawmempool()), 6)
 
         self.sync_mempools()
@@ -961,7 +972,8 @@ class EVMTest(DefiTestFramework):
         )
 
         # Get miner account balance after transfer
-        miner_after = Decimal(self.nodes[0].w3.eth.get_balance(self.miner_eth_address))
+        miner_after = Decimal(
+            self.nodes[0].w3.eth.get_balance(self.miner_eth_address))
         self.miner_fee = miner_after - self.miner_before
 
         # Check EVM Tx shows in block on EVM side
@@ -1001,9 +1013,11 @@ class EVMTest(DefiTestFramework):
 
         # Check EVM miner fee
         opreturn_priority_fee_sats = coinbase_xvm["msg"]["evm"]["priorityFee"]
-        opreturn_priority_fee_amount = Decimal(opreturn_priority_fee_sats) / 100000000
+        opreturn_priority_fee_amount = Decimal(
+            opreturn_priority_fee_sats) / 100000000
         assert_equal(
-            opreturn_priority_fee_amount, self.miner_fee / int(math.pow(10, 18))
+            opreturn_priority_fee_amount, self.miner_fee /
+            int(math.pow(10, 18))
         )
 
         # Check EVM beneficiary address
@@ -1030,19 +1044,22 @@ class EVMTest(DefiTestFramework):
             int(self.nodes[0].eth_getBalance(self.eth_address)[2:], 16),
             200000000000000000000,
         )
-        assert_equal(int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
+        assert_equal(
+            int(self.nodes[0].eth_getBalance(self.to_address)[2:], 16), 0)
 
     def multiple_eth_rbf(self):
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
 
         # Transfer some balance to to_address
-        self.nodes[0].evmtx(self.eth_address, nonce, 11, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 11,
+                            21001, self.to_address, 1)
         self.nodes[0].generate(1)
         blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
         # Test multiple replacement TXs with differing fees
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
-        self.nodes[0].evmtx(self.eth_address, nonce, 21, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 21,
+                            21001, self.to_address, 1)
 
         # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
@@ -1058,7 +1075,8 @@ class EVMTest(DefiTestFramework):
         )
 
         # Valid RBF
-        self.nodes[0].evmtx(self.eth_address, nonce, 23, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 23,
+                            21001, self.to_address, 1)
 
         # Valid RBF
         tx0 = self.nodes[0].evmtx(
@@ -1105,7 +1123,8 @@ class EVMTest(DefiTestFramework):
         )
 
         to_nonce = self.nodes[0].w3.eth.get_transaction_count(self.to_address)
-        self.nodes[0].evmtx(self.to_address, to_nonce, 30, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 30,
+                            21001, self.eth_address, 1)
 
         # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
@@ -1121,7 +1140,8 @@ class EVMTest(DefiTestFramework):
         )
 
         # Send tx with exactly 10% in increase fees, RBF should happen
-        self.nodes[0].evmtx(self.to_address, to_nonce, 32, 21001, self.eth_address, 1)
+        self.nodes[0].evmtx(self.to_address, to_nonce, 32,
+                            21001, self.eth_address, 1)
 
         # Send tx with less than 10% in increase fees
         assert_raises_rpc_error(
@@ -1327,7 +1347,8 @@ class EVMTest(DefiTestFramework):
 
     def toggle_evm_enablement(self):
         # Deactivate EVM
-        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/feature/evm": "false"}})
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {"v0/params/feature/evm": "false"}})
         self.nodes[0].generate(1)
         evm_disabling_block = self.nodes[0].eth_getBlockByNumber("latest")
 
@@ -1479,7 +1500,8 @@ class EVMTest(DefiTestFramework):
             codeBefore[2:],
             deployedBytecode,
         )
-        storageBefore = self.nodes[0].eth_getStorageAt(self.contract_address, "0x0")
+        storageBefore = self.nodes[0].eth_getStorageAt(
+            self.contract_address, "0x0")
         assert_equal(
             Web3.to_checksum_address(storageBefore[26:]),
             self.evm_key_pair.address,
@@ -1501,7 +1523,8 @@ class EVMTest(DefiTestFramework):
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
-        codeAfterSelfDestruct = self.nodes[0].eth_getCode(self.contract_address)
+        codeAfterSelfDestruct = self.nodes[0].eth_getCode(
+            self.contract_address)
         assert_equal(
             codeAfterSelfDestruct,
             "0x",
@@ -1532,29 +1555,50 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(block["gasLimit"], hex(60000000))
 
-    def test_gas_limit_factor_update(self):
+    def test_gas_target_factor_update(self):
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    "v0/evm/block/gas_limit_factor": "1500",
+                    "v0/evm/block/gas_target_factor": "1500",
+                    "v0/evm/block/gas_limit": "50000",
                 }
             }
         )
         self.nodes[0].generate(1)
 
+        def print_base_fee():
+            base_fee_per_gas = self.nodes[0].w3.eth.get_block(
+                "latest")["baseFeePerGas"]
+            print("base_fee_per_gas: {}", base_fee_per_gas)
+
+        print_base_fee()
+        
         base_fee = self.nodes[0].w3.eth.get_block("latest")["baseFeePerGas"]
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
-        for _ in range(10):
+
+        for _ in range(20):
             self.nodes[0].evmtx(
                 self.eth_address, nonce, 10, 21001, self.to_address, 0.01
             )
             nonce += 1
-        self.nodes[0].generate(
-            2
-        )  # base fee increases one block after block with above TX
+            # base fee increases one block after block with above TX
+            self.nodes[0].generate(1)
+            print_base_fee()
 
+        for _ in range(20):
+            for _ in range(2):
+                self.nodes[0].evmtx(
+                    self.eth_address, nonce, 10, 21001, self.to_address, 0.01
+                )
+                nonce += 1
+            # base fee increases one block after block with above TX
+            self.nodes[0].generate(1)
+            print_base_fee()
+
+        base_fee_per_gas = self.nodes[0].w3.eth.get_block(
+                "latest")["baseFeePerGas"]
         assert (
-            self.nodes[0].w3.eth.get_block("latest")["baseFeePerGas"] > base_fee
+             base_fee_per_gas > base_fee
         )  # if base fee increases, it means the gas target was applied successfully
 
     def run_test(self):
@@ -1597,7 +1641,7 @@ class EVMTest(DefiTestFramework):
         # Check attributes values update
         self.test_attributes_update()
 
-        self.test_gas_limit_factor_update()
+        self.test_gas_target_factor_update()
 
 
 if __name__ == "__main__":

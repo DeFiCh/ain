@@ -150,7 +150,7 @@ impl BlockService {
     pub fn calculate_base_fee(&self, parent_hash: H256, mnview_ptr: Option<usize>) -> Result<U256> {
         // constants
         let base_fee_max_change_denominator = U256::from(8);
-        let elasticity_multiplier = get_attribute_values(mnview_ptr).block_gas_limit_factor;
+        let elasticity_multiplier = get_attribute_values(mnview_ptr).block_gas_target_factor;
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {

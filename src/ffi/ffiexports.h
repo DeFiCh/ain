@@ -19,7 +19,7 @@ static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 
 struct Attributes {
-    uint64_t blockGasLimitFactor;
+    uint64_t blockGasTargetFactor;
     uint64_t blockGasLimit;
     uint64_t finalityCount;
     uint64_t rbfIncrementMinPct;

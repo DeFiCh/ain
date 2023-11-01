@@ -22,7 +22,7 @@
 enum class EVMAttributesTypes : uint32_t {
     Finalized = 1,
     GasLimit = 2,
-    GasLimitFactor = 3,
+    GasTargetFactor = 3,
     RbfIncrementMinPct = 4,
 };
 
@@ -288,7 +288,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          {
              {"finality_count", EVMKeys::Finalized},
              {"gas_limit", EVMKeys::GasLimit},
-             {"gas_limit_factor", EVMKeys::GasLimitFactor},
+             {"gas_target_factor", EVMKeys::GasTargetFactor},
              {"rbf_increment_fee_pct", EVMKeys::RbfIncrementMinPct},
          }},
         {AttributeTypes::Governance,
@@ -393,7 +393,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          {
              {EVMKeys::Finalized, "finality_count"},
              {EVMKeys::GasLimit, "gas_limit"},
-             {EVMKeys::GasLimitFactor, "gas_limit_factor"},
+             {EVMKeys::GasTargetFactor, "gas_target_factor"},
              {EVMKeys::RbfIncrementMinPct, "rbf_increment_fee_pct"},
          }},
         {AttributeTypes::Live,
@@ -842,7 +842,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              {
                  {EVMKeys::Finalized, VerifyUInt64},
                  {EVMKeys::GasLimit, VerifyUInt64},
-                 {EVMKeys::GasLimitFactor, VerifyMoreThenZeroUInt64},
+                 {EVMKeys::GasTargetFactor, VerifyMoreThenZeroUInt64},
                  {EVMKeys::RbfIncrementMinPct, VerifyPctInt64},
              }},
             {AttributeTypes::Governance,
@@ -1006,7 +1006,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         }
     } else if (type == AttributeTypes::EVMType) {
         if (typeId == EVMIDs::Block) {
-            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasLimitFactor &&
+            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTargetFactor &&
                 typeKey != EVMKeys::RbfIncrementMinPct) {
                 return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
             }
