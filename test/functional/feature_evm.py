@@ -1545,7 +1545,7 @@ class EVMTest(DefiTestFramework):
         base_fee = self.nodes[0].w3.eth.get_block("latest")["baseFeePerGas"]
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
         self.nodes[0].evmtx(self.eth_address, nonce, 10, 21001, self.to_address, 1)
-        self.nodes[0].generate(2)  # tx takes two blocks to get into block
+        self.nodes[0].generate(2)  # base fee increases one block after block with above TX
 
         assert (
             self.nodes[0].w3.eth.get_block("latest")["baseFeePerGas"] > base_fee
