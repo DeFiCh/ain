@@ -18,6 +18,8 @@ env:
 
 jobs:
   build:
+    env:
+      CARGO_INCREMENTAL: 0
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     steps:

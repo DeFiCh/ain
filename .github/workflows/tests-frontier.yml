@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   build:
+    env:
+      CARGO_INCREMENTAL: 0
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
