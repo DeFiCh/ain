@@ -447,7 +447,7 @@ class EVMTest(DefiTestFramework):
             {
                 "to": "0x0000000000000000000000000000000000000000",
                 "from": self.evm_key_pair.address,
-                "data": "0x" + "f" * (32000 * 5),
+                "data": "0x" + "ff" * 64000,
                 "value": self.node.w3.to_hex(self.node.w3.to_wei("1", "ether")),
                 "gas": 10_000_000,
             },
