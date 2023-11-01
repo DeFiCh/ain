@@ -7,29 +7,29 @@ use crate::block::BlockNumber;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LogResult {
+    pub address: H160,
     pub block_hash: H256,
     pub block_number: U256,
+    pub data: Bytes,
     pub log_index: U256,
     pub removed: bool,
+    pub topics: Vec<H256>,
     pub transaction_hash: H256,
     pub transaction_index: U256,
-    pub address: H160,
-    pub data: Bytes,
-    pub topics: Vec<H256>,
 }
 
 impl From<LogIndex> for LogResult {
     fn from(log: LogIndex) -> Self {
         Self {
+            address: log.address,
             block_hash: log.block_hash,
             block_number: log.block_number,
+            data: Bytes::from(log.data),
             log_index: log.log_index,
-            removed: log.removed,
+            removed: false,
+            topics: log.topics,
             transaction_hash: log.transaction_hash,
             transaction_index: log.transaction_index,
-            address: log.address,
-            data: Bytes::from(log.data),
-            topics: log.topics,
         }
     }
 }
