@@ -283,7 +283,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot be set before Metachain",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/evm/block/gas_limit_multiplier": "100"}},
+            {"ATTRIBUTES": {"v0/evm/block/gas_limit_factor": "100"}},
         )
         assert_raises_rpc_error(
             -32600,
@@ -335,7 +335,7 @@ class EVMTest(DefiTestFramework):
                 "ATTRIBUTES": {
                     "v0/evm/block/finality_count": "100",
                     "v0/evm/block/gas_limit": "30000000",
-                    "v0/evm/block/gas_limit_multiplier": "2",
+                    "v0/evm/block/gas_limit_factor": "2",
                     "v0/evm/block/rbf_increment_fee_pct": "0.1",
                     "v0/rules/tx/core_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
@@ -349,7 +349,7 @@ class EVMTest(DefiTestFramework):
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(result["v0/evm/block/finality_count"], "100")
         assert_equal(result["v0/evm/block/gas_limit"], "30000000")
-        assert_equal(result["v0/evm/block/gas_limit_multiplier"], "2")
+        assert_equal(result["v0/evm/block/gas_limit_factor"], "2")
         assert_equal(result["v0/evm/block/rbf_increment_fee_pct"], "0.1")
         assert_equal(result["v0/rules/tx/core_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
@@ -1532,11 +1532,11 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(block["gasLimit"], hex(60000000))
 
-    def test_gas_limit_multiplier_update(self):
+    def test_gas_limit_factor_update(self):
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    "v0/evm/block/gas_limit_multiplier": "1500",
+                    "v0/evm/block/gas_limit_factor": "1500",
                 }
             }
         )
@@ -1597,7 +1597,7 @@ class EVMTest(DefiTestFramework):
         # Check attributes values update
         self.test_attributes_update()
 
-        self.test_gas_limit_multiplier_update()
+        self.test_gas_limit_factor_update()
 
 
 if __name__ == "__main__":
