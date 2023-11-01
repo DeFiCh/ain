@@ -323,8 +323,6 @@ class EVMTest(DefiTestFramework):
 
     # EIP 3860, contract initcode is limited up till 49152 bytes
     # This test takes in a contract with init code of 243542 bytes
-    # However, because the current implementation of DMC limits the size of EVM transaction to 32768 bytes
-    # the error returned is evm tx size too large
     def fail_deploy_contract_extremely_large_init_code(self):
         self.rollback_to(self.start_height)
         compiled_contract, _ = self.generate_contract(
@@ -339,7 +337,7 @@ class EVMTest(DefiTestFramework):
                 ),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
-                "gas": 1_000_000,
+                "gas": 5_000_000,
             }
         )
         # to check the init code is larger than 49152
@@ -350,7 +348,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_web3_error(
             -32001,
-            "Test EvmTx execution failed:\nevm tx size too large",
+            "reason: tx-size",
             self.node.w3.eth.send_raw_transaction,
             signed.rawTransaction,
         )
