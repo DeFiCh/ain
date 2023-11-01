@@ -6,9 +6,12 @@
 """Test EVM behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal, assert_raises_rpc_error
+from test_framework.util import (
+    assert_equal,
+    assert_raises_rpc_error,
+    assert_raises_web3_error,
+)
 from test_framework.evm_contract import EVMContract
-from test_framework.evm_key_pair import EvmKeyPair
 
 
 class EVMGasTest(DefiTestFramework):
@@ -43,11 +46,12 @@ class EVMGasTest(DefiTestFramework):
         self.ethPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
         )
-        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.nodes[0].importprivkey(self.ethPrivKey)  # ethAddress
-        self.nodes[0].importprivkey(
+        self.toPrivKey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
-        )  # toAddress
+        )
+        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
+        self.nodes[0].importprivkey(self.ethPrivKey)
+        self.nodes[0].importprivkey(self.toPrivKey)
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -84,21 +88,6 @@ class EVMGasTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(2)
-
-        self.nodes[0] = self.nodes[0]
-        self.evm_key_pair = EvmKeyPair.from_node(self.nodes[0])
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "50@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.evm_key_pair.address,
-                        "amount": "50@DFI",
-                        "domain": 3,
-                    },
-                }
-            ]
-        )
         self.nodes[0].transferdomain(
             [
                 {
@@ -114,57 +103,120 @@ class EVMGasTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
 
-    def execute_transfer_tx_with_estimate_gas(self):
-        self.rollback_to(self.start_height)
-        correct_gas_used = "0x5208"
-
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        tx_without_gas_specified = {
-            "nonce": hex(nonce),
+        # Eth call for balance transfer with gas specified
+        self.valid_balance_transfer_tx_with_gas = {
             "from": self.ethAddress,
             "to": self.toAddress,
             "value": "0xDE0B6B3A7640000",  # 1 DFI
-            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+            "gas": "0x7a120",
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
 
-        # Send tx without gas specified
-        hash = self.nodes[0].eth_sendTransaction(tx_without_gas_specified)
-        self.nodes[0].generate(1)
-
-        # Verify tx is successful
-        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(receipt["status"], "0x1")
-        assert_equal(receipt["gasUsed"], correct_gas_used)
-
-        # Get gas estimate
-        estimate_gas = self.nodes[0].eth_estimateGas(tx_without_gas_specified)
-        assert_equal(estimate_gas, correct_gas_used)  # 21000
-
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        tx_with_exact_gas_specified = {
-            "nonce": hex(nonce),
+        # Eth call for balance transfer with exact gas specified
+        self.valid_balance_transfer_tx_with_exact_gas = {
             "from": self.ethAddress,
             "to": self.toAddress,
             "value": "0xDE0B6B3A7640000",  # 1 DFI
-            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-            "gas": correct_gas_used,
+            "gas": "0x5208",
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
 
-        # Send tx with exact gas specified
-        hash = self.nodes[0].eth_sendTransaction(tx_with_exact_gas_specified)
-        self.nodes[0].generate(1)
+        # Valid eth call for balance transfer without gas specified
+        self.valid_balance_transfer_tx_without_gas = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+        }
 
-        # Verify tx is successful
-        receipt = self.nodes[0].eth_getTransactionReceipt(hash)
-        assert_equal(receipt["status"], "0x1")
-        assert_equal(receipt["gasUsed"], correct_gas_used)
+        # Invalid eth call for balance transfer with both gasPrice and maxFeePerGas specified
+        self.invalid_balance_transfer_tx_specified_gas_1 = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+            "maxFeePerGas": "0x37E11D600",  # 15_000_000_000
+        }
 
-    def execute_loop_contract_call_tx_with_estimate_gas(self):
+        # Invalid eth call for balance transfer with both gasPrice and priorityFeePerGas specified
+        self.invalid_balance_transfer_tx_specified_gas_2 = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+            "maxPriorityFeePerGas": "0x37E11D600",  # 15_000_000_000
+        }
+
+        # Invalid eth call for balance transfer with both data and input fields specified
+        self.invalid_balance_transfer_tx_specified_data_and_input = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+            "data": "0xffffffffffffffff",
+            "input": "0xffffffffffffffff",
+        }
+
+        # Invalid eth call from insufficient balance for balance transfer
+        self.invalid_balance_transfer_tx_insufficient_funds = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0x152D02C7E14AF6800000",  # 100_000 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+        }
+
+    def test_estimate_gas_balance_transfer(self):
         self.rollback_to(self.start_height)
-        num_loops = 10_000
-        correct_gas_used = 1_761_626
 
-        # Deploy loop contract
+        # Test valid estimateGas call for transfer tx with gas specified
+        gas = self.nodes[0].eth_estimateGas(self.valid_balance_transfer_tx_with_gas)
+        assert_equal(gas, "0x5208")
+
+        # Test valid estimateGas call for transfer tx with exact gas specified
+        gas = self.nodes[0].eth_estimateGas(
+            self.valid_balance_transfer_tx_with_exact_gas
+        )
+        assert_equal(gas, "0x5208")
+
+        # Test valid estimateGas call for transfer tx without gas specified
+        gas = self.nodes[0].eth_estimateGas(self.valid_balance_transfer_tx_without_gas)
+        assert_equal(gas, "0x5208")
+
+        # Test invalid estimateGas call, both gasPrice and maxFeePerGas specified
+        assert_raises_rpc_error(
+            -32001,
+            "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
+            self.nodes[0].eth_estimateGas,
+            self.invalid_balance_transfer_tx_specified_gas_1,
+        )
+
+        # Test invalid estimateGas call, both gasPrice and maxPriorityFeePerGas specified
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
+            self.nodes[0].eth_estimateGas,
+            self.invalid_balance_transfer_tx_specified_gas_2,
+        )
+
+        # Test invalid estimateGas call, both data and input field specified
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: data and input fields are mutually exclusive",
+            self.nodes[0].eth_estimateGas,
+            self.invalid_balance_transfer_tx_specified_data_and_input,
+        )
+
+        # Test invalid estimateGas call, insufficient funds
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: insufficient funds for transfer",
+            self.nodes[0].eth_estimateGas,
+            self.invalid_balance_transfer_tx_insufficient_funds,
+        )
+
+    def test_estimate_gas_contract(self):
+        self.rollback_to(self.start_height)
+
         abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
@@ -176,184 +228,142 @@ class EVMGasTest(DefiTestFramework):
                 "gas": 1_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-
-        # Verify contract deployment is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        test_estimate_gas_contract = self.nodes[0].w3.eth.contract(
+        contract = self.nodes[0].w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
+        # Test valid contract function eth call with varying gas used
+        hashes = []
+        gas_estimates = []
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        loops = [2572, 2899, 3523, 5311, 5824, 7979, 8186, 10000]
 
-        tx_without_gas_specified = {
-            "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
-            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-        }
+        for i, num in enumerate(loops):
+            gas = contract.functions.loop(num).estimate_gas()
+            gas_estimates.append(gas)
 
-        # Send contract call tx without gas specified
-        loop_without_gas_specified_tx = test_estimate_gas_contract.functions.loop(
-            num_loops
-        ).build_transaction(tx_without_gas_specified)
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            loop_without_gas_specified_tx, self.ethPrivKey
-        )
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            # Do actual contract function call without specifying gas
+            tx = contract.functions.loop(num).build_transaction(
+                {
+                    "chainId": self.nodes[0].w3.eth.chain_id,
+                    "nonce": start_nonce + i,
+                    "gasPrice": 25_000_000_000,
+                }
+            )
+            signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            hashes.append(hash)
         self.nodes[0].generate(1)
 
-        # Verify tx is successful
-        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        assert_equal(receipt["status"], 1)
-        assert_equal(receipt["gasUsed"], correct_gas_used)
+        block_info = self.nodes[0].getblock(self.nodes[0].getbestblockhash(), 4)
+        assert_equal(len(block_info["tx"]) - 1, len(loops))
 
-        tx_with_exact_gas_specified = {
-            "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
-            "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-            "gas": correct_gas_used,
-        }
+        # Verify gas estimation with tx receipts
+        for idx, hash in enumerate(hashes):
+            tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+            assert_equal(tx_receipt["status"], 1)
+            assert_equal(tx_receipt["gasUsed"], gas_estimates[idx])
 
-        # Get gas estimate
-        estimate_gas_limit = test_estimate_gas_contract.functions.loop(
-            num_loops
-        ).estimate_gas(tx_without_gas_specified)
-        assert_equal(estimate_gas_limit, correct_gas_used)
-
-        # Send contract call tx with exact gas specified
-        loop_with_exact_gas_specified_tx = test_estimate_gas_contract.functions.loop(
-            num_loops
-        ).build_transaction(tx_with_exact_gas_specified)
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            loop_with_exact_gas_specified_tx, self.ethPrivKey
-        )
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Verify tx is successful
-        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        assert_equal(receipt["status"], 1)
-        assert_equal(receipt["gasUsed"], correct_gas_used)
-
-    def execute_withdraw_contract_call_tx_with_estimate_gas(self):
+    def test_estimate_gas_contract_exact_gas(self):
         self.rollback_to(self.start_height)
-        correct_gas_used = 32938
 
-        # Deploy Withdraw contract
-        abi, bytecode, _ = EVMContract.from_file("Withdraw.sol", "Withdraw").compile()
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
         compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
         tx = compiled.constructor().build_transaction(
             {
                 "chainId": self.nodes[0].w3.eth.chain_id,
-                "nonce": self.nodes[0].w3.eth.get_transaction_count(
-                    self.evm_key_pair.address
-                ),
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
                 "maxFeePerGas": 10_000_000_000,
                 "maxPriorityFeePerGas": 1_500_000_000,
                 "gas": 1_000_000,
-                "value": 1_000_000_000,
             }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            tx, self.evm_key_pair.privkey
-        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-
-        # Verify contract deployment is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        test_estimate_gas_contract = self.nodes[0].w3.eth.contract(
+        contract = self.nodes[0].w3.eth.contract(
             address=receipt["contractAddress"], abi=abi
         )
 
-        tx_with_excess_gas_specified = {
-            "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
-            # Note: has to be excess by a large amount. Somehow any value below 35154 fails the tx during execution
-            "gas": "0x8952",  # 35154
-        }
-
-        # Send contract call tx with excess gas specified
-        withdraw_with_exact_gas_specified_tx = (
-            test_estimate_gas_contract.functions.withdraw().build_transaction(
-                tx_with_excess_gas_specified
-            )
+        exact_gas = contract.functions.loop(5_000).estimate_gas()
+        # Do actual contract function call
+        tx = contract.functions.loop(5_000).build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "gasPrice": 25_000_000_000,
+                "gas": exact_gas,
+            }
         )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            withdraw_with_exact_gas_specified_tx, self.ethPrivKey
-        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
-        # Verify tx is successful
-        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        assert_equal(receipt["status"], 1)
-        assert_equal(receipt["gasUsed"], correct_gas_used)
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(tx_receipt["gasUsed"], exact_gas)
+        assert_equal(tx_receipt["status"], 1)
 
-        # Verify balances
-        sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
-        contract_balance = int(
-            self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
-        )
-        # Note: No drain in sender balance, no increment in contract balance
-        assert_equal(sender_balance, 99999621213000000000)
-        assert_equal(contract_balance, 49997752920000000000)
+    def test_estimate_gas_revert(self):
+        self.rollback_to(self.start_height)
 
-        # Get gas estimate
-        estimate_gas_limit = (
-            test_estimate_gas_contract.functions.withdraw().estimate_gas(
-                tx_with_excess_gas_specified
-            )
+        abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
         )
-        # Note: This currently fails, gets gas limit of 26238
-        assert_equal(estimate_gas_limit, correct_gas_used)
-
-        # Send contract call tx with exact gas specified
-        tx_with_exact_gas_specified = {
-            "chainId": self.nodes[0].w3.eth.chain_id,
-            "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
-            "from": self.ethAddress,
-            "gas": correct_gas_used,
-        }
-        withdraw_with_exact_gas_specified_tx = (
-            test_estimate_gas_contract.functions.withdraw().build_transaction(
-                tx_with_exact_gas_specified
-            )
-        )
-        signed = self.nodes[0].w3.eth.account.sign_transaction(
-            withdraw_with_exact_gas_specified_tx, self.ethPrivKey
-        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
-
-        # Verify tx is successful
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
-        assert_equal(receipt["status"], 1)
-        # Note: This currently fails, gets gas used of 26238
-        assert_equal(receipt["gasUsed"], correct_gas_used)
-
-        # Verify balances
-        sender_balance = int(self.nodes[0].eth_getBalance(self.ethAddress)[2:], 16)
-        contract_balance = int(
-            self.nodes[0].eth_getBalance(self.evm_key_pair.address)[2:], 16
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
         )
-        # Note: No drain in sender balance again, no increment in contract balance again
-        assert_equal(sender_balance, 99999319476000000000)
-        assert_equal(contract_balance, 49997752920000000000)
+
+        # Test valid contract function eth call
+        gas = contract.functions.value_check(1).estimate_gas()
+
+        # Do actual contract function call
+        tx = contract.functions.value_check(1).build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "gasPrice": 25_000_000_000,
+                "gas": 30_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        assert_equal(gas, tx_receipt["gasUsed"])
+
+        # Test invalid contract function eth call with revert
+        assert_raises_web3_error(
+            -32001,
+            "Custom error: transaction execution failed",
+            contract.functions.value_check(0).estimate_gas,
+        )
 
     def run_test(self):
         self.setup()
 
-        self.execute_transfer_tx_with_estimate_gas()
+        self.test_estimate_gas_balance_transfer()
 
-        self.execute_loop_contract_call_tx_with_estimate_gas()
+        self.test_estimate_gas_contract()
 
-        # self.execute_withdraw_contract_call_tx_with_estimate_gas()
+        self.test_estimate_gas_contract_exact_gas()
+
+        self.test_estimate_gas_revert()
 
 
 if __name__ == "__main__":
