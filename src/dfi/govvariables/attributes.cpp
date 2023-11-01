@@ -521,7 +521,7 @@ ResVal<CAttributeValue> VerifyPositiveOrMinusOneFloat(const std::string &str) {
     return {amount, Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifyPct(const std::string &str) {
+static ResVal<CAttributeValue> VerifyPctInt64(const std::string &str) {
     std::string val = str;
     bool isPct = (val.size() > 0 && val.back() == '%');
     if (isPct) {
@@ -769,12 +769,12 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             {AttributeTypes::Token,
              {
                  {TokenKeys::PaybackDFI, VerifyBool},
-                 {TokenKeys::PaybackDFIFeePCT, VerifyPct},
+                 {TokenKeys::PaybackDFIFeePCT, VerifyPctInt64},
                  {TokenKeys::LoanPayback, VerifyBool},
-                 {TokenKeys::LoanPaybackFeePCT, VerifyPct},
+                 {TokenKeys::LoanPaybackFeePCT, VerifyPctInt64},
                  {TokenKeys::LoanPaybackCollateral, VerifyBool},
-                 {TokenKeys::DexInFeePct, VerifyPct},
-                 {TokenKeys::DexOutFeePct, VerifyPct},
+                 {TokenKeys::DexInFeePct, VerifyPctInt64},
+                 {TokenKeys::DexOutFeePct, VerifyPctInt64},
                  {TokenKeys::FixedIntervalPriceId, VerifyCurrencyPair},
                  {TokenKeys::LoanCollateralEnabled, VerifyBool},
                  {TokenKeys::LoanCollateralFactor, VerifyPositiveFloat},
@@ -789,17 +789,17 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Poolpairs,
              {
-                 {PoolKeys::TokenAFeePCT, VerifyPct},
+                 {PoolKeys::TokenAFeePCT, VerifyPctInt64},
                  {PoolKeys::TokenAFeeDir, VerifyFeeDirection},
-                 {PoolKeys::TokenBFeePCT, VerifyPct},
+                 {PoolKeys::TokenBFeePCT, VerifyPctInt64},
                  {PoolKeys::TokenBFeeDir, VerifyFeeDirection},
              }},
             {AttributeTypes::Param,
              {
                  {DFIPKeys::Active, VerifyBool},
-                 {DFIPKeys::Premium, VerifyPct},
+                 {DFIPKeys::Premium, VerifyPctInt64},
                  {DFIPKeys::MinSwap, VerifyPositiveFloat},
-                 {DFIPKeys::RewardPct, VerifyPct},
+                 {DFIPKeys::RewardPct, VerifyPctInt64},
                  {DFIPKeys::BlockPeriod, VerifyInt64},
                  {DFIPKeys::DUSDInterestBurn, VerifyBool},
                  {DFIPKeys::DUSDLoanBurn, VerifyBool},
@@ -831,20 +831,20 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {EVMKeys::Finalized, VerifyUInt64},
                  {EVMKeys::GasLimit, VerifyUInt64},
                  {EVMKeys::GasTarget, VerifyUInt64},
-                 {EVMKeys::RbfIncrementMinPct, VerifyPct},
+                 {EVMKeys::RbfIncrementMinPct, VerifyPctInt64},
              }},
             {AttributeTypes::Governance,
              {
                  {GovernanceKeys::FeeRedistribution, VerifyBool},
-                 {GovernanceKeys::FeeBurnPct, VerifyPct},
-                 {GovernanceKeys::CFPFee, VerifyPct},
-                 {GovernanceKeys::CFPApprovalThreshold, VerifyPct},
+                 {GovernanceKeys::FeeBurnPct, VerifyPctInt64},
+                 {GovernanceKeys::CFPFee, VerifyPctInt64},
+                 {GovernanceKeys::CFPApprovalThreshold, VerifyPctInt64},
                  {GovernanceKeys::VOCFee, VerifyPositiveFloat},
                  {GovernanceKeys::VOCEmergencyFee, VerifyPositiveFloat},
                  {GovernanceKeys::VOCEmergencyPeriod, VerifyUInt32},
-                 {GovernanceKeys::VOCEmergencyQuorum, VerifyPct},
-                 {GovernanceKeys::VOCApprovalThreshold, VerifyPct},
-                 {GovernanceKeys::Quorum, VerifyPct},
+                 {GovernanceKeys::VOCEmergencyQuorum, VerifyPctInt64},
+                 {GovernanceKeys::VOCApprovalThreshold, VerifyPctInt64},
+                 {GovernanceKeys::Quorum, VerifyPctInt64},
                  {GovernanceKeys::VotingPeriod, VerifyUInt32},
                  {GovernanceKeys::CFPMaxCycles, VerifyUInt32},
              }},
