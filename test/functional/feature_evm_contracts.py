@@ -438,6 +438,21 @@ class EVMTest(DefiTestFramework):
             receipt["gasUsed"] * receipt["effectiveGasPrice"],
         )
 
+    # should fail since it is larger than DVM TX size limit
+    def fail_send_large_tx(self):
+        assert_raises_web3_error(
+            -32001,
+            "reason: scriptpubkey",
+            self.node.w3.eth.send_transaction,
+            {
+                "to": "0x0000000000000000000000000000000000000000",
+                "from": self.evm_key_pair.address,
+                "data": "0x" + "f" * (32000 * 5),
+                "value": self.node.w3.to_hex(self.node.w3.to_wei("1", "ether")),
+                "gas": 10_000_000,
+            },
+        )
+
     def run_test(self):
         self.setup()
 
@@ -457,6 +472,8 @@ class EVMTest(DefiTestFramework):
         self.fail_deploy_contract_extremely_large_init_code()
 
         self.non_payable_proxied_contract()
+
+        self.fail_send_large_tx()
 
 
 if __name__ == "__main__":
