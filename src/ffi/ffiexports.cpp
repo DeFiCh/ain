@@ -281,8 +281,7 @@ Attributes getAttributeValues(std::size_t mnview_ptr) {
         view = pcustomcsview.get();
     }
 
-    std::shared_ptr<ATTRIBUTES> attributes;
-    attributes = view->GetAttributes();
+    const auto attributes = view->GetAttributes();
 
     CDataStructureV0 blockGasTargetKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTarget};
     CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
