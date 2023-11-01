@@ -51,6 +51,10 @@ jobs:
 
     - name: Build deps and configure
       run: ./make.sh build
+
+    # Temp. workaround to save space to prevent GH runners from running out
+    - name: Cleanup cargo deps
+      run: rm -rf build/lib/target/debug/deps
       
     - name: E2E tests
       run: ./make.sh test
