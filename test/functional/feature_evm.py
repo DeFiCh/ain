@@ -1541,8 +1541,9 @@ class EVMTest(DefiTestFramework):
                 }
             }
         )
-        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        self.nodes[0].generate(1)
 
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
         self.nodes[0].evmtx(self.eth_address, nonce, 10, 21000, self.to_address, 1)
 
         # rbf < 150% should fail
@@ -1557,6 +1558,17 @@ class EVMTest(DefiTestFramework):
                 "nonce": nonce,
                 "gasPrice": self.nodes[0].w3.to_wei(11, "gwei"),
             },
+        )
+
+        # rbf > 150% should work
+        self.nodes[0].w3.eth.send_transaction(
+            {
+                "to": "0x582AC4D8929f58c217d4a52aDD361AE470a8a4cD",
+                "from": self.eth_address,
+                "value": 1,
+                "nonce": nonce,
+                "gasPrice": self.nodes[0].w3.to_wei(16, "gwei"),
+            }
         )
 
     def run_test(self):
