@@ -1532,6 +1532,25 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(block["gasLimit"], hex(60000000))
 
+    def test_gas_target_update(self):
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/gas_target": "10000",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        base_fee = self.nodes[0].w3.eth.get_block("latest")["baseFeePerGas"]
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        self.nodes[0].evmtx(self.eth_address, nonce, 10, 21001, self.to_address, 1)
+        self.nodes[0].generate(2)  # tx takes two blocks to get into block
+
+        assert (
+            self.nodes[0].w3.eth.get_block("latest")["baseFeePerGas"] > base_fee
+        )  # if base fee increases, it means the gas target was applied successfully
+
     def run_test(self):
         # Check ERC55 wallet support
         self.erc55_wallet_support()
@@ -1571,6 +1590,8 @@ class EVMTest(DefiTestFramework):
 
         # Check attributes values update
         self.test_attributes_update()
+
+        self.test_gas_target_update()
 
 
 if __name__ == "__main__":

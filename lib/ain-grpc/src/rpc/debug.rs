@@ -199,7 +199,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let block_base_fee = self
             .handler
             .block
-            .calculate_base_fee(block_hash)
+            .calculate_base_fee(block_hash, None)
             .map_err(to_custom_err)?;
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
 

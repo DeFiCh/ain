@@ -482,7 +482,9 @@ impl EVMServices {
             .block
             .get_latest_block_hash_and_number()?
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
-        let block_base_fee_per_gas = self.block.calculate_base_fee(parent_hash)?;
+        let block_base_fee_per_gas = self
+            .block
+            .calculate_base_fee(parent_hash, Some(mnview_ptr))?;
 
         let block_gas_limit =
             U256::from(ain_cpp_imports::get_attribute_defaults(Some(mnview_ptr)).block_gas_limit);
