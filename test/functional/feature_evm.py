@@ -10,6 +10,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    assert_raises_web3_error,
     int_to_eth_u256,
     hex_to_decimal,
 )
@@ -1532,6 +1533,32 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(block["gasLimit"], hex(60000000))
 
+    def test_min_rbf(self):
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/rbf_increment_fee_pct": "0.5",
+                }
+            }
+        )
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+
+        self.nodes[0].evmtx(self.eth_address, nonce, 10, 21000, self.to_address, 1)
+
+        # rbf < 150% should fail
+        assert_raises_web3_error(
+            "-32001",
+            "evm-low-fee",
+            self.nodes[0].w3.eth.send_transaction,
+            {
+                "to": "0x582AC4D8929f58c217d4a52aDD361AE470a8a4cD",
+                "from": self.eth_address,
+                "value": 1,
+                "nonce": nonce,
+                "gasPrice": self.nodes[0].w3.to_wei(11, "gwei"),
+            },
+        )
+
     def run_test(self):
         # Check ERC55 wallet support
         self.erc55_wallet_support()
@@ -1571,6 +1598,8 @@ class EVMTest(DefiTestFramework):
 
         # Check attributes values update
         self.test_attributes_update()
+
+        self.test_min_rbf()
 
 
 if __name__ == "__main__":
