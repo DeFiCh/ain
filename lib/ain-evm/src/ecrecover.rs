@@ -58,8 +58,8 @@ mod tests {
 
     #[test]
     fn test_invalid_recovery() {
-        let empty = vec![0; 32];
-        let one_vec = vec![1; 32];
+        let empty = [0; 32];
+        let one_vec = [1; 32];
         let zero = H256::from_slice(&empty[..]);
         let one = H256::from_slice(&one_vec[..]);
 
