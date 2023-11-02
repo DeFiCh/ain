@@ -223,12 +223,12 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         )["tx"]
         assert_equal(len(block_txs), 2)
+        
         self.rollback_to(height_checkpoint)
 
         self.blockHash = self.nodes[0].getblockhash(height_checkpoint)
         block_txs = self.nodes[0].getblock(self.blockHash)["tx"]
         assert_equal(len(block_txs), 65)
-
 
         # Check accounting of EVM fees
         txLegacy = {
@@ -287,9 +287,7 @@ class EVMTest(DefiTestFramework):
         )
 
         # Try and send another TX to make sure mempool has removed entries
-        tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce, 21, 21001, self.toAddress, 1
-        )
+        tx = self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
         self.nodes[0].generate(1)
         self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 
