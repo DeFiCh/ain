@@ -10,7 +10,6 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    assert_raises_web3_error,
     int_to_eth_u256,
     hex_to_decimal,
 )
