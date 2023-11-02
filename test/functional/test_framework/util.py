@@ -72,6 +72,8 @@ def assert_raises_web3_error(code, message, fun, *args, **kwargs):
             raise AssertionError("Expected substring not found:" + e.args[0]["message"])
     except web3.exceptions.ContractLogicError as e:
         assert_equal(message, e.message)
+    else:
+        raise AssertionError("No exception raised")
 
 
 def assert_raises_message(exc, message, fun, *args, **kwds):
