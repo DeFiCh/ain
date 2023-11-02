@@ -140,7 +140,7 @@ public:
         consensus.DF19FortCanningEpilogueHeight = 2257500; // Sep 22nd, 2022.
         consensus.DF20GrandCentralHeight = 2479000; // Dec 8th, 2022.
         consensus.DF21GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
-        consensus.DF22MetachainHeight = 3462000; // Nov 14th, 2023.
+        consensus.DF22MetachainHeight = 3462000; // Nov 15th, 2023.
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 //        consensus.pos.nTargetTimespan = 14 * 24 * 60 * 60; // two weeks
