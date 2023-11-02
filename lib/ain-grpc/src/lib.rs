@@ -9,11 +9,11 @@ mod errors;
 mod filters;
 mod impls;
 pub mod logging;
+mod logs;
 mod receipt;
 pub mod rpc;
 mod sync;
 mod transaction;
-mod transaction_log;
 mod transaction_request;
 mod utils;
 

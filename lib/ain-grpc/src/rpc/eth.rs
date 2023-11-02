@@ -28,9 +28,9 @@ use crate::{
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
+    logs::{GetLogsRequest, LogResult},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
-    transaction_log::{GetLogsRequest, LogResult},
     transaction_request::{TransactionMessage, TransactionRequest},
     utils::{format_h256, format_u256, try_get_reverted_error_or_default},
 };
