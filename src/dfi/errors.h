@@ -162,6 +162,8 @@ public:
 
     static Res GovVarVerifyMultiplier() { return Res::Err("Mutliplier cannot be zero"); }
 
+    static Res GovVarVerifyFactor() { return Res::Err("Factor cannot be zero"); }
+
     static Res GovVarVerifyPair() { return Res::Err("Exactly two entires expected for currency pair"); }
 
     static Res GovVarVerifyValues() { return Res::Err("Empty token / currency"); }

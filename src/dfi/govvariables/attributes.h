@@ -57,7 +57,7 @@ enum EVMIDs : uint8_t {
 enum EVMKeys : uint8_t {
     Finalized = 'a',
     GasLimit = 'b',
-    GasTarget = 'c',
+    GasTargetFactor = 'c',
     RbfIncrementMinPct = 'd',
 };
 
