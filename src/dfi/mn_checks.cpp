@@ -511,7 +511,7 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend, const uint256 &secondEvmTx, TaskGroup *evmEccPreCacheTaskPool) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &consensus = txCtx.GetConsensus();
@@ -562,6 +562,9 @@ Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint2
         auto blockCtxTxView{blockCtx};
         blockCtxTxView.SetView(view);
 
+        if (evmEccPreCacheTaskPool && secondEvmTx == tx.GetHash()) {
+            evmEccPreCacheTaskPool->WaitForCompletion();
+        }
         res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
         if (res) {

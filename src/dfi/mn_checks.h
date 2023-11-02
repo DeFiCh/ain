@@ -10,6 +10,7 @@
 #include <dfi/customtx.h>
 #include <dfi/evm.h>
 #include <dfi/masternodes.h>
+#include <dfi/threadpool.h>
 #include <cstring>
 #include <vector>
 
@@ -164,7 +165,7 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend = nullptr, const uint256 &secondEvmTx = {}, TaskGroup *evmEccPreCacheTaskPool = nullptr);
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 
