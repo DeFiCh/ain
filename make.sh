@@ -726,14 +726,6 @@ pkg_user_install_rust() {
     _fold_end
 }
 
-pkg_user_ensure_rust() {
-    if command -v cargo &> /dev/null; then
-        return
-    fi
-    pkg_user_install_rust
-    pkg_user_setup_rust
-}
-
 pkg_local_ensure_osx_sysroot() {
     local sdk_name="Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers"
     local pkg="${sdk_name}.tar.gz"
