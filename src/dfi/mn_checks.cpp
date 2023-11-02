@@ -511,11 +511,7 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(BlockContext &blockCtx,
-                  const TransactionContext &txCtx,
-                  uint256 *canSpend,
-                  const uint256 &secondEvmTx,
-                  TaskGroup *evmEccPreCacheTaskPool) {
+Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend, const uint256 &secondEvmTx, TaskGroup *evmEccPreCacheTaskPool) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &consensus = txCtx.GetConsensus();
