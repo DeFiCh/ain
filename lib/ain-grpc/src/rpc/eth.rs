@@ -280,7 +280,7 @@ impl MetachainRPCModule {
         Self { handler }
     }
 
-    fn block_number_to_block(&self, block_number: Option<BlockNumber>) -> RpcResult<BlockAny> {
+    fn get_block(&self, block_number: Option<BlockNumber>) -> RpcResult<BlockAny> {
         match block_number.unwrap_or(BlockNumber::Latest) {
             BlockNumber::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
             BlockNumber::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
@@ -321,7 +321,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
-        let block = self.block_number_to_block(block_number)?;
+        let block = self.get_block(block_number)?;
         let block_base_fee = block.header.base_fee;
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
 
@@ -362,7 +362,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     // State RPC
 
     fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256> {
-        let block = self.block_number_to_block(block_number)?;
+        let block = self.get_block(block_number)?;
         debug!(target:"rpc",
             "Getting balance for address: {:?} at block : {} ",
             address, block.header.number
@@ -378,7 +378,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
-        let block = self.block_number_to_block(block_number)?;
+        let block = self.get_block(block_number)?;
 
         debug!(target:"rpc",
             "Getting code for address: {:?} at block : {}",
@@ -404,7 +404,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         position: U256,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<H256> {
-        let block = self.block_number_to_block(block_number)?;
+        let block = self.get_block(block_number)?;
         debug!(target:"rpc",
             "Getting storage for address: {:?}, at position {:?}, for block {}",
             address, position, block.header.number
@@ -465,7 +465,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
         let block_number = self
-            .block_number_to_block(Some(block_number))?
+            .get_block(Some(block_number))?
             .header
             .number;
         debug!(target:"rpc", "Getting block by number : {}", block_number);
@@ -606,7 +606,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_block_transaction_count_by_number(&self, block_number: BlockNumber) -> RpcResult<usize> {
         let block_number = self
-            .block_number_to_block(Some(block_number))?
+            .get_block(Some(block_number))?
             .header
             .number;
         self.handler
@@ -751,7 +751,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc", "Getting transaction count for address: {:?}", address);
-        let block = self.block_number_to_block(block_number)?;
+        let block = self.get_block(block_number)?;
         let nonce = self
             .handler
             .core
@@ -788,7 +788,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         }
 
         // Get block base fee
-        let block = self.block_number_to_block(block_number)?;
+        let block = self.get_block(block_number)?;
         let block_base_fee = block.header.base_fee;
 
         // Normalize the max fee per gas the call is willing to spend.
@@ -913,7 +913,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         first_block: BlockNumber,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
-        let first_block_number = self.block_number_to_block(Some(first_block))?.header.number;
+        let first_block_number = self.get_block(Some(first_block))?.header.number;
         let attrs = ain_cpp_imports::get_attribute_values(None);
 
         let block_count = block_count.try_into().map_err(to_custom_err)?;
@@ -994,8 +994,8 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_numbers = match input.block_hash {
             None => {
                 // use fromBlock-toBlock
-                let mut block_number = self.block_number_to_block(input.from_block)?.header.number;
-                let to_block_number = self.block_number_to_block(input.to_block)?.header.number;
+                let mut block_number = self.get_block(input.from_block)?.header.number;
+                let to_block_number = self.get_block(input.to_block)?.header.number;
                 let mut block_numbers = Vec::new();
                 if block_number > to_block_number {
                     return Err(RPCError::FromBlockGreaterThanToBlock.into());
@@ -1039,8 +1039,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
-        let from_block_number = self.block_number_to_block(input.from_block)?.header.number;
-        let to_block_number = self.block_number_to_block(input.to_block)?.header.number;
+        let from_block_number = self.get_block(input.from_block)?.header.number;
+        let to_block_number = self.get_block(input.to_block)?.header.number;
         if from_block_number > to_block_number {
             return Err(RPCError::FromBlockGreaterThanToBlock.into());
         }
