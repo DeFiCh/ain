@@ -109,7 +109,7 @@ impl RpcBlock {
 
 /// Represents rpc api block number param.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
-pub enum BlockNumber {
+pub enum BlockRef {
     /// Hash
     Hash {
         /// block hash
@@ -134,8 +134,8 @@ pub enum BlockNumber {
     Finalized,
 }
 
-impl<'a> Deserialize<'a> for BlockNumber {
-    fn deserialize<D>(deserializer: D) -> Result<BlockNumber, D::Error>
+impl<'a> Deserialize<'a> for BlockRef {
+    fn deserialize<D>(deserializer: D) -> Result<BlockRef, D::Error>
     where
         D: Deserializer<'a>,
     {
@@ -143,36 +143,36 @@ impl<'a> Deserialize<'a> for BlockNumber {
     }
 }
 
-impl BlockNumber {
+impl BlockRef {
     /// Convert block number to min block target.
     #[must_use]
     pub fn convert_to_min_block_num(&self) -> Option<u64> {
         match *self {
-            BlockNumber::Num(ref x) => Some(*x),
-            BlockNumber::Earliest => Some(0),
+            BlockRef::Num(ref x) => Some(*x),
+            BlockRef::Earliest => Some(0),
             _ => None,
         }
     }
 }
 
-impl Serialize for BlockNumber {
+impl Serialize for BlockRef {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match *self {
-            BlockNumber::Hash {
+            BlockRef::Hash {
                 hash,
                 require_canonical,
             } => serializer.serialize_str(&format!(
                 "{{ 'hash': '{hash}', 'requireCanonical': '{require_canonical}'  }}"
             )),
-            BlockNumber::Num(ref x) => serializer.serialize_str(&format!("0x{x:x}")),
-            BlockNumber::Latest => serializer.serialize_str("latest"),
-            BlockNumber::Earliest => serializer.serialize_str("earliest"),
-            BlockNumber::Pending => serializer.serialize_str("pending"),
-            BlockNumber::Safe => serializer.serialize_str("safe"),
-            BlockNumber::Finalized => serializer.serialize_str("finalized"),
+            BlockRef::Num(ref x) => serializer.serialize_str(&format!("0x{x:x}")),
+            BlockRef::Latest => serializer.serialize_str("latest"),
+            BlockRef::Earliest => serializer.serialize_str("earliest"),
+            BlockRef::Pending => serializer.serialize_str("pending"),
+            BlockRef::Safe => serializer.serialize_str("safe"),
+            BlockRef::Finalized => serializer.serialize_str("finalized"),
         }
     }
 }
@@ -180,7 +180,7 @@ impl Serialize for BlockNumber {
 struct BlockNumberVisitor;
 
 impl<'a> Visitor<'a> for BlockNumberVisitor {
-    type Value = BlockNumber;
+    type Value = BlockRef;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -228,11 +228,11 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
         }
 
         if let Some(number) = block_number {
-            return Ok(BlockNumber::Num(number));
+            return Ok(BlockRef::Num(number));
         }
 
         if let Some(hash) = block_hash {
-            return Ok(BlockNumber::Hash {
+            return Ok(BlockRef::Hash {
                 hash,
                 require_canonical,
             });
@@ -246,15 +246,15 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
         E: Error,
     {
         match value {
-            "latest" => Ok(BlockNumber::Latest),
-            "earliest" => Ok(BlockNumber::Earliest),
-            "pending" => Ok(BlockNumber::Pending),
-            "safe" => Ok(BlockNumber::Safe),
-            "finalized" => Ok(BlockNumber::Finalized),
+            "latest" => Ok(BlockRef::Latest),
+            "earliest" => Ok(BlockRef::Earliest),
+            "pending" => Ok(BlockRef::Pending),
+            "safe" => Ok(BlockRef::Safe),
+            "finalized" => Ok(BlockRef::Finalized),
             _ if value.starts_with("0x") => u64::from_str_radix(&value[2..], 16)
-                .map(BlockNumber::Num)
+                .map(BlockRef::Num)
                 .map_err(|e| Error::custom(format!("Invalid block number: {e}"))),
-            _ => value.parse::<u64>().map(BlockNumber::Num).map_err(|_| {
+            _ => value.parse::<u64>().map(BlockRef::Num).map_err(|_| {
                 Error::custom("Invalid block number: non-decimal or missing 0x prefix".to_string())
             }),
         }
@@ -271,7 +271,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
     where
         E: Error,
     {
-        Ok(BlockNumber::Num(value))
+        Ok(BlockRef::Num(value))
     }
 }
 
@@ -281,7 +281,7 @@ use ain_evm::block::FeeHistoryData;
 
 use crate::codegen::types::EthTransactionInfo;
 
-impl FromStr for BlockNumber {
+impl FromStr for BlockRef {
     type Err = serde_json::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -297,28 +297,28 @@ impl FromStr for BlockNumber {
 mod tests {
     use super::*;
 
-    fn match_block_number(block_number: BlockNumber) -> Option<u64> {
+    fn match_block_number(block_number: BlockRef) -> Option<u64> {
         match block_number {
-            BlockNumber::Num(number) => Some(number),
-            BlockNumber::Earliest => Some(0),
-            BlockNumber::Latest => Some(1000),
-            BlockNumber::Safe => Some(999),
-            BlockNumber::Finalized => Some(999),
-            BlockNumber::Pending => Some(1001),
+            BlockRef::Num(number) => Some(number),
+            BlockRef::Earliest => Some(0),
+            BlockRef::Latest => Some(1000),
+            BlockRef::Safe => Some(999),
+            BlockRef::Finalized => Some(999),
+            BlockRef::Pending => Some(1001),
             _ => None,
         }
     }
 
     #[test]
     fn block_number_deserialize() {
-        let bn_dec: BlockNumber = serde_json::from_str(r#""42""#).unwrap();
-        let bn_hex: BlockNumber = serde_json::from_str(r#""0x45""#).unwrap();
-        let bn_u64: BlockNumber = serde_json::from_str(r#"420"#).unwrap();
-        let bn_tag_earliest: BlockNumber = serde_json::from_str(r#""earliest""#).unwrap();
-        let bn_tag_latest: BlockNumber = serde_json::from_str(r#""latest""#).unwrap();
-        let bn_tag_safe: BlockNumber = serde_json::from_str(r#""safe""#).unwrap();
-        let bn_tag_finalized: BlockNumber = serde_json::from_str(r#""finalized""#).unwrap();
-        let bn_tag_pending: BlockNumber = serde_json::from_str(r#""pending""#).unwrap();
+        let bn_dec: BlockRef = serde_json::from_str(r#""42""#).unwrap();
+        let bn_hex: BlockRef = serde_json::from_str(r#""0x45""#).unwrap();
+        let bn_u64: BlockRef = serde_json::from_str(r#"420"#).unwrap();
+        let bn_tag_earliest: BlockRef = serde_json::from_str(r#""earliest""#).unwrap();
+        let bn_tag_latest: BlockRef = serde_json::from_str(r#""latest""#).unwrap();
+        let bn_tag_safe: BlockRef = serde_json::from_str(r#""safe""#).unwrap();
+        let bn_tag_finalized: BlockRef = serde_json::from_str(r#""finalized""#).unwrap();
+        let bn_tag_pending: BlockRef = serde_json::from_str(r#""pending""#).unwrap();
 
         assert_eq!(match_block_number(bn_dec).unwrap(), 42);
         assert_eq!(match_block_number(bn_hex).unwrap(), 69);
