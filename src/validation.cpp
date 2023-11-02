@@ -2996,7 +2996,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // So, we allocate it outside of the pre-cache scope, and ensure it's cancelled on
     // all return paths.
     TaskGroup evmEccPreCacheTaskPool;
-    uint256 secondTx{};
 
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
@@ -3070,7 +3069,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
                     if (!isFirstTx && isSecondTx) {
                         isSecondTx = false;
-                        secondTx = tx.GetHash();
+                        evmEccPreCacheTaskPool.WaitForCompletion();
                     }
                 }
             }
@@ -3179,7 +3178,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 static_cast<uint64_t>(pindex->GetBlockTime()),
                 static_cast<uint32_t>(i),
             };
-            const auto res = ApplyCustomTx(blockCtx, txCtx, nullptr, secondTx, &evmEccPreCacheTaskPool);
+            const auto res = ApplyCustomTx(blockCtx, txCtx);
 
             LogApplyCustomTx(tx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
