@@ -138,7 +138,7 @@ fn evm_try_create_and_sign_transfer_domain_tx(
         }
     }?;
 
-    let state_root = SERVICES.evm.core.get_state_root()?;
+    let state_root = SERVICES.evm.core.get_latest_state_root()?;
     let nonce = if ctx.use_nonce {
         U256::from(ctx.nonce)
     } else {
@@ -194,16 +194,9 @@ fn evm_try_store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
 #[ffi_fallible]
 fn evm_try_get_balance(address: &str) -> Result<u64> {
     let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
-    let (_, latest_block_number) = SERVICES
-        .evm
-        .block
-        .get_latest_block_hash_and_number()?
-        .unwrap_or_default();
+    let state_root = SERVICES.evm.block.get_latest_state_root()?;
 
-    let balance = SERVICES
-        .evm
-        .core
-        .get_balance(address, latest_block_number)?;
+    let balance = SERVICES.evm.core.get_balance(address, state_root)?;
     let amount = WeiAmount(balance).to_satoshi()?.try_into()?;
 
     Ok(amount)

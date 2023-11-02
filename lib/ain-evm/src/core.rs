@@ -818,23 +818,15 @@ impl EVMCoreService {
 
 // State methods
 impl EVMCoreService {
-    pub fn get_state_root(&self) -> Result<H256> {
+    pub fn get_latest_state_root(&self) -> Result<H256> {
         let state_root = self
             .storage
             .get_latest_block()?
             .map_or(H256::default(), |block| block.header.state_root);
         Ok(state_root)
     }
-    pub fn get_account(&self, address: H160, block_number: U256) -> Result<Option<Account>> {
-        let state_root = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .map(|block| block.header.state_root)
-            .ok_or(format_err!(
-                "[get_account] Block number {:x?} not found",
-                block_number
-            ))?;
 
+    pub fn get_account(&self, address: H160, state_root: H256) -> Result<Option<Account>> {
         let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -844,8 +836,8 @@ impl EVMCoreService {
         Ok(backend.get_account(&address))
     }
 
-    pub fn get_code(&self, address: H160, block_number: U256) -> Result<Option<Vec<u8>>> {
-        self.get_account(address, block_number)?
+    pub fn get_code(&self, address: H160, state_root: H256) -> Result<Option<Vec<u8>>> {
+        self.get_account(address, state_root)?
             .map_or(Ok(None), |account| {
                 self.storage.get_code_by_hash(address, account.code_hash)
             })
@@ -855,9 +847,9 @@ impl EVMCoreService {
         &self,
         address: H160,
         position: U256,
-        block_number: U256,
+        state_root: H256,
     ) -> Result<Option<Vec<u8>>> {
-        self.get_account(address, block_number)?
+        self.get_account(address, state_root)?
             .map_or(Ok(None), |account| {
                 let storage_trie = self
                     .trie_store
@@ -873,25 +865,16 @@ impl EVMCoreService {
             })
     }
 
-    pub fn get_balance(&self, address: H160, block_number: U256) -> Result<U256> {
+    pub fn get_balance(&self, address: H160, state_root: H256) -> Result<U256> {
         let balance = self
-            .get_account(address, block_number)?
+            .get_account(address, state_root)?
             .map_or(U256::zero(), |account| account.balance);
 
         debug!("Account {:x?} balance {:x?}", address, balance);
         Ok(balance)
     }
 
-    pub fn get_nonce_from_block_number(&self, address: H160, block_number: U256) -> Result<U256> {
-        let nonce = self
-            .get_account(address, block_number)?
-            .map_or(U256::zero(), |account| account.nonce);
-
-        debug!("Account {:x?} nonce {:x?}", address, nonce);
-        Ok(nonce)
-    }
-
-    pub fn get_nonce_from_state_root(&self, address: H160, state_root: H256) -> Result<U256> {
+    pub fn get_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
         let backend = self.get_backend(state_root)?;
         let nonce = backend.get_nonce(&address);
         Ok(nonce)
@@ -939,7 +922,7 @@ impl EVMCoreService {
     }
 
     pub fn get_next_account_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
-        let state_root_nonce = self.get_nonce_from_state_root(address, state_root)?;
+        let state_root_nonce = self.get_nonce(address, state_root)?;
         let mut nonce_store = self.nonce_store.lock();
         match nonce_store.entry(address) {
             std::collections::hash_map::Entry::Vacant(_) => Ok(state_root_nonce),
