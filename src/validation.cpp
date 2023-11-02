@@ -3018,8 +3018,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                  REJECT_INVALID,
                                  "bad-evm-template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
-            result, evmTemplate->GetTemplate()));
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplate->GetTemplate()));
 
         auto eccPreCacheControl = gArgs.GetArg("-eccprecache", DEFAULT_ECC_PRECACHE_WORKERS);
         auto isEccPreCacheEnabled = eccPreCacheControl == -1 || eccPreCacheControl > 0;
