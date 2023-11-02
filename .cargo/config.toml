@@ -13,7 +13,7 @@ rustflags = [
 ]
 
 [profile.dev]
-debug = 1
+debug = 2
 
 [target.x86_64-apple-darwin]
 rustflags = [
