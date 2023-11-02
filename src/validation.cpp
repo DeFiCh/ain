@@ -1087,7 +1087,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             }
 
             CrossBoundaryResult result;
-            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(result, rawEVMTx);
+            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(
+                result, rawEVMTx, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
             if (!result.ok) {
                 LogPrint(BCLog::MEMPOOL, "EVM tx failed to get sender info %s\n", result.reason.c_str());
                 return state.Invalid(
