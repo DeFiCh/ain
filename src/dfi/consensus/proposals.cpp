@@ -5,6 +5,7 @@
 #include <dfi/consensus/proposals.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 
 Res CProposalsConsensus::CheckProposalTx(const CCreateProposalMessage &msg) const {
     const auto height = txCtx.GetHeight();

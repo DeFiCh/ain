@@ -1293,7 +1293,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
             {},
             true,
         };
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             coinsCache,
             tx,
             consensus,

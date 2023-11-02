@@ -9,6 +9,7 @@
 #include <dfi/errors.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 
 Res CMasternodesConsensus::CheckMasternodeCreationTx() const {
     const auto height = txCtx.GetHeight();
