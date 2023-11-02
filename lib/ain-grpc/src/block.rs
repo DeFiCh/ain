@@ -349,7 +349,7 @@ impl Serialize for BlockTransactions {
         match *self {
             BlockTransactions::Hashes(ref hashes) => hashes.serialize(serializer),
             BlockTransactions::Full(ref ts) => ts.serialize(serializer),
-            BlockTransactions::None => 0.serialize(serializer),
+            BlockTransactions::None => Vec::<()>::new().serialize(serializer),
         }
     }
 }
