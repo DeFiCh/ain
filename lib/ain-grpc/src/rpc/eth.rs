@@ -209,7 +209,8 @@ pub trait MetachainRPC {
 
     /// Estimate gas needed for execution of given contract.
     #[method(name = "estimateGas")]
-    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockRef>) -> RpcResult<U256>;
+    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockRef>)
+        -> RpcResult<U256>;
 
     /// Returns current gas_price.
     #[method(name = "gasPrice")]
@@ -767,7 +768,11 @@ impl MetachainRPCServer for MetachainRPCModule {
     /// EstimateGas executes the requested code against the current pending block/state and
     /// returns the used amount of gas.
     /// Ref: https://github.com/ethereum/go-ethereum/blob/master/accounts/abi/bind/backends/simulated.go#L537-L639
-    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockRef>) -> RpcResult<U256> {
+    fn estimate_gas(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockRef>,
+    ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
@@ -923,12 +928,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let fee_history = self
             .handler
             .block
-            .fee_history(
-                block_count,
-                first_block_number,
-                priority_fee_percentile,
-                attrs.block_gas_target_factor,
-            )
+            .fee_history(block_count, first_block_number, priority_fee_percentile, attrs.block_gas_target_factor)
             .map_err(RPCError::EvmError)?;
 
         Ok(RpcFeeHistory::from(fee_history))

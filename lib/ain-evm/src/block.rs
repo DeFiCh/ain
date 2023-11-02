@@ -151,11 +151,7 @@ impl BlockService {
         ain_cpp_imports::get_attribute_values(mnview_ptr)
     }
 
-    pub fn calculate_base_fee(
-        &self,
-        parent_hash: H256,
-        block_gas_target_factor: u64,
-    ) -> Result<U256> {
+    pub fn calculate_base_fee(&self, parent_hash: H256, block_gas_target_factor: u64) -> Result<U256> {
         // constants
         let base_fee_max_change_denominator = U256::from(8);
 
@@ -189,7 +185,7 @@ impl BlockService {
         block_count: usize,
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
-        block_gas_target_factor: u64,
+        block_gas_target_factor: u64
     ) -> Result<FeeHistoryData> {
         let mut blocks = Vec::with_capacity(block_count);
         let mut block_number = first_block;
