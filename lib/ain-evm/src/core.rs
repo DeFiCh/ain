@@ -355,14 +355,6 @@ impl EVMCoreService {
             // Validate tx gas limit with intrinsic gas
             check_tx_intrinsic_gas(&signed_tx)?;
 
-            // Validate gas limit
-            let gas_limit = signed_tx.gas_limit();
-            let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
-            if gas_limit > U256::from(block_gas_limit) {
-                debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
-                return Err(format_err!("gas limit higher than max_gas_per_block").into());
-            }
-
             let max_prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
             debug!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
 
@@ -374,6 +366,14 @@ impl EVMCoreService {
                 },
             )
         };
+
+        // Validate gas limit
+        let gas_limit = signed_tx.gas_limit();
+        let block_gas_limit = template.ctx.attrs.block_gas_limit;
+        if gas_limit > U256::from(block_gas_limit) {
+            debug!("[validate_raw_tx] gas limit higher than max_gas_per_block");
+            return Err(format_err!("gas limit higher than max_gas_per_block").into());
+        }
 
         // Start of stateful checks
         // Validate tx prepay fees with account balance

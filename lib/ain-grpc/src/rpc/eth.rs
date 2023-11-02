@@ -464,10 +464,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: BlockNumber,
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
-        let block_number = self
-            .get_block(Some(block_number))?
-            .header
-            .number;
+        let block_number = self.get_block(Some(block_number))?.header.number;
         debug!(target:"rpc", "Getting block by number : {}", block_number);
         self.handler
             .storage
@@ -605,10 +602,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_block_transaction_count_by_number(&self, block_number: BlockNumber) -> RpcResult<usize> {
-        let block_number = self
-            .get_block(Some(block_number))?
-            .header
-            .number;
+        let block_number = self.get_block(Some(block_number))?.header.number;
         self.handler
             .storage
             .get_block_by_number(&block_number)

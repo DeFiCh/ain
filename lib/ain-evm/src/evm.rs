@@ -4,6 +4,7 @@ use ain_contracts::{
     get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
     get_transfer_domain_contract, get_transfer_domain_v1_contract,
 };
+use ain_cpp_imports::Attributes;
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
@@ -66,8 +67,9 @@ pub struct FinalizedBlockInfo {
 
 pub struct BlockContext {
     parent_hash: H256,
-    dvm_block: u64,
+    pub dvm_block: u64,
     mnview_ptr: usize,
+    pub attrs: Attributes,
 }
 
 impl EVMServices {
@@ -518,6 +520,7 @@ impl EVMServices {
             parent_hash,
             dvm_block,
             mnview_ptr,
+            attrs,
         };
 
         let backend = EVMBackend::from_root(
