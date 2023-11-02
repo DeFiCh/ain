@@ -1,10 +1,10 @@
 use ethereum::{Block, ReceiptV3, TransactionV2};
-use ethereum_types::{Bloom, H160, H256, U256};
+use ethereum_types::{Bloom, H160, U256};
 
 use crate::{
     backend::{EVMBackend, Vicinity},
     core::XHash,
-    evm::ExecTxState,
+    evm::{BlockContext, ExecTxState},
     receipt::Receipt,
     transaction::SignedTx,
 };
@@ -62,28 +62,18 @@ pub struct BlockTemplate {
     pub block_data: Option<BlockData>,
     pub total_gas_used: U256,
     pub vicinity: Vicinity,
-    pub parent_hash: H256,
-    pub dvm_block: u64,
-    pub timestamp: u64,
+    pub ctx: BlockContext,
     pub backend: EVMBackend,
 }
 
 impl BlockTemplate {
-    pub fn new(
-        vicinity: Vicinity,
-        parent_hash: H256,
-        dvm_block: u64,
-        timestamp: u64,
-        backend: EVMBackend,
-    ) -> Self {
+    pub fn new(vicinity: Vicinity, ctx: BlockContext, backend: EVMBackend) -> Self {
         Self {
             transactions: Vec::new(),
             block_data: None,
             total_gas_used: U256::zero(),
             vicinity,
-            parent_hash,
-            dvm_block,
-            timestamp,
+            ctx,
             backend,
         }
     }

@@ -64,6 +64,12 @@ pub struct FinalizedBlockInfo {
     pub block_number: U256,
 }
 
+pub struct BlockContext {
+    parent_hash: H256,
+    dvm_block: u64,
+    mnview_ptr: usize,
+}
+
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -142,8 +148,8 @@ impl EVMServices {
     ) -> Result<FinalizedBlockInfo> {
         let logs_bloom = template.get_latest_logs_bloom();
 
-        let timestamp = template.timestamp;
-        let parent_hash = template.parent_hash;
+        let parent_hash = template.ctx.parent_hash;
+        let timestamp = template.vicinity.timestamp;
         let beneficiary = template.vicinity.beneficiary;
         let difficulty = template.vicinity.block_difficulty;
         let block_number = template.vicinity.block_number;
@@ -189,7 +195,7 @@ impl EVMServices {
 
         let state_root = executor.commit(is_miner)?;
 
-        let extra_data = format!("DFI: {}", template.dvm_block).into_bytes();
+        let extra_data = format!("DFI: {}", template.ctx.dvm_block).into_bytes();
         let block = Block::new(
             PartialHeader {
                 parent_hash,
@@ -304,7 +310,6 @@ impl EVMServices {
     pub unsafe fn update_state_in_block_template(
         &self,
         template: &mut BlockTemplate,
-        mnview_ptr: usize,
     ) -> Result<()> {
         // reserve DST20 namespace;
         let is_evm_genesis_block = template.get_block_number() == U256::zero();
@@ -349,7 +354,10 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = dfi_intrinsics_v1_deploy_info(template.dvm_block, template.vicinity.block_number)?;
+            } = dfi_intrinsics_v1_deploy_info(
+                template.ctx.dvm_block,
+                template.vicinity.block_number,
+            )?;
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -427,7 +435,7 @@ impl EVMServices {
             ));
 
             // Deploy DST20 migration TX
-            let migration_txs = get_dst20_migration_txs(mnview_ptr)?;
+            let migration_txs = get_dst20_migration_txs(template.ctx.mnview_ptr)?;
             for exec_tx in migration_txs.clone() {
                 let apply_result = executor.execute_tx(exec_tx, base_fee)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
@@ -440,7 +448,10 @@ impl EVMServices {
         } else {
             let DeployContractInfo {
                 address, storage, ..
-            } = dfi_intrinsics_v1_deploy_info(template.dvm_block, template.vicinity.block_number)?;
+            } = dfi_intrinsics_v1_deploy_info(
+                template.ctx.dvm_block,
+                template.vicinity.block_number,
+            )?;
 
             executor.update_storage(address, storage)?;
         }
@@ -477,26 +488,36 @@ impl EVMServices {
             ),
         };
 
+        let attrs = ain_cpp_imports::get_attribute_values(Some(mnview_ptr));
+        let attr_block_gas_limit = attrs.block_gas_limit;
+        let attr_block_gas_limit_factor = attrs.block_gas_target_factor;
+
         let block_difficulty = U256::from(difficulty);
         let (parent_hash, _) = self
             .block
             .get_latest_block_hash_and_number()?
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
+
         let block_base_fee_per_gas = self
             .block
-            .calculate_base_fee(parent_hash, Some(mnview_ptr))?;
+            .calculate_base_fee(parent_hash, attr_block_gas_limit_factor)?;
 
-        let block_gas_limit =
-            U256::from(ain_cpp_imports::get_attribute_values(Some(mnview_ptr)).block_gas_limit);
+        let block_gas_limit = U256::from(attr_block_gas_limit);
         let vicinity = Vicinity {
             beneficiary,
             block_number: target_block,
-            timestamp: U256::from(timestamp),
+            timestamp,
             block_difficulty,
             block_gas_limit,
             block_base_fee_per_gas,
             block_randomness: None,
             ..Vicinity::default()
+        };
+
+        let ctx = BlockContext {
+            parent_hash,
+            dvm_block,
+            mnview_ptr,
         };
 
         let backend = EVMBackend::from_root(
@@ -506,7 +527,7 @@ impl EVMServices {
             vicinity.clone(),
         )?;
 
-        let template = BlockTemplate::new(vicinity, parent_hash, dvm_block, timestamp, backend);
+        let template = BlockTemplate::new(vicinity, ctx, backend);
         Ok(template)
     }
 

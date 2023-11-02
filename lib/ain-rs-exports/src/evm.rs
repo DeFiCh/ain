@@ -220,14 +220,11 @@ fn evm_try_get_balance(address: &str) -> Result<u64> {
 ///
 /// The state update results.
 #[ffi_fallible]
-fn evm_try_unsafe_update_state_in_template(
-    template: &mut BlockTemplateWrapper,
-    mnview_ptr: usize,
-) -> Result<()> {
+fn evm_try_unsafe_update_state_in_template(template: &mut BlockTemplateWrapper) -> Result<()> {
     unsafe {
         SERVICES
             .evm
-            .update_state_in_block_template(template.get_inner_mut()?, mnview_ptr)
+            .update_state_in_block_template(template.get_inner_mut()?)
     }
 }
 
@@ -846,19 +843,25 @@ fn evm_try_unsafe_is_smart_contract_in_template(
 
 #[ffi_fallible]
 fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Result<TxMinerInfo> {
-    let signed_tx = SERVICES
-        .evm
+    let evm_services = &SERVICES.evm;
+
+    let signed_tx = evm_services
         .core
         .signed_tx_cache
         .try_get_or_create(raw_tx)?;
 
+    let block_service = &evm_services.block;
+    let attrs = block_service.get_attribute_vals(Some(mnview_ptr));
+
     let nonce = u64::try_from(signed_tx.nonce())?;
-    let initial_base_fee = SERVICES.evm.block.calculate_base_fee(H256::zero(), None)?;
+    let initial_base_fee =
+        block_service.calculate_base_fee(H256::zero(), attrs.block_gas_target_factor)?;
     let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
     let min_rbf_tip_fee = calculate_min_rbf_tip_gas_fee(&signed_tx, tip_fee, mnview_ptr)?;
 
     let tip_fee = u64::try_from(WeiAmount(tip_fee).to_satoshi()?)?;
     let min_rbf_tip_fee = u64::try_from(WeiAmount(min_rbf_tip_fee).to_satoshi()?)?;
+
     Ok(TxMinerInfo {
         nonce,
         address: format!("{:?}", signed_tx.sender),
