@@ -1608,39 +1608,34 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    "v0/evm/block/rbf_increment_fee_pct": "0.5",
+                    "v0/evm/block/rbf_increment_fee_pct": "1",
                 }
             }
         )
         self.nodes[0].generate(1)
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+
+        # Transfer some balance to to_address
+        self.nodes[0].evmtx(self.eth_address, nonce, 11, 21001, self.to_address, 1)
+        self.nodes[0].generate(1)
 
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
-        self.nodes[0].evmtx(self.eth_address, nonce, 10, 21000, self.to_address, 1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 21, 21001, self.to_address, 1)
 
-        # rbf < 150% should fail
-        assert_raises_web3_error(
-            "-32001",
+        # Send tx with less than 100% in increase fees
+        assert_raises_rpc_error(
+            -26,
             "evm-low-fee",
-            self.nodes[0].w3.eth.send_transaction,
-            {
-                "to": "0x582AC4D8929f58c217d4a52aDD361AE470a8a4cD",
-                "from": self.eth_address,
-                "value": 1,
-                "nonce": nonce,
-                "gasPrice": self.nodes[0].w3.to_wei(11, "gwei"),
-            },
+            self.nodes[0].evmtx,
+            self.eth_address,
+            nonce,
+            23,
+            21001,
+            self.to_address,
+            1,
         )
 
-        # rbf > 150% should work
-        self.nodes[0].w3.eth.send_transaction(
-            {
-                "to": "0x582AC4D8929f58c217d4a52aDD361AE470a8a4cD",
-                "from": self.eth_address,
-                "value": 1,
-                "nonce": nonce,
-                "gasPrice": self.nodes[0].w3.to_wei(16, "gwei"),
-            }
-        )
+        self.nodes[0].evmtx(self.eth_address, nonce, 150, 21001, self.to_address, 1)
 
     def run_test(self):
         # Check ERC55 wallet support
