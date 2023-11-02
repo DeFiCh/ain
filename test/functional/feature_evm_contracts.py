@@ -445,7 +445,7 @@ class EVMTest(DefiTestFramework):
         # 65404 bytes in data is the max that will go through with 64k limit
         # TODO: Precise calc on the DVM envelope + EVM rest of the TX data to verify
         max_allowed = 65404
-        tx = self.node.w3.eth.send_transaction(
+        self.node.w3.eth.send_transaction(
             {
                 "to": "0x0000000000000000000000000000000000000000",
                 "from": self.evm_key_pair.address,
