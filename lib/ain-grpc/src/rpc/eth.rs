@@ -362,15 +362,15 @@ impl MetachainRPCServer for MetachainRPCModule {
     // State RPC
 
     fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256> {
-        let block_number = self.block_number_to_block(block_number)?.header.number;
+        let block = self.block_number_to_block(block_number)?;
         debug!(target:"rpc",
             "Getting balance for address: {:?} at block : {} ",
-            address, block_number
+            address, block.header.number
         );
         let balance = self
             .handler
             .core
-            .get_balance(address, block_number)
+            .get_balance(address, block.header.state_root)
             .map_err(to_custom_err)?;
 
         debug!(target:"rpc", "Address: {:?} balance : {} ", address, balance);
@@ -378,17 +378,17 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
-        let block_number = self.block_number_to_block(block_number)?.header.number;
+        let block = self.block_number_to_block(block_number)?;
 
         debug!(target:"rpc",
             "Getting code for address: {:?} at block : {}",
-            address, block_number
+            address, block.header.number
         );
 
         let code = self
             .handler
             .core
-            .get_code(address, block_number)
+            .get_code(address, block.header.state_root)
             .map_err(to_custom_err)?;
 
         debug!(target:"rpc", "code : {:?} for address {address:?}", code);
@@ -404,15 +404,15 @@ impl MetachainRPCServer for MetachainRPCModule {
         position: U256,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<H256> {
-        let block_number = self.block_number_to_block(block_number)?.header.number;
+        let block = self.block_number_to_block(block_number)?;
         debug!(target:"rpc",
             "Getting storage for address: {:?}, at position {:?}, for block {}",
-            address, position, block_number
+            address, position, block.header.number
         );
 
         self.handler
             .core
-            .get_storage_at(address, position, block_number)
+            .get_storage_at(address, position, block.header.state_root)
             .map_err(to_custom_err)?
             .map_or(Ok(H256::default()), |storage| {
                 Ok(H256::from_slice(&storage))
@@ -751,11 +751,11 @@ impl MetachainRPCServer for MetachainRPCModule {
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc", "Getting transaction count for address: {:?}", address);
-        let block_number = self.block_number_to_block(block_number)?.header.number;
+        let block = self.block_number_to_block(block_number)?;
         let nonce = self
             .handler
             .core
-            .get_nonce_from_block_number(address, block_number)
+            .get_nonce(address, block.header.state_root)
             .map_err(to_custom_err)?;
 
         debug!(target:"rpc", "Count: {:#?}", nonce);
@@ -799,7 +799,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             let balance = self
                 .handler
                 .core
-                .get_balance(caller, block.header.number)
+                .get_balance(caller, block.header.state_root)
                 .map_err(to_custom_err)?;
             let mut available = balance;
             if let Some(value) = call.value {
