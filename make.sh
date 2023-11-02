@@ -67,6 +67,7 @@ setup_vars() {
 }
 
 main() {
+    _bash_version_check
     _setup_dir_env
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
@@ -1022,6 +1023,17 @@ END
 
 # Platform helpers
 # ---
+
+_bash_version_check() {
+    _bash_ver_err_exit() {
+        echo "Bash version 5+ required."; exit 1;
+    }
+    [ -z "$BASH_VERSION" ] && _bash_ver_err_exit
+    case $BASH_VERSION in 
+        5.*) return 0;;
+        *) _bash_ver_err_exit;; 
+    esac
+}
 
 _platform_init() {
     # Lazy init functions
