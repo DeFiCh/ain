@@ -316,6 +316,7 @@ pub mod ffi {
         fn evm_try_get_tx_miner_info_from_raw_tx(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
+            mnview_ptr: usize,
         ) -> TxMinerInfo;
 
         fn evm_try_dispatch_pending_transactions_event(
