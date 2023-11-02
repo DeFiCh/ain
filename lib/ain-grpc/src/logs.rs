@@ -2,7 +2,7 @@ use ain_evm::{bytes::Bytes, log::LogIndex};
 use ethereum_types::{H160, H256, U256};
 use serde_with::{serde_as, OneOrMany};
 
-use crate::block::BlockRef;
+use crate::block::BlockNumber;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -43,7 +43,7 @@ pub struct GetLogsRequest {
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub address: Option<Vec<H160>>,
     pub block_hash: Option<H256>,
-    pub from_block: Option<BlockRef>,
-    pub to_block: Option<BlockRef>,
+    pub from_block: Option<BlockNumber>,
+    pub to_block: Option<BlockNumber>,
     pub topics: Option<Vec<Option<H256>>>,
 }

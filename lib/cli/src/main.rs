@@ -4,7 +4,7 @@ mod params;
 mod result;
 mod structs;
 
-use ain_grpc::block::BlockRef;
+use ain_grpc::block::BlockNumber;
 use command::execute_cli_command;
 use ethereum_types::{H160, H256, U256};
 use format::Format;
@@ -49,7 +49,7 @@ pub enum MetachainCLI {
         #[structopt(parse(try_from_str))]
         address: H160,
         #[structopt(parse(try_from_str))]
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     },
     /// Returns information about a block by its hash.
     GetBlockByHash {
@@ -63,7 +63,7 @@ pub enum MetachainCLI {
     /// Returns information about a block by its block number.
     GetBlockByNumber {
         #[structopt(parse(try_from_str))]
-        block_number: BlockRef,
+        block_number: BlockNumber,
         #[structopt(long)]
         full_transaction: bool,
     },
@@ -92,14 +92,14 @@ pub enum MetachainCLI {
     /// Returns the number of transactions in a block matching the given block number.
     GetBlockTransactionCountByNumber {
         #[structopt(parse(try_from_str))]
-        number: BlockRef,
+        number: BlockNumber,
     },
     /// Returns the code at a given address.
     GetCode {
         #[structopt(parse(try_from_str))]
         address: H160,
         #[structopt(parse(try_from_str))]
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     },
     /// Returns the value from a storage position at a given address.
     GetStorageAt {
@@ -108,7 +108,7 @@ pub enum MetachainCLI {
         #[structopt(parse(try_from_str))]
         position: U256,
         #[structopt(parse(try_from_str))]
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     },
     /// Sends a signed transaction and returns the transaction hash.
     SendRawTransaction { input: String },
@@ -117,7 +117,7 @@ pub enum MetachainCLI {
         #[structopt(parse(try_from_str))]
         input: H160,
         #[structopt(parse(try_from_str))]
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     },
     /// Generates and returns an estimate of how much gas is necessary to allow the transaction to complete.
     EstimateGas {

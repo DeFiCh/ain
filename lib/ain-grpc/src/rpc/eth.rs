@@ -23,7 +23,7 @@ use libsecp256k1::SecretKey;
 use log::{debug, trace};
 
 use crate::{
-    block::{BlockRef, RpcBlock, RpcFeeHistory},
+    block::{BlockNumber, RpcBlock, RpcFeeHistory},
     call_request::CallRequest,
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
@@ -44,7 +44,7 @@ pub trait MetachainRPC {
     /// Makes a call to the Ethereum node without creating a transaction on the blockchain.
     /// Returns the output data as a hexadecimal string.
     #[method(name = "call")]
-    fn call(&self, call: CallRequest, block_number: Option<BlockRef>) -> RpcResult<Bytes>;
+    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes>;
 
     /// Retrieves the list of accounts managed by the node.
     /// Returns a vector of Ethereum addresses as hexadecimal strings.
@@ -71,7 +71,7 @@ pub trait MetachainRPC {
     #[method(name = "getBlockByNumber")]
     fn get_block_by_number(
         &self,
-        block_number: BlockRef,
+        block_number: BlockNumber,
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>>;
 
@@ -89,7 +89,7 @@ pub trait MetachainRPC {
 
     /// Retrieves the transaction count for a specific block, identified by its block number.
     #[method(name = "getBlockTransactionCountByNumber")]
-    fn get_block_transaction_count_by_number(&self, number: BlockRef) -> RpcResult<usize>;
+    fn get_block_transaction_count_by_number(&self, number: BlockNumber) -> RpcResult<usize>;
 
     // ----------------------------------------
     // Mining
@@ -157,11 +157,11 @@ pub trait MetachainRPC {
     /// Retrieves the balance of a specific Ethereum address at a given block number.
     /// Returns the balance as U256.
     #[method(name = "getBalance")]
-    fn get_balance(&self, address: H160, block_number: Option<BlockRef>) -> RpcResult<U256>;
+    fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256>;
 
     /// Retrieves the bytecode of a contract at a specific address.
     #[method(name = "getCode")]
-    fn get_code(&self, address: H160, block_number: Option<BlockRef>) -> RpcResult<String>;
+    fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String>;
 
     /// Retrieves the storage value at a specific position in a contract.
     #[method(name = "getStorageAt")]
@@ -169,7 +169,7 @@ pub trait MetachainRPC {
         &self,
         address: H160,
         position: U256,
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     ) -> RpcResult<H256>;
 
     /// Retrieves the number of transactions sent from a specific address.
@@ -177,7 +177,7 @@ pub trait MetachainRPC {
     fn get_transaction_count(
         &self,
         address: H160,
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     ) -> RpcResult<U256>;
 
     // ----------------------------------------
@@ -209,7 +209,7 @@ pub trait MetachainRPC {
 
     /// Estimate gas needed for execution of given contract.
     #[method(name = "estimateGas")]
-    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockRef>)
+    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockNumber>)
         -> RpcResult<U256>;
 
     /// Returns current gas_price.
@@ -220,7 +220,7 @@ pub trait MetachainRPC {
     fn fee_history(
         &self,
         block_count: U256,
-        first_block: BlockRef,
+        first_block: BlockNumber,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
 
@@ -281,12 +281,12 @@ impl MetachainRPCModule {
         Self { handler }
     }
 
-    fn block_number_to_u256(&self, block_number: Option<BlockRef>) -> RpcResult<U256> {
+    fn block_number_to_u256(&self, block_number: Option<BlockNumber>) -> RpcResult<U256> {
         match block_number.unwrap_or_default() {
-            BlockRef::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
-            BlockRef::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
-            BlockRef::Earliest => self.handler.storage.get_block_by_number(&U256::zero()),
-            BlockRef::Safe | BlockRef::Finalized => {
+            BlockNumber::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
+            BlockNumber::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
+            BlockNumber::Earliest => self.handler.storage.get_block_by_number(&U256::zero()),
+            BlockNumber::Safe | BlockNumber::Finalized => {
                 self.handler.storage.get_latest_block().and_then(|block| {
                     block.map_or(Ok(None), |block| {
                         let finality_count =
@@ -312,7 +312,7 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, call: CallRequest, block_number: Option<BlockRef>) -> RpcResult<Bytes> {
+    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
@@ -370,7 +370,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     // State RPC
 
-    fn get_balance(&self, address: H160, block_number: Option<BlockRef>) -> RpcResult<U256> {
+    fn get_balance(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<U256> {
         let block_number = self.block_number_to_u256(block_number)?;
         debug!(target:"rpc",
             "Getting balance for address: {:?} at block : {} ",
@@ -386,7 +386,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(balance)
     }
 
-    fn get_code(&self, address: H160, block_number: Option<BlockRef>) -> RpcResult<String> {
+    fn get_code(&self, address: H160, block_number: Option<BlockNumber>) -> RpcResult<String> {
         let block_number = self.block_number_to_u256(block_number)?;
 
         debug!(target:"rpc",
@@ -411,7 +411,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         &self,
         address: H160,
         position: U256,
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     ) -> RpcResult<H256> {
         let block_number = self.block_number_to_u256(block_number)?;
         debug!(target:"rpc",
@@ -470,7 +470,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_block_by_number(
         &self,
-        block_number: BlockRef,
+        block_number: BlockNumber,
         full_transactions: Option<bool>,
     ) -> RpcResult<Option<RpcBlock>> {
         let block_number = self.block_number_to_u256(Some(block_number))?;
@@ -610,7 +610,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             .map_or(Ok(0), |b| Ok(b.transactions.len()))
     }
 
-    fn get_block_transaction_count_by_number(&self, block_number: BlockRef) -> RpcResult<usize> {
+    fn get_block_transaction_count_by_number(&self, block_number: BlockNumber) -> RpcResult<usize> {
         let block_number = self.block_number_to_u256(Some(block_number))?;
         self.handler
             .storage
@@ -751,7 +751,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn get_transaction_count(
         &self,
         address: H160,
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc", "Getting transaction count for address: {:?}", address);
         let block_number = self.block_number_to_u256(block_number)?;
@@ -771,7 +771,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn estimate_gas(
         &self,
         call: CallRequest,
-        block_number: Option<BlockRef>,
+        block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
         let caller = call.from.unwrap_or_default();
@@ -919,7 +919,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn fee_history(
         &self,
         block_count: U256,
-        first_block: BlockRef,
+        first_block: BlockNumber,
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
         let attrs = ain_cpp_imports::get_attribute_values(None);
