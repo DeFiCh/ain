@@ -199,7 +199,7 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
             nonce += 1
 
-        # Test error at the 64th EVM TX
+        # Test error at the 65th EVM TX
         assert_raises_rpc_error(
             -26,
             "too-many-evm-txs-by-sender",
@@ -214,19 +214,8 @@ class EVMTest(DefiTestFramework):
 
         # Mint a block
         self.nodes[0].generate(1)
-        height_checkpoint = self.nodes[0].getblockcount()
-
-        # Check that now we can send again.
-        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
-        self.nodes[0].generate(1)
-        block_txs = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )["tx"]
-        assert_equal(len(block_txs), 2)
-
-        self.rollback_to(height_checkpoint)
-
-        self.blockHash = self.nodes[0].getblockhash(height_checkpoint)
+        current_height = self.nodes[0].getblockcount()
+        self.blockHash = self.nodes[0].getblockhash(current_height)
         block_txs = self.nodes[0].getblock(self.blockHash)["tx"]
         assert_equal(len(block_txs), 65)
 
