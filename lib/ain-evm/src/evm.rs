@@ -477,17 +477,22 @@ impl EVMServices {
             ),
         };
 
+        let attrs =  ain_cpp_imports::get_attribute_values(Some(mnview_ptr));
+        let attr_block_gas_limit = attrs.block_gas_limit;
+        let attr_block_gas_limit_factor = attrs.block_gas_target_factor;
+
         let block_difficulty = U256::from(difficulty);
         let (parent_hash, _) = self
             .block
             .get_latest_block_hash_and_number()?
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
+
         let block_base_fee_per_gas = self
             .block
-            .calculate_base_fee(parent_hash, Some(mnview_ptr))?;
+            .calculate_base_fee(parent_hash, attr_block_gas_limit_factor)?;
 
         let block_gas_limit =
-            U256::from(ain_cpp_imports::get_attribute_values(Some(mnview_ptr)).block_gas_limit);
+            U256::from(attr_block_gas_limit);
         let vicinity = Vicinity {
             beneficiary,
             block_number: target_block,
