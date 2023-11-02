@@ -3027,6 +3027,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             auto &pool = DfTxTaskPool->pool;
 
             auto isFirstTx = true;
+            auto isSecondTx = true;
             for (const auto &txRef : block.vtx) {
                 const auto &tx = *txRef;
                 if (tx.IsCoinBase()) {
@@ -3065,6 +3066,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
                         }
                         evmEccPreCacheTaskPool.RemoveTask();
                     });
+
+                    if (!isFirstTx && isSecondTx) {
+                        isSecondTx = false;
+                        evmEccPreCacheTaskPool.WaitForCompletion();
+                    }
                 }
             }
         }
@@ -3272,12 +3278,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
-
-
-    // If it's not completed by now, we don't need it anymore. 
-    // Bail here so that other concurrent tasks won't be awaiting on these
-    // unnecessarily. 
-    evmEccPreCacheTaskPool.MarkCancelled();
 
     int64_t nTime3 = GetTimeMicros();
     nTimeConnect += nTime3 - nTime2;
