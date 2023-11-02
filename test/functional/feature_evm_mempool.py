@@ -195,7 +195,7 @@ class EVMTest(DefiTestFramework):
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
 
         # Test max limit of TX from a specific sender
-        for i in range(64):
+        for _ in range(64):
             self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
             nonce += 1
 
