@@ -196,9 +196,8 @@ class EVMTest(DefiTestFramework):
 
         # Test max limit of TX from a specific sender
         for i in range(64):
-            self.nodes[0].evmtx(
-                self.ethAddress, nonce + i, 21, 21001, self.toAddress, 1
-            )
+            self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+            nonce += 1
 
         # Test error at the 64th EVM TX
         assert_raises_rpc_error(
@@ -206,7 +205,7 @@ class EVMTest(DefiTestFramework):
             "too-many-evm-txs-by-sender",
             self.nodes[0].evmtx,
             self.ethAddress,
-            nonce + 64,
+            nonce,
             21,
             21001,
             self.toAddress,
@@ -215,11 +214,21 @@ class EVMTest(DefiTestFramework):
 
         # Mint a block
         self.nodes[0].generate(1)
-        self.blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        height_checkpoint = self.nodes[0].getblockcount()
+
+        # Check that now we can send again.
+        self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+        self.nodes[0].generate(1)
         block_txs = self.nodes[0].getblock(
             self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         )["tx"]
+        assert_equal(len(block_txs), 2)
+        self.rollback_to(height_checkpoint)
+
+        self.blockHash = self.nodes[0].getblockhash(height_checkpoint)
+        block_txs = self.nodes[0].getblock(self.blockHash)["tx"]
         assert_equal(len(block_txs), 65)
+
 
         # Check accounting of EVM fees
         txLegacy = {
@@ -279,7 +288,7 @@ class EVMTest(DefiTestFramework):
 
         # Try and send another TX to make sure mempool has removed entries
         tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce + 64, 21, 21001, self.toAddress, 1
+            self.ethAddress, nonce, 21, 21001, self.toAddress, 1
         )
         self.nodes[0].generate(1)
         self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
