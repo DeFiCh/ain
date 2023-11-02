@@ -179,7 +179,6 @@ pub mod ffi {
         fn evm_try_unsafe_update_state_in_template(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
-            mnview_ptr: usize,
         );
 
         fn evm_try_unsafe_get_next_valid_nonce_in_template(

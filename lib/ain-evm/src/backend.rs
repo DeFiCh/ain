@@ -35,7 +35,7 @@ pub struct Vicinity {
     pub total_gas_used: U256,
     pub beneficiary: H160,
     pub block_number: U256,
-    pub timestamp: U256,
+    pub timestamp: u64,
     pub block_difficulty: U256,
     pub block_gas_limit: U256,
     pub block_base_fee_per_gas: U256,
@@ -47,7 +47,7 @@ impl From<Header> for Vicinity {
         Vicinity {
             beneficiary: header.beneficiary,
             block_number: header.number,
-            timestamp: U256::from(header.timestamp),
+            timestamp: header.timestamp,
             block_difficulty: header.difficulty,
             block_gas_limit: header.gas_limit,
             block_base_fee_per_gas: header.base_fee,
@@ -427,7 +427,7 @@ impl Backend for EVMBackend {
     }
 
     fn block_timestamp(&self) -> U256 {
-        self.vicinity.timestamp
+        U256::from(self.vicinity.timestamp)
     }
 
     fn block_difficulty(&self) -> U256 {

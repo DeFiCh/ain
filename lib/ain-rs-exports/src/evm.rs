@@ -220,14 +220,11 @@ fn evm_try_get_balance(address: &str) -> Result<u64> {
 ///
 /// The state update results.
 #[ffi_fallible]
-fn evm_try_unsafe_update_state_in_template(
-    template: &mut BlockTemplateWrapper,
-    mnview_ptr: usize,
-) -> Result<()> {
+fn evm_try_unsafe_update_state_in_template(template: &mut BlockTemplateWrapper) -> Result<()> {
     unsafe {
         SERVICES
             .evm
-            .update_state_in_block_template(template.get_inner_mut()?, mnview_ptr)
+            .update_state_in_block_template(template.get_inner_mut()?)
     }
 }
 
