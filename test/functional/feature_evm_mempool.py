@@ -195,18 +195,17 @@ class EVMTest(DefiTestFramework):
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
 
         # Test max limit of TX from a specific sender
-        for i in range(64):
-            self.nodes[0].evmtx(
-                self.ethAddress, nonce + i, 21, 21001, self.toAddress, 1
-            )
+        for _ in range(64):
+            self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
+            nonce += 1
 
-        # Test error at the 64th EVM TX
+        # Test error at the 65th EVM TX
         assert_raises_rpc_error(
             -26,
             "too-many-evm-txs-by-sender",
             self.nodes[0].evmtx,
             self.ethAddress,
-            nonce + 64,
+            nonce,
             21,
             21001,
             self.toAddress,
@@ -216,9 +215,7 @@ class EVMTest(DefiTestFramework):
         # Mint a block
         self.nodes[0].generate(1)
         self.blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        block_txs = self.nodes[0].getblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )["tx"]
+        block_txs = self.nodes[0].getblock(self.blockHash)["tx"]
         assert_equal(len(block_txs), 65)
 
         # Check accounting of EVM fees
@@ -278,9 +275,7 @@ class EVMTest(DefiTestFramework):
         )
 
         # Try and send another TX to make sure mempool has removed entries
-        tx = self.nodes[0].evmtx(
-            self.ethAddress, nonce + 64, 21, 21001, self.toAddress, 1
-        )
+        tx = self.nodes[0].evmtx(self.ethAddress, nonce, 21, 21001, self.toAddress, 1)
         self.nodes[0].generate(1)
         self.blockHash1 = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
 

@@ -23,6 +23,7 @@ jobs:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
       TESTS_FAILFAST: 0
       TESTS_COMBINED_LOGS: 500
+      CARGO_INCREMENTAL: 0
     steps:
     - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
@@ -40,8 +41,8 @@ jobs:
     - name: Install dependencies
       run: ./make.sh ci-setup-deps
     
-    - name: Install dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
       with:
@@ -50,6 +51,10 @@ jobs:
 
     - name: Build deps and configure
       run: ./make.sh build
+
+    # Temp. workaround to save space to prevent GH runners from running out
+    - name: Cleanup cargo deps
+      run: rm -rf build/lib/target/debug/deps
       
     - name: E2E tests
       run: ./make.sh test
@@ -66,9 +71,9 @@ jobs:
 
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
-
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
       with:

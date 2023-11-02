@@ -41,6 +41,8 @@ jobs:
     name: Rust Lints
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -52,8 +54,8 @@ jobs:
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
       with:

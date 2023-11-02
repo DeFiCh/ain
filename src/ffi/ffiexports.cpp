@@ -7,6 +7,8 @@
 #include <logging.h>
 #include <net.h>
 #include <util/system.h>
+#include <array>
+#include <cstdint>
 
 // TODO: Later switch this to u8 so we skip the
 // conversion and is more efficient.
@@ -255,19 +257,19 @@ rust::string getStateInputJSON() {
     return gArgs.GetArg("-ethstartstate", "");
 }
 
-int getHighestBlock() {
-    return pindexBestHeader ? pindexBestHeader->nHeight
-                            : (int)::ChainActive().Height();  // return current block count if no peers
-}
-
 // Returns Major, Minor, Revision in format: "X.Y.Z"
 rust::string getClientVersion() {
     return rust::String(FormatVersionAndSuffix());
 }
 
-int getCurrentHeight() {
+std::array<int64_t, 2> getEthSyncStatus() {
     LOCK(cs_main);
-    return ::ChainActive().Height() ? (int)::ChainActive().Height() : -1;
+
+    auto currentHeight = ::ChainActive().Height() ? (int)::ChainActive().Height() : -1;
+    auto highestBlock = pindexBestHeader ? pindexBestHeader->nHeight
+                                         : (int)::ChainActive().Height();  // return current block count if no peers
+
+    return std::array<int64_t, 2>{currentHeight, highestBlock};
 }
 
 Attributes getAttributeValues(std::size_t mnview_ptr) {
@@ -279,16 +281,15 @@ Attributes getAttributeValues(std::size_t mnview_ptr) {
         view = pcustomcsview.get();
     }
 
-    std::shared_ptr<ATTRIBUTES> attributes;
-    attributes = view->GetAttributes();
+    const auto attributes = view->GetAttributes();
 
-    CDataStructureV0 blockGasTargetKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTarget};
+    CDataStructureV0 blockGasTargetFactorKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTargetFactor};
     CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
     CDataStructureV0 finalityCountKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::Finalized};
     CDataStructureV0 rbfIncrementMinPctKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RbfIncrementMinPct};
 
-    if (attributes->CheckKey(blockGasTargetKey)) {
-        val.blockGasTarget = attributes->GetValue(blockGasTargetKey, DEFAULT_EVM_BLOCK_GAS_TARGET);
+    if (attributes->CheckKey(blockGasTargetFactorKey)) {
+        val.blockGasTargetFactor = attributes->GetValue(blockGasTargetFactorKey, DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR);
     }
     if (attributes->CheckKey(blockGasLimitKey)) {
         val.blockGasLimit = attributes->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);

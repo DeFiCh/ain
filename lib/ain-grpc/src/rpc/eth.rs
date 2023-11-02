@@ -28,9 +28,9 @@ use crate::{
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
+    logs::{GetLogsRequest, LogResult},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
-    transaction_log::{GetLogsRequest, LogResult},
     transaction_request::{TransactionMessage, TransactionRequest},
     utils::{format_h256, format_u256, try_get_reverted_error_or_default},
 };
@@ -290,7 +290,7 @@ impl MetachainRPCModule {
                 self.handler.storage.get_latest_block().and_then(|block| {
                     block.map_or(Ok(None), |block| {
                         let finality_count =
-                            ain_cpp_imports::get_attribute_defaults(None).finality_count;
+                            ain_cpp_imports::get_attribute_values(None).finality_count;
 
                         block
                             .header
@@ -319,7 +319,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let data = byte_data.0.as_slice();
 
         // Get gas
-        let block_gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
+        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
         let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
@@ -353,13 +353,13 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         match exit_reason {
             ExitReason::Succeed(_) => Ok(Bytes(data)),
-            ExitReason::Error(e) => Err(Error::Custom(format!("evm error: {e:?}"))),
+            ExitReason::Error(e) => Err(Error::Custom(format!("exit error {e:?}"))),
             ExitReason::Revert(_) => {
                 let revert_msg = try_get_reverted_error_or_default(&data);
                 let encoded_data = format!("0x{}", hex::encode(data));
                 Err(RPCError::RevertError(revert_msg, encoded_data).into())
             }
-            ExitReason::Fatal(e) => Err(Error::Custom(format!("fatal error: {e:?}"))),
+            ExitReason::Fatal(e) => Err(Error::Custom(format!("fatal error {e:?}"))),
         }
     }
 
@@ -778,7 +778,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
 
-        let block_gas_limit = ain_cpp_imports::get_attribute_defaults(None).block_gas_limit;
+        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
 
         let call_gas = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;

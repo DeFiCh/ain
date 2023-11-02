@@ -2,7 +2,7 @@
 pub mod ffi {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Attributes {
-        pub block_gas_target: u64,
+        pub block_gas_target_factor: u64,
         pub block_gas_limit: u64,
         pub finality_count: u64,
         pub rbf_fee_increment: u64,
@@ -42,8 +42,7 @@ pub mod ffi {
         fn getMinRelayTxFee() -> u64;
         fn getEthPrivKey(key: String) -> [u8; 32];
         fn getStateInputJSON() -> String;
-        fn getHighestBlock() -> i32;
-        fn getCurrentHeight() -> i32;
+        fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
         fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
