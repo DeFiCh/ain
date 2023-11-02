@@ -719,7 +719,7 @@ pkg_install_llvm() {
     _fold_end
 }
 
-pkg_install_rust() {
+pkg_user_install_rust() {
     _fold_start "pkg-install-rust"
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
         --default-toolchain="${RUST_DEFAULT_VERSION}" -y
@@ -782,7 +782,7 @@ clean_pkg_local_py_deps() {
   _safe_rm_rf "${python_venv}"
 }
 
-pkg_setup_rust() {
+pkg_user_setup_rust() {
     local rust_target
     # shellcheck disable=SC2119
     rust_target=$(get_rust_triplet)
@@ -1111,10 +1111,10 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
-    DEBIAN_FRONTEND=noninteractive pkg_install_rust
+    ci_setup_deps_target
 }
 
-_ci_setup_deps_target() {
+ci_setup_deps_target() {
     local target=${TARGET}
     case $target in
         # Nothing to do on host
@@ -1134,9 +1134,9 @@ _ci_setup_deps_target() {
     esac
 }
 
-ci_setup_deps_target() {
-    _ci_setup_deps_target
-    pkg_setup_rust
+ci_setup_user_deps() {
+    pkg_user_install_rust
+    pkg_user_setup_rust
 }
 
 # Public helpers
