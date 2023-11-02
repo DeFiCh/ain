@@ -3,11 +3,11 @@
     // or copy over as `.vscode/settings.json` to take effect.
     "rust-analyzer.assist.expressionFillDefault": "default",
     "rust-analyzer.cargo.buildScripts.overrideCommand": [
-        "./make.sh",
+        "../make.sh",
         "rust-analyzer-check"
     ],
     "rust-analyzer.check.overrideCommand": [
-        "./make.sh",
+        "../make.sh",
         "rust-analyzer-check"
     ],
     "rust-analyzer.workspace.symbol.search.kind": "all_symbols",
