@@ -223,7 +223,7 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         )["tx"]
         assert_equal(len(block_txs), 2)
-        
+
         self.rollback_to(height_checkpoint)
 
         self.blockHash = self.nodes[0].getblockhash(height_checkpoint)
