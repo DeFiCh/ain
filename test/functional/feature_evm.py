@@ -1603,6 +1603,77 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].generate(1)
             print_fee_info()
 
+    def test_min_rbf(self):
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/rbf_increment_fee_pct": "0.5",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+        self.nodes[0].evmtx(self.eth_address, nonce, 100, 21001, self.to_address, 1)
+
+        # Send tx with less than 50% in increase fees
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            nonce,
+            140,
+            21001,
+            self.to_address,
+            1,
+        )
+
+        # Send tx with more than 50% in increase fees
+        self.nodes[0].evmtx(self.eth_address, nonce, 160, 21001, self.to_address, 1)
+
+        self.nodes[0].clearmempool()
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/rbf_increment_fee_pct": "1",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+        self.nodes[0].evmtx(self.eth_address, nonce, 100, 21001, self.to_address, 1)
+
+        # Send tx with less than 100% in increase fees
+        assert_raises_rpc_error(
+            -26,
+            "evm-low-fee",
+            self.nodes[0].evmtx,
+            self.eth_address,
+            nonce,
+            180,
+            21001,
+            self.to_address,
+            1,
+        )
+
+        # Send tx with more than 100% in increase fees
+        self.nodes[0].evmtx(self.eth_address, nonce, 220, 21001, self.to_address, 1)
+
+        self.nodes[0].clearmempool()
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/rbf_increment_fee_pct": "0",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].evmtx(self.eth_address, nonce, 100, 21001, self.to_address, 1)
+        self.nodes[0].evmtx(
+            self.eth_address, nonce, 101, 21001, self.to_address, 2
+        )  # must be higher by at least one to make it to the mempool
+
     def run_test(self):
         # Check ERC55 wallet support
         self.erc55_wallet_support()
@@ -1645,6 +1716,8 @@ class EVMTest(DefiTestFramework):
 
         # self.test_gas_limit()
         # self.test_gas_target_factor()
+
+        self.test_min_rbf()
 
 
 if __name__ == "__main__":
