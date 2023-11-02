@@ -914,11 +914,18 @@ impl MetachainRPCServer for MetachainRPCModule {
         priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
         let first_block_number = self.block_number_to_block(Some(first_block))?.header.number;
+        let attrs = ain_cpp_imports::get_attribute_values(None);
+
         let block_count = block_count.try_into().map_err(to_custom_err)?;
         let fee_history = self
             .handler
             .block
-            .fee_history(block_count, first_block_number, priority_fee_percentile)
+            .fee_history(
+                block_count,
+                first_block_number,
+                priority_fee_percentile,
+                attrs.block_gas_target_factor,
+            )
             .map_err(RPCError::EvmError)?;
 
         Ok(RpcFeeHistory::from(fee_history))
