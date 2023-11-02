@@ -22,50 +22,28 @@ class EVMTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [
-            [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-dakotaheight=50",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-metachainheight=105",
-                "-subsidytest=1",
-                "-txindex=1",
-                "-ethdebug=1",
-            ],
-            [
-                "-txordering=2",
-                "-dummypos=0",
-                "-txnotokens=0",
-                "-amkheight=50",
-                "-bayfrontheight=51",
-                "-dakotaheight=50",
-                "-eunosheight=80",
-                "-fortcanningheight=82",
-                "-fortcanninghillheight=84",
-                "-fortcanningroadheight=86",
-                "-fortcanningcrunchheight=88",
-                "-fortcanningspringheight=90",
-                "-fortcanninggreatworldheight=94",
-                "-fortcanningepilogueheight=96",
-                "-grandcentralheight=101",
-                "-metachainheight=105",
-                "-subsidytest=1",
-                "-txindex=1",
-                "-ethdebug=1",
-            ],
+        args = [
+            "-txordering=2",
+            "-dummypos=0",
+            "-txnotokens=0",
+            "-amkheight=50",
+            "-bayfrontheight=51",
+            "-dakotaheight=50",
+            "-eunosheight=80",
+            "-fortcanningheight=82",
+            "-fortcanninghillheight=84",
+            "-fortcanningroadheight=86",
+            "-fortcanningcrunchheight=88",
+            "-fortcanningspringheight=90",
+            "-fortcanninggreatworldheight=94",
+            "-fortcanningepilogueheight=96",
+            "-grandcentralheight=101",
+            "-metachainheight=105",
+            "-subsidytest=1",
+            "-txindex=1",
+            "-ethdebug=1",
         ]
+        self.extra_args = [args, args]
 
     def test_tx_without_chainid(self):
         node = self.nodes[0]
@@ -283,7 +261,7 @@ class EVMTest(DefiTestFramework):
             -32600,
             "Cannot be set before Metachain",
             self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/evm/block/gas_target": "100"}},
+            {"ATTRIBUTES": {"v0/evm/block/gas_target_factor": "100"}},
         )
         assert_raises_rpc_error(
             -32600,
@@ -335,7 +313,7 @@ class EVMTest(DefiTestFramework):
                 "ATTRIBUTES": {
                     "v0/evm/block/finality_count": "100",
                     "v0/evm/block/gas_limit": "30000000",
-                    "v0/evm/block/gas_target": "15000000",
+                    "v0/evm/block/gas_target_factor": "2",
                     "v0/evm/block/rbf_increment_fee_pct": "0.1",
                     "v0/rules/tx/core_op_return_max_size_bytes": 20000,
                     "v0/rules/tx/evm_op_return_max_size_bytes": 20000,
@@ -349,7 +327,7 @@ class EVMTest(DefiTestFramework):
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(result["v0/evm/block/finality_count"], "100")
         assert_equal(result["v0/evm/block/gas_limit"], "30000000")
-        assert_equal(result["v0/evm/block/gas_target"], "15000000")
+        assert_equal(result["v0/evm/block/gas_target_factor"], "2")
         assert_equal(result["v0/evm/block/rbf_increment_fee_pct"], "0.1")
         assert_equal(result["v0/rules/tx/core_op_return_max_size_bytes"], "20000")
         assert_equal(result["v0/rules/tx/evm_op_return_max_size_bytes"], "20000")
@@ -1532,6 +1510,99 @@ class EVMTest(DefiTestFramework):
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(block["gasLimit"], hex(60000000))
 
+    def test_gas_target_factor(self):
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/gas_target_factor": "2",
+                    "v0/evm/block/gas_limit": "50000",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        def print_fee_info():
+            block_info = self.nodes[0].w3.eth.get_block("latest")
+            gas_limit = block_info["gasLimit"]
+            gas_used = block_info["gasUsed"]
+            base_fee_per_gas = block_info["baseFeePerGas"]
+            print("(gas - limit, used, fee): ", gas_limit, gas_used, base_fee_per_gas)
+
+        print_fee_info()
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+
+        # Increase test
+        for _ in range(20):
+            for _ in range(3):
+                self.nodes[0].evmtx(
+                    self.eth_address, nonce, 100, 21001, self.to_address, 0.01
+                )
+                nonce += 1
+            # base fee increases one block after block with above TX
+            self.nodes[0].generate(1)
+            print_fee_info()
+
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/gas_target_factor": "1",
+                    "v0/evm/block/gas_limit": "50000",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Increase test
+        for _ in range(30):
+            # base fee increases one block after block with above TX
+            self.nodes[0].generate(1)
+            print_fee_info()
+
+    def test_gas_limit(self):
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/evm/block/gas_target_factor": "2",
+                    "v0/evm/block/gas_limit": "50000",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        def print_fee_info():
+            block_info = self.nodes[0].w3.eth.get_block("latest")
+            gas_limit = block_info["gasLimit"]
+            gas_used = block_info["gasUsed"]
+            base_fee_per_gas = block_info["baseFeePerGas"]
+            print("(gas - limit, used, fee): ", gas_limit, gas_used, base_fee_per_gas)
+
+        print_fee_info()
+
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.eth_address)
+
+        print_fee_info()
+        # Note: base fee increases one block after block with above TX
+
+        # Increase test
+        for _ in range(20):
+            for _ in range(3):
+                self.nodes[0].evmtx(
+                    self.eth_address, nonce, 100, 21001, self.to_address, 0.01
+                )
+                nonce += 1
+            # base fee increases one block after block with above TX
+            self.nodes[0].generate(1)
+            print_fee_info()
+
+        # Mine any left overs
+        self.nodes[0].generate(1)
+
+        # Decrease test
+        for _ in range(20):
+            self.nodes[0].generate(1)
+            print_fee_info()
+
     def run_test(self):
         # Check ERC55 wallet support
         self.erc55_wallet_support()
@@ -1571,6 +1642,9 @@ class EVMTest(DefiTestFramework):
 
         # Check attributes values update
         self.test_attributes_update()
+
+        # self.test_gas_limit()
+        # self.test_gas_target_factor()
 
 
 if __name__ == "__main__":
