@@ -25,6 +25,8 @@ jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, builder]
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
 
