@@ -26,7 +26,7 @@ class CVaultAssets;
 class TransactionContext;
 
 namespace Consensus {
-struct Params;
+    struct Params;
 }
 
 enum AuthStrategy : uint32_t {
@@ -35,11 +35,11 @@ enum AuthStrategy : uint32_t {
 };
 
 namespace AuthFlags {
-enum Type : uint32_t {
-    None = 0,
-    Bech32InSource = 1 << 1,
-    PKHashInSource = 1 << 2,
-};
+    enum Type : uint32_t {
+        None = 0,
+        Bech32InSource = 1 << 1,
+        PKHashInSource = 1 << 2,
+    };
 }
 
 Res HasAuth(const CTransaction &tx,

@@ -7,9 +7,11 @@
 
 import re
 from test_framework.test_framework import DefiTestFramework
+from test_framework.evm_contract import EVMContract
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
+    assert_raises_web3_error,
     int_to_eth_u256,
     hex_to_decimal,
 )
@@ -46,13 +48,15 @@ class EVMTest(DefiTestFramework):
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
         self.ethAddress = "0x9b8a4af42140d8a4c153a822f02571a1dd037e89"
-        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
-        self.nodes[0].importprivkey(
+        self.ethPrivKey = (
             "af990cc3ba17e776f7f57fcc59942a82846d75833fa17d2ba59ce6858d886e23"
-        )  # ethAddress
-        self.nodes[0].importprivkey(
+        )
+        self.toPrivKey = (
             "17b8cb134958b3d8422b6c43b0732fcdb8c713b524df2d45de12f0c7e214ba35"
-        )  # toAddress
+        )
+        self.toAddress = "0x6c34cbb9219d8caa428835d2073e8ec88ba0a110"
+        self.nodes[0].importprivkey(self.ethPrivKey)
+        self.nodes[0].importprivkey(self.toPrivKey)
 
         # Generate chain
         self.nodes[0].generate(101)
@@ -105,6 +109,68 @@ class EVMTest(DefiTestFramework):
         self.start_height = self.nodes[0].getblockcount()
         self.eth_start_height = int(self.nodes[0].eth_blockNumber(), 16)
 
+        # Eth call for balance transfer with gas specified
+        self.valid_balance_transfer_tx_with_gas = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gas": "0x7a120",
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+        }
+
+        # Eth call for balance transfer with exact gas specified
+        self.valid_balance_transfer_tx_with_exact_gas = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gas": "0x5208",
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+        }
+
+        # Valid eth call for balance transfer without gas specified
+        self.valid_balance_transfer_tx_without_gas = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+        }
+
+        # Invalid eth call for balance transfer with both gasPrice and maxFeePerGas specified
+        self.invalid_balance_transfer_tx_specified_gas_1 = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+            "maxFeePerGas": "0x37E11D600",  # 15_000_000_000
+        }
+
+        # Invalid eth call for balance transfer with both gasPrice and priorityFeePerGas specified
+        self.invalid_balance_transfer_tx_specified_gas_2 = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+            "maxPriorityFeePerGas": "0x37E11D600",  # 15_000_000_000
+        }
+
+        # Invalid eth call for balance transfer with both data and input fields specified
+        self.invalid_balance_transfer_tx_specified_data_and_input = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0xDE0B6B3A7640000",  # 1 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+            "data": "0xffffffffffffffff",
+            "input": "0xffffffffffffffff",
+        }
+
+        # Invalid eth call from insufficient balance for balance transfer
+        self.invalid_balance_transfer_tx_insufficient_funds = {
+            "from": self.ethAddress,
+            "to": self.toAddress,
+            "value": "0x152D02C7E14AF6800000",  # 100_000 DFI
+            "gasPrice": "0x37E11D600",  # 15_000_000_000
+        }
+
     def test_node_params(self):
         self.rollback_to(self.start_height)
 
@@ -120,20 +186,122 @@ class EVMTest(DefiTestFramework):
         chainid = self.nodes[0].eth_chainId()
         assert_equal(chainid, "0x46d")
 
-    def test_gas(self):
+    def test_web3_client_version(self):
         self.rollback_to(self.start_height)
 
-        estimate_gas = self.nodes[0].eth_estimateGas(
+        res = self.nodes[0].web3_clientVersion()
+        match = re.search(r"(DeFiChain)/v(.*)/(.*)/(.*)", res)
+        assert_equal(match.group(1), "DeFiChain")
+        assert_equal(match.group(2).startswith("4."), True)
+        assert_equal(match.group(3).find("-") != -1, True)
+        assert_equal(len(match.group(3)) > 0, True)
+        assert_equal(match.group(4).startswith("rustc-"), True)
+        assert_equal(len(match.group(4)) > 7, True)
+
+    def test_eth_call_transfer(self):
+        self.rollback_to(self.start_height)
+
+        # Test valid eth call using tx with gas specified, ExitReason::Succeed
+        res = self.nodes[0].eth_call(self.valid_balance_transfer_tx_with_gas)
+        assert_equal(res, "0x")
+
+        # Test valid eth call using tx with exact gas specified, ExitReason::Succeed
+        res = self.nodes[0].eth_call(self.valid_balance_transfer_tx_with_exact_gas)
+        assert_equal(res, "0x")
+
+        # Test valid eth call using tx without gas specified, ExitReason::Succeed
+        res = self.nodes[0].eth_call(self.valid_balance_transfer_tx_without_gas)
+        assert_equal(res, "0x")
+
+        # Test invalid eth call, both gasPrice and maxFeePerGas specified
+        assert_raises_rpc_error(
+            -32001,
+            "both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
+            self.nodes[0].eth_call,
+            self.invalid_balance_transfer_tx_specified_gas_1,
+        )
+
+        # Test invalid eth call, both gasPrice and maxPriorityFeePerGas specified
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified",
+            self.nodes[0].eth_call,
+            self.invalid_balance_transfer_tx_specified_gas_2,
+        )
+
+        # Test invalid eth call, both data and input field specified
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: data and input fields are mutually exclusive",
+            self.nodes[0].eth_call,
+            self.invalid_balance_transfer_tx_specified_data_and_input,
+        )
+
+        # Test invalid eth call, insufficient funds
+        assert_raises_rpc_error(
+            -32001,
+            "Custom error: exit error OutOfFund",
+            self.nodes[0].eth_call,
+            self.invalid_balance_transfer_tx_insufficient_funds,
+        )
+
+    def test_eth_call_contract(self):
+        self.rollback_to(self.start_height)
+
+        abi, bytecode, _ = EVMContract.from_file("Loop.sol", "Loop").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
             {
-                "from": self.ethAddress,
-                "to": self.toAddress,
-                "value": "0x0",
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
             }
         )
-        assert_equal(estimate_gas, "0x5208")
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+        # Test valid contract function eth call
+        res = contract.functions.loop(10_000).call()
+        assert_equal(res, [])
 
-        gas_price = self.nodes[0].eth_gasPrice()
-        assert_equal(gas_price, "0x2540be400")  # 10_000_000_000
+    def test_eth_call_revert(self):
+        self.rollback_to(self.start_height)
+
+        abi, bytecode, _ = EVMContract.from_file("Require.sol", "Require").compile()
+        compiled = self.nodes[0].w3.eth.contract(abi=abi, bytecode=bytecode)
+        tx = compiled.constructor().build_transaction(
+            {
+                "chainId": self.nodes[0].w3.eth.chain_id,
+                "nonce": self.nodes[0].w3.eth.get_transaction_count(self.ethAddress),
+                "maxFeePerGas": 10_000_000_000,
+                "maxPriorityFeePerGas": 1_500_000_000,
+                "gas": 1_000_000,
+            }
+        )
+        signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.nodes[0].generate(1)
+        receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
+        contract = self.nodes[0].w3.eth.contract(
+            address=receipt["contractAddress"], abi=abi
+        )
+
+        # Test valid contract function eth call
+        res = contract.functions.value_check(1).call()
+        assert_equal(res, [])
+
+        # Test invalid contract function eth call with revert
+        assert_raises_web3_error(
+            3,
+            "execution reverted: Value must be greater than 0",
+            contract.functions.value_check(0).call,
+        )
 
     def test_accounts(self):
         self.rollback_to(self.start_height)
@@ -283,23 +451,16 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority_max_hash"], blockHash
         )
 
-    def test_web3_client_version(self):
-        node0 = self.nodes[0]
-        res = node0.web3_clientVersion()
-        match = re.search(r"(DeFiChain)/v(.*)/(.*)/(.*)", res)
-        assert_equal(match.group(1), "DeFiChain")
-        assert match.group(2).startswith("4.")
-        assert match.group(3).find("-") != -1
-        assert len(match.group(3)) > 0
-        assert match.group(4).startswith("rustc-")
-        assert len(match.group(4)) > 7
-
     def run_test(self):
         self.setup()
 
         self.test_node_params()
 
-        self.test_gas()
+        self.test_eth_call_transfer()
+
+        self.test_eth_call_contract()
+
+        self.test_eth_call_revert()
 
         self.test_accounts()
 

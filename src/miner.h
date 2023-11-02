@@ -29,7 +29,7 @@ class CAnchor;
 struct EvmTxPreApplyContext;
 
 namespace Consensus {
-struct Params;
+    struct Params;
 };
 
 static const bool DEFAULT_GENERATE = false;
@@ -227,54 +227,54 @@ void IncrementExtraNonce(CBlock *pblock, const CBlockIndex *pindexPrev, unsigned
 int64_t UpdateTime(CBlockHeader *pblock, const Consensus::Params &consensusParams, const CBlockIndex *pindexPrev);
 
 namespace pos {
-// The main staking routine.
-// Creates stakes using CWallet API, creates PoS kernels and mints blocks.
-// Uses Args.getWallets() to receive and update wallets list.
+    // The main staking routine.
+    // Creates stakes using CWallet API, creates PoS kernels and mints blocks.
+    // Uses Args.getWallets() to receive and update wallets list.
 
-extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
+    extern AtomicMutex cs_MNLastBlockCreationAttemptTs;
 
-class ThreadStaker {
-public:
-    struct Args {
-        int32_t nMint = -1;
-        int64_t nMaxTries = -1;
-        CScript coinbaseScript = CScript();
-        CKey minterKey = CKey();
-        CKeyID operatorID = {};
+    class ThreadStaker {
+    public:
+        struct Args {
+            int32_t nMint = -1;
+            int64_t nMaxTries = -1;
+            CScript coinbaseScript = CScript();
+            CKey minterKey = CKey();
+            CKeyID operatorID = {};
+        };
+
+        /// always forward by value to avoid dangling pointers
+        void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
     };
 
-    /// always forward by value to avoid dangling pointers
-    void operator()(std::vector<Args> stakerParams, CChainParams chainparams);
-};
+    class Staker {
+    private:
+        static uint256 lastBlockSeen;
 
-class Staker {
-private:
-    static uint256 lastBlockSeen;
+    public:
+        enum class Status {
+            error,
+            initWaiting,
+            stakeWaiting,
+            stakeReady,
+            minted,
+        };
 
-public:
-    enum class Status {
-        error,
-        initWaiting,
-        stakeWaiting,
-        stakeReady,
-        minted,
+        Staker::Status init(const CChainParams &chainparams);
+        Staker::Status stake(const CChainParams &chainparams, const ThreadStaker::Args &args);
+
+        // declaration static variables
+        // Map to store [master node id : last block creation attempt timestamp] for local master nodes
+        static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
+
+        // Variables to manage search time across threads
+        static int64_t nLastCoinStakeSearchTime;
+        static int64_t nFutureTime;
+
+    private:
+        template <typename F>
+        void withSearchInterval(F &&f, int64_t height);
     };
-
-    Staker::Status init(const CChainParams &chainparams);
-    Staker::Status stake(const CChainParams &chainparams, const ThreadStaker::Args &args);
-
-    // declaration static variables
-    // Map to store [master node id : last block creation attempt timestamp] for local master nodes
-    static std::map<uint256, int64_t> mapMNLastBlockCreationAttemptTs;
-
-    // Variables to manage search time across threads
-    static int64_t nLastCoinStakeSearchTime;
-    static int64_t nFutureTime;
-
-private:
-    template <typename F>
-    void withSearchInterval(F &&f, int64_t height);
-};
 }  // namespace pos
 
 #endif  // DEFI_MINER_H

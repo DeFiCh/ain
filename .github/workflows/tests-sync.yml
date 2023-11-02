@@ -3,12 +3,12 @@ on:
   workflow_dispatch:
     inputs:
       block_ranges:
-        description: 'Optionally restrict to specific block ranges. Should be
-          formatted as multiple start block, such as "350000 50000 750000".
-          Defaults to all block ranges'
+        description: 'Block ranges: Format: "<start-block-1> <start-block-2>" 
+          Eg: "350000 50000 750000".
+          Default: All available ranges when empty'
         required: false
       name:
-        description: 'Workflow run custom name'
+        description: 'Custom name for the workflow run'
         required: false
   pull_request:
     branches:
@@ -25,6 +25,8 @@ jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, x64, builder]
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v3
 
@@ -34,8 +36,8 @@ jobs:
     - name: Setup dependencies
       run: sudo ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
       with:

@@ -12,7 +12,7 @@
 #include <dfi/oracles.h>
 
 namespace Consensus {
-struct Params;
+    struct Params;
 }
 
 enum VersionTypes : uint8_t {
@@ -57,7 +57,8 @@ enum EVMIDs : uint8_t {
 enum EVMKeys : uint8_t {
     Finalized = 'a',
     GasLimit = 'b',
-    GasTarget = 'c',
+    GasTargetFactor = 'c',
+    RbfIncrementMinPct = 'd',
 };
 
 enum GovernanceIDs : uint8_t {

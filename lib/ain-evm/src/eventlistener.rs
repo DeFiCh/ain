@@ -1,12 +1,13 @@
 use std::collections::VecDeque;
 
-use crate::{core::ExecutionStep, opcode};
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
 use evm_runtime::{
     tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener},
     Opcode,
 };
 use log::debug;
+
+use crate::{core::ExecutionStep, opcode};
 
 pub struct Listener {
     pub trace: Vec<ExecutionStep>,

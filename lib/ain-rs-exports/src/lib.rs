@@ -163,6 +163,7 @@ pub mod ffi {
             miner_address: &str,
             difficulty: u32,
             timestamp: u64,
+            mnview_ptr: usize,
         ) -> &'static mut BlockTemplateWrapper;
 
         fn evm_try_unsafe_remove_template(
@@ -178,7 +179,6 @@ pub mod ffi {
         fn evm_try_unsafe_update_state_in_template(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
-            mnview_ptr: usize,
         );
 
         fn evm_try_unsafe_get_next_valid_nonce_in_template(
@@ -315,6 +315,7 @@ pub mod ffi {
         fn evm_try_get_tx_miner_info_from_raw_tx(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
+            mnview_ptr: usize,
         ) -> TxMinerInfo;
 
         fn evm_try_dispatch_pending_transactions_event(

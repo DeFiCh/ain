@@ -111,10 +111,10 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 }
 
 namespace {
-BlockManager g_blockman;
+    BlockManager g_blockman;
 
-// Store subsidy at each reduction
-std::map<uint32_t, CAmount> subsidyReductions;
+    // Store subsidy at each reduction
+    std::map<uint32_t, CAmount> subsidyReductions;
 }  // namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -182,22 +182,22 @@ TBytes compactEnd;
 
 // Internal stuff
 namespace {
-CBlockIndex *pindexBestInvalid = nullptr;
+    CBlockIndex *pindexBestInvalid = nullptr;
 
-CCriticalSection cs_LastBlockFile;
-std::vector<CBlockFileInfo> vinfoBlockFile;
-int nLastBlockFile = 0;
-/** Global flag to indicate we should check to see if there are
- *  block/undo files that should be deleted.  Set on startup
- *  or if we allocate more file space when we're in prune mode
- */
-bool fCheckForPruning = false;
+    CCriticalSection cs_LastBlockFile;
+    std::vector<CBlockFileInfo> vinfoBlockFile;
+    int nLastBlockFile = 0;
+    /** Global flag to indicate we should check to see if there are
+     *  block/undo files that should be deleted.  Set on startup
+     *  or if we allocate more file space when we're in prune mode
+     */
+    bool fCheckForPruning = false;
 
-/** Dirty block index entries. */
-std::set<CBlockIndex *> setDirtyBlockIndex;
+    /** Dirty block index entries. */
+    std::set<CBlockIndex *> setDirtyBlockIndex;
 
-/** Dirty block file entries. */
-std::set<int> setDirtyFileInfo;
+    /** Dirty block file entries. */
+    std::set<int> setDirtyFileInfo;
 }  // namespace
 
 extern std::string ScriptToString(const CScript &script);
@@ -1086,7 +1086,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             }
 
             CrossBoundaryResult result;
-            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(result, rawEVMTx);
+            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(
+                result, rawEVMTx, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
             if (!result.ok) {
                 LogPrint(BCLog::MEMPOOL, "EVM tx failed to get sender info %s\n", result.reason.c_str());
                 return state.Invalid(
@@ -3009,15 +3010,18 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                  "bad-xvm-coinbase");
         }
         blockCtx.SetEVMTemplate(
-            CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
+            CScopedTemplate::Create(pindex->nHeight,
+                                    xvmRes->evm.beneficiary,
+                                    block.nBits,
+                                    pindex->GetBlockTime(),
+                                    static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: Failed to create block template", __func__),
                                  REJECT_INVALID,
                                  "bad-evm-template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
-            result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplate->GetTemplate()));
 
         auto eccPreCacheControl = gArgs.GetArg("-eccprecache", DEFAULT_ECC_PRECACHE_WORKERS);
         auto isEccPreCacheEnabled = eccPreCacheControl == -1 || eccPreCacheControl > 0;
@@ -3283,6 +3287,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
+
+    // If it's not completed by now, we don't need it anymore.
+    // Bail here so that other concurrent tasks won't be awaiting on these
+    // unnecessarily.
+    evmEccPreCacheTaskPool.MarkCancelled();
 
     int64_t nTime3 = GetTimeMicros();
     nTimeConnect += nTime3 - nTime2;

@@ -1161,24 +1161,24 @@ bool GetAnchorEmbeddedData(const CKeyID &data,
 }
 
 namespace spv {
-const PendingOrderType PendingOrder =
-    PendingOrderType([](const CAnchorIndex::AnchorRec &a, const CAnchorIndex::AnchorRec &b) {
-        if (a.btcHeight == b.btcHeight) {
-            if (a.anchor.height == b.anchor.height) {
-                if (a.anchor.height >= static_cast<THeight>(Params().GetConsensus().DF8EunosHeight)) {
-                    const auto blockHash = panchors->ReadBlockHash(a.btcHeight);
-                    auto aHash = Hash(a.txHash.begin(), a.txHash.end(), blockHash.begin(), blockHash.end());
-                    auto bHash = Hash(b.txHash.begin(), b.txHash.end(), blockHash.begin(), blockHash.end());
-                    return aHash < bHash;
+    const PendingOrderType PendingOrder =
+        PendingOrderType([](const CAnchorIndex::AnchorRec &a, const CAnchorIndex::AnchorRec &b) {
+            if (a.btcHeight == b.btcHeight) {
+                if (a.anchor.height == b.anchor.height) {
+                    if (a.anchor.height >= static_cast<THeight>(Params().GetConsensus().DF8EunosHeight)) {
+                        const auto blockHash = panchors->ReadBlockHash(a.btcHeight);
+                        auto aHash = Hash(a.txHash.begin(), a.txHash.end(), blockHash.begin(), blockHash.end());
+                        auto bHash = Hash(b.txHash.begin(), b.txHash.end(), blockHash.begin(), blockHash.end());
+                        return aHash < bHash;
+                    }
+
+                    return a.txHash < b.txHash;
                 }
 
-                return a.txHash < b.txHash;
+                // Higher DeFi comes first
+                return a.anchor.height > b.anchor.height;
             }
 
-            // Higher DeFi comes first
-            return a.anchor.height > b.anchor.height;
-        }
-
-        return a.btcHeight < b.btcHeight;
-    });
+            return a.btcHeight < b.btcHeight;
+        });
 }

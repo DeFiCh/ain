@@ -6,9 +6,7 @@ use ethereum_types::H256;
 use jsonrpsee::core::traits::IdProvider;
 use serde::{Serialize, Serializer};
 
-use crate::{
-    block::RpcBlockHeader, receipt::LogResult, subscription::sync_status::PubSubSyncStatus,
-};
+use crate::{block::RpcBlockHeader, logs::LogResult, subscription::sync_status::PubSubSyncStatus};
 
 /// Subscription result.
 #[derive(Clone, Debug, Eq, PartialEq)]

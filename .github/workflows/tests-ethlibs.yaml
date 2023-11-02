@@ -18,6 +18,8 @@ env:
 
 jobs:
   build:
+    env:
+      CARGO_INCREMENTAL: 0
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     steps:
@@ -29,8 +31,8 @@ jobs:
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
       with:
