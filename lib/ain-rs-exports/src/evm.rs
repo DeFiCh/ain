@@ -850,7 +850,8 @@ fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Res
     let initial_base_fee =
         block_service.calculate_base_fee(H256::zero(), attrs.block_gas_target_factor)?;
     let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
-    let min_rbf_tip_fee = calculate_min_rbf_tip_gas_fee(&signed_tx, tip_fee, mnview_ptr)?;
+    let min_rbf_tip_fee =
+        calculate_min_rbf_tip_gas_fee(&signed_tx, tip_fee, attrs.rbf_fee_increment)?;
 
     let tip_fee = u64::try_from(WeiAmount(tip_fee).to_satoshi()?)?;
     let min_rbf_tip_fee = u64::try_from(WeiAmount(min_rbf_tip_fee).to_satoshi()?)?;

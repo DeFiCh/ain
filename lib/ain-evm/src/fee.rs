@@ -24,11 +24,9 @@ pub fn calculate_max_tip_gas_fee(signed_tx: &SignedTx, base_fee: U256) -> Result
 pub fn calculate_min_rbf_tip_gas_fee(
     signed_tx: &SignedTx,
     tip_fee: U256,
-    mnview_ptr: usize,
+    rbf_fee_increment: u64,
 ) -> Result<U256> {
-    let mempool_increment_percentage = U256::from(
-        ain_cpp_imports::get_attribute_values(Some(mnview_ptr)).rbf_fee_increment / 1_000_000,
-    );
+    let mempool_increment_percentage = U256::from(rbf_fee_increment / 1_000_000);
 
     let incremental_fee = tip_fee
         .checked_mul(mempool_increment_percentage)
