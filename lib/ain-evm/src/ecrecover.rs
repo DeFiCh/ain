@@ -66,11 +66,19 @@ mod tests {
         let recovery_id = 0;
 
         assert!(recover_public_key(&zero, &zero, &zero, recovery_id).is_err());
-        assert!(recover_public_key(&one, &one, &one, recovery_id).is_err());
-        assert!(recover_public_key(&zero, &one, &one, recovery_id).is_err());
         assert!(recover_public_key(&one, &zero, &zero, recovery_id).is_err());
         assert!(recover_public_key(&one, &one, &zero, recovery_id).is_err());
         assert!(recover_public_key(&zero, &zero, &one, recovery_id).is_err());
+        // let valids = [
+        //     recover_public_key(&zero, &one, &one, recovery_id),
+        //     recover_public_key(&one, &one, &one, recovery_id),
+        // ];
+        // for x in valids {
+        //     assert!(x.is_ok());
+        //     let pub_key = x.unwrap();
+        //     let address = public_key_to_address(&pub_key);
+        //     println!("address: {:x}", address);
+        // }
     }
 
     #[test]
