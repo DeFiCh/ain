@@ -138,7 +138,7 @@ fn evm_try_create_and_sign_transfer_domain_tx(
         }
     }?;
 
-    let state_root = SERVICES.evm.core.get_state_root()?;
+    let state_root = SERVICES.evm.core.get_latest_state_root()?;
     let nonce = if ctx.use_nonce {
         U256::from(ctx.nonce)
     } else {

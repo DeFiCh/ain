@@ -818,7 +818,7 @@ impl EVMCoreService {
 
 // State methods
 impl EVMCoreService {
-    pub fn get_state_root(&self) -> Result<H256> {
+    pub fn get_latest_state_root(&self) -> Result<H256> {
         let state_root = self
             .storage
             .get_latest_block()?

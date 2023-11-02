@@ -633,7 +633,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         debug!(target:"rpc", "[sign_transaction] from: {:?}", from);
 
         let chain_id = ain_cpp_imports::get_chain_id().map_err(RPCError::Error)?;
-        let Ok(state_root) = self.handler.core.get_state_root() else {
+        let Ok(state_root) = self.handler.core.get_latest_state_root() else {
             return Err(RPCError::StateRootNotFound.into());
         };
         let nonce = match request.nonce {
