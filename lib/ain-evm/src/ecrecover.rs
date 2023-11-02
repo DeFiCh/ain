@@ -57,6 +57,22 @@ mod tests {
     }
 
     #[test]
+    fn test_invalid_recovery() {
+        let empty = vec![0; 32];
+        let zero = H256::from_slice(&empty[..]);
+        let one = H256::from_slice(&empty[..]);
+
+        let recovery_id = 0;
+
+        assert!(recover_public_key(&zero, &zero, &zero, recovery_id).is_err());
+        assert!(recover_public_key(&one, &one, &one, recovery_id).is_err());
+        assert!(recover_public_key(&zero, &one, &one, recovery_id).is_err());
+        assert!(recover_public_key(&one, &zero, &zero, recovery_id).is_err());
+        assert!(recover_public_key(&one, &one, &zero, recovery_id).is_err());
+        assert!(recover_public_key(&zero, &zero, &one, recovery_id).is_err());
+    }
+
+    #[test]
     fn _test_recover_test2() {
         // Tx hex: f86c808504e3b29200825208946c34cbb9219d8caa428835d2073e8ec88ba0a110880de0b6b3a76400008025a037f41c543402c9b02b35b45ef43ac31a63dcbeba0c622249810ecdec00aee376a05eb2be77eb0c7a1875a53ba15fc6afe246fbffe869157edbde64270e41ba045e
 
