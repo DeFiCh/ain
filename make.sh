@@ -1122,7 +1122,7 @@ ci_setup_deps() {
     ci_setup_deps_target
 }
 
-_ci_setup_deps_target() {
+ci_setup_deps_target() {
     local target=${TARGET}
     case $target in
         # Nothing to do on host
