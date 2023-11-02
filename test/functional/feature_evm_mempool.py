@@ -214,8 +214,7 @@ class EVMTest(DefiTestFramework):
 
         # Mint a block
         self.nodes[0].generate(1)
-        current_height = self.nodes[0].getblockcount()
-        self.blockHash = self.nodes[0].getblockhash(current_height)
+        self.blockHash = self.nodes[0].getblockhash(self.nodes[0].getblockcount())
         block_txs = self.nodes[0].getblock(self.blockHash)["tx"]
         assert_equal(len(block_txs), 65)
 
