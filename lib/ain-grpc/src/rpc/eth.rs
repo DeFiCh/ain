@@ -928,7 +928,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         let fee_history = self
             .handler
             .block
-            .fee_history(block_count, first_block_number, priority_fee_percentile, attrs.block_gas_target_factor)
+            .fee_history(
+                block_count,
+                first_block_number,
+                priority_fee_percentile,
+                attrs.block_gas_target_factor,
+            )
             .map_err(RPCError::EvmError)?;
 
         Ok(RpcFeeHistory::from(fee_history))

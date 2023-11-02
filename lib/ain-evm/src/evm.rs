@@ -477,7 +477,7 @@ impl EVMServices {
             ),
         };
 
-        let attrs =  ain_cpp_imports::get_attribute_values(Some(mnview_ptr));
+        let attrs = ain_cpp_imports::get_attribute_values(Some(mnview_ptr));
         let attr_block_gas_limit = attrs.block_gas_limit;
         let attr_block_gas_limit_factor = attrs.block_gas_target_factor;
 
@@ -491,8 +491,7 @@ impl EVMServices {
             .block
             .calculate_base_fee(parent_hash, attr_block_gas_limit_factor)?;
 
-        let block_gas_limit =
-            U256::from(attr_block_gas_limit);
+        let block_gas_limit = U256::from(attr_block_gas_limit);
         let vicinity = Vicinity {
             beneficiary,
             block_number: target_block,
