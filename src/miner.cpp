@@ -270,8 +270,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         if (!evmTemplate) {
             return Res::Err("Failed to create block template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
-            result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplate->GetTemplate()));
     }
 
     std::map<uint256, CAmount> txFees;
@@ -873,7 +872,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     }
                 }
 
-                const auto txCtx = TransactionContext{
+                auto txCtx = TransactionContext{
                     coins,
                     tx,
                     chainparams.GetConsensus(),

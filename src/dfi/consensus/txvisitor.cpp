@@ -13,6 +13,7 @@
 #include <dfi/icxorder.h>
 #include <dfi/loan.h>
 #include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <validation.h>
 
 constexpr std::string_view ERR_STRING_MIN_COLLATERAL_DFI_PCT =

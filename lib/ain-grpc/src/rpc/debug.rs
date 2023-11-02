@@ -181,6 +181,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
+        let attrs = ain_cpp_imports::get_attribute_values(None);
 
         // Get latest block information
         let (block_hash, block_number) = self
@@ -190,8 +191,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .map_err(to_custom_err)?
             .unwrap_or_default();
 
-        // Get gas
-        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
+        let block_gas_target_factor = attrs.block_gas_target_factor;
+        let block_gas_limit = attrs.block_gas_limit;
+
         let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
@@ -199,7 +201,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let block_base_fee = self
             .handler
             .block
-            .calculate_base_fee(block_hash, None)
+            .calculate_base_fee(block_hash, block_gas_target_factor)
             .map_err(to_custom_err)?;
         let gas_price = call.get_effective_gas_price(block_base_fee)?;
 
