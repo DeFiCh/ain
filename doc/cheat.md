@@ -61,3 +61,7 @@
 - Rust: `./make.sh test-rs`
 - Python: `./make.sh test-py`
 
+### Development
+
+- Check pre-push: `./make.sh check`
+- Format all code: `./make.sh fmt`
