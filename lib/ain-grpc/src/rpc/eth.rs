@@ -806,13 +806,12 @@ impl MetachainRPCServer for MetachainRPCModule {
             let allowance = available
                 .checked_div(fee_cap)
                 .ok_or(RPCError::ValueOverflow)?;
-
             debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
 
-            if let Ok(allce) = u64::try_from(allowance) {
-                if hi > allce {
-                    debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allce);
-                    hi = allce;
+            if let Ok(allowance) = u64::try_from(allowance) {
+                if hi > allowance {
+                    debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
+                    hi = allowance;
                 }
             }
         }
