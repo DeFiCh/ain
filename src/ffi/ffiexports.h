@@ -13,7 +13,7 @@ static constexpr CAmount DEFAULT_EVM_RBF_FEE_INCREMENT = COIN / 10;
 
 // Defaults for attributes relating to networking
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
-static constexpr uint32_t DEFAULT_ETH_MAX_RESPONSE_SIZE_BYTES = 100 * 1024 * 1024; // 25 megabytes
+static constexpr uint32_t DEFAULT_ETH_MAX_RESPONSE_SIZE_BYTES = 100 * 1024 * 1024;  // 25 megabytes
 
 static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_COUNT = 10000;
 static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
