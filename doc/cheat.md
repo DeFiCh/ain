@@ -48,7 +48,8 @@
 #### Notes
 
 - `./make.sh` supported OS:
-  - Debian
+  - Debian 12
+  - Debian Testing
   - Ubuntu 20.04
   - Ubuntu 22.04
   - Ubuntu 23.10
@@ -58,10 +59,17 @@
 
 - All: `./make.sh test`
 - C++: `./make.sh test-cpp`
+  - Filtered: `./make.sh test-cpp --run_test=<filter>`
+  - Filtered: `./make.sh test-cpp --run_test=baes58_tests --log_level=all`
 - Rust: `./make.sh test-rs`
+  - Filtered: `./make.sh test-rs <TODO>`
+  - Filtered: `./make.sh test-rs <TODO>`
 - Python: `./make.sh test-py`
+- - Filtered: `./make.sh test-py --filter <filter>`
+- - Filtered: `./make.sh test-py --filter "feature_evm*"`
 
 ### Development
 
 - Check pre-push: `./make.sh check`
 - Format all code: `./make.sh fmt`
+  - Lang: `fmt-rs/fmt-cpp/fmt-py`
