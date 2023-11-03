@@ -87,6 +87,7 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
     info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
+    let max_response_size = ain_cpp_imports::get_max_response_size();
 
     let middleware = if !ain_cpp_imports::get_cors_allowed_origin().is_empty() {
         let origin = ain_cpp_imports::get_cors_allowed_origin();
@@ -107,6 +108,7 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
         ServerBuilder::default()
             .set_middleware(middleware)
             .max_connections(max_connections)
+            .max_response_body_size(max_response_size)
             .custom_tokio_runtime(handle)
             .build(addr),
     )?;
@@ -133,11 +135,13 @@ pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Res
     info!("Starting WebSockets server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
+    let max_response_size = ain_cpp_imports::get_max_response_size();
 
     let handle = runtime.ws_rt_handle.clone();
     let server = runtime.ws_rt_handle.block_on(
         ServerBuilder::default()
             .max_subscriptions_per_connection(max_connections)
+            .max_response_body_size(max_response_size)
             .custom_tokio_runtime(handle)
             .set_id_provider(MetachainSubIdProvider)
             .build(addr),
