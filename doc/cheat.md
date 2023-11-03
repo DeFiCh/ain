@@ -12,8 +12,9 @@
   - [Format](#test)
   - [Lint](#lint)
 - Common Usages
-  - [Balances](#balances)
-  - [Send](#send)
+  - [Balance / List](#balance--list)
+  - [Balance / Transfer / In-domain](#balance--transfer--in-domain)
+  - [Balance / Transfer / Cross-domain](#balance--transfer--cross-domain)
 
 ## Get
 
@@ -91,9 +92,9 @@
 
 ## Common usages
 
-### Balances
+### Balance / List
 
-#### User
+#### Mine
 
 - UTXO: `defi-cli getbalance`
 - DVM: `defi-cli gettokenbalances {} true true`
@@ -105,9 +106,11 @@
 - DVM (all): `defi-cli listaccounts {} false false true`
 - DVM (single): `defi-cli getaccount <addr>`
 
-### Send
+### Balance / Transfer / In-Domain
 
 - UTXO: `defi-cli sendtoaddress <addr> <amount>`
-- UTXO-DVM: `defi-cli utxostoaccount '{ "<addr>": "<amount>@<token>" }'`
-- DVM-DVM: `defi-cli accounttoaccount <src-addr> '{ "<dst-addr>": "<amount>@<token>" }'`
+- DVM: `defi-cli accounttoaccount <src-addr> '{ "<dst-addr>": "<amount>@<token>" }'`
 
+### Balance / Transfer / Cross-Domain
+
+- UTXO-DVM: `defi-cli utxostoaccount '{ "<addr>": "<amount>@<token>" }'`
