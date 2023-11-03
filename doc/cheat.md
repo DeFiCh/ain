@@ -42,7 +42,7 @@
 
 ## Build
 
-- Dockerized build: `./make.sh docker-release`
+- Dockerized build: `./make.sh docker-release` [No pre-requisites needed other than docker]
 - Native build: `./make.sh build`
 
 ### Pre-requisites
@@ -61,9 +61,10 @@
 
 ##### Notes
 
-- `./make.sh` supported OS:
+- `./make.sh` Requirements:
   - Debian 12 / Debian Testing / Ubuntu 20.04, 22.04, 23.10
   - Other: Refer to make.sh file, build manually.
+  - For others like WSL, MacOS, works partially once set-up. 
 
 ## Test
 
