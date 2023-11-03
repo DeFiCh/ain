@@ -810,7 +810,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
             if let Ok(allowance) = u64::try_from(allowance) {
                 if hi > allowance {
-                    debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allce);
+                    debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
                     hi = allowance;
                 }
             }
