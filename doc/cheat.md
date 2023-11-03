@@ -33,8 +33,17 @@
 
 #### Pre-requisites
 
-- Clean OS: Install pre-req: `./make.sh ci-setup-deps`
-- Clean OS: User scope pre-req: `./make.sh ci-setup-user-deps`
+##### Clean OS / CI / Dedicated containers
+
+- Install pre-req: `./make.sh ci-setup-deps`
+- User scope pre-req: `./make.sh ci-setup-user-deps`
+
+##### Native
+
+- OS pre-req: `./make.sh pkg-install-deps`
+- OS pre-req, target specific: `pkg-install-deps-<arch>`
+- User pre-req: `pkg-user-install-rust`
+- User pre-req setup, target specific: `pkg-user-setup-rust`
 
 #### Notes
 
@@ -44,4 +53,11 @@
   - Ubuntu 22.04
   - Ubuntu 23.10
   - Other hosts OS / targets: Refer to make.sh for process and build manually.
+
+### Test
+
+- All: `./make.sh test`
+- C++: `./make.sh test-cpp`
+- Rust: `./make.sh test-rs`
+- Python: `./make.sh test-py`
 
