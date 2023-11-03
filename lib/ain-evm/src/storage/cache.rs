@@ -32,6 +32,14 @@ impl Cache {
             latest_block: RwLock::new(None),
         }
     }
+
+    pub fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
+        self.transactions
+            .write()
+            .unwrap()
+            .put(transaction.hash(), transaction.clone());
+        Ok(())
+    }
 }
 
 impl BlockStorage for Cache {
@@ -56,7 +64,7 @@ impl BlockStorage for Cache {
     }
 
     fn put_block(&self, block: &BlockAny) -> Result<()> {
-        self.extend_transactions_from_block(block)?;
+        self.put_transactions_from_block(block)?;
 
         let block_number = block.header.number;
         let hash = block.header.hash();
@@ -86,7 +94,7 @@ impl BlockStorage for Cache {
 }
 
 impl TransactionStorage for Cache {
-    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
+    fn put_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         let mut cache = self.transactions.write().unwrap();
 
         for transaction in &block.transactions {
@@ -132,14 +140,6 @@ impl TransactionStorage for Cache {
             .get(block_number)
             .and_then(|block| block.transactions.get(index).map(ToOwned::to_owned));
         Ok(transaction)
-    }
-
-    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
-        self.transactions
-            .write()
-            .unwrap()
-            .put(transaction.hash(), transaction.clone());
-        Ok(())
     }
 }
 
