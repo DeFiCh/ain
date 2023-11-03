@@ -8,7 +8,7 @@ use std::{
 };
 
 use bincode;
-use ethereum::{BlockAny, TransactionV2};
+use ethereum::BlockAny;
 use ethereum_types::{H160, H256, U256};
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, IteratorMode,
@@ -371,7 +371,7 @@ pub trait TypedColumn: Column {
 // TypedColumn impl
 //
 impl TypedColumn for columns::Transactions {
-    type Type = TransactionV2;
+    type Type = (H256, usize); // Block hash and tx index
 }
 
 impl TypedColumn for columns::Blocks {

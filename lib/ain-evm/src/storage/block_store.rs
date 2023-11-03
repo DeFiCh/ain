@@ -43,17 +43,22 @@ impl BlockStore {
 }
 
 impl TransactionStorage for BlockStore {
-    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
+    fn put_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         let transactions_cf = self.column::<columns::Transactions>();
-        for transaction in &block.transactions {
-            transactions_cf.put(&transaction.hash(), transaction)?
+        let block_hash = block.header.hash();
+        for (index, transaction) in block.transactions.iter().enumerate() {
+            transactions_cf.put(&transaction.hash(), &(block_hash, index))?
         }
         Ok(())
     }
 
     fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
         let transactions_cf = self.column::<columns::Transactions>();
-        transactions_cf.get(hash)
+        transactions_cf.get(hash).and_then(|opt| {
+            opt.map_or(Ok(None), |(hash, idx)| {
+                self.get_transaction_by_block_hash_and_index(&hash, idx)
+            })
+        })
     }
 
     fn get_transaction_by_block_hash_and_index(
@@ -88,16 +93,6 @@ impl TransactionStorage for BlockStore {
 
         Ok(block.transactions.get(index).cloned())
     }
-
-    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
-        let transactions_cf = self.column::<columns::Transactions>();
-        println!(
-            "putting transaction k {:x?} v {:#?}",
-            transaction.hash(),
-            transaction
-        );
-        transactions_cf.put(&transaction.hash(), transaction)
-    }
 }
 
 impl BlockStorage for BlockStore {
@@ -116,7 +111,7 @@ impl BlockStorage for BlockStore {
     }
 
     fn put_block(&self, block: &BlockAny) -> Result<()> {
-        self.extend_transactions_from_block(block)?;
+        self.put_transactions_from_block(block)?;
 
         let block_number = block.header.number;
         let hash = block.header.hash();
