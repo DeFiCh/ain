@@ -309,7 +309,7 @@ uint32_t getEthMaxConnections() {
 }
 
 uint32_t getEthMaxResponseByteSize() {
-    const auto max_response_size_mb =  gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB);
+    const auto max_response_size_mb = gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB);
     return max_response_size_mb * 1024 * 1024;
 }
 
