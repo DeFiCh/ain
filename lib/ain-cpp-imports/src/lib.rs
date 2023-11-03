@@ -47,7 +47,7 @@ mod ffi {
     pub fn getEthMaxConnections() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthMaxResponseSize() -> u32 {
+    pub fn getEthMaxResponseByteSize() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getNetwork() -> String {
@@ -149,8 +149,8 @@ pub fn get_max_connections() -> u32 {
     ffi::getEthMaxConnections()
 }
 
-pub fn get_max_response_size() -> u32 {
-    ffi::getEthMaxResponseSize()
+pub fn get_max_response_byte_size() -> u32 {
+    ffi::getEthMaxResponseByteSize()
 }
 
 pub fn get_network() -> String {

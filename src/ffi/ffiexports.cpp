@@ -308,8 +308,9 @@ uint32_t getEthMaxConnections() {
     return gArgs.GetArg("-ethmaxconnections", DEFAULT_ETH_MAX_CONNECTIONS);
 }
 
-uint32_t getEthMaxResponseSize() {
-    return gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE_BYTES);
+uint32_t getEthMaxResponseByteSize() {
+    const auto max_response_size_mb =  gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE);
+    return max_response_size_mb * 1024 * 1024;
 }
 
 rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {

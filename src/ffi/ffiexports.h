@@ -13,7 +13,7 @@ static constexpr CAmount DEFAULT_EVM_RBF_FEE_INCREMENT = COIN / 10;
 
 // Defaults for attributes relating to networking
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
-static constexpr uint32_t DEFAULT_ETH_MAX_RESPONSE_SIZE_BYTES = 100 * 1024 * 1024;  // 25 megabytes
+static constexpr uint32_t DEFAULT_ETH_MAX_RESPONSE_SIZE = 25;  // 25 megabytes
 
 static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_COUNT = 10000;
 static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
@@ -68,7 +68,7 @@ rust::string getDatadir();
 rust::string getNetwork();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
 uint32_t getEthMaxConnections();
-uint32_t getEthMaxResponseSize();
+uint32_t getEthMaxResponseByteSize();
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<TransactionData> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);

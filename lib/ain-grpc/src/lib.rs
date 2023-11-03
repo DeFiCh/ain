@@ -87,7 +87,7 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
     info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
-    let max_response_size = ain_cpp_imports::get_max_response_size();
+    let max_response_size = ain_cpp_imports::get_max_response_byte_size();
 
     let middleware = if !ain_cpp_imports::get_cors_allowed_origin().is_empty() {
         let origin = ain_cpp_imports::get_cors_allowed_origin();
@@ -135,7 +135,7 @@ pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Res
     info!("Starting WebSockets server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
-    let max_response_size = ain_cpp_imports::get_max_response_size();
+    let max_response_size = ain_cpp_imports::get_max_response_byte_size();
 
     let handle = runtime.ws_rt_handle.clone();
     let server = runtime.ws_rt_handle.block_on(
