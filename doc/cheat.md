@@ -60,16 +60,41 @@
 - All: `./make.sh test`
 - C++: `./make.sh test-cpp`
   - Filtered: `./make.sh test-cpp --run_test=<filter>`
-  - Filtered: `./make.sh test-cpp --run_test=baes58_tests --log_level=all`
+  - Eg: `./make.sh test-cpp --run_test=baes58_tests --log_level=all`
 - Rust: `./make.sh test-rs`
   - Filtered: `./make.sh test-rs <TODO>`
-  - Filtered: `./make.sh test-rs <TODO>`
+  - Eg: `./make.sh test-rs <TODO>`
 - Python: `./make.sh test-py`
   - Filtered: `./make.sh test-py --filter <filter>`
-  - Filtered: `./make.sh test-py --filter "feature_evm*"`
+  - Eg: `./make.sh test-py --filter "feature_evm*"`
 
 ### Development
 
 - Check pre-push: `./make.sh check`
 - Format all code: `./make.sh fmt`
-  - Lang: `fmt-rs/fmt-cpp/fmt-py`
+  - Lang: `fmt-rs` / `fmt-cpp` / `fmt-py`
+
+
+## Common usages
+
+### Check funds
+
+#### User
+
+- UTXO: `defi-cli getbalance`
+- DVM: `defi-cli gettokenbalances {} true true`
+
+#### Any
+
+- UTXO - Known addr: `defi-cli listunspent 1 9999999 '[ "<addr>" ]'`
+- UTXO - Known addr: `defi-cli scantxoutset start '[ "addr(<addr>)" ]`
+- DVM (all): `defi-cli listaccounts {} false false true`
+- DVM (single): `defi-cli getaccount <addr>`
+
+
+### Send
+
+- UTXO: `defi-cli sendtoaddress <addr> <amount>`
+- UTXO-DVM: `defi-cli utxostoaccount '{ "<addr>": "<amount>@<token>" }'`
+- DVM-DVM: `defi-cli accounttoaccount <src-addr> '{ "<dst-addr>": "<amount>@<token>" }'`
+
