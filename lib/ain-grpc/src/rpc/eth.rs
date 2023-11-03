@@ -802,18 +802,21 @@ impl MetachainRPCServer for MetachainRPCModule {
                 }
                 available = balance.checked_sub(value).ok_or(RPCError::ValueOverflow)?;
             }
-            let allowance = u64::try_from(
-                available
-                    .checked_div(fee_cap)
-                    .ok_or(RPCError::ValueOverflow)?,
-            )
-            .map_err(to_custom_err)?;
 
-            if hi > allowance {
-                debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
-                hi = allowance;
+            let allowance = available
+                .checked_div(fee_cap)
+                .ok_or(RPCError::ValueOverflow)?;
+
+            debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
+
+            if let Ok(allce) = u64::try_from(allowance) {
+                if hi > allce {
+                    debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allce);
+                    hi = allce;
+                }
             }
         }
+
         let cap = hi;
 
         // Create a helper to check if a gas allowance results in an executable transaction
