@@ -65,8 +65,8 @@
   - Filtered: `./make.sh test-rs <TODO>`
   - Filtered: `./make.sh test-rs <TODO>`
 - Python: `./make.sh test-py`
-- - Filtered: `./make.sh test-py --filter <filter>`
-- - Filtered: `./make.sh test-py --filter "feature_evm*"`
+  - Filtered: `./make.sh test-py --filter <filter>`
+  - Filtered: `./make.sh test-py --filter "feature_evm*"`
 
 ### Development
 
