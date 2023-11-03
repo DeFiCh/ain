@@ -26,3 +26,22 @@
 - changi: `defi-cli -changi getblockchaininfo`
 - regtest: `defi-cli -regtest getblockchaininfo`
 
+### Build
+
+- Dockerized build: `./make.sh docker-release`
+- Native build: `./make.sh build`
+
+#### Pre-requisites
+
+- Clean OS: Install pre-req: `./make.sh ci-setup-deps`
+- Clean OS: User scope pre-req: `./make.sh ci-setup-user-deps`
+
+#### Notes
+
+- `./make.sh` supported OS:
+  - Debian
+  - Ubuntu 20.04
+  - Ubuntu 22.04
+  - Ubuntu 23.10
+  - Other hosts OS / targets: Refer to make.sh for process and build manually.
+
