@@ -1,4 +1,5 @@
 use ain_evm::EVMError;
+use ethereum_types::H256;
 use jsonrpsee::{
     core::{to_json_raw_value, Error},
     types::error::{CallError, ErrorObject},
@@ -7,6 +8,8 @@ use jsonrpsee::{
 pub enum RPCError {
     AccountError,
     BlockNotFound,
+    DatabaseError,
+    DebugNotEnabled,
     Error(Box<dyn std::error::Error>),
     EvmError(EVMError),
     FromBlockGreaterThanToBlock,
@@ -19,8 +22,10 @@ pub enum RPCError {
     InvalidTransactionMessage,
     InvalidTransactionType,
     NonceCacheError,
+    ReceiptNotFoundError(H256),
     RevertError(String, String),
     StateRootNotFound,
+    TraceNotEnabled,
     TxExecutionFailed,
     ValueOverflow,
 }
@@ -30,6 +35,8 @@ impl From<RPCError> for Error {
         match e {
             RPCError::AccountError => to_custom_err("error getting account"),
             RPCError::BlockNotFound => to_custom_err("header not found"),
+            RPCError::DatabaseError => to_custom_err("database error"),
+            RPCError::DebugNotEnabled => to_custom_err("debug_* RPCs have not been enabled"),
             RPCError::Error(e) => Error::Custom(format!("{e:?}")),
             RPCError::EvmError(e) => Error::Custom(format!("error calling EVM : {e:?}")),
             RPCError::FromBlockGreaterThanToBlock => {
@@ -54,11 +61,16 @@ impl From<RPCError> for Error {
             }
             RPCError::InvalidTransactionType => to_custom_err("invalid transaction type specified"),
             RPCError::NonceCacheError => to_custom_err("could not cache account nonce"),
+            RPCError::ReceiptNotFoundError(hash) => Error::Custom(format!(
+                "could not find receipt for transaction {:#?}",
+                hash
+            )),
             RPCError::RevertError(msg, data) => {
                 let raw_value = to_json_raw_value(&data).ok();
                 Error::Call(CallError::Custom(ErrorObject::owned(3, msg, raw_value)))
             }
             RPCError::StateRootNotFound => to_custom_err("state root not found"),
+            RPCError::TraceNotEnabled => to_custom_err("debug_trace* RPCs have not been enabled"),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
             RPCError::ValueOverflow => to_custom_err("value overflow"),
         }
