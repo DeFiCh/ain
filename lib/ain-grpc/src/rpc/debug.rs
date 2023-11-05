@@ -68,19 +68,17 @@ impl MetachainDebugRPCModule {
     }
 
     fn is_enabled(&self) -> RpcResult<()> {
-        if ain_cpp_imports::is_eth_debug_rpc_enabled() {
-            Ok(())
-        } else {
-            Err(RPCError::DebugNotEnabled.into())
+        if !ain_cpp_imports::is_eth_debug_rpc_enabled() {
+            return Err(RPCError::DebugNotEnabled.into());
         }
+        Ok(())
     }
 
     fn is_trace_enabled(&self) -> RpcResult<()> {
-        if ain_cpp_imports::is_eth_debug_trace_rpc_enabled() {
-            Ok(())
-        } else {
-            Err(RPCError::TraceNotEnabled.into())
+        if !ain_cpp_imports::is_eth_debug_trace_rpc_enabled() {
+            return Err(RPCError::TraceNotEnabled.into());
         }
+        Ok(())
     }
 }
 
