@@ -39,9 +39,9 @@ pub struct Services {
     pub tokio_runtime: AsyncHandle,
     pub tokio_runtime_channel_tx: Sender<()>,
     pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
-    pub json_rpc: Mutex<Option<ServerHandle>>,
+    pub json_rpc_handle: Mutex<Vec<ServerHandle>>,
     pub ws_rt_handle: AsyncHandle,
-    pub ws_handle: Mutex<Option<ServerHandle>>,
+    pub ws_handle: Mutex<Vec<ServerHandle>>,
     pub evm: Arc<EVMServices>,
 }
 
@@ -66,23 +66,26 @@ impl Services {
                     rx.recv().await;
                 });
             }))),
-            json_rpc: Mutex::new(None),
-            ws_handle: Mutex::new(None),
+            json_rpc_handle: Mutex::new(vec![]),
+            ws_handle: Mutex::new(vec![]),
             evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
     }
 
     pub fn stop_network(&self) -> Result<()> {
-        let mut json_rpc_handle = self.json_rpc.lock();
-        if (json_rpc_handle).is_none() {
-            // Server was never started
-            return Ok(());
+        {
+            let json_rpc_handle = self.json_rpc_handle.lock();
+            for server in &*json_rpc_handle {
+                server.stop().unwrap();
+            }
         }
-        json_rpc_handle
-            .take()
-            .expect("json rpc server not running")
-            .stop()
-            .unwrap();
+
+        {
+            let ws_handle = self.ws_handle.lock();
+            for server in &*ws_handle {
+                server.stop().unwrap();
+            }
+        }
 
         // TODO: Propogate error
         Ok(())
