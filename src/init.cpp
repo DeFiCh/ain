@@ -1630,7 +1630,7 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
     int ws_port = gArgs.GetArg("-wsport", BaseParams().WSPort());
     if (ws_port == -1) {
             LogPrintf("Websocket server disabled.\n");
-    }
+    } else {
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-wscbind"))) { // Default to loopback if not allowing external IPs
             wsEndpoints.emplace_back("127.0.0.1", ws_port);
             if (gArgs.IsArgSet("-rpcallowip")) {
