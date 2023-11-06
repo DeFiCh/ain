@@ -84,6 +84,7 @@ rustc-hex = "2.1"
 rustc_version_runtime = "0.2.1"
 parking_lot = "0.12.1"
 spin = "0.9.8"
+rayon = "1.8.0"
 
 ### eth
 
@@ -99,7 +100,6 @@ ethbloom = "0.13"
 ethabi = "18.0.0"
 
 ### ain-evm
-
 
 #### Trie dependencies
 hash-db = "0.16"

@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use super::{block_store::BlockStore, db::columns};
 use crate::Result;
 
@@ -22,12 +24,21 @@ impl MigrationV1 {
     fn migrate_transactions(&self, store: &BlockStore) -> Result<()> {
         let transactions_cf = store.column::<columns::Transactions>();
         let blocks_cf = store.column::<columns::Blocks>();
-        for (_, block) in blocks_cf.iter(None, None) {
-            let block_hash = block.header.hash();
-            for (index, transaction) in block.transactions.iter().enumerate() {
-                transactions_cf.put(&transaction.hash(), &(block_hash, index))?
-            }
-        }
+
+        blocks_cf
+            .iter(None, None)
+            .par_bridge()
+            .try_for_each(|(_, block)| {
+                let block_hash = block.header.hash();
+                block
+                    .transactions
+                    .par_iter()
+                    .enumerate()
+                    .try_for_each(|(index, transaction)| {
+                        transactions_cf.put(&transaction.hash(), &(block_hash, index))
+                    })
+            })?;
+
         Ok(())
     }
 }
