@@ -103,6 +103,11 @@ impl BlockStore {
         let current_version = self.get_version().unwrap_or(0);
         let migrations = vec![Box::new(MigrationV1)];
 
+        // Assert that migrations vec has properly been populated
+        if migrations.len() != Self::CURRENT_VERSION as usize {
+            return Err(format_err!("Missing migration").into());
+        }
+
         for migration in migrations {
             if current_version < migration.version() {
                 migration.migrate(self)?;
