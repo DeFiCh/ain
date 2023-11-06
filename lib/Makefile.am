@@ -75,6 +75,10 @@ test:
 clippy:
 	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS) -- -Dwarnings
 
+.PHONY: doc
+doc:
+	$(CARGO) doc $(CARGO_MANIFEST_ARG)
+
 # We ignore unstable warnings for fmt to enable the use of backward
 # compatible nightly features. Stricly backward compatible only, or will
 # cause conflicts across toolchains
