@@ -1578,15 +1578,17 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
     LogPrintf("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)\n", nCoinCacheUsage * (1.0 / 1024 / 1024), nMempoolSizeMax * (1.0 / 1024 / 1024));
 }
 
-void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, std::vector<std::pair<std::string, uint16_t>>& gEndpoints, std::vector<std::pair<std::string, uint16_t>>& wsEndpoints) {
+void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& gEndpoints, std::vector<std::string>& wsEndpoints) {
+    std::string default_address = "127.0.0.1";
+    
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
-    
     if (eth_rpc_port == -1) {
             LogPrintf("ETH RPC server disabled.\n");
     } else {
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
-            ethEndpoints.emplace_back("127.0.0.1", eth_rpc_port);
+            auto endpoint = default_address + ":" + std::to_string(eth_rpc_port);
+            ethEndpoints.push_back(endpoint);
             if (gArgs.IsArgSet("-rpcallowip")) {
                 LogPrintf("WARNING: option -rpcallowip was specified without -ethrpcbind; this doesn't usually make sense\n");
             }
@@ -1598,7 +1600,8 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
                 int port = eth_rpc_port;
                 std::string host;
                 SplitHostPort(strETHRPCBind, port, host);
-                ethEndpoints.emplace_back(host, port);
+                auto endpoint = host + ":" + std::to_string(port);
+                ethEndpoints.push_back(endpoint);
             }
         }
     }
@@ -1609,7 +1612,8 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
             LogPrintf("gRPC server disabled.\n");
     } else {
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-grpcbind"))) { // Default to loopback if not allowing external IPs
-            gEndpoints.emplace_back("127.0.0.1", grpc_port);
+            auto endpoint = default_address + ":" + std::to_string(grpc_port);
+            gEndpoints.push_back(endpoint);
             if (gArgs.IsArgSet("-rpcallowip")) {
                 LogPrintf("WARNING: option -rpcallowip was specified without -grpcbind; this doesn't usually make sense\n");
             }
@@ -1621,7 +1625,8 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
                 int port = grpc_port;
                 std::string host;
                 SplitHostPort(strGRPCBind, port, host);
-                gEndpoints.emplace_back(host, port);
+                auto endpoint = host + ":" + std::to_string(port);
+                gEndpoints.push_back(endpoint);
             }
         }
     }
@@ -1632,7 +1637,8 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
             LogPrintf("Websocket server disabled.\n");
     } else {
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-wscbind"))) { // Default to loopback if not allowing external IPs
-            wsEndpoints.emplace_back("127.0.0.1", ws_port);
+            auto endpoint = default_address + ":" + std::to_string(ws_port);
+            wsEndpoints.push_back(endpoint);
             if (gArgs.IsArgSet("-rpcallowip")) {
                 LogPrintf("WARNING: option -rpcallowip was specified without -wsbind; this doesn't usually make sense\n");
             }
@@ -1644,7 +1650,8 @@ void SetupRPCPorts(std::vector<std::pair<std::string, uint16_t>>& ethEndpoints, 
                 int port = ws_port;
                 std::string host;
                 SplitHostPort(strWSBind, port, host);
-                wsEndpoints.emplace_back(host, port);
+                auto endpoint = host + ":" + std::to_string(port);
+                wsEndpoints.push_back(endpoint);
             }
         }
     }
@@ -2302,40 +2309,35 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Start the ETH RPC, gRPC and websocket servers
     // We start the evm RPC servers as late as possible.
     {
-        std::vector<std::pair<std::string, uint16_t>> eth_endpoints;
-        std::vector<std::pair<std::string, uint16_t>> g_endpoints;
-        std::vector<std::pair<std::string, uint16_t>> ws_endpoints;
+        std::vector<std::string> eth_endpoints, g_endpoints, ws_endpoints;
         SetupRPCPorts(eth_endpoints, g_endpoints, ws_endpoints);
 
         // Bind ETH RPC addresses
         for (auto it = eth_endpoints.begin(); it != eth_endpoints.end(); ++it) {
-            auto eth_endpoint = it->first + ":" + std::to_string(it->second);
-            LogPrint(BCLog::HTTP, "Binding ETH RPC server on address %s port %i\n", it->first, it->second);   
-            auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, eth_endpoint))
+            LogPrint(BCLog::HTTP, "Binding ETH RPC server on endpoint %s\n", *it);
+            auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, *it))
             if (!res) {
-                LogPrintf("Binding ETH RPC server on address %s port %i failed.\n", it->first, it->second);
+                LogPrintf("Binding ETH RPC server on endpoint %s failed.\n", *it);
                 return false;
             }
         }
 
         // Bind gRPC addresses
         for (auto it = g_endpoints.begin(); it != g_endpoints.end(); ++it) {
-            auto g_endpoint = it->first + ":" + std::to_string(it->second);
-            LogPrint(BCLog::HTTP, "Binding gRPC server on address %s port %i\n", it->first, it->second);   
-            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, g_endpoint))
+            LogPrint(BCLog::HTTP, "Binding gRPC server on endpoint %s\n", *it);
+            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, *it))
             if (!res) {
-                LogPrintf("Binding gRPC server on address %s port %i failed.\n", it->first, it->second);
+                LogPrintf("Binding gRPC server on endpoint %s failed.\n", *it);
                 return false;
             }
         }
 
         // bind websocket addresses
         for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
-            auto ws_endpoint = it->first + ":" + std::to_string(it->second);
-            LogPrint(BCLog::HTTP, "Binding websocket server on address %s port %i\n", it->first, it->second);   
-            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, ws_endpoint))
+            LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
+            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, *it))
             if (!res) {
-                LogPrintf("Binding websocket server on address %s port %i failed.\n", it->first, it->second);
+                LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
                 return false;
             }
         }
