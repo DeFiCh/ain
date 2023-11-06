@@ -1636,7 +1636,7 @@ void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::stri
     if (ws_port == -1) {
             LogPrintf("Websocket server disabled.\n");
     } else {
-        if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-wscbind"))) { // Default to loopback if not allowing external IPs
+        if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-wsbind"))) { // Default to loopback if not allowing external IPs
             auto endpoint = default_address + ":" + std::to_string(ws_port);
             wsEndpoints.push_back(endpoint);
             if (gArgs.IsArgSet("-rpcallowip")) {
