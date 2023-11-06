@@ -2198,11 +2198,55 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
     EnsureWalletIsUnlocked(pwallet);
 
-    RPCTypeCheck(request.params, {UniValue::VARR}, false);
-
     UniValue srcDstArray(UniValue::VARR);
 
-    srcDstArray = request.params[0].get_array();
+    if (!request.params[0].isArray()) {
+        auto defineDomain = [](CTxDestination &dest) {
+            if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
+                return VMDomain::DVM;
+            } else if (dest.index() == WitV16KeyEthHashType) {
+                return VMDomain::EVM;
+            } else {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupport domain provided");
+            }
+        };
+
+        if (request.params[0].isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "\"src\" is required");
+        }
+        if (request.params[1].isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "\"dst\" is required");
+        }
+        if (request.params[2].isNull()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "\"amount\" is required");
+        }
+
+        std::string src = request.params[0].get_str();
+        std::string dst = request.params[1].get_str();
+        std::string amount = request.params[2].get_str();
+
+        CTxDestination srcDest = DecodeDestination(src);
+        CTxDestination dstDest = DecodeDestination(dst);
+
+        VMDomain srcDomainType = defineDomain(srcDest);
+        VMDomain dstDomainType = defineDomain(dstDest);
+
+        UniValue elem(UniValue::VOBJ);
+        elem.pushKV("src", src);
+        elem.pushKV("amount", amount);
+        elem.pushKV("domain", static_cast<int>(srcDomainType));
+        elem.pushKV("dst", dst);
+        elem.pushKV("amount", amount);
+        elem.pushKV("domain", static_cast<int>(dstDomainType));
+
+        if (!request.params[3].isNull()) {
+            elem.pushKV("nonce", request.params[3].get_int());
+        }
+        srcDstArray.push_back(elem);
+    } else {
+        RPCTypeCheck(request.params, {UniValue::VARR}, false);
+        srcDstArray = request.params[0].get_array();
+    }
 
     CrossBoundaryResult result;
     CTransferDomainMessage msg;
