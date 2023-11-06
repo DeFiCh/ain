@@ -1,3 +1,5 @@
+//! Defichain EVM consensus, runtime and storage implementation
+
 mod backend;
 pub mod block;
 pub mod blocktemplate;
