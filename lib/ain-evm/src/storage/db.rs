@@ -72,6 +72,7 @@ impl Rocks {
             columns::AddressLogsMap::NAME,
             columns::AddressCodeMap::NAME,
             columns::BlockDeployedCodeHashes::NAME,
+            columns::Metadata::NAME,
         ]
     }
 
@@ -88,12 +89,12 @@ impl Rocks {
             .expect("should never get an unknown column")
     }
 
-    fn get_cf(&self, cf: &ColumnFamily, key: &[u8]) -> Result<Option<Vec<u8>>> {
+    pub fn get_cf(&self, cf: &ColumnFamily, key: &[u8]) -> Result<Option<Vec<u8>>> {
         let opt = self.0.get_cf(cf, key)?;
         Ok(opt)
     }
 
-    fn put_cf(&self, cf: &ColumnFamily, key: &[u8], value: &[u8]) -> Result<()> {
+    pub fn put_cf(&self, cf: &ColumnFamily, key: &[u8], value: &[u8]) -> Result<()> {
         self.0.put_cf(cf, key, value)?;
         Ok(())
     }
@@ -175,6 +176,10 @@ pub mod columns {
     #[derive(Debug)]
     /// Column family for block code map data
     pub struct BlockDeployedCodeHashes;
+
+    #[derive(Debug)]
+    /// Column family for database configuration
+    pub struct Metadata;
 }
 
 //
@@ -192,6 +197,7 @@ const LATEST_BLOCK_NUMBER_CF: &str = "latest_block_number";
 const ADDRESS_LOGS_MAP_CF: &str = "address_logs_map";
 const ADDRESS_CODE_MAP_CF: &str = "address_code_map";
 const BLOCK_DEPLOYED_CODES_CF: &str = "block_deployed_codes";
+const METADATA_CF: &str = "metadata";
 
 //
 // ColumnName impl
@@ -226,6 +232,10 @@ impl ColumnName for columns::AddressCodeMap {
 
 impl ColumnName for columns::BlockDeployedCodeHashes {
     const NAME: &'static str = BLOCK_DEPLOYED_CODES_CF;
+}
+
+impl ColumnName for columns::Metadata {
+    const NAME: &'static str = METADATA_CF;
 }
 
 //
@@ -429,12 +439,14 @@ where
     pub fn iter(
         &self,
         from: Option<C::Index>,
-        limit: usize,
+        limit: Option<usize>,
     ) -> impl Iterator<Item = (C::Index, C::Type)> + '_ {
         let index = from.as_ref().map(|i| C::key(i)).unwrap_or_default();
         let iterator_mode = from.map_or(IteratorMode::Start, |_| {
             IteratorMode::From(&index, rocksdb::Direction::Forward)
         });
+        let limit = limit.unwrap_or(usize::MAX);
+
         self.backend
             .iterator_cf::<C>(self.handle(), iterator_mode)
             .filter_map(|k| {

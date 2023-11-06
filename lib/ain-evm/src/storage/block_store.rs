@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     db::{Column, ColumnName, LedgerColumn, Rocks, TypedColumn},
+    migration::{Migration, MigrationV1},
     traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
 };
 use crate::{
@@ -27,8 +28,9 @@ impl BlockStore {
         let path = path.join("indexes");
         fs::create_dir_all(&path)?;
         let backend = Arc::new(Rocks::open(&path)?);
-
-        Ok(Self(backend))
+        let store = Self(backend);
+        store.startup()?;
+        Ok(store)
     }
 
     pub fn column<C>(&self) -> LedgerColumn<C>
@@ -39,6 +41,83 @@ impl BlockStore {
             backend: Arc::clone(&self.0),
             column: PhantomData,
         }
+    }
+}
+
+/// This implementation block includes a versioning system for database migrations.
+/// It ensures that the database schema is up-to-date with the node's expectations
+/// by applying necessary migrations upon startup. The `CURRENT_VERSION` constant reflects
+/// the latest version of the database schemas expected by the node.
+///
+/// The `migrate` method sequentially applies any required migrations based on the current
+/// database version. The version information is stored in the `metadata`` column family
+/// within the RocksDB instance.
+///
+/// Migrations are defined as implementations of the `Migration` trait and are executed
+/// in order of their version number.
+///
+/// The `startup` method initializes the migration process as part of the startup flow
+/// and should be called on BlockStore initialization.
+///
+impl BlockStore {
+    const VERSION_KEY: &'static str = "version";
+    const CURRENT_VERSION: u32 = 1;
+
+    /// Sets the version number in the database to the specified `version`.
+    ///
+    /// This operation is atomic and flushes the updated version to disk immediately
+    /// to maintain consistency even in the event of a failure or shutdown following the update.
+    fn set_version(&self, version: u32) -> Result<()> {
+        let handle = self.0.cf_handle(columns::Metadata::NAME);
+        self.0.put_cf(
+            handle,
+            &Self::VERSION_KEY.as_bytes(),
+            &version.to_be_bytes(),
+        )?;
+        self.0.flush()
+    }
+
+    /// Retrieves the current version number from the database.
+    fn get_version(&self) -> Result<u32> {
+        let handle = self.0.cf_handle(columns::Metadata::NAME);
+        let version = self
+            .0
+            .get_cf(handle, &Self::VERSION_KEY.as_bytes())?
+            .ok_or(format_err!("Missing version"))
+            .and_then(|bytes| {
+                bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|e| format_err!("{e}"))
+                    .and_then(|b| Ok(u32::from_be_bytes(b)))
+            })?;
+        Ok(version)
+    }
+
+    /// Executes the migration process.
+    ///
+    /// It checks for the current database version and applies all the necessary migrations
+    /// that have a version number greater than the current one. After all migrations are
+    /// applied, sets the database version to `CURRENT_VERSION`.
+    fn migrate(&self) -> Result<()> {
+        let current_version = self.get_version().unwrap_or(0);
+        let migrations = vec![Box::new(MigrationV1)];
+
+        for migration in migrations {
+            if current_version < migration.version() {
+                migration.migrate(self)?;
+                self.set_version(migration.version())?;
+            }
+        }
+
+        self.set_version(Self::CURRENT_VERSION)
+    }
+
+    /// Startup routine to ensure the database schema is up-to-date.
+    ///
+    /// This should be called after BlockStore initialization.
+    fn startup(&self) -> Result<()> {
+        self.migrate()
     }
 }
 
@@ -232,7 +311,7 @@ impl Rollback for BlockStore {
 
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
             let mut iter =
-                block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), usize::MAX);
+                block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), None);
 
             let address_codes_cf = self.column::<columns::AddressCodeMap>();
             for ((block_number, address), hash) in &mut iter {
@@ -298,7 +377,7 @@ impl BlockStore {
         C: TypedColumn + ColumnName,
     {
         let mut out = format!("{}\n", C::NAME);
-        for (k, v) in self.column::<C>().iter(from, limit) {
+        for (k, v) in self.column::<C>().iter(from, Some(limit)) {
             writeln!(&mut out, "{:?}: {:#?}", k, v)
                 .map_err(|_| format_err!("failed to write to stream"))?;
         }

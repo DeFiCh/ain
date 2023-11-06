@@ -1,6 +1,7 @@
 pub mod block_store;
 mod cache;
 mod db;
+mod migration;
 pub mod traits;
 
 use std::{collections::HashMap, path::Path};
