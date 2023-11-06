@@ -1256,6 +1256,21 @@ class EVMTest(DefiTestFramework):
         assert_equal(contract.functions.totalSupply().call(), 0)
         assert_equal(contract.functions.balanceOf(self.address_erc55).call(), 0)
 
+    def test_new_transfer_domain(self):
+        self.rollback_to(self.start_height)
+
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].transferdomain(self.address, self.address_erc55, "100@DFI")
+        balance_before = self.nodes[0].w3.eth.get_balance(self.address_erc55)
+        self.nodes[0].generate(1)
+        balance_after = self.nodes[0].w3.eth.get_balance(self.address_erc55)
+        assert_equal(balance_before + 100000000000000000000, balance_after)
+
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
@@ -1291,6 +1306,8 @@ class EVMTest(DefiTestFramework):
         self.invalid_transfer_invalid_nonce()
 
         self.test_contract_methods()
+
+        self.test_new_transfer_domain()
 
 
 if __name__ == "__main__":
