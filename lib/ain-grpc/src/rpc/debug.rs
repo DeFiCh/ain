@@ -93,14 +93,14 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .storage
             .get_receipt(&tx_hash)
             .map_err(to_custom_err)?
-            .ok_or(RPCError::ReceiptNotFoundError(tx_hash))?;
+            .ok_or(RPCError::ReceiptNotFound(tx_hash))?;
 
         let tx = self
             .handler
             .storage
             .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
             .map_err(RPCError::EvmError)?
-            .ok_or(RPCError::DatabaseError)?;
+            .ok_or(RPCError::TxNotFound(tx_hash))?;
 
         let signed_tx = SignedTx::try_from(tx).map_err(to_custom_err)?;
         let (logs, succeeded, return_data, gas_used) = self
