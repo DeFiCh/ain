@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
+    time::Instant,
 };
 
 use anyhow::format_err;
@@ -108,7 +109,14 @@ impl BlockStore {
 
         for migration in migrations {
             if current_version < migration.version() {
+                debug!("Migrating to version {}...", migration.version());
+                let start = Instant::now();
                 migration.migrate(self)?;
+                debug!(
+                    "Migration to version {} took {:?}",
+                    migration.version(),
+                    start.elapsed()
+                );
                 self.set_version(migration.version())?;
             }
         }
