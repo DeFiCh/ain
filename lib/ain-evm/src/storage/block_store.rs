@@ -69,11 +69,8 @@ impl BlockStore {
     /// to maintain consistency even in the event of a failure or shutdown following the update.
     fn set_version(&self, version: u32) -> Result<()> {
         let handle = self.0.cf_handle(columns::Metadata::NAME);
-        self.0.put_cf(
-            handle,
-            &Self::VERSION_KEY.as_bytes(),
-            &version.to_be_bytes(),
-        )?;
+        self.0
+            .put_cf(handle, Self::VERSION_KEY.as_bytes(), &version.to_be_bytes())?;
         self.0.flush()
     }
 
@@ -82,14 +79,14 @@ impl BlockStore {
         let handle = self.0.cf_handle(columns::Metadata::NAME);
         let version = self
             .0
-            .get_cf(handle, &Self::VERSION_KEY.as_bytes())?
+            .get_cf(handle, Self::VERSION_KEY.as_bytes())?
             .ok_or(format_err!("Missing version"))
             .and_then(|bytes| {
                 bytes
                     .as_slice()
                     .try_into()
                     .map_err(|e| format_err!("{e}"))
-                    .and_then(|b| Ok(u32::from_be_bytes(b)))
+                    .map(u32::from_be_bytes)
             })?;
         Ok(version)
     }
