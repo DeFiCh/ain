@@ -2117,77 +2117,95 @@ UniValue sendtokenstoaddress(const JSONRPCRequest &request) {
 
 UniValue transferdomain(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
-    // TODO: Add support for non-JSON parameteric input that's human friendly and intuitive
-    RPCHelpMan{
+
+    if (!request.params[0].isArray()) {
+        RPCHelpMan{
         "transferdomain",
         "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
         "DVM, etc.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
-        {
-                          {
-                "array",
-                RPCArg::Type::ARR,
-                RPCArg::Optional::NO,
-                "A json array of src and dst json objects",
+            {
+                { "from", RPCArg::Type::STR, RPCArg::Optional::NO, "the source address of sender"},
+                { "to", RPCArg::Type::STR, RPCArg::Optional::NO, "the destination address of sender"},
+                { "tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "in amount@token format"},
+                { "nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "specified nonce if needed"},
+            },
+            RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+            RPCExamples{HelpExampleCli("transferdomain", R"("from" "to" "100@DFI")") +
+                    HelpExampleRpc("transferdomain", R"("from", "to", 100@BTC 2")")},
+        }.Check(request);
+    } else {
+        RPCHelpMan{
+        "transferdomain",
+        "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
+        "DVM, etc.\n" +
+            HelpRequiringPassphrase(pwallet) + "\n",
+            {
                 {
+                    "array",
+                    RPCArg::Type::ARR,
+                    RPCArg::Optional::NO,
+                    "A json array of src and dst json objects",
                     {
-                        "",
-                        RPCArg::Type::OBJ,
-                        RPCArg::Optional::OMITTED,
-                        "",
                         {
+                            "",
+                            RPCArg::Type::OBJ,
+                            RPCArg::Optional::OMITTED,
+                            "",
                             {
-                                "src",
-                                RPCArg::Type::OBJ,
-                                RPCArg::Optional::OMITTED,
-                                "Source arguments",
                                 {
-                                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
-                                    {"amount",
-                                     RPCArg::Type::STR,
-                                     RPCArg::Optional::NO,
-                                     "Amount transfered, the value is amount in amount@token format"},
-                                    {"domain",
-                                     RPCArg::Type::NUM,
-                                     RPCArg::Optional::NO,
-                                     "Domain of source: 2 - DVM, 3 - EVM"},
-                                    // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                    "src",
+                                    RPCArg::Type::OBJ,
+                                    RPCArg::Optional::OMITTED,
+                                    "Source arguments",
+                                    {
+                                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
+                                        {"amount",
+                                        RPCArg::Type::STR,
+                                        RPCArg::Optional::NO,
+                                        "Amount transfered, the value is amount in amount@token format"},
+                                        {"domain",
+                                        RPCArg::Type::NUM,
+                                        RPCArg::Optional::NO,
+                                        "Domain of source: 2 - DVM, 3 - EVM"},
+                                        // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                    },
                                 },
-                            },
-                            {
-                                "dst",
-                                RPCArg::Type::OBJ,
-                                RPCArg::Optional::OMITTED,
-                                "Destination arguments",
                                 {
-                                    {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
-                                    {"amount",
-                                     RPCArg::Type::STR,
-                                     RPCArg::Optional::NO,
-                                     "Amount transfered, the value is amount in amount@token format"},
-                                    {"domain",
-                                     RPCArg::Type::NUM,
-                                     RPCArg::Optional::NO,
-                                     "Domain of source: 2 - DVM, 3 - EVM"},
-                                    // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                    "dst",
+                                    RPCArg::Type::OBJ,
+                                    RPCArg::Optional::OMITTED,
+                                    "Destination arguments",
+                                    {
+                                        {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
+                                        {"amount",
+                                        RPCArg::Type::STR,
+                                        RPCArg::Optional::NO,
+                                        "Amount transfered, the value is amount in amount@token format"},
+                                        {"domain",
+                                        RPCArg::Type::NUM,
+                                        RPCArg::Optional::NO,
+                                        "Domain of source: 2 - DVM, 3 - EVM"},
+                                        // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
+                                    },
                                 },
+                                {"nonce",
+                                RPCArg::Type::NUM,
+                                RPCArg::Optional::OMITTED,
+                                "Optional parameter to specify the transaction nonce"},
                             },
-                            {"nonce",
-                             RPCArg::Type::NUM,
-                             RPCArg::Optional::OMITTED,
-                             "Optional parameter to specify the transaction nonce"},
                         },
                     },
                 },
-            }, },
-        RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
-        RPCExamples{
-                          HelpExampleCli(
-                "transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}}]')") +
-            HelpExampleCli(
-                "transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}}]')")},
+            },
+            RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
+            RPCExamples{
+                HelpExampleCli(
+                    "transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}}]')") +
+                HelpExampleCli(
+                    "transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}}]')")},
+        }.Check(request);
     }
-        .Check(request);
 
     if (pwallet->chain().isInitialBlockDownload()) {
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD,
