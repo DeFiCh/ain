@@ -101,7 +101,8 @@ impl BlockStore {
     /// applied, sets the database version to `CURRENT_VERSION`.
     fn migrate(&self) -> Result<()> {
         let current_version = self.get_version().unwrap_or(0);
-        let migrations = vec![Box::new(MigrationV1)];
+        let mut migrations: Vec<Box<dyn Migration>> = vec![Box::new(MigrationV1)];
+        migrations.sort_by_key(|a| a.version());
 
         // Assert that migrations vec has properly been populated
         if migrations.len() != Self::CURRENT_VERSION as usize {
