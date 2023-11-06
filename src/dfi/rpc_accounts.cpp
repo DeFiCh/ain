@@ -2231,13 +2231,19 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         VMDomain srcDomainType = defineDomain(srcDest);
         VMDomain dstDomainType = defineDomain(dstDest);
 
+        UniValue srcObj(UniValue::VOBJ);
+        srcObj.pushKV("address", src);
+        srcObj.pushKV("amount", amount);
+        srcObj.pushKV("domain", static_cast<int>(srcDomainType));
+
+        UniValue dstObj(UniValue::VOBJ);
+        dstObj.pushKV("address", dst);
+        dstObj.pushKV("amount", amount);
+        dstObj.pushKV("domain", static_cast<int>(dstDomainType));
+
         UniValue elem(UniValue::VOBJ);
-        elem.pushKV("src", src);
-        elem.pushKV("amount", amount);
-        elem.pushKV("domain", static_cast<int>(srcDomainType));
-        elem.pushKV("dst", dst);
-        elem.pushKV("amount", amount);
-        elem.pushKV("domain", static_cast<int>(dstDomainType));
+        elem.pushKV("src", srcObj);
+        elem.pushKV("dst", dstObj);
 
         if (!request.params[3].isNull()) {
             elem.pushKV("nonce", request.params[3].get_int());
