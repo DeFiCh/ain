@@ -1265,7 +1265,7 @@ class EVMTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        self.nodes[0].transferdomain(self.address, self.address_erc55, "100@DFI")
+        self.nodes[0].transferdomain(self.address, self.address_erc55, "100@DFI", 3)
         balance_before = self.nodes[0].w3.eth.get_balance(self.address_erc55)
         self.nodes[0].generate(1)
         balance_after = self.nodes[0].w3.eth.get_balance(self.address_erc55)
