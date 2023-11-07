@@ -7,7 +7,7 @@ use serde_with::{serde_as, OneOrMany};
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub enum Kind {
+pub enum Subscription {
     /// New block headers subscription.
     NewHeads,
     /// Logs subscription.
@@ -30,7 +30,7 @@ pub struct LogsSubscriptionParams {
 
 /// Subscription kind.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
-pub enum Params {
+pub enum SubscriptionParams {
     /// No parameters passed.
     #[default]
     None,
@@ -38,19 +38,19 @@ pub enum Params {
     Logs(LogsSubscriptionParams),
 }
 
-impl<'a> Deserialize<'a> for Params {
-    fn deserialize<D>(deserializer: D) -> Result<Params, D::Error>
+impl<'a> Deserialize<'a> for SubscriptionParams {
+    fn deserialize<D>(deserializer: D) -> Result<SubscriptionParams, D::Error>
     where
         D: Deserializer<'a>,
     {
         let v: Value = Deserialize::deserialize(deserializer)?;
 
         if v.is_null() {
-            return Ok(Params::None);
+            return Ok(SubscriptionParams::None);
         }
 
         from_value(v)
-            .map(Params::Logs)
+            .map(SubscriptionParams::Logs)
             .map_err(|e| Error::custom(format!("Invalid logs parameters: {}", e)))
     }
 }
