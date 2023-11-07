@@ -109,7 +109,7 @@
 ### Balance / Transfer / In-Domain
 
 - UTXO: `defi-cli sendtoaddress <addr> <amount>`
-- DVM: `defi-cli accounttoaccount <src-addr> '{ "<dst-addr>": "<amount>@<token>" }'`
+- DVM: `defi-cli sendtokenstoaddress '{}' '{ "<dst-addr>": "<amount>@<token>" }'`
 
 ### Balance / Transfer / Cross-Domain
 
