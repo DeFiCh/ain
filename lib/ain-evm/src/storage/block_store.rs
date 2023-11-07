@@ -60,9 +60,9 @@ impl BlockStore {
 /// The `startup` method initializes the migration process as part of the startup flow
 /// and should be called on BlockStore initialization.
 ///
+const CURRENT_VERSION: u32 = 1;
 impl BlockStore {
     const VERSION_KEY: &'static str = "version";
-    const CURRENT_VERSION: u32 = 1;
 
     /// Sets the version number in the database to the specified `version`.
     ///
@@ -99,13 +99,9 @@ impl BlockStore {
     /// applied, sets the database version to `CURRENT_VERSION`.
     fn migrate(&self) -> Result<()> {
         let current_version = self.get_version().unwrap_or(0);
-        let mut migrations: Vec<Box<dyn Migration>> = vec![Box::new(MigrationV1)];
+        let mut migrations: [Box<dyn Migration>; CURRENT_VERSION as usize] =
+            [Box::new(MigrationV1)];
         migrations.sort_by_key(|a| a.version());
-
-        // Assert that migrations vec has properly been populated
-        if migrations.len() != Self::CURRENT_VERSION as usize {
-            return Err(format_err!("Missing migration").into());
-        }
 
         for migration in migrations {
             if current_version < migration.version() {
@@ -121,7 +117,7 @@ impl BlockStore {
             }
         }
 
-        self.set_version(Self::CURRENT_VERSION)
+        self.set_version(CURRENT_VERSION)
     }
 
     /// Startup routine to ensure the database schema is up-to-date.
