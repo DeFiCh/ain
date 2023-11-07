@@ -39,9 +39,8 @@ pub struct Services {
     pub tokio_runtime: AsyncHandle,
     pub tokio_runtime_channel_tx: Sender<()>,
     pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
-    pub json_rpc_handle: Mutex<Vec<ServerHandle>>,
-    pub ws_rt_handle: AsyncHandle,
-    pub ws_handle: Mutex<Vec<ServerHandle>>,
+    pub json_rpc_handles: Mutex<Vec<ServerHandle>>,
+    pub websocket_handles: Mutex<Vec<ServerHandle>>,
     pub evm: Arc<EVMServices>,
 }
 
@@ -59,30 +58,29 @@ impl Services {
         Services {
             tokio_runtime_channel_tx: tx,
             tokio_runtime: r.handle().clone(),
-            ws_rt_handle: r.handle().clone(),
             tokio_worker: Mutex::new(Some(thread::spawn(move || {
                 log::info!("Starting tokio waiter");
                 r.block_on(async move {
                     rx.recv().await;
                 });
             }))),
-            json_rpc_handle: Mutex::new(vec![]),
-            ws_handle: Mutex::new(vec![]),
+            json_rpc_handles: Mutex::new(vec![]),
+            websocket_handles: Mutex::new(vec![]),
             evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
     }
 
     pub fn stop_network(&self) -> Result<()> {
         {
-            let json_rpc_handle = self.json_rpc_handle.lock();
-            for server in &*json_rpc_handle {
+            let json_rpc_handles = self.json_rpc_handles.lock();
+            for server in &*json_rpc_handles {
                 server.stop().unwrap();
             }
         }
 
         {
-            let ws_handle = self.ws_handle.lock();
-            for server in &*ws_handle {
+            let websocket_handles = self.websocket_handles.lock();
+            for server in &*websocket_handles {
                 server.stop().unwrap();
             }
         }

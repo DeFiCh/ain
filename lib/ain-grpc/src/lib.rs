@@ -108,7 +108,7 @@ pub fn init_network_json_rpc_service(addr: &str) -> Result<()> {
     methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
     methods.merge(MetachainWeb3RPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    runtime.json_rpc_handle.lock().push(server.start(methods)?);
+    runtime.json_rpc_handles.lock().push(server.start(methods)?);
     Ok(())
 }
 
@@ -129,8 +129,8 @@ pub fn init_network_subscriptions_service(addr: &str) -> Result<()> {
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
     let runtime = &SERVICES;
 
-    let handle = runtime.ws_rt_handle.clone();
-    let server = runtime.ws_rt_handle.block_on(
+    let handle = runtime.tokio_runtime.clone();
+    let server = runtime.tokio_runtime.block_on(
         ServerBuilder::default()
             .max_subscriptions_per_connection(max_connections)
             .max_response_body_size(max_response_size)
@@ -141,7 +141,7 @@ pub fn init_network_subscriptions_service(addr: &str) -> Result<()> {
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    runtime.ws_handle.lock().push(server.start(methods)?);
+    runtime.websocket_handles.lock().push(server.start(methods)?);
     Ok(())
 }
 
