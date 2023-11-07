@@ -632,6 +632,9 @@ UniValue setgov(const JSONRPCRequest &request) {
                                 throw JSONRPCError(RPC_INVALID_REQUEST,
                                                    "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                             }
+                        } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                                   attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                         }
                     }
                 }
@@ -867,6 +870,9 @@ UniValue setgovheight(const JSONRPCRequest &request) {
                             throw JSONRPCError(RPC_INVALID_REQUEST,
                                                "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
+                    } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                               attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                        throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                     }
                 }
             }
