@@ -46,7 +46,7 @@ pub mod ffi {
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
-        fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
+        fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;

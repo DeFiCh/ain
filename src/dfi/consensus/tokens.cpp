@@ -90,16 +90,22 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         return res;
     }
 
+    const auto &consensus = txCtx.GetConsensus();
+    const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
+    auto &mnview = blockCtx.GetView();
+
     CTokenImplementation token;
     static_cast<CToken &>(token) = obj;
 
     auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-
-    const auto &consensus = txCtx.GetConsensus();
-    const auto height = txCtx.GetHeight();
-    const auto &tx = txCtx.GetTransaction();
-    auto &mnview = blockCtx.GetView();
+    if (height >= consensus.DF22MetachainHeight) {
+        tokenName = (tokenName).substr(0, CToken::MAX_DST20_TOKEN_NAME_LENGTH);
+        if (!check_is_valid_utf8(token.name) || !check_is_valid_utf8(token.symbol)) {
+            return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
+        }
+    }
 
     token.symbol = tokenSymbol;
     token.name = tokenName;

@@ -86,7 +86,7 @@ mod ffi {
         // Just the logs are skipped.
     }
 
-    pub fn getDST20Tokens(_mnview_ptr: usize) -> Vec<DST20Token> {
+    pub fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getClientVersion() -> String {
@@ -211,8 +211,8 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
-pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
-    ffi::getDST20Tokens(mnview_ptr)
+pub fn get_dst20_tokens(mnview_ptr: usize, tokens: &mut Vec<ffi::DST20Token>) -> bool {
+    ffi::getDST20Tokens(mnview_ptr, tokens)
 }
 
 pub fn get_num_cores() -> i32 {
