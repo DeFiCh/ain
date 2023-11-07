@@ -314,7 +314,7 @@ uint32_t getEthMaxResponseByteSize() {
     return max_response_size_mb * 1024 * 1024;
 }
 
-bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token>& tokens) {
+bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 
     bool res = true;
