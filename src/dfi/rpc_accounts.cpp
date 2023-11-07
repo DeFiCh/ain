@@ -2318,12 +2318,12 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, src argument \"domain\" must not be null");
         }
-        auto isEVMIn = src.domain == static_cast<uint8_t>(VMDomain::DVM);
+        auto isEVMIn = dst.domain == static_cast<uint8_t>(VMDomain::EVM);
 
         auto srcKey = AddrToPubKey(pwallet, ScriptToString(src.address));
         if (isEVMIn) {
             auths.insert(src.address);
-        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+        } else if (dst.domain != static_cast<uint8_t>(VMDomain::EVM)) {
             if (srcKey.Compress()) {
                 const auto auth = GetScriptForDestination(WitnessV0KeyHash(srcKey.GetID()));
                 auths.insert(auth);
@@ -2369,56 +2369,58 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
 
         // Create signed EVM TX
-        CKey key;
-        if (!pwallet->GetKey(srcKey.GetID(), key)) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
-        }
-        std::array<uint8_t, 32> privKey{};
-        std::copy(key.begin(), key.end(), privKey.begin());
+        if (dst.domain != static_cast<uint8_t>(VMDomain::UTXO)) {
+            CKey key;
+            if (!pwallet->GetKey(srcKey.GetID(), key)) {
+                throw JSONRPCError(RPC_WALLET_ERROR, "Private key for from address not found in wallet");
+            }
+            std::array<uint8_t, 32> privKey{};
+            std::copy(key.begin(), key.end(), privKey.begin());
 
-        std::string to = "";
-        std::string nativeAddress = "";
-        if (isEVMIn) {
-            to = ScriptToString(dst.address);
-            nativeAddress = ScriptToString(src.address);
-        } else {
-            nativeAddress = ScriptToString(dst.address);
-        }
-        auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
-        auto script = GetScriptForDestination(dest);
-        auto from = ScriptToString(script);
+            std::string to = "";
+            std::string nativeAddress = "";
+            if (isEVMIn) {
+                to = ScriptToString(dst.address);
+                nativeAddress = ScriptToString(src.address);
+            } else {
+                nativeAddress = ScriptToString(dst.address);
+            }
+            auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
+            auto script = GetScriptForDestination(dest);
+            auto from = ScriptToString(script);
 
-        uint64_t nonce = 0;
-        bool useNonce = !nonceObj.isNull();
-        if (useNonce) {
-            nonce = nonceObj.get_int64();
-        }
-        const auto createResult = evm_try_create_and_sign_transfer_domain_tx(
-            result,
-            CreateTransferDomainContext{from,
-                                        to,
-                                        nativeAddress,
-                                        isEVMIn,
-                                        static_cast<uint64_t>(dst.amount.nValue),
-                                        dst.amount.nTokenId.v,
-                                        Params().GetConsensus().evmChainId,
-                                        privKey,
-                                        useNonce,
-                                        nonce});
-        if (!result.ok) {
-            throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
-        }
+            uint64_t nonce = 0;
+            bool useNonce = !nonceObj.isNull();
+            if (useNonce) {
+                nonce = nonceObj.get_int64();
+            }
+            const auto createResult = evm_try_create_and_sign_transfer_domain_tx(
+                result,
+                CreateTransferDomainContext{from,
+                                            to,
+                                            nativeAddress,
+                                            isEVMIn,
+                                            static_cast<uint64_t>(dst.amount.nValue),
+                                            dst.amount.nTokenId.v,
+                                            Params().GetConsensus().evmChainId,
+                                            privKey,
+                                            useNonce,
+                                            nonce});
+            if (!result.ok) {
+                throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+            }
 
-        std::vector<uint8_t> evmTx(createResult.tx.size());
-        std::copy(createResult.tx.begin(), createResult.tx.end(), evmTx.begin());
-        if (isEVMIn) {
-            dst.data = evmTx;
-        } else {
-            src.data = evmTx;
-        }
+            std::vector<uint8_t> evmTx(createResult.tx.size());
+            std::copy(createResult.tx.begin(), createResult.tx.end(), evmTx.begin());
+            if (isEVMIn) {
+                dst.data = evmTx;
+            } else {
+                src.data = evmTx;
+            }
 
-        nonce_cache.push_back({from, createResult.nonce});
-        msg.transfers.push_back({src, dst});
+            nonce_cache.push_back({from, createResult.nonce});
+            msg.transfers.push_back({src, dst});
+        }
     }
 
     int targetHeight;
