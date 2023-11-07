@@ -18,6 +18,10 @@ BOOST_AUTO_TEST_CASE(check_for_valid_utf8_strings)
     std::string test4 = "Slightly Smiling Face 🙂";
     std::string test5 = "🤣🤣🤣 Rolling on the Floor Laughing";
     std::string test6 = "🤩🤩🤩 Star-🤩Struck 🤩🤩";
+    std::string test7 = "Left till here away at to whom past. Feelings laughing at no wondered repeated provided finished."
+        " It acceptance thoroughly my advantages everything as. Are projecting inquietude affronting preference saw who."
+        " Marry of am do avoid ample as. Old disposal followed she ignorant desirous two has. Called played entire roused"
+        " though for one too. He into walk roof made tall cold he. Feelings way likewise addition wandered contempt bed indulged.";
 
     BOOST_CHECK(check_is_valid_utf8(test1));
     BOOST_CHECK(check_is_valid_utf8(test2));
@@ -25,6 +29,7 @@ BOOST_AUTO_TEST_CASE(check_for_valid_utf8_strings)
     BOOST_CHECK(check_is_valid_utf8(test4));
     BOOST_CHECK(check_is_valid_utf8(test5));
     BOOST_CHECK(check_is_valid_utf8(test6));
+    BOOST_CHECK(check_is_valid_utf8(test7));
 }
 
 BOOST_AUTO_TEST_CASE(check_for_invalid_utf8_strings)
