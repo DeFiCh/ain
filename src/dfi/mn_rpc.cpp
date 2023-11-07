@@ -536,8 +536,8 @@ std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId) {
 
 std::string CTransferDomainToString(const VMDomain domain) {
     switch (domain) {
-        case VMDomain::AUTO:
-            return "AUTO";
+        case VMDomain::NONE:
+            return "NONE";
         case VMDomain::UTXO:
             return "UTXO";
         case VMDomain::DVM:
