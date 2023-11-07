@@ -86,6 +86,7 @@ mod ffi {
         // Just the logs are skipped.
     }
 
+    #[allow(clippy::all)]
     pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -211,6 +212,7 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
+#[allow(clippy::all)]
 pub fn get_dst20_tokens(mnview_ptr: usize, tokens: &mut Vec<ffi::DST20Token>) -> bool {
     ffi::getDST20Tokens(mnview_ptr, tokens)
 }
