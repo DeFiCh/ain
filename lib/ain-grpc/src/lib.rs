@@ -141,7 +141,10 @@ pub fn init_network_subscriptions_service(addr: &str) -> Result<()> {
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    runtime.websocket_handles.lock().push(server.start(methods)?);
+    runtime
+        .websocket_handles
+        .lock()
+        .push(server.start(methods)?);
     Ok(())
 }
 
