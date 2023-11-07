@@ -698,8 +698,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
         debug!(target:"rpc", "Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
-        let hex =
-            hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Error decoding TX {e:?}")))?;
+        let hex = hex::decode(raw_tx).map_err(to_custom_err)?;
 
         let res_string = ain_cpp_imports::publish_eth_transaction(hex).map_err(RPCError::Error)?;
         if res_string.is_empty() {
