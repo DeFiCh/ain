@@ -634,6 +634,7 @@ UniValue setgov(const JSONRPCRequest &request) {
                             }
                         } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
                                    attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                            // Note: This is expected to be removed after DF23
                             throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                         }
                     }
