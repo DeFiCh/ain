@@ -4,7 +4,6 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <consensus/validation.h>
-#include <dfi/masternodes.h>
 #include <net.h>
 #include <net_processing.h>
 #include <txmempool.h>
