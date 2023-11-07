@@ -11,8 +11,7 @@ struct CEvmTxMessage;
 struct CTransferDomainMessage;
 
 enum class VMDomain : uint8_t {
-    NONE = 0x00,
-    // UTXO Reserved
+    AUTO = 0x00,
     UTXO = 0x01,
     DVM = 0x02,
     EVM = 0x03,

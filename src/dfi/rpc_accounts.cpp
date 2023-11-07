@@ -2128,11 +2128,12 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                 { "from", RPCArg::Type::STR, RPCArg::Optional::NO, "the source address of sender"},
                 { "to", RPCArg::Type::STR, RPCArg::Optional::NO, "the destination address of sender"},
                 { "tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "in amount@token format"},
+                { "domain", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "the destination of fund, 0 - auto, 1 - UTXO, 2 - DVM, 3 - EVM"},
                 { "nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "specified nonce if needed"},
             },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
             RPCExamples{HelpExampleCli("transferdomain", R"("from" "to" "100@DFI")") +
-                    HelpExampleRpc("transferdomain", R"("from", "to", 100@BTC 2")")},
+                    HelpExampleRpc("transferdomain", R"("from", "to", "100@BTC" 2 3)")},
         }.Check(request);
     } else {
         RPCHelpMan{
@@ -2219,9 +2220,9 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     UniValue srcDstArray(UniValue::VARR);
 
     if (!request.params[0].isArray()) {
-        auto defineDomain = [](CTxDestination &dest) {
+        auto defineDomain = [](CTxDestination &dest, VMDomain domain) {
             if (dest.index() == WitV0KeyHashType || dest.index() == PKHashType) {
-                return VMDomain::DVM;
+                return domain == VMDomain::DVM ? VMDomain::DVM : VMDomain::UTXO;
             } else if (dest.index() == WitV16KeyEthHashType) {
                 return VMDomain::EVM;
             } else {
@@ -2241,30 +2242,39 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
         std::string src = request.params[0].get_str();
         std::string dst = request.params[1].get_str();
-        std::string amount = request.params[2].get_str();
+        std::string amt = request.params[2].get_str();
+
+        int domainInt = 0;
+        if (!request.params[3].isNull()) {
+            domainInt = request.params[3].get_int();
+        }
+        if (domainInt < 0 || domainInt > 3) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Unsupport domain provided");
+        }
+        VMDomain domain = static_cast<VMDomain>(domainInt);
 
         CTxDestination srcDest = DecodeDestination(src);
         CTxDestination dstDest = DecodeDestination(dst);
 
-        VMDomain srcDomainType = defineDomain(srcDest);
-        VMDomain dstDomainType = defineDomain(dstDest);
+        VMDomain srcDomainType = defineDomain(srcDest, domain);
+        VMDomain dstDomainType = defineDomain(dstDest, domain);
 
         UniValue srcObj(UniValue::VOBJ);
         srcObj.pushKV("address", src);
-        srcObj.pushKV("amount", amount);
+        srcObj.pushKV("amount", amt);
         srcObj.pushKV("domain", static_cast<int>(srcDomainType));
 
         UniValue dstObj(UniValue::VOBJ);
         dstObj.pushKV("address", dst);
-        dstObj.pushKV("amount", amount);
+        dstObj.pushKV("amount", amt);
         dstObj.pushKV("domain", static_cast<int>(dstDomainType));
 
         UniValue elem(UniValue::VOBJ);
         elem.pushKV("src", srcObj);
         elem.pushKV("dst", dstObj);
 
-        if (!request.params[3].isNull()) {
-            elem.pushKV("nonce", request.params[3].get_int());
+        if (!request.params[4].isNull()) {
+            elem.pushKV("nonce", request.params[4].get_int());
         }
         srcDstArray.push_back(elem);
     } else {
