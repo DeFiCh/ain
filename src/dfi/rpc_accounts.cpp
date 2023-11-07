@@ -2120,29 +2120,33 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
     if (!request.params[0].isArray()) {
         RPCHelpMan{
-        "transferdomain",
-        "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
-        "DVM, etc.\n" +
-            HelpRequiringPassphrase(pwallet) + "\n",
+            "transferdomain",
+            "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
+            "DVM, etc.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
             {
-                { "from", RPCArg::Type::STR, RPCArg::Optional::NO, "the source address of sender"},
-                { "to", RPCArg::Type::STR, RPCArg::Optional::NO, "the destination address of sender"},
-                { "tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "in amount@token format"},
-                { "domain", RPCArg::Type::NUM, RPCArg::Optional::OMITTED_NAMED_ARG, "the destination of fund, 0 - auto, 1 - UTXO, 2 - DVM, 3 - EVM"},
-                { "nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "specified nonce if needed"},
-            },
+                              {"from", RPCArg::Type::STR, RPCArg::Optional::NO, "the source address of sender"},
+                              {"to", RPCArg::Type::STR, RPCArg::Optional::NO, "the destination address of sender"},
+                              {"tokenAmount", RPCArg::Type::STR, RPCArg::Optional::NO, "in amount@token format"},
+                              {"domain",
+                 RPCArg::Type::NUM,
+                 RPCArg::Optional::OMITTED_NAMED_ARG,
+                 "the destination of fund, 0 - auto, 1 - UTXO, 2 - DVM, 3 - EVM"},
+                              {"nonce", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "specified nonce if needed"},
+                              },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
             RPCExamples{HelpExampleCli("transferdomain", R"("from" "to" "100@DFI")") +
-                    HelpExampleRpc("transferdomain", R"("from", "to", "100@BTC" 2 3)")},
-        }.Check(request);
+                        HelpExampleRpc("transferdomain", R"("from", "to", "100@BTC" 2 3)")},
+        }
+            .Check(request);
     } else {
         RPCHelpMan{
-        "transferdomain",
-        "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
-        "DVM, etc.\n" +
-            HelpRequiringPassphrase(pwallet) + "\n",
+            "transferdomain",
+            "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
+            "DVM, etc.\n" +
+                HelpRequiringPassphrase(pwallet) + "\n",
             {
-                {
+                              {
                     "array",
                     RPCArg::Type::ARR,
                     RPCArg::Optional::NO,
@@ -2162,13 +2166,13 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                                     {
                                         {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Source address"},
                                         {"amount",
-                                        RPCArg::Type::STR,
-                                        RPCArg::Optional::NO,
-                                        "Amount transfered, the value is amount in amount@token format"},
+                                         RPCArg::Type::STR,
+                                         RPCArg::Optional::NO,
+                                         "Amount transfered, the value is amount in amount@token format"},
                                         {"domain",
-                                        RPCArg::Type::NUM,
-                                        RPCArg::Optional::NO,
-                                        "Domain of source: 2 - DVM, 3 - EVM"},
+                                         RPCArg::Type::NUM,
+                                         RPCArg::Optional::NO,
+                                         "Domain of source: 2 - DVM, 3 - EVM"},
                                         // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                     },
                                 },
@@ -2180,32 +2184,32 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                                     {
                                         {"address", RPCArg::Type::STR, RPCArg::Optional::NO, "Destination address"},
                                         {"amount",
-                                        RPCArg::Type::STR,
-                                        RPCArg::Optional::NO,
-                                        "Amount transfered, the value is amount in amount@token format"},
+                                         RPCArg::Type::STR,
+                                         RPCArg::Optional::NO,
+                                         "Amount transfered, the value is amount in amount@token format"},
                                         {"domain",
-                                        RPCArg::Type::NUM,
-                                        RPCArg::Optional::NO,
-                                        "Domain of source: 2 - DVM, 3 - EVM"},
+                                         RPCArg::Type::NUM,
+                                         RPCArg::Optional::NO,
+                                         "Domain of source: 2 - DVM, 3 - EVM"},
                                         // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                     },
                                 },
                                 {"nonce",
-                                RPCArg::Type::NUM,
-                                RPCArg::Optional::OMITTED,
-                                "Optional parameter to specify the transaction nonce"},
+                                 RPCArg::Type::NUM,
+                                 RPCArg::Optional::OMITTED,
+                                 "Optional parameter to specify the transaction nonce"},
                             },
                         },
                     },
-                },
-            },
+                }, },
             RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
             RPCExamples{
-                HelpExampleCli(
+                              HelpExampleCli(
                     "transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}}]')") +
                 HelpExampleCli(
                     "transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}}]')")},
-        }.Check(request);
+        }
+            .Check(request);
     }
 
     if (pwallet->chain().isInitialBlockDownload()) {
@@ -2407,7 +2411,8 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                                             useNonce,
                                             nonce});
             if (!result.ok) {
-                throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
+                throw JSONRPCError(RPC_MISC_ERROR,
+                                   strprintf("Failed to create and sign TX: %s", result.reason.c_str()));
             }
 
             std::vector<uint8_t> evmTx(createResult.tx.size());
