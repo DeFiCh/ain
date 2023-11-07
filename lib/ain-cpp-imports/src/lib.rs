@@ -86,7 +86,7 @@ mod ffi {
         // Just the logs are skipped.
     }
 
-    pub fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool {
+    pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getClientVersion() -> String {
