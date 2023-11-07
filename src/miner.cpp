@@ -233,6 +233,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
+
     BlockContext blockCtx;
     auto &mnview = blockCtx.GetView();
     if (!blockTime) {
@@ -256,7 +257,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         timeOrdering = false;
     }
 
-    const auto attributes = mnview.GetAttributes();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -301,42 +301,40 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
-        if (attributes) {
-            CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-            const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+        CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
+        const auto splits = mnview.GetValue(splitKey, OracleSplits{});
 
-            for (const auto &[id, multiplier] : splits) {
-                uint32_t entries{1};
-                mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
-                    if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                        const auto tokenA = mnview.GetToken(pool.idTokenA);
-                        const auto tokenB = mnview.GetToken(pool.idTokenB);
-                        assert(tokenA);
-                        assert(tokenB);
-                        if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
-                            (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
-                            ++entries;
-                        }
+        for (const auto &[id, multiplier] : splits) {
+            uint32_t entries{1};
+            mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
+                if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                    const auto tokenA = mnview.GetToken(pool.idTokenA);
+                    const auto tokenB = mnview.GetToken(pool.idTokenB);
+                    assert(tokenA);
+                    assert(tokenB);
+                    if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                        (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                        ++entries;
                     }
-                    return true;
-                });
-
-                for (uint32_t i{0}; i < entries; ++i) {
-                    CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-                    metadata << i << id << multiplier;
-
-                    CMutableTransaction mTx(txVersion);
-                    mTx.vin.resize(1);
-                    mTx.vin[0].prevout.SetNull();
-                    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                    mTx.vout.resize(1);
-                    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                    mTx.vout[0].nValue = 0;
-                    pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-                    pblocktemplate->vTxFees.push_back(0);
-                    pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
-                                                            GetLegacySigOpCount(*pblock->vtx.back()));
                 }
+                return true;
+            });
+
+            for (uint32_t i{0}; i < entries; ++i) {
+                CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+                metadata << i << id << multiplier;
+
+                CMutableTransaction mTx(txVersion);
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(1);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
+                                                        GetLegacySigOpCount(*pblock->vtx.back()));
             }
         }
     }

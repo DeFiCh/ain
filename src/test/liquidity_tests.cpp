@@ -1,8 +1,7 @@
 #include <chainparams.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
-#include <dfi/poolpairs.h>
-#include <validation.h>
+#include <dfi/mn_checks.h>
 
 #include <test/setup_common.h>
 
@@ -26,7 +25,8 @@ DCT_ID CreateToken(CCustomCSView &mnview, std::string const & symbol, uint8_t fl
     token.symbol = symbol;
     token.flags = flags;
 
-    auto res = mnview.CreateToken(token, false);
+    BlockContext dummyContext;
+    auto res = mnview.CreateToken(token, dummyContext);
     if (!res.ok) printf("%s\n", res.msg.c_str());
     BOOST_REQUIRE(res.ok);
     return *res.val;

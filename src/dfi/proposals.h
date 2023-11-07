@@ -157,11 +157,11 @@ public:
     void ForEachCycleProposal(std::function<bool(const CProposalId &, const CProposalObject &)> callback,
                               uint32_t height);
 
-    virtual uint32_t GetVotingPeriodFromAttributes() const = 0;
-    virtual uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const = 0;
-    virtual CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) const = 0;
-    virtual CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) const = 0;
-    virtual CAmount GetFeeBurnPctFromAttributes() const = 0;
+    virtual uint32_t GetVotingPeriodFromAttributes() = 0;
+    virtual uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) = 0;
+    virtual CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) = 0;
+    virtual CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) = 0;
+    virtual CAmount GetFeeBurnPctFromAttributes() = 0;
 
     struct ByType {
         static constexpr uint8_t prefix() { return 0x2B; }

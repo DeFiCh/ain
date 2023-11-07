@@ -74,10 +74,9 @@ CAmount GetTokenCreationFee(int) {
     return Params().GetConsensus().token.creationFee;
 }
 
-CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProposalMessage &msg) {
+CAmount GetProposalCreationFee(int, CCustomCSView &view, const CCreateProposalMessage &msg) {
     auto type = static_cast<CProposalType>(msg.type);
     auto options = static_cast<CProposalOption>(msg.options);
-    auto attributes = view.GetAttributes();
 
     CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPFee};
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCFee};
@@ -88,15 +87,15 @@ CAmount GetProposalCreationFee(int, const CCustomCSView &view, const CCreateProp
     CAmount cfpFee;
     switch (type) {
         case CProposalType::CommunityFundProposal: {
-            cfpFee = MultiplyAmounts(msg.nAmount, attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
+            cfpFee = MultiplyAmounts(msg.nAmount, view.GetValue(CFPKey, Params().GetConsensus().props.cfp.fee));
             auto minimumFee = Params().GetConsensus().props.cfp.minimumFee;
             return minimumFee > cfpFee ? minimumFee : cfpFee;
         }
         case CProposalType::VoteOfConfidence:
             if (emergency) {
-                return attributes->GetValue(VOCEmergencyKey, Params().GetConsensus().props.voc.emergencyFee);
+                return view.GetValue(VOCEmergencyKey, Params().GetConsensus().props.voc.emergencyFee);
             } else {
-                return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
+                return view.GetValue(VOCKey, Params().GetConsensus().props.voc.fee);
             }
     }
     return -1;
@@ -785,7 +784,11 @@ CCustomCSView::CCustomCSView(CStorageKV &st)
 // cache-upon-a-cache (not a copy!) constructor
 CCustomCSView::CCustomCSView(CCustomCSView &other)
     : CStorageView(new CFlushableStorageKV(other.DB())),
+      persistentAttributes(true),
       writers(other.GetHistoryWriters()) {
+    if (other.HasAttributes()) {
+        attributes = other.GetAttributes();
+    }
     CheckPrefixes();
 }
 
@@ -794,7 +797,11 @@ CCustomCSView::CCustomCSView(CCustomCSView &other,
                              CBurnHistoryStorage *burnView,
                              CVaultHistoryStorage *vaultView)
     : CStorageView(new CFlushableStorageKV(other.DB())),
+      persistentAttributes(true),
       writers(historyView, burnView, vaultView) {
+    if (other.HasAttributes()) {
+        attributes = other.GetAttributes();
+    }
     CheckPrefixes();
 }
 
@@ -1195,12 +1202,10 @@ uint256 CCustomCSView::MerkleRoot() {
     return ComputeMerkleRoot(std::move(hashes));
 }
 
-bool CCustomCSView::AreTokensLocked(const std::set<uint32_t> &tokenIds) const {
-    const auto attributes = GetAttributes();
-
+bool CCustomCSView::AreTokensLocked(const std::set<uint32_t> &tokenIds) {
     for (const auto &tokenId : tokenIds) {
         CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, tokenId};
-        if (attributes->GetValue(lockKey, false)) {
+        if (GetValue(lockKey, false)) {
             return true;
         }
     }
@@ -1236,8 +1241,12 @@ std::optional<CTokensView::CTokenImpl> CCustomCSView::GetTokenGuessId(const std:
     return {};
 }
 
-std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByID(DCT_ID const &id) const {
-    auto loanToken = ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByIDFromStore(DCT_ID const &id) const {
+    return ReadBy<LoanSetLoanTokenKey, CLoanSetLoanTokenImpl>(id);
+}
+
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenByID(DCT_ID const &id) {
+    auto loanToken = GetLoanTokenByIDFromStore(id);
     if (loanToken) {
         return loanToken;
     }
@@ -1274,37 +1283,20 @@ std::map<CKeyID, CKey> AmISignerNow(int height, const CAnchorData::CTeam &team) 
     return operatorDetails;
 }
 
-std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID &id) const {
-    const auto attributes = GetAttributes();
-    CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
-    CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-    CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
-
-    if (const auto token = GetToken(id); token && attributes->CheckKey(pairKey) && attributes->CheckKey(interestKey) &&
-                                         attributes->CheckKey(mintableKey)) {
-        CLoanView::CLoanSetLoanTokenImpl loanToken;
-        loanToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-        loanToken.interest = attributes->GetValue(interestKey, CAmount{});
-        loanToken.mintable = attributes->GetValue(mintableKey, false);
-        loanToken.symbol = token->symbol;
-        loanToken.name = token->name;
-        return loanToken;
-    }
-
-    return {};
+std::optional<CLoanView::CLoanSetLoanTokenImpl> CCustomCSView::GetLoanTokenFromAttributes(const DCT_ID &id) {
+    return GetAttributes().GetLoanTokenByID(*this, id);
 }
 
 std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollateralTokenFromAttributes(
-    const DCT_ID &id) const {
-    const auto attributes = GetAttributes();
+    const DCT_ID &id) {
     CLoanSetCollateralTokenImplementation collToken;
 
     CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
     CDataStructureV0 factorKey{AttributeTypes::Token, id.v, TokenKeys::LoanCollateralFactor};
 
-    if (attributes->CheckKey(pairKey) && attributes->CheckKey(factorKey)) {
-        collToken.fixedIntervalPriceId = attributes->GetValue(pairKey, CTokenCurrencyPair{});
-        collToken.factor = attributes->GetValue(factorKey, CAmount{0});
+    if (CheckKey(pairKey) && CheckKey(factorKey)) {
+        collToken.fixedIntervalPriceId = GetValue(pairKey, CTokenCurrencyPair{});
+        collToken.factor = GetValue(factorKey, CAmount{0});
         collToken.idToken = id;
 
         auto token = GetToken(id);
@@ -1318,53 +1310,114 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CCustomCSView::GetCollater
     return {};
 }
 
-uint32_t CCustomCSView::GetVotingPeriodFromAttributes() const {
-    const auto attributes = GetAttributes();
+uint32_t CCustomCSView::GetVotingPeriodFromAttributes() {
     CDataStructureV0 votingKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VotingPeriod};
-    return attributes->GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
+    return GetValue(votingKey, Params().GetConsensus().props.votingPeriod);
 }
 
-uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CProposalType &type) const {
-    const auto attributes = GetAttributes();
+uint32_t CCustomCSView::GetEmergencyPeriodFromAttributes(const CProposalType &type) {
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyPeriod};
-    return attributes->GetValue(VOCKey, Params().GetConsensus().props.emergencyPeriod);
+    return GetValue(VOCKey, Params().GetConsensus().props.emergencyPeriod);
 }
 
-CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CProposalType &type) const {
-    const auto attributes = GetAttributes();
+CAmount CCustomCSView::GetApprovalThresholdFromAttributes(const CProposalType &type) {
     CDataStructureV0 CFPKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::CFPApprovalThreshold};
     CDataStructureV0 VOCKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCApprovalThreshold};
 
     switch (type) {
         case CProposalType::CommunityFundProposal:
-            return attributes->GetValue(CFPKey, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
+            return GetValue(CFPKey, Params().GetConsensus().props.cfp.approvalThreshold) / 10000;
         case CProposalType::VoteOfConfidence:
-            return attributes->GetValue(VOCKey, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
+            return GetValue(VOCKey, Params().GetConsensus().props.voc.approvalThreshold) / 10000;
     }
 
     return 0;
 }
 
-CAmount CCustomCSView::GetQuorumFromAttributes(const CProposalType &type, bool emergency) const {
-    const auto attributes = GetAttributes();
-
+CAmount CCustomCSView::GetQuorumFromAttributes(const CProposalType &type, bool emergency) {
     CDataStructureV0 quorumKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::Quorum};
     CDataStructureV0 vocEmergencyQuorumKey{
         AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::VOCEmergencyQuorum};
 
     if (type == CProposalType::VoteOfConfidence && emergency) {
-        return attributes->GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
+        return GetValue(vocEmergencyQuorumKey, COIN / 10) / 10000;
     }
 
-    return attributes->GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
+    return GetValue(quorumKey, Params().GetConsensus().props.quorum) / 10000;
 }
 
-CAmount CCustomCSView::GetFeeBurnPctFromAttributes() const {
-    const auto attributes = GetAttributes();
-
+CAmount CCustomCSView::GetFeeBurnPctFromAttributes() {
     CDataStructureV0 feeBurnPctKey{AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
+    return GetValue(feeBurnPctKey, Params().GetConsensus().props.feeBurnPct);
+}
 
-    return attributes->GetValue(feeBurnPctKey, Params().GetConsensus().props.feeBurnPct);
+Res CCustomCSView::RefundFuturesContracts(const uint32_t height, const uint32_t tokenID) {
+    return GetAttributes().RefundFuturesContracts(*this, height, tokenID);
+}
+
+void CCustomCSView::SetAttributesMembers(const int64_t setTime,
+                                         const std::shared_ptr<CScopedTemplate> &setEvmTemplate) {
+    GetAttributes().SetAttributesMembers(setTime, setEvmTemplate);
+}
+
+Res CCustomCSView::ImportAttributes(const UniValue &val) {
+    return GetAttributes().Import(val);
+}
+
+Res CCustomCSView::ValidateAttributes() {
+    return GetAttributes().Validate(*this);
+}
+
+Res CCustomCSView::EraseAttributes(const uint32_t height, const std::vector<std::string> &keys) {
+    return GetAttributes().Erase(*this, height, keys);
+}
+
+Res CCustomCSView::ApplyAttributes(const int height) {
+    if (!attributes) {
+        // No attributes loaded indicates that there are no updates to be applied.
+        return Res::Err("No attributes in view to apply changes to");
+    }
+
+    return GetAttributes().Apply(*this, height);
+}
+
+UniValue CCustomCSView::ExportFiltered(GovVarsFilter filter, const std::string &prefix) {
+    return GetAttributes().ExportFiltered(filter, prefix);
+}
+
+ATTRIBUTES &CCustomCSView::GetAttributes() {
+    std::lock_guard<std::mutex> lock(attributesMutex);
+    if (persistentAttributes) {
+        if (!attributes) {
+            attributes = *GetAttributesFromStore();
+        }
+        return *attributes;
+    }
+
+    // Update from store on every call. Not persistent.
+    discardableAttributes = *GetAttributesFromStore();
+    return *discardableAttributes;
+}
+
+bool CCustomCSView::SetAttributes() {
+    if (!HasAttributes() || !GetAttributes().IsChanged()) {
+        return false;
+    }
+    SetVariable(GetAttributes());
+    return true;
+}
+
+void CCustomCSView::ClearAttributes() {
+    attributes.reset();
+}
+
+bool CCustomCSView::HasAttributes() const {
+    return attributes.has_value();
+}
+
+bool CCustomCSView::Flush() {
+    SetAttributes();
+    return CStorageView::Flush();
 }
 
 void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight, const CWallet &wallet) {

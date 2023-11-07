@@ -9,6 +9,7 @@
 #include <dfi/accounts.h>
 #include <dfi/anchors.h>
 #include <dfi/evm.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/gv.h>
 #include <dfi/historywriter.h>
 #include <dfi/icxorder.h>
@@ -45,7 +46,7 @@ CAmount GetTokenCollateralAmount();
 CAmount GetMnCreationFee(int height);
 CAmount GetTokenCreationFee(int height);
 CAmount GetMnCollateralAmount(int height);
-CAmount GetProposalCreationFee(int height, const CCustomCSView &view, const CCreateProposalMessage &msg);
+CAmount GetProposalCreationFee(int height, CCustomCSView &view, const CCreateProposalMessage &msg);
 
 // Update owner rewards for MNs missing call to CalculateOwnerRewards after voter fee distributions.
 // Missing call fixed in: https://github.com/DeFiCh/ain/pull/1766
@@ -525,6 +526,18 @@ class CCustomCSView : public CMasternodesView,
     // clang-format on
 
 private:
+    // Protect setting of attributes when called via thread pools
+    mutable std::mutex attributesMutex;
+
+    // Updated on each use and returned when called from global view
+    std::optional<ATTRIBUTES> discardableAttributes;
+
+    // Not exposed to outside of class and friends
+    ATTRIBUTES &GetAttributes();
+
+    // Allow access to private members and methods
+    friend class CAccountsHistoryWriter;
+
     Res PopulateLoansData(CVaultAssets &result,
                           const CVaultId &vaultId,
                           uint32_t height,
@@ -540,6 +553,8 @@ private:
                                bool requireLivePrice);
 
 protected:
+    std::optional<ATTRIBUTES> attributes;
+    bool persistentAttributes{};
     CHistoryWriters writers;
 
 public:
@@ -592,13 +607,13 @@ public:
                                               bool useNextPrice,
                                               bool requireLivePrice);
 
-    [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const override;
+    [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t> &tokenIds) override;
     [[nodiscard]] std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const override;
-    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const &id) const override;
-    [[nodiscard]] std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(
-        const DCT_ID &id) const override;
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByIDFromStore(DCT_ID const &id) const;
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const &id) override;
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID &id) override;
     [[nodiscard]] std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(
-        const DCT_ID &id) const override;
+        const DCT_ID &id) override;
 
     void SetDbVersion(int version);
 
@@ -611,11 +626,56 @@ public:
     // we construct it as it
     CFlushableStorageKV &GetStorage() { return static_cast<CFlushableStorageKV &>(DB()); }
 
-    uint32_t GetVotingPeriodFromAttributes() const override;
-    uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) const override;
-    CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) const override;
-    CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) const override;
-    CAmount GetFeeBurnPctFromAttributes() const override;
+    uint32_t GetVotingPeriodFromAttributes() override;
+    uint32_t GetEmergencyPeriodFromAttributes(const CProposalType &type) override;
+    CAmount GetApprovalThresholdFromAttributes(const CProposalType &type) override;
+    CAmount GetQuorumFromAttributes(const CProposalType &type, bool emergency = false) override;
+    CAmount GetFeeBurnPctFromAttributes() override;
+
+    bool SetAttributes();
+    void ClearAttributes();
+    [[nodiscard]] bool HasAttributes() const;
+    Res ApplyAttributes(const int height);
+    Res ImportAttributes(const UniValue &val);
+    Res ValidateAttributes();
+    Res EraseAttributes(const uint32_t height, const std::vector<std::string> &keys);
+    UniValue ExportFiltered(GovVarsFilter filter, const std::string &prefix);
+    Res RefundFuturesContracts(const uint32_t height, const uint32_t tokenID);
+    void SetAttributesMembers(const int64_t setTime, const std::shared_ptr<CScopedTemplate> &setEvmTemplate);
+
+    template <typename K, typename T>
+    [[nodiscard]] T GetValue(const K &key, T value) {
+        return GetAttributes().GetValue(key, value);
+    }
+
+    template <typename K, typename T>
+    void SetValue(const K &key, T &&value) {
+        if (!persistentAttributes) {
+            // Do not make changes on global
+            return;
+        }
+
+        GetAttributes().SetValue(key, value);
+    }
+
+    template <typename K>
+    bool EraseKey(const K &key) {
+        if (!persistentAttributes) {
+            // Do not make changes on global
+            return false;
+        }
+
+        return GetAttributes().EraseKey(key);
+    }
+
+    [[nodiscard]] bool CheckKey(const CAttributeType &key) { return GetAttributes().CheckKey(key); }
+
+    template <typename C, typename K>
+    void ForEachAttribute(const C &callback, const K &key) {
+        GetAttributes().ForEach(callback, key);
+    }
+
+    bool Flush() override;
 
     struct DbVersion {
         static constexpr uint8_t prefix() { return 'D'; }

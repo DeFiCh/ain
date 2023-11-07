@@ -29,15 +29,13 @@ static Res PaybackWithCollateral(CCustomCSView &view,
                                  const CVaultId &vaultId,
                                  uint32_t height,
                                  uint64_t time) {
-    const auto attributes = view.GetAttributes();
-
     const auto dUsdToken = view.GetToken("DUSD");
     if (!dUsdToken) {
         return DeFiErrors::TokenInvalidForName("DUSD");
     }
 
     CDataStructureV0 activeKey{AttributeTypes::Token, dUsdToken->first.v, TokenKeys::LoanPaybackCollateral};
-    if (!attributes->GetValue(activeKey, false)) {
+    if (!view.GetValue(activeKey, false)) {
         return DeFiErrors::LoanPaybackWithCollateralDisable();
     }
 
@@ -189,8 +187,7 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &tokenId = obj.idToken.v;
 
-        auto attributes = mnview.GetAttributes();
-        attributes->time = time;
+        mnview.SetAttributesMembers(time, blockCtx.GetEVMTemplate());
 
         CDataStructureV0 collateralEnabled{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralEnabled};
         CDataStructureV0 collateralFactor{AttributeTypes::Token, tokenId, TokenKeys::LoanCollateralFactor};
@@ -210,17 +207,16 @@ Res CLoansConsensus::operator()(const CLoanSetCollateralTokenMessage &obj) const
         var->SetValue(collateralFactor, obj.factor);
         var->SetValue(pairKey, obj.fixedIntervalPriceId);
 
-        if (auto res = attributes->Import(var->Export()); !res) {
+        if (auto res = mnview.ImportAttributes(var->Export()); !res) {
             return res;
         }
-        if (auto res = attributes->Validate(mnview); !res) {
+        if (auto res = mnview.ValidateAttributes(); !res) {
             return res;
         }
-        if (auto res = attributes->Apply(mnview, height); !res) {
+        if (auto res = mnview.ApplyAttributes(height); !res) {
             return res;
         }
-
-        return mnview.SetVariable(*attributes);
+        return Res::Ok();
     }
 
     CLoanSetCollateralTokenImplementation collToken;
@@ -301,7 +297,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
                                : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
     token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-    auto tokenId = mnview.CreateToken(token, false, &blockCtx);
+    auto tokenId = mnview.CreateToken(token, blockCtx);
     if (!tokenId) {
         return tokenId;
     }
@@ -309,9 +305,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &id = tokenId.val->v;
 
-        auto attributes = mnview.GetAttributes();
-        attributes->time = time;
-        attributes->evmTemplate = blockCtx.GetEVMTemplate();
+        mnview.SetAttributesMembers(time, blockCtx.GetEVMTemplate());
 
         CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
         CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
@@ -331,16 +325,16 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
         var->SetValue(mintInterest, obj.interest);
         var->SetValue(pairKey, obj.fixedIntervalPriceId);
 
-        if (auto res = attributes->Import(var->Export()); !res) {
+        if (auto res = mnview.ImportAttributes(var->Export()); !res) {
             return res;
         }
-        if (auto res = attributes->Validate(mnview); !res) {
+        if (auto res = mnview.ValidateAttributes(); !res) {
             return res;
         }
-        if (auto res = attributes->Apply(mnview, height); !res) {
+        if (auto res = mnview.ApplyAttributes(height); !res) {
             return res;
         }
-        return mnview.SetVariable(*attributes);
+        return Res::Ok();
     }
 
     CLoanSetLoanTokenImplementation loanToken;
@@ -434,8 +428,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) && IsTokensMigratedToGovVar()) {
         const auto &id = pair->first.v;
 
-        auto attributes = mnview.GetAttributes();
-        attributes->time = time;
+        mnview.SetAttributesMembers(time, blockCtx.GetEVMTemplate());
 
         CDataStructureV0 mintEnabled{AttributeTypes::Token, id, TokenKeys::LoanMintingEnabled};
         CDataStructureV0 mintInterest{AttributeTypes::Token, id, TokenKeys::LoanMintingInterest};
@@ -455,16 +448,16 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
         var->SetValue(mintInterest, obj.interest);
         var->SetValue(pairKey, obj.fixedIntervalPriceId);
 
-        if (auto res = attributes->Import(var->Export()); !res) {
+        if (auto res = mnview.ImportAttributes(var->Export()); !res) {
             return res;
         }
-        if (auto res = attributes->Validate(mnview); !res) {
+        if (auto res = mnview.ValidateAttributes(); !res) {
             return res;
         }
-        if (auto res = attributes->Apply(mnview, height); !res) {
+        if (auto res = mnview.ApplyAttributes(height); !res) {
             return res;
         }
-        return mnview.SetVariable(*attributes);
+        return Res::Ok();
     }
 
     if (obj.fixedIntervalPriceId != loanToken->fixedIntervalPriceId) {
@@ -893,9 +886,6 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
         return PaybackWithCollateral(mnview, *vault, obj.vaultId, height, time);
     }
 
-    auto shouldSetVariable = false;
-    auto attributes = mnview.GetAttributes();
-
     for (const auto &[loanTokenId, paybackAmounts] : obj.loans) {
         const auto loanToken = mnview.GetLoanTokenByID(loanTokenId);
         if (!loanToken) {
@@ -928,21 +918,21 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                 if (paybackTokenId != DCT_ID{0}) {
                     CDataStructureV0 activeKey{
                         AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPayback, paybackTokenId.v};
-                    if (!attributes->GetValue(activeKey, false)) {
+                    if (!mnview.GetValue(activeKey, false)) {
                         return DeFiErrors::LoanPaybackDisabled(paybackToken->symbol);
                     }
 
                     CDataStructureV0 penaltyKey{
                         AttributeTypes::Token, loanTokenId.v, TokenKeys::LoanPaybackFeePCT, paybackTokenId.v};
-                    penaltyPct -= attributes->GetValue(penaltyKey, CAmount{0});
+                    penaltyPct -= mnview.GetValue(penaltyKey, CAmount{0});
                 } else {
                     CDataStructureV0 activeKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFI};
-                    if (!attributes->GetValue(activeKey, false)) {
+                    if (!mnview.GetValue(activeKey, false)) {
                         return DeFiErrors::LoanPaybackDisabled(paybackToken->symbol);
                     }
 
                     CDataStructureV0 penaltyKey{AttributeTypes::Token, loanTokenId.v, TokenKeys::PaybackDFIFeePCT};
-                    penaltyPct -= attributes->GetValue(penaltyKey, COIN / 100);
+                    penaltyPct -= mnview.GetValue(penaltyKey, COIN / 100);
                 }
 
                 // Get token price in USD
@@ -1122,21 +1112,19 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                     subInToken = kv.second;
                 }
 
-                shouldSetVariable = true;
-
                 auto penalty = MultiplyAmounts(subInToken, COIN - penaltyPct);
 
                 if (paybackTokenId == DCT_ID{0}) {
                     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackDFITokens};
-                    auto balances = attributes->GetValue(liveKey, CBalances{});
+                    auto balances = mnview.GetValue(liveKey, CBalances{});
                     balances.Add({loanTokenId, subAmount});
                     balances.Add({paybackTokenId, penalty});
-                    attributes->SetValue(liveKey, balances);
+                    mnview.SetValue(liveKey, balances);
 
                     liveKey.key = EconomyKeys::PaybackDFITokensPrincipal;
-                    balances = attributes->GetValue(liveKey, CBalances{});
+                    balances = mnview.GetValue(liveKey, CBalances{});
                     balances.Add({loanTokenId, subLoan});
-                    attributes->SetValue(liveKey, balances);
+                    mnview.SetValue(liveKey, balances);
 
                     LogPrint(BCLog::LOAN,
                              "CLoanPaybackLoanMessage(): Burning interest and loan in %s directly - total loan "
@@ -1153,11 +1141,11 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                     }
                 } else {
                     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::PaybackTokens};
-                    auto balances = attributes->GetValue(liveKey, CTokenPayback{});
+                    auto balances = mnview.GetValue(liveKey, CTokenPayback{});
 
                     balances.tokensPayback.Add(CTokenAmount{loanTokenId, subAmount});
                     balances.tokensFee.Add(CTokenAmount{paybackTokenId, penalty});
-                    attributes->SetValue(liveKey, balances);
+                    mnview.SetValue(liveKey, balances);
 
                     LogPrint(BCLog::LOAN,
                              "CLoanPaybackLoanMessage(): Swapping %s to DFI and burning it - total loan %lld (%lld "
@@ -1169,7 +1157,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
                              height);
 
                     CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDLoanBurn};
-                    auto directLoanBurn = attributes->GetValue(directBurnKey, false);
+                    auto directLoanBurn = mnview.GetValue(directBurnKey, false);
 
                     res = SwapToDFIorDUSD(mnview,
                                           paybackTokenId,
@@ -1187,7 +1175,7 @@ Res CLoansConsensus::operator()(const CLoanPaybackLoanV2Message &obj) const {
         }
     }
 
-    return shouldSetVariable ? mnview.SetVariable(*attributes) : Res::Ok();
+    return Res::Ok();
 }
 
 Res CLoansConsensus::operator()(const CPaybackWithCollateralMessage &obj) const {

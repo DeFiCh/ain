@@ -15,14 +15,13 @@
 
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
-static bool IsTransferDomainEnabled(const int height, const CCustomCSView &view, const Consensus::Params &consensus) {
+static bool IsTransferDomainEnabled(const int height, CCustomCSView &view, const Consensus::Params &consensus) {
     if (height < consensus.DF22MetachainHeight) {
         return false;
     }
 
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::TransferDomain};
-    auto attributes = view.GetAttributes();
-    return attributes->GetValue(enabledKey, false);
+    return view.GetValue(enabledKey, false);
 }
 
 static XVmAddressFormatTypes FromTxDestType(const size_t index) {
@@ -190,7 +189,7 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
 static Res ValidateTransferDomain(const CTransaction &tx,
                                   uint32_t height,
                                   const CCoinsViewCache &coins,
-                                  const CCustomCSView &mnview,
+                                  CCustomCSView &mnview,
                                   const Consensus::Params &consensus,
                                   const CTransferDomainMessage &obj,
                                   const bool isEvmEnabledForBlock,
@@ -241,8 +240,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
         return res;
     }
 
-    auto attributes = mnview.GetAttributes();
-    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+    auto stats = mnview.GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
     std::string evmTxHash;
     CrossBoundaryResult result;
 
@@ -409,12 +407,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
         LogPrintf("Failed to store EVMToDVM TX hash for DFI TX %s\n", txHash);
     }
 
-    attributes->SetValue(CTransferDomainStatsLive::Key, stats);
-    res = mnview.SetVariable(*attributes);
-    if (!res) {
-        evm_try_unsafe_remove_txs_above_hash_in_template(result, evmTemplate->GetTemplate(), tx.GetHash().GetHex());
-        return res;
-    }
+    mnview.SetValue(CTransferDomainStatsLive::Key, stats);
+
     return Res::Ok();
 }
 

@@ -217,6 +217,7 @@ CTransactionRef send(CTransactionRef tx, CTransactionRef optAuthTx) {
     if (TransactionError::OK != err) {
         throw JSONRPCTransactionError(err, err_string);
     }
+
     return tx;
 }
 
@@ -293,10 +294,9 @@ static std::vector<CTxIn> GetInputs(const UniValue &inputs) {
 
 std::optional<CScript> AmIFounder(CWallet *const pwallet) {
     auto members = Params().GetConsensus().foundationMembers;
-    const auto attributes = pcustomcsview->GetAttributes();
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
+    if (pcustomcsview->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                                false)) {
+        if (const auto databaseMembers = pcustomcsview->GetValue(
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
             !databaseMembers.empty()) {
             members = databaseMembers;
@@ -383,10 +383,9 @@ static CTransactionRef CreateAuthTx(CWalletCoinsUnlocker &pwallet,
 
 static std::optional<CTxIn> GetAnyFoundationAuthInput(CWalletCoinsUnlocker &pwallet) {
     auto members = Params().GetConsensus().foundationMembers;
-    const auto attributes = pcustomcsview->GetAttributes();
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
+    if (pcustomcsview->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                                false)) {
+        if (const auto databaseMembers = pcustomcsview->GetValue(
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
             !databaseMembers.empty()) {
             members = databaseMembers;
@@ -515,23 +514,22 @@ CWalletCoinsUnlocker GetWallet(const JSONRPCRequest &request) {
 std::optional<FutureSwapHeightInfo> GetFuturesBlock(const uint32_t typeId) {
     LOCK(cs_main);
 
-    const auto attributes = pcustomcsview->GetAttributes();
-
     CDataStructureV0 activeKey{AttributeTypes::Param, typeId, DFIPKeys::Active};
-    const auto active = attributes->GetValue(activeKey, false);
+    const auto active = pcustomcsview->GetValue(activeKey, false);
     if (!active) {
         return {};
     }
 
     CDataStructureV0 blockKey{AttributeTypes::Param, typeId, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, typeId, DFIPKeys::RewardPct};
-    if (!attributes->CheckKey(blockKey) || !attributes->CheckKey(rewardKey)) {
+    if (!pcustomcsview->CheckKey(blockKey) || !pcustomcsview->CheckKey(rewardKey)) {
         return {};
     }
 
     CDataStructureV0 startKey{AttributeTypes::Param, typeId, DFIPKeys::StartBlock};
 
-    return FutureSwapHeightInfo{attributes->GetValue(startKey, CAmount{}), attributes->GetValue(blockKey, CAmount{})};
+    return FutureSwapHeightInfo{pcustomcsview->GetValue(startKey, CAmount{}),
+                                pcustomcsview->GetValue(blockKey, CAmount{})};
 }
 
 std::string CTransferDomainToString(const VMDomain domain) {
@@ -618,27 +616,28 @@ UniValue setgov(const JSONRPCRequest &request) {
                 }
 
                 LOCK(cs_main);
-                const auto attrMap = attributes->GetAttributesMap();
-                for (const auto &[key, value] : attrMap) {
-                    if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                        DCT_ID tokenID{attrV0->typeId};
-                        if (attrV0->type == AttributeTypes::Consortium) {
+                attributes->ForEach(
+                    [](const CDataStructureV0 &attr, const CAttributeValue &) {
+                        DCT_ID tokenID{attr.typeId};
+                        if (attr.type == AttributeTypes::Consortium) {
                             bool isDAT{};
                             if (auto token = pcustomcsview->GetToken(tokenID)) {
                                 isDAT = token->IsDAT();
                             }
 
-                            if (attrV0->typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attrV0->typeId})) {
+                            if (attr.typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attr.typeId})) {
                                 throw JSONRPCError(RPC_INVALID_REQUEST,
                                                    "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                             }
                         } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                                   attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                                   attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
                             // Note: This is expected to be removed after DF23
                             throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                         }
-                    }
-                }
+
+                        return true;
+                    },
+                    CDataStructureV0{});
             }
 
             varStream << name << *gv;
@@ -857,26 +856,27 @@ UniValue setgovheight(const JSONRPCRequest &request) {
             }
 
             LOCK(cs_main);
-            const auto attrMap = attributes->GetAttributesMap();
-            for (const auto &[key, value] : attrMap) {
-                if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                    DCT_ID tokenID{attrV0->typeId};
-                    if (attrV0->type == AttributeTypes::Consortium) {
+            attributes->ForEach(
+                [](const CDataStructureV0 &attr, const CAttributeValue &) {
+                    DCT_ID tokenID{attr.typeId};
+                    if (attr.type == AttributeTypes::Consortium) {
                         bool isDAT{};
                         if (auto token = pcustomcsview->GetToken(tokenID)) {
                             isDAT = token->IsDAT();
                         }
 
-                        if (attrV0->typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attrV0->typeId})) {
+                        if (attr.typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attr.typeId})) {
                             throw JSONRPCError(RPC_INVALID_REQUEST,
                                                "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
                     } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                               attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                               attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
                         throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                     }
-                }
-            }
+
+                    return true;
+                },
+                CDataStructureV0{});
         }
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
@@ -949,14 +949,14 @@ UniValue getgov(const JSONRPCRequest &request) {
     throw JSONRPCError(RPC_INVALID_REQUEST, "Variable '" + name + "' not registered");
 }
 
-static void AddDefaultVars(uint64_t height, CChainParams params, ATTRIBUTES &attrs) {
+static void AddDefaultVars(uint64_t height, CChainParams params, CCustomCSView &mnview) {
     // OpReturnLimits
-    const auto opReturnLimits = OpReturnLimits::From(height, params.GetConsensus(), attrs);
-    opReturnLimits.SetToAttributesIfNotExists(attrs);
+    const auto opReturnLimits = OpReturnLimits::From(height, params.GetConsensus(), mnview);
+    opReturnLimits.SetToAttributesIfNotExists(mnview);
 
     // TransferDomainConfig
-    const auto tdConfig = TransferDomainConfig::From(*pcustomcsview);
-    tdConfig.SetToAttributesIfNotExists(attrs);
+    const auto tdConfig = TransferDomainConfig::From(mnview);
+    tdConfig.SetToAttributesIfNotExists(mnview);
 }
 
 UniValue listgovs(const JSONRPCRequest &request) {
@@ -1036,18 +1036,15 @@ UniValue listgovs(const JSONRPCRequest &request) {
             UniValue ret(UniValue::VOBJ);
             UniValue val;
             bool skip = false;
-            auto name = var->GetName();
-            if (name == "ATTRIBUTES") {
+            if (var->GetName() == "ATTRIBUTES") {
                 if (mode == GovVarsFilter::NoAttributes) {
                     skip = true;
                 } else {
+                    auto view(*pcustomcsview);
                     if (height >= Params().GetConsensus().DF22MetachainHeight) {
-                        if (auto attributes = dynamic_cast<ATTRIBUTES *>(var.get()); attributes) {
-                            AddDefaultVars(height, Params(), *attributes);
-                        }
+                        AddDefaultVars(height, Params(), view);
                     }
-                    auto a = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-                    val = a->ExportFiltered(mode, prefix);
+                    val = view.ExportFiltered(mode, prefix);
                 }
             } else {
                 if (mode == GovVarsFilter::LiveAttributes || mode == GovVarsFilter::PrefixedAttributes ||

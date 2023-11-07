@@ -412,8 +412,9 @@ public:
                                     const CollateralTokenKey &start = {DCT_ID{0}, UINT_MAX});
     std::optional<CLoanSetCollateralTokenImpl> HasLoanCollateralToken(const CollateralTokenKey &key);
 
-    std::optional<CLoanSetLoanTokenImpl> GetLoanToken(const uint256 &txid) const;
-    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const &id) const = 0;
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanToken(const uint256 &txid) const;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByIDFromStore(const DCT_ID &id) const = 0;
+    [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(const DCT_ID &id) = 0;
     Res SetLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id);
     Res UpdateLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id);
     Res EraseLoanToken(const DCT_ID &id);
@@ -479,9 +480,9 @@ public:
     CAmount GetLoanLiquidationPenalty();
 
     [[nodiscard]] virtual std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(
-        const DCT_ID &id) const = 0;
+        const DCT_ID &id) = 0;
     [[nodiscard]] virtual std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(
-        const DCT_ID &id) const = 0;
+        const DCT_ID &id) = 0;
 
     struct LoanSetCollateralTokenCreationTx {
         static constexpr uint8_t prefix() { return 0x10; }

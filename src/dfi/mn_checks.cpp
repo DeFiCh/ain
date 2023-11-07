@@ -526,14 +526,12 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *ca
     }
 
     const auto txType = txCtx.GetTxType();
-    auto attributes = mnview.GetAttributes();
-
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "EVM is not enabled on this block");
     }
 
     // Check OP_RETURN sizes
-    const auto opReturnLimits = OpReturnLimits::From(height, consensus, *attributes);
+    const auto opReturnLimits = OpReturnLimits::From(height, consensus, mnview);
     if (opReturnLimits.shouldEnforce) {
         if (r = opReturnLimits.Validate(tx, txType); !r) {
             return r;
@@ -588,9 +586,7 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *ca
                 CDataStructureV0 burnPctKey{
                     AttributeTypes::Governance, GovernanceIDs::Proposals, GovernanceKeys::FeeBurnPct};
 
-                auto attributes = view.GetAttributes();
-
-                auto burnFee = MultiplyAmounts(tx.vout[0].nValue, attributes->GetValue(burnPctKey, COIN / 2));
+                auto burnFee = MultiplyAmounts(tx.vout[0].nValue, view.GetValue(burnPctKey, COIN / 2));
                 mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, burnFee);
             }
 
@@ -622,6 +618,12 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *ca
         return res;
     }
 
+    // Update Gov var before creating undo to make sure changes are present
+    if (view.SetAttributes()) {
+        // Clear attributes in parent so next use loads updated values
+        mnview.ClearAttributes();
+    }
+
     // construct undo
     auto &flushable = view.GetStorage();
     auto undo = CUndo::Construct(mnview.GetStorage(), flushable.GetRaw());
@@ -631,6 +633,7 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *ca
     if (!undo.before.empty()) {
         mnview.SetUndo(UndoKey{height, tx.GetHash()}, undo);
     }
+
     return res;
 }
 
@@ -974,10 +977,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
         mnview.Flush();
     }
 
-    auto attributes = view.GetAttributes();
-
     CDataStructureV0 dexKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::DexTokens};
-    auto dexBalances = attributes->GetValue(dexKey, CDexBalances{});
+    auto dexBalances = view.GetValue(dexKey, CDexBalances{});
 
     // Set amount to be swapped in pool
     CTokenAmount swapAmountResult{obj.idTokenFrom, obj.amountFrom};
@@ -1019,8 +1020,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
 
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, currentID.v, PoolKeys::TokenBFeeDir};
-        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
-        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto dirA = view.GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = view.GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
         const auto asymmetricFee = std::make_pair(dirA, dirB);
 
         auto dexfeeInPct = view.GetDexFeeInPct(currentID, swapAmount.nTokenId);
@@ -1141,8 +1142,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     }
 
     if (!testOnly && view.GetDexStatsEnabled().value_or(false)) {
-        attributes->SetValue(dexKey, std::move(dexBalances));
-        view.SetVariable(*attributes);
+        view.SetValue(dexKey, std::move(dexBalances));
     }
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
@@ -1179,12 +1179,11 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
         return Res::Err("Cannot find token DUSD");
     }
 
-    const auto attributes = mnview.GetAttributes();
     CDataStructureV0 directBurnKey{AttributeTypes::Param, ParamIDs::DFIP2206A, DFIPKeys::DUSDInterestBurn};
 
     // Direct swap from DUSD to DFI as defined in the CPoolSwapMessage.
     if (tokenId == dUsdToken->first) {
-        if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
+        if (to == consensus.burnAddress && !forceLoanSwap && mnview.GetValue(directBurnKey, false)) {
             // direct burn dUSD
             CTokenAmount dUSD{dUsdToken->first, amount};
 
@@ -1209,7 +1208,7 @@ Res SwapToDFIorDUSD(CCustomCSView &mnview,
         return Res::Err("Cannot find pool pair %s-DUSD!", token->symbol);
     }
 
-    if (to == consensus.burnAddress && !forceLoanSwap && attributes->GetValue(directBurnKey, false)) {
+    if (to == consensus.burnAddress && !forceLoanSwap && mnview.GetValue(directBurnKey, false)) {
         obj.idTokenTo = dUsdToken->first;
 
         // swap tokenID -> dUSD and burn dUSD
@@ -1356,28 +1355,26 @@ struct OpReturnLimitsKeys {
     CDataStructureV0 evmKey{AttributeTypes::Rules, RulesIDs::TXRules, RulesKeys::EVMOPReturn};
 };
 
-OpReturnLimits OpReturnLimits::From(const uint64_t height,
-                                    const Consensus::Params &consensus,
-                                    const ATTRIBUTES &attributes) {
+OpReturnLimits OpReturnLimits::From(const uint64_t height, const Consensus::Params &consensus, CCustomCSView &mnview) {
     OpReturnLimitsKeys k{};
     auto item = OpReturnLimits::Default();
     item.shouldEnforce = height >= static_cast<uint64_t>(consensus.DF22MetachainHeight);
-    item.coreSizeBytes = attributes.GetValue(k.coreKey, item.coreSizeBytes);
-    item.dvmSizeBytes = attributes.GetValue(k.dvmKey, item.dvmSizeBytes);
-    item.evmSizeBytes = attributes.GetValue(k.evmKey, item.evmSizeBytes);
+    item.coreSizeBytes = mnview.GetValue(k.coreKey, item.coreSizeBytes);
+    item.dvmSizeBytes = mnview.GetValue(k.dvmKey, item.dvmSizeBytes);
+    item.evmSizeBytes = mnview.GetValue(k.evmKey, item.evmSizeBytes);
     return item;
 }
 
-void OpReturnLimits::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
+void OpReturnLimits::SetToAttributesIfNotExists(CCustomCSView &mnview) const {
     OpReturnLimitsKeys k{};
-    if (!attrs.CheckKey(k.coreKey)) {
-        attrs.SetValue(k.coreKey, coreSizeBytes);
+    if (!mnview.CheckKey(k.coreKey)) {
+        mnview.SetValue(k.coreKey, coreSizeBytes);
     }
-    if (!attrs.CheckKey(k.dvmKey)) {
-        attrs.SetValue(k.dvmKey, dvmSizeBytes);
+    if (!mnview.CheckKey(k.dvmKey)) {
+        mnview.SetValue(k.dvmKey, dvmSizeBytes);
     }
-    if (!attrs.CheckKey(k.evmKey)) {
-        attrs.SetValue(k.evmKey, evmSizeBytes);
+    if (!mnview.CheckKey(k.evmKey)) {
+        mnview.SetValue(k.evmKey, evmSizeBytes);
     }
 }
 
@@ -1449,62 +1446,61 @@ struct TransferDomainConfigKeys {
     CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
 };
 
-TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
+TransferDomainConfig TransferDomainConfig::From(CCustomCSView &mnview) {
     TransferDomainConfigKeys k{};
-    const auto attributes = mnview.GetAttributes();
     auto r = TransferDomainConfig::Default();
 
-    r.dvmToEvmEnabled = attributes->GetValue(k.dvm_to_evm_enabled, r.dvmToEvmEnabled);
-    r.dvmToEvmSrcAddresses = attributes->GetValue(k.dvm_to_evm_src_formats, r.dvmToEvmSrcAddresses);
-    r.dvmToEvmDestAddresses = attributes->GetValue(k.dvm_to_evm_dest_formats, r.dvmToEvmDestAddresses);
-    r.dvmToEvmNativeTokenEnabled = attributes->GetValue(k.dvm_to_evm_native_enabled, r.dvmToEvmNativeTokenEnabled);
-    r.dvmToEvmDatEnabled = attributes->GetValue(k.dvm_to_evm_dat_enabled, r.dvmToEvmDatEnabled);
+    r.dvmToEvmEnabled = mnview.GetValue(k.dvm_to_evm_enabled, r.dvmToEvmEnabled);
+    r.dvmToEvmSrcAddresses = mnview.GetValue(k.dvm_to_evm_src_formats, r.dvmToEvmSrcAddresses);
+    r.dvmToEvmDestAddresses = mnview.GetValue(k.dvm_to_evm_dest_formats, r.dvmToEvmDestAddresses);
+    r.dvmToEvmNativeTokenEnabled = mnview.GetValue(k.dvm_to_evm_native_enabled, r.dvmToEvmNativeTokenEnabled);
+    r.dvmToEvmDatEnabled = mnview.GetValue(k.dvm_to_evm_dat_enabled, r.dvmToEvmDatEnabled);
 
-    r.evmToDvmEnabled = attributes->GetValue(k.evm_to_dvm_enabled, r.evmToDvmEnabled);
-    r.evmToDvmSrcAddresses = attributes->GetValue(k.evm_to_dvm_src_formats, r.evmToDvmSrcAddresses);
-    r.evmToDvmDestAddresses = attributes->GetValue(k.evm_to_dvm_dest_formats, r.evmToDvmDestAddresses);
-    r.evmToDvmAuthFormats = attributes->GetValue(k.evm_to_dvm_auth_formats, r.evmToDvmAuthFormats);
-    r.evmToDvmNativeTokenEnabled = attributes->GetValue(k.evm_to_dvm_native_enabled, r.evmToDvmNativeTokenEnabled);
-    r.evmToDvmDatEnabled = attributes->GetValue(k.evm_to_dvm_dat_enabled, r.evmToDvmDatEnabled);
+    r.evmToDvmEnabled = mnview.GetValue(k.evm_to_dvm_enabled, r.evmToDvmEnabled);
+    r.evmToDvmSrcAddresses = mnview.GetValue(k.evm_to_dvm_src_formats, r.evmToDvmSrcAddresses);
+    r.evmToDvmDestAddresses = mnview.GetValue(k.evm_to_dvm_dest_formats, r.evmToDvmDestAddresses);
+    r.evmToDvmAuthFormats = mnview.GetValue(k.evm_to_dvm_auth_formats, r.evmToDvmAuthFormats);
+    r.evmToDvmNativeTokenEnabled = mnview.GetValue(k.evm_to_dvm_native_enabled, r.evmToDvmNativeTokenEnabled);
+    r.evmToDvmDatEnabled = mnview.GetValue(k.evm_to_dvm_dat_enabled, r.evmToDvmDatEnabled);
 
     return r;
 }
 
-void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
+void TransferDomainConfig::SetToAttributesIfNotExists(CCustomCSView &mnview) const {
     TransferDomainConfigKeys k{};
-    if (!attrs.CheckKey(k.dvm_to_evm_enabled)) {
-        attrs.SetValue(k.dvm_to_evm_enabled, dvmToEvmEnabled);
+    if (!mnview.CheckKey(k.dvm_to_evm_enabled)) {
+        mnview.SetValue(k.dvm_to_evm_enabled, dvmToEvmEnabled);
     }
-    if (!attrs.CheckKey(k.dvm_to_evm_src_formats)) {
-        attrs.SetValue(k.dvm_to_evm_src_formats, dvmToEvmSrcAddresses);
+    if (!mnview.CheckKey(k.dvm_to_evm_src_formats)) {
+        mnview.SetValue(k.dvm_to_evm_src_formats, dvmToEvmSrcAddresses);
     }
-    if (!attrs.CheckKey(k.dvm_to_evm_dest_formats)) {
-        attrs.SetValue(k.dvm_to_evm_dest_formats, dvmToEvmDestAddresses);
+    if (!mnview.CheckKey(k.dvm_to_evm_dest_formats)) {
+        mnview.SetValue(k.dvm_to_evm_dest_formats, dvmToEvmDestAddresses);
     }
-    if (!attrs.CheckKey(k.dvm_to_evm_native_enabled)) {
-        attrs.SetValue(k.dvm_to_evm_native_enabled, dvmToEvmNativeTokenEnabled);
+    if (!mnview.CheckKey(k.dvm_to_evm_native_enabled)) {
+        mnview.SetValue(k.dvm_to_evm_native_enabled, dvmToEvmNativeTokenEnabled);
     }
-    if (!attrs.CheckKey(k.dvm_to_evm_dat_enabled)) {
-        attrs.SetValue(k.dvm_to_evm_dat_enabled, dvmToEvmDatEnabled);
+    if (!mnview.CheckKey(k.dvm_to_evm_dat_enabled)) {
+        mnview.SetValue(k.dvm_to_evm_dat_enabled, dvmToEvmDatEnabled);
     }
 
-    if (!attrs.CheckKey(k.evm_to_dvm_enabled)) {
-        attrs.SetValue(k.evm_to_dvm_enabled, evmToDvmEnabled);
+    if (!mnview.CheckKey(k.evm_to_dvm_enabled)) {
+        mnview.SetValue(k.evm_to_dvm_enabled, evmToDvmEnabled);
     }
-    if (!attrs.CheckKey(k.evm_to_dvm_src_formats)) {
-        attrs.SetValue(k.evm_to_dvm_src_formats, evmToDvmSrcAddresses);
+    if (!mnview.CheckKey(k.evm_to_dvm_src_formats)) {
+        mnview.SetValue(k.evm_to_dvm_src_formats, evmToDvmSrcAddresses);
     }
-    if (!attrs.CheckKey(k.evm_to_dvm_dest_formats)) {
-        attrs.SetValue(k.evm_to_dvm_dest_formats, evmToDvmDestAddresses);
+    if (!mnview.CheckKey(k.evm_to_dvm_dest_formats)) {
+        mnview.SetValue(k.evm_to_dvm_dest_formats, evmToDvmDestAddresses);
     }
-    if (!attrs.CheckKey(k.evm_to_dvm_auth_formats)) {
-        attrs.SetValue(k.evm_to_dvm_auth_formats, evmToDvmAuthFormats);
+    if (!mnview.CheckKey(k.evm_to_dvm_auth_formats)) {
+        mnview.SetValue(k.evm_to_dvm_auth_formats, evmToDvmAuthFormats);
     }
-    if (!attrs.CheckKey(k.evm_to_dvm_native_enabled)) {
-        attrs.SetValue(k.evm_to_dvm_native_enabled, evmToDvmNativeTokenEnabled);
+    if (!mnview.CheckKey(k.evm_to_dvm_native_enabled)) {
+        mnview.SetValue(k.evm_to_dvm_native_enabled, evmToDvmNativeTokenEnabled);
     }
-    if (!attrs.CheckKey(k.evm_to_dvm_dat_enabled)) {
-        attrs.SetValue(k.evm_to_dvm_dat_enabled, evmToDvmDatEnabled);
+    if (!mnview.CheckKey(k.evm_to_dvm_dat_enabled)) {
+        mnview.SetValue(k.evm_to_dvm_dat_enabled, evmToDvmDatEnabled);
     }
 }
 

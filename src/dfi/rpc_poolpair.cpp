@@ -2,11 +2,7 @@
 
 #include <dfi/govvariables/attributes.h>
 
-UniValue poolToJSON(const CCustomCSView view,
-                    DCT_ID const &id,
-                    const CPoolPair &pool,
-                    const CToken &token,
-                    bool verbose) {
+UniValue poolToJSON(CCustomCSView &view, DCT_ID const &id, const CPoolPair &pool, const CToken &token, bool verbose) {
     UniValue poolObj(UniValue::VOBJ);
     poolObj.pushKV("symbol", token.symbol);
     poolObj.pushKV("name", token.name);
@@ -15,31 +11,29 @@ UniValue poolToJSON(const CCustomCSView view,
     poolObj.pushKV("idTokenB", pool.idTokenB.ToString());
 
     if (verbose) {
-        const auto attributes = view.GetAttributes();
-
         CDataStructureV0 dirAKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenAFeeDir};
         CDataStructureV0 dirBKey{AttributeTypes::Poolpairs, id.v, PoolKeys::TokenBFeeDir};
-        const auto dirA = attributes->GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
-        const auto dirB = attributes->GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
+        const auto dirA = view.GetValue(dirAKey, CFeeDir{FeeDirValues::Both});
+        const auto dirB = view.GetValue(dirBKey, CFeeDir{FeeDirValues::Both});
 
-        if (const auto dexFee = pcustomcsview->GetDexFeeInPct(id, pool.idTokenA)) {
+        if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenA)) {
             poolObj.pushKV("dexFeePctTokenA", ValueFromAmount(dexFee));
             if (dirA.feeDir == FeeDirValues::In || dirA.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeInPctTokenA", ValueFromAmount(dexFee));
             }
         }
-        if (const auto dexFee = pcustomcsview->GetDexFeeOutPct(id, pool.idTokenB)) {
+        if (const auto dexFee = view.GetDexFeeOutPct(id, pool.idTokenB)) {
             poolObj.pushKV("dexFeePctTokenB", ValueFromAmount(dexFee));
             if (dirB.feeDir == FeeDirValues::Out || dirB.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeOutPctTokenB", ValueFromAmount(dexFee));
             }
         }
-        if (const auto dexFee = pcustomcsview->GetDexFeeInPct(id, pool.idTokenB)) {
+        if (const auto dexFee = view.GetDexFeeInPct(id, pool.idTokenB)) {
             if (dirB.feeDir == FeeDirValues::In || dirB.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeInPctTokenB", ValueFromAmount(dexFee));
             }
         }
-        if (const auto dexFee = pcustomcsview->GetDexFeeOutPct(id, pool.idTokenA)) {
+        if (const auto dexFee = view.GetDexFeeOutPct(id, pool.idTokenA)) {
             if (dirA.feeDir == FeeDirValues::Out || dirA.feeDir == FeeDirValues::Both) {
                 poolObj.pushKV("dexFeeOutPctTokenA", ValueFromAmount(dexFee));
             }
@@ -82,7 +76,7 @@ UniValue poolToJSON(const CCustomCSView view,
                 ++next_it;
 
                 // Get token balance
-                const auto balance = pcustomcsview->GetBalance(pool.ownerAddress, it->first).nValue;
+                const auto balance = view.GetBalance(pool.ownerAddress, it->first).nValue;
 
                 // Make there's enough to pay reward otherwise remove it
                 if (balance < it->second) {

@@ -116,7 +116,8 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         }
     }
 
-    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, &blockCtx);
+    const auto isPreBayFront = static_cast<int>(height) < consensus.DF2BayfrontHeight;
+    auto tokenId = mnview.CreateToken(token, blockCtx, isPreBayFront);
     return tokenId;
 }
 
@@ -166,11 +167,9 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     // check auth, depends from token's "origins"
     const Coin &auth = coins.AccessCoin(COutPoint(token.creationTx, 1));  // always n=1 output
 
-    const auto attributes = mnview.GetAttributes();
     std::set<CScript> databaseMembers;
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        databaseMembers = attributes->GetValue(
+    if (mnview.GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        databaseMembers = mnview.GetValue(
             CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
     }
     bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.count(auth.out.scriptPubKey) > 0
@@ -216,8 +215,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
     const auto grandCentralHeight = static_cast<uint32_t>(consensus.DF20GrandCentralHeight);
 
     CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MintTokens};
-    const auto attributes = mnview.GetAttributes();
-    const auto toAddressEnabled = attributes->GetValue(enabledKey, false);
+    const auto toAddressEnabled = mnview.GetValue(enabledKey, false);
 
     if (!toAddressEnabled && !obj.to.empty()) {
         return Res::Err("Mint tokens to address is not enabled");
@@ -275,13 +273,11 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
             continue;
         }
 
-        auto attributes = mnview.GetAttributes();
-
         CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
-        const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+        const auto members = mnview.GetValue(membersKey, CConsortiumMembers{});
 
-        if (!attributes->GetValue(enableKey, false) || members.empty()) {
+        if (!mnview.GetValue(enableKey, false) || members.empty()) {
             const Coin &auth = coins.AccessCoin(COutPoint(token->creationTx, 1));  // always n=1 output
             if (!HasAuth(auth.out.scriptPubKey)) {
                 return Res::Err("You are not a foundation member or token owner and cannot mint this token!");
@@ -298,7 +294,7 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
 
         CDataStructureV0 membersMintedKey{
             AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
-        auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
+        auto membersBalances = mnview.GetValue(membersMintedKey, CConsortiumMembersMinted{});
 
         const auto dailyInterval = height / consensus.blocksPerDay() * consensus.blocksPerDay();
 
@@ -346,13 +342,13 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
         }
 
         CDataStructureV0 maxLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MintLimit};
-        const auto maxLimit = attributes->GetValue(maxLimitKey, CAmount{0});
+        const auto maxLimit = mnview.GetValue(maxLimitKey, CAmount{0});
 
         CDataStructureV0 dailyLimitKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::DailyMintLimit};
-        const auto dailyLimit = attributes->GetValue(dailyLimitKey, CAmount{0});
+        const auto dailyLimit = mnview.GetValue(dailyLimitKey, CAmount{0});
 
         CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-        auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
+        auto globalBalances = mnview.GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
 
         auto add = SafeAdd(globalBalances[tokenId].minted, amount);
         if (!add) {
@@ -380,13 +376,8 @@ Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
                 token->symbol);
         }
 
-        attributes->SetValue(consortiumMintedKey, globalBalances);
-        attributes->SetValue(membersMintedKey, membersBalances);
-
-        auto saved = mnview.SetVariable(*attributes);
-        if (!saved) {
-            return saved;
-        }
+        mnview.SetValue(consortiumMintedKey, globalBalances);
+        mnview.SetValue(membersMintedKey, membersBalances);
 
         auto minted = mintTokensInternal(tokenId, amount);
         if (!minted) {
@@ -423,15 +414,13 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
             ownerAddress = obj.from;
         }
 
-        auto attributes = mnview.GetAttributes();
-
         CDataStructureV0 membersKey{AttributeTypes::Consortium, tokenId.v, ConsortiumKeys::MemberValues};
-        const auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+        const auto members = mnview.GetValue(membersKey, CConsortiumMembers{});
         CDataStructureV0 membersMintedKey{
             AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMembersMinted};
-        auto membersBalances = attributes->GetValue(membersMintedKey, CConsortiumMembersMinted{});
+        auto membersBalances = mnview.GetValue(membersMintedKey, CConsortiumMembersMinted{});
         CDataStructureV0 consortiumMintedKey{AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-        auto globalBalances = attributes->GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
+        auto globalBalances = mnview.GetValue(consortiumMintedKey, CConsortiumGlobalMinted{});
 
         bool setVariable = false;
         for (const auto &tmp : members) {
@@ -456,13 +445,8 @@ Res CTokensConsensus::operator()(const CBurnTokensMessage &obj) const {
         }
 
         if (setVariable) {
-            attributes->SetValue(membersMintedKey, membersBalances);
-            attributes->SetValue(consortiumMintedKey, globalBalances);
-
-            auto saved = mnview.SetVariable(*attributes);
-            if (!saved) {
-                return saved;
-            }
+            mnview.SetValue(membersMintedKey, membersBalances);
+            mnview.SetValue(consortiumMintedKey, globalBalances);
         }
 
         CalculateOwnerRewards(obj.from);

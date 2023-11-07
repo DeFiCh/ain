@@ -23,7 +23,7 @@ void ProcessDeFiEvent(const CBlock &block,
                       const CCoinsViewCache &view,
                       const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplate> &evmTemplate);
+                      BlockContext &blockCtx);
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
@@ -31,6 +31,11 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CChainParams &chainparams,
                              const std::shared_ptr<CScopedTemplate> &evmTemplate,
                              const bool isEvmEnabledForBlock);
+
+void ProcessGovEvents(const CBlockIndex *pindex,
+                      CCustomCSView &cache,
+                      const CChainParams &chainparams,
+                      const std::shared_ptr<CScopedTemplate> &evmTemplate);
 
 std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets,
                                                  const TAmounts &collBalances,

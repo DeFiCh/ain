@@ -281,24 +281,22 @@ Attributes getAttributeValues(std::size_t mnview_ptr) {
         view = pcustomcsview.get();
     }
 
-    const auto attributes = view->GetAttributes();
-
     CDataStructureV0 blockGasTargetFactorKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasTargetFactor};
     CDataStructureV0 blockGasLimitKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::GasLimit};
     CDataStructureV0 finalityCountKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::Finalized};
     CDataStructureV0 rbfIncrementMinPctKey{AttributeTypes::EVMType, EVMIDs::Block, EVMKeys::RbfIncrementMinPct};
 
-    if (attributes->CheckKey(blockGasTargetFactorKey)) {
-        val.blockGasTargetFactor = attributes->GetValue(blockGasTargetFactorKey, DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR);
+    if (view->CheckKey(blockGasTargetFactorKey)) {
+        val.blockGasTargetFactor = view->GetValue(blockGasTargetFactorKey, DEFAULT_EVM_BLOCK_GAS_TARGET_FACTOR);
     }
-    if (attributes->CheckKey(blockGasLimitKey)) {
-        val.blockGasLimit = attributes->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);
+    if (view->CheckKey(blockGasLimitKey)) {
+        val.blockGasLimit = view->GetValue(blockGasLimitKey, DEFAULT_EVM_BLOCK_GAS_LIMIT);
     }
-    if (attributes->CheckKey(finalityCountKey)) {
-        val.finalityCount = attributes->GetValue(finalityCountKey, DEFAULT_EVM_FINALITY_COUNT);
+    if (view->CheckKey(finalityCountKey)) {
+        val.finalityCount = view->GetValue(finalityCountKey, DEFAULT_EVM_FINALITY_COUNT);
     }
-    if (attributes->CheckKey(rbfIncrementMinPctKey)) {
-        val.rbfIncrementMinPct = attributes->GetValue(rbfIncrementMinPctKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
+    if (view->CheckKey(rbfIncrementMinPctKey)) {
+        val.rbfIncrementMinPct = view->GetValue(rbfIncrementMinPctKey, DEFAULT_EVM_RBF_FEE_INCREMENT);
     }
 
     return val;
@@ -317,7 +315,7 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
     LOCK(cs_main);
 
     rust::vec<DST20Token> tokens;
-    CCustomCSView *cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
+    auto *cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
     cache->ForEachToken(
         [&](DCT_ID const &id, CTokensView::CTokenImpl token) {
             if (!token.IsDAT() || token.IsPoolShare()) {

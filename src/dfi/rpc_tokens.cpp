@@ -331,11 +331,10 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         rawTx.vin = GetAuthInputsSmart(
             pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
     } else {  // post-bayfront auth
-        const auto attributes = pcustomcsview->GetAttributes();
         std::set<CScript> databaseMembers;
-        if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                                 false)) {
-            databaseMembers = attributes->GetValue(
+        if (pcustomcsview->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
+                                    false)) {
+            databaseMembers = pcustomcsview->GetValue(
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
         }
         bool isFoundersToken = !databaseMembers.empty() ? databaseMembers.find(owner) != databaseMembers.end()
@@ -401,10 +400,9 @@ UniValue tokenToJSON(CCustomCSView &view, DCT_ID const &id, const CTokenImplemen
         tokenObj.pushKV("finalized", token.IsFinalized());
         auto loanToken{token.IsLoanToken()};
         if (!loanToken) {
-            auto attributes = view.GetAttributes();
             CDataStructureV0 mintingKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
             CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
-            loanToken = attributes->GetValue(mintingKey, false) && attributes->CheckKey(interestKey);
+            loanToken = view.GetValue(mintingKey, false) && view.CheckKey(interestKey);
         }
         tokenObj.pushKV("isLoanToken", loanToken);
 
@@ -811,12 +809,11 @@ UniValue minttokens(const JSONRPCRequest &request) {
 
             if (token->IsDAT()) {
                 auto found{false};
-                auto attributes = pcustomcsview->GetAttributes();
 
                 CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
-                if (attributes->GetValue(enableKey, false)) {
+                if (pcustomcsview->GetValue(enableKey, false)) {
                     CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::MemberValues};
-                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+                    auto members = pcustomcsview->GetValue(membersKey, CConsortiumMembers{});
 
                     for (const auto &member : members) {
                         if (IsMineCached(*pwallet, member.second.ownerAddress)) {
@@ -943,14 +940,12 @@ UniValue burntokens(const JSONRPCRequest &request) {
     }
 
     if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
-        auto attributes = pcustomcsview->GetAttributes();
-
         CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
-        if (attributes->GetValue(enableKey, false)) {
+        if (pcustomcsview->GetValue(enableKey, false)) {
             CDataStructureV0 membersKey{AttributeTypes::Consortium,
                                         burnedTokens.amounts.balances.begin()->first.v,
                                         ConsortiumKeys::MemberValues};
-            auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
+            auto members = pcustomcsview->GetValue(membersKey, CConsortiumMembers{});
 
             for (const auto &member : members) {
                 if (IsMineCached(*pwallet, member.second.ownerAddress)) {
