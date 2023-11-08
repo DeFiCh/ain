@@ -725,7 +725,6 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
-#[allow(clippy::ptr_arg)]
 fn evm_try_unsafe_create_dst20(
     template: &mut BlockTemplateWrapper,
     native_hash: &str,
