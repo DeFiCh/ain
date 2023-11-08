@@ -110,7 +110,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                 evm_try_unsafe_create_dst20(result,
                                             evmTemplate->GetTemplate(),
                                             token.creationTx.GetHex(),
-                                            DST20TokenInfo {
+                                            DST20TokenInfo{
                                                 id.v,
                                                 ffi_from_string_to_rust_byte_vec(token.name),
                                                 ffi_from_string_to_rust_byte_vec(token.symbol),
