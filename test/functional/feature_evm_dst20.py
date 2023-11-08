@@ -1034,7 +1034,6 @@ class DST20(DefiTestFramework):
         self.test_invalid_too_long_token_name_dst20_migration_tx()
         self.test_invalid_utf8_encoding_token_name_dst20_migration_tx()
         self.test_dst20_migration_txs()
-        assert_equal(True, False)
 
         # Create token before EVM
         self.node.createtoken(

@@ -130,6 +130,12 @@ pub mod ffi {
         pub token_id: u32,
     }
 
+    pub struct DST20TokenInfo {
+        pub id: u64,
+        pub name: Vec<u8>,
+        pub symbol: Vec<u8>,
+    }
+
     #[derive(Default)]
     pub struct CreateTxResult {
         pub tx: Vec<u8>,
@@ -292,9 +298,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
             native_hash: &str,
-            name: &[u8],
-            symbol: &[u8],
-            token_id: u64,
+            token: DST20TokenInfo,
         );
 
         fn evm_try_unsafe_bridge_dst20(
