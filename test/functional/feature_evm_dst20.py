@@ -132,7 +132,7 @@ class DST20(DefiTestFramework):
         self.node.createtoken(
             {
                 "symbol": "Test",
-                "name": "TheTokenWithNameMax30ByteLimit",  # 30 bytes
+                "name": "TheTokenWithNameMax30ByteLimit1",  # 31 bytes
                 "isDAT": True,
                 "collateralAddress": self.address,
             }
