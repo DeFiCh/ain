@@ -732,28 +732,23 @@ fn evm_try_unsafe_create_dst20(
     token: ffi::DST20TokenInfo,
 ) -> Result<()> {
     if token.name.len() > usize::from(ain_cpp_imports::get_dst20_max_token_name_byte_size()) {
-        return Err(format_err!(
-            "DST20 token creation failed, invalid token name byte size limit"
-        )
-        .into());
+        return Err(
+            format_err!("DST20 token creation failed, invalid token name byte size limit").into(),
+        );
     }
     let name = str::from_utf8(token.name.as_slice())
-        .map_err(|_| {
-            format_err!("DST20 token creation failed, token name is not valid UTF-8.")
-        })?
+        .map_err(|_| format_err!("DST20 token creation failed, token name is not valid UTF-8"))?
         .to_string();
     let symbol = str::from_utf8(token.symbol.as_slice())
-        .map_err(|_| {
-            format_err!("DST20 token creation failed, token symbol is not valid UTF-8.")
-        })?
+        .map_err(|_| format_err!("DST20 token creation failed, token symbol is not valid UTF-8"))?
         .to_string();
     let native_hash = XHash::from(native_hash);
     let address = ain_contracts::dst20_address_from_token_id(token.id)?;
     debug!("Deploying to address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-        name: String::from(name),
-        symbol: String::from(symbol),
+        name,
+        symbol,
         address,
         token_id: token.id,
     }));

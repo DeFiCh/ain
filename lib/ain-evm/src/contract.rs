@@ -424,12 +424,12 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
 
         let name = str::from_utf8(token.name.as_slice())
             .map_err(|_| {
-                format_err!("DST20 token migration failed, token name is not valid UTF-8.")
+                format_err!("DST20 token migration failed, token name is not valid UTF-8")
             })?
             .to_string();
         let symbol = str::from_utf8(token.symbol.as_slice())
             .map_err(|_| {
-                format_err!("DST20 token migration failed, token symbol is not valid UTF-8.")
+                format_err!("DST20 token migration failed, token symbol is not valid UTF-8")
             })?
             .to_string();
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
