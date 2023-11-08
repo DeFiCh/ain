@@ -49,7 +49,7 @@ fn check_for_invalid_utf8_strings() {
     let mut test3 = star_struck_face[0..1].to_vec();
     test3.extend_from_slice("🤩🤩 Star-🤩Struck 🤩🤩".as_bytes());
 
-    assert_eq!(str::from_utf8(test1.as_slice()).is_err(), true);
-    assert_eq!(str::from_utf8(test2.as_slice()).is_err(), true);
-    assert_eq!(str::from_utf8(test3.as_slice()).is_err(), true);
+    assert!(str::from_utf8(test1.as_slice()).is_err());
+    assert!(str::from_utf8(test2.as_slice()).is_err());
+    assert!(str::from_utf8(test3.as_slice()).is_err());
 }
