@@ -3,6 +3,7 @@
 
 #include <ain_rs_exports.h>
 #include <dfi/res.h>
+#include <ffi/cxx.h>
 
 #define XResultThrowOnErr(x)                                 \
     [&]() {                                                  \
@@ -54,5 +55,12 @@
         }                                                                               \
         return ResVal(std::move(res), Res::Ok());                                       \
     }();
+
+inline rust::vec<uint8_t> ffi_from_string_to_rust_byte_vec(const std::string &str) {
+    rust::vec<uint8_t> bytes;
+    bytes.reserve(str.size());
+    std::copy(str.begin(), str.end(), std::back_inserter(bytes));
+    return bytes;
+}
 
 #endif  // DEFI_FFI_FFIHELPERS_H

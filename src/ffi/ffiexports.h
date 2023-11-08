@@ -39,8 +39,8 @@ struct Attributes {
 
 struct DST20Token {
     uint64_t id;
-    rust::slice<const uint8_t> name;
-    rust::slice<const uint8_t> symbol;
+    rust::vec<uint8_t> name;
+    rust::vec<uint8_t> symbol;
 };
 
 struct TransactionData {

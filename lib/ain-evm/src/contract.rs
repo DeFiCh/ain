@@ -13,7 +13,7 @@ use ethereum::{
     TransactionV2,
 };
 use ethereum_types::{H160, H256, U256};
-use log::{debug, trace};
+use log::trace;
 use sha3::{Digest, Keccak256};
 
 use crate::{
@@ -415,20 +415,19 @@ fn get_default_successful_receipt() -> ReceiptV3 {
 pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
     let mut txs = Vec::new();
     for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
-        if token.name.len() >= usize::from(ain_cpp_imports::get_dst20_max_token_name_byte_size()) {
+        if token.name.len() > usize::from(ain_cpp_imports::get_dst20_max_token_name_byte_size()) {
             return Err(format_err!(
                 "DST20 token migration failed, invalid token name byte size limit"
             )
             .into());
         }
 
-        debug!("{:x?}", token.name);
-        let name = str::from_utf8(token.name)
+        let name = str::from_utf8(token.name.as_slice())
             .map_err(|_| {
                 format_err!("DST20 token migration failed, token name is not valid UTF-8.")
             })?
             .to_string();
-        let symbol = str::from_utf8(token.symbol)
+        let symbol = str::from_utf8(token.symbol.as_slice())
             .map_err(|_| {
                 format_err!("DST20 token migration failed, token symbol is not valid UTF-8.")
             })?

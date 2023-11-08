@@ -100,11 +100,6 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
 
     auto tokenSymbol = trim_ws(token.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
-    if (height >= consensus.DF22MetachainHeight) {
-        if (tokenName.size() > CToken::MAX_DST20_TOKEN_NAME_BYTE_SIZE) {
-            return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
-        }
-    }
 
     token.symbol = tokenSymbol;
     token.name = tokenName;

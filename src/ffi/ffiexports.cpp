@@ -2,6 +2,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <ffi/ffiexports.h>
+#include <ffi/ffihelpers.h>
 #include <httprpc.h>
 #include <key_io.h>
 #include <logging.h>
@@ -328,9 +329,10 @@ rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
                 return true;
             }
 
-            tokens.push_back({id.v,
-                              rust::slice<const uint8_t>(reinterpret_cast<const uint8_t*>(token.name.c_str()), token.name.size()),
-                              rust::slice<const uint8_t>(reinterpret_cast<const uint8_t*>(token.symbol.c_str()), token.symbol.size()),
+            tokens.push_back(DST20Token{
+                id.v,
+                ffi_from_string_to_rust_byte_vec(token.name),
+                ffi_from_string_to_rust_byte_vec(token.symbol),
             });
             return true;
         },

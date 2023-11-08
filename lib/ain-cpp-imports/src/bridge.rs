@@ -11,8 +11,8 @@ pub mod ffi {
     #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
-        pub name: &'static [u8],
-        pub symbol: &'static [u8],
+        pub name: Vec<u8>,
+        pub symbol: Vec<u8>,
     }
 
     #[derive(Debug, Clone)]
