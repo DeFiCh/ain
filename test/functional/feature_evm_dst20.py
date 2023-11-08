@@ -53,7 +53,7 @@ class DST20(DefiTestFramework):
         self.node.createtoken(
             {
                 "symbol": "TooLongTokenName",
-                "name": "TheTokenWithNameMore30ByteLimit", # 31 bytes
+                "name": "TheTokenWithNameMore30ByteLimit",  # 31 bytes
                 "isDAT": True,
                 "collateralAddress": self.address,
             }
@@ -73,7 +73,7 @@ class DST20(DefiTestFramework):
         # Trigger EVM genesis DST20 migration
         assert_equal(self.nodes[0].generatetoaddress(1, self.address, 1), 0)
         self.rollback_to(block_height)
-    
+
     def test_invalid_utf8_encoding_token_name_dst20_migration_tx(self):
         block_height = self.nodes[0].getblockcount()
 
@@ -132,7 +132,7 @@ class DST20(DefiTestFramework):
         self.node.createtoken(
             {
                 "symbol": "Test",
-                "name": "TheTokenWithNameMax30ByteLimit", # 30 bytes
+                "name": "TheTokenWithNameMax30ByteLimit",  # 30 bytes
                 "isDAT": True,
                 "collateralAddress": self.address,
             }

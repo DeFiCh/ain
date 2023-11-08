@@ -104,7 +104,6 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         if (tokenName.size() > CToken::MAX_DST20_TOKEN_NAME_BYTES) {
             return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
         }
-        tokenName = (tokenName).substr(0, CToken::MAX_DST20_TOKEN_NAME_BYTES);
         if (!check_is_valid_utf8(token.name) || !check_is_valid_utf8(token.symbol)) {
             return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
         }

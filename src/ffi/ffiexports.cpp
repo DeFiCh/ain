@@ -329,7 +329,6 @@ bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
                 res = false;
                 return false;
             }
-            auto tokenName = trim_ws(token.name).substr(0, CToken::MAX_DST20_TOKEN_NAME_BYTES);
             if (!check_is_valid_utf8(token.name) || !check_is_valid_utf8(token.symbol)) {
                 res = false;
                 return false;
