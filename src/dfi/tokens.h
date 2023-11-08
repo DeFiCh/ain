@@ -22,7 +22,7 @@ class UniValue;
 class CToken {
 public:
     static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
-    static const uint8_t MAX_DST20_TOKEN_NAME_LENGTH = 30;
+    static const uint8_t MAX_DST20_TOKEN_NAME_BYTES = 30;
     static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
     enum class TokenFlags : uint8_t {

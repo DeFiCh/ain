@@ -414,7 +414,7 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
     let mut txs = Vec::new();
     let mut tokens = Vec::with_capacity(1024);
     if !ain_cpp_imports::get_dst20_tokens(mnview_ptr, &mut tokens) {
-        return Err(format_err!("DST20 token migration failed, invalid UTF-8 encoding.").into());
+        return Err(format_err!("DST20 token migration failed, invalid token name.").into());
     }
     for token in tokens {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
