@@ -6,7 +6,6 @@
 #include <key_io.h>
 #include <logging.h>
 #include <net.h>
-#include <util/strencodings.h>
 #include <util/system.h>
 #include <array>
 #include <cstdint>
@@ -314,10 +313,14 @@ uint32_t getEthMaxResponseByteSize() {
     return max_response_size_mb * 1024 * 1024;
 }
 
-bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
+uint8_t getDST20MaxTokenNameByteSize() {
+    return CToken::MAX_DST20_TOKEN_NAME_BYTE_SIZE;
+}
+
+rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
     LOCK(cs_main);
 
-    bool res = true;
+    rust::vec<DST20Token> tokens;
     CCustomCSView *cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
     cache->ForEachToken(
         [&](DCT_ID const &id, CTokensView::CTokenImpl token) {
@@ -325,19 +328,14 @@ bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
                 return true;
             }
 
-            if (token.name.size() > CToken::MAX_DST20_TOKEN_NAME_BYTES) {
-                res = false;
-                return false;
-            }
-            if (!check_is_valid_utf8(token.name) || !check_is_valid_utf8(token.symbol)) {
-                res = false;
-                return false;
-            }
-            tokens.push_back({id.v, token.name, token.symbol});
+            tokens.push_back({id.v,
+                              rust::slice<const uint8_t>(reinterpret_cast<const uint8_t*>(token.name.c_str()), token.name.size()),
+                              rust::slice<const uint8_t>(reinterpret_cast<const uint8_t*>(token.symbol.c_str()), token.symbol.size()),
+            });
             return true;
         },
         DCT_ID{1});  // start from non-DFI
-    return res;
+    return tokens;
 }
 
 int32_t getNumCores() {

@@ -292,8 +292,8 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
             native_hash: &str,
-            name: &str,
-            symbol: &str,
+            name: &[u8],
+            symbol: &[u8],
             token_id: u64,
         );
 

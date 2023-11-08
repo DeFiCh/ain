@@ -39,8 +39,8 @@ struct Attributes {
 
 struct DST20Token {
     uint64_t id;
-    rust::string name;
-    rust::string symbol;
+    rust::slice<const uint8_t> name;
+    rust::slice<const uint8_t> symbol;
 };
 
 struct TransactionData {
@@ -78,7 +78,8 @@ rust::string getStateInputJSON();
 std::array<int64_t, 2> getEthSyncStatus();
 Attributes getAttributeValues(std::size_t mnview_ptr);
 void CppLogPrintf(rust::string message);
-bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens);
+uint8_t getDST20MaxTokenNameByteSize();
+rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr);
 rust::string getClientVersion();
 int32_t getNumCores();
 rust::string getCORSAllowedOrigin();

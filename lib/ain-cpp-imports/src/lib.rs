@@ -18,8 +18,8 @@ mod ffi {
 
     pub struct DST20Token {
         pub id: u64,
-        pub name: String,
-        pub symbol: String,
+        pub name: &'static [u8],
+        pub symbol: &'static [u8],
     }
 
     pub struct TransactionData {
@@ -86,8 +86,11 @@ mod ffi {
         // Just the logs are skipped.
     }
 
-    #[allow(clippy::ptr_arg)]
-    pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
+    pub fn getDST20MaxTokenNameByteSize() -> u8 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+
+    pub fn getDST20Tokens(_mnview_ptr: usize) -> Vec<DST20Token> {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getClientVersion() -> String {
@@ -212,9 +215,12 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
-#[allow(clippy::ptr_arg)]
-pub fn get_dst20_tokens(mnview_ptr: usize, tokens: &mut Vec<ffi::DST20Token>) -> bool {
-    ffi::getDST20Tokens(mnview_ptr, tokens)
+pub fn get_dst20_max_token_name_byte_size() -> u8 {
+    ffi::getDST20MaxTokenNameByteSize()
+}
+
+pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
+    ffi::getDST20Tokens(mnview_ptr)
 }
 
 pub fn get_num_cores() -> i32 {

@@ -1,3 +1,5 @@
+use std::str;
+
 use ain_contracts::{
     get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract,
     get_dfi_reserved_contract, get_dst20_contract, get_dst20_v1_contract,
@@ -11,7 +13,7 @@ use ethereum::{
     TransactionV2,
 };
 use ethereum_types::{H160, H256, U256};
-use log::trace;
+use log::{debug, trace};
 use sha3::{Digest, Keccak256};
 
 use crate::{
@@ -412,11 +414,25 @@ fn get_default_successful_receipt() -> ReceiptV3 {
 
 pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
     let mut txs = Vec::new();
-    let mut tokens = Vec::with_capacity(1024);
-    if !ain_cpp_imports::get_dst20_tokens(mnview_ptr, &mut tokens) {
-        return Err(format_err!("DST20 token migration failed, invalid token name.").into());
-    }
-    for token in tokens {
+    for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
+        if token.name.len() >= usize::from(ain_cpp_imports::get_dst20_max_token_name_byte_size()) {
+            return Err(format_err!(
+                "DST20 token migration failed, invalid token name byte size limit"
+            )
+            .into());
+        }
+
+        debug!("{:x?}", token.name);
+        let name = str::from_utf8(token.name)
+            .map_err(|_| {
+                format_err!("DST20 token migration failed, token name is not valid UTF-8.")
+            })?
+            .to_string();
+        let symbol = str::from_utf8(token.symbol)
+            .map_err(|_| {
+                format_err!("DST20 token migration failed, token symbol is not valid UTF-8.")
+            })?
+            .to_string();
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
         trace!(
             "[get_dst20_migration_txs] Deploying to address {:#?}",
@@ -424,8 +440,8 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
         );
 
         let tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-            name: token.name,
-            symbol: token.symbol,
+            name,
+            symbol,
             token_id: token.id,
             address,
         }));

@@ -11,8 +11,8 @@ pub mod ffi {
     #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
-        pub name: String,
-        pub symbol: String,
+        pub name: &'static [u8],
+        pub symbol: &'static [u8],
     }
 
     #[derive(Debug, Clone)]
@@ -46,8 +46,8 @@ pub mod ffi {
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
-        #[allow(clippy::ptr_arg)]
-        fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
+        fn getDST20MaxTokenNameByteSize() -> u8;
+        fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
         fn getClientVersion() -> String;
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;

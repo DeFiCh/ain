@@ -110,8 +110,8 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                 evm_try_unsafe_create_dst20(result,
                                             evmTemplate->GetTemplate(),
                                             token.creationTx.GetHex(),
-                                            rust::string(token.name.c_str()),
-                                            rust::string(token.symbol.c_str()),
+                                            rust::slice<const uint8_t>(reinterpret_cast<const uint8_t*>(token.name.c_str()), token.name.size()),
+                                            rust::slice<const uint8_t>(reinterpret_cast<const uint8_t*>(token.symbol.c_str()), token.symbol.size()),
                                             id.v);
                 if (!result.ok) {
                     return Res::Err("Error creating DST20 token: %s", result.reason);

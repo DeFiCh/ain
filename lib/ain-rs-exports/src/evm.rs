@@ -1,3 +1,5 @@
+use std::str;
+
 use ain_contracts::{
     get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
     get_transferdomain_native_transfer_function, FixedContract,
@@ -723,13 +725,24 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 }
 
 #[ffi_fallible]
+#[allow(clippy::ptr_arg)]
 fn evm_try_unsafe_create_dst20(
     template: &mut BlockTemplateWrapper,
     native_hash: &str,
-    name: &str,
-    symbol: &str,
+    name: &[u8],
+    symbol: &[u8],
     token_id: u64,
 ) -> Result<()> {
+    let name = str::from_utf8(name)
+        .map_err(|_| {
+            format_err!("DST20 token creation failed, token name is not valid UTF-8.")
+        })?
+        .to_string();
+    let symbol = str::from_utf8(symbol)
+        .map_err(|_| {
+            format_err!("DST20 token creation failed, token symbol is not valid UTF-8.")
+        })?
+        .to_string();
     let native_hash = XHash::from(native_hash);
     let address = ain_contracts::dst20_address_from_token_id(token_id)?;
     debug!("Deploying to address {:#?}", address);
