@@ -78,6 +78,16 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
         context.from = EncodeDestination(src);
         context.native_address = EncodeDestination(dest);
         return Res::Ok();
+    } else if (edge == VMDomainEdge::EVMToUTXO) {
+        if (!config.evmToUtxoSrcAddresses.count(srcType)) {
+            return DeFiErrors::TransferDomainETHSourceAddress();
+        }
+        if (!config.evmToUtxoDestAddresses.count(destType)) {
+            return DeFiErrors::TransferDomainDVMDestAddress();
+        }
+        context.from = EncodeDestination(src);
+        context.native_address = EncodeDestination(dest);
+        return Res::Ok();
     }
 
     return DeFiErrors::TransferDomainUnknownEdge();
@@ -175,6 +185,31 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
 
         auto authType = AuthFlags::None;
         for (const auto &value : config.evmToDvmAuthFormats) {
+            if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
+                authType = static_cast<AuthFlags::Type>(authType | AuthFlags::PKHashInSource);
+            } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
+                authType = static_cast<AuthFlags::Type>(authType | AuthFlags::Bech32InSource);
+            }
+        }
+        return HasAuth(tx, coins, src.address, AuthStrategy::Mapped, authType);
+    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) && dst.domain == static_cast<uint8_t>(VMDomain::UTXO)) {
+        if (!config.evmToUtxoEnabled) {
+            return DeFiErrors::TransferDomainEVMDVMNotEnabled();
+        }
+
+        if (tokenId != DCT_ID{0}) {
+            return DeFiErrors::TransferDomainUTXOOnlyDFI();
+        }
+
+        // EVM to UTXO
+        auto res = ValidateTransferDomainScripts(src.address, dst.address, VMDomainEdge::EVMToUTXO, config, context);
+        if (!res) {
+            return res;
+        }
+        context.direction = false;
+
+        auto authType = AuthFlags::None;
+        for (const auto &value : config.evmToUtxoAuthFormats) {
             if (value == XVmAddressFormatTypes::PkHashProxyErc55) {
                 authType = static_cast<AuthFlags::Type>(authType | AuthFlags::PKHashInSource);
             } else if (value == XVmAddressFormatTypes::Bech32ProxyErc55) {
@@ -392,6 +427,71 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.evmDvmTotal.Add(dst.amount);
             stats.dvmIn.Add(dst.amount);
             stats.dvmCurrent.Add(dst.amount);
+        } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                   dst.domain == static_cast<uint8_t>(VMDomain::UTXO)) {
+            CTxDestination dest;
+            if (!ExtractDestination(src.address, dest)) {
+                return DeFiErrors::TransferDomainETHSourceAddress();
+            }
+            const auto fromAddress = std::get_if<WitnessV16EthHash>(&dest);
+            if (!fromAddress) {
+                return DeFiErrors::TransferDomainETHSourceAddress();
+            }
+
+            // Check if source address is a contract
+            auto isSmartContract =
+                evm_try_unsafe_is_smart_contract_in_template(result, fromAddress->GetHex(), evmTemplate->GetTemplate());
+            if (!result.ok) {
+                return Res::Err("Error checking contract address: %s", result.reason);
+            }
+            if (isSmartContract) {
+                return DeFiErrors::TransferDomainSmartContractSourceAddress();
+            }
+
+            if (src.data.size() > MAX_TRANSFERDOMAIN_EVM_DATA_LEN) {
+                return DeFiErrors::TransferDomainInvalidDataSize(MAX_TRANSFERDOMAIN_EVM_DATA_LEN);
+            }
+            const auto evmTx = HexStr(src.data);
+            evm_try_unsafe_validate_transferdomain_tx_in_template(
+                result, evmTemplate->GetTemplate(), evmTx, contexts[idx]);
+            if (!result.ok) {
+                return Res::Err("transferdomain evm tx failed to pre-validate %s", result.reason);
+            }
+            if (evmPreValidate) {
+                return Res::Ok();
+            }
+
+            auto hash = evm_try_get_tx_hash(result, evmTx);
+            if (!result.ok) {
+                return Res::Err("Error getting tx hash: %s", result.reason);
+            }
+            evmTxHash = std::string(hash.data(), hash.length()).substr(2);
+
+            // Subtract balance from ERC55 address
+            auto tokenId = dst.amount.nTokenId;
+            if (tokenId != DCT_ID{0}) {
+                return DeFiErrors::TransferDomainUTXOOnlyDFI();
+            }
+
+            if (!evm_try_unsafe_sub_balance_in_template(
+                    result, evmTemplate->GetTemplate(), evmTx, tx.GetHash().GetHex())) {
+                return DeFiErrors::TransferDomainNotEnoughBalance(EncodeDestination(dest));
+            }
+            if (!result.ok) {
+                return Res::Err("Error bridging DFI: %s", result.reason);
+            }
+
+            auto tokenAmount = CTokenAmount{tokenId, src.amount.nValue};
+            stats.evmOut.Add(tokenAmount);
+            stats.evmCurrent.Sub(tokenAmount);
+
+            // Add balance to utxo
+
+
+            stats.evmDvmTotal.Add(dst.amount);
+            stats.dvmIn.Add(dst.amount);
+            stats.dvmCurrent.Add(dst.amount);
+
         } else {
             return DeFiErrors::TransferDomainInvalidDomain();
         }

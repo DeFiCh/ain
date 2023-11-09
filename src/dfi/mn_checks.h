@@ -79,15 +79,27 @@ struct OpReturnLimits {
 struct TransferDomainConfig {
     bool dvmToEvmEnabled;
     bool evmToDvmEnabled;
+    bool evmToUtxoEnabled;
+
     XVmAddressFormatItems dvmToEvmSrcAddresses;
     XVmAddressFormatItems dvmToEvmDestAddresses;
+
     XVmAddressFormatItems evmToDvmDestAddresses;
     XVmAddressFormatItems evmToDvmSrcAddresses;
     XVmAddressFormatItems evmToDvmAuthFormats;
+
+    XVmAddressFormatItems evmToUtxoDestAddresses;
+    XVmAddressFormatItems evmToUtxoSrcAddresses;
+    XVmAddressFormatItems evmToUtxoAuthFormats;
+
     bool dvmToEvmNativeTokenEnabled;
     bool evmToDvmNativeTokenEnabled;
+    // bool evmToUtxoNativeTokenEnabled;
+
     bool dvmToEvmDatEnabled;
     bool evmToDvmDatEnabled;
+    // bool evmToUtxoDatEnabled;
+
     std::set<uint32_t> dvmToEvmDisallowedTokens;
     std::set<uint32_t> evmToDvmDisallowedTokens;
 

@@ -1411,15 +1411,21 @@ TransferDomainConfig TransferDomainConfig::Default() {
     return TransferDomainConfig{
         true,
         true,
+        true,
         {XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash},
         {XVmAddressFormatTypes::Erc55},
         {XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash},
         {XVmAddressFormatTypes::Erc55},
         {XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55},
+        {XVmAddressFormatTypes::Bech32, XVmAddressFormatTypes::PkHash},
+        {XVmAddressFormatTypes::Erc55},
+        {XVmAddressFormatTypes::Bech32ProxyErc55, XVmAddressFormatTypes::PkHashProxyErc55},
         true,
         true,
+        // true,
         false,
         false,
+        // false,
         {},
         {}
     };
@@ -1447,6 +1453,18 @@ struct TransferDomainConfigKeys {
                                                TransferIDs::EVMToDVM,
                                                TransferKeys::NativeEnabled};
     CDataStructureV0 evm_to_dvm_dat_enabled{AttributeTypes::Transfer, TransferIDs::EVMToDVM, TransferKeys::DATEnabled};
+    CDataStructureV0 evm_to_utxo_enabled{AttributeTypes::Transfer, TransferIDs::EVMToUTXO, TransferKeys::TransferEnabled};
+    CDataStructureV0 evm_to_utxo_src_formats{AttributeTypes::Transfer, TransferIDs::EVMToUTXO, TransferKeys::SrcFormats};
+    CDataStructureV0 evm_to_utxo_dest_formats{AttributeTypes::Transfer,
+                                             TransferIDs::EVMToUTXO,
+                                             TransferKeys::DestFormats};
+    CDataStructureV0 evm_to_utxo_auth_formats{AttributeTypes::Transfer,
+                                             TransferIDs::EVMToUTXO,
+                                             TransferKeys::AuthFormats};
+    // CDataStructureV0 evm_to_utxo_native_enabled{AttributeTypes::Transfer,
+    //                                            TransferIDs::EVMToUTXO,
+    //                                            TransferKeys::NativeEnabled};
+    // CDataStructureV0 evm_to_dvm_utxo_enabled{AttributeTypes::Transfer, TransferIDs::EVMToUTXO, TransferKeys::DATEnabled};
 };
 
 TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
@@ -1466,6 +1484,13 @@ TransferDomainConfig TransferDomainConfig::From(const CCustomCSView &mnview) {
     r.evmToDvmAuthFormats = attributes->GetValue(k.evm_to_dvm_auth_formats, r.evmToDvmAuthFormats);
     r.evmToDvmNativeTokenEnabled = attributes->GetValue(k.evm_to_dvm_native_enabled, r.evmToDvmNativeTokenEnabled);
     r.evmToDvmDatEnabled = attributes->GetValue(k.evm_to_dvm_dat_enabled, r.evmToDvmDatEnabled);
+
+    r.evmToUtxoEnabled = attributes->GetValue(k.evm_to_utxo_enabled, r.evmToUtxoEnabled);
+    r.evmToUtxoSrcAddresses = attributes->GetValue(k.evm_to_utxo_src_formats, r.evmToUtxoSrcAddresses);
+    r.evmToUtxoDestAddresses = attributes->GetValue(k.evm_to_utxo_dest_formats, r.evmToUtxoDestAddresses);
+    r.evmToUtxoAuthFormats = attributes->GetValue(k.evm_to_utxo_auth_formats, r.evmToUtxoAuthFormats);
+    // r.evmToUtxoNativeTokenEnabled = attributes->GetValue(k.evm_to_utxo_native_enabled, r.evmToUtxoNativeTokenEnabled);
+    // r.evmToUtxoDatEnabled = attributes->GetValue(k.evm_to_utxo_dat_enabled, r.evmToUtxoDatEnabled);
 
     return r;
 }
@@ -1506,6 +1531,25 @@ void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
     if (!attrs.CheckKey(k.evm_to_dvm_dat_enabled)) {
         attrs.SetValue(k.evm_to_dvm_dat_enabled, evmToDvmDatEnabled);
     }
+
+    if (!attrs.CheckKey(k.evm_to_utxo_enabled)) {
+        attrs.SetValue(k.evm_to_utxo_enabled, evmToUtxoEnabled);
+    }
+    if (!attrs.CheckKey(k.evm_to_utxo_src_formats)) {
+        attrs.SetValue(k.evm_to_utxo_src_formats, evmToUtxoSrcAddresses);
+    }
+    if (!attrs.CheckKey(k.evm_to_utxo_dest_formats)) {
+        attrs.SetValue(k.evm_to_utxo_dest_formats, evmToUtxoDestAddresses);
+    }
+    if (!attrs.CheckKey(k.evm_to_utxo_auth_formats)) {
+        attrs.SetValue(k.evm_to_utxo_auth_formats, evmToUtxoAuthFormats);
+    }
+    // if (!attrs.CheckKey(k.evm_to_utxo_native_enabled)) {
+    //     attrs.SetValue(k.evm_to_utxo_native_enabled, evmToUtxoNativeTokenEnabled);
+    // }
+    // if (!attrs.CheckKey(k.evm_to_utxo_dat_enabled)) {
+    //     attrs.SetValue(k.evm_to_utxo_dat_enabled, evmToUtxoDatEnabled);
+    // }
 }
 
 TransactionContext::TransactionContext(const CCoinsViewCache &coins,

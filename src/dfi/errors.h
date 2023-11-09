@@ -361,6 +361,8 @@ public:
 
     static Res TransferDomainEVMDVMNotEnabled() { return Res::Err("EVM to DVM is not currently enabled"); }
 
+    static Res TransferDomainEVMUTXONotEnabled() { return Res::Err("EVM to UTXO is not currently enabled"); }
+
     static Res TransferDomainDVMEVMNotEnabled() { return Res::Err("DVM to EVM is not currently enabled"); }
 
     static Res TransferDomainETHSourceAddress() {
@@ -389,6 +391,10 @@ public:
 
     static Res TransferDomainMultipleTransfers() {
         return Res::Err("TransferDomain currently only supports a single transfer per transaction");
+    }
+
+    static Res TransferDomainUTXOOnlyDFI() {
+        return Res::Err("TransferDomain to UTXO only available for DFI");
     }
 
     static Res TransferDomainSmartContractSourceAddress() {

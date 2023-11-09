@@ -2283,6 +2283,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     CTransferDomainMessage msg;
     std::set<CScript> auths;
     std::vector<std::pair<std::string, uint64_t>> nonce_cache;
+    std::vector<CTxOut> txOuts;
 
     for (unsigned int i = 0; i < srcDstArray.size(); i++) {
         const UniValue &elem = srcDstArray[i];
@@ -2416,6 +2417,9 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         }
 
         nonce_cache.push_back({from, createResult.nonce});
+        if (dst.domain == static_cast<uint8_t>(VMDomain::UTXO)) {
+            txOuts.push_back(CTxOut(dst.amount.nValue, dst.address));
+        }
         msg.transfers.push_back({src, dst});
     }
 
@@ -2451,6 +2455,11 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     }
 
     fund(rawTx, pwallet, optAuthTx, &coinControl);
+
+    // add outputs for minting, mintingOutputsStart is required
+    for (CTxOut &txOut : txOuts) {
+       rawTx.vout.push_back(txOut);
+    }
 
     auto txRef = sign(rawTx, pwallet, optAuthTx);
     // check execution

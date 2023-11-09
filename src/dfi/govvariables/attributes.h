@@ -69,6 +69,7 @@ enum GovernanceIDs : uint8_t {
 enum TransferIDs : uint8_t {
     DVMToEVM = 'a',
     EVMToDVM = 'b',
+    EVMToUTXO = 'c',
 };
 
 enum VaultIDs : uint8_t {

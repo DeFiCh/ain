@@ -38,6 +38,7 @@ class AccountsValidatingTest(DefiTestFramework):
 
         node.accounttoaccount(account, {destination: "1@DFI"})
         node.accounttoutxos(account, {destination: "1@DFI"})
+        import pdb; pdb.set_trace()
         node.accounttoutxos(account, {destination: "2@DFI"})
 
         # Store block height

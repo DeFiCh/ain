@@ -1082,6 +1082,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
                 } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) &&
                            obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
                     rawEVMTx = HexStr(obj.transfers[0].first.data);
+                } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                           obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::UTXO)) {
+                    rawEVMTx = HexStr(obj.transfers[0].first.data);
                 }
             }
 

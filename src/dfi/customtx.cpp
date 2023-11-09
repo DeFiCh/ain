@@ -258,8 +258,11 @@ CustomTxType GuessCustomTxType(const CTransaction &tx, std::vector<unsigned char
 TAmounts GetNonMintedValuesOut(const CTransaction &tx) {
     uint32_t mintingOutputsStart = std::numeric_limits<uint32_t>::max();
     const auto accountToUtxos = GetIf<CAccountToUtxosMessage>(tx, CustomTxType::AccountToUtxos);
+    const auto transferDomain = GetIf<CTransferDomainMessage>(tx, CustomTxType::TransferDomain);
     if (accountToUtxos) {
         mintingOutputsStart = accountToUtxos->mintingOutputsStart;
+    } else if (transferDomain) {
+        mintingOutputsStart = 2;
     }
     return tx.GetValuesOut(mintingOutputsStart);
 }

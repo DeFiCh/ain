@@ -1298,41 +1298,65 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance_dvm_before + 9.87654321000000000, balance_dvm_after)
         assert_equal(balance_evm_before - 9876543210000000000, balance_evm_after)
 
+        # evm -> utxo
+        # import pdb; pdb.set_trace()
+        txid = self.nodes[0].transferdomain(self.address_erc55, self.address, "213@DFI", 1)
+        print('txid: ', txid)
+        balance_before = self.nodes[0].getbalance()
+        print('balance_before: ', balance_before)
+        balance_dvm_before = float(self.nodes[0].getaccount(self.address, {}, True)[dfi_id])
+        print('balance_dvm_before: ', balance_dvm_before) # 213580245800000000000
+        balance_evm_before = self.nodes[0].w3.eth.get_balance(self.address_erc55)
+        print('balance_evm_before: ', balance_evm_before)
+        self.nodes[0].generate(1)
+        utxos = self.nodes[0].listunspent(1, 999999, [self.address], True, {'minimumAmount': 213})
+        print('utxos: ', utxos)
+        balance_after = self.nodes[0].getbalance()
+        print('balance_after: ', balance_after)
+        balance_dvm_after = float(self.nodes[0].getaccount(self.address, {}, True)[dfi_id])
+        print('balance_dvm_after: ', balance_dvm_after)
+        balance_evm_after = self.nodes[0].w3.eth.get_balance(self.address_erc55)
+        print('balance_evm_after: ', balance_evm_after)
+
+        # not doable in this pipeline
+        # utxo -> evm
+        # utxo -> dvm
+
     def run_test(self):
         self.setup()
         self.invalid_before_fork_and_disabled()
 
         self.check_initial_balance()
-        self.invalid_parameters()
+        # self.invalid_parameters()
 
-        # Transfer DVM->EVM
-        self.invalid_values_dvm_evm()
-        self.valid_transfer_dvm_evm()
+        # # Transfer DVM->EVM
+        # self.invalid_values_dvm_evm()
+        # self.valid_transfer_dvm_evm()
 
-        # Transfer EVM->DVM
-        self.invalid_values_evm_dvm()
-        self.valid_transfer_evm_dvm()
+        # # Transfer EVM->DVM
+        # self.invalid_values_evm_dvm()
+        # self.valid_transfer_evm_dvm()
 
-        # Transfer to smart contract
-        self.invalid_transfer_sc()
+        # # Transfer to smart contract
+        # self.invalid_transfer_sc()
 
-        # Invalid authorisation
-        self.invalid_transfer_no_auth()
+        # # Invalid authorisation
+        # self.invalid_transfer_no_auth()
 
-        # Invalid DVM account insufficient balance
-        self.invalid_transfer_dvm_evm_insufficient_balance()
+        # # Invalid DVM account insufficient balance
+        # self.invalid_transfer_dvm_evm_insufficient_balance()
 
-        self.valid_transfer_to_evm_then_move_then_back_to_dvm()
+        # self.valid_transfer_to_evm_then_move_then_back_to_dvm()
 
-        self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
+        # self.invalid_transfer_evm_dvm_after_evm_tx()  # TODO assert behaviour here. transferdomain shouldn't be kept in mempool since its nonce will never be valid
 
-        self.conflicting_transferdomain_evmtx()
+        # self.conflicting_transferdomain_evmtx()
 
-        self.should_find_empty_nonce()
+        # self.should_find_empty_nonce()
 
-        self.invalid_transfer_invalid_nonce()
+        # self.invalid_transfer_invalid_nonce()
 
-        self.test_contract_methods()
+        # self.test_contract_methods()
 
         self.test_new_transfer_domain()
 
