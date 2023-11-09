@@ -1283,9 +1283,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(balance_evm_before + 123456789010000000000, balance_evm_after)
 
         # evm -> dvm
-        self.nodes[0].transferdomain(
-            self.address_erc55, self.address, "9.87654321@DFI"
-        )
+        self.nodes[0].transferdomain(self.address_erc55, self.address, "9.87654321@DFI")
         balance_dvm_before = float(
             self.nodes[0].getaccount(self.address, {}, True)[dfi_id]
         )

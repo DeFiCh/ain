@@ -2119,37 +2119,44 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     auto pwallet = GetWallet(request);
 
     RPCHelpMan{
-    "transferdomain",
-    "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
-    "DVM, etc.\n" + HelpRequiringPassphrase(pwallet) + "\n" +
-    "Arguments:\n"
-    "1. array | string                       (json array | string, required) A json array of src and dst json objects\n"
-    "    [\n"
-    "    {                        (json object)\n"
-    "        \"src\": {               (json object) Source arguments\n"
-    "        \"address\": \"str\",    (string, required) Source address\n"
-    "        \"amount\": \"str\",     (string, required) Amount transfered, the value is amount in amount@token format\n"
-    "        \"domain\": n,         (numeric, required) Domain of source: 2 - DVM, 3 - EVM\n"
-    "        },\n"
-    "        \"dst\": {               (json object) Destination arguments\n"
-    "        \"address\": \"str\",    (string, required) Destination address\n"
-    "        \"amount\": \"str\",     (string, required) Amount transfered, the value is amount in amount@token format\n"
-    "        \"domain\": n,         (numeric, required) Domain of source: 2 - DVM, 3 - EVM\n"
-    "        },\n"
-    "        \"nonce\": n,            (numeric) Optional parameter to specify the transaction nonce\n"
-    "    },\n"
-    "    ...\n"
-    "    ]\n"
-    "   from                         (string, required) the source address of sender\n"
-    "2. to                           (string, required) the destination address of sender\n"
-    "3. tokenAmount                  (string, required) in amount@token format\n"
-    "4. nonce\n"
-    ,
+        "transferdomain",
+        "Creates (and submits to local node and network) a tx to transfer assets across domains. DVM to EVM/EVM to "
+        "DVM, etc.\n" +
+            HelpRequiringPassphrase(pwallet) + "\n" +
+            "Arguments:\n"
+            "1. array | string                       (json array | string, required) A json array of src and dst json "
+            "objects\n"
+            "    [\n"
+            "    {                        (json object)\n"
+            "        \"src\": {               (json object) Source arguments\n"
+            "        \"address\": \"str\",    (string, required) Source address\n"
+            "        \"amount\": \"str\",     (string, required) Amount transfered, the value is amount in "
+            "amount@token format\n"
+            "        \"domain\": n,         (numeric, required) Domain of source: 2 - DVM, 3 - EVM\n"
+            "        },\n"
+            "        \"dst\": {               (json object) Destination arguments\n"
+            "        \"address\": \"str\",    (string, required) Destination address\n"
+            "        \"amount\": \"str\",     (string, required) Amount transfered, the value is amount in "
+            "amount@token format\n"
+            "        \"domain\": n,         (numeric, required) Domain of source: 2 - DVM, 3 - EVM\n"
+            "        },\n"
+            "        \"nonce\": n,            (numeric) Optional parameter to specify the transaction nonce\n"
+            "    },\n"
+            "    ...\n"
+            "    ]\n"
+            "   from                         (string, required) the source address of sender\n"
+            "2. to                           (string, required) the destination address of sender\n"
+            "3. tokenAmount                  (string, required) in amount@token format\n"
+            "4. nonce\n",
         {},
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{
-            HelpExampleCli("transferdomain", R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}}]')") +
-            HelpExampleCli("transferdomain", R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}}]')") +
+            HelpExampleCli(
+                "transferdomain",
+                R"('[{"src":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}, "dst":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}}]')") +
+            HelpExampleCli(
+                "transferdomain",
+                R"('[{"src":{"address":"<ETH_address>", "amount":"1.0@DFI", "domain": 3}, "dst":{"address":"<DFI_address>", "amount":"1.0@DFI", "domain": 2}}]')") +
             HelpExampleCli("transferdomain", R"("from" "to" "100@DFI")") +
             HelpExampleCli("transferdomain", R"("from", "to", 100@BTC 2")")},
     };
