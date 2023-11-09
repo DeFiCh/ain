@@ -35,7 +35,13 @@ class AccountMiningTest(DefiTestFramework):
         node.accounttoutxos(account, {destination: "4@DFI"})
 
         # Not enough amount - rejected
-        assert_raises_rpc_error(-26, "AccountToUtxosTx: amount 1.00000000 is less than 2.00000000", node.accounttoutxos, account, {destination: "2@DFI"})
+        assert_raises_rpc_error(
+            -26,
+            "AccountToUtxosTx: amount 1.00000000 is less than 2.00000000",
+            node.accounttoutxos,
+            account,
+            {destination: "2@DFI"},
+        )
 
         # Store block height
         blockcount = node.getblockcount()
