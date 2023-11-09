@@ -217,6 +217,16 @@ class BlockchainTest(DefiTestFramework):
                     "active": False,
                     "height": 10000000,
                 },
+                "df23upgrade": {
+                    "type": "buried",
+                    "active": False,
+                    "height": 10000000,
+                },
+                "df24upgrade": {
+                    "type": "buried",
+                    "active": False,
+                    "height": 10000000,
+                },
                 "testdummy": {
                     "type": "bip9",
                     "bip9": {
