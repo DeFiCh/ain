@@ -1259,6 +1259,12 @@ class EVMTest(DefiTestFramework):
     def test_new_transfer_domain(self):
         self.rollback_to(self.start_height)
 
+        self.nodes[0].utxostoaccount({self.address: "200@DFI"})
+        transfer_domain(
+            self.nodes[0], self.address, self.address_erc55, "100@DFI", 2, 3
+        )
+        self.nodes[0].generate(1)
+
         dfi_id = "0"
         # dvm -> evm
         self.nodes[0].transferdomain(
