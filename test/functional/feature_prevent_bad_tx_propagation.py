@@ -7,7 +7,7 @@
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
 class AccountMiningTest(DefiTestFramework):
@@ -34,13 +34,8 @@ class AccountMiningTest(DefiTestFramework):
         # Corrent account to utxo tx - entering mempool
         node.accounttoutxos(account, {destination: "4@DFI"})
 
-        try:
-            # Not enough amount - rejected
-            node.accounttoutxos(account, {destination: "2@DFI"})
-        except JSONRPCException as e:
-            errorString = e.error["message"]
-
-        assert "bad-txns-customtx" in errorString
+        # Not enough amount - rejected
+        assert_raises_rpc_error(-26, "AccountToUtxosTx: amount 1.00000000 is less than 2.00000000", node.accounttoutxos, account, {destination: "2@DFI"})
 
         # Store block height
         blockcount = node.getblockcount()

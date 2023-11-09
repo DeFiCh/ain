@@ -1119,8 +1119,8 @@ UniValue isappliedcustomtx(const JSONRPCRequest &request) {
         return result;
     }
 
-    // post Dakota it's not allowed tx to be skipped
-    // so tx that can be found in a block is applyed
+    // Post Dakota TXs are not allowed to be skipped,
+    // so TXs found in a block are applied.
     if (blockHeight >= Params().GetConsensus().DF6DakotaHeight) {
         result.setBool(true);
     } else {
