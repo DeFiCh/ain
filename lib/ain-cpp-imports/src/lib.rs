@@ -246,10 +246,6 @@ pub fn get_dst20_max_token_name_byte_size() -> u8 {
     ffi::getDST20MaxTokenNameByteSize()
 }
 
-pub fn get_dst20_max_token_name_byte_size() -> u8 {
-    ffi::getDST20MaxTokenNameByteSize()
-}
-
 /// Fetches all DST20 tokens in view.
 pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
     ffi::getDST20Tokens(mnview_ptr)
