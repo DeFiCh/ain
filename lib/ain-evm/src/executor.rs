@@ -26,6 +26,8 @@ use crate::{
     },
     Result,
 };
+use crate::contract::{dst20_update_contract_tx, dst20_update_info};
+use crate::transaction::system::UpdateContractData;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecuteTx {
@@ -454,6 +456,30 @@ impl<'backend> AinExecutor<'backend> {
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
+
+                Ok(ApplyTxResult {
+                    tx,
+                    used_gas: U256::zero(),
+                    logs: Vec::new(),
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, Some(address)),
+                })
+            }
+            ExecuteTx::SystemTx(SystemTx::UpdateContract(UpdateContractData {
+                                                             name,
+                                                             symbol,
+                                                             address,
+                                                             token_id,
+                                                         })) => {
+                debug!(
+                    "[execute_tx] UpdateContract for address {:x?}, name {}, symbol {}",
+                    address, name, symbol
+                );
+
+                let storage = dst20_update_info(&name, &symbol);
+                self.update_storage(address, storage)?;
+
+                let (tx, receipt) = dst20_update_contract_tx(token_id, &base_fee, address, &name, &symbol)?;
 
                 Ok(ApplyTxResult {
                     tx,

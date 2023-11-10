@@ -321,5 +321,13 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         );
+        fn evm_try_unsafe_update_dst20(
+            result: &mut CrossBoundaryResult,
+            block_template: &mut BlockTemplateWrapper,
+            native_hash: &str,
+            name: &str,
+            symbol: &str,
+            token_id: u64,
+        );
     }
 }

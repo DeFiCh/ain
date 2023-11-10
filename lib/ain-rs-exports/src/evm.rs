@@ -23,6 +23,7 @@ use anyhow::format_err;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
+use ain_evm::transaction::system::UpdateContractData;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{
@@ -735,6 +736,32 @@ fn evm_try_unsafe_create_dst20(
     debug!("Deploying to address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+        name: String::from(name),
+        symbol: String::from(symbol),
+        address,
+        token_id,
+    }));
+
+    unsafe {
+        SERVICES
+            .evm
+            .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
+    }
+}
+
+#[ffi_fallible]
+fn evm_try_unsafe_update_dst20(
+    template: &mut BlockTemplateWrapper,
+    native_hash: &str,
+    name: &str,
+    symbol: &str,
+    token_id: u64,
+) -> Result<()> {
+    let native_hash = XHash::from(native_hash);
+    let address = ain_contracts::dst20_address_from_token_id(token_id)?;
+    debug!("Deploying to address {:#?}", address);
+
+    let system_tx = ExecuteTx::SystemTx(SystemTx::UpdateContract(UpdateContractData {
         name: String::from(name),
         symbol: String::from(symbol),
         address,

@@ -11,6 +11,14 @@ pub struct DeployContractData {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdateContractData {
+    pub name: String,
+    pub symbol: String,
+    pub address: H160,
+    pub token_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DST20Data {
     pub signed_tx: Box<SignedTx>,
     pub contract_address: H160,
@@ -28,6 +36,7 @@ pub enum SystemTx {
     DeployContract(DeployContractData),
     DST20Bridge(DST20Data),
     TransferDomain(TransferDomainData),
+    UpdateContract(UpdateContractData)
 }
 
 impl SystemTx {
@@ -36,6 +45,7 @@ impl SystemTx {
             SystemTx::TransferDomain(data) => Some(data.signed_tx.sender),
             SystemTx::DST20Bridge(data) => Some(data.signed_tx.sender),
             SystemTx::DeployContract(_) => None,
+            SystemTx::UpdateContract(_) => None,
         }
     }
 }

@@ -427,7 +427,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
         pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
     }
 
-    if (auto res = mnview.UpdateToken(pair->second); !res) {
+    if (auto res = mnview.UpdateToken(pair->second, &blockCtx, txCtx.GetTransaction().GetHash()); !res) {
         return res;
     }
 

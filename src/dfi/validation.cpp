@@ -1393,7 +1393,7 @@ static Res PoolSplits(CCustomCSView &view,
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
 
-            auto res = view.UpdateToken(*oldPoolToken, true, true);
+            auto res = view.UpdateToken(*oldPoolToken, nullptr, uint256(), true, true);
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
@@ -2011,7 +2011,7 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        res = view.UpdateToken(*token, false, true);
+        res = view.UpdateToken(*token, nullptr, uint256(), false, true);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;

@@ -133,7 +133,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
 
     if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
         token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-        return !res ? res : mnview.UpdateToken(token, true);
+        return !res ? res : mnview.UpdateToken(token,  &blockCtx, txCtx.GetTransaction().GetHash(), true);
     }
     return res;
 }
@@ -202,7 +202,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     }
 
-    return mnview.UpdateToken(updatedToken);
+    return mnview.UpdateToken(updatedToken, &blockCtx, txCtx.GetTransaction().GetHash());
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {

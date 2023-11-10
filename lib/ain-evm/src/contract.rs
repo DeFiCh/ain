@@ -196,6 +196,15 @@ pub fn dst20_deploy_info(
     })
 }
 
+pub fn dst20_update_info(
+    name: &str,
+    symbol: &str,
+) -> Vec<(H256, H256)> {
+    vec![
+        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
+        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
+    ]
+}
 pub fn dst20_v1_deploy_info() -> DeployContractInfo {
     let FixedContract {
         contract,
@@ -377,6 +386,30 @@ pub fn dst20_deploy_contract_tx(
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
     .try_into()?;
+
+    let receipt = get_default_successful_receipt();
+
+    Ok((Box::new(tx), receipt))
+}
+
+pub fn dst20_update_contract_tx(
+    token_id: u64,
+    base_fee: &U256,
+    address: H160,
+    name: &str,
+    symbol: &str,
+) -> Result<(Box<SignedTx>, ReceiptV3)> {
+    let tx = TransactionV2::Legacy(LegacyTransaction {
+        nonce: U256::from(token_id),
+        gas_price: *base_fee,
+        gas_limit: U256::from(u64::MAX),
+        action: TransactionAction::Call(address),
+        value: U256::zero(),
+        input: format!("DST20:{address:#x}:{name}:{symbol}").into(),
+        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+            .ok_or(format_err!("Invalid transaction signature format"))?,
+    })
+        .try_into()?;
 
     let receipt = get_default_successful_receipt();
 

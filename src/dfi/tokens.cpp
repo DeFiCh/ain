@@ -129,7 +129,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
     return {id, Res::Ok()};
 }
 
-Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, const bool tokenSplitUpdate) {
+Res CTokensView::UpdateToken(const CTokenImpl &newToken,  BlockContext *blockCtx, const uint256& txHash, bool isPreBayfront, const bool tokenSplitUpdate) {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist!", newToken.creationTx.ToString());
@@ -172,6 +172,24 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
 
     // apply DAT flag and symbol only AFTER dealing with symbol indexes:
     oldToken.symbol = newToken.symbol;
+
+    if (blockCtx) {
+        const auto shouldUpdateDst20 = blockCtx->GetEVMEnabledForBlock();
+        const auto &evmTemplate = blockCtx->GetEVMTemplate();
+        if (shouldUpdateDst20 && evmTemplate) {
+            CrossBoundaryResult result;
+            evm_try_unsafe_update_dst20(result,
+                                        evmTemplate->GetTemplate(),
+                                        txHash.GetHex(),
+                                        rust::string(newToken.name.c_str()),
+                                        rust::string(newToken.symbol.c_str()),
+                                        id.v);
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
+            }
+        }
+    }
+
     if (oldToken.IsDAT() != newToken.IsDAT()) {
         oldToken.flags ^= (uint8_t)CToken::TokenFlags::DAT;
     }
