@@ -21,6 +21,7 @@ use crate::{
     errors::{to_custom_err, RPCError},
     transaction::{TraceLogs, TraceTransactionResult},
 };
+use crate::tracers::Tracer;
 
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
@@ -33,7 +34,7 @@ pub struct FeeEstimate {
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
+    fn trace_transaction(&self, tx_hash: H256, tracer: Option<Tracer>) -> RpcResult<TraceTransactionResult>;
 
     // Dump full db
     #[method(name = "dumpdb")]
@@ -83,7 +84,8 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+    fn trace_transaction(&self, tx_hash: H256, tracer: Option<Tracer>) -> RpcResult<TraceTransactionResult> {
+        debug!("{tracer:?}");
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         debug!(target: "rpc", "Tracing transaction {tx_hash}");

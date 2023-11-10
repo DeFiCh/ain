@@ -13,6 +13,7 @@ mod logs;
 mod receipt;
 pub mod rpc;
 mod sync;
+mod tracers;
 mod transaction;
 mod transaction_request;
 mod utils;
