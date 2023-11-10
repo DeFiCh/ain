@@ -210,7 +210,6 @@ name = "ain-rs-exports"
 version = "0.1.0"
 dependencies = [
  "ain-contracts",
- "ain-cpp-imports",
  "ain-evm",
  "ain-grpc",
  "ain-macros",
