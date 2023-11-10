@@ -86,6 +86,7 @@ mod ffi {
         // Just the logs are skipped.
     }
 
+    #[allow(clippy::ptr_arg)]
     pub fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -239,6 +240,7 @@ pub fn log_print(message: &str) {
 }
 
 /// Fetches all DST20 tokens in view, returns the result of the migration
+#[allow(clippy::ptr_arg)]
 pub fn get_dst20_tokens(mnview_ptr: usize, tokens: &mut Vec<ffi::DST20Token>) -> bool {
     ffi::getDST20Tokens(mnview_ptr, tokens)
 }
