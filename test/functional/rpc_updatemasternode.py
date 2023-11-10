@@ -7,7 +7,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    fund_tx,
+    create_address_utxo,
 )
 from decimal import Decimal
 
@@ -355,7 +355,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.restart_node(
             0,
             [
-                "-gen",
                 "-masternode_operator=" + operator_address,
                 "-rewardaddress=" + cli_reward_address,
                 "-txindex=1",
@@ -448,11 +447,15 @@ class TestForcedRewardAddress(DefiTestFramework):
         # Set up input / output tests
         not_collateral = self.nodes[0].getnewaddress("", "legacy")
         owner_address = self.nodes[0].getnewaddress("", "legacy")
-        [not_collateral_tx, not_collateral_vout] = fund_tx(
+        [not_collateral_tx, not_collateral_vout] = create_address_utxo(
             self.nodes[0], not_collateral, 10
         )
-        [missing_auth_tx, missing_input_vout] = fund_tx(self.nodes[0], mn_owner, 0.1)
-        [owner_auth_tx, owner_auth_vout] = fund_tx(self.nodes[0], owner_address, 0.1)
+        [missing_auth_tx, missing_input_vout] = create_address_utxo(
+            self.nodes[0], mn_owner, 0.1
+        )
+        [owner_auth_tx, owner_auth_vout] = create_address_utxo(
+            self.nodes[0], owner_address, 0.1
+        )
 
         # Get TX to use OP_RETURN output
         missing_tx = self.nodes[0].updatemasternode(
@@ -513,9 +516,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result["state"], "PRE_RESIGNED")
 
         # Roll back resignation
-        self.nodes[0].invalidateblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )
+        count = self.nodes[0].getblockcount()
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(count))
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
         assert_equal(result["state"], "ENABLED")
 
