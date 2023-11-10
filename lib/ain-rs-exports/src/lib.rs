@@ -1,7 +1,7 @@
 mod core;
 mod evm;
-mod util;
 mod prelude;
+mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
@@ -22,7 +22,7 @@ impl BlockTemplateWrapper {
 }
 
 #[cxx::bridge]
-pub mod ffi {    
+pub mod ffi {
     // =========  FFI ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
