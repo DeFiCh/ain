@@ -314,30 +314,39 @@ uint32_t getEthMaxResponseByteSize() {
     return max_response_size_mb * 1024 * 1024;
 }
 
-uint8_t getDST20MaxTokenNameByteSize() {
-    return CToken::MAX_DST20_TOKEN_NAME_BYTE_SIZE;
-}
-
-rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
+bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 
-    rust::vec<DST20Token> tokens;
+    bool res = true;
     CCustomCSView *cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
     cache->ForEachToken(
         [&](DCT_ID const &id, CTokensView::CTokenImpl token) {
             if (!token.IsDAT() || token.IsPoolShare()) {
                 return true;
             }
+            if (token.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
+                res = false;
+                return false;
+            }
 
-            tokens.push_back(DST20Token{
-                id.v,
-                ffi_from_string_to_rust_byte_vec(token.name),
-                ffi_from_string_to_rust_byte_vec(token.symbol),
-            });
+            CrossBoundaryResult result;
+            auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(token.name));
+            if (!result.ok) {
+                LogPrintf("Error migrating DST20 token, token name not valid UTF-8\n");
+                res = false;
+                return false;
+            }
+            auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(token.symbol));
+            if (!result.ok) {
+                LogPrintf("Error migrating DST20 token, token symbol not valid UTF-8\n");
+                res = false;
+                return false;
+            }
+            tokens.push_back({id.v, token_name, token_symbol});
             return true;
         },
         DCT_ID{1});  // start from non-DFI
-    return tokens;
+    return res;
 }
 
 int32_t getNumCores() {

@@ -1,10 +1,11 @@
 mod core;
 mod evm;
+mod util;
 mod prelude;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*};
+use crate::{core::*, evm::*, util::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -21,7 +22,33 @@ impl BlockTemplateWrapper {
 }
 
 #[cxx::bridge]
-pub mod ffi {
+pub mod ffi {    
+    // =========  FFI ==========
+    pub struct CrossBoundaryResult {
+        pub ok: bool,
+        pub reason: String,
+    }
+
+    // =========  Util ==========
+    extern "Rust" {
+        fn rs_try_from_utf8(result: &mut CrossBoundaryResult, string: &'static [u8]) -> String;
+    }
+
+    // =========  Core ==========
+    extern "Rust" {
+        fn ain_rs_preinit(result: &mut CrossBoundaryResult);
+        fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
+        fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
+        fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
+        fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
+
+        // Networking
+        fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
+    }
+
     // ========== Block ==========
     #[derive(Default)]
     pub struct EVMBlockHeader {
@@ -74,26 +101,6 @@ pub mod ffi {
         pub key_id: u32,
     }
 
-    // =========  Core ==========
-    pub struct CrossBoundaryResult {
-        pub ok: bool,
-        pub reason: String,
-    }
-
-    extern "Rust" {
-        fn ain_rs_preinit(result: &mut CrossBoundaryResult);
-        fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
-        fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
-        fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
-        fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
-
-        // Networking
-        fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
-    }
-
     // ========== EVM ==========
 
     pub struct CreateTransactionContext<'a> {
@@ -131,8 +138,8 @@ pub mod ffi {
 
     pub struct DST20TokenInfo {
         pub id: u64,
-        pub name: Vec<u8>,
-        pub symbol: Vec<u8>,
+        pub name: String,
+        pub symbol: String,
     }
 
     #[derive(Default)]

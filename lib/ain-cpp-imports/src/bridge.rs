@@ -11,8 +11,8 @@ pub mod ffi {
     #[derive(Debug, Clone)]
     pub struct DST20Token {
         pub id: u64,
-        pub name: Vec<u8>,
-        pub symbol: Vec<u8>,
+        pub name: String,
+        pub symbol: String,
     }
 
     #[derive(Debug, Clone)]
@@ -46,8 +46,7 @@ pub mod ffi {
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
-        fn getDST20MaxTokenNameByteSize() -> u8;
-        fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
+        fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;

@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <ain_rs_exports.h>
 #include <coins.h>
 #include <consensus/params.h>
 #include <dfi/consensus/tokens.h>
@@ -116,7 +117,7 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         }
     }
 
-    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, &blockCtx);
+    auto tokenId = mnview.CreateToken(token, static_cast<int>(height), &blockCtx);
     return tokenId;
 }
 

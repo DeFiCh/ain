@@ -56,11 +56,8 @@
         return ResVal(std::move(res), Res::Ok());                                       \
     }();
 
-inline rust::vec<uint8_t> ffi_from_string_to_rust_byte_vec(const std::string &str) {
-    rust::vec<uint8_t> bytes;
-    bytes.reserve(str.size());
-    std::copy(str.begin(), str.end(), std::back_inserter(bytes));
-    return bytes;
+inline rust::slice<const uint8_t> ffi_from_string_to_slice(const std::string &str) {
+    return rust::slice<const uint8_t>(reinterpret_cast<const uint8_t *>(str.c_str()), str.size());
 }
 
 #endif  // DEFI_FFI_FFIHELPERS_H

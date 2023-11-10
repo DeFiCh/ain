@@ -18,8 +18,8 @@ mod ffi {
 
     pub struct DST20Token {
         pub id: u64,
-        pub name: Vec<u8>,
-        pub symbol: Vec<u8>,
+        pub name: String,
+        pub symbol: String,
     }
 
     pub struct TransactionData {
@@ -86,11 +86,7 @@ mod ffi {
         // Just the logs are skipped.
     }
 
-    pub fn getDST20MaxTokenNameByteSize() -> u8 {
-        unimplemented!("{}", UNIMPL_MSG)
-    }
-
-    pub fn getDST20Tokens(_mnview_ptr: usize) -> Vec<DST20Token> {
+    pub fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getClientVersion() -> String {
@@ -242,13 +238,9 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
-pub fn get_dst20_max_token_name_byte_size() -> u8 {
-    ffi::getDST20MaxTokenNameByteSize()
-}
-
-/// Fetches all DST20 tokens in view.
-pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
-    ffi::getDST20Tokens(mnview_ptr)
+/// Fetches all DST20 tokens in view, returns the result of the migration
+pub fn get_dst20_tokens(mnview_ptr: usize, tokens: &mut Vec<ffi::DST20Token>) -> bool {
+    ffi::getDST20Tokens(mnview_ptr, tokens)
 }
 
 /// Returns the number of CPU cores available to the node.

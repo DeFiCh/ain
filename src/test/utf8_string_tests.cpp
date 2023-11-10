@@ -3,6 +3,8 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <ffi/ffiexports.h>
+#include <ffi/ffihelpers.h>
 #include <util/strencodings.h>
 #include <test/setup_common.h>
 
@@ -32,6 +34,30 @@ BOOST_AUTO_TEST_CASE(check_for_valid_utf8_strings)
     BOOST_CHECK(check_is_valid_utf8(test6));
     BOOST_CHECK(check_is_valid_utf8(test7));
 
+    // Check UTF-8 validity with Rust FFI
+    CrossBoundaryResult result;
+    auto test1_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test1));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test1_res == test1);
+    auto test2_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test2));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test2_res == test2);
+    auto test3_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test3));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test3_res == test3);
+    auto test4_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test4));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test4_res == test4);
+    auto test5_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test5));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test5_res == test5);
+    auto test6_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test6));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test6_res == test6);
+    auto test7_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test7));
+    BOOST_CHECK(result.ok);
+    BOOST_CHECK(test7_res == test7);
+
     // Check UTF
 }
 
@@ -44,9 +70,22 @@ BOOST_AUTO_TEST_CASE(check_for_invalid_utf8_strings)
     std::string test2 = laughing_face.substr(0, 3) + laughing_face.substr(0, 2) + laughing_face.substr(0, 1) + " Rolling on the Floor Laughing";
     std::string test3 = star_struck_face.substr(0, 1) + "🤩🤩 Star-🤩Struck 🤩🤩";
 
+    // Check UTF-8 validity with CPP
     BOOST_CHECK(!check_is_valid_utf8(test1));
     BOOST_CHECK(!check_is_valid_utf8(test2));
     BOOST_CHECK(!check_is_valid_utf8(test3));
+
+    // Check UTF-8 validity with Rust FFI
+    CrossBoundaryResult result;
+    auto test1_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test1));
+    BOOST_CHECK(!result.ok);
+    BOOST_CHECK(test1_res == "");
+    auto test2_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test2));
+    BOOST_CHECK(!result.ok);
+    BOOST_CHECK(test2_res == "");
+    auto test3_res = rs_try_from_utf8(result, ffi_from_string_to_slice(test3));
+    BOOST_CHECK(!result.ok);
+    BOOST_CHECK(test3_res == "");
 }
 
 BOOST_AUTO_TEST_SUITE_END()
