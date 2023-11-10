@@ -133,7 +133,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
 
     if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
         token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-        return !res ? res : mnview.UpdateToken(token,  &blockCtx, txCtx.GetTransaction().GetHash(), true);
+        return !res ? res : mnview.UpdateToken(token, &blockCtx, txCtx.GetTransaction().GetHash(), true);
     }
     return res;
 }

@@ -2,6 +2,7 @@ use ain_contracts::{
     get_transfer_domain_contract, get_transferdomain_dst20_transfer_function,
     get_transferdomain_native_transfer_function, FixedContract,
 };
+use ain_evm::transaction::system::UpdateContractData;
 use ain_evm::{
     core::{TransferDomainTxInfo, XHash},
     evm::FinalizedBlockInfo,
@@ -23,7 +24,6 @@ use anyhow::format_err;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
-use ain_evm::transaction::system::UpdateContractData;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{

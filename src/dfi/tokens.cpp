@@ -129,7 +129,11 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
     return {id, Res::Ok()};
 }
 
-Res CTokensView::UpdateToken(const CTokenImpl &newToken,  BlockContext *blockCtx, const uint256& txHash, bool isPreBayfront, const bool tokenSplitUpdate) {
+Res CTokensView::UpdateToken(const CTokenImpl &newToken,
+                             BlockContext *blockCtx,
+                             const uint256 &txHash,
+                             bool isPreBayfront,
+                             const bool tokenSplitUpdate) {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist!", newToken.creationTx.ToString());

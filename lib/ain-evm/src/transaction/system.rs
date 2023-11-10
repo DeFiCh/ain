@@ -36,7 +36,7 @@ pub enum SystemTx {
     DeployContract(DeployContractData),
     DST20Bridge(DST20Data),
     TransferDomain(TransferDomainData),
-    UpdateContract(UpdateContractData)
+    UpdateContract(UpdateContractData),
 }
 
 impl SystemTx {

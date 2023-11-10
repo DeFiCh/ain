@@ -9,6 +9,8 @@ use evm::{
 };
 use log::{debug, trace};
 
+use crate::contract::{dst20_update_contract_tx, dst20_update_info};
+use crate::transaction::system::UpdateContractData;
 use crate::{
     backend::EVMBackend,
     blocktemplate::ReceiptAndOptionalContractAddress,
@@ -26,8 +28,6 @@ use crate::{
     },
     Result,
 };
-use crate::contract::{dst20_update_contract_tx, dst20_update_info};
-use crate::transaction::system::UpdateContractData;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecuteTx {
@@ -466,11 +466,11 @@ impl<'backend> AinExecutor<'backend> {
                 })
             }
             ExecuteTx::SystemTx(SystemTx::UpdateContract(UpdateContractData {
-                                                             name,
-                                                             symbol,
-                                                             address,
-                                                             token_id,
-                                                         })) => {
+                name,
+                symbol,
+                address,
+                token_id,
+            })) => {
                 debug!(
                     "[execute_tx] UpdateContract for address {:x?}, name {}, symbol {}",
                     address, name, symbol
@@ -479,7 +479,8 @@ impl<'backend> AinExecutor<'backend> {
                 let storage = dst20_update_info(&name, &symbol);
                 self.update_storage(address, storage)?;
 
-                let (tx, receipt) = dst20_update_contract_tx(token_id, &base_fee, address, &name, &symbol)?;
+                let (tx, receipt) =
+                    dst20_update_contract_tx(token_id, &base_fee, address, &name, &symbol)?;
 
                 Ok(ApplyTxResult {
                     tx,

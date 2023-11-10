@@ -196,10 +196,7 @@ pub fn dst20_deploy_info(
     })
 }
 
-pub fn dst20_update_info(
-    name: &str,
-    symbol: &str,
-) -> Vec<(H256, H256)> {
+pub fn dst20_update_info(name: &str, symbol: &str) -> Vec<(H256, H256)> {
     vec![
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
@@ -409,7 +406,7 @@ pub fn dst20_update_contract_tx(
         signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
             .ok_or(format_err!("Invalid transaction signature format"))?,
     })
-        .try_into()?;
+    .try_into()?;
 
     let receipt = get_default_successful_receipt();
 
