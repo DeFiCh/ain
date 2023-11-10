@@ -42,6 +42,7 @@ class DST20(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=153",
+                "-df23upgradeheight=153",
                 "-subsidytest=1",
                 "-txindex=1",
             ]

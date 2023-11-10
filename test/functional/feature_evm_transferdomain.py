@@ -53,6 +53,7 @@ class EVMTest(DefiTestFramework):
             "-fortcanningepilogueheight=96",
             "-grandcentralheight=101",
             "-metachainheight=150",
+            "-df23upgradeheight=105",
             "-subsidytest=1",
             "-txindex=1",
         ]
