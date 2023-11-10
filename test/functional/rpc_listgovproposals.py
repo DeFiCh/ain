@@ -96,16 +96,18 @@ class ListGovProposalsTest(DefiTestFramework):
 
         # Generate chain
         self.nodes[0].generate(150)
-        self.sync_blocks()
 
         self.nodes[0].sendtoaddress(self.address1, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address2, Decimal("1.0"))
         self.nodes[0].sendtoaddress(self.address3, Decimal("1.0"))
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # mine at least one block with each mn to be able to vote
         self.nodes[1].generate(1)
+        self.sync_blocks()
         self.nodes[2].generate(1)
+        self.sync_blocks()
         self.nodes[3].generate(1)
         self.sync_blocks()
 
@@ -161,8 +163,10 @@ class ListGovProposalsTest(DefiTestFramework):
         for proposal in proposals:
             self.nodes[0].votegov(proposal["proposalId"], self.mn0, vote)
             self.nodes[0].generate(1)
+            self.sync_blocks()
             self.nodes[1].votegov(proposal["proposalId"], self.mn1, vote)
             self.nodes[1].generate(1)
+            self.sync_blocks()
             self.nodes[2].votegov(proposal["proposalId"], self.mn2, vote)
             self.nodes[2].generate(1)
             self.sync_blocks()
