@@ -18,7 +18,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             [
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -26,7 +25,6 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-grandcentralheight=110",
             ],
             [
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -326,7 +324,6 @@ class TestForcedRewardAddress(DefiTestFramework):
             [
                 "-gen",
                 "-masternode_operator=" + operator_address,
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -357,7 +354,6 @@ class TestForcedRewardAddress(DefiTestFramework):
             [
                 "-masternode_operator=" + operator_address,
                 "-rewardaddress=" + cli_reward_address,
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",

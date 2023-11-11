@@ -24,7 +24,6 @@ class ICXOrderbookErrorTest(DefiTestFramework):
                 "-bayfrontheight=50",
                 "-eunosheight=50",
                 "-eunospayaheight=50",
-                "-txindex=1",
             ],
             [
                 "-txnotokens=0",
@@ -32,7 +31,6 @@ class ICXOrderbookErrorTest(DefiTestFramework):
                 "-bayfrontheight=50",
                 "-eunosheight=50",
                 "-eunospayaheight=50",
-                "-txindex=1",
             ],
         ]
 

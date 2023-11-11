@@ -31,7 +31,6 @@ class ListGovProposalsTest(DefiTestFramework):
                 "-fortcanningepilogueheight=1",
                 "-grandcentralheight=1",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
             [
                 "-dummypos=0",
