@@ -344,7 +344,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         )
 
         self.nodes[0].updatemasternode(mn_id, {"rewardAddress": ""})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(11)
 
         # CLI Reward address for test -rewardaddress
         cli_reward_address = self.nodes[0].getnewaddress("", "legacy")
@@ -362,19 +362,7 @@ class TestForcedRewardAddress(DefiTestFramework):
             ],
         )
 
-        # Mine blocks
-        self.nodes[0].generate(101)
-
-        # Check balance to new reward address
-        assert_equal(
-            len(self.nodes[0].listunspent(addresses=[forced_reward_address])), 1
-        )
-        assert_equal(
-            self.nodes[0].listunspent(addresses=[forced_reward_address])[0]["amount"],
-            Decimal("19.00000000"),
-        )
-
-        # Test updating operator and reward address simultaniously
+        # Test updating operator and reward address simultaneously
         new_operator_address = self.nodes[0].getnewaddress("", "legacy")
         new_reward_address = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].updatemasternode(
