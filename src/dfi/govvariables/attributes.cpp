@@ -22,7 +22,8 @@
 enum class EVMAttributesTypes : uint32_t {
     Finalized = 1,
     GasLimit = 2,
-    GasTarget = 3,
+    GasTargetFactor = 3,
+    RbfIncrementMinPct = 4,
 };
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
@@ -287,7 +288,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          {
              {"finality_count", EVMKeys::Finalized},
              {"gas_limit", EVMKeys::GasLimit},
-             {"gas_target", EVMKeys::GasTarget},
+             {"gas_target_factor", EVMKeys::GasTargetFactor},
+             {"rbf_increment_fee_pct", EVMKeys::RbfIncrementMinPct},
          }},
         {AttributeTypes::Governance,
          {
@@ -391,7 +393,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          {
              {EVMKeys::Finalized, "finality_count"},
              {EVMKeys::GasLimit, "gas_limit"},
-             {EVMKeys::GasTarget, "gas_target"},
+             {EVMKeys::GasTargetFactor, "gas_target_factor"},
+             {EVMKeys::RbfIncrementMinPct, "rbf_increment_fee_pct"},
          }},
         {AttributeTypes::Live,
          {
@@ -485,6 +488,18 @@ static ResVal<CAttributeValue> VerifyUInt64(const std::string &str) {
     return {x, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyMoreThenZeroUInt64(const std::string &str) {
+    auto resVal = VerifyUInt64(str);
+    if (!resVal) {
+        return resVal;
+    }
+    const auto value = std::get<uint64_t>(*resVal.val);
+    if (value == 0) {
+        return DeFiErrors::GovVarVerifyFactor();
+    }
+    return resVal;
+}
+
 static ResVal<CAttributeValue> VerifyInt64(const std::string &str) {
     CAmount int64;
     if (!ParseInt64(str, &int64) || int64 < 0) {
@@ -518,7 +533,7 @@ ResVal<CAttributeValue> VerifyPositiveOrMinusOneFloat(const std::string &str) {
     return {amount, Res::Ok()};
 }
 
-static ResVal<CAttributeValue> VerifyPct(const std::string &str) {
+static ResVal<CAttributeValue> VerifyPctInt64(const std::string &str) {
     std::string val = str;
     bool isPct = (val.size() > 0 && val.back() == '%');
     if (isPct) {
@@ -766,12 +781,12 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
             {AttributeTypes::Token,
              {
                  {TokenKeys::PaybackDFI, VerifyBool},
-                 {TokenKeys::PaybackDFIFeePCT, VerifyPct},
+                 {TokenKeys::PaybackDFIFeePCT, VerifyPctInt64},
                  {TokenKeys::LoanPayback, VerifyBool},
-                 {TokenKeys::LoanPaybackFeePCT, VerifyPct},
+                 {TokenKeys::LoanPaybackFeePCT, VerifyPctInt64},
                  {TokenKeys::LoanPaybackCollateral, VerifyBool},
-                 {TokenKeys::DexInFeePct, VerifyPct},
-                 {TokenKeys::DexOutFeePct, VerifyPct},
+                 {TokenKeys::DexInFeePct, VerifyPctInt64},
+                 {TokenKeys::DexOutFeePct, VerifyPctInt64},
                  {TokenKeys::FixedIntervalPriceId, VerifyCurrencyPair},
                  {TokenKeys::LoanCollateralEnabled, VerifyBool},
                  {TokenKeys::LoanCollateralFactor, VerifyPositiveFloat},
@@ -786,17 +801,17 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Poolpairs,
              {
-                 {PoolKeys::TokenAFeePCT, VerifyPct},
+                 {PoolKeys::TokenAFeePCT, VerifyPctInt64},
                  {PoolKeys::TokenAFeeDir, VerifyFeeDirection},
-                 {PoolKeys::TokenBFeePCT, VerifyPct},
+                 {PoolKeys::TokenBFeePCT, VerifyPctInt64},
                  {PoolKeys::TokenBFeeDir, VerifyFeeDirection},
              }},
             {AttributeTypes::Param,
              {
                  {DFIPKeys::Active, VerifyBool},
-                 {DFIPKeys::Premium, VerifyPct},
+                 {DFIPKeys::Premium, VerifyPctInt64},
                  {DFIPKeys::MinSwap, VerifyPositiveFloat},
-                 {DFIPKeys::RewardPct, VerifyPct},
+                 {DFIPKeys::RewardPct, VerifyPctInt64},
                  {DFIPKeys::BlockPeriod, VerifyInt64},
                  {DFIPKeys::DUSDInterestBurn, VerifyBool},
                  {DFIPKeys::DUSDLoanBurn, VerifyBool},
@@ -827,20 +842,21 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              {
                  {EVMKeys::Finalized, VerifyUInt64},
                  {EVMKeys::GasLimit, VerifyUInt64},
-                 {EVMKeys::GasTarget, VerifyUInt64},
+                 {EVMKeys::GasTargetFactor, VerifyMoreThenZeroUInt64},
+                 {EVMKeys::RbfIncrementMinPct, VerifyPctInt64},
              }},
             {AttributeTypes::Governance,
              {
                  {GovernanceKeys::FeeRedistribution, VerifyBool},
-                 {GovernanceKeys::FeeBurnPct, VerifyPct},
-                 {GovernanceKeys::CFPFee, VerifyPct},
-                 {GovernanceKeys::CFPApprovalThreshold, VerifyPct},
+                 {GovernanceKeys::FeeBurnPct, VerifyPctInt64},
+                 {GovernanceKeys::CFPFee, VerifyPctInt64},
+                 {GovernanceKeys::CFPApprovalThreshold, VerifyPctInt64},
                  {GovernanceKeys::VOCFee, VerifyPositiveFloat},
                  {GovernanceKeys::VOCEmergencyFee, VerifyPositiveFloat},
                  {GovernanceKeys::VOCEmergencyPeriod, VerifyUInt32},
-                 {GovernanceKeys::VOCEmergencyQuorum, VerifyPct},
-                 {GovernanceKeys::VOCApprovalThreshold, VerifyPct},
-                 {GovernanceKeys::Quorum, VerifyPct},
+                 {GovernanceKeys::VOCEmergencyQuorum, VerifyPctInt64},
+                 {GovernanceKeys::VOCApprovalThreshold, VerifyPctInt64},
+                 {GovernanceKeys::Quorum, VerifyPctInt64},
                  {GovernanceKeys::VotingPeriod, VerifyUInt32},
                  {GovernanceKeys::CFPMaxCycles, VerifyUInt32},
              }},
@@ -990,7 +1006,8 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         }
     } else if (type == AttributeTypes::EVMType) {
         if (typeId == EVMIDs::Block) {
-            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTarget) {
+            if (typeKey != EVMKeys::Finalized && typeKey != EVMKeys::GasLimit && typeKey != EVMKeys::GasTargetFactor &&
+                typeKey != EVMKeys::RbfIncrementMinPct) {
                 return DeFiErrors::GovVarVariableUnsupportedEVMType(typeKey);
             }
         } else {
@@ -1145,11 +1162,15 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         typeKey = ParamIDs::TokenID;
         if (const auto keyValue = VerifyInt32(keys[3])) {
             attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            return DeFiErrors::GovVarTokenAsString();
         }
     } else if (type == AttributeTypes::Oracles) {
         typeKey = OracleIDs::Splits;
         if (const auto keyValue = VerifyPositiveInt32(keys[3])) {
             attrV0 = CDataStructureV0{type, typeId, static_cast<uint32_t>(*keyValue)};
+        } else {
+            return DeFiErrors::GovVarTokenAsString();
         }
     } else {
         auto ikey = allowedKeys().find(type);

@@ -1,12 +1,11 @@
 use std::{borrow::ToOwned, num::NonZeroUsize, sync::RwLock};
 
-use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H256, U256};
 use lru::LruCache;
 use parking_lot::Mutex;
 
-use super::traits::{AttributesStorage, BlockStorage, Rollback, TransactionStorage};
+use super::traits::{BlockStorage, Rollback, TransactionStorage};
 use crate::Result;
 
 #[derive(Debug)]
@@ -15,7 +14,6 @@ pub struct Cache {
     blocks: Mutex<LruCache<U256, BlockAny>>,
     block_hashes: Mutex<LruCache<H256, U256>>,
     latest_block: RwLock<Option<BlockAny>>,
-    attributes: RwLock<Option<Attributes>>,
     codes: Mutex<LruCache<H256, Vec<u8>>>,
 }
 
@@ -37,7 +35,6 @@ impl Cache {
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
             latest_block: RwLock::new(None),
-            attributes: RwLock::new(None),
         }
     }
 }
@@ -160,23 +157,5 @@ impl Cache {
     pub fn put_code(&self, hash: H256, code: &[u8]) -> Result<()> {
         self.codes.lock().put(hash, code.to_vec());
         Ok(())
-    }
-}
-
-impl AttributesStorage for Cache {
-    fn put_attributes(&self, attributes: Option<&Attributes>) -> Result<()> {
-        let mut cache = self.attributes.write().unwrap();
-        *cache = attributes.cloned();
-        Ok(())
-    }
-
-    fn get_attributes(&self) -> Result<Option<Attributes>> {
-        let attributes = self
-            .attributes
-            .read()
-            .unwrap()
-            .as_ref()
-            .map(ToOwned::to_owned);
-        Ok(attributes)
     }
 }

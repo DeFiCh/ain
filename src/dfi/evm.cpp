@@ -61,10 +61,11 @@ CScopedTemplate::CScopedTemplate(BlockTemplateWrapper &evmTemplate)
 std::shared_ptr<CScopedTemplate> CScopedTemplate::Create(const uint64_t dvmBlockNumber,
                                                          const std::string minerAddress,
                                                          const unsigned int difficulty,
-                                                         const uint64_t timestamp) {
+                                                         const uint64_t timestamp,
+                                                         const std::size_t mnview_ptr) {
     CrossBoundaryResult result;
     BlockTemplateWrapper &evmTemplate =
-        evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp);
+        evm_try_unsafe_create_template(result, dvmBlockNumber, minerAddress, difficulty, timestamp, mnview_ptr);
     if (result.ok) {
         return std::shared_ptr<CScopedTemplate>(new CScopedTemplate(evmTemplate));
     }

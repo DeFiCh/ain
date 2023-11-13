@@ -423,7 +423,7 @@ Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, con
 
     if (!evmTemplate && isEvmEnabledForBlock) {
         std::string minerAddress{};
-        blockCtx.SetEVMTemplate(CScopedTemplate::Create(height, minerAddress, 0u, time));
+        blockCtx.SetEVMTemplate(CScopedTemplate::Create(height, minerAddress, 0u, time, 0));
         if (!evmTemplate) {
             return Res::Err("Failed to create queue");
         }
@@ -511,22 +511,21 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend) {
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
+    const auto metadataValidation = txCtx.GetMetadataValidation();
     const auto &tx = txCtx.GetTransaction();
     const auto &txn = txCtx.GetTxn();
 
-    auto res = Res::Ok();
+    auto r = Res::Ok();
     if (tx.IsCoinBase() && height > 0) {  // genesis contains custom coinbase txs
-        return res;
+        return r;
     }
-    std::vector<unsigned char> metadata;
-    const auto metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
-    const auto txType = GuessCustomTxType(tx, metadata, metadataValidation);
 
+    const auto txType = txCtx.GetTxType();
     auto attributes = mnview.GetAttributes();
 
     if ((txType == CustomTxType::EvmTx || txType == CustomTxType::TransferDomain) && !isEvmEnabledForBlock) {
@@ -536,22 +535,24 @@ Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint2
     // Check OP_RETURN sizes
     const auto opReturnLimits = OpReturnLimits::From(height, consensus, *attributes);
     if (opReturnLimits.shouldEnforce) {
-        if (auto r = opReturnLimits.Validate(tx, txType); !r) {
+        if (r = opReturnLimits.Validate(tx, txType); !r) {
             return r;
         }
     }
 
     if (txType == CustomTxType::None) {
-        return res;
+        return r;
     }
 
     if (metadataValidation && txType == CustomTxType::Reject) {
         return Res::ErrCode(CustomTxErrCodes::Fatal, "Invalid custom transaction");
     }
 
-    auto txMessage = customTypeToMessage(txType);
     CAccountsHistoryWriter view(mnview, height, txn, tx.GetHash(), uint8_t(txType));
-    if ((res = CustomMetadataParse(height, consensus, metadata, txMessage))) {
+
+    auto &[res, txMessage] = txCtx.GetTxMessage();
+
+    if (res) {
         if (mnview.GetHistoryWriters().GetVaultView()) {
             PopulateVaultHistoryData(mnview.GetHistoryWriters(), view, txMessage, txType, txCtx);
         }
@@ -1505,4 +1506,63 @@ void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
     if (!attrs.CheckKey(k.evm_to_dvm_dat_enabled)) {
         attrs.SetValue(k.evm_to_dvm_dat_enabled, evmToDvmDatEnabled);
     }
+}
+
+TransactionContext::TransactionContext(const CCoinsViewCache &coins,
+                                       const CTransaction &tx,
+                                       const Consensus::Params &consensus,
+                                       const uint32_t height,
+                                       const uint64_t time,
+                                       const uint32_t txn)
+    : coins(coins),
+      tx(tx),
+      consensus(consensus),
+      height(height),
+      time(time),
+      txn(txn) {
+    metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
+}
+
+const CCoinsViewCache &TransactionContext::GetCoins() const {
+    return coins;
+};
+
+const CTransaction &TransactionContext::GetTransaction() const {
+    return tx;
+};
+
+const Consensus::Params &TransactionContext::GetConsensus() const {
+    return consensus;
+};
+
+uint32_t TransactionContext::GetHeight() const {
+    return height;
+};
+
+uint64_t TransactionContext::GetTime() const {
+    return time;
+};
+
+uint32_t TransactionContext::GetTxn() const {
+    return txn;
+};
+
+CustomTxType TransactionContext::GetTxType() {
+    if (!txType) {
+        txType = GuessCustomTxType(tx, metadata, metadataValidation);
+    }
+    return *txType;
+};
+
+std::pair<Res, CCustomTxMessage> &TransactionContext::GetTxMessage() {
+    if (!txMessageResult) {
+        auto txMessage = customTypeToMessage(GetTxType());
+        auto res = CustomMetadataParse(height, consensus, metadata, txMessage);
+        txMessageResult = std::make_pair(res, txMessage);
+    }
+    return *txMessageResult;
+};
+
+bool TransactionContext::GetMetadataValidation() const {
+    return metadataValidation;
 }

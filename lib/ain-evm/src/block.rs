@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use ain_cpp_imports::Attributes;
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionAny};
 use ethereum_types::U256;
@@ -28,9 +29,11 @@ pub struct FeeHistoryData {
 }
 
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
-pub const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
+const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 
+/// Handles getting block data, and contains internal functions for block creation and fees.
 impl BlockService {
+    /// Create new [BlockService] with given [Storage].
     pub fn new(storage: Arc<Storage>) -> Result<Self> {
         let mut block_handler = Self {
             storage,
@@ -46,16 +49,20 @@ impl BlockService {
         Ok(block_handler)
     }
 
+    /// Get latest block number when struct was created.
+    /// Used in `eth_syncing`.
     pub fn get_starting_block_number(&self) -> U256 {
         self.starting_block_number
     }
 
+    /// Returns latest confirmed block hash and number.
     pub fn get_latest_block_hash_and_number(&self) -> Result<Option<(H256, U256)>> {
         let opt_block = self.storage.get_latest_block()?;
         let opt_hash_and_number = opt_block.map(|block| (block.header.hash(), block.header.number));
         Ok(opt_hash_and_number)
     }
 
+    /// Returns state root from the latest confirmed block.
     pub fn get_latest_state_root(&self) -> Result<H256> {
         let state_root = self
             .storage
@@ -65,12 +72,14 @@ impl BlockService {
         Ok(state_root)
     }
 
+    /// Add new block to storage. This block must have passed validation before being added to storage. Once it is added to storage it becomes the latest confirmed block.
     pub fn connect_block(&self, block: &BlockAny) -> Result<()> {
         self.storage.put_latest_block(Some(block))?;
         self.storage.put_block(block)
     }
 
-    pub fn base_fee_calculation(
+    /// Finds base fee for block based on parent gas usage. Can be used to find base fee for next block if latest block data is passed.
+    pub fn get_base_fee(
         &self,
         parent_gas_used: u64,
         parent_gas_target: u64,
@@ -127,29 +136,23 @@ impl BlockService {
         ))
     }
 
-    pub fn get_base_fee(
-        &self,
-        parent_gas_used: u64,
-        parent_gas_target: u64,
-        parent_base_fee: U256,
-        base_fee_max_change_denominator: U256,
-        initial_base_fee: U256,
-        max_base_fee: U256,
-    ) -> Result<U256> {
-        self.base_fee_calculation(
-            parent_gas_used,
-            parent_gas_target,
-            parent_base_fee,
-            base_fee_max_change_denominator,
-            initial_base_fee,
-            max_base_fee,
-        )
+    /// Read attributes from DVM mnview. Falls back to defaults if `mnview_ptr` is `None`.
+    pub fn get_attribute_vals(&self, mnview_ptr: Option<usize>) -> Attributes {
+        ain_cpp_imports::get_attribute_values(mnview_ptr)
     }
 
-    pub fn calculate_base_fee(&self, parent_hash: H256) -> Result<U256> {
+    /// Calculate base fee from parent block hash and gas target factor.
+    ///
+    /// # Arguments
+    /// * `parent_hash` - Parent block hash
+    /// * `block_gas_target_factor` - Determines the gas target for the previous block using the formula `gas target = gas limit / target factor`
+    pub fn calculate_base_fee(
+        &self,
+        parent_hash: H256,
+        block_gas_target_factor: u64,
+    ) -> Result<U256> {
         // constants
         let base_fee_max_change_denominator = U256::from(8);
-        let elasticity_multiplier = U256::from(2);
 
         // first block has 1 gwei base fee
         if parent_hash == H256::zero() {
@@ -165,8 +168,7 @@ impl BlockService {
         let parent_base_fee = parent_block.header.base_fee;
         let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
         let parent_gas_target =
-            u64::try_from(parent_block.header.gas_limit / elasticity_multiplier)?; // safe to use normal division since we know elasticity_multiplier is non-zero
-
+            u64::try_from(parent_block.header.gas_limit / block_gas_target_factor)?; // safe to use normal division since we know block_gas_limit_factor is non-zero
         self.get_base_fee(
             parent_gas_used,
             parent_gas_target,
@@ -177,21 +179,19 @@ impl BlockService {
         )
     }
 
-    pub fn calculate_next_block_base_fee(&self) -> Result<U256> {
-        let current_block_data = self.get_latest_block_hash_and_number()?;
-        let current_block_hash = match current_block_data {
-            None => H256::zero(),
-            Some((hash, _)) => hash,
-        };
-
-        self.calculate_base_fee(current_block_hash)
-    }
-
+    /// Gets base fee, gas usage ratio and priority fees for a range of blocks. Used in `eth_feeHistory`.
+    ///
+    /// # Arguments
+    /// * `block_count` - Number of blocks' data to return.
+    /// * `first_block` - Block number of first block.
+    /// * `priority_fee_percentile` - Vector of percentiles. This will return percentile priority fee for all blocks. e.g. [20, 50, 70] will return 20th, 50th and 70th percentile priority fee for every block.
+    /// * `block_gas_target_factor` - Determines gas target. Used when latest `block_count` blocks are queried.
     pub fn fee_history(
         &self,
         block_count: usize,
         first_block: U256,
         priority_fee_percentile: Vec<usize>,
+        block_gas_target_factor: u64,
     ) -> Result<FeeHistoryData> {
         let mut blocks = Vec::with_capacity(block_count);
         let mut block_number = first_block;
@@ -297,9 +297,9 @@ impl BlockService {
                     .storage
                     .get_block_by_number(&first_block)?
                     .ok_or_else(|| format_err!("Block {} out of range", first_block))?;
-                self.calculate_base_fee(block.header.hash())?
+                self.calculate_base_fee(block.header.hash(), block_gas_target_factor)?
             }
-            Some(block) => self.calculate_base_fee(block.header.hash())?,
+            Some(block) => self.calculate_base_fee(block.header.hash(), block_gas_target_factor)?,
         };
 
         base_fee_per_gas.reverse();
@@ -315,9 +315,8 @@ impl BlockService {
         })
     }
 
-    /// Returns the 60th percentile priority fee for the last 20 blocks
-    /// Ref: https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41
-    /// TODO: these should be configurable by the user
+    /// Returns the 60th percentile priority fee for the last 20 blocks. [Reference](https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41)
+    // TODO: these should be configurable by the user
     pub fn suggested_priority_fee(&self) -> Result<U256> {
         let mut blocks = Vec::with_capacity(20);
         let block = self
@@ -365,6 +364,7 @@ impl BlockService {
         Ok(U256::from(data.percentile(60).ceil() as u64))
     }
 
+    /// Calculate suggested legacy fee from latest base fee and suggested priority fee.
     pub fn get_legacy_fee(&self) -> Result<U256> {
         let priority_fee = self.suggested_priority_fee()?;
         let base_fee = self

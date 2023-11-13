@@ -87,13 +87,13 @@ spin = "0.9.8"
 
 ### eth
 
-evm = { version = "0.39", default-features = false, features = ["with-serde"] }
+evm = { version = "0.39", default-features = false, features = ["with-serde", "tracing"] }
+evm-runtime = "0.39.0"
 
 ethereum = { git = "https://github.com/defich/ethereum.git" }
 ethereum-types = "0.14"
 keccak-hash = "0.10"
 rlp = "0.5"
-ethers = "2.0"
 ethers-solc = "2.0"
 ethbloom = "0.13"
 ethabi = "18.0.0"
@@ -106,7 +106,6 @@ hash-db = "0.16"
 sp-core = "22.0"
 vsdb_trie_db = { version = "0.7", git = "https://github.com/defich/vsdb.git", features = ["rocks_engine"] }
 vsdb_core = { version = "0.55", git = "https://github.com/defich/vsdb.git", features = ["rocks_engine", "compress"] }
-vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 
 #### Cache dependencies
 lru = "0.12"

@@ -10,6 +10,9 @@
   "alloc": {
     "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
       "balance": "0x09184e72a000"
+    },
+    "6be02d1d3665660d22ff9624b7be0551ee1ac91b": {
+      "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE0B"
     }
   },
   "config": {

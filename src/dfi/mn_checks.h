@@ -19,7 +19,6 @@ class BlockContext;
 class CTransaction;
 class CTxMemPool;
 class CCoinsViewCache;
-class TransactionContext;
 
 class CCustomCSView;
 
@@ -156,6 +155,65 @@ using CCustomTxMessage = std::variant<CCustomTxMessageNone,
                                       CTransferDomainMessage,
                                       CEvmTxMessage>;
 
+class BlockContext {
+    std::shared_ptr<CCustomCSView> cache;
+    CCustomCSView *view;
+    std::optional<bool> isEvmEnabledForBlock;
+    std::shared_ptr<CScopedTemplate> evmTemplate{};
+    bool evmPreValidate{};
+
+public:
+    explicit BlockContext(CCustomCSView *view = {},
+                          const std::optional<bool> enabled = {},
+                          const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
+                          const bool prevalidate = {})
+        : view(view),
+          isEvmEnabledForBlock(enabled),
+          evmTemplate(evmTemplate),
+          evmPreValidate(prevalidate) {}
+
+    [[nodiscard]] CCustomCSView &GetView();
+    [[nodiscard]] bool GetEVMEnabledForBlock();
+    [[nodiscard]] bool GetEVMPreValidate() const;
+    [[nodiscard]] const std::shared_ptr<CScopedTemplate> &GetEVMTemplate() const;
+
+    void SetView(CCustomCSView &other);
+    void SetEVMPreValidate(const bool other);
+    void SetEVMTemplate(const std::shared_ptr<CScopedTemplate> &evmTemplate);
+};
+
+class TransactionContext {
+    const CCoinsViewCache &coins;
+    const CTransaction &tx;
+    const Consensus::Params &consensus;
+    const uint32_t height{};
+    const uint64_t time{};
+    const uint32_t txn{};
+
+    std::vector<unsigned char> metadata;
+    std::optional<CustomTxType> txType;
+    std::optional<std::pair<Res, CCustomTxMessage>> txMessageResult;
+    bool metadataValidation{};
+
+public:
+    TransactionContext(const CCoinsViewCache &coins,
+                       const CTransaction &tx,
+                       const Consensus::Params &consensus,
+                       const uint32_t height = {},
+                       const uint64_t time = {},
+                       const uint32_t txn = {});
+
+    [[nodiscard]] const CCoinsViewCache &GetCoins() const;
+    [[nodiscard]] const CTransaction &GetTransaction() const;
+    [[nodiscard]] const Consensus::Params &GetConsensus() const;
+    [[nodiscard]] uint32_t GetHeight() const;
+    [[nodiscard]] uint64_t GetTime() const;
+    [[nodiscard]] uint32_t GetTxn() const;
+    [[nodiscard]] CustomTxType GetTxType();
+    [[nodiscard]] std::pair<Res, CCustomTxMessage> &GetTxMessage();
+    [[nodiscard]] bool GetMetadataValidation() const;
+};
+
 CCustomTxMessage customTypeToMessage(CustomTxType txType);
 bool IsMempooledCustomTxCreate(const CTxMemPool &pool, const uint256 &txid);
 Res RpcInfo(const CTransaction &tx, uint32_t height, CustomTxType &type, UniValue &results);
@@ -164,7 +222,7 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(BlockContext &blockCtx, const TransactionContext &txCtx, uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend = nullptr);
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 

@@ -1,20 +1,8 @@
-use ain_evm::{log::LogIndex, receipt::Receipt};
+use ain_evm::{bytes::Bytes, receipt::Receipt};
 use ethereum::{EIP658ReceiptData, Log};
 use ethereum_types::{H160, H256, U256};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct LogResult {
-    pub address: H160,
-    pub topics: Vec<H256>,
-    pub data: String,
-    pub block_number: U256,
-    pub block_hash: H256,
-    pub transaction_hash: H256,
-    pub transaction_index: String,
-    pub log_index: String,
-    pub removed: bool,
-}
+use crate::logs::LogResult;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -33,22 +21,6 @@ pub struct ReceiptResult {
     pub transaction_hash: H256,
     pub transaction_index: String,
     pub r#type: String,
-}
-
-impl From<LogIndex> for LogResult {
-    fn from(log: LogIndex) -> Self {
-        Self {
-            address: log.address,
-            topics: log.topics,
-            data: format!("0x{}", hex::encode(log.data)),
-            block_number: log.block_number,
-            block_hash: log.block_hash,
-            transaction_hash: log.transaction_hash,
-            transaction_index: format!("{:#x}", log.transaction_index),
-            log_index: format!("{:#x}", log.log_index),
-            removed: false,
-        }
-    }
 }
 
 impl From<Receipt> for ReceiptResult {
@@ -77,12 +49,12 @@ impl From<Receipt> for ReceiptResult {
                         )| LogResult {
                             address,
                             topics,
-                            data: format!("0x{}", hex::encode(data)),
+                            data: Bytes::from(data),
                             block_number: b.block_number,
                             block_hash: b.block_hash,
                             transaction_hash: b.tx_hash,
-                            transaction_index: format!("{:#x}", b.tx_index),
-                            log_index: { format!("{:#x}", b.logs_index + log_index) }, // safe since we sub the total number of logs during receipt generation
+                            transaction_index: b.tx_index.into(),
+                            log_index: (b.logs_index + log_index).into(), // safe since we sub the total number of logs during receipt generation
                             removed: false,
                         },
                     )

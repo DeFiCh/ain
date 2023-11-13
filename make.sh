@@ -67,6 +67,7 @@ setup_vars() {
 }
 
 main() {
+    _bash_version_check
     _setup_dir_env
     trap _cleanup 0 1 2 3 6 15 ERR
     cd "$_SCRIPT_DIR"
@@ -475,7 +476,7 @@ _run_clang_format() {
     fi 
 
     # shellcheck disable=SC2086
-    find src/dfi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
+    find src/dfi src/ffi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
         xargs -0 -I{} "${clang_formatters[$index]}" $fmt_args -i -style=file {}
 
     local whitelist_files=(src/miner.{cpp,h} src/txmempool.{cpp,h} src/validation.{cpp,h})
@@ -719,7 +720,7 @@ pkg_install_llvm() {
     _fold_end
 }
 
-pkg_install_rust() {
+pkg_user_install_rust() {
     _fold_start "pkg-install-rust"
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
         --default-toolchain="${RUST_DEFAULT_VERSION}" -y
@@ -782,7 +783,7 @@ clean_pkg_local_py_deps() {
   _safe_rm_rf "${python_venv}"
 }
 
-pkg_setup_rust() {
+pkg_user_setup_rust() {
     local rust_target
     # shellcheck disable=SC2119
     rust_target=$(get_rust_triplet)
@@ -1023,6 +1024,17 @@ END
 # Platform helpers
 # ---
 
+_bash_version_check() {
+    _bash_ver_err_exit() {
+        echo "Bash version 5+ required."; exit 1;
+    }
+    [ -z "$BASH_VERSION" ] && _bash_ver_err_exit
+    case $BASH_VERSION in 
+        5.*) return 0;;
+        *) _bash_ver_err_exit;; 
+    esac
+}
+
 _platform_init() {
     # Lazy init functions
     if [[ $(readlink -m . 2> /dev/null) != "${_SCRIPT_DIR}" ]]; then
@@ -1111,10 +1123,10 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
-    DEBIAN_FRONTEND=noninteractive pkg_install_rust
+    ci_setup_deps_target
 }
 
-_ci_setup_deps_target() {
+ci_setup_deps_target() {
     local target=${TARGET}
     case $target in
         # Nothing to do on host
@@ -1134,9 +1146,9 @@ _ci_setup_deps_target() {
     esac
 }
 
-ci_setup_deps_target() {
-    _ci_setup_deps_target
-    pkg_setup_rust
+ci_setup_user_deps() {
+    pkg_user_install_rust
+    pkg_user_setup_rust
 }
 
 # Public helpers

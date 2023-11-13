@@ -162,6 +162,8 @@ public:
 
     static Res GovVarVerifyMultiplier() { return Res::Err("Mutliplier cannot be zero"); }
 
+    static Res GovVarVerifyFactor() { return Res::Err("Factor cannot be zero"); }
+
     static Res GovVarVerifyPair() { return Res::Err("Exactly two entires expected for currency pair"); }
 
     static Res GovVarVerifyValues() { return Res::Err("Empty token / currency"); }
@@ -259,6 +261,8 @@ public:
     static Res GovVarValidateLoanTokenID(const uint32_t token) { return Res::Err("No loan token with id (%d)", token); }
 
     static Res GovVarValidateExcessAmount() { return Res::Err("Percentage exceeds 100%%"); }
+
+    static Res GovVarTokenAsString() { return Res::Err("Token should be defined as numeric ID"); }
 
     static Res GovVarValidateNegativeAmount() { return Res::Err("Amount must be a positive value"); }
 

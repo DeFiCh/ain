@@ -12,7 +12,6 @@
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 #include <ffi/cxx.h>
-#include <validation.h>
 
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
@@ -428,10 +427,6 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
 
     if (!isEvmEnabledForBlock) {
         return Res::Err("Cannot create tx, EVM is not enabled");
-    }
-
-    if (obj.evmTx.size() > static_cast<size_t>(EVM_TX_SIZE)) {
-        return Res::Err("evm tx size too large");
     }
 
     CrossBoundaryResult result;

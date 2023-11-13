@@ -2,9 +2,10 @@
 pub mod ffi {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Attributes {
-        pub block_gas_target: u64,
+        pub block_gas_target_factor: u64,
         pub block_gas_limit: u64,
         pub finality_count: u64,
+        pub rbf_fee_increment: u64,
     }
 
     #[derive(Debug, Clone)]
@@ -34,6 +35,7 @@ pub mod ffi {
         fn getDatadir() -> String;
         fn getNetwork() -> String;
         fn getEthMaxConnections() -> u32;
+        fn getEthMaxResponseByteSize() -> u32;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
         fn getPoolTransactions() -> Vec<TransactionData>;
@@ -41,14 +43,17 @@ pub mod ffi {
         fn getMinRelayTxFee() -> u64;
         fn getEthPrivKey(key: String) -> [u8; 32];
         fn getStateInputJSON() -> String;
-        fn getHighestBlock() -> i32;
-        fn getCurrentHeight() -> i32;
-        fn getAttributeDefaults() -> Attributes;
+        fn getEthSyncStatus() -> [i64; 2];
+        fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
         fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
         fn getClientVersion() -> String;
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;
         fn getNumConnections() -> i32;
+        fn getEccLruCacheCount() -> usize;
+        fn getEvmValidationLruCacheCount() -> usize;
+        fn isEthDebugRPCEnabled() -> bool;
+        fn isEthDebugTraceRPCEnabled() -> bool;
     }
 }

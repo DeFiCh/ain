@@ -7,7 +7,8 @@ edition = "2021"
 ain-cpp-imports = { path = "../ain-cpp-imports" }
 ain-contracts = { path = "../ain-contracts" }
 
-evm = { workspace = true, default-features = false, features = ["with-serde"] }
+evm = { workspace = true, default-features = false, features = ["with-serde", "tracing", "std"] }
+evm-runtime.workspace = true
 log.workspace = true
 rlp.workspace = true
 libsecp256k1.workspace = true
@@ -35,7 +36,6 @@ hash-db.workspace = true
 sp-core.workspace = true
 vsdb_trie_db = { workspace = true, features = ["rocks_engine"] }
 vsdb_core = { workspace = true, features = ["rocks_engine", "compress"] }
-vsdbsled = { workspace = true }
 
 # Runtime dependencies
 lazy_static.workspace = true

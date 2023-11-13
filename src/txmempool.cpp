@@ -855,18 +855,18 @@ bool CTxMemPool::CompareDepthAndScore(const uint256 &hasha, const uint256 &hashb
 }
 
 namespace {
-class DepthAndScoreComparator {
-public:
-    bool operator()(const CTxMemPool::indexed_transaction_set::const_iterator &a,
-                    const CTxMemPool::indexed_transaction_set::const_iterator &b) {
-        uint64_t counta = a->GetCountWithAncestors();
-        uint64_t countb = b->GetCountWithAncestors();
-        if (counta == countb) {
-            return CompareTxMemPoolEntryByScore()(*a, *b);
+    class DepthAndScoreComparator {
+    public:
+        bool operator()(const CTxMemPool::indexed_transaction_set::const_iterator &a,
+                        const CTxMemPool::indexed_transaction_set::const_iterator &b) {
+            uint64_t counta = a->GetCountWithAncestors();
+            uint64_t countb = b->GetCountWithAncestors();
+            if (counta == countb) {
+                return CompareTxMemPoolEntryByScore()(*a, *b);
+            }
+            return counta < countb;
         }
-        return counta < countb;
-    }
-};
+    };
 }  // namespace
 
 std::vector<CTxMemPool::indexed_transaction_set::const_iterator> CTxMemPool::GetSortedDepthAndScore() const {
@@ -1293,7 +1293,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
             {},
             true,
         };
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             coinsCache,
             tx,
             consensus,

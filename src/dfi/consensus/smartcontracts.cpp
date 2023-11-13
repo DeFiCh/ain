@@ -8,6 +8,7 @@
 #include <dfi/errors.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage &obj) const {
     const auto &consensus = txCtx.GetConsensus();

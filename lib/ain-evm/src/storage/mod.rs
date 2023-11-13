@@ -5,17 +5,13 @@ pub mod traits;
 
 use std::{collections::HashMap, path::Path};
 
-use ain_cpp_imports::Attributes;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 
 use self::{
     block_store::{BlockStore, DumpArg},
     cache::Cache,
-    traits::{
-        AttributesStorage, BlockStorage, FlushableStorage, ReceiptStorage, Rollback,
-        TransactionStorage,
-    },
+    traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
 };
 use crate::{log::LogIndex, receipt::Receipt, storage::traits::LogStorage, Result};
 
@@ -232,32 +228,5 @@ impl Rollback for Storage {
     fn disconnect_latest_block(&self) -> Result<()> {
         self.cache.disconnect_latest_block()?;
         self.blockstore.disconnect_latest_block()
-    }
-}
-
-impl AttributesStorage for Storage {
-    fn put_attributes(&self, attributes: Option<&Attributes>) -> Result<()> {
-        self.cache.put_attributes(attributes)?;
-        // self.blockstore.put_attributes(attributes)?;
-        Ok(())
-    }
-
-    fn get_attributes(&self) -> Result<Option<Attributes>> {
-        // let attributes = self.cache.get_attributes().or_else(|_| {
-        //     let attributes = self.blockstore.get_attributes();
-        //     if let Ok(Some(ref attr)) = attributes {
-        //         self.cache.put_attributes(Some(attr))?;
-        //     }
-        //     attributes
-        // })?;
-        // Ok(attributes)
-        Ok(None)
-    }
-}
-
-impl Storage {
-    pub fn get_attributes_or_default(&self) -> Result<Attributes> {
-        self.get_attributes()
-            .map(|attributes| attributes.unwrap_or_else(ain_cpp_imports::get_attribute_defaults))
     }
 }

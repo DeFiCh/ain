@@ -1,3 +1,5 @@
+//! Defichain EVM consensus, runtime and storage implementation
+
 mod backend;
 pub mod block;
 pub mod blocktemplate;
@@ -5,6 +7,7 @@ pub mod bytes;
 mod contract;
 pub mod core;
 mod ecrecover;
+mod eventlistener;
 pub mod evm;
 pub mod executor;
 pub mod fee;
@@ -12,6 +15,7 @@ pub mod filters;
 mod gas;
 mod genesis;
 pub mod log;
+mod opcode;
 mod precompiles;
 pub mod receipt;
 pub mod services;

@@ -62,6 +62,7 @@
 #include <warnings.h>
 
 #include <future>
+#include <memory>
 #include <string>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -110,10 +111,10 @@ bool CBlockIndexWorkComparator::operator()(const CBlockIndex *pa, const CBlockIn
 }
 
 namespace {
-BlockManager g_blockman;
+    BlockManager g_blockman;
 
-// Store subsidy at each reduction
-std::map<uint32_t, CAmount> subsidyReductions;
+    // Store subsidy at each reduction
+    std::map<uint32_t, CAmount> subsidyReductions;
 }  // namespace
 
 std::unique_ptr<CChainState> g_chainstate;
@@ -181,22 +182,22 @@ TBytes compactEnd;
 
 // Internal stuff
 namespace {
-CBlockIndex *pindexBestInvalid = nullptr;
+    CBlockIndex *pindexBestInvalid = nullptr;
 
-CCriticalSection cs_LastBlockFile;
-std::vector<CBlockFileInfo> vinfoBlockFile;
-int nLastBlockFile = 0;
-/** Global flag to indicate we should check to see if there are
- *  block/undo files that should be deleted.  Set on startup
- *  or if we allocate more file space when we're in prune mode
- */
-bool fCheckForPruning = false;
+    CCriticalSection cs_LastBlockFile;
+    std::vector<CBlockFileInfo> vinfoBlockFile;
+    int nLastBlockFile = 0;
+    /** Global flag to indicate we should check to see if there are
+     *  block/undo files that should be deleted.  Set on startup
+     *  or if we allocate more file space when we're in prune mode
+     */
+    bool fCheckForPruning = false;
 
-/** Dirty block index entries. */
-std::set<CBlockIndex *> setDirtyBlockIndex;
+    /** Dirty block index entries. */
+    std::set<CBlockIndex *> setDirtyBlockIndex;
 
-/** Dirty block file entries. */
-std::set<int> setDirtyFileInfo;
+    /** Dirty block file entries. */
+    std::set<int> setDirtyFileInfo;
 }  // namespace
 
 extern std::string ScriptToString(const CScript &script);
@@ -727,7 +728,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             true,
         };
 
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             view,
             tx,
             consensus,
@@ -1045,8 +1046,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         // TODO: We do multiple guess and parses. Streamline this later.
         // We also have IsEvmTx,  but we need the metadata here.
         std::vector<unsigned char> metadata;
-        CustomTxType txType = GuessCustomTxType(tx, metadata, true);
-        auto isEvmTx = txType == CustomTxType::EvmTx;
+        const auto txType = txCtx.GetTxType();
+        const auto isEvmTx = txType == CustomTxType::EvmTx;
         entry.SetCustomTxType(txType);
 
         if (!isEvmTx &&
@@ -1061,9 +1062,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         std::optional<EvmAddressData> ethSender{};
 
         if (isEvmTx || txType == CustomTxType::TransferDomain) {
-            auto txMessage = customTypeToMessage(txType);
-            res = CustomMetadataParse(height, consensus, metadata, txMessage);
-            if (!res) {
+            const auto &[r, txMessage] = txCtx.GetTxMessage();
+            if (!r) {
                 LogPrint(BCLog::MEMPOOL, "Failed to parse EVM tx metadata\n");
                 return state.Invalid(
                     ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_INVALID, "failed-to-parse-evm-tx-metadata");
@@ -1086,7 +1086,8 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             }
 
             CrossBoundaryResult result;
-            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(result, rawEVMTx);
+            auto txResult = evm_try_get_tx_miner_info_from_raw_tx(
+                result, rawEVMTx, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview)));
             if (!result.ok) {
                 LogPrint(BCLog::MEMPOOL, "EVM tx failed to get sender info %s\n", result.reason.c_str());
                 return state.Invalid(
@@ -2637,21 +2638,24 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) 
     return false;
 }
 
-static void LogApplyCustomTx(const CTransaction &tx, const int64_t start) {
+static void LogApplyCustomTx(TransactionContext &txCtx, const int64_t start) {
+    const auto &tx = txCtx.GetTransaction();
+    const auto txType = txCtx.GetTxType();
+
     // Only log once for one of the following categories. Log BENCH first for consistent formatting.
     if (LogAcceptCategory(BCLog::BENCH)) {
         std::vector<unsigned char> metadata;
         LogPrint(BCLog::BENCH,
                  "    - ApplyCustomTx: %s Type: %s Time: %.2fms\n",
                  tx.GetHash().ToString(),
-                 ToString(GuessCustomTxType(tx, metadata, false)),
+                 ToString(txType),
                  (GetTimeMicros() - start) * MILLI);
     } else if (LogAcceptCategory(BCLog::CUSTOMTXBENCH)) {
         std::vector<unsigned char> metadata;
         LogPrint(BCLog::CUSTOMTXBENCH,
                  "Bench::ApplyCustomTx: %s Type: %s Time: %.2fms\n",
                  tx.GetHash().ToString(),
-                 ToString(GuessCustomTxType(tx, metadata, false)),
+                 ToString(txType),
                  (GetTimeMicros() - start) * MILLI);
     }
 }
@@ -2738,7 +2742,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
                 BlockContext blockCtx{&mnview};
-                const auto txCtx = TransactionContext{
+                auto txCtx = TransactionContext{
                     view,
                     *block.vtx[i],
                     chainparams.GetConsensus(),
@@ -2991,6 +2995,12 @@ bool CChainState::ConnectBlock(const CBlock &block,
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
+    // Note: TaskGroup needs to be alive until the end of the boost IO pool completion.
+    // So, we allocate it outside of the pre-cache scope, and ensure it's cancelled on
+    // all return paths.
+    TaskGroup evmEccPreCacheTaskPool;
+    std::map<size_t, TransactionContext> txContexts;
+
     if (isEvmEnabledForBlock) {
         auto xvmRes = XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey);
         if (!xvmRes) {
@@ -3000,52 +3010,76 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                  "bad-xvm-coinbase");
         }
         blockCtx.SetEVMTemplate(
-            CScopedTemplate::Create(pindex->nHeight, xvmRes->evm.beneficiary, block.nBits, pindex->GetBlockTime()));
+            CScopedTemplate::Create(pindex->nHeight,
+                                    xvmRes->evm.beneficiary,
+                                    block.nBits,
+                                    pindex->GetBlockTime(),
+                                    static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
         if (!evmTemplate) {
             return state.Invalid(ValidationInvalidReason::CONSENSUS,
                                  error("%s: Failed to create block template", __func__),
                                  REJECT_INVALID,
                                  "bad-evm-template");
         }
-        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(
-            result, evmTemplate->GetTemplate(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&mnview))));
+        XResultThrowOnErr(evm_try_unsafe_update_state_in_template(result, evmTemplate->GetTemplate()));
 
-        {
+        auto eccPreCacheControl = gArgs.GetArg("-eccprecache", DEFAULT_ECC_PRECACHE_WORKERS);
+        auto isEccPreCacheEnabled = eccPreCacheControl == -1 || eccPreCacheControl > 0;
+        if (isEccPreCacheEnabled) {
             // Pre-warm validation cache
-            TaskGroup g;
             auto &pool = DfTxTaskPool->pool;
 
-            for (const auto &txRef : block.vtx) {
-                const auto &tx = *txRef;
+            auto isFirstTx = true;
+            for (uint32_t i{}; i < block.vtx.size(); i++) {
+                const auto &tx = *(block.vtx[i]);
+
                 if (tx.IsCoinBase()) {
                     continue;
                 }
-                std::vector<unsigned char> metadata;
-                const auto txType = GuessCustomTxType(tx, metadata, true);
+
+                auto txCtx = TransactionContext{
+                    view,
+                    tx,
+                    consensus,
+                    static_cast<uint32_t>(pindex->nHeight),
+                    static_cast<uint64_t>(pindex->GetBlockTime()),
+                    static_cast<uint32_t>(i),
+                };
+
+                const auto txType = txCtx.GetTxType();
+                txContexts.emplace(i, txCtx);
+
                 if (txType == CustomTxType::EvmTx) {
-                    CCustomTxMessage txMessage{CEvmTxMessage{}};
-                    const auto res =
-                        CustomMetadataParse(std::numeric_limits<uint32_t>::max(), consensus, metadata, txMessage);
-                    if (!res) {
+                    if (isFirstTx) {
+                        // Minor optimization: We skip the first one, since in most scenarios
+                        // it will result in a single duplicated computation of the first cache
+                        // not being available since validation will hit the cache request before
+                        // the pool completes the ECC recovery of the first one. This duplicate
+                        // adds up during fresh sync.
+                        isFirstTx = false;
                         continue;
                     }
 
-                    const auto obj = std::get<CEvmTxMessage>(txMessage);
-                    const auto rawEvmTx = HexStr(obj.evmTx);
+                    auto &[r, txMessage] = txCtx.GetTxMessage();
+                    if (!r) {
+                        continue;
+                    }
 
-                    g.AddTask();
-                    boost::asio::post(pool, [&g, rawEvmTx] {
-                        auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
-                        if (v) {
-                            XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                    evmEccPreCacheTaskPool.AddTask();
+                    boost::asio::post(pool, [&evmEccPreCacheTaskPool, evmMsg = std::move(txMessage)] {
+                        if (!evmEccPreCacheTaskPool.IsCancelled()) {
+                            const auto obj = std::get<CEvmTxMessage>(evmMsg);
+
+                            const auto rawEvmTx = HexStr(obj.evmTx);
+                            auto v = XResultValueLogged(evm_try_unsafe_make_signed_tx(result, rawEvmTx));
+                            if (v) {
+                                XResultStatusLogged(evm_try_unsafe_cache_signed_tx(result, rawEvmTx, *v));
+                            }
                         }
-                        g.RemoveTask();
+                        evmEccPreCacheTaskPool.RemoveTask();
                     });
                 }
             }
-
-            // We move ahead eagerly
-            g.WaitForCompletion();
         }
     }
 
@@ -3143,17 +3177,19 @@ bool CChainState::ConnectBlock(const CBlock &block,
             }
 
             const auto applyCustomTxTime = GetTimeMicros();
-            const auto txCtx = TransactionContext{
-                view,
-                tx,
-                consensus,
-                static_cast<uint32_t>(pindex->nHeight),
-                static_cast<uint64_t>(pindex->GetBlockTime()),
-                static_cast<uint32_t>(i),
-            };
+
+            auto txCtx = txContexts.count(i) ? txContexts.at(i)
+                                             : TransactionContext{
+                                                   view,
+                                                   tx,
+                                                   consensus,
+                                                   static_cast<uint32_t>(pindex->nHeight),
+                                                   static_cast<uint64_t>(pindex->GetBlockTime()),
+                                                   static_cast<uint32_t>(i),
+                                               };
             const auto res = ApplyCustomTx(blockCtx, txCtx);
 
-            LogApplyCustomTx(tx, applyCustomTxTime);
+            LogApplyCustomTx(txCtx, applyCustomTxTime);
             if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
                 if (pindex->nHeight >= consensus.DF8EunosHeight) {
                     return state.Invalid(
@@ -3251,6 +3287,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
         UpdateCoins(tx, view, i == 0 ? undoDummy : blockundo.vtxundo.back(), pindex->nHeight);
     }
+
+    // If it's not completed by now, we don't need it anymore.
+    // Bail here so that other concurrent tasks won't be awaiting on these
+    // unnecessarily.
+    evmEccPreCacheTaskPool.MarkCancelled();
 
     int64_t nTime3 = GetTimeMicros();
     nTimeConnect += nTime3 - nTime2;

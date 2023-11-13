@@ -272,6 +272,10 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
+        // Note: This is expected to be removed after DF23
+        if (Params().NetworkIDString() != CBaseChainParams::REGTEST && token->IsDAT()) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot update DAT token");
+        }
         tokenImpl = static_cast<const CTokenImplementation &>(*token);
         if (tokenImpl.IsPoolShare()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER,
@@ -665,7 +669,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         BlockContext blockCtx;
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
-        const auto txCtx = TransactionContext{
+        auto txCtx = TransactionContext{
             view,
             *tx,
             Params().GetConsensus(),

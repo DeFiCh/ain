@@ -86,12 +86,11 @@ pub mod ffi {
         fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
         fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
         fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
-        fn ain_rs_init_network_services(
-            result: &mut CrossBoundaryResult,
-            json_addr: &str,
-            grpc_addr: &str,
-            websockets_addr: &str,
-        );
+
+        // Networking
+        fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
 
@@ -163,6 +162,7 @@ pub mod ffi {
             miner_address: &str,
             difficulty: u32,
             timestamp: u64,
+            mnview_ptr: usize,
         ) -> &'static mut BlockTemplateWrapper;
 
         fn evm_try_unsafe_remove_template(
@@ -178,7 +178,6 @@ pub mod ffi {
         fn evm_try_unsafe_update_state_in_template(
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
-            mnview_ptr: usize,
         );
 
         fn evm_try_unsafe_get_next_valid_nonce_in_template(
@@ -315,6 +314,7 @@ pub mod ffi {
         fn evm_try_get_tx_miner_info_from_raw_tx(
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
+            mnview_ptr: usize,
         ) -> TxMinerInfo;
 
         fn evm_try_dispatch_pending_transactions_event(

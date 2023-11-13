@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use ain_evm::evm::EVMServices;
-use jsonrpsee::{
-    core::{Error, RpcResult},
-    proc_macros::rpc,
-};
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+
+use crate::errors::RPCError;
 
 #[rpc(server, client, namespace = "net")]
 pub trait MetachainNetRPC {
@@ -29,9 +28,7 @@ impl MetachainNetRPCModule {
 
 impl MetachainNetRPCServer for MetachainNetRPCModule {
     fn net_version(&self) -> RpcResult<String> {
-        let chain_id = ain_cpp_imports::get_chain_id()
-            .map_err(|e| Error::Custom(format!("ain_cpp_imports::get_chain_id error : {e:?}")))?;
-
+        let chain_id = ain_cpp_imports::get_chain_id().map_err(RPCError::Error)?;
         Ok(format!("{chain_id}"))
     }
 
