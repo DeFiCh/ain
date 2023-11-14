@@ -3810,7 +3810,8 @@ bool CChainState::DisconnectTip(CValidationState &state,
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
 
-        if (auto res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindexDelete->GetBlockHash().ToString())) {
+        if (auto res =
+                pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindexDelete->GetBlockHash().ToString())) {
             XResultThrowOnErr(evm_try_disconnect_latest_block(result));
         }
 
