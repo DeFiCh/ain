@@ -3809,7 +3809,11 @@ bool CChainState::DisconnectTip(CValidationState &state,
             mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
-        XResultThrowOnErr(evm_try_disconnect_latest_block(result));
+
+        if (auto res = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindexDelete->GetBlockHash().ToString())) {
+            XResultThrowOnErr(evm_try_disconnect_latest_block(result));
+        }
+
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
