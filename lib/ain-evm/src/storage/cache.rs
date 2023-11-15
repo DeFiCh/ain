@@ -14,7 +14,7 @@ pub struct Cache {
     blocks: Mutex<LruCache<U256, BlockAny>>,
     block_hashes: Mutex<LruCache<H256, U256>>,
     latest_block: RwLock<Option<BlockAny>>,
-    codes: Mutex<LruCache<H256, Vec<u8>>>,
+    contract_code: Mutex<LruCache<H256, Vec<u8>>>,
 }
 
 impl Cache {
@@ -31,7 +31,7 @@ impl Cache {
             block_hashes: Mutex::new(LruCache::new(
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
-            codes: Mutex::new(LruCache::new(
+            contract_code: Mutex::new(LruCache::new(
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
             latest_block: RwLock::new(None),
@@ -151,11 +151,11 @@ impl Rollback for Cache {
 
 impl Cache {
     pub fn get_code_by_hash(&self, hash: &H256) -> Result<Option<Vec<u8>>> {
-        Ok(self.codes.lock().get(hash).map(ToOwned::to_owned))
+        Ok(self.contract_code.lock().get(hash).map(ToOwned::to_owned))
     }
 
     pub fn put_code(&self, hash: H256, code: &[u8]) -> Result<()> {
-        self.codes.lock().put(hash, code.to_vec());
+        self.contract_code.lock().put(hash, code.to_vec());
         Ok(())
     }
 }
