@@ -610,35 +610,20 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
         "\nReturns mint information about specified masternodes (or all, if list of ids is empty).\n",
         {
             {
+                "depth",
+                RPCArg::Type::NUM,
+                RPCArg::Optional::OMITTED,
+                "Maximum depth, from the genesis block is the default",
+            }, {
                 "mintInfoCount",
                 RPCArg::Type::NUM,
                 RPCArg::Optional::OMITTED,
                 "The number of mint info to be displayed for each masternode. (Default: 5)",
-            }, {
-                "pagination",
-                RPCArg::Type::OBJ,
-                RPCArg::Optional::OMITTED,
-                "",
-                {
-                    {"start",
-                     RPCArg::Type::STR_HEX,
-                     RPCArg::Optional::OMITTED,
-                     "Optional first key to iterate from, in lexicographical order."
-                     "Typically it's set to last ID from previous request."},
-                    {"including_start",
-                     RPCArg::Type::BOOL,
-                     RPCArg::Optional::OMITTED,
-                     "If true, then iterate including starting position. False by default"},
-                    {"limit",
-                     RPCArg::Type::NUM,
-                     RPCArg::Optional::OMITTED,
-                     "Maximum number of orders to return, 1000000 by default"},
-                },
             },
         },
         RPCResult{"{id:{...},...}     (array) Json object with masternodes mint information\n"},
-        RPCExamples{HelpExampleCli("masternodesmintinfo", "'[mn_id]' 5") +
-                    HelpExampleRpc("masternodesmintinfo", "'[mn_id]' 5")},
+        RPCExamples{HelpExampleCli("masternodesmintinfo", "100000 5") +
+                    HelpExampleRpc("masternodesmintinfo", "100000 5")},
     }
         .Check(request);
 
@@ -648,85 +633,51 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
         return *res;
     }
 
-    // parse pagination
-    size_t limit = 1000000;
-    uint256 start = {};
-    bool including_start = true;
-    {
-        if (request.params.size() > 1) {
-            UniValue paginationObj = request.params[1].get_obj();
-            if (!paginationObj["limit"].isNull()) {
-                limit = (size_t)paginationObj["limit"].get_int64();
-            }
-            if (!paginationObj["start"].isNull()) {
-                including_start = false;
-                start = ParseHashV(paginationObj["start"], "start");
-            }
-            if (!paginationObj["including_start"].isNull()) {
-                including_start = paginationObj["including_start"].getBool();
-            }
-        }
-        if (limit == 0) {
-            limit = std::numeric_limits<decltype(limit)>::max();
-        }
-    }
-
     LOCK(cs_main);
 
-    std::vector<uint256> masternodes;
+    std::unordered_map<CKeyID, uint256> masternodeKeys;
     pcustomcsview->ForEachMasternode(
         [&](const uint256 &nodeId, CMasternode node) {
             if (!including_start) {
                 including_start = true;
                 return (true);
             }
-            masternodes.push_back(nodeId);
-            LogPrintf("Adding node id: %s", nodeId.GetHex());
+            masternodes[node->ownerAuthAddress] = nodeId;
+            masternodes[node->rewardAddress] = nodeId;
             limit--;
             return limit != 0;
         },
         start);
 
-    std::map<uint256, std::set<std::pair<int64_t, uint256>, std::greater<>>> nodesMintInfo;
-    auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
-        if (nodesMintInfo.find(masternodeID) == nodesMintInfo.end()) {
-            nodesMintInfo[masternodeID] = {};
-        }
-        auto tip = ::ChainActive()[blockHeight];
-        nodesMintInfo[masternodeID].insert(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
-        return true;
-    };
-
-    for (auto& nodeId : masternodes) {
-        LogPrintf("Getting node id: %s", nodeId.GetHex());
-        pcustomcsview->ForEachSubNode(
-            [&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>) {
-                return masternodeMintInfo(key.masternodeID, key.blockHeight);
-            },
-            SubNodeBlockTimeKey{nodeId, 0, std::numeric_limits<uint32_t>::max()});
-
-        pcustomcsview->ForEachMinterNode(
-            [&](const MNBlockTimeKey &key, CLazySerialize<int64_t>) {
-                return masternodeMintInfo(key.masternodeID, key.blockHeight);
-            },
-            MNBlockTimeKey{nodeId, std::numeric_limits<uint32_t>::max()});
+    int depth{std::numeric_limits<int>::max()};
+    if (!request.params[0].isNull()) {
+        depth = request.params[0].get_int();
     }
+    const auto currentHeight = ::ChainActive().Height();
+    depth = std::min(depth, currentHeight);
+    auto startBlock = currentHeight - depth;
 
-    auto tip = ::ChainActive()[Params().GetConsensus().DF7DakotaCrescentHeight - 1];
-    for (; tip; tip = tip->pprev) {
-        LogPrintf("Processing block: %d", tip->nHeight);
+    std::map<uint256, std::set<std::pair<int64_t, uint256>, std::greater<>>> nodesMintInfo;
+    auto tip = ::ChainActive()[currentHeight];
+    for (; tip && tip->nHeight > startBlock; tip = tip->pprev) {
+        LogPrintf("Processing block height: %d\n", tip->nHeight);
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id) {
-            if (nodesMintInfo.find(*id) == nodesMintInfo.end()) {
-                nodesMintInfo[*id] = {};
+            if (masternodeKeys.find(tip->minterKey()) == masternodeKeys.end()) {
+                LogPrintf("Cannot find block's minter key in masternode keys\n");
+                continue;
             }
-            nodesMintInfo[*id].insert(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
+            auto nodeId = masternodeKeys[tip->minterKey()];
+            if (nodesMintInfo.find(nodeId) == nodesMintInfo.end()) {
+                nodesMintInfo[nodeId] = {};
+            }
+            nodesMintInfo[nodeId].insert(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
         }
     }
 
     int display = 5;
-    if (!request.params[0].isNull()) {
-        display = request.params[0].get_int();
+    if (!request.params[1].isNull()) {
+        display = request.params[1].get_int();
     }
 
     UniValue ret(UniValue::VOBJ);
