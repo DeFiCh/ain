@@ -629,7 +629,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
     auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
         const auto node = pcustomcsview->GetMasternode(masternodeID);
         if (nodesMintInfo.find(masternodeID) == nodesMintInfo.end()) {
-            nodesMintInfo[masternodeID] = std::set<<std::pair<int64_t, uint256>, std::greater<>>{};
+            nodesMintInfo[masternodeID] = std::set<<std::pair<int64_t, uint256>, std::greater<>>>{};
         }
         auto info = &nodesMintInfo[masternodeID];
         auto tip = ::ChainActive()[blockHeight];
