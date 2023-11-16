@@ -625,7 +625,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    std::map<uint256, std::set<<std::pair<int64_t, uint256>, std::greater<>> nodesMintInfo;
+    std::map<uint256, std::set<<std::pair<int64_t, uint256>, std::greater<>>> nodesMintInfo;
     auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
         const auto node = pcustomcsview->GetMasternode(masternodeID);
         if (nodesMintInfo.find(masternodeID) == nodesMintInfo.end()) {
@@ -655,7 +655,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
         auto info = &nodesMintInfo[id];
         if (id) {
             if (nodesMintInfo.find(id) == nodesMintInfo.end()) {
-                nodesMintInfo[id] = std::set<<std::pair<int64_t, uint256>, std::greater<>>{};
+                nodesMintInfo[id] = std::set<<std::pair<int64_t, uint256>, std::greater<>>>{};
             }
             auto info = &nodesMintInfo[id];
             info.push_back(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
