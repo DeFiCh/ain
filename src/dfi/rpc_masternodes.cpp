@@ -642,8 +642,8 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
                 including_start = true;
                 return (true);
             }
-            masternodes[node->ownerAuthAddress] = nodeId;
-            masternodes[node->rewardAddress] = nodeId;
+            masternodes[node.ownerAuthAddress] = nodeId;
+            masternodes[node.rewardAddress] = nodeId;
             limit--;
             return limit != 0;
         },
