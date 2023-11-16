@@ -1166,6 +1166,7 @@ static const CRPCCommand commands[] = {
     {"masternodes", "resignmasternode",         &resignmasternode,         {"mn_id", "inputs"}                          },
     {"masternodes", "updatemasternode",         &updatemasternode,         {"mn_id", "values", "inputs"}                },
     {"masternodes", "listmasternodes",          &listmasternodes,          {"pagination", "verbose"}                    },
+    {"masternodes", "masternodesmintinfo",      &masternodesmintinfo,      {"mintInfoCount", "pagination"}              },
     {"masternodes", "getmasternode",            &getmasternode,            {"mn_id"}                                    },
     {"masternodes", "getmasternodeblocks",      &getmasternodeblocks,      {"identifier", "depth"}                      },
     {"masternodes", "getanchorteams",           &getanchorteams,           {"blockHeight"}                              },
