@@ -131,13 +131,17 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    const auto myIDs = pcustomcsview->AmIOperator();
-    if (!myIDs) {
-        return Res::Err("Node has no operators");
-    }
-    const auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-    if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
-        return Res::Err("Node is not active");
+    std::optional<std::pair<CKeyID, uint256>> myIDs;
+    std::optional<CMasternode> nodePtr;
+    if (!blockTime) {
+        myIDs = pcustomcsview->AmIOperator();
+        if (!myIDs) {
+            return Res::Err("Node has no operators");
+        }
+        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
+            return Res::Err("Node is not active");
+        }
     }
 
     auto consensus = chainparams.GetConsensus();
@@ -439,7 +443,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     pblock->hashPrevBlock = pindexPrev->GetBlockHash();
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
-    if (!blockTime) {
+    if (myIDs) {
         pblock->stakeModifier = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
