@@ -625,12 +625,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    int lastHeight{};
-    const auto currentHeight = ::ChainActive().Height();
-    depth = std::min(depth, currentHeight);
-    auto startBlock = currentHeight - depth;
     std::map<uint256, std::set<<std::pair<int64_t, uint256>, std::greater<>> nodesMintInfo;
-
     auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
         const auto node = pcustomcsview->GetMasternode(masternodeID);
         if (nodesMintInfo.find(masternodeID) == nodesMintInfo.end()) {
@@ -653,16 +648,16 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
         },
         MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
 
-    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DF7DakotaCrescentHeight) - 1];
+    auto tip = ::ChainActive()[Params().GetConsensus().DF7DakotaCrescentHeight - 1];
 
-    for (; tip && tip->nHeight > creationHeight && tip->nHeight > startBlock; tip = tip->pprev) {
+    for (; tip; tip = tip->pprev) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         auto info = &nodesMintInfo[id];
         if (id) {
             if (nodesMintInfo.find(id) == nodesMintInfo.end()) {
-                nodesMintInfo[masternodeID] = std::set<<std::pair<int64_t, uint256>, std::greater<>>{};
+                nodesMintInfo[id] = std::set<<std::pair<int64_t, uint256>, std::greater<>>{};
             }
-            auto info = &nodesMintInfo[masternodeID];
+            auto info = &nodesMintInfo[id];
             info.push_back(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
         }
     }
