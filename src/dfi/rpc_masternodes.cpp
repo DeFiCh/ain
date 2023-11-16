@@ -775,8 +775,8 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
             UniValue mintedBlockTimes(UniValue::VARR);
             UniValue mintedBlockHashes(UniValue::VARR);
             for (int i = 0; i < display; ++i) {
-                mintedBlockTimes.push_back(nodesMintInfo[masternodeID].first);
-                mintedBlockHashes.push_back(nodesMintInfo[masternodeID].second);
+                mintedBlockTimes.push_back(nodesMintInfo[masternodeID][i].first);
+                mintedBlockHashes.push_back(nodesMintInfo[masternodeID][i].second);
             }
             obj.pushKV("mintedBlockTimes", mintedBlockTimes);
             obj.pushKV("mintedBlockHashes", mintedBlockHashes);
