@@ -745,12 +745,12 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
             } else {
                 obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
             }
-            obj.pushKV("state", CMasternode::GetHumanReadableState(node->GetState(currentHeight, view)));
+            obj.pushKV("state", CMasternode::GetHumanReadableState(node->GetState(currentHeight, *pcustomcsview)));
             obj.pushKV("mintedBlocks", (uint64_t)node->mintedBlocks);
 
             const auto timelock = pcustomcsview->GetTimelock(masternodeID, *node, currentHeight);
             // Only get targetMultiplier for active masternodes
-            if (timelock && node->IsActive(currentHeight, view)) {
+            if (timelock && node->IsActive(currentHeight, *pcustomcsview)) {
                 // Get block times with next block as height
                 const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(
                     node->operatorAuthAddress, currentHeight + 1, node->creationHeight, *timelock);
@@ -780,7 +780,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
                     break;
                 }
                 mintedBlockTimes.push_back(it.first);
-                mintedBlockHashes.push_back(it.second);
+                mintedBlockHashes.push_back(it.second.GetHex());
                 count++;
             }
             obj.pushKV("mintedBlockTimes", mintedBlockTimes);
