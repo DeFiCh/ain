@@ -772,12 +772,11 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
                 }
             }
 
-            auto info = &nodesMintInfo[masternodeID];
             UniValue mintedBlockTimes(UniValue::VARR);
             UniValue mintedBlockHashes(UniValue::VARR);
             for (int i = 0; i < display; ++i) {
-                mintedBlockTimes.push_back(info[i]->first);
-                mintedBlockHashes.push_back(info[i].second);
+                mintedBlockTimes.push_back(nodesMintInfo[masternodeID].first);
+                mintedBlockHashes.push_back(nodesMintInfo[masternodeID].second);
             }
             obj.pushKV("mintedBlockTimes", mintedBlockTimes);
             obj.pushKV("mintedBlockHashes", mintedBlockHashes);
