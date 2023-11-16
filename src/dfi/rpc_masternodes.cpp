@@ -607,13 +607,38 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     RPCHelpMan{
         "masternodesmintinfo",
-        "\nReturns mint information about all masternodes.\n",
-        {{"mintInfoCount",
-          RPCArg::Type::NUM,
-          RPCArg::Optional::OMITTED,
-          "The number of mint info to be displayed for each masternode. (Default: 5)"}},
+        "\nReturns mint information about specified masternodes (or all, if list of ids is empty).\n",
+        {
+            {
+                "mintInfoCount",
+                RPCArg::Type::NUM,
+                RPCArg::Optional::OMITTED,
+                "The number of mint info to be displayed for each masternode. (Default: 5)",
+            }, {
+                "pagination",
+                RPCArg::Type::OBJ,
+                RPCArg::Optional::OMITTED,
+                "",
+                {
+                    {"start",
+                     RPCArg::Type::STR_HEX,
+                     RPCArg::Optional::OMITTED,
+                     "Optional first key to iterate from, in lexicographical order."
+                     "Typically it's set to last ID from previous request."},
+                    {"including_start",
+                     RPCArg::Type::BOOL,
+                     RPCArg::Optional::OMITTED,
+                     "If true, then iterate including starting position. False by default"},
+                    {"limit",
+                     RPCArg::Type::NUM,
+                     RPCArg::Optional::OMITTED,
+                     "Maximum number of orders to return, 1000000 by default"},
+                },
+            },
+        },
         RPCResult{"{id:{...},...}     (array) Json object with masternodes mint information\n"},
-        RPCExamples{HelpExampleCli("masternodesmintinfo", "5") + HelpExampleRpc("masternodesmintinfo", "5")},
+        RPCExamples{HelpExampleCli("masternodesmintinfo", "'[mn_id]' 5") +
+                    HelpExampleRpc("masternodesmintinfo", "'[mn_id]' 5")},
     }
         .Check(request);
 
@@ -623,7 +648,43 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
         return *res;
     }
 
+    // parse pagination
+    size_t limit = 1000000;
+    uint256 start = {};
+    bool including_start = true;
+    {
+        if (request.params.size() > 1) {
+            UniValue paginationObj = request.params[1].get_obj();
+            if (!paginationObj["limit"].isNull()) {
+                limit = (size_t)paginationObj["limit"].get_int64();
+            }
+            if (!paginationObj["start"].isNull()) {
+                including_start = false;
+                start = ParseHashV(paginationObj["start"], "start");
+            }
+            if (!paginationObj["including_start"].isNull()) {
+                including_start = paginationObj["including_start"].getBool();
+            }
+        }
+        if (limit == 0) {
+            limit = std::numeric_limits<decltype(limit)>::max();
+        }
+    }
+
     LOCK(cs_main);
+
+    std::vector<uint256> masternodes;
+    pcustomcsview->ForEachMasternode(
+        [&](const uint256 &nodeId, CMasternode node) {
+            if (!including_start) {
+                including_start = true;
+                return (true);
+            }
+            masternodes.push_back(nodeId);
+            limit--;
+            return limit != 0;
+        },
+        start);
 
     std::map<uint256, std::set<std::pair<int64_t, uint256>, std::greater<>>> nodesMintInfo;
     auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
@@ -632,22 +693,24 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
         }
         auto tip = ::ChainActive()[blockHeight];
         nodesMintInfo[masternodeID].insert(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
+        return true;
+    };
+
+    for (auto& nodeId : masternodes) {
+        pcustomcsview->ForEachSubNode(
+            [&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>) {
+                return masternodeMintInfo(key.masternodeID, key.blockHeight);
+            },
+            SubNodeBlockTimeKey{nodeId, 0, std::numeric_limits<uint32_t>::max()});
+
+        pcustomcsview->ForEachMinterNode(
+            [&](const MNBlockTimeKey &key, CLazySerialize<int64_t>) {
+                return masternodeMintInfo(key.masternodeID, key.blockHeight);
+            },
+            MNBlockTimeKey{nodeId, std::numeric_limits<uint32_t>::max()});
     }
 
-    pcustomcsview->ForEachSubNode(
-        [&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>) {
-            return masternodeMintInfo(key.masternodeID, key.blockHeight);
-        },
-        SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
-
-    pcustomcsview->ForEachMinterNode(
-        [&](const MNBlockTimeKey &key, CLazySerialize<int64_t>) {
-            return masternodeMintInfo(key.masternodeID, key.blockHeight);
-        },
-        MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
-
     auto tip = ::ChainActive()[Params().GetConsensus().DF7DakotaCrescentHeight - 1];
-
     for (; tip; tip = tip->pprev) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id) {
@@ -664,6 +727,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
     }
 
     UniValue ret(UniValue::VOBJ);
+    auto currentHeight = ChainActive().Height();
     for (const auto &[masternodeID, info] : nodesMintInfo) {
         auto node = pcustomcsview->GetMasternode(masternodeID);
         if (node) {
@@ -683,6 +747,8 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
             }
             obj.pushKV("state", CMasternode::GetHumanReadableState(node->GetState(currentHeight, view)));
             obj.pushKV("mintedBlocks", (uint64_t)node->mintedBlocks);
+
+            const auto timelock = pcustomcsview->GetTimelock(masternodeID, *node, currentHeight);
             // Only get targetMultiplier for active masternodes
             if (timelock && node->IsActive(currentHeight, view)) {
                 // Get block times with next block as height
