@@ -602,6 +602,134 @@ UniValue listmasternodes(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue masternodesmintinfo(const JSONRPCRequest &request) {
+    auto pwallet = GetWallet(request);
+
+    RPCHelpMan{
+        "masternodesmintinfo",
+        "\nReturns mint information about all masternodes.\n",
+        {{"mintInfoCount",
+          RPCArg::Type::NUM,
+          RPCArg::Optional::OMITTED,
+          "The number of mint info to be displayed for each masternode. (Default: 5)"}},
+        RPCResult{"{id:{...},...}     (array) Json object with masternodes mint information\n"},
+        RPCExamples{HelpExampleCli("masternodesmintinfo", "5") + HelpExampleRpc("masternodesmintinfo", "5")},
+    }
+        .Check(request);
+
+    SyncWithValidationInterfaceQueue();
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+
+    LOCK(cs_main);
+
+    int lastHeight{};
+    const auto currentHeight = ::ChainActive().Height();
+    depth = std::min(depth, currentHeight);
+    auto startBlock = currentHeight - depth;
+    std::map<uint256, std::set<<std::pair<int64_t, uint256>, std::greater<>> nodesMintInfo;
+
+    auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
+        const auto node = pcustomcsview->GetMasternode(masternodeID);
+        if (nodesMintInfo.find(masternodeID) == nodesMintInfo.end()) {
+            nodesMintInfo[masternodeID] = std::set<<std::pair<int64_t, uint256>, std::greater<>>{};
+        }
+        auto info = &nodesMintInfo[masternodeID];
+        auto tip = ::ChainActive()[blockHeight];
+        info.push_back(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
+    }
+
+    pcustomcsview->ForEachSubNode(
+        [&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>) {
+            return masternodeMintInfo(key.masternodeID, key.blockHeight);
+        },
+        SubNodeBlockTimeKey{mn_id, 0, std::numeric_limits<uint32_t>::max()});
+
+    pcustomcsview->ForEachMinterNode(
+        [&](const MNBlockTimeKey &key, CLazySerialize<int64_t>) {
+            return masternodeMintInfo(key.masternodeID, key.blockHeight);
+        },
+        MNBlockTimeKey{mn_id, std::numeric_limits<uint32_t>::max()});
+
+    auto tip = ::ChainActive()[std::min(lastHeight, Params().GetConsensus().DF7DakotaCrescentHeight) - 1];
+
+    for (; tip && tip->nHeight > creationHeight && tip->nHeight > startBlock; tip = tip->pprev) {
+        auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
+        auto info = &nodesMintInfo[id];
+        if (id) {
+            if (nodesMintInfo.find(id) == nodesMintInfo.end()) {
+                nodesMintInfo[masternodeID] = std::set<<std::pair<int64_t, uint256>, std::greater<>>{};
+            }
+            auto info = &nodesMintInfo[masternodeID];
+            info.push_back(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
+        }
+    }
+
+    int display = 5;
+    if (!request.params[0].isNull()) {
+        display = request.params[0].get_int();
+    }
+
+    UniValue ret(UniValue::VOBJ);
+    for (const auto &[masternodeID, info] : nodesMintInfo) {
+        node = pcustomcsview->GetMasternode(masternodeID);
+        if (node) {
+            UniValue obj(UniValue::VOBJ);
+            CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(
+                node.ownerAuthAddress, TxDestTypeToKeyType(node.ownerType), KeyType::MNOwnerKeyType);
+            obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
+            CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(
+                node.operatorAuthAddress, TxDestTypeToKeyType(node.operatorType), KeyType::MNOperatorKeyType);
+            obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
+            if (node.rewardAddressType != 0) {
+                obj.pushKV("rewardAddress",
+                        EncodeDestination(FromOrDefaultKeyIDToDestination(
+                            node.rewardAddress, TxDestTypeToKeyType(node.rewardAddressType), KeyType::MNRewardKeyType)));
+            } else {
+                obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
+            }
+            obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight, view)));
+            obj.pushKV("mintedBlocks", (uint64_t)node.mintedBlocks);
+            // Only get targetMultiplier for active masternodes
+            if (timelock && node.IsActive(currentHeight, view)) {
+                // Get block times with next block as height
+                const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(
+                    node.operatorAuthAddress, currentHeight + 1, node.creationHeight, *timelock);
+
+                if (currentHeight >= Params().GetConsensus().DF10EunosPayaHeight) {
+                    const uint8_t loops = *timelock == CMasternode::TENYEAR    ? 4
+                                        : *timelock == CMasternode::FIVEYEAR ? 3
+                                                                            : 2;
+                    UniValue multipliers(UniValue::VARR);
+                    for (uint8_t i{0}; i < loops; ++i) {
+                        multipliers.push_back(
+                            pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[i]).getdouble());
+                    }
+                    obj.pushKV("targetMultipliers", multipliers);
+                } else {
+                    obj.pushKV(
+                        "targetMultiplier",
+                        pos::CalcCoinDayWeight(Params().GetConsensus(), GetTime(), subNodesBlockTime[0]).getdouble());
+                }
+            }
+
+            auto info = &nodesMintInfo[masternodeID];
+            UniValue mintedBlockTimes(UniValue::VARR);
+            UniValue mintedBlockHashes(UniValue::VARR);
+            for (int i = 0; i < display; ++i) {
+                mintedBlockTimes.push_back(info[i].first);
+                mintedBlockHashes.push_back(info[i].second);
+            }
+            obj.pushKV("mintedBlockTimes", mintedBlockTimes);
+            obj.pushKV("mintedBlockHashes", mintedBlockHashes);
+            ret.pushKV(nodeId.GetHex(), obj);
+        }
+    }
+    return GetRPCResultCache().Set(request, ret);
+}
+
 UniValue getmasternode(const JSONRPCRequest &request) {
     RPCHelpMan{
         "getmasternode",
