@@ -627,13 +627,11 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     std::map<uint256, std::set<std::pair<int64_t, uint256>, std::greater<>>> nodesMintInfo;
     auto masternodeMintInfo = [&] (const uint256 &masternodeID, int blockHeight) {
-        const auto node = pcustomcsview->GetMasternode(masternodeID);
         if (nodesMintInfo.find(masternodeID) == nodesMintInfo.end()) {
             nodesMintInfo[masternodeID] = {};
         }
-        auto info = &nodesMintInfo[masternodeID];
         auto tip = ::ChainActive()[blockHeight];
-        info.push_back(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
+        nodesMintInfo[masternodeID].insert(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
     }
 
     pcustomcsview->ForEachSubNode(
@@ -652,13 +650,11 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     for (; tip; tip = tip->pprev) {
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
-        auto info = &nodesMintInfo[id];
         if (id) {
-            if (nodesMintInfo.find(id) == nodesMintInfo.end()) {
-                nodesMintInfo[id] = {};
+            if (nodesMintInfo.find(*id) == nodesMintInfo.end()) {
+                nodesMintInfo[*id] = {};
             }
-            auto info = &nodesMintInfo[id];
-            info.push_back(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
+            nodesMintInfo[*id].insert(std::make_pair(tip->GetBlockTime(), tip->GetBlockHash()));
         }
     }
 
@@ -669,29 +665,29 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     UniValue ret(UniValue::VOBJ);
     for (const auto &[masternodeID, info] : nodesMintInfo) {
-        node = pcustomcsview->GetMasternode(masternodeID);
+        auto node = pcustomcsview->GetMasternode(masternodeID);
         if (node) {
             UniValue obj(UniValue::VOBJ);
             CTxDestination ownerDest = FromOrDefaultKeyIDToDestination(
-                node.ownerAuthAddress, TxDestTypeToKeyType(node.ownerType), KeyType::MNOwnerKeyType);
+                node->ownerAuthAddress, TxDestTypeToKeyType(node->ownerType), KeyType::MNOwnerKeyType);
             obj.pushKV("ownerAuthAddress", EncodeDestination(ownerDest));
             CTxDestination operatorDest = FromOrDefaultKeyIDToDestination(
-                node.operatorAuthAddress, TxDestTypeToKeyType(node.operatorType), KeyType::MNOperatorKeyType);
+                node->operatorAuthAddress, TxDestTypeToKeyType(node->operatorType), KeyType::MNOperatorKeyType);
             obj.pushKV("operatorAuthAddress", EncodeDestination(operatorDest));
-            if (node.rewardAddressType != 0) {
+            if (node->rewardAddressType != 0) {
                 obj.pushKV("rewardAddress",
                         EncodeDestination(FromOrDefaultKeyIDToDestination(
-                            node.rewardAddress, TxDestTypeToKeyType(node.rewardAddressType), KeyType::MNRewardKeyType)));
+                            node->rewardAddress, TxDestTypeToKeyType(node->rewardAddressType), KeyType::MNRewardKeyType)));
             } else {
                 obj.pushKV("rewardAddress", EncodeDestination(CTxDestination()));
             }
-            obj.pushKV("state", CMasternode::GetHumanReadableState(node.GetState(currentHeight, view)));
-            obj.pushKV("mintedBlocks", (uint64_t)node.mintedBlocks);
+            obj.pushKV("state", CMasternode::GetHumanReadableState(node->GetState(currentHeight, view)));
+            obj.pushKV("mintedBlocks", (uint64_t)node->mintedBlocks);
             // Only get targetMultiplier for active masternodes
-            if (timelock && node.IsActive(currentHeight, view)) {
+            if (timelock && node->IsActive(currentHeight, view)) {
                 // Get block times with next block as height
                 const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(
-                    node.operatorAuthAddress, currentHeight + 1, node.creationHeight, *timelock);
+                    node->operatorAuthAddress, currentHeight + 1, node->creationHeight, *timelock);
 
                 if (currentHeight >= Params().GetConsensus().DF10EunosPayaHeight) {
                     const uint8_t loops = *timelock == CMasternode::TENYEAR    ? 4
@@ -714,12 +710,12 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
             UniValue mintedBlockTimes(UniValue::VARR);
             UniValue mintedBlockHashes(UniValue::VARR);
             for (int i = 0; i < display; ++i) {
-                mintedBlockTimes.push_back(info[i].first);
+                mintedBlockTimes.push_back(info[i]->first);
                 mintedBlockHashes.push_back(info[i].second);
             }
             obj.pushKV("mintedBlockTimes", mintedBlockTimes);
             obj.pushKV("mintedBlockHashes", mintedBlockHashes);
-            ret.pushKV(nodeId.GetHex(), obj);
+            ret.pushKV(masternodeID.GetHex(), obj);
         }
     }
     return GetRPCResultCache().Set(request, ret);
