@@ -779,8 +779,8 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
                 if (count == display) {
                     break;
                 }
-                mintedBlockTimes.push_back(it->first);
-                mintedBlockHashes.push_back(it->second);
+                mintedBlockTimes.push_back(it.first);
+                mintedBlockHashes.push_back(it.second);
                 count++;
             }
             obj.pushKV("mintedBlockTimes", mintedBlockTimes);
