@@ -681,6 +681,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
                 return (true);
             }
             masternodes.push_back(nodeId);
+            LogPrintf("Adding node id: %s", nodeId.GetHex());
             limit--;
             return limit != 0;
         },
@@ -697,6 +698,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
     };
 
     for (auto& nodeId : masternodes) {
+        LogPrintf("Getting node id: %s", nodeId.GetHex());
         pcustomcsview->ForEachSubNode(
             [&](const SubNodeBlockTimeKey &key, CLazySerialize<int64_t>) {
                 return masternodeMintInfo(key.masternodeID, key.blockHeight);
@@ -712,6 +714,7 @@ UniValue masternodesmintinfo(const JSONRPCRequest &request) {
 
     auto tip = ::ChainActive()[Params().GetConsensus().DF7DakotaCrescentHeight - 1];
     for (; tip; tip = tip->pprev) {
+        LogPrintf("Processing block: %d", tip->nHeight);
         auto id = pcustomcsview->GetMasternodeIdByOperator(tip->minterKey());
         if (id) {
             if (nodesMintInfo.find(*id) == nodesMintInfo.end()) {
