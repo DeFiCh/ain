@@ -802,12 +802,12 @@ impl MetachainRPCServer for MetachainRPCModule {
                 if balance < value {
                     return Err(RPCError::InsufficientFunds.into());
                 }
-                available = balance.checked_sub(value).ok_or(RPCError::ValueOverflow)?;
+                available = balance.checked_sub(value).ok_or(RPCError::ValueUnderflow)?;
             }
 
             let allowance = available
                 .checked_div(fee_cap)
-                .ok_or(RPCError::ValueOverflow)?;
+                .ok_or(RPCError::DivideByZero)?;
             debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
 
             if let Ok(allowance) = u64::try_from(allowance) {
@@ -849,7 +849,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         while lo + 1 < hi {
             let sum = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
-            let mid = sum.checked_div(2u64).ok_or(RPCError::ValueOverflow)?;
+            let mid = sum.checked_div(2u64).ok_or(RPCError::DivideByZero)?;
 
             let (failed, ..) = executable(mid)?;
             if failed {
