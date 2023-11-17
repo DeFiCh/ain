@@ -136,52 +136,82 @@ private:
 // LevelDB glue layer storage
 class CStorageLevelDB : public CStorageKV {
 public:
+    // Normal constructor
     explicit CStorageLevelDB(const fs::path& dbName, std::size_t cacheSize, bool fMemory = false, bool fWipe = false)
-        : db{dbName, cacheSize, fMemory, fWipe}, batch(db) {}
+        : db{std::make_shared<CDBWrapper>(dbName, cacheSize, fMemory, fWipe)}, batch(*db) {}
+
+    // Snapshot constructor
+    explicit CStorageLevelDB(std::shared_ptr<CDBWrapper> &db, std::unique_ptr<CStorageSnapshot> &otherSnapshot)
+            : db(db), batch(*db), snapshot(std::move(otherSnapshot)) {
+        options.snapshot = snapshot->GetLevelDBSnapshot();
+    }
+
     ~CStorageLevelDB() override = default;
 
     bool Exists(const TBytes& key) const override {
-        return db.Exists(refTBytes(key));
+        if (snapshot) {
+            return db->Exists(refTBytes(key), options);
+        }
+        return db->Exists(refTBytes(key));
     }
     bool Write(const TBytes& key, const TBytes& value) override {
+        if (snapshot) return false;
         batch.Write(refTBytes(key), refTBytes(value));
         return true;
     }
     bool Erase(const TBytes& key) override {
+        if (snapshot) return false;
         batch.Erase(refTBytes(key));
         return true;
     }
     bool Read(const TBytes& key, TBytes& value) const override {
         auto rawVal = refTBytes(value);
-        return db.Read(refTBytes(key), rawVal);
+        if (snapshot) {
+            return db->Read(refTBytes(key), rawVal, options);
+        }
+        return db->Read(refTBytes(key), rawVal);
     }
     bool Flush() override { // Commit batch
-        auto result = db.WriteBatch(batch);
+        if (snapshot) return false;
+        auto result = db->WriteBatch(batch);
         batch.Clear();
         return result;
     }
     void Discard() override {
+        if (snapshot) return;
         batch.Clear();
     }
     size_t SizeEstimate() const override {
+        if (snapshot) return 0;
         return batch.SizeEstimate();
     }
     std::unique_ptr<CStorageKVIterator> NewIterator() override {
-        return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db.NewIterator()));
+        if (snapshot) {
+            return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db->NewIterator(options)));
+        }
+        return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db->NewIterator()));
     }
     void Compact(const TBytes& begin, const TBytes& end) {
-        db.CompactRange(refTBytes(begin), refTBytes(end));
+        if (snapshot) return;
+        db->CompactRange(refTBytes(begin), refTBytes(end));
     }
     bool IsEmpty() {
-        return db.IsEmpty();
+        if (snapshot) return false;
+        return db->IsEmpty();
+    }
+    std::unique_ptr<CStorageLevelDB> GetSnapshotDB() {
+        auto dbSnapshot = db->GetSnapshot();
+        return std::make_unique<CStorageLevelDB>(db, dbSnapshot);
     }
 
 private:
-    CDBWrapper db;
+    std::shared_ptr<CDBWrapper> db;
     CDBBatch batch;
+    leveldb::ReadOptions options;
+    std::unique_ptr<CStorageSnapshot> snapshot;
 };
 
-// Flashable storage
+// Flushable storage
 
 // Flushable Key-Value Storage Iterator
 class CFlushableStorageKVIterator : public CStorageKVIterator {
@@ -268,7 +298,12 @@ private:
 // Flushable Key-Value Storage
 class CFlushableStorageKV : public CStorageKV {
 public:
+    // Normal constructor
     explicit CFlushableStorageKV(CStorageKV& db_) : db(db_) {}
+
+    // Snapshot constructor
+    explicit CFlushableStorageKV(std::unique_ptr<CStorageLevelDB> &db_, const MapKV &changed) : snapshotDB(std::move(db_)), db(*snapshotDB), changed(changed) {}
+
     CFlushableStorageKV(const CFlushableStorageKV&) = delete;
     ~CFlushableStorageKV() override = default;
 
@@ -326,6 +361,7 @@ public:
     }
 
 private:
+    std::unique_ptr<CStorageLevelDB> snapshotDB;
     CStorageKV& db;
     MapKV changed;
 };
@@ -437,8 +473,13 @@ CStorageIteratorWrapper<By, KeyType> NewKVIterator(const KeyType& key, MapKV& ma
 
 class CStorageView {
 public:
+    // Normal constructors
     CStorageView() = default;
-    CStorageView(CStorageKV * st) : storage(st) {}
+    explicit CStorageView(CStorageKV * st) : storage(st) {}
+
+    // Snapshot constructor
+    explicit CStorageView(std::unique_ptr<CStorageLevelDB> &st) : storage(std::move(st)) {}
+
     virtual ~CStorageView() = default;
 
     template<typename KeyType>

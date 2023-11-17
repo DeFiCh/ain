@@ -22,6 +22,8 @@ static const std::string DEFAULT_LEVELDB_CHECKSUM = "auto";
 
 extern bool levelDBChecksum;
 
+class CStorageSnapshot;
+
 class dbwrapper_error : public std::runtime_error
 {
 public:
@@ -264,14 +266,19 @@ public:
     template <typename K, typename V>
     bool Read(const K& key, V& value) const
     {
+        return Read(key, value, readoptions);
+    }
+
+    template <typename K, typename V>
+    bool Read(const K& key, V& value, const leveldb::ReadOptions &otherOptions) const
+    {
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
         ssKey.reserve(DBWRAPPER_PREALLOC_KEY_SIZE);
         ssKey << key;
         leveldb::Slice slKey(ssKey.data(), ssKey.size());
-//        leveldb::Slice slKey(SliceKey(key));
 
         std::string strValue;
-        leveldb::Status status = pdb->Get(readoptions, slKey, &strValue);
+        leveldb::Status status = pdb->Get(otherOptions, slKey, &strValue);
         if (!status.ok()) {
             if (status.IsNotFound())
                 return false;
@@ -297,16 +304,20 @@ public:
     }
 
     template <typename K>
-    bool Exists(const K& key) const
+    bool Exists(const K& key) const {
+        return Exists(key, readoptions);
+    }
+
+    template <typename K>
+    bool Exists(const K& key, const leveldb::ReadOptions &otherOptions) const
     {
         CDataStream ssKey(SER_DISK, CLIENT_VERSION);
         ssKey.reserve(DBWRAPPER_PREALLOC_KEY_SIZE);
         ssKey << key;
         leveldb::Slice slKey(ssKey.data(), ssKey.size());
-//        leveldb::Slice slKey(SliceKey(key));
 
         std::string strValue;
-        leveldb::Status status = pdb->Get(readoptions, slKey, &strValue);
+        leveldb::Status status = pdb->Get(otherOptions, slKey, &strValue);
         if (!status.ok()) {
             if (status.IsNotFound())
                 return false;
@@ -343,7 +354,16 @@ public:
 
     CDBIterator *NewIterator()
     {
-        return new CDBIterator(*this, pdb->NewIterator(iteroptions));
+        return NewIterator(readoptions);
+    }
+
+    CDBIterator *NewIterator(const leveldb::ReadOptions &readOptions)
+    {
+        return new CDBIterator(*this, pdb->NewIterator(readOptions));
+    }
+
+    [[nodiscard]] std::unique_ptr<CStorageSnapshot> GetSnapshot() const {
+        return std::make_unique<CStorageSnapshot>(pdb);
     }
 
     /**
@@ -383,5 +403,31 @@ public:
         pdb->CompactRange(&slKey1, &slKey2);
     }
 };
+
+
+class CStorageSnapshot {
+public:
+    explicit CStorageSnapshot(leveldb::DB* db) : db(db) {
+        snapshot = db->GetSnapshot();
+    }
+
+    ~CStorageSnapshot() {
+        if (db && snapshot) {
+            db->ReleaseSnapshot(snapshot);
+        }
+    }
+
+    [[nodiscard]] const leveldb::Snapshot* GetLevelDBSnapshot() const {
+        return snapshot;
+    }
+
+    CStorageSnapshot(const CStorageSnapshot&) = delete;
+    CStorageSnapshot& operator=(const CStorageSnapshot&) = delete;
+
+private:
+    leveldb::DB* db; // Owned by pcustomcsDB
+    const leveldb::Snapshot* snapshot;
+};
+
 
 #endif // DEFI_DBWRAPPER_H
