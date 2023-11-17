@@ -39,6 +39,29 @@ pub struct CallRequest {
 }
 
 impl CallRequest {
+    pub fn guess_tx_type(&mut self) -> Result<(), Error> {
+        if self.transaction_type.is_none() {
+            if self.gas_price.is_some()
+                && (self.max_fee_per_gas.is_some() || self.max_priority_fee_per_gas.is_some())
+            {
+                return Err(RPCError::InvalidGasPrice.into());
+            }
+
+            if self.gas_price.is_some() {
+                if self.access_list.is_some() {
+                    self.transaction_type = Some(U256::one());
+                } else {
+                    self.transaction_type = Some(U256::zero());
+                }
+            } else if self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some() {
+                self.transaction_type = Some(U256::from(2));
+            } else {
+                return Err(RPCError::InvalidGasPrice.into());
+            }
+        }
+
+        Ok(())
+    }
     pub fn get_effective_gas_price(&self, block_base_fee: U256) -> Result<U256, Error> {
         if self.gas_price.is_some()
             && (self.max_fee_per_gas.is_some() || self.max_priority_fee_per_gas.is_some())
@@ -47,40 +70,32 @@ impl CallRequest {
         }
 
         match self.transaction_type {
-            // Legacy
-            Some(tx_type) if tx_type == U256::zero() => {
-                if let Some(gas_price) = self.gas_price {
-                    return Ok(gas_price);
-                } else {
-                    return Ok(block_base_fee);
-                }
-            }
-            // EIP2930
-            Some(tx_type) if tx_type == U256::one() => {
-                if let Some(gas_price) = self.gas_price {
-                    return Ok(gas_price);
-                } else {
-                    return Ok(block_base_fee);
+            // Legacy || EIP2930
+            Some(tx_type) if tx_type == U256::zero() || tx_type == U256::one() => {
+                match self.gas_price {
+                    Some(gas_price) => {
+                        if gas_price == U256::zero() {
+                            Ok(block_base_fee)
+                        } else {
+                            Ok(gas_price)
+                        }
+                    }
+                    None => Ok(block_base_fee),
                 }
             }
             // EIP1559
-            Some(tx_type) if tx_type == U256::from(2) => {
-                if let Some(max_fee_per_gas) = self.max_fee_per_gas {
-                    return Ok(max_fee_per_gas);
-                } else {
-                    return Ok(block_base_fee);
+            Some(tx_type) if tx_type == U256::from(2) => match self.max_fee_per_gas {
+                Some(max_fee_per_gas) => {
+                    if max_fee_per_gas == U256::zero() {
+                        Ok(block_base_fee)
+                    } else {
+                        Ok(max_fee_per_gas)
+                    }
                 }
-            }
-            None => (),
-            _ => return Err(RPCError::InvalidTransactionType.into()),
-        }
-
-        if let Some(gas_price) = self.gas_price {
-            Ok(gas_price)
-        } else if let Some(gas_price) = self.max_fee_per_gas {
-            Ok(gas_price)
-        } else {
-            Ok(block_base_fee)
+                None => Ok(block_base_fee),
+            },
+            None => Err(RPCError::InvalidTransactionType.into()),
+            _ => Err(RPCError::InvalidTransactionType.into()),
         }
     }
 

@@ -310,7 +310,8 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+    fn call(&self, mut call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+        call.guess_tx_type()?;
         debug!(target:"rpc",  "Call, input {:#?}", call);
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
@@ -760,10 +761,12 @@ impl MetachainRPCServer for MetachainRPCModule {
     /// Ref: https://github.com/ethereum/go-ethereum/blob/master/accounts/abi/bind/backends/simulated.go#L537-L639
     fn estimate_gas(
         &self,
-        call: CallRequest,
+        mut call: CallRequest,
         block_number: Option<BlockNumber>,
     ) -> RpcResult<U256> {
+        call.guess_tx_type()?;
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
+
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();

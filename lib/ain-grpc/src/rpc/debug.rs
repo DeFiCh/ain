@@ -162,8 +162,9 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         Ok(())
     }
 
-    fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
+    fn fee_estimate(&self, mut call: CallRequest) -> RpcResult<FeeEstimate> {
         self.is_enabled()?;
+        call.guess_tx_type()?;
 
         debug!(target:"rpc",  "Fee estimate");
         let caller = call.from.unwrap_or_default();
