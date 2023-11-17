@@ -47,16 +47,12 @@ impl CallRequest {
                 return Err(RPCError::InvalidGasPrice.into());
             }
 
-            if self.gas_price.is_some() {
-                if self.access_list.is_some() {
-                    self.transaction_type = Some(U256::one());
-                } else {
-                    self.transaction_type = Some(U256::zero());
-                }
-            } else if self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some() {
+            if self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some() {
                 self.transaction_type = Some(U256::from(2));
+            } else if self.access_list.is_some() {
+                self.transaction_type = Some(U256::one());
             } else {
-                return Err(RPCError::InvalidGasPrice.into());
+                self.transaction_type = Some(U256::zero());
             }
         }
 
