@@ -39,7 +39,7 @@ pub struct CallRequest {
 }
 
 impl CallRequest {
-    pub fn guess_tx_type(&self) -> Result<Self, Error> {
+    pub fn clone_with_guessed_tx_type(&self) -> Result<Self, Error> {
         let mut copy = self.clone();
 
         if self.transaction_type.is_none() {

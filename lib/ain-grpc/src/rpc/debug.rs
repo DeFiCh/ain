@@ -164,7 +164,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
         self.is_enabled()?;
-        let call_request_tx_type = call.guess_tx_type()?;
+        let call_request_tx_type = call.clone_with_guessed_tx_type()?;
 
         debug!(target:"rpc",  "Fee estimate");
         let caller = call_request_tx_type.from.unwrap_or_default();

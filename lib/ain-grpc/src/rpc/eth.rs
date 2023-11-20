@@ -313,7 +313,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
 
-        let call_request_tx_type = call.guess_tx_type()?;
+        let call_request_tx_type = call.clone_with_guessed_tx_type()?;
         let caller = call_request_tx_type.from.unwrap_or_default();
         let byte_data = call_request_tx_type.get_data()?;
         let data = byte_data.0.as_slice();
@@ -771,7 +771,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
 
-        let call_request_tx_type = call.guess_tx_type()?;
+        let call_request_tx_type = call.clone_with_guessed_tx_type()?;
         let caller = call_request_tx_type.from.unwrap_or_default();
         let byte_data = call_request_tx_type.get_data()?;
         let data = byte_data.0.as_slice();
