@@ -28,7 +28,6 @@ class LoanTakeLoanTest(DefiTestFramework):
                 "-fortcanningheight=50",
                 "-eunosheight=50",
                 "-fortcanninghillheight=220",
-                "-txindex=1",
             ],
             [
                 "-txnotokens=0",
@@ -37,7 +36,6 @@ class LoanTakeLoanTest(DefiTestFramework):
                 "-bayfrontgardensheight=1",
                 "-fortcanningheight=50",
                 "-eunosheight=50",
-                "-txindex=1",
             ],
         ]
 

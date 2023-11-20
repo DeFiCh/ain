@@ -17,7 +17,6 @@ class TokensAuthChange(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             [
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -37,12 +36,14 @@ class TokensAuthChange(DefiTestFramework):
     # Check output/input count and addresses are expected
     def check_auto_auth_txs(self, tx, owner, outputs=2):
         # Get auto auth TXs
-        final_rawtx = self.nodes[0].getrawtransaction(tx, 1)
-        auth_tx = self.nodes[0].getrawtransaction(final_rawtx["vin"][0]["txid"], 1)
+        get_tx = self.nodes[0].gettransaction(tx)["hex"]
+        final_rawtx = self.nodes[0].decoderawtransaction(get_tx)
+        get_tx = self.nodes[0].gettransaction(final_rawtx["vin"][0]["txid"])["hex"]
+        auth_tx = self.nodes[0].decoderawtransaction(get_tx)
 
         # Auth TX outputs all belong to auth address
         assert_equal(auth_tx["vout"][1]["scriptPubKey"]["addresses"][0], owner)
-        decTx = self.nodes[0].getrawtransaction(tx)
+        decTx = self.nodes[0].gettransaction(tx)["hex"]
         customTx = self.nodes[0].decodecustomtx(decTx)
         vouts = 2
         if customTx["type"] == "ResignMasternode":
@@ -166,7 +167,8 @@ class TokensAuthChange(DefiTestFramework):
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Change to pool collateral address
-        final_rawtx = self.nodes[0].getrawtransaction(poolpair_tx, 1)
+        get_tx = self.nodes[0].gettransaction(poolpair_tx)["hex"]
+        final_rawtx = self.nodes[0].decoderawtransaction(get_tx)
         assert_equal(
             final_rawtx["vout"][1]["scriptPubKey"]["addresses"][0],
             self.nodes[0].PRIV_KEYS[0].ownerAuthAddress,
@@ -299,7 +301,8 @@ class TokensAuthChange(DefiTestFramework):
         assert_equal(token_c, "2")
 
         # Check auto auth TX
-        final_rawtx = self.nodes[0].getrawtransaction(create_tx, 1)
+        get_tx = self.nodes[0].gettransaction(create_tx)["hex"]
+        final_rawtx = self.nodes[0].decoderawtransaction(get_tx)
         assert_equal(
             final_rawtx["vout"][2]["scriptPubKey"]["addresses"][0],
             self.nodes[0].PRIV_KEYS[0].ownerAuthAddress,

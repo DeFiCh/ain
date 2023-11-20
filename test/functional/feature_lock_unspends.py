@@ -14,7 +14,6 @@ class TestLockUnspends(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             [
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",

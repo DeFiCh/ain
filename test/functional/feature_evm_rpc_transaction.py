@@ -45,7 +45,6 @@ class EVMTest(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
                 "-ethdebug=1",
             ],
         ]

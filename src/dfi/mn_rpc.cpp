@@ -469,7 +469,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
     return result;
 }
 
-void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuthTx) {
+void execTestTx(const CTransaction &tx, const uint32_t height, const CTransactionRef &optAuthTx) {
     std::vector<unsigned char> metadata;
     auto txType = GuessCustomTxType(tx, metadata);
     auto txMessage = customTypeToMessage(txType);

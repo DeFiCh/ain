@@ -24,7 +24,6 @@ class VaultStateTest(DefiTestFramework):
                 "-amkheight=1",
                 "-bayfrontheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=1",
                 "-fortcanninghillheight=1",
                 "-fortcanningcrunchheight=1",
