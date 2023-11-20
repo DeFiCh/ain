@@ -816,7 +816,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
             let allowance = available
                 .checked_div(fee_cap)
-                .ok_or(RPCError::DivideByZero)?;
+                .ok_or(RPCError::DivideError)?;
             debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
 
             if let Ok(allowance) = u64::try_from(allowance) {
@@ -858,7 +858,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         while lo + 1 < hi {
             let sum = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
-            let mid = sum.checked_div(2u64).ok_or(RPCError::DivideByZero)?;
+            let mid = sum.checked_div(2u64).ok_or(RPCError::DivideError)?;
 
             let (failed, ..) = executable(mid)?;
             if failed {

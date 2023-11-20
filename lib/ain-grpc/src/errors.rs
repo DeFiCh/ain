@@ -29,7 +29,7 @@ pub enum RPCError {
     TxNotFound(H256),
     ValueOverflow,
     ValueUnderflow,
-    DivideByZero,
+    DivideError,
 }
 
 impl From<RPCError> for Error {
@@ -79,7 +79,7 @@ impl From<RPCError> for Error {
             )),
             RPCError::ValueOverflow => to_custom_err("value overflow"),
             RPCError::ValueUnderflow => to_custom_err("value underflow"),
-            RPCError::DivideByZero => to_custom_err("divide by 0"),
+            RPCError::DivideError => to_custom_err("divide error"),
         }
     }
 }
