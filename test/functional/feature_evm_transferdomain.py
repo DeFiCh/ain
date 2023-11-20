@@ -54,7 +54,6 @@ class EVMTest(DefiTestFramework):
             "-grandcentralheight=101",
             "-metachainheight=150",
             "-subsidytest=1",
-            "-txindex=1",
         ]
         self.extra_args = [node_args, node_args]
 

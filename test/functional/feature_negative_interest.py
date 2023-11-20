@@ -35,7 +35,6 @@ class NegativeInterestTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=1",
                 "-fortcanningepilogueheight=1",
                 "-jellyfish_regtest=1",
-                "-txindex=1",
                 "-simulatemainnet=1",
             ]
         ]

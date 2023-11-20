@@ -23,7 +23,6 @@ class DepositToVaultTest(DefiTestFramework):
                 "-amkheight=1",
                 "-bayfrontheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=1",
             ],
             [
@@ -31,7 +30,6 @@ class DepositToVaultTest(DefiTestFramework):
                 "-amkheight=1",
                 "-bayfrontheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=1",
             ],
         ]

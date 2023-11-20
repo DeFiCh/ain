@@ -37,7 +37,6 @@ class addressmapTests(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
             [
                 "-dummypos=0",
@@ -55,7 +54,6 @@ class addressmapTests(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
         ]
 

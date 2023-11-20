@@ -55,7 +55,6 @@ class DUSDLoanTests(DefiTestFramework):
                 f"-grandcentralepilogueheight={self.grandcentralepilogueheight}",
                 f"-metachainheight={self.metachainheight}",
                 "-jellyfish_regtest=1",
-                "-txindex=1",
                 "-simulatemainnet=1",
             ]
         ]
