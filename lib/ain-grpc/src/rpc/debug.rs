@@ -162,13 +162,13 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         Ok(())
     }
 
-    fn fee_estimate(&self, mut call: CallRequest) -> RpcResult<FeeEstimate> {
+    fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
         self.is_enabled()?;
-        call.guess_tx_type()?;
+        let call_request_tx_type = call.guess_tx_type()?;
 
         debug!(target:"rpc",  "Fee estimate");
-        let caller = call.from.unwrap_or_default();
-        let byte_data = call.get_data()?;
+        let caller = call_request_tx_type.from.unwrap_or_default();
+        let byte_data = call_request_tx_type.get_data()?;
         let data = byte_data.0.as_slice();
         let attrs = ain_cpp_imports::get_attribute_values(None);
 
@@ -183,8 +183,12 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let block_gas_target_factor = attrs.block_gas_target_factor;
         let block_gas_limit = attrs.block_gas_limit;
 
-        let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
-            .map_err(to_custom_err)?;
+        let gas_limit = u64::try_from(
+            call_request_tx_type
+                .gas
+                .unwrap_or(U256::from(block_gas_limit)),
+        )
+        .map_err(to_custom_err)?;
 
         // Get gas price
         let block_base_fee = self
@@ -192,19 +196,19 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .block
             .calculate_base_fee(block_hash, block_gas_target_factor)
             .map_err(to_custom_err)?;
-        let gas_price = call.get_effective_gas_price(block_base_fee)?;
+        let gas_price = call_request_tx_type.get_effective_gas_price(block_base_fee)?;
 
         let TxResponse { used_gas, .. } = self
             .handler
             .core
             .call(EthCallArgs {
                 caller,
-                to: call.to,
-                value: call.value.unwrap_or_default(),
+                to: call_request_tx_type.to,
+                value: call_request_tx_type.value.unwrap_or_default(),
                 data,
                 gas_limit,
                 gas_price,
-                access_list: call.access_list.unwrap_or_default(),
+                access_list: call_request_tx_type.access_list.unwrap_or_default(),
                 block_number,
             })
             .map_err(RPCError::EvmError)?;

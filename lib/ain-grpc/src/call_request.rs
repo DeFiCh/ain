@@ -39,7 +39,9 @@ pub struct CallRequest {
 }
 
 impl CallRequest {
-    pub fn guess_tx_type(&mut self) -> Result<(), Error> {
+    pub fn guess_tx_type(&self) -> Result<Self, Error> {
+        let mut copy = self.clone();
+
         if self.transaction_type.is_none() {
             if self.gas_price.is_some()
                 && (self.max_fee_per_gas.is_some() || self.max_priority_fee_per_gas.is_some())
@@ -48,15 +50,15 @@ impl CallRequest {
             }
 
             if self.max_fee_per_gas.is_some() && self.max_priority_fee_per_gas.is_some() {
-                self.transaction_type = Some(U256::from(2));
+                copy.transaction_type = Some(U256::from(2));
             } else if self.access_list.is_some() {
-                self.transaction_type = Some(U256::one());
+                copy.transaction_type = Some(U256::one());
             } else {
-                self.transaction_type = Some(U256::zero());
+                copy.transaction_type = Some(U256::zero());
             }
         }
 
-        Ok(())
+        Ok(copy)
     }
     pub fn get_effective_gas_price(&self, block_base_fee: U256) -> Result<U256, Error> {
         if self.gas_price.is_some()
