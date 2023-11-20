@@ -29,14 +29,6 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     # clean 'dirty' status of touched files that haven't been modified
     git diff >/dev/null 2>/dev/null
 
-    # if latest commit is tagged and not dirty, then override using the tag name
-    RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
-    # shellcheck disable=SC2086
-    if [ "$(git rev-parse HEAD)" = "$(git rev-list -1 $RAWDESC 2>/dev/null)" ]; then
-        echo BUILD_DIRTY_CHECK: "$(git diff-index --quiet HEAD --)"
-        git diff-index --quiet HEAD -- && DESC=$RAWDESC
-    fi
-
     SUFFIX=$(git rev-parse --short HEAD)
     CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
     # Move to this after git upgrade from base images 
@@ -49,9 +41,10 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         SUFFIX="$(echo $CURRENT_BRANCH | sed 's/\//-/g')-$SUFFIX"
     fi
 
+    # if latest commit is tagged, or if its hotfix branch, or if its master branch, we do not mark as dirty.
+    RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
     if [ "$CURRENT_BRANCH" != "hotfix" ] && [ "$CURRENT_BRANCH" != "master" ] && [ "$(git rev-parse HEAD)" != "$(git rev-list -1 "$RAWDESC" 2>/dev/null)" ]; then
-        # if it's hotfix branch, don't mark dirty.
-        # otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
+        # Otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
         git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
     fi
 fi
