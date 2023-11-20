@@ -6,7 +6,7 @@ use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSin
 use log::debug;
 
 use crate::subscription::{
-    params::{Kind, Params},
+    params::{Subscription, SubscriptionParams},
     sync_status::{PubSubSyncStatus, SyncStatusMetadata},
     PubSubResult,
 };
@@ -20,7 +20,7 @@ pub trait MetachainPubSub {
     unsubscribe = "eth_unsubscribe",
     item = Result
     )]
-    fn subscribe(&self, kind: Kind, params: Option<Params>);
+    fn subscribe(&self, subscription: Subscription, params: Option<SubscriptionParams>);
 }
 
 pub struct MetachainPubSubModule {
@@ -38,18 +38,18 @@ impl MetachainPubSubServer for MetachainPubSubModule {
     fn subscribe(
         &self,
         mut sink: SubscriptionSink,
-        kind: Kind,
-        params: Option<Params>,
+        subscription: Subscription,
+        params: Option<SubscriptionParams>,
     ) -> Result<(), SubscriptionEmptyError> {
-        debug!(target: "pubsub", "subscribing to {:#?}", kind);
+        debug!(target: "pubsub", "subscribing to {:#?}", subscription);
         debug!(target: "pubsub", "params {:?}", params);
         sink.accept()?;
 
         let handler = self.handler.clone();
 
         let fut = async move {
-            match kind {
-                Kind::NewHeads => {
+            match subscription {
+                Subscription::NewHeads => {
                     while let Some(notification) =
                         handler.channel.receiver.write().await.recv().await
                     {
@@ -62,14 +62,14 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                         }
                     }
                 }
-                Kind::Logs => {
+                Subscription::Logs => {
                     while let Some(notification) =
                         handler.channel.receiver.write().await.recv().await
                     {
                         if let Notification::Block(hash) = notification {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
                                 let logs = match &params {
-                                    Some(Params::Logs(p)) => handler.logs.get_logs(
+                                    Some(SubscriptionParams::Logs(p)) => handler.logs.get_logs(
                                         &p.address,
                                         &p.topics,
                                         block.header.number,
@@ -86,7 +86,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                         }
                     }
                 }
-                Kind::NewPendingTransactions => {
+                Subscription::NewPendingTransactions => {
                     while let Some(notification) =
                         handler.channel.receiver.write().await.recv().await
                     {
@@ -99,7 +99,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                         }
                     }
                 }
-                Kind::Syncing => {
+                Subscription::Syncing => {
                     let is_syncing = || -> Result<PubSubSyncStatus, anyhow::Error> {
                         match ain_cpp_imports::get_sync_status() {
                             Ok((current, highest)) => {

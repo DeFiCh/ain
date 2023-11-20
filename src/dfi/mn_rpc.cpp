@@ -469,7 +469,7 @@ std::vector<CTxIn> GetAuthInputsSmart(CWalletCoinsUnlocker &pwallet,
     return result;
 }
 
-void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuthTx) {
+void execTestTx(const CTransaction &tx, const uint32_t height, const CTransactionRef &optAuthTx) {
     std::vector<unsigned char> metadata;
     auto txType = GuessCustomTxType(tx, metadata);
     auto txMessage = customTypeToMessage(txType);
@@ -632,6 +632,10 @@ UniValue setgov(const JSONRPCRequest &request) {
                                 throw JSONRPCError(RPC_INVALID_REQUEST,
                                                    "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                             }
+                        } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                                   attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                            // Note: This is expected to be removed after DF23
+                            throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                         }
                     }
                 }
@@ -867,6 +871,9 @@ UniValue setgovheight(const JSONRPCRequest &request) {
                             throw JSONRPCError(RPC_INVALID_REQUEST,
                                                "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
                         }
+                    } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                               attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                        throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                     }
                 }
             }

@@ -326,6 +326,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
     ) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
+
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
@@ -715,8 +716,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn send_raw_transaction(&self, tx: &str) -> RpcResult<String> {
         debug!(target:"rpc", "Sending raw transaction: {:?}", tx);
         let raw_tx = tx.strip_prefix("0x").unwrap_or(tx);
-        let hex =
-            hex::decode(raw_tx).map_err(|e| Error::Custom(format!("Error decoding TX {e:?}")))?;
+        let hex = hex::decode(raw_tx).map_err(to_custom_err)?;
 
         let res_string = ain_cpp_imports::publish_eth_transaction(hex).map_err(RPCError::Error)?;
         if res_string.is_empty() {
@@ -783,6 +783,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
+
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
@@ -819,12 +820,12 @@ impl MetachainRPCServer for MetachainRPCModule {
                 if balance < value {
                     return Err(RPCError::InsufficientFunds.into());
                 }
-                available = balance.checked_sub(value).ok_or(RPCError::ValueOverflow)?;
+                available = balance.checked_sub(value).ok_or(RPCError::ValueUnderflow)?;
             }
 
             let allowance = available
                 .checked_div(fee_cap)
-                .ok_or(RPCError::ValueOverflow)?;
+                .ok_or(RPCError::DivideError)?;
             debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
 
             if let Ok(allowance) = u64::try_from(allowance) {
@@ -869,7 +870,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         while lo + 1 < hi {
             let sum = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
-            let mid = sum.checked_div(2u64).ok_or(RPCError::ValueOverflow)?;
+            let mid = sum.checked_div(2u64).ok_or(RPCError::DivideError)?;
 
             let (failed, ..) = executable(mid)?;
             if failed {

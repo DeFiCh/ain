@@ -22,7 +22,6 @@ class CreateLoanSchemeTest(DefiTestFramework):
                 "-amkheight=1",
                 "-bayfrontheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=110",
             ],
             [
@@ -30,7 +29,6 @@ class CreateLoanSchemeTest(DefiTestFramework):
                 "-amkheight=1",
                 "-bayfrontheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=110",
             ],
         ]

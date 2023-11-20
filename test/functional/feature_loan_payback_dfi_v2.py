@@ -32,7 +32,6 @@ class PaybackDFILoanTest(DefiTestFramework):
                 "-fortcanninghillheight=50",
                 f"-fortcanningroadheight={self.FCR_HEIGHT}",
                 "-simulatemainnet",
-                "-txindex=1",
                 "-jellyfish_regtest=1",
             ],
         ]

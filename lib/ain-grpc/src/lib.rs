@@ -28,7 +28,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
 };
 
-use ain_evm::services::{Services, IS_SERVICES_INIT_CALL, SERVICES};
+use ain_evm::services::{IS_SERVICES_INIT_CALL, SERVICES};
 use anyhow::{format_err, Result};
 use hyper::{header::HeaderValue, Method};
 use jsonrpsee::core::server::rpc_module::Methods;
@@ -72,22 +72,12 @@ pub fn init_services() {
     let _ = &*SERVICES;
 }
 
-pub fn init_network_services(
-    json_addr: &str,
-    grpc_addr: &str,
-    websockets_addr: &str,
-) -> Result<()> {
-    init_network_json_rpc_service(&SERVICES, json_addr)?;
-    init_network_grpc_service(&SERVICES, grpc_addr)?;
-    init_network_subscriptions_service(&SERVICES, websockets_addr)?;
-    Ok(())
-}
-
-pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<()> {
+pub fn init_network_json_rpc_service(addr: &str) -> Result<()> {
     info!("Starting JSON RPC server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
+    let runtime = &SERVICES;
 
     let middleware = if !ain_cpp_imports::get_cors_allowed_origin().is_empty() {
         let origin = ain_cpp_imports::get_cors_allowed_origin();
@@ -118,27 +108,29 @@ pub fn init_network_json_rpc_service(runtime: &Services, addr: &str) -> Result<(
     methods.merge(MetachainNetRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
     methods.merge(MetachainWeb3RPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    *runtime.json_rpc.lock() = Some(server.start(methods)?);
+    runtime.json_rpc_handles.lock().push(server.start(methods)?);
     Ok(())
 }
 
-pub fn init_network_grpc_service(_runtime: &Services, _addr: &str) -> Result<()> {
+pub fn init_network_grpc_service(_addr: &str) -> Result<()> {
     // log::info!("Starting gRPC server at {}", addr);
     // Commented out for now as nothing to serve
+    // let runtime = &SERVICES;
     // runtime
     //     .rt_handle
     // .spawn(Server::builder().serve(addr.parse()?));
     Ok(())
 }
 
-pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Result<()> {
+pub fn init_network_subscriptions_service(addr: &str) -> Result<()> {
     info!("Starting WebSockets server at {}", addr);
     let addr = addr.parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
+    let runtime = &SERVICES;
 
-    let handle = runtime.ws_rt_handle.clone();
-    let server = runtime.ws_rt_handle.block_on(
+    let handle = runtime.tokio_runtime.clone();
+    let server = runtime.tokio_runtime.block_on(
         ServerBuilder::default()
             .max_subscriptions_per_connection(max_connections)
             .max_response_body_size(max_response_size)
@@ -149,20 +141,15 @@ pub fn init_network_subscriptions_service(runtime: &Services, addr: &str) -> Res
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
 
-    *runtime.ws_handle.lock() = Some(server.start(methods)?);
+    runtime
+        .websocket_handles
+        .lock()
+        .push(server.start(methods)?);
     Ok(())
 }
 
 fn is_services_init_called() -> bool {
     IS_SERVICES_INIT_CALL.load(Ordering::SeqCst)
-}
-
-pub fn stop_network_services() -> Result<()> {
-    if is_services_init_called() {
-        info!("Shutdown rs network services");
-        SERVICES.stop_network()?;
-    }
-    Ok(())
 }
 
 pub fn stop_services() {
@@ -178,6 +165,14 @@ pub fn wipe_evm_folder() -> Result<()> {
     info!("Wiping rs storage in {}", path.display());
     if path.exists() {
         std::fs::remove_dir_all(&path).map_err(|e| format_err!("Error wiping evm dir: {e}"))?;
+    }
+    Ok(())
+}
+
+pub fn stop_network_services() -> Result<()> {
+    if is_services_init_called() {
+        info!("Shutdown rs network services");
+        SERVICES.stop_network()?;
     }
     Ok(())
 }
