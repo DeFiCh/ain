@@ -2124,7 +2124,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         "DVM, etc.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-            {
+                          {
                 "array",
                 RPCArg::Type::ARR,
                 RPCArg::Optional::NO,
@@ -2188,8 +2188,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                         },
                     },
                 },
-            },
-        },
+            }, },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{
                           HelpExampleCli(
@@ -2223,9 +2222,9 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         const UniValue &elem = srcDstArray[i].get_obj();
         RPCTypeCheckObj(elem,
                         {
-                            {"src", UniValueType(UniValue::VOBJ)},
-                            {"dst", UniValueType(UniValue::VOBJ)},
-                            {"nonce", UniValueType(UniValue::VNUM)},
+                            {"src",            UniValueType(UniValue::VOBJ) },
+                            {"dst",            UniValueType(UniValue::VOBJ) },
+                            {"nonce",          UniValueType(UniValue::VNUM) },
                             {"singlekeycheck", UniValueType(UniValue::VBOOL)},
         },
                         true,
