@@ -84,6 +84,7 @@ class EVMRolllbackTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -242,6 +243,7 @@ class EVMRolllbackTest(DefiTestFramework):
                             "amount": "10@DFI",
                             "domain": 3,
                         },
+                        "singlekeycheck": False,
                     }
                 ]
             )

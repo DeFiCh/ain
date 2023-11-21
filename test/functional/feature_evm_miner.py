@@ -103,6 +103,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -327,6 +328,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -440,6 +442,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -534,6 +537,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -1025,6 +1029,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -1051,6 +1056,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -1076,6 +1082,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ],
             )
