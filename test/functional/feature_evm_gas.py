@@ -96,6 +96,7 @@ class EVMGasTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

@@ -77,6 +77,7 @@ class EVMTestLogs(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -153,6 +154,7 @@ class EVMTestLogs(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

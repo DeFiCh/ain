@@ -230,6 +230,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@USDT",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -253,6 +254,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@USDT", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -370,6 +372,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -401,6 +404,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -429,6 +433,7 @@ class DST20(DefiTestFramework):
                         "amount": "1.5@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -459,6 +464,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "nonce": nonce,
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -472,6 +478,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "nonce": nonce + 1,
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -503,6 +510,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -515,6 +523,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -548,6 +557,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -583,6 +593,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@XYZ",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -617,6 +628,7 @@ class DST20(DefiTestFramework):
                         "amount": "-1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -634,6 +646,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@ETH",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -708,6 +721,7 @@ class DST20(DefiTestFramework):
                         "amount": "2@TSLA",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -735,6 +749,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@TSLA", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -764,6 +779,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -801,6 +817,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -840,6 +857,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -879,6 +897,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

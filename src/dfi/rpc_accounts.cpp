@@ -2124,7 +2124,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         "DVM, etc.\n" +
             HelpRequiringPassphrase(pwallet) + "\n",
         {
-                          {
+            {
                 "array",
                 RPCArg::Type::ARR,
                 RPCArg::Optional::NO,
@@ -2172,14 +2172,24 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                                     // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                 },
                             },
-                            {"nonce",
-                             RPCArg::Type::NUM,
-                             RPCArg::Optional::OMITTED,
-                             "Optional parameter to specify the transaction nonce"},
+                            {
+                                "nonce",
+                                RPCArg::Type::NUM,
+                                RPCArg::Optional::OMITTED,
+                                "Optional parameter to specify the transaction nonce",
+                            },
+                            {
+                                "singlekeycheck",
+                                RPCArg::Type::BOOL,
+                                RPCArg::Optional::OMITTED,
+                                "Optional flag to ensure single key check between the corresponding address types "
+                                "(default = true)",
+                            },
                         },
                     },
                 },
-            }, },
+            },
+        },
         RPCResult{"\"hash\"                  (string) The hex-encoded hash of broadcasted transaction\n"},
         RPCExamples{
                           HelpExampleCli(
@@ -2210,12 +2220,21 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     std::vector<std::pair<std::string, uint64_t>> nonce_cache;
 
     for (unsigned int i = 0; i < srcDstArray.size(); i++) {
-        const UniValue &elem = srcDstArray[i];
-        RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VNUM}, false);
+        const UniValue &elem = srcDstArray[i].get_obj();
+        RPCTypeCheckObj(elem,
+                        {
+                            {"src", UniValueType(UniValue::VOBJ)},
+                            {"dst", UniValueType(UniValue::VOBJ)},
+                            {"nonce", UniValueType(UniValue::VNUM)},
+                            {"singlekeycheck", UniValueType(UniValue::VBOOL)},
+        },
+                        true,
+                        true);
 
         const UniValue &srcObj = elem["src"].get_obj();
         const UniValue &dstObj = elem["dst"].get_obj();
         const UniValue &nonceObj = elem["nonce"];
+        const UniValue &singlekeycheckObj = elem["singlekeycheck"];
 
         CTransferDomainItem src, dst;
 
@@ -2289,6 +2308,33 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
         // if (!dstObj["data"].isNull())
         //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
+
+        // Single key check
+        bool singlekeycheck = true;
+        if (!singlekeycheckObj.isNull()) {
+            singlekeycheck = singlekeycheckObj.getBool();
+        }
+        if (singlekeycheck) {
+            CTxDestination dest;
+            const auto dstIndex = DecodeDestination(dstObj["address"].getValStr()).index();
+            switch (dstIndex) {
+                case PKHashType:
+                    dest = GetDestinationForKey(srcKey, OutputType::LEGACY);
+                    break;
+                case WitV0KeyHashType:
+                    dest = GetDestinationForKey(srcKey, OutputType::BECH32);
+                    break;
+                case WitV16KeyEthHashType:
+                    dest = GetDestinationForKey(srcKey, OutputType::ERC55);
+                    break;
+                default:
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
+            }
+            auto script = GetScriptForDestination(dest);
+            if (dst.address != script) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Dst address does not match source key");
+            }
+        }
 
         // Create signed EVM TX
         CKey key;

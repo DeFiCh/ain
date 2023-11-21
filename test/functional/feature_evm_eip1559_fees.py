@@ -77,6 +77,7 @@ class EIP1559Fees(DefiTestFramework):
                         "amount": "10@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

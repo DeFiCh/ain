@@ -101,6 +101,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -334,6 +335,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
