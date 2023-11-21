@@ -785,7 +785,7 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority"], Decimal("0E-8")
         )
 
-    def single_key_transfer(self):
+    def valid_single_key_transfer(self):
         self.rollback_to(self.start_height)
 
         # Valid DVM legacy address to EVM address with same key transfer
@@ -795,7 +795,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Native transfer
-        legacy_erc55_address = self.nodes[0].addressmap(legacy_address, 1)["format"]["erc55"]
+        legacy_erc55_address = self.nodes[0].addressmap(legacy_address, 1)["format"][
+            "erc55"
+        ]
         self.nodes[0].transferdomain(
             [
                 {
@@ -844,7 +846,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Native transfer
-        bech32_erc55_address = self.nodes[0].addressmap(bech32_address, 1)["format"]["erc55"]
+        bech32_erc55_address = self.nodes[0].addressmap(bech32_address, 1)["format"][
+            "erc55"
+        ]
         self.nodes[0].transferdomain(
             [
                 {
@@ -886,11 +890,13 @@ class EVMTest(DefiTestFramework):
             Decimal(2),
         )
 
-        # Valid ERC55 address to DVM bech32/legacy address with same key transfer
+        # Valid ERC55 address to DVM bech32 address with same key transfer
         erc55_address = self.nodes[0].getnewaddress("", "erc55")
         transfer_domain(self.nodes[0], self.address, erc55_address, "1@DFI", 2, 3)
         transfer_domain(self.nodes[0], self.address, erc55_address, "1@BTC", 2, 3)
         self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(erc55_address)
+        assert_equal(balance, int_to_eth_u256(1))
         assert_equal(
             self.btc.functions.balanceOf(erc55_address).call()
             / math.pow(10, self.btc.functions.decimals().call()),
@@ -903,7 +909,9 @@ class EVMTest(DefiTestFramework):
         )
 
         # Native transfer
-        erc55_bech32_address = self.nodes[0].addressmap(erc55_address, 2)["format"]["bech32"]
+        erc55_bech32_address = self.nodes[0].addressmap(erc55_address, 2)["format"][
+            "bech32"
+        ]
         self.nodes[0].transferdomain(
             [
                 {
@@ -948,6 +956,83 @@ class EVMTest(DefiTestFramework):
         )
         balance = self.nodes[0].getaccount(erc55_bech32_address, {}, True)["1"]
         assert_equal(balance, Decimal("1"))
+
+    def invalid_single_key_transfer(self):
+        self.rollback_to(self.start_height)
+
+        # Invalid DVM legacy address to EVM address with different key transfer
+        legacy_address = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].accounttoaccount(self.address, {legacy_address: "1@DFI"})
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(
+            -5,
+            "Dst address does not match source key",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": legacy_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
+        # Invalid DVM bech32 address to EVM address with different key transfer
+        bech32_address = self.nodes[0].getnewaddress("", "bech32")
+        self.nodes[0].accounttoaccount(self.address, {bech32_address: "1@DFI"})
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(
+            -5,
+            "Dst address does not match source key",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": bech32_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
+        # Invalid ERC55 address to DVM bech32 address with different key transfer
+        erc55_address = self.nodes[0].getnewaddress("", "erc55")
+        transfer_domain(self.nodes[0], self.address, erc55_address, "1@DFI", 2, 3)
+        self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(erc55_address)
+        assert_equal(balance, int_to_eth_u256(1))
+        assert_raises_rpc_error(
+            -5,
+            "Dst address does not match source key",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": erc55_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ],
+        )
 
     def invalid_transfer_sc(self):
         self.rollback_to(self.start_height)
@@ -1499,7 +1584,8 @@ class EVMTest(DefiTestFramework):
         self.valid_transfer_evm_dvm()
 
         # Single key transfer
-        self.single_key_transfer()
+        self.valid_single_key_transfer()
+        self.invalid_single_key_transfer()
 
         # Transfer to smart contract
         self.invalid_transfer_sc()
