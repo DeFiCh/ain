@@ -14,6 +14,8 @@
 
 #include <optional>
 
+extern CCriticalSection cs_main;
+
 using TBytes = std::vector<unsigned char>;
 using MapKV = std::map<TBytes, std::optional<TBytes>>;
 
@@ -141,8 +143,8 @@ public:
         : db{std::make_shared<CDBWrapper>(dbName, cacheSize, fMemory, fWipe)}, batch(*db) {}
 
     // Snapshot constructor
-    explicit CStorageLevelDB(std::shared_ptr<CDBWrapper> &db, std::unique_ptr<CStorageSnapshot> &otherSnapshot)
-            : db(db), batch(*db), snapshot(std::move(otherSnapshot)) {
+    CStorageLevelDB(std::shared_ptr<CDBWrapper> &db, std::shared_ptr<CStorageSnapshot> &otherSnapshot)
+            : db(db), batch(*db), snapshot(otherSnapshot) {
         options.snapshot = snapshot->GetLevelDBSnapshot();
     }
 
@@ -200,15 +202,57 @@ public:
         return db->IsEmpty();
     }
     std::unique_ptr<CStorageLevelDB> GetSnapshotDB() {
+        if (snapshotUpdated.load()) {
+            // Lock cs_main when updating from tipSnapshot to avoid
+            // race with Dis/ConnectTip.
+            LOCK(cs_main);
+            // Double check bool for safety now we are under lock.
+            if (snapshotUpdated.load()) {
+                snapshotUpdated.store(false);
+                if (tipSnapshot) {
+                    tipCopySnapshot = tipSnapshot;
+                } else {
+                    tipCopySnapshot.reset();
+                }
+            }
+        }
+
+        if (tipCopySnapshot) {
+            return std::make_unique<CStorageLevelDB>(db, tipCopySnapshot);
+        }
+
         auto dbSnapshot = db->GetSnapshot();
         return std::make_unique<CStorageLevelDB>(db, dbSnapshot);
+    }
+    void GenerateSnapshot() {
+        snapshotUpdated.store(true);
+        tipSnapshot = db->GetSnapshot();
+    }
+    void ReleaseSnapshot() {
+        snapshotUpdated.store(true);
+        tipSnapshot.reset();
     }
 
 private:
     std::shared_ptr<CDBWrapper> db;
     CDBBatch batch;
     leveldb::ReadOptions options;
-    std::unique_ptr<CStorageSnapshot> snapshot;
+
+    // If this snapshot is set it will be used when
+    // reading from the DB.
+    std::shared_ptr<CStorageSnapshot> snapshot;
+
+    // Snapshot updated at tip. Accessed under cs_main lock.
+    std::shared_ptr<CStorageSnapshot> tipSnapshot;
+
+    // Used to create another CStorageLevelDB object set
+    // as the snapshot member. Lock free.
+    std::shared_ptr<CStorageSnapshot> tipCopySnapshot;
+
+    // Used to determine whether the tipSnapshot has been
+    // updated and should be copied over to the lock free
+    // tipCopySnapshot.
+    std::atomic<bool> snapshotUpdated{};
 };
 
 // Flushable storage

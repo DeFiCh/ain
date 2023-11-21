@@ -362,8 +362,8 @@ public:
         return new CDBIterator(*this, pdb->NewIterator(readOptions));
     }
 
-    [[nodiscard]] std::unique_ptr<CStorageSnapshot> GetSnapshot() const {
-        return std::make_unique<CStorageSnapshot>(pdb);
+    [[nodiscard]] std::shared_ptr<CStorageSnapshot> GetSnapshot() const {
+        return std::make_shared<CStorageSnapshot>(pdb);
     }
 
     /**

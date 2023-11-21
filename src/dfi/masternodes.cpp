@@ -1401,8 +1401,6 @@ void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight
 }
 
 std::unique_ptr<CCustomCSView> GetViewSnapshot() {
-    LOCK(cs_main);
-
     // Get database snapshot
     auto snapshotDB = pcustomcsDB->GetSnapshotDB();
 
