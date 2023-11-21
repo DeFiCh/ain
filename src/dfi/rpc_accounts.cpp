@@ -2314,23 +2314,35 @@ UniValue transferdomain(const JSONRPCRequest &request) {
             singlekeycheck = singlekeycheckObj.getBool();
         }
         if (singlekeycheck) {
-            CTxDestination dest;
+            auto [uncomp, comp] = GetBothPubkeyCompressions(srcKey);
+
+            std::vector<CTxDestination> dests;
             const auto dstIndex = DecodeDestination(dstObj["address"].getValStr()).index();
             switch (dstIndex) {
                 case PKHashType:
-                    dest = GetDestinationForKey(srcKey, OutputType::LEGACY);
+                    dests.push_back(GetDestinationForKey(comp, OutputType::LEGACY));
+                    dests.push_back(GetDestinationForKey(uncomp, OutputType::LEGACY));
                     break;
                 case WitV0KeyHashType:
-                    dest = GetDestinationForKey(srcKey, OutputType::BECH32);
+                    dests.push_back(GetDestinationForKey(comp, OutputType::BECH32));
                     break;
                 case WitV16KeyEthHashType:
-                    dest = GetDestinationForKey(srcKey, OutputType::ERC55);
+                    dests.push_back(GetDestinationForKey(uncomp, OutputType::ERC55));
                     break;
                 default:
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
             }
-            auto script = GetScriptForDestination(dest);
-            if (dst.address != script) {
+
+            bool found = false;
+            for (const auto dest : dests) {
+                auto script = GetScriptForDestination(dest);
+                if (dst.address == script) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Dst address does not match source key");
             }
         }

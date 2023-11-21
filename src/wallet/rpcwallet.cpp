@@ -4330,10 +4330,9 @@ UniValue addressmap(const JSONRPCRequest &request) {
                 throwInvalidAddressFmt();
             }
             CPubKey key = AddrToPubKey(pwallet, input);
-            if (!key.IsCompressed()) {
-                key.Compress();
-            }
-            format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(key)));
+            auto [uncomp, comp] = GetBothPubkeyCompressions(key);
+            format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(comp)));
+            format.pushKV("legacy", EncodeDestination(PKHash(uncomp)));
             break;
         }
         default:

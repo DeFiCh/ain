@@ -892,25 +892,28 @@ class EVMTest(DefiTestFramework):
 
         # Valid ERC55 address to DVM bech32 address with same key transfer
         erc55_address = self.nodes[0].getnewaddress("", "erc55")
-        transfer_domain(self.nodes[0], self.address, erc55_address, "1@DFI", 2, 3)
-        transfer_domain(self.nodes[0], self.address, erc55_address, "1@BTC", 2, 3)
+        transfer_domain(self.nodes[0], self.address, erc55_address, "2@DFI", 2, 3)
+        transfer_domain(self.nodes[0], self.address, erc55_address, "2@BTC", 2, 3)
         self.nodes[0].generate(1)
         balance = self.nodes[0].eth_getBalance(erc55_address)
-        assert_equal(balance, int_to_eth_u256(1))
+        assert_equal(balance, int_to_eth_u256(2))
         assert_equal(
             self.btc.functions.balanceOf(erc55_address).call()
             / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(1),
+            Decimal(2),
         )
         assert_equal(
             self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
-            Decimal(3),
+            Decimal(4),
         )
 
         # Native transfer
         erc55_bech32_address = self.nodes[0].addressmap(erc55_address, 2)["format"][
             "bech32"
+        ]
+        erc55_legacy_address = self.nodes[0].addressmap(erc55_address, 2)["format"][
+            "legacy"
         ]
         self.nodes[0].transferdomain(
             [
@@ -924,10 +927,24 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": erc55_address, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": erc55_legacy_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
         self.nodes[0].generate(1)
         balance = self.nodes[0].eth_getBalance(erc55_address)
         assert_equal(balance, int_to_eth_u256(0))
         balance = self.nodes[0].getaccount(erc55_bech32_address, {}, True)["0"]
+        assert_equal(balance, Decimal("1"))
+        balance = self.nodes[0].getaccount(erc55_legacy_address, {}, True)["0"]
         assert_equal(balance, Decimal("1"))
 
         # Token transfer
@@ -937,6 +954,18 @@ class EVMTest(DefiTestFramework):
                     "src": {"address": erc55_address, "amount": "1@BTC", "domain": 3},
                     "dst": {
                         "address": erc55_bech32_address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": erc55_address, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": erc55_legacy_address,
                         "amount": "1@BTC",
                         "domain": 2,
                     },
@@ -955,6 +984,8 @@ class EVMTest(DefiTestFramework):
             Decimal(2),
         )
         balance = self.nodes[0].getaccount(erc55_bech32_address, {}, True)["1"]
+        assert_equal(balance, Decimal("1"))
+        balance = self.nodes[0].getaccount(erc55_legacy_address, {}, True)["1"]
         assert_equal(balance, Decimal("1"))
 
     def invalid_single_key_transfer(self):
