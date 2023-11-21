@@ -2314,35 +2314,10 @@ UniValue transferdomain(const JSONRPCRequest &request) {
             singlekeycheck = singlekeycheckObj.getBool();
         }
         if (singlekeycheck) {
-            auto [uncomp, comp] = GetBothPubkeyCompressions(srcKey);
-
-            std::vector<CTxDestination> dests;
-            const auto dstIndex = DecodeDestination(dstObj["address"].getValStr()).index();
-            switch (dstIndex) {
-                case PKHashType:
-                    dests.push_back(GetDestinationForKey(comp, OutputType::LEGACY));
-                    dests.push_back(GetDestinationForKey(uncomp, OutputType::LEGACY));
-                    break;
-                case WitV0KeyHashType:
-                    dests.push_back(GetDestinationForKey(comp, OutputType::BECH32));
-                    break;
-                case WitV16KeyEthHashType:
-                    dests.push_back(GetDestinationForKey(uncomp, OutputType::ERC55));
-                    break;
-                default:
-                    throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
-            }
-
-            bool found = false;
-            for (const auto dest : dests) {
-                auto script = GetScriptForDestination(dest);
-                if (dst.address == script) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
+            auto dstKey = AddrToPubKey(pwallet, ScriptToString(dst.address));
+            auto [uncompSrcKey, compSrcKey] = GetBothPubkeyCompressions(srcKey);
+            auto [uncompDstKey, compDstKey] = GetBothPubkeyCompressions(dstKey);
+            if (uncompSrcKey != uncompDstKey || compSrcKey != compDstKey) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Dst address does not match source key");
             }
         }
