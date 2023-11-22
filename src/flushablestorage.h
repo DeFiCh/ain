@@ -202,35 +202,21 @@ public:
         return db->IsEmpty();
     }
     std::unique_ptr<CStorageLevelDB> GetSnapshotDB() {
-        if (snapshotUpdated.load()) {
+        if (blockTipChanged.load()) {
             // Lock cs_main when updating from tipSnapshot to avoid
             // race with Dis/ConnectTip.
             LOCK(cs_main);
             // Double check bool for safety now we are under lock.
-            if (snapshotUpdated.load()) {
-                snapshotUpdated.store(false);
-                if (tipSnapshot) {
-                    tipCopySnapshot = tipSnapshot;
-                } else {
-                    tipCopySnapshot.reset();
-                }
+            if (blockTipChanged.load()) {
+                tipSnapshot = db->GetSnapshot();
+                blockTipChanged.store(false);
             }
         }
 
-        if (tipCopySnapshot) {
-            return std::make_unique<CStorageLevelDB>(db, tipCopySnapshot);
-        }
-
-        auto dbSnapshot = db->GetSnapshot();
-        return std::make_unique<CStorageLevelDB>(db, dbSnapshot);
+        return std::make_unique<CStorageLevelDB>(db, tipSnapshot);
     }
-    void GenerateSnapshot() {
-        snapshotUpdated.store(true);
-        tipSnapshot = db->GetSnapshot();
-    }
-    void ReleaseSnapshot() {
-        snapshotUpdated.store(true);
-        tipSnapshot.reset();
+    void BlockTipChanged() {
+        blockTipChanged.store(true);
     }
 
 private:
@@ -242,17 +228,12 @@ private:
     // reading from the DB.
     std::shared_ptr<CStorageSnapshot> snapshot;
 
-    // Snapshot updated at tip. Accessed under cs_main lock.
-    std::shared_ptr<CStorageSnapshot> tipSnapshot;
-
     // Used to create another CStorageLevelDB object set
     // as the snapshot member. Lock free.
-    std::shared_ptr<CStorageSnapshot> tipCopySnapshot;
+    std::shared_ptr<CStorageSnapshot> tipSnapshot;
 
-    // Used to determine whether the tipSnapshot has been
-    // updated and should be copied over to the lock free
-    // tipCopySnapshot.
-    std::atomic<bool> snapshotUpdated{};
+    // Used to determine whether the block tip has changed.
+    std::atomic<bool> blockTipChanged{true};
 };
 
 // Flushable storage

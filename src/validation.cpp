@@ -3814,8 +3814,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        // Release snapshot
-        pcustomcsDB->ReleaseSnapshot();
+        pcustomcsDB->BlockTipChanged();
 
         if (!disconnectedConfirms.empty()) {
             for (const auto &confirm : disconnectedConfirms) {
@@ -3994,10 +3993,7 @@ bool CChainState::ConnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        // Generate snapshot
-        if (!IsInitialBlockDownload()) {
-            pcustomcsDB->GenerateSnapshot();
-        }
+        pcustomcsDB->BlockTipChanged();
 
         // Delete all other confirms from memory
         if (rewardedAnchors) {
