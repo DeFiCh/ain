@@ -149,10 +149,10 @@ pub struct CallStateOverride {
     pub state_diff: Option<BTreeMap<H256, H256>>,
 }
 
-pub fn override_to_overlay(overide: BTreeMap<H160, CallStateOverride>) -> Overlay {
+pub fn override_to_overlay(r#override: BTreeMap<H160, CallStateOverride>) -> Overlay {
     let mut overlay = Overlay::default();
 
-    for (address, state_override) in overide {
+    for (address, state_override) in r#override {
         let code = state_override.code.map(|b| b.into_vec());
         let mut storage = state_override
             .state
