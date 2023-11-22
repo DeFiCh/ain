@@ -1,7 +1,8 @@
 use crate::config::Config as rpc_config;
 use std::future;
 use tarpc::serde_transport::tcp;
-use tarpc::server::{self, Channel};
+use tarpc::server::{self};
+use tokio_serde::formats::Json;
 
 #[derive(Clone, Debug)]
 pub struct OceanRPCServer {
