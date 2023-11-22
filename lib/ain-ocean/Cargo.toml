@@ -19,3 +19,5 @@ tarpc = { version = "0.33", features = ["tokio1", "serde1", "serde-transport","t
 tokio = { version = "1", features = ["full"] }
 serde_json = "1.0"
 json = "0.12.4"
+tokio-serde = {version="0.8.0", features = ["full"]}
+
