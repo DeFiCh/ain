@@ -3810,7 +3810,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
 
-        if (XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey)) {
+        if (block.vtx[0]->vout.size() > 1 && XVM::TryFrom(block.vtx[0]->vout[1].scriptPubKey)) {
             XResultThrowOnErr(evm_try_disconnect_latest_block(result));
         }
 
