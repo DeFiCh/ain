@@ -1,2 +1,4 @@
-pub mod api;
-pub mod database;
+mod api;
+mod model;
+
+pub use api::start_ocean;
