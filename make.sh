@@ -268,6 +268,7 @@ docker_build() {
     docker build -f "${docker_file}" \
         --build-arg TARGET="${target}" \
         --build-arg MAKE_DEBUG="${MAKE_DEBUG}" \
+        --build-arg BUILD_VERSION="${img_version}" \
         -t "${img}" "${docker_context}"
 }
 
