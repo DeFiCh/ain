@@ -25,7 +25,7 @@ git_check_in_repo() {
 DESC=""
 SUFFIX=""
 CURRENT_BRANCH=""
-if [ -z "$GIT_VERSION" ] && [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ] && git_check_in_repo contrib/genbuild.sh; then
+if [ -z "$BUILD_VERSION" ] && [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ] && git_check_in_repo contrib/genbuild.sh; then
     # clean 'dirty' status of touched files that haven't been modified
     git diff >/dev/null 2>/dev/null
 
@@ -55,8 +55,8 @@ if [ -z "$GIT_VERSION" ] && [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(c
     git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
 fi
 
-if [ -z "$GIT_VERSION" ]; then
-    NEWINFO="#define BUILD_DESC \"$GIT_VERSION\""
+if [ -z "$BUILD_VERSION" ]; then
+    NEWINFO="#define BUILD_DESC \"$BUILD_VERSION\""
 elif [ -n "$DESC" ]; then
     NEWINFO="#define BUILD_DESC \"$DESC\""
 elif [ -n "$SUFFIX" ]; then
