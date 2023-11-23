@@ -42,8 +42,8 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
     fi
 
     # if latest commit is tagged, or if its hotfix branch, or if its master branch, we do not mark as dirty.
-    RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
-    if [ "$CURRENT_BRANCH" != "hotfix" ] && [ "$CURRENT_BRANCH" != "master" ] && [ "$(git rev-parse HEAD)" != "$(git rev-list -1 "$RAWDESC" 2>/dev/null)" ]; then
+    TAG_DESC=$(git describe --tags --abbrev=0 2>/dev/null)
+    if [ "$CURRENT_BRANCH" != "hotfix" ] && [ "$CURRENT_BRANCH" != "master" ] && [ "$(git rev-parse HEAD)" != "$(git rev-list -1 "$TAG_DESC" 2>/dev/null)" ]; then
         # Otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
         git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
     fi
