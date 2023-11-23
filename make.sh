@@ -19,11 +19,12 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
+    DOCKERFILE=${DOCKERFILE:-"${DOCKERFILES_DIR}/noarch.dockerfile"}
+    DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(get_default_target)"}
-    DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
@@ -219,10 +220,13 @@ package() {
     local build_dir="${BUILD_DIR}"
 
     local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
+    else        
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.tar.gz")"
+    fi
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
@@ -235,8 +239,14 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
-    _ensure_enter_dir "${versioned_build_dir}"
-    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        _ensure_enter_dir "${build_dir}"
+        zip -r "${pkg_path}" "${versioned_build_dir}/"
+    else
+        _ensure_enter_dir "${versioned_build_dir}"
+        _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    fi
+    sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -282,7 +292,6 @@ docker_deploy() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> deploy from: ${img}"
 
-    local pkg_name="${img_prefix}-${img_version}-${target}"
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
 
@@ -309,6 +318,28 @@ docker_release() {
     docker_deploy "$target"
     package "$target"
     _sign "$target"
+}
+
+docker_defi_build() {
+    local target=${1:-${TARGET}}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local build_dir="${BUILD_DIR}"
+    local docker_context="${DOCKER_ROOT_CONTEXT}"
+    local docker_file="${DEFI_DOCKERFILE}"
+    
+    echo "> docker-defi-build";
+
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_build_dir="${build_dir}/${versioned_name}"
+
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> building: ${img}"
+    echo "> docker defi build: ${img}"
+
+    docker build -f "${docker_file}" \
+        --build-arg DEFI_BINARY_DIR="${versioned_build_dir}" \
+        -t "${img}" "${docker_context}"
 }
 
 docker_clean_builds() {
@@ -928,27 +959,6 @@ get_default_target() {
     echo "$default_target"
 }
 
-get_default_docker_file() {
-    local target="${TARGET}"
-    local dockerfiles_dir="${DOCKERFILES_DIR}"
-
-    local try_files=(\
-        "${dockerfiles_dir}/${target}.dockerfile" \
-        "${dockerfiles_dir}/${target}" \
-        "${dockerfiles_dir}/noarch.dockerfile" \
-        )
-
-    for file in "${try_files[@]}"; do
-        if [[ -f "$file" ]]; then
-            echo "$file"
-            return
-        fi
-    done
-    # If none of these were found, assumes empty val
-    # Empty will fail if docker cmd requires it, or continue for
-    # non docker cmds
-}
-
 get_default_conf_args() {
     local conf_args=""
     if [[ "$TARGET" =~ .*linux.* ]]; then
@@ -1115,6 +1125,11 @@ ci_export_vars() {
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+        if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+            echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
+        else
+            echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
+        fi
     fi
 }
 

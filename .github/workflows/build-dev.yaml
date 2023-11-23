@@ -25,10 +25,14 @@ env:
   GIT_VERSION: 1
 
 jobs:
-  linux-x64:
+  build:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
     env:
-      TARGET: x86_64-pc-linux-gnu
+      TARGET: ${{matrix.target}}
 
     steps:
     - uses: actions/checkout@v3
@@ -36,63 +40,38 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Build and package
-      run: ./make.sh docker-release
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-deps
+      
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-user-deps
 
-    - name: Publish artifact - x86_64-pc-linux-gnu
+    - name: Build depends
+      run: ./make.sh build-deps && ./make.sh build-conf
+
+    - name: Build package
+      run: ./make.sh release
+
+    - name: Build defi image
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
+      run: ./make.sh docker-defi-build
+
+    - name: Publish artifact
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Login to Docker Hub
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
       uses: docker/login-action@v2
       with:
         username: ${{ env.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
     - name: Push to Docker Hub
+      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
         docker push defi/defichain:${ver}
-
-  win-x64:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-w64-mingw32
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: ./make.sh docker-release
-
-    - name: Publish artifact - x86_64-w64-mingw32
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-
-  osx-x64:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-apple-darwin
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: ./make.sh docker-release
-
-    - name: Publish artifact - x86_64-apple-darwin
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz
