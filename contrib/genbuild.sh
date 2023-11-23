@@ -25,9 +25,17 @@ git_check_in_repo() {
 DESC=""
 SUFFIX=""
 CURRENT_BRANCH=""
-if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ] && git_check_in_repo contrib/genbuild.sh; then
+if [ -z "$GIT_VERSION" ] && [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" = "true" ] && git_check_in_repo contrib/genbuild.sh; then
     # clean 'dirty' status of touched files that haven't been modified
     git diff >/dev/null 2>/dev/null
+
+    # if latest commit is tagged and not dirty, then override using the tag name
+    RAWDESC=$(git describe --tags --abbrev=0 2>/dev/null)
+    # shellcheck disable=SC2086
+    if [ "$(git rev-parse HEAD)" = "$(git rev-list -1 $RAWDESC 2>/dev/null)" ]; then
+        echo BUILD_DIRTY_CHECK: "$(git diff-index --quiet HEAD --)"
+        git diff-index --quiet HEAD -- && DESC=$RAWDESC
+    fi
 
     SUFFIX=$(git rev-parse --short HEAD)
     CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -41,15 +49,15 @@ if [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$(command -v git)" ] && [ "$
         SUFFIX="$(echo $CURRENT_BRANCH | sed 's/\//-/g')-$SUFFIX"
     fi
 
-    # if latest commit is tagged, or if its hotfix branch, or if its master branch, we do not mark as dirty.
-    TAG_DESC=$(git describe --tags --abbrev=0 2>/dev/null)
-    if [ "$CURRENT_BRANCH" != "hotfix" ] && [ "$CURRENT_BRANCH" != "master" ] && [ "$(git rev-parse HEAD)" != "$(git rev-list -1 "$TAG_DESC" 2>/dev/null)" ]; then
-        # Otherwise generate suffix from git, i.e. string like "59887e8-dirty". 
-        git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
-    fi
+    # Check for changes in tracked files against the
+    # index/working tree, mark as dirty if changes
+    # are present.
+    git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
 fi
 
-if [ -n "$DESC" ]; then
+if [ -z "$GIT_VERSION" ]; then
+    NEWINFO="#define BUILD_DESC \"$GIT_VERSION\""
+elif [ -n "$DESC" ]; then
     NEWINFO="#define BUILD_DESC \"$DESC\""
 elif [ -n "$SUFFIX" ]; then
     NEWINFO="#define BUILD_SUFFIX $SUFFIX"
