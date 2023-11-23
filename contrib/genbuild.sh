@@ -55,7 +55,7 @@ if [ -z "$BUILD_VERSION" ] && [ "${BITCOIN_GENBUILD_NO_GIT}" != "1" ] && [ -e "$
     git diff-index --quiet HEAD -- || SUFFIX="$SUFFIX-dirty"
 fi
 
-if [ -z "$BUILD_VERSION" ]; then
+if [ -n "$BUILD_VERSION" ]; then
     NEWINFO="#define BUILD_DESC \"$BUILD_VERSION\""
 elif [ -n "$DESC" ]; then
     NEWINFO="#define BUILD_DESC \"$DESC\""
