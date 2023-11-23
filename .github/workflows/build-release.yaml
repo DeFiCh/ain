@@ -20,8 +20,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -57,8 +55,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -80,8 +76,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -103,8 +97,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -126,8 +118,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -153,8 +143,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
