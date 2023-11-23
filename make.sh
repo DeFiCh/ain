@@ -692,7 +692,7 @@ pkg_install_deps() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip libc6-dev gcc-multilib locales locales-all
+        curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
 
     _fold_end
 }
