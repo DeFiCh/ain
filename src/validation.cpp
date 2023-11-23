@@ -2217,7 +2217,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock &block,
     auto prevHeight = pindex->pprev->nHeight;
 
     mnview.SetLastHeight(prevHeight);
-    SetLastValidatedHeight(prevHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -3466,7 +3465,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
-    SetLastValidatedHeight(pindex->nHeight);
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3818,7 +3816,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        pcustomcsview->GetStorage().BlockTipChanged();
+        SetLastValidatedHeight(pindexDelete->pprev->nHeight);
 
         if (!disconnectedConfirms.empty()) {
             for (const auto &confirm : disconnectedConfirms) {
@@ -3997,7 +3995,7 @@ bool CChainState::ConnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        pcustomcsview->GetStorage().BlockTipChanged();
+        SetLastValidatedHeight(pindexNew->nHeight);
 
         // Delete all other confirms from memory
         if (rewardedAnchors) {

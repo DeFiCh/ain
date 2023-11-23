@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <memusage.h>
+#include <rpc/resultcache.h>
 
 #include <optional>
 
@@ -370,23 +371,20 @@ public:
     std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> GetSnapshotPair() {
         const auto storageLevelDB = dynamic_cast<CStorageLevelDB*>(&db);
         assert(storageLevelDB);
-        if (blockTipChanged.load()) {
+        const auto currentHeight = GetLastValidatedHeight();
+        if (currentHeight != snapshotHeight) {
             // Lock cs_main when updating from tipSnapshot to avoid
             // race with Dis/ConnectTip.
             LOCK(cs_main);
-            // Double check bool for safety now we are under lock.
-            if (blockTipChanged.load()) {
+            // Double check for safety now we are under lock.
+            if (currentHeight != snapshotHeight) {
                 tipSnapshot = storageLevelDB->GetStorageSnapshot();
                 changedCopy = changed;
-                blockTipChanged.store(false);
+                snapshotHeight = currentHeight;
             }
         }
 
         return {changedCopy, std::make_unique<CStorageLevelDB>(storageLevelDB->GetDB(), tipSnapshot)};
-    }
-
-    void BlockTipChanged() {
-        blockTipChanged.store(true);
     }
 
 private:
@@ -402,7 +400,7 @@ private:
     MapKV changedCopy;
 
     // Used to determine whether the block tip has changed.
-    std::atomic<bool> blockTipChanged{true};
+    int snapshotHeight{std::numeric_limits<int>::max()};
 };
 
 template<typename T>
