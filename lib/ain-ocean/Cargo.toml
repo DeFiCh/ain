@@ -24,7 +24,9 @@ futures = "0.3.29"
 async-trait = "0.1.74"
 anyhow = "1.0.75"
 jsonrpsee =  { version = "0.20.3", features = ["server", "macros", "http-client", "jsonrpsee-server"] }
-bitcoin = "0.30.1"
 rocksdb = "0.21.0"
 ctrlc = "3.1.9"
 tempdir = "0.3.7"
+bitcoin_hashes = "0.12.0"
+structopt = { version = "0.3", default-features = false }
+
