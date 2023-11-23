@@ -76,6 +76,8 @@ jsonrpsee-core = "0.16"
 jsonrpsee-server = "0.16"
 jsonrpsee-types = "0.16"
 
+axum = "0.6.20"
+
 tempdir = "0.3"
 
 rocksdb = { version = "0.21", default-features = false }
