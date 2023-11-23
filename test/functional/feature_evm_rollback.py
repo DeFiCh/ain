@@ -31,7 +31,6 @@ class EVMRolllbackTest(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
                 "-ethdebug=1",
             ],
         ]
@@ -85,6 +84,7 @@ class EVMRolllbackTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -243,6 +243,7 @@ class EVMRolllbackTest(DefiTestFramework):
                             "amount": "10@DFI",
                             "domain": 3,
                         },
+                        "singlekeycheck": False,
                     }
                 ]
             )

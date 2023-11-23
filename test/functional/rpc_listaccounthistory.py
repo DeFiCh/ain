@@ -53,6 +53,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
             {"symbol": "GOLD", "name": "gold", "collateralAddress": collateral_a}
         )
         self.nodes[0].generate(1)
+        self.sync_blocks()
 
         # Make sure there's an extra token
         assert_equal(len(self.nodes[0].listtokens()), num_tokens + 1)
@@ -69,6 +70,7 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         # Mint some tokens
         self.nodes[0].minttokens(["300@" + token_a])
         self.nodes[0].generate(1)
+        self.sync_blocks(self.nodes[0:2])
 
         # Get node 0 results
         results = self.nodes[0].listaccounthistory(collateral_a)
@@ -81,7 +83,6 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         found = False
         for txs in results:
             assert_equal(txs["owner"], collateral_a)
-            self.log.info("test 0: block %d, txn is %d", txs["blockHeight"], txs["txn"])
             if txs["type"] == "MintToken":
                 found = True
         assert_equal(found, True)
@@ -97,7 +98,6 @@ class TokensRPCListAccountHistory(DefiTestFramework):
             collateral_a, {"maxBlockHeight": 103, "txn": 1}
         )
         for txs in results:
-            self.log.info("test 1: block %d, txn is %d", txs["blockHeight"], txs["txn"])
             assert_equal(txs["owner"], collateral_a)
             assert_equal(txs["blockHeight"] <= 103, True)
             if txs["blockHeight"] == 103:
@@ -109,7 +109,6 @@ class TokensRPCListAccountHistory(DefiTestFramework):
         )
 
         for txs in results:
-            self.log.info("test 2: block %d, txn is %d", txs["blockHeight"], txs["txn"])
             assert_equal(txs["owner"], collateral_a)
             assert_equal(txs["blockHeight"] <= 103, True)
             if txs["blockHeight"] == 103:

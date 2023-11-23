@@ -19,7 +19,9 @@ jobs:
       TARGET: x86_64-pc-linux-gnu
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -54,7 +56,9 @@ jobs:
       TARGET: aarch64-linux-gnu
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -75,7 +79,9 @@ jobs:
       TARGET: x86_64-w64-mingw32
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -96,7 +102,9 @@ jobs:
       TARGET: x86_64-apple-darwin
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -117,7 +125,9 @@ jobs:
       TARGET: aarch64-apple-darwin
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -142,7 +152,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: master
 
     - name: Populate environment
       run: ./make.sh ci-export-vars

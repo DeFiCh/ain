@@ -26,7 +26,6 @@ class LoanTest(DefiTestFramework):
                 "-bayfrontheight=1",
                 "-bayfrontgardensheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=1",
             ],
             [
@@ -35,7 +34,6 @@ class LoanTest(DefiTestFramework):
                 "-bayfrontheight=1",
                 "-bayfrontgardensheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=1",
             ],
         ]

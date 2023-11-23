@@ -38,7 +38,6 @@ class EIP1559Fees(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ]
         ]
 
@@ -78,6 +77,7 @@ class EIP1559Fees(DefiTestFramework):
                         "amount": "10@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

@@ -40,7 +40,6 @@ class EVMTest(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
                 "-ethdebug=1",
             ],
         ]
@@ -102,6 +101,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -335,6 +335,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -358,8 +359,9 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Test evm tx RPC
-        block = self.nodes[0].getblock(self.nodes[0].getbestblockhash())
-        res = self.nodes[0].getcustomtx(block["tx"][1])
+        block_hash = self.nodes[0].getbestblockhash()
+        block = self.nodes[0].getblock(block_hash)
+        res = self.nodes[0].getcustomtx(block["tx"][1], block_hash)
         assert_equal(
             res["results"]["hash"],
             "8c99e9f053e033078e33c2756221f38fd529b914165090a615f27961de687497",

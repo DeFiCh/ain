@@ -518,7 +518,7 @@ class AnchorRewardsTest(DefiTestFramework):
 
         # check confirmations (revoting) after node restart:
         self.stop_node(0)
-        self.start_node(0, ["-txindex=1", "-amkheight=0", "-dakotaheight=1"])
+        self.start_node(0, ["-amkheight=0", "-dakotaheight=1"])
         connect_nodes_bi(self.nodes, 0, 1)
         self.sync_blocks(self.nodes[0:2])
         wait_until(

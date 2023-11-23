@@ -33,7 +33,6 @@ class OnChainGovernanceTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
             [
                 "-dummypos=0",
