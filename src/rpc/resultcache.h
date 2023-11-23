@@ -8,9 +8,8 @@
 #include <optional>
 #include <memory>
 #include <univalue.h>
-#include <dfi/balances.h>
+#include <dfi/mn_rpc.h>
 #include <rpc/request.h>
-#include <uint256.h>
 
 struct CGetBurnInfoResult {
     CAmount burntDFI{};

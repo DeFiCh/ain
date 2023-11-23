@@ -1,6 +1,6 @@
 #include <rpc/resultcache.h>
 #include <rpc/util.h>
-#include <validation.h>
+#include <logging.h>
 
 void RPCResultCache::Init(RPCCacheMode mode) {
     std::unique_lock l{aMutex};
