@@ -9,7 +9,7 @@ LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-COPY ./${PKG_PATH} ./
+COPY ${PKG_PATH} ./
 RUN tar -xvzf ${PACKAGE} --strip-components 1
 
 RUN useradd --create-home defi && \
