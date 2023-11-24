@@ -30,10 +30,28 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
+    - name: Restore build depends
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+
     - uses: Swatinem/rust-cache@v2
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+
+    - name: Restore cpp build
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+    - name: Restore ccache
+      uses: actions/cache/restore@v3
+      with:
+        path: ./build/.ccache
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-ccache
 
     - name: Build binaries
       run: ./make.sh build
