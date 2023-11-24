@@ -77,14 +77,15 @@ jobs:
         asset_name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}.SHA256
         asset_content_type: text/plain
 
-  docker-build:
+  docker-release:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [create-release]
     env:
       TARGET: x86_64-pc-linux-gnu
 
     steps:
     - uses: actions/checkout@v4
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
