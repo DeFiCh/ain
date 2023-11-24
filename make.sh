@@ -28,6 +28,8 @@ setup_vars() {
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
+    PACKAGE_DIR=${PACKAGE_DIR:-"./"}
+    PACKAGE_DIR="$(_canonicalize "$PACKAGE_DIR")"
     # Was previously ${BUILD_DIR}/$TARGET for host specific
     # But simplifying this since autotools conf ends up in reconf and
     # rebuilds anyway, might as well just point manually if needed
@@ -324,9 +326,9 @@ docker_defi_build() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
-    local build_dir="${BUILD_DIR}"
 
     local pkg_name="${img_prefix}-${img_version}-${target}.tar.gz"
+    local pkg_dir="${PACKAGE_DIR}"
 
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DEFI_DOCKERFILE}"
@@ -338,6 +340,7 @@ docker_defi_build() {
     echo "> docker defi build: ${img}"
 
     docker build -f "${docker_file}" \
+        --build-arg PKG_PATH="${pkg_dir}/${pkg_name}" \
         --build-arg PACKAGE="${pkg_name}" \
         -t "${img}" "${docker_context}"
 }
