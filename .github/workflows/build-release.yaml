@@ -35,15 +35,8 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - name: Build depends
-      run: ./make.sh build-deps && ./make.sh build-conf
-
-    - name: Build package
+    - name: Build and package
       run: ./make.sh release
-
-    - name: Build defi image
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: ./make.sh docker-defi-build
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
@@ -52,20 +45,6 @@ jobs:
         path: |
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}.SHA256
-
-    - name: Login to Docker Hub
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      uses: docker/login-action@v2
-      with:
-        username: ${{ env.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-    - name: Push to Docker Hub
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
-        docker push defi/defichain:${ver}
 
     - name: Get release
       id: get_release
@@ -92,3 +71,35 @@ jobs:
         asset_path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}.SHA256
         asset_name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}.SHA256
         asset_content_type: text/plain
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      TARGET: x86_64-pc-linux-gnu
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Download Binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+
+    - name: Build defi image
+      run: ./make.sh docker-defi-build
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Push to Docker Hub
+      run: |
+        set -e; ver=${{ env.BUILD_VERSION }}
+        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
+        docker push defi/defichain:${ver}

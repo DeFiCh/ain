@@ -33,15 +33,8 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - name: Build depends
-      run: ./make.sh build-deps && ./make.sh build-conf
-
-    - name: Build package
+    - name: Build and package
       run: ./make.sh release
-
-    - name: Build defi image
-      if: ${{ env.TARGET == 'x86_64-pc-linux-gnu' }}
-      run: ./make.sh docker-defi-build
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
@@ -50,3 +43,23 @@ jobs:
         path: |
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}.SHA256
+
+  stage-docker-release:
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      TARGET: x86_64-pc-linux-gnu
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Download Binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+
+    - name: Build defi image
+      run: ./make.sh docker-defi-build

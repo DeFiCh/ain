@@ -47,10 +47,7 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - name: Build depends
-      run: ./make.sh build-deps && ./make.sh build-conf
-
-    - name: Build package
+    - name: Build and package
       run: ./make.sh release
 
     - name: Publish artifact
