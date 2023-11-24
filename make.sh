@@ -19,6 +19,7 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
+    DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
@@ -219,10 +220,13 @@ package() {
     local build_dir="${BUILD_DIR}"
 
     local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
+    else        
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.tar.gz")"
+    fi
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
@@ -235,8 +239,14 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
-    _ensure_enter_dir "${versioned_build_dir}"
-    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        _ensure_enter_dir "${build_dir}"
+        zip -r "${pkg_path}" "${versioned_build_dir}/"
+    else
+        _ensure_enter_dir "${versioned_build_dir}"
+        _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    fi
+    sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -282,7 +292,6 @@ docker_deploy() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> deploy from: ${img}"
 
-    local pkg_name="${img_prefix}-${img_version}-${target}"
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
 
@@ -309,6 +318,27 @@ docker_release() {
     docker_deploy "$target"
     package "$target"
     _sign "$target"
+}
+
+docker_defi_build() {
+    local target=${1:-${TARGET}}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+
+    local pkg_name="${img_prefix}-${img_version}-${target}.tar.gz"
+
+    local docker_context="${DOCKER_ROOT_CONTEXT}"
+    local docker_file="${DEFI_DOCKERFILE}"
+
+    echo "> docker-defi-build";
+
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> building: ${img}"
+    echo "> docker defi build: ${img}"
+
+    docker build -f "${docker_file}" \
+        --build-arg PACKAGE="${pkg_name}" \
+        -t "${img}" "${docker_context}"
 }
 
 docker_clean_builds() {
@@ -661,7 +691,7 @@ pkg_install_deps() {
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip libc6-dev gcc-multilib locales locales-all
+        curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
 
     _fold_end
 }
@@ -1115,6 +1145,11 @@ ci_export_vars() {
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+        if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+            echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
+        else
+            echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
+        fi
     fi
 }
 
