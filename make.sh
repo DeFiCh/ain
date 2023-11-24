@@ -19,12 +19,12 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
-    DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
     DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
     TARGET=${TARGET:-"$(get_default_target)"}
+    DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
 
     BUILD_DIR=${BUILD_DIR:-"./build"}
     BUILD_DIR="$(_canonicalize "$BUILD_DIR")"
