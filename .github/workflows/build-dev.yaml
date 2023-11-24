@@ -80,21 +80,21 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Cache build depends
-      if: ${{ github.ref == 'refs/heads/master' }}
+      # if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
         path: ./build/depends
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
 
     - name: Cache cpp build
-      if: ${{ github.ref == 'refs/heads/master' }}
+      # if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
         path: ./build/src
         key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
 
     - name: Cache ccache
-      if: ${{ github.ref == 'refs/heads/master' }}
+      # if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
         path: ./build/.cacche
