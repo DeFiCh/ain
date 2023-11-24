@@ -30,8 +30,7 @@ jobs:
     container: defi/ain-builder:latest
     strategy:
       matrix:
-        target: [x86_64-pc-linux-gnu]
-        # target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
+        target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
     env:
       TARGET: ${{matrix.target}}
 
@@ -79,9 +78,6 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
-
-    - name: Debug
-      run: ls -R
 
     - name: Build defi image
       run: rm .dockerignore && ./make.sh docker-defi-build
