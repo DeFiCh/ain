@@ -47,10 +47,28 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
+    - name: Cache build depends
+      uses: actions/cache@v3
+      with:
+        path: ./build/depends
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-depends
+
     - uses: Swatinem/rust-cache@v2
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+
+    - name: Cache cpp build
+      uses: actions/cache@v3
+      with:
+        path: ./build/src
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-cpp
+
+    - name: Cache ccache
+      uses: actions/cache@v3
+      with:
+        path: ./build/.ccache
+        key: ${{ env.TARGET }}-${{ env.BUILD_TYPE }}-ccache
 
     - name: Build and package
       run: ./make.sh release
