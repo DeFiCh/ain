@@ -340,8 +340,8 @@ docker_defi_build() {
     echo "> docker defi build: ${img}"
 
     docker build -f "${docker_file}" \
-        --build-arg PKG_PATH="${pkg_dir}/${pkg_name}" \
         --build-arg PACKAGE="${pkg_name}" \
+        --build-arg PACKAGE_PATH="${pkg_dir}/${pkg_name}" \
         -t "${img}" "${docker_context}"
 }
 
