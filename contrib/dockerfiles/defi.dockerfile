@@ -10,7 +10,6 @@ LABEL org.defichain.arch=${TARGET}
 WORKDIR /app
 COPY ./${PACKAGE} ./
 RUN tar -xvzf ${PACKAGE} --strip-components 1
-COPY --from=builder /app/. ./
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \
