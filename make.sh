@@ -1149,6 +1149,12 @@ ci_export_vars() {
         echo "CCACHE_DIR=${build_dir}/.ccache" >> "$GITHUB_ENV"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
 
+        if [[ "${MAKE_DEBUG}" == "1" ]]; then
+            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
+        else
+            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
+        fi
+
         if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
             echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
         else
