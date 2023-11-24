@@ -19,7 +19,7 @@ setup_vars() {
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
-    DOCKERFILE=${DOCKERFILE:-"${DOCKERFILES_DIR}/noarch.dockerfile"}
+    DOCKERFILE=${DOCKERFILE:-"$(get_default_docker_file)"}
     DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
@@ -957,6 +957,27 @@ get_default_target() {
         fi
     fi
     echo "$default_target"
+}
+
+get_default_docker_file() {
+    local target="${TARGET}"
+    local dockerfiles_dir="${DOCKERFILES_DIR}"
+
+    local try_files=(\
+        "${dockerfiles_dir}/${target}.dockerfile" \
+        "${dockerfiles_dir}/${target}" \
+        "${dockerfiles_dir}/noarch.dockerfile" \
+        )
+
+    for file in "${try_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            echo "$file"
+            return
+        fi
+    done
+    # If none of these were found, assumes empty val
+    # Empty will fail if docker cmd requires it, or continue for
+    # non docker cmds
 }
 
 get_default_conf_args() {
