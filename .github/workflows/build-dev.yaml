@@ -68,6 +68,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
     - name: Download Binaries
       uses: actions/download-artifact@v3
       with:
