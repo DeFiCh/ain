@@ -74,7 +74,8 @@
 #define MICRO 0.000001
 #define MILLI 0.001
 
-UniValue blockToJSON(const CBlock &block,
+UniValue blockToJSON(CCustomCSView &view,
+                     const CBlock &block,
                      const CBlockIndex *tip,
                      const CBlockIndex *blockindex,
                      bool txDetails,
@@ -4066,7 +4067,7 @@ bool CChainState::ConnectTip(CValidationState &state,
              nTimeTotal * MILLI / nBlocksTotal);
 
     if (LogAcceptCategory(BCLog::CONNECT)) {
-        LogPrintf("ConnectTip: %s\n", blockToJSON(*pthisBlock, pindexNew, pindexNew, true, 4).write(2));
+        LogPrintf("ConnectTip: %s\n", blockToJSON(*pcustomcsview, *pthisBlock, pindexNew, pindexNew, true, 4).write(2));
     }
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));
     return true;

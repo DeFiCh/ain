@@ -387,11 +387,12 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VOBJ, UniValue::VSTR, UniValue::VARR}, true);
 
     // decode
+    auto view = ::GetViewSnapshot();
     CLiquidityMessage msg{};
     if (request.params[0].get_obj().getKeys().size() == 1 &&
         request.params[0].get_obj().getKeys()[0] == "*") {  // auto-selection accounts from wallet
 
-        CAccounts foundMineAccounts = GetAllMineAccounts(pwallet);
+        CAccounts foundMineAccounts = GetAllMineAccounts(pwallet, *view);
 
         CBalances sumTransfers = DecodeAmounts(pwallet->chain(), request.params[0].get_obj()["*"], "*");
 
@@ -430,8 +431,8 @@ UniValue addpoolliquidity(const JSONRPCRequest &request) {
     }
     const UniValue &txInputs = request.params[2];
     CTransactionRef optAuthTx;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -519,10 +520,11 @@ UniValue removepoolliquidity(const JSONRPCRequest &request) {
     CMutableTransaction rawTx(txVersion);
     rawTx.vout.push_back(CTxOut(0, scriptMeta));
 
+    auto view = ::GetViewSnapshot();
     CTransactionRef optAuthTx;
     std::set<CScript> auths{msg.from};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -649,11 +651,11 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
     }
     RejectErc55Address(ownerAddress);
 
-    int targetHeight;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     DCT_ID idtokenA, idtokenB;
     {
-        auto view = ::GetViewSnapshot();
-
         auto token = view->GetTokenGuessId(tokenA, idtokenA);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenA was not found");
@@ -663,8 +665,6 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
         if (!token2) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "TokenB was not found");
         }
-
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     const auto symbolLength = targetHeight >= Params().GetConsensus().DF11FortCanningHeight
@@ -700,8 +700,8 @@ UniValue createpoolpair(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -795,9 +795,11 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
 
     const std::string poolStr = trim_ws(metaObj["pool"].getValStr());
     DCT_ID poolId;
-    int targetHeight;
+
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     {
-        auto view = ::GetViewSnapshot();
         auto token = view->GetTokenGuessId(poolStr, poolId);
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
@@ -808,7 +810,6 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
         status = pool->status;
-        targetHeight = ::ChainActive().Height() + 1;
     }
 
     if (!metaObj["status"].isNull()) {
@@ -836,8 +837,8 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
@@ -966,8 +967,8 @@ UniValue poolswap(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{poolSwapMsg.from};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1113,8 +1114,8 @@ UniValue compositeswap(const JSONRPCRequest &request) {
     const UniValue &txInputs = request.params[1];
     CTransactionRef optAuthTx;
     std::set<CScript> auths{poolSwapMsg.from};
-    rawTx.vin =
-        GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, request.metadata.coinSelectOpts);
+    rawTx.vin = GetAuthInputsSmart(
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, txInputs, *view, request.metadata.coinSelectOpts);
 
     CCoinControl coinControl;
 
@@ -1215,7 +1216,7 @@ UniValue testpoolswap(const JSONRPCRequest &request) {
     // test execution and get amount
     Res res = Res::Ok();
     {
-        uint32_t targetHeight = ::ChainActive().Height() + 1;
+        uint32_t targetHeight = mnview_dummy->GetLastHeight() + 1;
         auto poolSwap = CPoolSwap({poolSwapMsg, targetHeight});
         std::vector<DCT_ID> poolIds;
         auto poolPair = mnview_dummy->GetPoolPair(poolSwapMsg.idTokenFrom, poolSwapMsg.idTokenTo);

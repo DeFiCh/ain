@@ -17,7 +17,6 @@ struct VotingInfo {
 
 UniValue proposalToJSON(const CProposalId &propId,
                         const CProposalObject &prop,
-                        const CCustomCSView &view,
                         const std::optional<VotingInfo> votingInfo) {
     auto proposalId = propId.GetHex();
     auto creationHeight = static_cast<int32_t>(prop.creationHeight);
@@ -290,16 +289,17 @@ UniValue creategovcfp(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto targetHeight = pcustomcsview->GetLastHeight() + 1;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths{pm.address};
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], *view, request.metadata.coinSelectOpts);
 
-    auto cfpFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
+    auto cfpFee = GetProposalCreationFee(targetHeight, *view, pm);
     rawTx.vout.emplace_back(CTxOut(cfpFee, scriptMeta));
 
     CCoinControl coinControl;
@@ -428,16 +428,17 @@ UniValue creategovvoc(const JSONRPCRequest &request) {
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    auto targetHeight = pcustomcsview->GetLastHeight() + 1;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
     const auto txVersion = GetTransactionVersion(targetHeight);
     CMutableTransaction rawTx(txVersion);
 
     CTransactionRef optAuthTx;
     std::set<CScript> auths;
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[1], *view, request.metadata.coinSelectOpts);
 
-    auto vocFee = GetProposalCreationFee(targetHeight, *pcustomcsview, pm);
+    auto vocFee = GetProposalCreationFee(targetHeight, *view, pm);
     rawTx.vout.emplace_back(CTxOut(vocFee, scriptMeta));
 
     CCoinControl coinControl;
@@ -521,12 +522,12 @@ UniValue votegov(const JSONRPCRequest &request) {
                            "https://github.com/DeFiCh/ain/issues/1704");
     }
 
-    int targetHeight;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
+
     CTxDestination ownerDest;
     {
-        CCustomCSView view(*pcustomcsview);
-
-        auto prop = view.GetProposal(propId);
+        auto prop = view->GetProposal(propId);
         if (!prop) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
         }
@@ -549,13 +550,13 @@ UniValue votegov(const JSONRPCRequest &request) {
             }
 
             const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
-            if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
+            if (auto masterNodeIdByOwner = view->GetMasternodeIdByOwner(ckeyId)) {
                 mnId = masterNodeIdByOwner.value();
-            } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
+            } else if (auto masterNodeIdByOperator = view->GetMasternodeIdByOperator(ckeyId)) {
                 mnId = masterNodeIdByOperator.value();
             }
         }
-        auto node = view.GetMasternode(mnId);
+        auto node = view->GetMasternode(mnId);
         if (!node) {
             throw JSONRPCError(
                 RPC_INVALID_PARAMETER,
@@ -563,8 +564,6 @@ UniValue votegov(const JSONRPCRequest &request) {
         }
         ownerDest = node->ownerType == 1 ? CTxDestination(PKHash(node->ownerAuthAddress))
                                          : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress));
-
-        targetHeight = view.GetLastHeight() + 1;
     }
 
     CProposalVoteMessage msg;
@@ -585,7 +584,7 @@ UniValue votegov(const JSONRPCRequest &request) {
     CTransactionRef optAuthTx;
     std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
     rawTx.vin = GetAuthInputsSmart(
-        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[3], request.metadata.coinSelectOpts);
+        pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[3], *view, request.metadata.coinSelectOpts);
 
     rawTx.vout.emplace_back(CTxOut(0, scriptMeta));
 
@@ -644,7 +643,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
         (request.params.size() > 1 && request.params[1].isNull()) ? SLEEP_TIME_MILLIS : request.params[1].get_int();
     auto neutralVotesAllowed = gArgs.GetBoolArg("-rpc-governance-accept-neutral", DEFAULT_RPC_GOV_NEUTRAL);
 
-    int targetHeight;
+    auto view = ::GetViewSnapshot();
+    auto targetHeight = view->GetLastHeight() + 1;
 
     struct VotingState {
         uint256 propId;
@@ -655,8 +655,6 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
     std::vector<VotingState> voteList;
     {
-        CCustomCSView view(*pcustomcsview);
-
         for (size_t i{}; i < keys.size(); ++i) {
             const auto &votes{keys[i].get_array()};
             if (votes.size() != 3) {
@@ -667,7 +665,7 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
             }
 
             const auto propId = ParseHashV(votes[0].get_str(), "proposalId");
-            const auto prop = view.GetProposal(propId);
+            const auto prop = view->GetProposal(propId);
             if (!prop) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
@@ -695,14 +693,14 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                 }
 
                 const CKeyID ckeyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
-                if (auto masterNodeIdByOwner = view.GetMasternodeIdByOwner(ckeyId)) {
+                if (auto masterNodeIdByOwner = view->GetMasternodeIdByOwner(ckeyId)) {
                     mnId = masterNodeIdByOwner.value();
-                } else if (auto masterNodeIdByOperator = view.GetMasternodeIdByOperator(ckeyId)) {
+                } else if (auto masterNodeIdByOperator = view->GetMasternodeIdByOperator(ckeyId)) {
                     mnId = masterNodeIdByOperator.value();
                 }
             }
 
-            const auto node = view.GetMasternode(mnId);
+            const auto node = view->GetMasternode(mnId);
             if (!node) {
                 throw JSONRPCError(
                     RPC_INVALID_PARAMETER,
@@ -730,8 +728,6 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
                                                      : CTxDestination(WitnessV0KeyHash(node->ownerAuthAddress)),
                                 vote});
         }
-
-        targetHeight = view.GetLastHeight() + 1;
     }
 
     UniValue ret(UniValue::VARR);
@@ -754,8 +750,8 @@ UniValue votegovbatch(const JSONRPCRequest &request) {
 
         CTransactionRef optAuthTx;
         std::set<CScript> auths = {GetScriptForDestination(ownerDest)};
-        rawTx.vin =
-            GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, {}, request.metadata.coinSelectOpts);
+        rawTx.vin = GetAuthInputsSmart(
+            pwallet, rawTx.nVersion, auths, false, optAuthTx, {}, *view, request.metadata.coinSelectOpts);
         rawTx.vout.emplace_back(0, scriptMeta);
 
         CCoinControl coinControl;
@@ -836,7 +832,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
         }
     }
 
-    CCustomCSView view(*pcustomcsview);
+    auto view = ::GetViewSnapshot();
 
     uint256 mnId;
     uint256 propId;
@@ -956,7 +952,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     if (inputCycle == 0) {
         if (!propId.IsNull()) {
-            auto prop = view.GetProposal(propId);
+            auto prop = view->GetProposal(propId);
             if (!prop) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
             }
@@ -976,7 +972,7 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
 
     std::map<std::string, VotingInfo> map;
 
-    view.ForEachProposalVote(
+    view->ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t propCycle, const uint256 &id, CProposalVoteType vote) {
             if (!propId.IsNull() && pId != propId) {
                 return false;
@@ -986,26 +982,26 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 return false;
             }
 
-            if (aggregate && latestOnly && propCycle != view.GetProposal(pId)->cycle) {
+            if (aggregate && latestOnly && propCycle != view->GetProposal(pId)->cycle) {
                 return true;
             }
 
             int targetHeight;
-            auto prop = view.GetProposal(propId);
+            auto prop = view->GetProposal(propId);
             if (prop->status == CProposalStatusType::Voting) {
-                targetHeight = view.GetLastHeight() + 1;
+                targetHeight = view->GetLastHeight() + 1;
             } else {
                 targetHeight = prop->cycleEndHeight;
             }
 
             if (isMine) {
-                auto node = view.GetMasternode(id);
+                auto node = view->GetMasternode(id);
                 if (!node) {
                     return true;
                 }
 
                 bool valid = true;
-                if (!node->IsActive(targetHeight, view) || !node->mintedBlocks) {
+                if (!node->IsActive(targetHeight, *view) || !node->mintedBlocks) {
                     valid = false;
                 }
 
@@ -1040,8 +1036,8 @@ UniValue listgovproposalvotes(const JSONRPCRequest &request) {
                 }
 
                 bool valid = true;
-                auto node = view.GetMasternode(id);
-                if (!node->IsActive(targetHeight, view) || !node->mintedBlocks) {
+                auto node = view->GetMasternode(id);
+                if (!node->IsActive(targetHeight, *view) || !node->mintedBlocks) {
                     valid = false;
                 }
 
@@ -1096,35 +1092,35 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
     RPCTypeCheck(request.params, {UniValue::VSTR}, true);
 
     auto propId = ParseHashV(request.params[0].get_str(), "proposalId");
-    CCustomCSView view(*pcustomcsview);
-    auto prop = view.GetProposal(propId);
+    auto view = ::GetViewSnapshot();
+    auto prop = view->GetProposal(propId);
     if (!prop) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Proposal <%s> does not exist", propId.GetHex()));
     }
 
     int targetHeight;
     if (prop->status == CProposalStatusType::Voting) {
-        targetHeight = view.GetLastHeight() + 1;
+        targetHeight = view->GetLastHeight() + 1;
     } else {
         targetHeight = prop->cycleEndHeight;
     }
 
     std::set<uint256> activeMasternodes;
-    view.ForEachMasternode([&](const uint256 &mnId, CMasternode node) {
-        if (node.IsActive(targetHeight, view) && node.mintedBlocks) {
+    view->ForEachMasternode([&](const uint256 &mnId, CMasternode node) {
+        if (node.IsActive(targetHeight, *view) && node.mintedBlocks) {
             activeMasternodes.insert(mnId);
         }
         return true;
     });
 
     if (activeMasternodes.empty()) {
-        return proposalToJSON(propId, *prop, view, std::nullopt);
+        return proposalToJSON(propId, *prop, std::nullopt);
     }
 
     VotingInfo info;
     info.votesPossible = activeMasternodes.size();
 
-    view.ForEachProposalVote(
+    view->ForEachProposalVote(
         [&](const CProposalId &pId, uint8_t cycle, const uint256 &mnId, CProposalVoteType vote) {
             if (pId != propId || cycle != prop->cycle) {
                 return false;
@@ -1147,10 +1143,10 @@ UniValue getgovproposal(const JSONRPCRequest &request) {
         CMnVotePerCycle{propId, prop->cycle});
 
     if (!info.votesPresent) {
-        return proposalToJSON(propId, *prop, view, std::nullopt);
+        return proposalToJSON(propId, *prop, std::nullopt);
     }
 
-    return proposalToJSON(propId, *prop, view, info);
+    return proposalToJSON(propId, *prop, info);
 }
 
 template <typename T>
@@ -1181,7 +1177,7 @@ void iterateProposals(const T &list,
         }
 
         limit--;
-        ret.push_back(proposalToJSON(prop.first, prop.second, *pcustomcsview, std::nullopt));
+        ret.push_back(proposalToJSON(prop.first, prop.second, std::nullopt));
         if (!limit) {
             break;
         }
@@ -1340,7 +1336,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     }
 
     UniValue ret{UniValue::VARR};
-    CCustomCSView view(*pcustomcsview);
+    auto view = ::GetViewSnapshot();
 
     using IdPropPair = std::pair<CProposalId, CProposalObject>;
     using CycleEndHeightInt = int;
@@ -1349,7 +1345,7 @@ UniValue listgovproposals(const JSONRPCRequest &request) {
     std::map<CProposalId, CProposalObject> props;
     CyclePropsMap cycleProps;
 
-    view.ForEachProposal(
+    view->ForEachProposal(
         [&](const CProposalId &propId, const CProposalObject &prop) {
             props.insert({propId, prop});
             return true;
