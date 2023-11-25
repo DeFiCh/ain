@@ -309,7 +309,7 @@ public:
     explicit CFlushableStorageKV(CStorageKV& db_) : db(db_) {}
 
     // Snapshot constructor
-    explicit CFlushableStorageKV(std::unique_ptr<CStorageLevelDB> &db_, const MapKV &changed) : snapshotDB(std::move(db_)), db(*snapshotDB), changed(changed) {}
+    explicit CFlushableStorageKV(std::unique_ptr<CStorageLevelDB> &db_, MapKV changed) : snapshotDB(std::move(db_)), db(*snapshotDB), changed(std::move(changed)), snapshot(true) {}
 
     CFlushableStorageKV(const CFlushableStorageKV&) = delete;
     ~CFlushableStorageKV() override = default;
@@ -341,6 +341,9 @@ public:
         }
     }
     bool Flush() override {
+        if (snapshot) {
+            return false;
+        }
         for (const auto& it : changed) {
             if (!it.second) {
                 if (!db.Erase(it.first)) {
@@ -354,6 +357,9 @@ public:
         return true;
     }
     void Discard() override {
+        if (snapshot) {
+            return;
+        }
         changed.clear();
     }
     size_t SizeEstimate() const override {
@@ -403,6 +409,9 @@ private:
 
     // Used to determine whether the block tip has changed.
     std::atomic<bool> blockTipChanged{true};
+
+    // Whether this view is using a snapshot
+    bool snapshot{};
 };
 
 template<typename T>
