@@ -54,7 +54,7 @@ jobs:
         path: |
           ./build/depends
           ./build/src
-          ./build/.ccache
+          ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
     - name: Restore rust build cache
@@ -74,9 +74,6 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
-    - name: Add debugging log to find ccache
-      run: ls -lahR ./build
-
     - name: Delete previous cpp cache
       # if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
       if: ${{ steps.cpp-cache-restore.outputs.cache-hit }}
@@ -94,7 +91,7 @@ jobs:
         path: |
           ./build/depends
           ./build/src
-          ./build/.ccache
+          ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
   docker-build:
