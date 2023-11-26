@@ -54,7 +54,7 @@ jobs:
         path: |
           ./build/depends
           ./build/src
-          ~/.ccache
+          ./build/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
     - name: Restore rust build cache
@@ -94,7 +94,7 @@ jobs:
         path: |
           ./build/depends
           ./build/src
-          ~/.ccache
+          ./build/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
   docker-build:
