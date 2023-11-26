@@ -78,7 +78,8 @@ jobs:
       run: ls -lahR ./build
 
     - name: Delete previous cpp cache
-      if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
+      # if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
+      if: ${{ steps.cpp-cache-restore.outputs.cache-hit }}
       continue-on-error: true
       run: |
         gh extension install actions/gh-actions-cache
