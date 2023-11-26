@@ -689,7 +689,7 @@ pkg_install_deps() {
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev wget gh ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
 
