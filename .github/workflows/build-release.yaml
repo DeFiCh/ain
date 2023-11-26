@@ -35,11 +35,6 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: lib -> ../build/lib/target
-        save-if: ${{ github.ref == 'refs/heads/master' }}
-
     - name: Build and package
       run: ./make.sh release
 
