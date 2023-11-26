@@ -13,7 +13,6 @@ impl OceanRPCServer {
     pub async fn start_rpc_server(&self) -> anyhow::Result<()> {
         let listen = self.rpc_config.listen.clone();
         let server = ServerBuilder::default().build(listen).await?;
-        // Create and configure the RPC modules
         let mut block_module = RpcModule::new(());
         register_block_methods(&mut block_module)?;
         let server_handle = server.start(block_module);
