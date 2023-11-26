@@ -30,3 +30,4 @@ pub fn ocean_router() -> Router {
         .nest("/transactions", transactions::router())
         .nest("/blocks", block::router())
 }
+pub mod rpc;
