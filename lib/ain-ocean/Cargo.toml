@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tarpc = { version = "0.33", features = ["tokio1", "serde1", "serde-transport","tcp"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 tokio-serde = { version = "0.8.0", features = ["json"] }
