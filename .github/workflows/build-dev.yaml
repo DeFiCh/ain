@@ -78,20 +78,20 @@ jobs:
       run: ls -lahR ~
 
     - name: Delete previous cpp cache
-      if: ${{ steps.cpp-cache-restore.outputs.cache-hit }}
+      if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
       continue-on-error: true
       run: |
         gh extension install actions/gh-actions-cache
-        gh actions-cache delete "${{ cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }} }}" --confirm
+        gh actions-cache delete "cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}" --confirm
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Delete previous rust cache
-      if: ${{ steps.rust-cache-restore.outputs.cache-hit }}
+      if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.rust-cache-restore.outputs.cache-hit }}
       continue-on-error: true
       run: |
         gh extension install actions/gh-actions-cache
-        gh actions-cache delete "${{ rust-${{ env.TARGET }}-${{ env.BUILD_TYPE }} }}" --confirm
+        gh actions-cache delete "rust-${{ env.TARGET }}-${{ env.BUILD_TYPE }}" --confirm
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
