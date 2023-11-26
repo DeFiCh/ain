@@ -46,11 +46,24 @@ jobs:
       
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
+    
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ./build/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
-    - uses: Swatinem/rust-cache@v2
+    - name: Restore rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: rust-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
     - name: Build and package
       run: ./make.sh release
@@ -60,6 +73,37 @@ jobs:
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
+
+    - name: Add debugging log to find ccache
+      run: ls -lahR ~
+
+    - name: Delete previous cpp cache
+      if: ${{ steps.cpp-cache-restore.outputs.cache-hit }}
+      continue-on-error: true
+      run: |
+        gh extension install actions/gh-actions-cache
+        gh actions-cache delete "${{ cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }} }}" --confirm
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Delete previous rust cache
+      if: ${{ steps.rust-cache-restore.outputs.cache-hit }}
+      continue-on-error: true
+      run: |
+        gh extension install actions/gh-actions-cache
+        gh actions-cache delete "${{ rust-${{ env.TARGET }}-${{ env.BUILD_TYPE }} }}" --confirm
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Save cpp cache
+      # if: ${{ github.ref == 'refs/heads/master' }}
+      uses: actions/cache/save@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ./build/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
   docker-build:
     runs-on: ubuntu-latest

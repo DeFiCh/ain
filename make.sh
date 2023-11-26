@@ -689,7 +689,7 @@ pkg_install_deps() {
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
 
@@ -1140,10 +1140,13 @@ _nproc() {
 
 # shellcheck disable=SC2129
 ci_export_vars() {
+    local build_dir="${BUILD_DIR}"
+
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
+        echo "CCACHE_DIR=${build_dir}/.ccache"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
         if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
             echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
