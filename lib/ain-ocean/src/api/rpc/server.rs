@@ -18,7 +18,7 @@ impl OceanRPCServer {
         let server_handle = server.start(block_module);
         // Wait for a Ctrl+C signal before shutting down
         signal::ctrl_c().await.expect("failed to listen for event");
-        server_handle.stop();
+        let _ = server_handle.stop();
 
         Ok(())
     }
