@@ -75,7 +75,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Add debugging log to find ccache
-      run: ls -lahR ~
+      run: ls -lahR ./build
 
     - name: Delete previous cpp cache
       if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
