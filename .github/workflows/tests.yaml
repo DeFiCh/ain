@@ -45,10 +45,13 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - uses: Swatinem/rust-cache@v2
+    - name: Restore rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
 
     - name: Build binaries
       run: ./make.sh build
@@ -76,10 +79,13 @@ jobs:
     - name: Setup dependencies for user
       run: ./make.sh ci-setup-user-deps
 
-    - uses: Swatinem/rust-cache@v2
+    - name: Restore rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
 
     - name: Build deps and configure
       run: ./make.sh build-deps && ./make.sh build-conf

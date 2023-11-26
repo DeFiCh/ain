@@ -54,7 +54,7 @@ jobs:
         path: |
           ./build/depends
           ./build/src
-          ./build/.ccache
+          ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
     - name: Restore rust build cache
@@ -62,7 +62,7 @@ jobs:
       id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
-        # save-if: ${{ github.ref == 'refs/heads/master' }}
+        save-if: ${{ github.ref == 'refs/heads/master' }}
         shared-key: ${{ env.TARGET }}
 
     - name: Build and package
@@ -93,7 +93,7 @@ jobs:
         path: |
           ./build/depends
           ./build/src
-          ./build/.ccache
+          ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
   docker-build:
