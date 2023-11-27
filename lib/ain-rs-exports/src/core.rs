@@ -45,6 +45,12 @@ pub fn ain_rs_init_network_subscriptions_service(addr: String) -> Result<()> {
 }
 
 #[ffi_fallible]
+pub fn ain_rs_init_network_rest_ocean(addr: String) -> Result<()> {
+    ain_grpc::init_network_rest_ocean(addr)?;
+    Ok(())
+}
+
+#[ffi_fallible]
 pub fn ain_rs_stop_network_services() -> Result<()> {
     ain_grpc::stop_network_services()?;
     Ok(())

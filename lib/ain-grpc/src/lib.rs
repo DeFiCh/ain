@@ -122,6 +122,25 @@ pub fn init_network_grpc_service(_addr: String) -> Result<()> {
     Ok(())
 }
 
+pub fn init_network_rest_ocean(addr: String) -> Result<()> {
+    info!("Starting REST Ocean server at {}", addr);
+    let addr = addr.as_str().parse::<SocketAddr>()?;
+    let runtime = &SERVICES;
+
+    let handle = runtime.tokio_runtime.clone();
+    let listener = runtime
+        .tokio_runtime
+        .block_on(tokio::net::TcpListener::bind(addr))?;
+    let server_handle = runtime.tokio_runtime.spawn(async move {
+        axum::serve(listener, ain_ocean::ocean_router())
+            .await
+            .unwrap();
+    });
+    *runtime.ocean_handle.lock() = Some(server_handle);
+
+    Ok(())
+}
+
 pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
     info!("Starting WebSockets server at {}", addr);
     let addr = addr.as_str().parse::<SocketAddr>()?;

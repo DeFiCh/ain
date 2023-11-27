@@ -46,6 +46,7 @@ pub mod ffi {
         // Networking
         fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: String);
         fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: String);
+        fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: String);
         fn ain_rs_init_network_subscriptions_service(
             result: &mut CrossBoundaryResult,
             addr: String,

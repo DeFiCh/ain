@@ -7,6 +7,7 @@ build = "build.rs"
 [dependencies]
 ain-evm = { path = "../ain-evm" }
 ain-cpp-imports = { path = "../ain-cpp-imports" }
+ain-ocean = { path = "../ain-ocean" }
 cxx.workspace = true
 env_logger.workspace = true
 evm = { workspace = true, default-features = false, features = ["with-serde"] }
@@ -35,6 +36,7 @@ tower-http.workspace = true
 tower.workspace = true
 hyper.workspace = true
 rand.workspace = true
+axum.workspace = true
 
 [build-dependencies]
 heck.workspace = true
