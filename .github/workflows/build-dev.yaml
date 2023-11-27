@@ -62,7 +62,7 @@ jobs:
       id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
-        # save-if: ${{ github.ref == 'refs/heads/master' }}
+        save-if: ${{ github.ref == 'refs/heads/master' }}
         shared-key: ${{ env.TARGET }}
 
     - name: Build and package
@@ -75,8 +75,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Delete previous cpp cache
-      # if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
-      if: ${{ steps.cpp-cache-restore.outputs.cache-hit }}
+      if: ${{ github.ref == 'refs/heads/master' }} && ${{ steps.cpp-cache-restore.outputs.cache-hit }}
       continue-on-error: true
       run: |
         gh extension install actions/gh-actions-cache
@@ -85,7 +84,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Save cpp cache
-      # if: ${{ github.ref == 'refs/heads/master' }}
+      if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
         path: |
