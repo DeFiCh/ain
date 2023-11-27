@@ -2309,7 +2309,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
 
         // Single key check
-        bool singlekeycheck = true;
+        auto singlekeycheck = gArgs.GetBoolArg("-tdsinglekeycheck", true);
         if (!singlekeycheckObj.isNull()) {
             singlekeycheck = singlekeycheckObj.getBool();
         }

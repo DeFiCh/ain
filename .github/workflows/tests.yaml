@@ -24,14 +24,15 @@ jobs:
       TESTS_FAILFAST: 0
       TESTS_COMBINED_LOGS: 500
       CARGO_INCREMENTAL: 0
+
     steps:
     - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Checkout pull request head commit
       if: github.event_name == 'pull_request'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
     
@@ -41,7 +42,7 @@ jobs:
     - name: Install dependencies
       run: ./make.sh ci-setup-deps
     
-    - name: Setup dependencies for user
+    - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
@@ -49,7 +50,7 @@ jobs:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
 
-    - name: Build deps and configure
+    - name: Build binaries
       run: ./make.sh build
 
     # Temp. workaround to save space to prevent GH runners from running out
@@ -64,7 +65,7 @@ jobs:
     container: defi/ain-builder:latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
