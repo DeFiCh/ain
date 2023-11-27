@@ -156,7 +156,7 @@ impl RocksDB {
     }
 
     pub fn get_latest_block_hash(&self) -> anyhow::Result<Option<String>> {
-        let _db_path = self.db.path();
+        let db_path = self.db.path();
         let cf_name = "latest_block_hash";
         let key = b"latest_block_hash";
         if let Some(cf_name) = self.cfs.get(cf_name) {
