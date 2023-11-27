@@ -17,9 +17,8 @@ use bitcoin::Block;
 use bitcoin::BlockHash;
 use bitcoin_hashes::sha256d;
 use bitcoin_hashes::Hash;
-use rocksdb::{Options, DB};
 use hex;
-
+use rocksdb::{Options, DB};
 
 // Function to initialize a RocksDB instance
 pub fn init_db(path: &str) -> DB {
