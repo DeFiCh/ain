@@ -113,6 +113,7 @@ dependencies = [
  "ain-cpp-imports",
  "anyhow",
  "axum 0.7.2",
+ "axum 0.7.1",
  "bincode",
  "ethabi",
  "ethbloom",
@@ -164,6 +165,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum 0.7.2",
+ "axum 0.7.1",
  "cxx",
  "env_logger",
  "ethereum",
@@ -229,12 +231,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "axum",
+ "axum 0.7.1",
  "bitcoin",
  "bitcoin_hashes",
  "ctrlc",
  "futures",
  "hex",
+ "hyper 0.14.27",
  "jsonrpsee 0.20.3",
  "log",
  "rocksdb",
@@ -428,6 +431,7 @@ dependencies = [
  "bytes",
  "futures-util",
  "http 0.2.11",
+ "http 0.2.9",
  "http-body 0.4.5",
  "hyper 0.14.27",
  "itoa",
@@ -443,6 +447,7 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper",
  "tokio",
+ "sync_wrapper",
  "tower",
  "tower-layer",
  "tower-service",
@@ -457,6 +462,12 @@ dependencies = [
  "async-trait",
  "axum-core 0.4.1",
  "axum-macros",
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "810a80b128d70e6ed2bdf3fe8ed72c0ae56f5f5948d01c2753282dd92a84fce8"
+dependencies = [
+ "async-trait",
+ "axum-core 0.4.0",
  "bytes",
  "futures-util",
  "http 1.0.0",
@@ -492,6 +503,7 @@ dependencies = [
  "bytes",
  "futures-util",
  "http 0.2.11",
+ "http 0.2.9",
  "http-body 0.4.5",
  "mime",
  "rustversion",
@@ -504,6 +516,9 @@ name = "axum-core"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77cb22c689c44d4c07b0ab44ebc25d69d8ae601a2f28fb8d672d344178fa17aa"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de0ddc355eab88f4955090a823715df47acf0b7660aab7a69ad5ce6301ee3b73"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2117,6 +2132,27 @@ dependencies = [
  "futures-util",
  "http 1.0.0",
  "indexmap 2.1.0",
+ "http 0.2.9",
+ "indexmap 1.9.3",
+ "slab",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "h2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1d308f63daf4181410c242d34c11f928dcb3aa105852019e043c9d1f4e4368a"
+dependencies = [
+ "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "http 1.0.0",
+ "indexmap 2.0.2",
  "slab",
  "tokio",
  "tokio-util",
@@ -2298,6 +2334,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "http"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b32afd38673a8016f7c9ae69e5af41a58f81b1d31689040f2f1959594ce194ea"
+dependencies = [
+ "bytes",
+ "fnv",
+ "itoa",
+]
+
+[[package]]
 name = "http-body"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2305,6 +2352,7 @@ checksum = "d5f38f16d184e36f2408a55281cd658ecbd3ca05cce6d6510a176eca393e26d1"
 dependencies = [
  "bytes",
  "http 0.2.11",
+ "http 0.2.9",
  "pin-project-lite",
 ]
 
@@ -2367,6 +2415,8 @@ dependencies = [
  "futures-util",
  "h2 0.3.22",
  "http 0.2.11",
+ "h2 0.3.21",
+ "http 0.2.9",
  "http-body 0.4.5",
  "httparse",
  "httpdate",
@@ -2406,6 +2456,7 @@ checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
 dependencies = [
  "futures-util",
  "http 0.2.11",
+ "http 0.2.9",
  "hyper 0.14.27",
  "log",
  "rustls",
@@ -2730,7 +2781,7 @@ dependencies = [
  "async-trait",
  "beef",
  "futures-util",
- "hyper",
+ "hyper 0.14.27",
  "jsonrpsee-types 0.20.3",
  "parking_lot",
  "rand 0.8.5",
@@ -2788,7 +2839,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f80c17f62c7653ce767e3d7288b793dfec920f97067ceb189ebdd3570f2bc20"
 dependencies = [
  "async-trait",
- "hyper",
+ "hyper 0.14.27",
  "hyper-rustls",
  "jsonrpsee-core 0.20.3",
  "jsonrpsee-types 0.20.3",
@@ -2836,6 +2887,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "http 0.2.11",
+ "http 0.2.9",
  "hyper 0.14.27",
  "jsonrpsee-core 0.16.3",
  "jsonrpsee-types 0.16.3",
@@ -2856,8 +2908,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82c39a00449c9ef3f50b84fc00fc4acba20ef8f559f07902244abf4c15c5ab9c"
 dependencies = [
  "futures-util",
- "http",
- "hyper",
+ "http 0.2.9",
+ "hyper 0.14.27",
  "jsonrpsee-core 0.20.3",
  "jsonrpsee-types 0.20.3",
  "route-recognizer",
@@ -4281,6 +4333,8 @@ dependencies = [
  "futures-util",
  "h2 0.3.22",
  "http 0.2.11",
+ "h2 0.3.21",
+ "http 0.2.9",
  "http-body 0.4.5",
  "hyper 0.14.27",
  "hyper-rustls",
@@ -4984,6 +5038,7 @@ dependencies = [
  "bytes",
  "futures",
  "http 0.2.11",
+ "http 0.2.9",
  "httparse",
  "log",
  "rand 0.8.5",
@@ -5807,6 +5862,8 @@ dependencies = [
  "futures-util",
  "h2 0.3.22",
  "http 0.2.11",
+ "h2 0.3.21",
+ "http 0.2.9",
  "http-body 0.4.5",
  "hyper 0.14.27",
  "hyper-timeout",
@@ -5867,6 +5924,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "http 0.2.11",
+ "http 0.2.9",
  "http-body 0.4.5",
  "http-range-header",
  "httpdate",
