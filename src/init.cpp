@@ -1583,7 +1583,7 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 
 void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& gEndpoints, std::vector<std::string>& wsEndpoints) {
     std::string default_address = "127.0.0.1";
-    
+
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     if (eth_rpc_port == -1) {
@@ -2344,6 +2344,16 @@ bool AppInitMain(InitInterfaces& interfaces)
                 return false;
             }
         }
+
+        // bind ocean REST addresses
+        // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
+            // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
+            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, "127.0.0.1:3002"))
+            if (!res) {
+                // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
+                return false;
+            }
+        // }
     }
     uiInterface.InitMessage(_("Done loading").translated);
 
