@@ -57,7 +57,7 @@ jobs:
           ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
-    - name: Restore rust build cache
+    - name: Rust cache
       uses: Swatinem/rust-cache@v2
       id: rust-cache-restore
       with:

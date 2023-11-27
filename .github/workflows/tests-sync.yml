@@ -21,6 +21,10 @@ concurrency:
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
+env:
+  TARGET: x86_64-pc-linux-gnu
+  MAKE_DEBUG: 0
+
 jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
@@ -40,7 +44,17 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - name: Restore rust build cache
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
+    - name: Rust cache
       uses: Swatinem/rust-cache@v2
       id: rust-cache-restore
       with:
