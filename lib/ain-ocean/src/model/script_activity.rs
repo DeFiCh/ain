@@ -6,33 +6,6 @@ pub enum ScriptActivityType {
     Vout,
 }
 
-impl ScriptActivityType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ScriptActivityType::Vin => "vin",
-            ScriptActivityType::Vout => "vout",
-        }
-    }
-}
-
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ScriptActivityTypeHex {
-    #[default]
-    Vin,
-    Vout,
-}
-
-impl ScriptActivityTypeHex {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ScriptActivityTypeHex::Vin => "00",
-            ScriptActivityTypeHex::Vout => "01",
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityType {
     #[default]
@@ -49,6 +22,7 @@ impl ScriptActivityType {
     }
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityTypeHex {
     #[default]
@@ -65,6 +39,7 @@ impl ScriptActivityTypeHex {
     }
 }
 
+#[derive(Debug, Default)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptActivity {
