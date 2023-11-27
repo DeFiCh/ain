@@ -59,7 +59,7 @@ jobs:
           ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
-    - name: Rust cache
+    - name: Rust build cache
       uses: Swatinem/rust-cache@v2
       id: rust-cache-restore
       with:
@@ -93,7 +93,7 @@ jobs:
     - name: Setup dependencies for user
       run: ./make.sh ci-setup-user-deps
 
-    - name: Rust cache
+    - name: Rust build cache
       uses: Swatinem/rust-cache@v2
       id: rust-cache-restore
       with:
