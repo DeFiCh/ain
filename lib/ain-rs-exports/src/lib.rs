@@ -75,14 +75,12 @@ pub mod ffi {
         pub key_id: u32,
     }
 
-    // =========  FFI ==========
     // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
         pub reason: String,
     }
 
-    // =========  Core ==========
     extern "Rust" {
         fn ain_rs_preinit(result: &mut CrossBoundaryResult);
         fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
