@@ -2226,6 +2226,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         block_notify_genesis_wait_connection.disconnect();
     }
 
+    // Set snapshot now chain has loaded
+    psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview->GetStorage().GetStorageLevelDB());
+    psnapshotManager->SetBlockSnapshot(*pcustomcsview, ::ChainActive().Tip());
+
+
     if (ShutdownRequested()) {
         return false;
     }

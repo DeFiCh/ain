@@ -145,6 +145,7 @@ TestingSetup::TestingSetup(const std::string& chainName) : BasicTestingSetup(cha
         panchors.reset();
         panchors = std::make_unique<CAnchorIndex>(nMinDbCache << 20, true, true);
         panchors->Load();
+        psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview->GetStorage().GetStorageLevelDB());
     }
 
     if (!LoadGenesisBlock(chainparams)) {

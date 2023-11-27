@@ -5,6 +5,8 @@
 #ifndef DEFI_FLUSHABLESTORAGE_H
 #define DEFI_FLUSHABLESTORAGE_H
 
+#include <dfi/snapshotmanager.h>
+
 #include <shutdown.h>
 
 #include <dbwrapper.h>
@@ -143,8 +145,8 @@ public:
         : db{std::make_shared<CDBWrapper>(dbName, cacheSize, fMemory, fWipe)}, batch(*db) {}
 
     // Snapshot constructor
-    CStorageLevelDB(std::shared_ptr<CDBWrapper> &db, std::shared_ptr<CStorageSnapshot> &otherSnapshot)
-            : db(db), batch(*db), snapshot(otherSnapshot) {
+    CStorageLevelDB(std::shared_ptr<CDBWrapper> &db, std::unique_ptr<CCheckedOutSnapshot> &otherSnapshot)
+            : db(db), batch(*db), snapshot(std::move(otherSnapshot)) {
         options.snapshot = snapshot->GetLevelDBSnapshot();
     }
 
@@ -201,8 +203,8 @@ public:
         if (snapshot) return false;
         return db->IsEmpty();
     }
-    [[nodiscard]] std::shared_ptr<CStorageSnapshot> GetStorageSnapshot() const {
-        return db->GetStorageSnapshot();
+    [[nodiscard]] const leveldb::Snapshot* GetLevelDBSnapshot() const {
+        return db->GetLevelDBSnapshot();
     }
     [[nodiscard]] std::shared_ptr<CDBWrapper>& GetDB() {
         return db;
@@ -215,7 +217,7 @@ private:
 
     // If this snapshot is set it will be used when
     // reading from the DB.
-    std::shared_ptr<CStorageSnapshot> snapshot;
+    std::unique_ptr<CCheckedOutSnapshot> snapshot;
 };
 
 // Flushable storage
@@ -373,42 +375,20 @@ public:
         return changed;
     }
 
-    std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> GetSnapshotPair() {
+    [[nodiscard]] CStorageLevelDB* GetStorageLevelDB() const {
         const auto storageLevelDB = dynamic_cast<CStorageLevelDB*>(&db);
         assert(storageLevelDB);
-        if (blockTipChanged.load()) {
-            // Lock cs_main when updating from tipSnapshot to avoid
-            // race with Dis/ConnectTip.
-            LOCK(cs_main);
-            // Double check bool for safety now we are under lock.
-            if (blockTipChanged.load()) {
-                tipSnapshot = storageLevelDB->GetStorageSnapshot();
-                changedCopy = changed;
-                blockTipChanged.store(false);
-            }
-        }
-
-        return {changedCopy, std::make_unique<CStorageLevelDB>(storageLevelDB->GetDB(), tipSnapshot)};
+        return storageLevelDB;
     }
 
-    void BlockTipChanged() {
-        blockTipChanged.store(true);
+    std::pair<MapKV, const leveldb::Snapshot*> GetSnapshotData() {
+        return {changed, GetStorageLevelDB()->GetLevelDBSnapshot()};
     }
 
 private:
     std::unique_ptr<CStorageLevelDB> snapshotDB;
     CStorageKV& db;
     MapKV changed;
-
-    // Used to create a CStorageLevelDB object.
-    std::shared_ptr<CStorageSnapshot> tipSnapshot;
-
-    // Copy of the changed map at the point of snapshot creation.
-    // Can be used lock free.
-    MapKV changedCopy;
-
-    // Used to determine whether the block tip has changed.
-    std::atomic<bool> blockTipChanged{true};
 
     // Whether this view is using a snapshot
     bool snapshot{};

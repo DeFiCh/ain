@@ -3818,8 +3818,6 @@ bool CChainState::DisconnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        pcustomcsview->GetStorage().BlockTipChanged();
-
         if (!disconnectedConfirms.empty()) {
             for (const auto &confirm : disconnectedConfirms) {
                 panchorAwaitingConfirms->Add(confirm);
@@ -3854,6 +3852,13 @@ bool CChainState::DisconnectTip(CValidationState &state,
     m_chain.SetTip(pindexDelete->pprev);
 
     UpdateTip(pindexDelete->pprev, chainparams);
+
+    // ConnecTip might be called before psnapshotManager has been initialised
+    // as part of start-up so check psnapshotManager before using it.
+    if (psnapshotManager) {
+        psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexDelete->pprev);
+    }
+
     // Let wallets know transactions went from 1-confirmed to
     // 0-confirmed or conflicted:
     GetMainSignals().BlockDisconnected(pblock);
@@ -3997,8 +4002,6 @@ bool CChainState::ConnectTip(CValidationState &state,
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
 
-        pcustomcsview->GetStorage().BlockTipChanged();
-
         // Delete all other confirms from memory
         if (rewardedAnchors) {
             std::vector<uint256> oldConfirms;
@@ -4049,6 +4052,12 @@ bool CChainState::ConnectTip(CValidationState &state,
         if (!IsInitialBlockDownload()) {
             panchorAwaitingConfirms->ReVote();
         }
+    }
+
+    // DisconnecTip might be called before psnapshotManager has been initialised
+    // as part of start-up so check psnapshotManager before using it.
+    if (psnapshotManager) {
+        psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexNew);
     }
 
     int64_t nTime6 = GetTimeMicros();
