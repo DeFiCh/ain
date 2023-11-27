@@ -743,6 +743,21 @@ pkg_install_deps_osx_tools() {
     _fold_end
 }
 
+pkg_install_gh_cli() {
+    _fold_start "pkg-install-gh_cli"
+    type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+        sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) \
+        signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+        https://cli.github.com/packages stable main" | \
+        sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    apt-get update
+    apt-get install -y gh
+
+}
+
 pkg_install_llvm() {
     _fold_start "pkg-install-llvm"
     # shellcheck disable=SC2086
@@ -1167,6 +1182,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
+    DEBIAN_FRONTEND=noninteractive pkg_install_gh_cli
     ci_setup_deps_target
 }
 
