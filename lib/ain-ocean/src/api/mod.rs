@@ -1,6 +1,4 @@
-use std::net::SocketAddr;
-
-use axum::{Router, Server};
+use axum::Router;
 
 mod address;
 mod block;
@@ -16,8 +14,8 @@ mod stats;
 mod tokens;
 mod transactions;
 
-pub async fn start_ocean() {
-    let app = Router::new()
+pub fn ocean_router() -> Router {
+    Router::new()
         .nest("/address", address::router())
         .nest("/governance", governance::router())
         .nest("/loans", loan::router())
@@ -30,12 +28,5 @@ pub async fn start_ocean() {
         .nest("/stats", stats::router())
         .nest("/tokens", tokens::router())
         .nest("/transactions", transactions::router())
-        .nest("/blocks", block::router());
-
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("Listening on {}", addr);
-    Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+        .nest("/blocks", block::router())
 }

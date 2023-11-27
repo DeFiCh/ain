@@ -34,6 +34,13 @@ pub fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: 
     }
 }
 
+pub fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: &str) {
+    match ain_grpc::init_network_rest_ocean(addr) {
+        Ok(_) => cross_boundary_success(result),
+        Err(e) => cross_boundary_error_return(result, e.to_string()),
+    }
+}
+
 pub fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str) {
     match ain_grpc::init_network_subscriptions_service(addr) {
         Ok(()) => cross_boundary_success(result),
