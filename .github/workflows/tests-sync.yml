@@ -28,7 +28,8 @@ jobs:
     env:
       CARGO_INCREMENTAL: 0
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -36,7 +37,7 @@ jobs:
     - name: Setup dependencies
       run: sudo ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for user
+    - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
     - uses: Swatinem/rust-cache@v2
@@ -44,8 +45,6 @@ jobs:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
 
-      # TODO: Switch this to a docker build later and this builds on the native
-      # VM toolchain and loses disparity with the CI release builds
     - name: Build binaries
       run: ./make.sh build
 
@@ -54,8 +53,8 @@ jobs:
       with:
         name: defi-bins
         path: |
-         build/src/defid
-         build/src/defi-cli
+          build/src/defid
+          build/src/defi-cli
 
     - name: Upload shell commands
       uses: actions/upload-artifact@v3
@@ -76,7 +75,8 @@ jobs:
         matrix: ${{ steps.set-matrix.outputs.matrix }}
 
       steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
+        - run: git config --global --add safe.directory '*'
 
         - id: 'auth'
           name: 'Authenticate to Google Cloud'
@@ -119,7 +119,8 @@ jobs:
     timeout-minutes: 4320
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - run: git config --global --add safe.directory '*'
 
     - name: Download Snapshot
       run: aria2c -x16 -s16 https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz

@@ -35,6 +35,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23upgradeheight=105",
                 "-subsidytest=1",
             ],
         ]
