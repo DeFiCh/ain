@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 axum.workspace = true
 serde.workspace = true
+hyper.workspace = true

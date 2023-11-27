@@ -112,6 +112,25 @@ pub fn init_network_json_rpc_service(addr: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn init_network_rest_ocean(addr: &str) -> Result<()> {
+    info!("Starting REST Ocean server at {}", addr);
+    let addr = addr.parse::<SocketAddr>()?;
+    let runtime = &SERVICES;
+
+    let handle = runtime.tokio_runtime.clone();
+    let listener = runtime
+        .tokio_runtime
+        .block_on(tokio::net::TcpListener::bind(addr))?;
+    let server_handle = runtime.tokio_runtime.spawn(async move {
+        axum::serve(listener, ain_ocean::ocean_router())
+            .await
+            .unwrap();
+    });
+    *runtime.ocean_handle.lock() = Some(server_handle);
+
+    Ok(())
+}
+
 pub fn init_network_grpc_service(_addr: &str) -> Result<()> {
     // log::info!("Starting gRPC server at {}", addr);
     // Commented out for now as nothing to serve
