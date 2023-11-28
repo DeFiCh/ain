@@ -469,11 +469,13 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
 }
 
 static const CRPCCommand commands[] = {
-  //  category        name                         actor (function)        params
-  //  --------------- ----------------------       ---------------------   ----------
-    {"evm", "evmtx",     &evmtx,     {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm", "vmmap",     &vmmap,     {"input", "type"}                                               },
-    {"evm", "logvmmaps", &logvmmaps, {"type"}                                                        },
+  //  category  name                   actor (function)      params
+  //  --------- ---------------------- --------------------  ----------
+    {"evm",     "evmtx",               &evmtx,               {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm",     "vmmap",               &vmmap,               {"input", "type"}                                               },
+    {"evm",     "logvmmaps",           &logvmmaps,           {"type"}                                                        },
+    {"evm",     "logevmdumpdb",        &logevmdumpdb,        {}                                                              },
+    {"evm",     "logevmaccountstates", &logevmaccountstates, {}                                                              },
 };
 
 void RegisterEVMRPCCommands(CRPCTable &tableRPC) {

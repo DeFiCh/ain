@@ -48,10 +48,6 @@ pub trait MetachainDebugRPC {
     #[method(name = "logaccountstates")]
     fn log_account_states(&self) -> RpcResult<()>;
 
-    // Log block template state
-    #[method(name = "logblocktemplates")]
-    fn log_block_templates(&self) -> RpcResult<()>;
-
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate>;
@@ -225,13 +221,5 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             burnt_fee,
             priority_fee,
         })
-    }
-
-    fn log_block_templates(&self) -> RpcResult<()> {
-        self.is_enabled()?;
-
-        // let templates = &self.handler.core.block_templates;
-        // debug!("templates : {:#?}", templates);
-        Ok(())
     }
 }
