@@ -2,7 +2,6 @@
 
 extern crate rocksdb;
 extern crate tempdir;
-use crate::database::db_manger::RocksDB;
 use bitcoin::blockdata::block::Header;
 use bitcoin::blockdata::block::Version;
 use bitcoin::blockdata::script::ScriptBuf;
