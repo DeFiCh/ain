@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedInterval {
     pub id: String,
     pub key: String,
@@ -10,6 +13,8 @@ pub struct OraclePriceAggregatedInterval {
 }
 
 #[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
     pub weightage: i32,
@@ -18,6 +23,8 @@ pub struct OraclePriceAggregatedIntervalAggregated {
 }
 
 #[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalBlock {
     pub hash: String,
     pub height: i32,
@@ -26,6 +33,8 @@ pub struct OraclePriceAggregatedIntervalBlock {
 }
 
 #[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregatedOracles {
     pub active: i32,
     pub total: i32,

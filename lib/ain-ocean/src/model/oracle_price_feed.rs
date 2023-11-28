@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceFeed {
     pub id: String,
     pub key: String,
@@ -12,7 +15,8 @@ pub struct OraclePriceFeed {
     pub block: OraclePriceFeedBlock,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OraclePriceFeedBlock {
     pub hash: String,
     pub height: i32,

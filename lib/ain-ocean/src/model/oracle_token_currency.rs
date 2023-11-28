@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OracleTokenCurrency {
     pub id: String,
     pub key: String,
@@ -9,7 +12,8 @@ pub struct OracleTokenCurrency {
     pub block: OracleTokenCurrencyBlock,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct OracleTokenCurrencyBlock {
     pub hash: String,
     pub height: i32,

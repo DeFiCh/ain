@@ -1,4 +1,4 @@
-use bitcoin::{BlockHash, Txid};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct Masternode {
@@ -16,7 +16,8 @@ pub struct Masternode {
     pub history: Option<Vec<HistoryItem>>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct MasternodeBlock {
     pub hash: String,
     pub height: u32,
@@ -24,7 +25,8 @@ pub struct MasternodeBlock {
     pub median_time: u64,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct HistoryItem {
     pub txid: String,
     pub owner_address: String,
