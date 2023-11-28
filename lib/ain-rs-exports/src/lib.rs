@@ -5,7 +5,7 @@ mod prelude;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*, ocean::*};
+use crate::{core::*, evm::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -91,7 +91,6 @@ pub mod ffi {
         // Networking
         fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
