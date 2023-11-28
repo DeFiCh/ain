@@ -75,12 +75,13 @@ pub mod ffi {
         pub key_id: u32,
     }
 
-    // =========  Core ==========
+    // =========  FFI ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
         pub reason: String,
     }
 
+    // =========  Core ==========
     extern "Rust" {
         fn ain_rs_preinit(result: &mut CrossBoundaryResult);
         fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
@@ -91,6 +92,7 @@ pub mod ffi {
         // Networking
         fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
