@@ -13,12 +13,11 @@ pub struct RocksDB {
     cfs: HashSet<String>,
 }
 
-
 pub trait ColumnFamilyOperations {
     fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>>;
     fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
     fn delete(&self, cf_name: &str, key: &[u8]) -> Result<()>;
-    fn get_total_row(&self, cf_name: &str, key: &[u8]) -> Result<()>;
+    fn get_total_row(&self) -> Result<()>;
 }
 
 impl RocksDB {
@@ -191,8 +190,6 @@ impl RocksDB {
     }
 }
 
-
-
 impl ColumnFamilyOperations for RocksDB {
     fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
         if let Some(cf_name) = self.cfs.get(cf_name) {
@@ -241,7 +238,7 @@ impl ColumnFamilyOperations for RocksDB {
         }
     }
 
-    fn get_total_row(&self, cf_name: &str, key: &[u8]) -> anyhow::Result<()> {
+    fn get_total_row(&self) -> anyhow::Result<()> {
         let db_path = self.db.path();
         println!("{:?}", db_path);
 
