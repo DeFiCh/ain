@@ -1,11 +1,10 @@
 mod core;
 mod evm;
 mod prelude;
-mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*, util::*};
+use crate::{core::*, evm::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -27,11 +26,6 @@ pub mod ffi {
     pub struct CrossBoundaryResult {
         pub ok: bool,
         pub reason: String,
-    }
-
-    // =========  Util ==========
-    extern "Rust" {
-        fn rs_try_from_utf8(result: &mut CrossBoundaryResult, string: &'static [u8]) -> String;
     }
 
     // =========  Core ==========
@@ -135,12 +129,6 @@ pub mod ffi {
         pub direction: bool,
         pub value: u64,
         pub token_id: u32,
-    }
-
-    pub struct DST20TokenInfo {
-        pub id: u64,
-        pub name: String,
-        pub symbol: String,
     }
 
     #[derive(Default)]
@@ -305,7 +293,9 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
             native_hash: &str,
-            token: DST20TokenInfo,
+            name: &str,
+            symbol: &str,
+            token_id: u64,
         );
 
         fn evm_try_unsafe_bridge_dst20(
