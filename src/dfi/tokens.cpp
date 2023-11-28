@@ -107,7 +107,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, in
                 CrossBoundaryResult result;
                 rust::string token_name{};
                 rust::string token_symbol{};
-                if (height >= Params().GetConsensus().DF23UpgradeHeight) {
+                if (height >= Params().GetConsensus().DF23Height) {
                     if (token.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
                         return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
                     }
