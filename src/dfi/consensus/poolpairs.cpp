@@ -80,7 +80,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     token.creationTx = tx.GetHash();
     token.creationHeight = height;
 
-    auto tokenId = mnview.CreateToken(token, std::numeric_limits<int>::max());
+    auto tokenId = mnview.CreateToken(token, height);
     if (!tokenId) {
         return tokenId;
     }
