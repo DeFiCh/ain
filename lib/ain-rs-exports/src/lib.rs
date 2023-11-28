@@ -343,5 +343,7 @@ pub mod ffi {
             start: String,
             limit: String,
         ) -> String;
+
+        fn debug_log_account_state(result: &mut CrossBoundaryResult) -> String;
     }
 }
