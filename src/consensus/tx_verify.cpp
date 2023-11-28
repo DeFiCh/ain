@@ -183,6 +183,9 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough,
         // that it's propagated.
+        // 
+        // Note: We set time to 0 here. Take care not to use time
+        // in Apply for MintToken or AccountToUtxos path.
         BlockContext blockCtx(nSpendHeight, {}, chainparams.GetConsensus(), &discardCache);
         auto txCtx = TransactionContext{
                 inputs,
