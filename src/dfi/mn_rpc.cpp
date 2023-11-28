@@ -480,15 +480,13 @@ void execTestTx(const CTransaction &tx, const uint32_t height, const CTransactio
         if (optAuthTx) {
             AddCoins(coins, *optAuthTx, height);
         }
-        BlockContext blockCtx(height, ::ChainActive().Tip()->nTime);
+        BlockContext blockCtx(height, ::ChainActive().Tip()->nTime, Params().GetConsensus());
         blockCtx.SetEVMPreValidate(true);
 
         const auto txCtx = TransactionContext{
             coins,
             tx,
-            Params().GetConsensus(),
-            blockCtx.GetHeight(),
-            blockCtx.GetTime(),
+            blockCtx,
         };
         res = CustomTxVisit(txMessage, blockCtx, txCtx);
     }

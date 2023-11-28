@@ -724,6 +724,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         auto blockCtx = BlockContext{
             static_cast<uint32_t>(height),
             static_cast<uint64_t>(nAcceptTime),
+            consensus,
             &mnview,
             IsEVMEnabled(mnview, consensus),
             {},
@@ -733,9 +734,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
         auto txCtx = TransactionContext{
             view,
             tx,
-            consensus,
-            blockCtx.GetHeight(),
-            blockCtx.GetTime(),
+            blockCtx,
         };
 
         auto res = ApplyCustomTx(blockCtx, txCtx);
@@ -2743,13 +2742,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
             // Do not track burns in genesis
             mnview.GetHistoryWriters().GetBurnView() = nullptr;
             for (size_t i = 0; i < block.vtx.size(); ++i) {
-                BlockContext blockCtx(pindex->nHeight, pindex->GetBlockTime(), &mnview);
+                BlockContext blockCtx(pindex->nHeight, pindex->GetBlockTime(), chainparams.GetConsensus(), &mnview);
                 auto txCtx = TransactionContext{
                     view,
                     *block.vtx[i],
-                    chainparams.GetConsensus(),
-                    blockCtx.GetHeight(),
-                    blockCtx.GetTime(),
+                    blockCtx,
                     static_cast<uint32_t>(i),
                 };
                 const auto res = ApplyCustomTx(blockCtx, txCtx);
@@ -2993,7 +2990,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
     const auto &consensus = chainparams.GetConsensus();
 
-    auto blockCtx = BlockContext(pindex->nHeight, pindex->GetBlockTime(), &accountsView, IsEVMEnabled(attributes));
+    auto blockCtx =
+        BlockContext(pindex->nHeight, pindex->GetBlockTime(), consensus, &accountsView, IsEVMEnabled(attributes));
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -3042,9 +3040,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 auto txCtx = TransactionContext{
                     view,
                     tx,
-                    consensus,
-                    blockCtx.GetHeight(),
-                    blockCtx.GetTime(),
+                    blockCtx,
                     static_cast<uint32_t>(i),
                 };
 
@@ -3184,9 +3180,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                                              : TransactionContext{
                                                    view,
                                                    tx,
-                                                   consensus,
-                                                   blockCtx.GetHeight(),
-                                                   blockCtx.GetTime(),
+                                                   blockCtx,
                                                    static_cast<uint32_t>(i),
                                                };
             const auto res = ApplyCustomTx(blockCtx, txCtx);
@@ -7357,12 +7351,16 @@ const std::shared_ptr<CScopedTemplate> &BlockContext::GetEVMTemplate() const {
     return evmTemplate;
 }
 
-uint32_t BlockContext::GetHeight() const {
+const uint32_t &BlockContext::GetHeight() const {
     return height;
 };
 
-uint64_t BlockContext::GetTime() const {
+const uint64_t &BlockContext::GetTime() const {
     return time;
+};
+
+const Consensus::Params &BlockContext::GetConsensus() const {
+    return consensus;
 };
 
 void BlockContext::SetView(CCustomCSView &other) {

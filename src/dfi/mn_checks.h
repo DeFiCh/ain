@@ -163,10 +163,12 @@ class BlockContext {
     bool evmPreValidate{};
     const uint32_t height{};
     const uint64_t time{};
+    const Consensus::Params &consensus;
 
 public:
     explicit BlockContext(const uint32_t height,
                           const uint64_t time,
+                          const Consensus::Params &consensus,
                           CCustomCSView *view = {},
                           const std::optional<bool> enabled = {},
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
@@ -176,14 +178,16 @@ public:
           evmTemplate(evmTemplate),
           evmPreValidate(prevalidate),
           height(height),
-          time(time) {}
+          time(time),
+          consensus(consensus) {}
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
     [[nodiscard]] bool GetEVMPreValidate() const;
     [[nodiscard]] const std::shared_ptr<CScopedTemplate> &GetEVMTemplate() const;
-    [[nodiscard]] uint32_t GetHeight() const;
-    [[nodiscard]] uint64_t GetTime() const;
+    [[nodiscard]] const uint32_t &GetHeight() const;
+    [[nodiscard]] const uint64_t &GetTime() const;
+    [[nodiscard]] const Consensus::Params &GetConsensus() const;
 
     void SetView(CCustomCSView &other);
     void SetEVMPreValidate(const bool other);
@@ -206,9 +210,7 @@ class TransactionContext {
 public:
     TransactionContext(const CCoinsViewCache &coins,
                        const CTransaction &tx,
-                       const Consensus::Params &consensus,
-                       const uint32_t &height,
-                       const uint64_t &time,
+                       const BlockContext &blockCtx,
                        const uint32_t txn = {});
 
     [[nodiscard]] const CCoinsViewCache &GetCoins() const;
