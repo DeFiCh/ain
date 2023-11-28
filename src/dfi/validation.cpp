@@ -1398,7 +1398,7 @@ static Res PoolSplits(CCustomCSView &view,
                 throw std::runtime_error(res.msg);
             }
 
-            auto resVal = view.CreateToken(newPoolToken, false);
+            auto resVal = view.CreateToken(newPoolToken, std::numeric_limits<int>::max());
             if (!resVal) {
                 throw std::runtime_error(resVal.msg);
             }
@@ -2018,7 +2018,7 @@ static void ProcessTokenSplits(const CBlock &block,
         }
 
         // TODO: Pass this on, once we add support for EVM splits
-        auto resVal = view.CreateToken(newToken, false);
+        auto resVal = view.CreateToken(newToken, std::numeric_limits<int>::max());
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
