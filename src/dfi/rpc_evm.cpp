@@ -520,20 +520,28 @@ UniValue dumpevmdb(const JSONRPCRequest &request) {
                         true,
                         false);
 
-        const auto dumpargParam = optionsObj["dumparg"].get_str();
-        dumparg = rs_try_from_utf8(result, ffi_from_string_to_slice(dumpargParam));
-        if (!result.ok) {
-            return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dumparg set, not UTF-8 valid");
+        if (!optionsObj["dumparg"].isNull()) {
+            const auto dumpargParam = optionsObj["dumparg"].get_str();
+            dumparg = rs_try_from_utf8(result, ffi_from_string_to_slice(dumpargParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dumparg set, not UTF-8 valid");
+            }
         }
-        const auto fromParam = optionsObj["from"].get_str();
-        from = rs_try_from_utf8(result, ffi_from_string_to_slice(fromParam));
-        if (!result.ok) {
-            return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid from set, not UTF-8 valid");
+
+        if (!optionsObj["from"].isNull()) {
+            const auto fromParam = optionsObj["from"].get_str();
+            from = rs_try_from_utf8(result, ffi_from_string_to_slice(fromParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid from set, not UTF-8 valid");
+            }
         }
-        const auto limitParam = optionsObj["limit"].get_str();
-        limit = rs_try_from_utf8(result, ffi_from_string_to_slice(limitParam));
-        if (!result.ok) {
-            return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid limit set, not UTF-8 valid");
+
+        if (!optionsObj["limit"].isNull()) {
+            const auto limitParam = optionsObj["limit"].get_str();
+            limit = rs_try_from_utf8(result, ffi_from_string_to_slice(limitParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid limit set, not UTF-8 valid");
+            }
         }
     }
 
