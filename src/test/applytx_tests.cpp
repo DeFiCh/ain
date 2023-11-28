@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
     LOCK(cs_main);
 
-    BlockContext blockCtx;
+    BlockContext blockCtx{{}, {}};
     auto &mnview = blockCtx.GetView();
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
@@ -125,6 +125,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
             coinview,
             tx,
             amkCheated,
+            blockCtx.GetHeight(),
+            blockCtx.GetTime(),
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -149,6 +151,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 coinview,
                 tx,
                 amkCheated,
+                blockCtx.GetHeight(),
+                blockCtx.GetTime(),
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -173,6 +177,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 coinview,
                 tx,
                 amkCheated,
+                blockCtx.GetHeight(),
+                blockCtx.GetTime(),
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -197,6 +203,8 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
                 coinview,
                 tx,
                 amkCheated,
+                blockCtx.GetHeight(),
+                blockCtx.GetTime(),
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);

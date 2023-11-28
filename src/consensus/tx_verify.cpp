@@ -183,12 +183,13 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
         // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough,
         // that it's propagated.
-        BlockContext blockCtx{&discardCache};
+        BlockContext blockCtx(nSpendHeight, {}, &discardCache);
         auto txCtx = TransactionContext{
                 inputs,
                 tx,
                 chainparams.GetConsensus(),
-                static_cast<uint32_t>(nSpendHeight),
+                blockCtx.GetHeight(),
+                blockCtx.GetTime(),
         };
         auto res = ApplyCustomTx(blockCtx, txCtx, &canSpend);
         if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {

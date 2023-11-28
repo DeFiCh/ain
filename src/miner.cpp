@@ -237,7 +237,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    BlockContext blockCtx;
+    BlockContext blockCtx(nHeight, pblock->nTime);
     auto &mnview = blockCtx.GetView();
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev);  // update time before tx packaging
@@ -880,8 +880,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     coins,
                     tx,
                     chainparams.GetConsensus(),
-                    static_cast<uint32_t>(nHeight),
-                    pblock->nTime,
+                    blockCtx.GetHeight(),
+                    blockCtx.GetTime(),
                 };
 
                 // Copy block context and update to cache view

@@ -1511,8 +1511,8 @@ void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
 TransactionContext::TransactionContext(const CCoinsViewCache &coins,
                                        const CTransaction &tx,
                                        const Consensus::Params &consensus,
-                                       const uint32_t height,
-                                       const uint64_t time,
+                                       const uint32_t &height,
+                                       const uint64_t &time,
                                        const uint32_t txn)
     : coins(coins),
       tx(tx),
