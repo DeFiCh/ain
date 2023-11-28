@@ -3,7 +3,6 @@
 
 #include <ain_rs_exports.h>
 #include <dfi/res.h>
-#include <ffi/cxx.h>
 
 #define XResultThrowOnErr(x)                                 \
     [&]() {                                                  \
@@ -55,9 +54,5 @@
         }                                                                               \
         return ResVal(std::move(res), Res::Ok());                                       \
     }();
-
-inline rust::slice<const uint8_t> ffi_from_string_to_slice(const std::string &str) {
-    return rust::slice<const uint8_t>(reinterpret_cast<const uint8_t *>(str.c_str()), str.size());
-}
 
 #endif  // DEFI_FFI_FFIHELPERS_H
