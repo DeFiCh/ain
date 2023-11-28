@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use bitcoin::blockdata::block::Block;
 use bitcoin::blockdata::block::Header;
 use bitcoin::consensus::encode::serialize;
@@ -11,6 +12,15 @@ pub struct RocksDB {
     db: Arc<DB>,
     cfs: HashSet<String>,
 }
+
+
+pub trait ColumnFamilyOperations {
+    fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>>;
+    fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
+    fn delete(&self, cf_name: &str, key: &[u8]) -> Result<()>;
+    fn get_total_row(&self, cf_name: &str, key: &[u8]) -> Result<()>;
+}
+
 impl RocksDB {
     pub fn new(db_path: &str) -> anyhow::Result<RocksDB, anyhow::Error> {
         let mut opts = Options::default();
@@ -19,11 +29,28 @@ impl RocksDB {
 
         let cf_names = [
             "default",
-            "block_header",
             "block",
-            "latest_block_hash",
-            "tx",
-            "block_height",
+            "masternode_stats",
+            "masternode",
+            "oracle_history",
+            "oracle_price_active",
+            "oracle_price_aggregated_interval",
+            "oracle_price_aggregated",
+            "oracle_price_feed",
+            "oracle_token_currency",
+            "oracle",
+            "pool_swap_aggregated",
+            "pool_swap",
+            "price_ticker",
+            "raw_block",
+            "script_activity",
+            "script_aggregation",
+            "script_unspent",
+            "transaction",
+            "transaction_vin",
+            "transaction_vout",
+            "vault_auction_history",
+            "pool_swap",
         ];
         let mut cf_descriptors = vec![];
 
@@ -81,27 +108,6 @@ impl RocksDB {
         self.get("block_header", key)
     }
 
-    pub fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> anyhow::Result<()> {
-        if let Some(cf) = self.cfs.get(cf_name) {
-            let cf_handle = self
-                .db
-                .cf_handle(cf)
-                .ok_or_else(|| anyhow::anyhow!("Failed to get column family handle"))?;
-
-            // Check if the key already exists
-            if self.db.get_cf(cf_handle, key)?.is_none() {
-                self.db
-                    .put_cf(cf_handle, key, value)
-                    .map_err(|_| anyhow::anyhow!("Failed to put key-value pair"))
-            } else {
-                Ok(())
-            }
-        } else {
-            // Log some diagnostic info here.
-            Err(anyhow::anyhow!("Invalid column family name"))
-        }
-    }
-
     pub fn put_latest_block_hash(
         &self,
         cf_name: &str,
@@ -119,19 +125,6 @@ impl RocksDB {
                 .map_err(|_| anyhow::anyhow!("Failed to put key-value pair"))
         } else {
             // Log some diagnostic info here.
-            Err(anyhow::anyhow!("Invalid column family name"))
-        }
-    }
-
-    pub fn get(&self, cf_name: &str, key: &[u8]) -> anyhow::Result<Option<Vec<u8>>> {
-        if let Some(cf_name) = self.cfs.get(cf_name) {
-            let cf = self
-                .db
-                .cf_handle(cf_name)
-                .expect("Should never fail if column family name is valid");
-            let result = self.db.get_cf(cf, key)?;
-            Ok(result)
-        } else {
             Err(anyhow::anyhow!("Invalid column family name"))
         }
     }
@@ -196,8 +189,59 @@ impl RocksDB {
             Err(anyhow::anyhow!("Invalid column family name"))
         }
     }
+}
 
-    pub async fn get_total_row(&self) -> anyhow::Result<()> {
+
+
+impl ColumnFamilyOperations for RocksDB {
+    fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>> {
+        if let Some(cf_name) = self.cfs.get(cf_name) {
+            let cf = self
+                .db
+                .cf_handle(cf_name)
+                .expect("Should never fail if column family name is valid");
+            let result = self.db.get_cf(cf, key)?;
+            Ok(result)
+        } else {
+            Err(anyhow!("Invalid column family name"))
+        }
+    }
+
+    fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()> {
+        if let Some(cf) = self.cfs.get(cf_name) {
+            let cf_handle = self
+                .db
+                .cf_handle(cf)
+                .ok_or_else(|| anyhow!("Failed to get column family handle"))?;
+
+            // Check if the key already exists
+            if self.db.get_cf(cf_handle, key)?.is_none() {
+                self.db
+                    .put_cf(cf_handle, key, value)
+                    .map_err(|_| anyhow!("Failed to put key-value pair"))
+            } else {
+                Ok(())
+            }
+        } else {
+            // Log some diagnostic info here.
+            Err(anyhow!("Invalid column family name"))
+        }
+    }
+
+    fn delete(&self, cf_name: &str, key: &[u8]) -> Result<()> {
+        if let Some(cf_name) = self.cfs.get(cf_name) {
+            let cf = self
+                .db
+                .cf_handle(cf_name)
+                .expect("Should never fail if column family name is valid");
+            self.db.delete_cf(cf, key)?;
+            Ok(())
+        } else {
+            Err(anyhow!("Invalid column family name"))
+        }
+    }
+
+    fn get_total_row(&self, cf_name: &str, key: &[u8]) -> anyhow::Result<()> {
         let db_path = self.db.path();
         println!("{:?}", db_path);
 
