@@ -10,5 +10,6 @@ pub mod api;
 pub mod database;
 mod api;
 mod model;
+mod database;
 
 pub use api::ocean_router;
