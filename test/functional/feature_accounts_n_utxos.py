@@ -133,7 +133,7 @@ class AccountsAndUTXOsTest(DefiTestFramework):
             self.nodes[1].getaccount(accountSilver, {}, True)[idSilver],
             initialSilver - 100,
         )
-        assert_equal(self.nodes[0].getaccount(toSilver, {}, True)[idSilver], 100)
+        assert_equal(self.nodes[0].(toSilver, {}, True)[idSilver], 100)
 
         assert_equal(
             self.nodes[0].getaccount(accountSilver, {}, True)[idSilver],

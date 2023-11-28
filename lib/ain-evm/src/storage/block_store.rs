@@ -6,7 +6,6 @@ use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
-use serde::{Deserialize, Serialize};
 
 use super::{
     db::{Column, ColumnName, LedgerColumn, Rocks, TypedColumn},
@@ -16,7 +15,7 @@ use crate::{
     log::LogIndex,
     receipt::Receipt,
     storage::{db::columns, traits::LogStorage},
-    Result,
+    EVMError, Result,
 };
 
 #[derive(Debug, Clone)]
@@ -253,8 +252,6 @@ impl Rollback for BlockStore {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
 pub enum DumpArg {
     All,
     Blocks,
@@ -262,6 +259,22 @@ pub enum DumpArg {
     Receipts,
     BlockMap,
     Logs,
+}
+
+impl TryFrom<String> for DumpArg {
+    type Error = EVMError;
+
+    fn try_from(arg: String) -> Result<Self> {
+        match arg.as_str() {
+            "all" => Ok(DumpArg::All),
+            "blocks" => Ok(DumpArg::Blocks),
+            "txs" => Ok(DumpArg::Txs),
+            "receipts" => Ok(DumpArg::Receipts),
+            "blockmap" => Ok(DumpArg::BlockMap),
+            "logs" => Ok(DumpArg::Logs),
+            _ => Err(format_err!("Invalid dump arg").into()),
+        }
+    }
 }
 
 impl BlockStore {
