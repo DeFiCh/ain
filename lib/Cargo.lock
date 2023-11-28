@@ -238,6 +238,8 @@ dependencies = [
  "hex",
  "hyper 0.14.27",
  "jsonrpsee 0.20.3",
+ "hex",
+ "hyper 0.14.27",
  "log",
  "rocksdb",
  "serde",
