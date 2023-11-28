@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct VaultAuctionBatchHistory {
     pub id: String,
     pub key: String,
@@ -11,7 +14,8 @@ pub struct VaultAuctionBatchHistory {
     pub block: VaultAuctionBatchHistoryBlock,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct VaultAuctionBatchHistoryBlock {
     pub hash: String,
     pub height: i32,
