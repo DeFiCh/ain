@@ -33,7 +33,8 @@ jobs:
       CARGO_INCREMENTAL: 0
     steps:
     - uses: actions/checkout@v4
-    - run: git config --global --add safe.directory '*'
+      with:
+        set-safe-directory: '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -93,7 +94,6 @@ jobs:
 
       steps:
         - uses: actions/checkout@v4
-        - run: git config --global --add safe.directory '*'
 
         - id: 'auth'
           name: 'Authenticate to Google Cloud'
@@ -137,7 +137,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - run: git config --global --add safe.directory '*'
 
     - name: Download Snapshot
       run: aria2c -x16 -s16 https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz

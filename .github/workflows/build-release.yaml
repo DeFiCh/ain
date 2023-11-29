@@ -24,7 +24,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - run: git config --global --add safe.directory '*'
+      with:
+        set-safe-directory: '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -80,7 +81,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
