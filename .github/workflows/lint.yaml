@@ -61,7 +61,7 @@ jobs:
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: lib -> ../build/lib/target
-        # save-if: ${{ github.ref == 'refs/heads/master' }}
+        save-if: ${{ github.ref == 'refs/heads/master' }}
         shared-key: rust-lint
 
     - name: Build depends and configure
