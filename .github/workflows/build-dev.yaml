@@ -114,6 +114,9 @@ jobs:
     - name: Unpack binaries
       run: tar -xvzf ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
+    - name: Add debug logging
+      run: ls -lahR .
+
     - name: Build defi image
       run: rm .dockerignore && ./make.sh docker-defi-build
 
