@@ -300,6 +300,7 @@ impl BlockStore {
         let mut out = String::new();
         let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
             .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
+
         for arg in &[
             DumpArg::Blocks,
             DumpArg::Txs,
