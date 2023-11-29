@@ -301,7 +301,7 @@ Res CLoansConsensus::operator()(const CLoanSetLoanTokenMessage &obj) const {
                                : static_cast<uint8_t>(CToken::TokenFlags::Tradeable);
     token.flags |= static_cast<uint8_t>(CToken::TokenFlags::LoanToken) | static_cast<uint8_t>(CToken::TokenFlags::DAT);
 
-    auto tokenId = mnview.CreateToken(token, false, &blockCtx);
+    auto tokenId = mnview.CreateToken(token, height, &blockCtx);
     if (!tokenId) {
         return tokenId;
     }

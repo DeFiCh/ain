@@ -24,6 +24,7 @@ public:
     static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
     static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
+    static const uint8_t POST_METACHAIN_TOKEN_NAME_BYTE_SIZE = 30;
     enum class TokenFlags : uint8_t {
         None = 0,
         Mintable = 0x01,
@@ -197,7 +198,7 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, BlockContext *blockCtx = nullptr);
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, int height, BlockContext *blockCtx = nullptr);
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();
