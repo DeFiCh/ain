@@ -105,6 +105,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
         if (blockCtx) {
             const auto shouldCreateDst20 = blockCtx->GetEVMEnabledForBlock();
             const auto &evmTemplate = blockCtx->GetEVMTemplate();
+            const auto &height = blockCtx->GetHeight();
             if (shouldCreateDst20 && evmTemplate) {
                 CrossBoundaryResult result;
                 rust::string token_name{};
