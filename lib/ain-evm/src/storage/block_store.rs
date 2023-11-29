@@ -298,6 +298,8 @@ impl BlockStore {
 
     fn dump_all(&self, limit: usize) -> Result<String> {
         let mut out = String::new();
+        let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
+            .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
         for arg in &[
             DumpArg::Blocks,
             DumpArg::Txs,
@@ -305,6 +307,9 @@ impl BlockStore {
             DumpArg::BlockMap,
             DumpArg::Logs,
         ] {
+            if out.len() > response_max_size {
+                return Err(format_err!("exceed response max size limit").into());
+            }
             writeln!(&mut out, "{}", self.dump(arg, None, limit)?)
                 .map_err(|_| format_err!("failed to write to stream"))?;
         }
@@ -316,7 +321,13 @@ impl BlockStore {
         C: TypedColumn + ColumnName,
     {
         let mut out = format!("{}\n", C::NAME);
+        let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
+            .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
+
         for (k, v) in self.column::<C>().iter(from, limit) {
+            if out.len() > response_max_size {
+                return Err(format_err!("exceed response max size limit").into());
+            }
             writeln!(&mut out, "{:?}: {:#?}", k, v)
                 .map_err(|_| format_err!("failed to write to stream"))?;
         }

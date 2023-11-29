@@ -501,7 +501,7 @@ UniValue dumpevmdb(const JSONRPCRequest &request) {
         }},
         RPCResult{"\"dbdump\"                  (string) The full evm backend db dump."
                   "This is for debugging purposes only.\n"},
-        RPCExamples{HelpExampleCli("dumpevmdb", R"('"<hex>"' 1)")},
+        RPCExamples{HelpExampleCli("dumpevmdb","'{\"dumparg\":\"all\", \"from\":<hex>, \"limit\":100}'")},
     }
         .Check(request);
 
@@ -547,14 +547,28 @@ UniValue dumpevmdb(const JSONRPCRequest &request) {
 
     const auto dumpResults = debug_dump_db(result, dumparg, from, limit);
     if (!result.ok) {
-        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to get dumpevmdb logs: %s", result.reason.c_str()));
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to get dumpdb logs: %s", result.reason.c_str()));
     }
     return std::string(dumpResults.data(), dumpResults.length());
 }
 
 UniValue logevmaccountstates(const JSONRPCRequest &request) {
-    UniValue result{UniValue::VOBJ};
-    return result;
+    RPCHelpMan{
+        "logevmaccountstates",
+        "Log the full evm account states for debugging.\n",
+        {},
+        RPCResult{"\"accountstates\"                  (string) The full evm account states."
+                  "This is for debugging purposes only.\n"},
+        RPCExamples{HelpExampleCli("logevmaccountstates","")},
+    }
+        .Check(request);
+
+    CrossBoundaryResult result;
+    const auto dumpResults = debug_log_account_states(result);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to log evm account states: %s", result.reason.c_str()));
+    }
+    return std::string(dumpResults.data(), dumpResults.length());
 }
 
 static const CRPCCommand commands[] = {
