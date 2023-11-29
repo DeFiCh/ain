@@ -38,7 +38,7 @@ jobs:
       run: ./ci/extended_lint/main.sh
 
   rust:
-    name: Rust Lints
+    name: Rust Lint
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     env:
@@ -62,6 +62,7 @@ jobs:
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: rust-lint
 
     - name: Build depends and configure
       run: ./make.sh build-deps && ./make.sh build-conf
