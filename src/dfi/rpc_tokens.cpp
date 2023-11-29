@@ -26,8 +26,7 @@ UniValue createtoken(const JSONRPCRequest &request) {
                     {"name",
                      RPCArg::Type::STR,
                      RPCArg::Optional::OMITTED,
-                     "Token's name (optional), no longer than " +
-                         std::to_string(CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE)},
+                     "Token's name (optional), no longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
                     {"isDAT",
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,
@@ -667,14 +666,13 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
     result.pushKV("type", ToString(guess));
     if (!actualHeight) {
         LOCK(cs_main);
-        BlockContext blockCtx;
+        BlockContext blockCtx(nHeight, ::ChainActive().Tip()->nTime, Params().GetConsensus());
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
         auto txCtx = TransactionContext{
             view,
             *tx,
-            Params().GetConsensus(),
-            static_cast<uint32_t>(nHeight),
+            blockCtx,
         };
 
         auto res = ApplyCustomTx(blockCtx, txCtx);
