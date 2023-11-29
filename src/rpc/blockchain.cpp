@@ -1546,8 +1546,8 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedForkDescPushBack(softforks, "grandcentral", consensusParams.DF20GrandCentralHeight);
     BuriedForkDescPushBack(softforks, "grandcentralepilogue", consensusParams.DF21GrandCentralEpilogueHeight);
     BuriedForkDescPushBack(softforks, "metachain", consensusParams.DF22MetachainHeight);
-    BuriedForkDescPushBack(softforks, "df23upgrade", consensusParams.DF23UpgradeHeight);
-    BuriedForkDescPushBack(softforks, "df24upgrade", consensusParams.DF24UpgradeHeight);
+    BuriedForkDescPushBack(softforks, "df23upgrade", consensusParams.DF23Height);
+    BuriedForkDescPushBack(softforks, "df24upgrade", consensusParams.DF24Height);
     BIP9SoftForkDescPushBack(softforks, "testdummy", consensusParams, Consensus::DEPLOYMENT_TESTDUMMY);
     obj.pushKV("softforks",             softforks);
 
