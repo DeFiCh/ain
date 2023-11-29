@@ -143,7 +143,7 @@ jobs:
     - name: Create datadir
       run: mkdir $DATADIR && tar -C $DATADIR -xvf datadir-${{matrix.blocks.start}}.tar.gz
 
-    - name: Download Binaries
+    - name: Download binaries
       uses: actions/download-artifact@v3
       with:
         name: defi-bins

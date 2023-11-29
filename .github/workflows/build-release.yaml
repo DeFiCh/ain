@@ -84,7 +84,7 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Download Binaries
+    - name: Download binaries
       uses: actions/download-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}

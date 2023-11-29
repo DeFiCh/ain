@@ -105,10 +105,14 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Download Binaries
+    - name: Download binaries
       uses: actions/download-artifact@v3
       with:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+        path: ./build/
+    
+    - name: Unpack binaries
+      run: tar -xvzf ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Build defi image
       run: rm .dockerignore && ./make.sh docker-defi-build

@@ -324,8 +324,7 @@ docker_defi_build() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
-
-    local pkg_name="${img_prefix}-${img_version}-${target}.tar.gz"
+    local build_dir="${BUILD_DIR}"
 
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DEFI_DOCKERFILE}"
@@ -336,8 +335,11 @@ docker_defi_build() {
     echo "> building: ${img}"
     echo "> docker defi build: ${img}"
 
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_build_dir="${build_dir}/${versioned_name}"
+
     docker build -f "${docker_file}" \
-        --build-arg PACKAGE="${pkg_name}" \
+        --build-arg BINARY_DIR="${versioned_build_dir}" \
         -t "${img}" "${docker_context}"
 }
 
