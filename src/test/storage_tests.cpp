@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(tokens)
     CTokenImplementation token1;
     token1.symbol = "DCT1";
     token1.creationTx = uint256S("0x1111");
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, std::numeric_limits<int>::max()).ok);
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
     BOOST_REQUIRE(GetTokensCount() == 2);
     {   // search by id
         auto token = pcustomcsview->GetToken(DCT_ID{128});
@@ -206,11 +206,11 @@ BOOST_AUTO_TEST_CASE(tokens)
     }
 
     // another token creation
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, std::numeric_limits<int>::max()).ok == false); /// duplicate symbol & tx
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok == false); /// duplicate symbol & tx
     token1.symbol = "DCT2";
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, std::numeric_limits<int>::max()).ok == false); /// duplicate tx
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok == false); /// duplicate tx
     token1.creationTx = uint256S("0x2222");
-    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, std::numeric_limits<int>::max()).ok);
+    BOOST_REQUIRE(pcustomcsview->CreateToken(token1, false).ok);
     BOOST_REQUIRE(GetTokensCount() == 3);
     {   // search by id
         auto token = pcustomcsview->GetToken(DCT_ID{129});

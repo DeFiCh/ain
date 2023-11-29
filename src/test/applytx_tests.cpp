@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
 
     LOCK(cs_main);
 
-    BlockContext blockCtx;
+    BlockContext blockCtx{{}, {}, amkCheated};
     auto &mnview = blockCtx.GetView();
     CCoinsViewCache coinview(&::ChainstateActive().CoinsTip());
 
@@ -124,7 +124,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         auto txCtx = TransactionContext{
             coinview,
             tx,
-            amkCheated,
+            blockCtx,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         auto txCtx = TransactionContext{
                 coinview,
                 tx,
-                amkCheated,
+                blockCtx,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         auto txCtx = TransactionContext{
                 coinview,
                 tx,
-                amkCheated,
+                blockCtx,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(apply_a2a_neg)
         auto txCtx = TransactionContext{
                 coinview,
                 tx,
-                amkCheated,
+                blockCtx,
         };
 
         res = ApplyCustomTx(blockCtx, txCtx);
