@@ -726,17 +726,19 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 fn evm_try_unsafe_create_dst20(
     template: &mut BlockTemplateWrapper,
     native_hash: &str,
-    token: ffi::DST20TokenInfo,
+    name: &str,
+    symbol: &str,
+    token_id: u64,
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
-    let address = ain_contracts::dst20_address_from_token_id(token.id)?;
+    let address = ain_contracts::dst20_address_from_token_id(token_id)?;
     debug!("Deploying to address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-        name: token.name,
-        symbol: token.symbol,
+        name: String::from(name),
+        symbol: String::from(symbol),
         address,
-        token_id: token.id,
+        token_id,
     }));
 
     unsafe {
