@@ -198,7 +198,7 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, int height, BlockContext *blockCtx = nullptr);
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, BlockContext *blockCtx = nullptr);
     Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();

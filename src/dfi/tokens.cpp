@@ -68,7 +68,9 @@ Res CTokensView::CreateDFIToken() {
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, int height, BlockContext *blockCtx) {
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
+                                        bool isPreBayfront,
+                                        BlockContext *blockCtx) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -91,7 +93,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, in
             },
             id);
         if (id == DCT_ID_START) {
-            if (height < Params().GetConsensus().DF2BayfrontHeight) {
+            if (isPreBayfront) {
                 return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
             }
 
