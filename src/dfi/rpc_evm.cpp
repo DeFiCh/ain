@@ -501,7 +501,7 @@ UniValue dumpevmdb(const JSONRPCRequest &request) {
         }},
         RPCResult{"\"dbdump\"                  (string) The full evm backend db dump."
                   "This is for debugging purposes only.\n"},
-        RPCExamples{HelpExampleCli("dumpevmdb","'{\"dumparg\":\"all\", \"from\":<hex>, \"limit\":100}'")},
+        RPCExamples{HelpExampleCli("dumpevmdb", "'{\"dumparg\":\"all\", \"from\":<hex>, \"limit\":100}'")},
     }
         .Check(request);
 
@@ -559,7 +559,7 @@ UniValue logevmaccountstates(const JSONRPCRequest &request) {
         {},
         RPCResult{"\"accountstates\"                  (string) The full evm account states."
                   "This is for debugging purposes only.\n"},
-        RPCExamples{HelpExampleCli("logevmaccountstates","")},
+        RPCExamples{HelpExampleCli("logevmaccountstates", "")},
     }
         .Check(request);
 
