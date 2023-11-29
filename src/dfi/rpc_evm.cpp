@@ -2,6 +2,7 @@
 
 #include <ain_rs_exports.h>
 #include <dfi/errors.h>
+#include <ffi/ffihelpers.h>
 #include <key_io.h>
 #include <util/strencodings.h>
 
@@ -386,7 +387,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 UniValue logvmmaps(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logvmmaps",
-        "\nLogs all block or tx indexes for debugging.\n",
+        "Logs all block or tx indexes for debugging.\n",
         {{"type",
           RPCArg::Type::NUM,
           RPCArg::Optional::NO,
@@ -468,12 +469,116 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     return result;
 }
 
+UniValue dumpevmdb(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "dumpevmdb",
+        "Dump the full evm backend db for debugging.\n",
+        {{
+            "options",
+            RPCArg::Type::OBJ,
+            RPCArg::Optional::OMITTED,
+            "",
+            {
+                {
+                    "dumparg",
+                    RPCArg::Type::STR,
+                    RPCArg::Optional::OMITTED,
+                    "Option to specify dump index",
+                },
+                {
+                    "from",
+                    RPCArg::Type::STR,
+                    RPCArg::Optional::OMITTED,
+                    "Specify starting key",
+                },
+                {
+                    "limit",
+                    RPCArg::Type::NUM,
+                    RPCArg::Optional::OMITTED,
+                    "Specify dump limit",
+                },
+            },
+        }},
+        RPCResult{"\"dbdump\"                  (string) The full evm backend db dump."
+                  "This is for debugging purposes only.\n"},
+        RPCExamples{HelpExampleCli("dumpevmdb", "'{\"dumparg\":\"all\", \"from\":<hex>, \"limit\":100}'")},
+    }
+        .Check(request);
+
+    rust::string dumparg{};
+    rust::string from{};
+    rust::string limit{};
+    CrossBoundaryResult result;
+    if (request.params.size() == 1) {
+        UniValue optionsObj = request.params[0].get_obj();
+        RPCTypeCheckObj(optionsObj,
+                        {
+                            {"dumparg", UniValueType(UniValue::VSTR)},
+                            {"from",    UniValueType(UniValue::VSTR)},
+                            {"limit",   UniValueType(UniValue::VSTR)},
+        },
+                        true,
+                        false);
+
+        if (!optionsObj["dumparg"].isNull()) {
+            const auto dumpargParam = optionsObj["dumparg"].get_str();
+            dumparg = rs_try_from_utf8(result, ffi_from_string_to_slice(dumpargParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dumparg set, not UTF-8 valid");
+            }
+        }
+
+        if (!optionsObj["from"].isNull()) {
+            const auto fromParam = optionsObj["from"].get_str();
+            from = rs_try_from_utf8(result, ffi_from_string_to_slice(fromParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid from set, not UTF-8 valid");
+            }
+        }
+
+        if (!optionsObj["limit"].isNull()) {
+            const auto limitParam = optionsObj["limit"].get_str();
+            limit = rs_try_from_utf8(result, ffi_from_string_to_slice(limitParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid limit set, not UTF-8 valid");
+            }
+        }
+    }
+
+    const auto dumpResults = debug_dump_db(result, dumparg, from, limit);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to get dumpdb logs: %s", result.reason.c_str()));
+    }
+    return std::string(dumpResults.data(), dumpResults.length());
+}
+
+UniValue logevmaccountstates(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "logevmaccountstates",
+        "Log the full evm account states for debugging.\n",
+        {},
+        RPCResult{"\"accountstates\"                  (string) The full evm account states."
+                  "This is for debugging purposes only.\n"},
+        RPCExamples{HelpExampleCli("logevmaccountstates", "")},
+    }
+        .Check(request);
+
+    CrossBoundaryResult result;
+    const auto dumpResults = debug_log_account_states(result);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to log evm account states: %s", result.reason.c_str()));
+    }
+    return std::string(dumpResults.data(), dumpResults.length());
+}
+
 static const CRPCCommand commands[] = {
-  //  category        name                         actor (function)        params
-  //  --------------- ----------------------       ---------------------   ----------
-    {"evm", "evmtx",     &evmtx,     {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm", "vmmap",     &vmmap,     {"input", "type"}                                               },
-    {"evm", "logvmmaps", &logvmmaps, {"type"}                                                        },
+  //  category  name                   actor (function)      params
+  //  --------- ---------------------- --------------------  ----------
+    {"evm", "evmtx",               &evmtx,               {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm", "vmmap",               &vmmap,               {"input", "type"}                                               },
+    {"evm", "logvmmaps",           &logvmmaps,           {"type"}                                                        },
+    {"evm", "dumpevmdb",           &dumpevmdb,           {"dumparg", "from", "limit"}                                    },
+    {"evm", "logevmaccountstates", &logevmaccountstates, {}                                                              },
 };
 
 void RegisterEVMRPCCommands(CRPCTable &tableRPC) {
