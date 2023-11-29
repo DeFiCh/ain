@@ -81,7 +81,7 @@ Res CPoolPairsConsensus::operator()(const CCreatePoolPairMessage &obj) const {
     token.creationHeight = height;
 
     // EVM Template will be null so no DST20 will be created
-    BlockContext dummyContext;
+    BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
     auto tokenId = mnview.CreateToken(token, dummyContext);
     if (!tokenId) {
         return tokenId;

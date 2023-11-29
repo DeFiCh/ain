@@ -1392,7 +1392,7 @@ static Res PoolSplits(CCustomCSView &view,
             }
 
             // EVM Template will be null so no DST20 will be created
-            BlockContext dummyContext;
+            BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
             auto resVal = view.CreateToken(newPoolToken, dummyContext);
             if (!resVal) {
                 throw std::runtime_error(resVal.msg);

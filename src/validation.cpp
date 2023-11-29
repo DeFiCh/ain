@@ -2984,8 +2984,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
     const auto &consensus = chainparams.GetConsensus();
 
-    auto blockCtx =
-        BlockContext(pindex->nHeight, pindex->GetBlockTime(), consensus, &accountsView, IsEVMEnabled(attributes));
+    auto blockCtx = BlockContext(pindex->nHeight, pindex->GetBlockTime(), consensus, &accountsView);
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
