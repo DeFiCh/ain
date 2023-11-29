@@ -1506,15 +1506,13 @@ void TransferDomainConfig::SetToAttributesIfNotExists(CCustomCSView &mnview) con
 
 TransactionContext::TransactionContext(const CCoinsViewCache &coins,
                                        const CTransaction &tx,
-                                       const Consensus::Params &consensus,
-                                       const uint32_t height,
-                                       const uint64_t time,
+                                       const BlockContext &blockCtx,
                                        const uint32_t txn)
     : coins(coins),
       tx(tx),
-      consensus(consensus),
-      height(height),
-      time(time),
+      consensus(blockCtx.GetConsensus()),
+      height(blockCtx.GetHeight()),
+      time(blockCtx.GetTime()),
       txn(txn) {
     metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
 }

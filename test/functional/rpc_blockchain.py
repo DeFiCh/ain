@@ -72,7 +72,6 @@ class BlockchainTest(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
         ]
 
@@ -213,6 +212,16 @@ class BlockchainTest(DefiTestFramework):
                     "height": 10000000,
                 },
                 "metachain": {
+                    "type": "buried",
+                    "active": False,
+                    "height": 10000000,
+                },
+                "df23upgrade": {
+                    "type": "buried",
+                    "active": False,
+                    "height": 10000000,
+                },
+                "df24upgrade": {
                     "type": "buried",
                     "active": False,
                     "height": 10000000,

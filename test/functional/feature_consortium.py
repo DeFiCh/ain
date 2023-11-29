@@ -32,7 +32,6 @@ class ConsortiumTest(DefiTestFramework):
                 "-grandcentralheight=254",
                 "-grandcentralepilogueheight=350",
                 "-regtest-minttoken-simulate-mainnet=1",
-                "-txindex=1",
             ],
             [
                 "-txnotokens=0",
@@ -50,7 +49,6 @@ class ConsortiumTest(DefiTestFramework):
                 "-grandcentralheight=254",
                 "-grandcentralepilogueheight=350",
                 "-regtest-minttoken-simulate-mainnet=1",
-                "-txindex=1",
             ],
             [
                 "-txnotokens=0",
@@ -68,7 +66,6 @@ class ConsortiumTest(DefiTestFramework):
                 "-grandcentralheight=254",
                 "-grandcentralepilogueheight=350",
                 "-regtest-minttoken-simulate-mainnet=1",
-                "-txindex=1",
             ],
             [
                 "-txnotokens=0",
@@ -86,7 +83,6 @@ class ConsortiumTest(DefiTestFramework):
                 "-grandcentralheight=254",
                 "-grandcentralepilogueheight=350",
                 "-regtest-minttoken-simulate-mainnet=1",
-                "-txindex=1",
             ],
         ]
 

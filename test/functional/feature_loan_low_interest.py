@@ -31,7 +31,6 @@ class LowInterestTest(DefiTestFramework):
                 "-fortcanningparkheight=5",
                 f"-fortcanninghillheight={FCH_HEIGHT}",
                 "-jellyfish_regtest=1",
-                "-txindex=1",
                 "-simulatemainnet",
             ]
         ]

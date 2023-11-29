@@ -86,12 +86,11 @@ pub mod ffi {
         fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
         fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
         fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
-        fn ain_rs_init_network_services(
-            result: &mut CrossBoundaryResult,
-            json_addr: &str,
-            grpc_addr: &str,
-            websockets_addr: &str,
-        );
+
+        // Networking
+        fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
 

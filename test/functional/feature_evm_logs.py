@@ -37,7 +37,6 @@ class EVMTestLogs(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
         ]
 
@@ -78,6 +77,7 @@ class EVMTestLogs(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -154,6 +154,7 @@ class EVMTestLogs(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

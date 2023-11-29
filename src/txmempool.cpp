@@ -1288,6 +1288,9 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
             continue;
         }
         auto blockCtx = BlockContext{
+            static_cast<uint32_t>(height),
+            static_cast<uint64_t>(it->GetTime()),
+            consensus,
             &viewDuplicate,
             isEvmEnabledForBlock,
             {},
@@ -1296,8 +1299,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
         auto txCtx = TransactionContext{
             coinsCache,
             tx,
-            consensus,
-            static_cast<uint32_t>(height),
+            blockCtx,
         };
         auto res = ApplyCustomTx(blockCtx, txCtx);
 

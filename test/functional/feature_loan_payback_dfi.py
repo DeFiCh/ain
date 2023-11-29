@@ -29,8 +29,6 @@ class PaybackDFILoanTest(DefiTestFramework):
                 "-fortcanninghillheight=50",
                 "-fortcanningroadheight=196",
                 "-fortcanningspringheight=200",
-                "-debug=loan",
-                "-txindex=1",
             ]
         ]
 

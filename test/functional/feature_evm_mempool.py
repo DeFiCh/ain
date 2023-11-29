@@ -35,7 +35,6 @@ class EVMTest(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-metachainheight=105",
                 "-subsidytest=1",
-                "-txindex=1",
                 "-ethdebug=1",
             ],
         ]
@@ -100,6 +99,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -121,6 +121,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 2,
                     },
                     "nonce": nonce,
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -421,6 +422,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 2,
                     },
                     "nonce": nonce,
+                    "singlekeycheck": False,
                 }
             ]
         )

@@ -17,13 +17,14 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           repository: JellyfishSDK/jellyfish
           ref: 'main'
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           path: defichain
 

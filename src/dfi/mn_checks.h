@@ -161,21 +161,33 @@ class BlockContext {
     std::optional<bool> isEvmEnabledForBlock;
     std::shared_ptr<CScopedTemplate> evmTemplate{};
     bool evmPreValidate{};
+    const uint32_t height{};
+    const uint64_t time{};
+    const Consensus::Params &consensus;
 
 public:
-    explicit BlockContext(CCustomCSView *view = {},
+    explicit BlockContext(const uint32_t height,
+                          const uint64_t time,
+                          const Consensus::Params &consensus,
+                          CCustomCSView *view = {},
                           const std::optional<bool> enabled = {},
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
                           const bool prevalidate = {})
         : view(view),
           isEvmEnabledForBlock(enabled),
           evmTemplate(evmTemplate),
-          evmPreValidate(prevalidate) {}
+          evmPreValidate(prevalidate),
+          height(height),
+          time(time),
+          consensus(consensus) {}
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
     [[nodiscard]] bool GetEVMPreValidate() const;
     [[nodiscard]] const std::shared_ptr<CScopedTemplate> &GetEVMTemplate() const;
+    [[nodiscard]] const uint32_t &GetHeight() const;
+    [[nodiscard]] const uint64_t &GetTime() const;
+    [[nodiscard]] const Consensus::Params &GetConsensus() const;
 
     void SetView(CCustomCSView &other);
     void SetEVMPreValidate(const bool other);
@@ -186,8 +198,8 @@ class TransactionContext {
     const CCoinsViewCache &coins;
     const CTransaction &tx;
     const Consensus::Params &consensus;
-    const uint32_t height{};
-    const uint64_t time{};
+    const uint32_t &height;
+    const uint64_t &time;
     const uint32_t txn{};
 
     std::vector<unsigned char> metadata;
@@ -198,9 +210,7 @@ class TransactionContext {
 public:
     TransactionContext(const CCoinsViewCache &coins,
                        const CTransaction &tx,
-                       const Consensus::Params &consensus,
-                       const uint32_t height = {},
-                       const uint64_t time = {},
+                       const BlockContext &blockCtx,
                        const uint32_t txn = {});
 
     [[nodiscard]] const CCoinsViewCache &GetCoins() const;
