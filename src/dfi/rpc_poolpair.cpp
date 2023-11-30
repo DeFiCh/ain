@@ -808,7 +808,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Pool %s does not exist!", poolStr));
         }
         status = pool->status;
-        targetHeight = ::ChainActive().Height() + 1;
+        targetHeight = view->GetLastHeight() + 1;
     }
 
     if (!metaObj["status"].isNull()) {
