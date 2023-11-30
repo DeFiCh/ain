@@ -264,8 +264,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if destination address is a contract
-            auto isSmartContract =
-                evm_try_unsafe_is_smart_contract_in_template(result, toAddress->GetByteArray(), evmTemplate->GetTemplate());
+            auto isSmartContract = evm_try_unsafe_is_smart_contract_in_template(
+                result, toAddress->GetByteArray(), evmTemplate->GetTemplate());
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -339,8 +339,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             }
 
             // Check if source address is a contract
-            auto isSmartContract =
-                evm_try_unsafe_is_smart_contract_in_template(result, fromAddress->GetByteArray(), evmTemplate->GetTemplate());
+            auto isSmartContract = evm_try_unsafe_is_smart_contract_in_template(
+                result, fromAddress->GetByteArray(), evmTemplate->GetTemplate());
             if (!result.ok) {
                 return Res::Err("Error checking contract address: %s", result.reason);
             }
@@ -419,7 +419,8 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
     attributes->SetValue(CTransferDomainStatsLive::Key, stats);
     res = mnview.SetVariable(*attributes);
     if (!res) {
-        evm_try_unsafe_remove_txs_above_hash_in_template(result, evmTemplate->GetTemplate(), tx.GetHash().GetByteArray());
+        evm_try_unsafe_remove_txs_above_hash_in_template(
+            result, evmTemplate->GetTemplate(), tx.GetHash().GetByteArray());
         return res;
     }
     return Res::Ok();

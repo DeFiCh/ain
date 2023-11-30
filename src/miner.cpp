@@ -295,12 +295,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         auto blockResult = *res;
         auto blockHash = ffi_from_byte_vector_to_uint256(blockResult.block_hash);
         xvm = XVM{
-            0,
-            {0,
-              blockHash.GetHex(),
-              blockResult.total_burnt_fees,
-              blockResult.total_priority_fees,
-              evmBeneficiary}
+            0, {0, blockHash.GetHex(), blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}
         };
     }
 
