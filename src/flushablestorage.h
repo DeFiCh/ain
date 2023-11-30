@@ -312,7 +312,10 @@ public:
         return true;
     }
     void Discard() override {
-        changed.clear();
+        // A cache copy of CCustomCSView or a snapshot will have a copy of the flushable
+        // storage. This should not be discarded as this flushable storage may have data
+        // not yet written to disk.
+        throw std::runtime_error("Discard should not be called on flushable storage");
     }
     size_t SizeEstimate() const override {
         return memusage::DynamicUsage(changed);
