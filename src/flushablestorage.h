@@ -347,7 +347,7 @@ public:
     }
     bool Flush() override {
         if (snapshot) {
-            return false;
+            throw std::runtime_error("Cannot Flush on storage based off a snapshot");
         }
         for (const auto& it : changed) {
             if (!it.second) {
