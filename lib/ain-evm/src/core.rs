@@ -43,7 +43,7 @@ use crate::{
     EVMError, Result,
 };
 
-pub type XHash = String;
+pub type XHash = [u8; 32];
 
 pub struct SignedTxCache {
     inner: spin::Mutex<LruCache<String, SignedTx>>,

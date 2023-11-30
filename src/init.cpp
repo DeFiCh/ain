@@ -2314,11 +2314,17 @@ bool AppInitMain(InitInterfaces& interfaces)
     {
         std::vector<std::string> eth_endpoints, g_endpoints, ws_endpoints;
         SetupRPCPorts(eth_endpoints, g_endpoints, ws_endpoints);
+        CrossBoundaryResult result;
 
         // Bind ETH RPC addresses
         for (auto it = eth_endpoints.begin(); it != eth_endpoints.end(); ++it) {
             LogPrint(BCLog::HTTP, "Binding ETH RPC server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, *it))
+            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+            if (!result.ok) {
+                LogPrint(BCLog::HTTP, "Invalid ETH RPC address, not UTF-8 valid");
+                return false;
+            }
+            auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, addr))
             if (!res) {
                 LogPrintf("Binding ETH RPC server on endpoint %s failed.\n", *it);
                 return false;
@@ -2328,7 +2334,12 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Bind gRPC addresses
         for (auto it = g_endpoints.begin(); it != g_endpoints.end(); ++it) {
             LogPrint(BCLog::HTTP, "Binding gRPC server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, *it))
+            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+            if (!result.ok) {
+                LogPrint(BCLog::HTTP, "Invalid gRPC address, not UTF-8 valid");
+                return false;
+            }
+            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, addr))
             if (!res) {
                 LogPrintf("Binding gRPC server on endpoint %s failed.\n", *it);
                 return false;
@@ -2338,7 +2349,12 @@ bool AppInitMain(InitInterfaces& interfaces)
         // bind websocket addresses
         for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
             LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, *it))
+            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+            if (!result.ok) {
+                LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid");
+                return false;
+            }
+            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
             if (!res) {
                 LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
                 return false;
