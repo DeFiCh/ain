@@ -625,14 +625,14 @@ public:
             }
             rpcInfo.pushKV("type", tx_type);
             rpcInfo.pushKV("hash", evmTxHash.GetHex());
-            rpcInfo.pushKV("sender", senderHash.GetHex());
+            rpcInfo.pushKV("sender", ETH_ADDR_PREFIX + senderHash.GetHex());
             rpcInfo.pushKV("nonce", txInfo.nonce);
             rpcInfo.pushKV("gasPrice", txInfo.gas_price);
             rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
             rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
             rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
             rpcInfo.pushKV("createTx", txInfo.create_tx);
-            rpcInfo.pushKV("to", toHash.GetHex());
+            rpcInfo.pushKV("to", ETH_ADDR_PREFIX + toHash.GetHex());
             rpcInfo.pushKV("value", txInfo.value);
         }
     }
