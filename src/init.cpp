@@ -2321,7 +2321,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             LogPrint(BCLog::HTTP, "Binding ETH RPC server on endpoint %s\n", *it);
             const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
             if (!result.ok) {
-                LogPrint(BCLog::HTTP, "Invalid ETH RPC address, not UTF-8 valid");
+                LogPrint(BCLog::HTTP, "Invalid ETH RPC address, not UTF-8 valid\n");
                 return false;
             }
             auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, addr))
@@ -2336,7 +2336,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             LogPrint(BCLog::HTTP, "Binding gRPC server on endpoint %s\n", *it);
             const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
             if (!result.ok) {
-                LogPrint(BCLog::HTTP, "Invalid gRPC address, not UTF-8 valid");
+                LogPrint(BCLog::HTTP, "Invalid gRPC address, not UTF-8 valid\n");
                 return false;
             }
             auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, addr))
@@ -2351,7 +2351,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
             const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
             if (!result.ok) {
-                LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid");
+                LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid\n");
                 return false;
             }
             auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
