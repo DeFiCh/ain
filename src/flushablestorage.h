@@ -157,14 +157,12 @@ public:
         return db->Exists(refTBytes(key));
     }
     bool Write(const TBytes& key, const TBytes& value) override {
-        // TODO: Runtime error
-        if (snapshot) return false;
+        if (snapshot) throw std::runtime_error("Cannot Write to storage based off a snapshot");
         batch.Write(refTBytes(key), refTBytes(value));
         return true;
     }
     bool Erase(const TBytes& key) override {
-        // TODO: Runtime error
-        if (snapshot) return false;
+        if (snapshot) throw std::runtime_error("Cannot Erase from storage based off a snapshot");
         batch.Erase(refTBytes(key));
         return true;
     }
