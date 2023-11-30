@@ -74,7 +74,7 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
-    - name: Delete previous cpp cache
+    - name: Delete previous cpp build cache
       if: ${{ github.ref == 'refs/heads/master' && steps.cpp-cache-restore.outputs.cache-hit }}
       continue-on-error: true
       run: |
@@ -83,7 +83,7 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Save cpp cache
+    - name: Save cpp build cache
       if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
