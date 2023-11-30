@@ -73,7 +73,7 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<TransactionData> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
-std::array<uint8_t, 32> getEthPrivKey(rust::string key);
+std::array<uint8_t, 32> getEthPrivKey(EvmAddressData key);
 rust::string getStateInputJSON();
 std::array<int64_t, 2> getEthSyncStatus();
 Attributes getAttributeValues(std::size_t mnview_ptr);

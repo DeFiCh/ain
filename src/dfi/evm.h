@@ -6,6 +6,7 @@
 #include <dfi/consensus/xvm.h>
 #include <dfi/res.h>
 #include <flushablestorage.h>
+#include <key.h>
 #include <script/script.h>
 #include <serialize.h>
 #include <uint256.h>

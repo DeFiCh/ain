@@ -221,7 +221,7 @@ impl EVMServices {
                 .collect(),
             Vec::new(),
         );
-        let block_hash = format!("{:?}", block.header.hash());
+        let block_hash = block.header.hash().to_fixed_bytes();
         let receipts = self.receipt.generate_receipts(
             &all_transactions,
             receipts_v3.clone(),

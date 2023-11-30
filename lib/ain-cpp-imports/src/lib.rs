@@ -68,7 +68,7 @@ mod ffi {
     pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthPrivKey(_key: String) -> [u8; 32] {
+    pub fn getEthPrivKey(_key: [u8; 20]) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getStateInputJSON() -> String {
@@ -207,7 +207,7 @@ pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
 }
 
 /// Gets the private key for the given pubkey string.
-pub fn get_eth_priv_key(key: String) -> Result<[u8; 32], Box<dyn Error>> {
+pub fn get_eth_priv_key(key: [u8; 20]) -> Result<[u8; 32], Box<dyn Error>> {
     let eth_key = ffi::getEthPrivKey(key);
     Ok(eth_key)
 }

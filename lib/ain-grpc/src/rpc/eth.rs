@@ -1146,8 +1146,7 @@ fn sign(
     message: TransactionMessage,
 ) -> Result<TransactionV2, Box<dyn std::error::Error>> {
     debug!(target:"rpc", "sign address {:#x}", address);
-    let key = format!("{address:?}");
-    let priv_key = get_eth_priv_key(key).unwrap();
+    let priv_key = get_eth_priv_key(address.to_fixed_bytes()).unwrap();
     let secret_key = SecretKey::parse(&priv_key).unwrap();
 
     match message {

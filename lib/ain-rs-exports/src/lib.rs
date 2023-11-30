@@ -46,7 +46,10 @@ pub mod ffi {
         // Networking
         fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: String);
         fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: String);
-        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: String);
+        fn ain_rs_init_network_subscriptions_service(
+            result: &mut CrossBoundaryResult,
+            addr: String,
+        );
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
 
@@ -104,7 +107,7 @@ pub mod ffi {
 
     // ========== EVM ==========
 
-    pub struct CreateTransactionContext<'a> {
+    pub struct CreateTransactionContext {
         pub chain_id: u64,
         pub nonce: u64,
         pub gas_price: u64,
@@ -118,7 +121,7 @@ pub mod ffi {
     pub struct CreateTransferDomainContext {
         pub from: [u8; 20],
         pub to: [u8; 20],
-        pub native_address: String,
+        pub native_address: [u8; 20],
         pub direction: bool,
         pub value: u64,
         pub token_id: u32,
@@ -173,7 +176,7 @@ pub mod ffi {
         fn evm_try_unsafe_create_template(
             result: &mut CrossBoundaryResult,
             dvm_block: u64,
-            miner_address: [u8; 20],
+            miner_address: &str,
             difficulty: u32,
             timestamp: u64,
             mnview_ptr: usize,
@@ -204,7 +207,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
             target_hash: [u8; 32],
-        ) -> Vec<[u8; 32]>;
+        );
 
         fn evm_try_unsafe_add_balance_in_template(
             result: &mut CrossBoundaryResult,
@@ -279,7 +282,10 @@ pub mod ffi {
             height: u64,
         ) -> [u8; 32];
 
-        fn evm_try_get_block_number_by_hash(result: &mut CrossBoundaryResult, hash: [u8; 32]) -> u64;
+        fn evm_try_get_block_number_by_hash(
+            result: &mut CrossBoundaryResult,
+            hash: [u8; 32],
+        ) -> u64;
 
         fn evm_try_get_block_header_by_hash(
             result: &mut CrossBoundaryResult,

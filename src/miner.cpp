@@ -293,10 +293,11 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             return Res::Err("Failed to construct block");
         }
         auto blockResult = *res;
+        auto blockHash = ffi_from_byte_vector_to_uint256(blockResult.block_hash);
         xvm = XVM{
             0,
             {0,
-              std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2),
+              blockHash.GetHex(),
               blockResult.total_burnt_fees,
               blockResult.total_priority_fees,
               evmBeneficiary}
@@ -928,7 +929,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
                         evm_try_unsafe_remove_txs_above_hash_in_template(
-                            result, evmTemplate->GetTemplate(), entryHash.ToString());
+                            result, evmTemplate->GetTemplate(), entryHash.GetByteArray());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n",
                                       __func__,

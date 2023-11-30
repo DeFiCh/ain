@@ -1095,7 +1095,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
                     ValidationInvalidReason::TX_NOT_STANDARD, false, REJECT_INVALID, "evm-sender-info");
             }
 
-            EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
+            EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address};
 
             const auto entryTipFee = isEVMTx ? txResult.tip_fee : std::numeric_limits<uint64_t>::max();
             const auto minRbfFee = isEVMTx ? txResult.min_rbf_tip_fee : std::numeric_limits<uint64_t>::max();

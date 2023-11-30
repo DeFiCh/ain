@@ -41,7 +41,7 @@ pub mod ffi {
         fn getPoolTransactions() -> Vec<TransactionData>;
         fn getNativeTxSize(data: Vec<u8>) -> u64;
         fn getMinRelayTxFee() -> u64;
-        fn getEthPrivKey(key: String) -> [u8; 32];
+        fn getEthPrivKey(key: [u8; 20]) -> [u8; 32];
         fn getStateInputJSON() -> String;
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;

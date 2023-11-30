@@ -19,6 +19,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <ffi/ffihelpers.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -278,11 +279,16 @@ struct RewardInfo {
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
+        auto parent_hash = ffi_from_byte_vector_to_uint256(header.parent_hash);
+        auto beneficiary = ffi_from_byte_vector_to_uint160(header.beneficiary);
+        auto state_root = ffi_from_byte_vector_to_uint256(header.state_root);
+        auto receipts_root = ffi_from_byte_vector_to_uint256(header.receipts_root);
+
         UniValue r(UniValue::VOBJ);
-        r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
-        r.pushKV("beneficiary", std::string(header.beneficiary.data(), header.beneficiary.length()));
-        r.pushKV("stateRoot", std::string(header.state_root.data(), header.state_root.length()));
-        r.pushKV("receiptRoot", std::string(header.receipts_root.data(), header.receipts_root.length()));
+        r.pushKV("parenthash", parent_hash.GetHex());
+        r.pushKV("beneficiary", beneficiary.GetHex());
+        r.pushKV("stateRoot", state_root.GetHex());
+        r.pushKV("receiptRoot", receipts_root.GetHex());
         r.pushKV("number", header.number);
         r.pushKV("gasLimit", header.gas_limit);
         r.pushKV("gasUsed", header.gas_used);
@@ -307,8 +313,10 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
         result.pushKV("vmtype", "coinbase");
         result.pushKV("txtype", "coinbase");
         result.pushKV("msg", xvm->ToUniValue());
+
+        auto blockHash = uint256S(xvm->evm.blockHash);
         CrossBoundaryResult res;
-        auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash);
+        auto evmBlockHeader = evm_try_get_block_header_by_hash(res, blockHash.GetByteArray());
         if (!res.ok) return {};
         result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
         return result;
