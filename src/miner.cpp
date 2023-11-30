@@ -109,7 +109,7 @@ void BlockAssembler::resetBlock() {
 
 ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CScript &scriptPubKeyIn,
                                                                        int64_t blockTime,
-                                                                       const EvmAddressData &evmBeneficiary) {
+                                                                       const std::string &evmBeneficiary) {
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
