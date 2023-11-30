@@ -157,11 +157,13 @@ public:
         return db->Exists(refTBytes(key));
     }
     bool Write(const TBytes& key, const TBytes& value) override {
+        // TODO: Runtime error
         if (snapshot) return false;
         batch.Write(refTBytes(key), refTBytes(value));
         return true;
     }
     bool Erase(const TBytes& key) override {
+        // TODO: Runtime error
         if (snapshot) return false;
         batch.Erase(refTBytes(key));
         return true;
@@ -174,7 +176,9 @@ public:
         return db->Read(refTBytes(key), rawVal);
     }
     bool Flush() override { // Commit batch
-        if (snapshot) return false;
+        // Since all other writes are blocked, flushing
+        // on snapshot is essentially a nop, and hence safe.
+        if (snapshot) return true;
         auto result = db->WriteBatch(batch);
         batch.Clear();
         return result;
@@ -194,13 +198,16 @@ public:
         return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db->NewIterator()));
     }
     void Compact(const TBytes& begin, const TBytes& end) {
+        // This should never be called, but even if it is, 
+        // all writes are blocked, so it's safe to just return.
         if (snapshot) return;
         db->CompactRange(refTBytes(begin), refTBytes(end));
     }
+
     bool IsEmpty() {
-        if (snapshot) return false;
         return db->IsEmpty();
     }
+
     [[nodiscard]] std::shared_ptr<CStorageSnapshot> GetStorageSnapshot() const {
         return db->GetStorageSnapshot();
     }
