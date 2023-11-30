@@ -2240,7 +2240,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         CTxDestination srcDest, dstDest;
 
         if (!srcObj["address"].isNull()) {
-            const auto srcDest = DecodeDestination(srcObj["address"].getValStr());
+            srcDest = DecodeDestination(srcObj["address"].getValStr());
             if (!IsValidDestination(srcDest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid src address provided");
             }
@@ -2286,7 +2286,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         //     src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
 
         if (!dstObj["address"].isNull()) {
-            const auto dstDest = DecodeDestination(dstObj["address"].getValStr());
+            dstDest = DecodeDestination(dstObj["address"].getValStr());
             if (!IsValidDestination(dstDest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
             }
