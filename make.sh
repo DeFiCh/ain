@@ -321,7 +321,7 @@ docker_release() {
     _sign "$target"
 }
 
-docker_defi_build() {
+docker_build_from_binaries() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
@@ -330,7 +330,7 @@ docker_defi_build() {
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DEFI_DOCKERFILE}"
 
-    echo "> docker-defi-build";
+    echo "> docker-build-from-binaries";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
