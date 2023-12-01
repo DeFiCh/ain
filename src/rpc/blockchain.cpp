@@ -278,10 +278,10 @@ struct RewardInfo {
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
-        auto parent_hash = uint256::FromByteArray(header.parent_hash).GetHex();
-        auto beneficiary = uint160::FromByteArray(header.beneficiary).GetHex();
-        auto state_root = uint256::FromByteArray(header.state_root).GetHex();
-        auto receipts_root = uint256::FromByteArray(header.receipts_root).GetHex();
+        const auto parent_hash = uint256::FromByteArray(header.parent_hash).GetHex();
+        const auto beneficiary = uint160::FromByteArray(header.beneficiary).GetHex();
+        const auto state_root = uint256::FromByteArray(header.state_root).GetHex();
+        const auto receipts_root = uint256::FromByteArray(header.receipts_root).GetHex();
 
         UniValue r(UniValue::VOBJ);
         r.pushKV("parenthash", parent_hash);
