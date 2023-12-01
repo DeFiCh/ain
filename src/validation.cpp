@@ -644,7 +644,6 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
     {
         CCoinsView dummy;
         CCoinsViewCache view(&dummy);
-        CCustomCSView mnview(pool.accountsView());
 
         LockPoints lp;
         CCoinsViewCache &coins_cache = ::ChainstateActive().CoinsTip();
@@ -698,6 +697,9 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
 
         // rebuild accounts view if dirty
         pool.rebuildAccountsView(height, view);
+
+        // Get view after we rebuild account view
+        CCustomCSView mnview(pool.accountsView());
 
         CAmount nFees = 0;
         if (!Consensus::CheckTxInputs(tx, state, view, mnview, height, nFees, chainparams)) {
@@ -3801,7 +3803,6 @@ bool CChainState::DisconnectTip(CValidationState &state,
         std::vector<CAnchorConfirmMessage> disconnectedConfirms;
         if (DisconnectBlock(block, pindexDelete, view, mnview, disconnectedConfirms) != DISCONNECT_OK) {
             m_disconnectTip = false;
-            mnview.GetHistoryWriters().DiscardDB();
             return error("DisconnectTip(): DisconnectBlock %s failed", pindexDelete->GetBlockHash().ToString());
         }
 
@@ -3812,6 +3813,8 @@ bool CChainState::DisconnectTip(CValidationState &state,
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
+
+        pcustomcsview->GetStorage().BlockTipChanged();
 
         if (!disconnectedConfirms.empty()) {
             for (const auto &confirm : disconnectedConfirms) {
@@ -3968,7 +3971,6 @@ bool CChainState::ConnectTip(CValidationState &state,
             if (s.IsInvalid()) {
                 InvalidBlockFound(p, s);
             }
-            m.GetHistoryWriters().DiscardDB();
             return error("ConnectBlock %s failed, %s", p->GetBlockHash().ToString(), FormatStateMessage(s));
         };
 
@@ -3989,6 +3991,8 @@ bool CChainState::ConnectTip(CValidationState &state,
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
         mnview.GetHistoryWriters().FlushDB();
+
+        pcustomcsview->GetStorage().BlockTipChanged();
 
         // Delete all other confirms from memory
         if (rewardedAnchors) {
@@ -6444,7 +6448,6 @@ bool CChainState::ReplayBlocks(const CChainParams &params, CCoinsView *view, CCu
             std::vector<CAnchorConfirmMessage> disconnectedConfirms;  // dummy
             DisconnectResult res = DisconnectBlock(block, pindexOld, cache, mncache, disconnectedConfirms);
             if (res == DISCONNECT_FAILED) {
-                mncache.GetHistoryWriters().DiscardDB();
                 return error("RollbackBlock(): DisconnectBlock failed at %d, hash=%s",
                              pindexOld->nHeight,
                              pindexOld->GetBlockHash().ToString());
@@ -6466,7 +6469,6 @@ bool CChainState::ReplayBlocks(const CChainParams &params, CCoinsView *view, CCu
                                  (int)((nHeight - nForkHeight) * 100.0 / (pindexNew->nHeight - nForkHeight)),
                                  false);
         if (!RollforwardBlock(pindex, cache, mncache, params)) {
-            mncache.GetHistoryWriters().DiscardDB();
             return false;
         }
     }
