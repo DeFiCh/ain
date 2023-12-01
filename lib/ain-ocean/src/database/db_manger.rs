@@ -1,3 +1,4 @@
+use crate::model::oracle::Oracle;
 use anyhow::{anyhow, Result};
 use bitcoin::blockdata::block::Block;
 use bitcoin::blockdata::block::Header;
