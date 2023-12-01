@@ -38,7 +38,7 @@ jobs:
       run: ./ci/extended_lint/main.sh
 
   rust:
-    name: Rust Lints
+    name: Rust Lint
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     env:
@@ -57,10 +57,12 @@ jobs:
     - name: Setup dependencies for user
       run: ./make.sh ci-setup-user-deps
 
-    - uses: Swatinem/rust-cache@v2
+    - name: Rust lint cache
+      uses: Swatinem/rust-cache@v2
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: lint
 
     - name: Build depends and configure
       run: ./make.sh build-deps && ./make.sh build-conf
