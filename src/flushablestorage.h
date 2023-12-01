@@ -72,7 +72,6 @@ public:
     virtual bool Read(const TBytes& key, TBytes& value) const = 0;
     virtual std::unique_ptr<CStorageKVIterator> NewIterator() = 0;
     virtual size_t SizeEstimate() const = 0;
-    virtual void Discard() = 0;
     virtual bool Flush() = 0;
 };
 
@@ -159,9 +158,6 @@ public:
         auto result = db.WriteBatch(batch);
         batch.Clear();
         return result;
-    }
-    void Discard() override {
-        batch.Clear();
     }
     size_t SizeEstimate() const override {
         return batch.SizeEstimate();
@@ -310,12 +306,6 @@ public:
         }
         changed.clear();
         return true;
-    }
-    void Discard() override {
-        // A cache copy of CCustomCSView or a snapshot will have a copy of the flushable
-        // storage. This should not be discarded as this flushable storage may have data
-        // not yet written to disk.
-        throw std::runtime_error("Discard should not be called on flushable storage");
     }
     size_t SizeEstimate() const override {
         return memusage::DynamicUsage(changed);
@@ -508,7 +498,6 @@ public:
     }
 
     virtual bool Flush() { return DB().Flush(); }
-    void Discard() { DB().Discard(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }
 
 protected:
