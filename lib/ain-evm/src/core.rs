@@ -44,6 +44,7 @@ use crate::{
 };
 
 pub type XHash = [u8; 32];
+pub type XAddress = [u8; 20];
 
 pub struct SignedTxCache {
     inner: spin::Mutex<LruCache<String, SignedTx>>,
@@ -159,9 +160,9 @@ pub struct ValidateTxInfo {
 }
 
 pub struct TransferDomainTxInfo {
-    pub from: [u8; 20],
-    pub to: [u8; 20],
-    pub native_address: [u8; 20],
+    pub from: XAddress,
+    pub to: XAddress,
+    pub native_address: XAddress,
     pub direction: bool,
     pub value: u64,
     pub token_id: u32,

@@ -3,7 +3,7 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
-    core::{TransferDomainTxInfo, XHash},
+    core::{TransferDomainTxInfo, XAddress, XHash},
     evm::FinalizedBlockInfo,
     executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
@@ -167,7 +167,7 @@ fn evm_try_create_and_sign_transfer_domain_tx(
 }
 
 #[ffi_fallible]
-fn evm_try_store_account_nonce(from_address: [u8; 20], nonce: u64) -> Result<()> {
+fn evm_try_store_account_nonce(from_address: XAddress, nonce: u64) -> Result<()> {
     let from_address = H160::from(from_address);
     let _ = SERVICES
         .evm
@@ -190,7 +190,7 @@ fn evm_try_store_account_nonce(from_address: [u8; 20], nonce: u64) -> Result<()>
 ///
 /// Returns the balance of the account as a `u64` on success.
 #[ffi_fallible]
-fn evm_try_get_balance(address: [u8; 20]) -> Result<u64> {
+fn evm_try_get_balance(address: XAddress) -> Result<u64> {
     let address = H160::from(address);
     let state_root = SERVICES.evm.block.get_latest_state_root()?;
     let balance = SERVICES.evm.core.get_balance(address, state_root)?;
@@ -231,7 +231,7 @@ fn evm_try_unsafe_update_state_in_template(template: &mut BlockTemplateWrapper) 
 #[ffi_fallible]
 fn evm_try_unsafe_get_next_valid_nonce_in_template(
     template: &BlockTemplateWrapper,
-    address: [u8; 20],
+    address: XAddress,
 ) -> Result<u64> {
     let address = H160::from(address);
     unsafe {
@@ -808,7 +808,7 @@ fn evm_try_unsafe_cache_signed_tx(raw_tx: &str, instance: usize) -> Result<()> {
 /// Returns `true` if the address is a contract, `false` otherwise
 #[ffi_fallible]
 fn evm_try_unsafe_is_smart_contract_in_template(
-    address: [u8; 20],
+    address: XAddress,
     template: &BlockTemplateWrapper,
 ) -> Result<bool> {
     let address = H160::from(address);
