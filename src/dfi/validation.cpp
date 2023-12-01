@@ -2621,9 +2621,9 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
 }
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
-    auto blockHash = ffi_from_byte_vector_to_uint256(blockResult.block_hash);
+    auto blockResultBlockHash = uint256::FromByteArray(blockResult.block_hash).GetHex();
 
-    if (xvm.evm.blockHash != blockHash.GetHex()) {
+    if (xvm.evm.blockHash != blockResultBlockHash) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
     }
 
@@ -2697,13 +2697,13 @@ static Res ProcessEVMQueue(const CBlock &block,
         return res;
     }
 
-    auto evmBlockHash = ffi_from_byte_vector_to_uint256(blockResult.block_hash);
-    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash().GetHex(), evmBlockHash.GetHex());
+    auto evmBlockHash = uint256::FromByteArray(blockResult.block_hash).GetHex();
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, block.GetHash().GetHex(), evmBlockHash);
     if (!res) {
         return res;
     }
 
-    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash.GetHex(), block.GetHash().GetHex());
+    res = cache.SetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash, block.GetHash().GetHex());
     if (!res) {
         return res;
     }

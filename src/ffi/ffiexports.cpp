@@ -237,8 +237,7 @@ uint64_t getMinRelayTxFee() {
 
 std::array<uint8_t, 32> getEthPrivKey(EvmAddressData key) {
     CKey ethPrivKey;
-    auto hash = ffi_from_byte_vector_to_uint160(key);
-    const auto ethKeyID = CKeyID(hash);
+    const auto ethKeyID = CKeyID(uint160::FromByteArray(key));
     for (const auto &wallet : GetWallets()) {
         if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};

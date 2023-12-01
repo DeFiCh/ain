@@ -4,12 +4,6 @@
 #include <ain_rs_exports.h>
 #include <dfi/res.h>
 #include <ffi/cxx.h>
-#include <key.h>
-#include <pubkey.h>
-#include <uint256.h>
-
-#include <array>
-#include <vector>
 
 #define XResultThrowOnErr(x)                                 \
     [&]() {                                                  \
@@ -64,16 +58,6 @@
 
 inline rust::slice<const uint8_t> ffi_from_string_to_slice(const std::string &str) {
     return rust::slice<const uint8_t>(reinterpret_cast<const uint8_t *>(str.c_str()), str.size());
-}
-
-inline uint256 ffi_from_byte_vector_to_uint256(const std::array<uint8_t, 32> &bytes) {
-    std::vector<uint8_t> data(bytes.rbegin(), bytes.rend());
-    return uint256(data);
-}
-
-inline uint160 ffi_from_byte_vector_to_uint160(const EvmAddressData &bytes) {
-    std::vector<uint8_t> data(bytes.rbegin(), bytes.rend());
-    return uint160(data);
 }
 
 #endif  // DEFI_FFI_FFIHELPERS_H

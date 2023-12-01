@@ -3,7 +3,6 @@
 #include <core_io.h>
 #include <dfi/mn_checks.h>
 #include <dfi/res.h>
-#include <ffi/ffihelpers.h>
 #include <key_io.h>
 #include <primitives/transaction.h>
 #include <rpc/protocol.h>
@@ -595,16 +594,14 @@ public:
 
     void operator()(const CEvmTxMessage &obj) const {
         auto txHash = tx.GetHash().GetHex();
-        if (auto evmTxHashStr = mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
+        if (auto evmTxHash = mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
             CrossBoundaryResult result;
-            const auto evmTxHash = uint256S(*evmTxHashStr);
-            auto txInfo = evm_try_get_tx_by_hash(result, evmTxHash.GetByteArray());
+            const auto hash = uint256S(*evmTxHash);
+            auto txInfo = evm_try_get_tx_by_hash(result, hash.GetByteArray());
             if (!result.ok) {
                 LogPrintf("Failed to get EVM tx info for tx %s: %s\n", txHash, result.reason.c_str());
                 return;
             }
-            const auto senderHash = ffi_from_byte_vector_to_uint160(txInfo.sender);
-            const auto toHash = ffi_from_byte_vector_to_uint160(txInfo.to);
             std::string tx_type;
             switch (txInfo.tx_type) {
                 case CEVMTxType::LegacyTransaction: {
@@ -625,14 +622,14 @@ public:
             }
             rpcInfo.pushKV("type", tx_type);
             rpcInfo.pushKV("hash", evmTxHash.GetHex());
-            rpcInfo.pushKV("sender", ETH_ADDR_PREFIX + senderHash.GetHex());
+            rpcInfo.pushKV("sender", ETH_ADDR_PREFIX + uint160::FromByteArray(txInfo.sender).GetHex());
             rpcInfo.pushKV("nonce", txInfo.nonce);
             rpcInfo.pushKV("gasPrice", txInfo.gas_price);
             rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
             rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
             rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
             rpcInfo.pushKV("createTx", txInfo.create_tx);
-            rpcInfo.pushKV("to", ETH_ADDR_PREFIX + toHash.GetHex());
+            rpcInfo.pushKV("to", ETH_ADDR_PREFIX + uint160::FromByteArray(txInfo.to).GetHex());
             rpcInfo.pushKV("value", txInfo.value);
         }
     }

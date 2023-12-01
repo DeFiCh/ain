@@ -19,7 +19,6 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
-#include <ffi/ffihelpers.h>
 #include <policy/feerate.h>
 #include <policy/policy.h>
 #include <policy/rbf.h>
@@ -279,16 +278,16 @@ struct RewardInfo {
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
-        auto parent_hash = ffi_from_byte_vector_to_uint256(header.parent_hash);
-        auto beneficiary = ffi_from_byte_vector_to_uint160(header.beneficiary);
-        auto state_root = ffi_from_byte_vector_to_uint256(header.state_root);
-        auto receipts_root = ffi_from_byte_vector_to_uint256(header.receipts_root);
+        auto parent_hash = uint256::FromByteArray(header.parent_hash).GetHex();
+        auto beneficiary = uint160::FromByteArray(header.beneficiary).GetHex();
+        auto state_root = uint256::FromByteArray(header.state_root).GetHex();
+        auto receipts_root = uint256::FromByteArray(header.receipts_root).GetHex();
 
         UniValue r(UniValue::VOBJ);
-        r.pushKV("parenthash", parent_hash.GetHex());
-        r.pushKV("beneficiary", beneficiary.GetHex());
-        r.pushKV("stateRoot", state_root.GetHex());
-        r.pushKV("receiptRoot", receipts_root.GetHex());
+        r.pushKV("parenthash", parent_hash);
+        r.pushKV("beneficiary", beneficiary);
+        r.pushKV("stateRoot", state_root);
+        r.pushKV("receiptRoot", receipts_root);
         r.pushKV("number", header.number);
         r.pushKV("gasLimit", header.gas_limit);
         r.pushKV("gasUsed", header.gas_used);

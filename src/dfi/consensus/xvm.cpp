@@ -12,7 +12,6 @@
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
 #include <ffi/cxx.h>
-#include <ffi/ffihelpers.h>
 
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
 
@@ -299,13 +298,11 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Ok();
             }
 
-            auto bytes = evm_try_get_tx_hash(result, evmTx);
+            auto hash = evm_try_get_tx_hash(result, evmTx);
             if (!result.ok) {
                 return Res::Err("Error getting tx hash: %s", result.reason);
             }
-            auto hash = ffi_from_byte_vector_to_uint256(bytes);
-            evmTxHash = hash.GetHex();
-
+            evmTxHash = uint256::FromByteArray(hash).GetHex();
             // Add balance to ERC55 address
             auto tokenId = dst.amount.nTokenId;
             if (tokenId == DCT_ID{0}) {
@@ -358,12 +355,11 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
                 return Res::Ok();
             }
 
-            auto bytes = evm_try_get_tx_hash(result, evmTx);
+            auto hash = evm_try_get_tx_hash(result, evmTx);
             if (!result.ok) {
                 return Res::Err("Error getting tx hash: %s", result.reason);
             }
-            auto hash = ffi_from_byte_vector_to_uint256(bytes);
-            evmTxHash = hash.GetHex();
+            evmTxHash = uint256::FromByteArray(hash).GetHex();
 
             // Subtract balance from ERC55 address
             auto tokenId = dst.amount.nTokenId;
@@ -451,8 +447,7 @@ Res CXVMConsensus::operator()(const CEvmTxMessage &obj) const {
     }
 
     auto txHash = tx.GetHash().GetHex();
-    auto hash = ffi_from_byte_vector_to_uint256(validateResults.tx_hash);
-    auto evmTxHash = hash.GetHex();
+    auto evmTxHash = uint256::FromByteArray(validateResults.tx_hash).GetHex();
     auto res = mnview.SetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash, evmTxHash);
     if (!res) {
         LogPrintf("Failed to store DVMtoEVM TX hash for DFI TX %s\n", txHash);

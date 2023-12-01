@@ -332,10 +332,10 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
             }
             CrossBoundaryResult result;
-            auto bytes = evm_try_get_block_hash_by_number(result, height);
-            auto evmBlockHash = ffi_from_byte_vector_to_uint256(bytes);
+            auto hash = evm_try_get_block_hash_by_number(result, height);
+            auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
             crossBoundaryOkOrThrow(result);
-            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash.GetHex());
+            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
             if (!dvmBlockHash.val.has_value()) {
                 throwInvalidParam(dvmBlockHash.msg);
             }
