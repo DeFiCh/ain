@@ -533,8 +533,6 @@ impl EVMCoreService {
                 }
             }
 
-            let native_address = H160::from(context.native_address);
-            let native_address = format!("{native_address:?}");
             let (from_address, to_address) = if context.direction {
                 // EvmIn
                 let to_address = H160::from(context.to);
@@ -544,6 +542,7 @@ impl EVMCoreService {
                 let from_address = H160::from(context.from);
                 (from_address, fixed_address)
             };
+            let native_address = format!("{:?}", H160::from(context.native_address));
             let value = try_from_satoshi(U256::from(context.value))?.0;
 
             let is_native_token_transfer = context.token_id == 0;

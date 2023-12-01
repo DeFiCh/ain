@@ -312,14 +312,14 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
         }
         CBlockIndex *pindex = ::ChainActive()[static_cast<int>(height)];
-        auto evmBlockHashStr =
+        auto evmBlockHash =
             pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::DVMToEVM, pindex->GetBlockHash().GetHex());
-        if (!evmBlockHashStr.val.has_value()) {
-            throwInvalidParam(evmBlockHashStr.msg);
+        if (!evmBlockHash.val.has_value()) {
+            throwInvalidParam(evmBlockHash.msg);
         }
-        auto evmBlockHash = uint256S(evmBlockHashStr);
+        auto hash = uint256S(evmBlockHash);
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, evmBlockHash.GetByteArray());
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, hash.GetByteArray());
         crossBoundaryOkOrThrow(result);
         return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
     };
@@ -332,11 +332,10 @@ UniValue vmmap(const JSONRPCRequest &request) {
                 throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
             }
             CrossBoundaryResult result;
-            auto evmHashBytes = evm_try_get_block_hash_by_number(result, height);
-            auto evmHash = ffi_from_byte_vector_to_uint256(evmHashBytes);
-            auto evmBlockHash = ensureEVMHashStripped(evmHash.GetHex());
+            auto bytes = evm_try_get_block_hash_by_number(result, height);
+            auto evmBlockHash = ffi_from_byte_vector_to_uint256(bytes);
             crossBoundaryOkOrThrow(result);
-            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash.GetHex());
             if (!dvmBlockHash.val.has_value()) {
                 throwInvalidParam(dvmBlockHash.msg);
             }

@@ -98,8 +98,6 @@ fn evm_try_create_and_sign_transfer_domain_tx(
     let action = TransactionAction::Call(fixed_address);
 
     let sender = H160::from(ctx.from);
-    let native_address = H160::from(ctx.native_address);
-    let native_address = format!("{native_address:?}");
     let (from_address, to_address) = if ctx.direction {
         let to_address = H160::from(ctx.to);
         // Send EvmIn from contract address
@@ -109,6 +107,7 @@ fn evm_try_create_and_sign_transfer_domain_tx(
         // Send EvmOut to contract address
         (from_address, fixed_address)
     };
+    let native_address = format!("{:?}", H160::from(ctx.native_address));
 
     let value = try_from_satoshi(U256::from(ctx.value))?;
 
@@ -283,11 +282,11 @@ fn evm_try_unsafe_add_balance_in_template(
         .core
         .signed_tx_cache
         .try_get_or_create(raw_tx)?;
-
     let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmIn,
     }));
+
     unsafe {
         SERVICES
             .evm
@@ -313,7 +312,6 @@ fn evm_try_unsafe_sub_balance_in_template(
         .core
         .signed_tx_cache
         .try_get_or_create(raw_tx)?;
-
     let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmOut,

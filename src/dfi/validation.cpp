@@ -2622,9 +2622,8 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
     auto blockHash = ffi_from_byte_vector_to_uint256(blockResult.block_hash);
-    const auto blockResultBlockHash = blockHash.GetHex();
 
-    if (xvm.evm.blockHash != blockResultBlockHash) {
+    if (xvm.evm.blockHash != blockHash.GetHex()) {
         return Res::Err("Incorrect EVM block hash in coinbase output");
     }
 

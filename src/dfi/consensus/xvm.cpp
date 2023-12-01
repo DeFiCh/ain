@@ -57,8 +57,6 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
 
     const auto srcType = FromTxDestType(src.index());
     const auto destType = FromTxDestType(dest.index());
-    const auto srcKey = CKeyID::FromOrDefaultDestination(src);
-    const auto destKey = CKeyID::FromOrDefaultDestination(dest);
 
     if (edge == VMDomainEdge::DVMToEVM) {
         if (!config.dvmToEvmSrcAddresses.count(srcType)) {
@@ -67,8 +65,8 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
         if (!config.dvmToEvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainETHDestAddress();
         }
-        context.to = destKey.GetByteArray();
-        context.native_address = srcKey.GetByteArray();
+        context.to = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
+        context.native_address = CKeyID::FromOrDefaultDestination(src).GetByteArray();
         return Res::Ok();
 
     } else if (edge == VMDomainEdge::EVMToDVM) {
@@ -78,8 +76,8 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
         if (!config.evmToDvmDestAddresses.count(destType)) {
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
-        context.from = srcKey.GetByteArray();
-        context.native_address = destKey.GetByteArray();
+        context.from = CKeyID::FromOrDefaultDestination(src).GetByteArray();
+        context.native_address = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
         return Res::Ok();
     }
 
@@ -152,8 +150,7 @@ static Res ValidateTransferDomainEdge(const CTransaction &tx,
         if (!ExtractDestination(from, dest)) {
             return DeFiErrors::ScriptUnexpected(from);
         }
-        const auto destKey = CKeyID::FromOrDefaultDestination(dest);
-        context.from = destKey.GetByteArray();
+        context.from = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
 
         return HasAuth(tx, coins, src.address);
 

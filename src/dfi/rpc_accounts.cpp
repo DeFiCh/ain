@@ -5,7 +5,6 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <ffi/ffihelpers.h>
-#include <key.h>
 #include <boost/asio.hpp>
 
 std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol) {
@@ -2335,17 +2334,13 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         EvmAddressData to{};
         EvmAddressData nativeAddress{};
         if (isEVMIn) {
-            const auto toKey = CKeyID::FromOrDefaultDestination(dstDest);
-            const auto nativeKey = CKeyID::FromOrDefaultDestination(srcDest);
-            to = toKey.GetByteArray();
-            nativeAddress = nativeKey.GetByteArray();
+            to = CKeyID::FromOrDefaultDestination(dstDest).GetByteArray();
+            nativeAddress = CKeyID::FromOrDefaultDestination(srcDest).GetByteArray();
         } else {
-            const auto nativeKey = CKeyID::FromOrDefaultDestination(dstDest);
-            nativeAddress = nativeKey.GetByteArray();
+            nativeAddress = CKeyID::FromOrDefaultDestination(dstDest).GetByteArray();
         }
         auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
-        const auto fromKey = CKeyID::FromOrDefaultDestination(dest);
-        auto from = fromKey.GetByteArray();
+        auto from = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
 
         uint64_t nonce = 0;
         bool useNonce = !nonceObj.isNull();
