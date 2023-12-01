@@ -56,7 +56,7 @@ class EVMTest(DefiTestFramework):
             "-fortcanningepilogueheight=96",
             "-grandcentralheight=101",
             "-metachainheight=150",
-            "-df23upgradeheight=105",
+            "-df23height=105",
             "-subsidytest=1",
         ]
         self.extra_args = [node_args, node_args]

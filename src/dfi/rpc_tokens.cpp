@@ -667,14 +667,13 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
     result.pushKV("type", ToString(guess));
     if (!actualHeight) {
         LOCK(cs_main);
-        BlockContext blockCtx;
+        BlockContext blockCtx(nHeight, ::ChainActive().Tip()->nTime, Params().GetConsensus());
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
         auto txCtx = TransactionContext{
             view,
             *tx,
-            Params().GetConsensus(),
-            static_cast<uint32_t>(nHeight),
+            blockCtx,
         };
 
         auto res = ApplyCustomTx(blockCtx, txCtx);

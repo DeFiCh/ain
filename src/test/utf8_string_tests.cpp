@@ -5,7 +5,6 @@
 #include <chainparams.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
-#include <util/strencodings.h>
 #include <test/setup_common.h>
 
 #include <boost/test/unit_test.hpp>
@@ -24,15 +23,6 @@ BOOST_AUTO_TEST_CASE(check_for_valid_utf8_strings)
         " It acceptance thoroughly my advantages everything as. Are projecting inquietude affronting preference saw who."
         " Marry of am do avoid ample as. Old disposal followed she ignorant desirous two has. Called played entire roused"
         " though for one too. He into walk roof made tall cold he. Feelings way likewise addition wandered contempt bed indulged.";
-
-    // Check UTF-8 validity with CPP
-    BOOST_CHECK(check_is_valid_utf8(test1));
-    BOOST_CHECK(check_is_valid_utf8(test2));
-    BOOST_CHECK(check_is_valid_utf8(test3));
-    BOOST_CHECK(check_is_valid_utf8(test4));
-    BOOST_CHECK(check_is_valid_utf8(test5));
-    BOOST_CHECK(check_is_valid_utf8(test6));
-    BOOST_CHECK(check_is_valid_utf8(test7));
 
     // Check UTF-8 validity with Rust FFI
     CrossBoundaryResult result;
@@ -69,11 +59,6 @@ BOOST_AUTO_TEST_CASE(check_for_invalid_utf8_strings)
     std::string test1 = smiling_face.substr(0, 1) +  " Beaming Face With Smiling Eyes";
     std::string test2 = laughing_face.substr(0, 3) + laughing_face.substr(0, 2) + laughing_face.substr(0, 1) + " Rolling on the Floor Laughing";
     std::string test3 = star_struck_face.substr(0, 1) + "🤩🤩 Star-🤩Struck 🤩🤩";
-
-    // Check UTF-8 validity with CPP
-    BOOST_CHECK(!check_is_valid_utf8(test1));
-    BOOST_CHECK(!check_is_valid_utf8(test2));
-    BOOST_CHECK(!check_is_valid_utf8(test3));
 
     // Check UTF-8 validity with Rust FFI
     CrossBoundaryResult result;

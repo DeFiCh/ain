@@ -114,7 +114,6 @@ public:
 
     void ClearState();
     void FlushDB();
-    void DiscardDB();
     void Flush(const uint32_t height,
                const uint256 &txid,
                const uint32_t txn,
