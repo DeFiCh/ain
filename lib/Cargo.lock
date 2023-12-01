@@ -244,8 +244,10 @@ dependencies = [
  "log",
  "rocksdb",
  "serde",
+ "serde_json",
  "structopt",
  "tempdir",
+ "tempfile",
  "tokio",
  "tokio-serde",
 ]
