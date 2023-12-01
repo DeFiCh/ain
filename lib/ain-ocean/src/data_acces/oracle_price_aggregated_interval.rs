@@ -1,4 +1,4 @@
-use crate::database::RocksDB;
+use crate::database::db_manger::RocksDB;
 use crate::model::oracle_price_aggregated_interval::OraclePriceAggregatedInterval;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -11,8 +11,13 @@ impl OraclePriceAggregatedIntervalDb {
         key: String,
         limit: i32,
         lt: String,
-    ) -> Result(vec<OraclePriceAggregatedInterval>) {
+    ) -> Result<Vec<OraclePriceAggregatedInterval>> {
+        todo!()
     }
-    pub async fn put(&self, oracle: OraclePriceAggregatedInterval) -> Result() {}
-    pub async fn delete(&self, id: String) -> Result() {}
+    pub async fn put(&self, oracle: OraclePriceAggregatedInterval) -> Result<()> {
+        todo!()
+    }
+    pub async fn delete(&self, id: String) -> Result<()> {
+        todo!()
+    }
 }

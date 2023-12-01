@@ -1,13 +1,10 @@
 #[cfg(test)]
 mod tests {
+    use crate::data_acces::oracle::OracleDb;
+    use crate::database::db_manger::{ColumnFamilyOperations, RocksDB};
+    use crate::model::oracle::{Oracle, OracleBlock, PriceFeedsItem};
     use tempfile::tempdir;
     use tokio::task;
-
-    use crate::{
-        data_acces::oracle::OracleDb,
-        database::db_manager::{ColumnFamilyOperations, RocksDB},
-        model::oracle::{Oracle, OracleBlock, PriceFeedsItem},
-    };
 
     // Function to set up a test database environment
     fn setup_test_db() -> OracleDb {

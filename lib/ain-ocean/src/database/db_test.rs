@@ -2,6 +2,7 @@
 
 extern crate rocksdb;
 extern crate tempdir;
+use crate::database::db_manger::RocksDB;
 use bitcoin::blockdata::block::Header;
 use bitcoin::blockdata::block::Version;
 use bitcoin::blockdata::script::ScriptBuf;
@@ -10,7 +11,7 @@ use bitcoin::blockdata::transaction::Transaction;
 use bitcoin::blockdata::transaction::TxIn;
 use bitcoin::blockdata::transaction::TxOut;
 use bitcoin::blockdata::witness::Witness;
-use bitcoin::consensus::encode::{deserialize, serialize};
+use bitcoin::consensus::deserialize;
 use bitcoin::hash_types::TxMerkleNode;
 use bitcoin::hash_types::Txid;
 use bitcoin::pow::CompactTarget;
