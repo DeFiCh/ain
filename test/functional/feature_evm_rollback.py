@@ -30,8 +30,8 @@ class EVMRolllbackTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23height=105",
                 "-subsidytest=1",
-                "-txindex=1",
                 "-ethdebug=1",
             ],
         ]
@@ -85,6 +85,7 @@ class EVMRolllbackTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -219,7 +220,7 @@ class EVMRolllbackTest(DefiTestFramework):
         assert_equal(self.nodes[0].eth_blockNumber(), self.startBlockNum)
         assert_equal(self.nodes[0].eth_getBlockByNumber("latest"), self.startBlock)
         startBlockHash = self.nodes[0].getbestblockhash()
-        startdbdump = self.nodes[0].debug_dumpdb("all")
+        startdbdump = self.nodes[0].dumpevmdb({"dumparg": "all"})
         assert_equal((startdbdump is not None), True)
 
         evmAddresses = []
@@ -243,6 +244,7 @@ class EVMRolllbackTest(DefiTestFramework):
                             "amount": "10@DFI",
                             "domain": 3,
                         },
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -261,7 +263,7 @@ class EVMRolllbackTest(DefiTestFramework):
                 assert_equal(tx_info["txid"], tdHashes[tdtx_id])
                 tdtx_id += 1
         assert_equal(tdtx_id, numEvmAddresses)
-        firstdbdump = self.nodes[0].debug_dumpdb("all")
+        firstdbdump = self.nodes[0].dumpevmdb({"dumparg": "all"})
         assert_equal((firstdbdump is not None), True)
 
         # second block (transfer txs)
@@ -297,7 +299,7 @@ class EVMRolllbackTest(DefiTestFramework):
             assert_equal(tx_info["vm"]["txtype"], "Evm")
             assert_equal(tx_info["vm"]["msg"]["hash"], hashes[idx][2:])
         assert_equal(len(block_info["tx"][1:]), numEvmAddresses * (numEvmAddresses - 1))
-        seconddbdump = self.nodes[0].debug_dumpdb("all")
+        seconddbdump = self.nodes[0].dumpevmdb({"dumparg": "all"})
         assert_equal((seconddbdump is not None), True)
 
         # Invalidate second block
@@ -310,7 +312,7 @@ class EVMRolllbackTest(DefiTestFramework):
         assert_equal(currBlockNum, firstBlockNum)
         assert_equal(currBlock, firstBlock)
         assert_equal(currBlockHash, firstBlockHash)
-        currdbdump = self.nodes[0].debug_dumpdb("all")
+        currdbdump = self.nodes[0].dumpevmdb({"dumparg": "all"})
         assert_equal((currdbdump is not None), True)
         assert_equal(currdbdump, firstdbdump)
 
@@ -324,7 +326,7 @@ class EVMRolllbackTest(DefiTestFramework):
         assert_equal(currBlockNum, self.startBlockNum)
         assert_equal(currBlock, self.startBlock)
         assert_equal(currBlockHash, startBlockHash)
-        currdbdump = self.nodes[0].debug_dumpdb("all")
+        currdbdump = self.nodes[0].dumpevmdb({"dumparg": "all"})
         assert_equal((currdbdump is not None), True)
         assert_equal(currdbdump, startdbdump)
 
@@ -336,7 +338,7 @@ class EVMRolllbackTest(DefiTestFramework):
         assert_equal(reconsiderBlockNum, secondBlockNum)
         assert_equal(reconsiderBlock, secondBlock)
         assert_equal(reconsiderBlockHash, secondBlockHash)
-        currdbdump = self.nodes[0].debug_dumpdb("all")
+        currdbdump = self.nodes[0].dumpevmdb({"dumparg": "all"})
         assert_equal((currdbdump is not None), True)
         assert_equal(currdbdump, seconddbdump)
 

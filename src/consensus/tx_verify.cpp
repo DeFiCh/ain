@@ -180,11 +180,11 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const auto txType = GuessCustomTxType(tx, dummy);
 
     if (txType == CustomTxType::UpdateMasternode) {
+        BlockContext blockCtx(nSpendHeight, {}, chainparams.GetConsensus(), &discardCache);
         auto txCtx = TransactionContext{
                 inputs,
                 tx,
-                chainparams.GetConsensus(),
-                static_cast<uint32_t>(nSpendHeight),
+                blockCtx,
         };
         auto &[res, txMessage] = txCtx.GetTxMessage();
         if (!res) {

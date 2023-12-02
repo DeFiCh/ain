@@ -779,19 +779,18 @@ def find_spendable_utxo(node, min_value):
     raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
 
 
-def fund_tx(node, address, amount):
+def create_address_utxo(node, address, amount):
     """
     Create and send new utxo of the specified amount to address.
     """
-    missing_auth_tx = node.sendtoaddress(address, amount)
-    count, missing_input_vout = 0, 0
-    for vout in node.getrawtransaction(missing_auth_tx, 1)["vout"]:
-        if vout["scriptPubKey"]["addresses"][0] == address:
-            missing_input_vout = count
+    tx = node.sendtoaddress(address, amount)
+    output_num = 0
+    for details in node.gettransaction(tx)["details"]:
+        if details["address"] == address:
+            output_num = details["vout"]
             break
-        count += 1
     node.generate(1)
-    return missing_auth_tx, missing_input_vout
+    return tx, output_num
 
 
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):

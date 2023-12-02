@@ -19,7 +19,6 @@ class SkipCollateralFactorTest(DefiTestFramework):
                 "-bayfrontheight=1",
                 "-bayfrontgardensheight=1",
                 "-eunosheight=1",
-                "-txindex=1",
                 "-fortcanningheight=1",
                 "-fortcanningroadheight=1",
                 "-fortcanninghillheight=1",
