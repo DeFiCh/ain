@@ -216,15 +216,3 @@ void CHistoryWriters::FlushDB() {
         vaultView->Flush();
     }
 }
-
-void CHistoryWriters::DiscardDB() {
-    if (historyView) {
-        historyView->Discard();
-    }
-    if (burnView) {
-        burnView->Discard();
-    }
-    if (vaultView) {
-        vaultView->Discard();
-    }
-}

@@ -14,6 +14,7 @@ ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
 ain-contracts = { path = "../ain-contracts" }
 ain-macros = { path = "../ain-macros" }
+ain-cpp-imports = { path = "../ain-cpp-imports" }
 
 ethereum.workspace = true
 rlp.workspace = true

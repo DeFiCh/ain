@@ -21,6 +21,10 @@ concurrency:
 
 run-name: ${{ inputs.name || github.event.pull_request.title || github.ref_name }}
 
+env:
+  TARGET: x86_64-pc-linux-gnu
+  MAKE_DEBUG: 0
+
 jobs:
   build:
     if: contains(github.event.pull_request.labels.*.name, 'ci/sync') || github.event_name == 'workflow_dispatch'
@@ -28,7 +32,8 @@ jobs:
     env:
       CARGO_INCREMENTAL: 0
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -36,16 +41,27 @@ jobs:
     - name: Setup dependencies
       run: sudo ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for user
+    - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - uses: Swatinem/rust-cache@v2
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
+    - name: Rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
 
-      # TODO: Switch this to a docker build later and this builds on the native
-      # VM toolchain and loses disparity with the CI release builds
     - name: Build binaries
       run: ./make.sh build
 
@@ -54,8 +70,8 @@ jobs:
       with:
         name: defi-bins
         path: |
-         build/src/defid
-         build/src/defi-cli
+          build/src/defid
+          build/src/defi-cli
 
     - name: Upload shell commands
       uses: actions/upload-artifact@v3
@@ -76,7 +92,7 @@ jobs:
         matrix: ${{ steps.set-matrix.outputs.matrix }}
 
       steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
 
         - id: 'auth'
           name: 'Authenticate to Google Cloud'
@@ -119,7 +135,7 @@ jobs:
     timeout-minutes: 4320
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Download Snapshot
       run: aria2c -x16 -s16 https://storage.googleapis.com/team-drop/master-datadir/datadir-${{matrix.blocks.start}}.tar.gz
@@ -127,7 +143,7 @@ jobs:
     - name: Create datadir
       run: mkdir $DATADIR && tar -C $DATADIR -xvf datadir-${{matrix.blocks.start}}.tar.gz
 
-    - name: Download Binaries
+    - name: Download binaries
       uses: actions/download-artifact@v3
       with:
         name: defi-bins

@@ -411,8 +411,13 @@ fn get_default_successful_receipt() -> ReceiptV3 {
 }
 
 pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
+    let mut tokens = vec![];
     let mut txs = Vec::new();
-    for token in ain_cpp_imports::get_dst20_tokens(mnview_ptr) {
+    if !ain_cpp_imports::get_dst20_tokens(mnview_ptr, &mut tokens) {
+        return Err(format_err!("DST20 token migration failed, invalid token name.").into());
+    }
+
+    for token in tokens {
         let address = ain_contracts::dst20_address_from_token_id(token.id)?;
         trace!(
             "[get_dst20_migration_txs] Deploying to address {:#?}",

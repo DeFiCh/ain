@@ -24,6 +24,7 @@ public:
     static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
     static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
+    static const uint8_t POST_METACHAIN_TOKEN_NAME_BYTE_SIZE = 30;
     enum class TokenFlags : uint8_t {
         None = 0,
         Mintable = 0x01,

@@ -1433,7 +1433,6 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
 
             // starting new account
             if (account.empty() && lastOwner != key.owner) {
-                view->Discard();
                 lastOwner = key.owner;
                 lastHeight = maxBlockHeight;
             }
@@ -1906,7 +1905,6 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
             if (!noRewards) {
                 // starting new account
                 if (lastOwner != key.owner) {
-                    view->Discard();
                     lastOwner = key.owner;
                     lastHeight = currentHeight;
                 }
@@ -2333,7 +2331,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
 
         // Single key check
-        bool singlekeycheck = true;
+        auto singlekeycheck = gArgs.GetBoolArg("-tdsinglekeycheck", true);
         if (!singlekeycheckObj.isNull()) {
             singlekeycheck = singlekeycheckObj.getBool();
         }

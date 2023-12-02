@@ -41,10 +41,65 @@ class DST20(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-metachainheight=105",
+                "-metachainheight=153",
+                "-df23height=153",
                 "-subsidytest=1",
             ]
         ]
+
+    def test_invalid_too_long_token_name_dst20_migration_tx(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.node.createtoken(
+            {
+                "symbol": "TooLongTokenName",
+                "name": "TheTokenWithNameMore30ByteLimit",  # 31 bytes
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(2)
+
+        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Trigger EVM genesis DST20 migration
+        assert_equal(self.nodes[0].generatetoaddress(1, self.address, 1), 0)
+        self.rollback_to(block_height)
+
+    def test_invalid_utf8_encoding_token_name_dst20_migration_tx(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.node.createtoken(
+            {
+                "symbol": "InvalidUTF8TokenName",
+                "name": "InvalidUTF8TokenNameIsThisOne🤩",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(2)
+
+        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Trigger EVM genesis DST20 migration
+        assert_equal(self.nodes[0].generatetoaddress(1, self.address, 1), 0)
+        self.rollback_to(block_height)
 
     def test_dst20_migration_txs(self):
         block_height = self.nodes[0].getblockcount()
@@ -73,7 +128,16 @@ class DST20(DefiTestFramework):
                 "collateralAddress": self.address,
             }
         )
-        self.nodes[0].generate(1)
+        # create DST20 token with maximum byte size limit
+        self.node.createtoken(
+            {
+                "symbol": "Test",
+                "name": "TheTokenWithNameMax30ByteLimit",  # 30 bytes
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(2)
 
         # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
         self.nodes[0].setgov(
@@ -981,9 +1045,13 @@ class DST20(DefiTestFramework):
         # Generate chain
         self.node.generate(150)
         self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
+
+        # pre-metachain fork height
         self.nodes[0].generate(1)
 
         # Create token and check DST20 migration pre EVM activation
+        self.test_invalid_too_long_token_name_dst20_migration_tx()
+        self.test_invalid_utf8_encoding_token_name_dst20_migration_tx()
         self.test_dst20_migration_txs()
 
         # Create token before EVM

@@ -1,5 +1,6 @@
 .code
 .cache
+.ccache
 .idea
 
 # Editors.

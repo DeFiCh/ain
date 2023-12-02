@@ -4,17 +4,12 @@ use ain_evm::{
     core::EthCallArgs,
     evm::EVMServices,
     executor::TxResponse,
-    storage::{
-        block_store::DumpArg,
-        traits::{ReceiptStorage, TransactionStorage},
-    },
+    storage::traits::{ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
-use ethereum::Account;
 use ethereum_types::{H256, U256};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use log::debug;
-use rlp::{Decodable, Rlp};
 
 use crate::{
     call_request::CallRequest,
@@ -34,23 +29,6 @@ pub struct FeeEstimate {
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
     fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
-
-    // Dump full db
-    #[method(name = "dumpdb")]
-    fn dump_db(
-        &self,
-        arg: Option<DumpArg>,
-        from: Option<&str>,
-        limit: Option<&str>,
-    ) -> RpcResult<String>;
-
-    // Log accounts state
-    #[method(name = "logaccountstates")]
-    fn log_account_states(&self) -> RpcResult<()>;
-
-    // Log block template state
-    #[method(name = "logblocktemplates")]
-    fn log_block_templates(&self) -> RpcResult<()>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -118,50 +96,6 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         })
     }
 
-    fn dump_db(
-        &self,
-        arg: Option<DumpArg>,
-        start: Option<&str>,
-        limit: Option<&str>,
-    ) -> RpcResult<String> {
-        self.is_enabled()?;
-
-        let default_limit = 100usize;
-        let limit = limit
-            .map_or(Ok(default_limit), |s| s.parse())
-            .map_err(to_custom_err)?;
-        self.handler
-            .storage
-            .dump_db(arg.unwrap_or(DumpArg::All), start, limit)
-            .map_err(to_custom_err)
-    }
-
-    fn log_account_states(&self) -> RpcResult<()> {
-        self.is_enabled()?;
-
-        let backend = self
-            .handler
-            .core
-            .get_latest_block_backend()
-            .expect("Error restoring backend");
-        let ro_handle = backend.ro_handle();
-
-        ro_handle.iter().for_each(|el| match el {
-            Ok((_, v)) => {
-                if let Ok(account) = Account::decode(&Rlp::new(&v)) {
-                    debug!("[log_account_states] account {:?}", account);
-                } else {
-                    debug!("[log_account_states] Error decoding account {:?}", v);
-                }
-            }
-            Err(e) => {
-                debug!("[log_account_states] Error on iter element {e}");
-            }
-        });
-
-        Ok(())
-    }
-
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {
         self.is_enabled()?;
 
@@ -225,13 +159,5 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             burnt_fee,
             priority_fee,
         })
-    }
-
-    fn log_block_templates(&self) -> RpcResult<()> {
-        self.is_enabled()?;
-
-        // let templates = &self.handler.core.block_templates;
-        // debug!("templates : {:#?}", templates);
-        Ok(())
     }
 }
