@@ -628,6 +628,8 @@ public:
 
 std::map<CKeyID, CKey> AmISignerNow(int height, const CAnchorData::CTeam &team);
 
+std::unique_ptr<CCustomCSView> GetViewSnapshot();
+
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;
 extern std::unique_ptr<CCustomCSView> pcustomcsview;

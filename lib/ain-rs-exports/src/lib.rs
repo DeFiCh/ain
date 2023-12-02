@@ -1,11 +1,12 @@
 mod core;
+mod debug;
 mod evm;
 mod prelude;
 mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*, util::*};
+use crate::{core::*, debug::*, evm::*, util::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -332,5 +333,17 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         );
+    }
+
+    // =========  Debug ==========
+    extern "Rust" {
+        fn debug_dump_db(
+            result: &mut CrossBoundaryResult,
+            arg: String,
+            start: String,
+            limit: String,
+        ) -> String;
+
+        fn debug_log_account_states(result: &mut CrossBoundaryResult) -> String;
     }
 }

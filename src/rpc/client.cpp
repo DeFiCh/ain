@@ -370,6 +370,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listgovproposalvotes", 3, "pagination" },
     { "listgovproposals", 2, "cycle" },
     { "listgovproposals", 3, "pagination" },
+    { "dumpevmdb", 0, "options" },
     { "evmtx", 1, "nonce" },
     { "evmtx", 2, "gasPrice" },
     { "evmtx", 3, "gasLimit" },

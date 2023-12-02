@@ -2,14 +2,13 @@ ARG TARGET=x86_64-pc-linux-gnu
 
 FROM --platform=linux/amd64 ubuntu:latest as defi
 ARG TARGET
-ARG PACKAGE
+ARG BINARY_DIR
 ENV PATH=/app/bin:$PATH
 LABEL org.defichain.name="defichain"
 LABEL org.defichain.arch=${TARGET}
 
 WORKDIR /app
-COPY ${PACKAGE} ./
-RUN tar -xvzf ${PACKAGE} --strip-components 1
+COPY ${BINARY_DIR} ./
 
 RUN useradd --create-home defi && \
     mkdir -p /data && \

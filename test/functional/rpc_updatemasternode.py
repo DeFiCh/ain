@@ -359,7 +359,7 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-bayfrontheight=50",
                 "-grandcentralheight=1",
                 "-metachainheight=510",
-                "-df23upgradeheight=510",
+                "-df23height=510",
             ],
         )
 

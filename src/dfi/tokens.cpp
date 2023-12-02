@@ -68,7 +68,9 @@ Res CTokensView::CreateDFIToken() {
     return Res::Ok();
 }
 
-ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, int height, BlockContext *blockCtx) {
+ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
+                                        bool isPreBayfront,
+                                        BlockContext *blockCtx) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -91,7 +93,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, in
             },
             id);
         if (id == DCT_ID_START) {
-            if (height < Params().GetConsensus().DF2BayfrontHeight) {
+            if (isPreBayfront) {
                 return Res::Err("Critical fault: trying to create DCT_ID same as DCT_ID_START for Foundation owner\n");
             }
 
@@ -103,11 +105,12 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token, in
         if (blockCtx) {
             const auto shouldCreateDst20 = blockCtx->GetEVMEnabledForBlock();
             const auto &evmTemplate = blockCtx->GetEVMTemplate();
+            const auto &height = blockCtx->GetHeight();
             if (shouldCreateDst20 && evmTemplate) {
                 CrossBoundaryResult result;
                 rust::string token_name{};
                 rust::string token_symbol{};
-                if (height >= Params().GetConsensus().DF23UpgradeHeight) {
+                if (height >= static_cast<uint32_t>(Params().GetConsensus().DF23Height)) {
                     if (token.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
                         return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
                     }

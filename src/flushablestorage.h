@@ -76,7 +76,6 @@ public:
     virtual bool Read(const TBytes& key, TBytes& value) const = 0;
     virtual std::unique_ptr<CStorageKVIterator> NewIterator() = 0;
     virtual size_t SizeEstimate() const = 0;
-    virtual void Discard() = 0;
     virtual bool Flush() = 0;
 };
 
@@ -159,12 +158,12 @@ public:
         return db->Exists(refTBytes(key));
     }
     bool Write(const TBytes& key, const TBytes& value) override {
-        if (snapshot) return false;
+        if (snapshot) throw std::runtime_error("Cannot Write to storage based off a snapshot");
         batch.Write(refTBytes(key), refTBytes(value));
         return true;
     }
     bool Erase(const TBytes& key) override {
-        if (snapshot) return false;
+        if (snapshot) throw std::runtime_error("Cannot Erase from storage based off a snapshot");
         batch.Erase(refTBytes(key));
         return true;
     }
@@ -176,14 +175,12 @@ public:
         return db->Read(refTBytes(key), rawVal);
     }
     bool Flush() override { // Commit batch
-        if (snapshot) return false;
+        // Since all other writes are blocked, flushing
+        // on snapshot is essentially a nop, and hence safe.
+        if (snapshot) return true;
         auto result = db->WriteBatch(batch);
         batch.Clear();
         return result;
-    }
-    void Discard() override {
-        if (snapshot) return;
-        batch.Clear();
     }
     size_t SizeEstimate() const override {
         if (snapshot) return 0;
@@ -196,16 +193,20 @@ public:
         return std::make_unique<CStorageLevelDBIterator>(std::unique_ptr<CDBIterator>(db->NewIterator()));
     }
     void Compact(const TBytes& begin, const TBytes& end) {
+        // This should never be called, but even if it is, 
+        // all writes are blocked, so it's safe to just return.
         if (snapshot) return;
         db->CompactRange(refTBytes(begin), refTBytes(end));
     }
+
     bool IsEmpty() {
-        if (snapshot) return false;
         return db->IsEmpty();
     }
+  
     [[nodiscard]] const leveldb::Snapshot* GetLevelDBSnapshot() const {
         return db->GetLevelDBSnapshot();
     }
+
     [[nodiscard]] std::shared_ptr<CDBWrapper>& GetDB() {
         return db;
     }
@@ -344,7 +345,7 @@ public:
     }
     bool Flush() override {
         if (snapshot) {
-            return false;
+            throw std::runtime_error("Cannot Flush on storage based off a snapshot");
         }
         for (const auto& it : changed) {
             if (!it.second) {
@@ -357,12 +358,6 @@ public:
         }
         changed.clear();
         return true;
-    }
-    void Discard() override {
-        if (snapshot) {
-            return;
-        }
-        changed.clear();
     }
     size_t SizeEstimate() const override {
         return memusage::DynamicUsage(changed);
@@ -574,7 +569,6 @@ public:
     }
 
     virtual bool Flush() { return DB().Flush(); }
-    void Discard() { DB().Discard(); }
     size_t SizeEstimate() const { return DB().SizeEstimate(); }
 
 protected:
