@@ -561,10 +561,14 @@ public:
     // Increase version when underlaying tables are changed
     static constexpr const int DbVersion = 1;
 
+    // Normal constructors
     CCustomCSView();
     explicit CCustomCSView(CStorageKV &st);
 
-    // cache-upon-a-cache (not a copy!) constructor
+    // Snapshot constructor
+    explicit CCustomCSView(std::unique_ptr<CStorageLevelDB> &st, const MapKV &changed);
+
+    // Cache-upon-a-cache constructors
     CCustomCSView(CCustomCSView &other);
     CCustomCSView(CCustomCSView &other,
                   CAccountHistoryStorage *historyView,
@@ -683,6 +687,8 @@ public:
 };
 
 std::map<CKeyID, CKey> AmISignerNow(int height, const CAnchorData::CTeam &team);
+
+std::unique_ptr<CCustomCSView> GetViewSnapshot();
 
 /** Global DB and view that holds enhanced chainstate data (should be protected by cs_main) */
 extern std::unique_ptr<CStorageLevelDB> pcustomcsDB;

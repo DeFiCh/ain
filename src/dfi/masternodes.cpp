@@ -781,6 +781,11 @@ CCustomCSView::CCustomCSView(CStorageKV &st)
     CheckPrefixes();
 }
 
+CCustomCSView::CCustomCSView(std::unique_ptr<CStorageLevelDB> &st, const MapKV &changed)
+    : CStorageView(new CFlushableStorageKV(st, changed)) {
+    CheckPrefixes();
+}
+
 // cache-upon-a-cache (not a copy!) constructor
 CCustomCSView::CCustomCSView(CCustomCSView &other)
     : CStorageView(new CFlushableStorageKV(other.DB())),
@@ -1446,4 +1451,12 @@ void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight
             }
         }
     }
+}
+
+std::unique_ptr<CCustomCSView> GetViewSnapshot() {
+    // Get database snapshot and flushable storage changed map
+    auto [changed, snapshotDB] = pcustomcsview->GetStorage().GetSnapshotPair();
+
+    // Create new view using snapshot and change map
+    return std::make_unique<CCustomCSView>(snapshotDB, changed);
 }

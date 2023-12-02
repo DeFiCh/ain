@@ -26,7 +26,8 @@ UniValue createtoken(const JSONRPCRequest &request) {
                     {"name",
                      RPCArg::Type::STR,
                      RPCArg::Optional::OMITTED,
-                     "Token's name (optional), no longer than " + std::to_string(CToken::MAX_TOKEN_NAME_LENGTH)},
+                     "Token's name (optional), no longer than " +
+                         std::to_string(CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE)},
                     {"isDAT",
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,

@@ -18,6 +18,7 @@ setup_vars() {
     fi
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
+    DOCKER_RELATIVE_BUILD_DIR=${DOCKER_RELATIVE_BUILD_DIR:-"./build"}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
     DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
 
@@ -320,24 +321,26 @@ docker_release() {
     _sign "$target"
 }
 
-docker_defi_build() {
+docker_build_from_binaries() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
-
-    local pkg_name="${img_prefix}-${img_version}-${target}.tar.gz"
+    local build_dir="${DOCKER_RELATIVE_BUILD_DIR}"
 
     local docker_context="${DOCKER_ROOT_CONTEXT}"
     local docker_file="${DEFI_DOCKERFILE}"
 
-    echo "> docker-defi-build";
+    echo "> docker-build-from-binaries";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
     echo "> docker defi build: ${img}"
 
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_build_dir="${build_dir}/${versioned_name}"
+
     docker build -f "${docker_file}" \
-        --build-arg PACKAGE="${pkg_name}" \
+        --build-arg BINARY_DIR="${versioned_build_dir}" \
         -t "${img}" "${docker_context}"
 }
 
@@ -689,7 +692,7 @@ pkg_install_deps() {
         software-properties-common build-essential git libtool autotools-dev automake \
         pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
         libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
 
@@ -741,6 +744,20 @@ pkg_install_deps_osx_tools() {
         python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
     _fold_end
+}
+
+pkg_install_gh_cli() {
+    _fold_start "pkg-install-gh_cli"
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+        dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) \
+        signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+        https://cli.github.com/packages stable main" | \
+        tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    apt-get update
+    apt-get install -y gh
+
 }
 
 pkg_install_llvm() {
@@ -1140,11 +1157,20 @@ _nproc() {
 
 # shellcheck disable=SC2129
 ci_export_vars() {
+    local build_dir="${BUILD_DIR}"
+
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+
+        if [[ "${MAKE_DEBUG}" == "1" ]]; then
+            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
+        else
+            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
+        fi
+
         if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
             echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
         else
@@ -1158,6 +1184,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
+    DEBIAN_FRONTEND=noninteractive pkg_install_gh_cli
     ci_setup_deps_target
 }
 
