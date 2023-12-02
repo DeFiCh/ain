@@ -670,7 +670,7 @@ UniValue getcustomtx(const JSONRPCRequest &request) {
         CCoinsViewCache view(&::ChainstateActive().CoinsTip());
 
         auto txCtx = TransactionContext{
-            coins,
+            view,
             *tx,
             blockCtx,
         };

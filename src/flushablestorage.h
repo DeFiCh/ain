@@ -207,13 +207,6 @@ public:
         return db;
     }
 
-    [[nodiscard]] std::shared_ptr<CStorageSnapshot> GetStorageSnapshot() const {
-        return db->GetStorageSnapshot();
-    }
-    [[nodiscard]] std::shared_ptr<CDBWrapper>& GetDB() {
-        return db;
-    }
-
 private:
     std::shared_ptr<CDBWrapper> db;
     CDBBatch batch;
