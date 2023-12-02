@@ -202,7 +202,7 @@ public:
     bool IsEmpty() {
         return db->IsEmpty();
     }
-  
+
     [[nodiscard]] const leveldb::Snapshot* GetLevelDBSnapshot() const {
         return db->GetLevelDBSnapshot();
     }
