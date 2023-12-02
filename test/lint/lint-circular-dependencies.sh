@@ -74,6 +74,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/masternodes -> dfi/oracles -> dfi/masternodes"
     "dfi/masternodes -> dfi/proposals -> dfi/masternodes"
     "dfi/masternodes -> dfi/vaulthistory -> dfi/masternodes"
+    "dfi/masternodes -> flushablestorage -> dfi/snapshotmanager -> dfi/masternodes"
     "dfi/masternodes -> net_processing -> dfi/masternodes"
     "dfi/masternodes -> wallet/wallet -> dfi/masternodes"
     "dfi/mn_checks -> txmempool -> dfi/mn_checks"
