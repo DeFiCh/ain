@@ -1,9 +1,12 @@
+use crate::database::db_manger::ColumnFamilyOperations;
 use crate::database::db_manger::RocksDB;
 use crate::model::poolswap_aggregated::PoolSwapAggregated;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
-pub struct PoolSwapAggregatedDb {}
+pub struct PoolSwapAggregatedDb {
+    pub db: RocksDB,
+}
 
 impl PoolSwapAggregatedDb {
     pub async fn query(
@@ -15,12 +18,31 @@ impl PoolSwapAggregatedDb {
         todo!()
     }
     pub async fn put(&self, aggregated: PoolSwapAggregated) -> Result<()> {
-        todo!()
+        match serde_json::to_string(&aggregated) {
+            Ok(value) => {
+                let key = aggregated.id.clone();
+                self.db
+                    .put("pool_swap_aggregated", key.as_bytes(), value.as_bytes())?;
+                Ok(())
+            }
+            Err(e) => Err(anyhow!(e)),
+        }
     }
     pub async fn get(&self, id: String) -> Result<PoolSwapAggregated> {
-        todo!()
+        match self.db.get("pool_swap_aggregated", id.as_bytes()) {
+            Ok(Some(value)) => {
+                let pool_swap: PoolSwapAggregated =
+                    serde_json::from_slice(&value).map_err(|e| anyhow!(e))?;
+                Ok(pool_swap)
+            }
+            Ok(None) => Err(anyhow!("No data found for the given ID")),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
     pub async fn delete(&self, id: String) -> Result<()> {
-        todo!()
+        match self.db.delete("pool_swap_aggregated", id.as_bytes()) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 }
