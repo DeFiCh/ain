@@ -5,10 +5,11 @@ use bitcoin::blockdata::block::Header;
 use bitcoin::consensus::encode::serialize;
 use rocksdb::Options;
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, DB};
+use serde::Deserialize;
 use std::collections::HashSet;
 use std::sync::Arc;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct RocksDB {
     db: Arc<DB>,
     cfs: HashSet<String>,
