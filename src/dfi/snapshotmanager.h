@@ -24,8 +24,8 @@ using MapKV = std::map<TBytes, std::optional<TBytes>>;
 std::unique_ptr<CCustomCSView> GetViewSnapshot();
 
 struct CBlockSnapshotKey {
-    int64_t height;
-    uint256 hash;
+    int64_t height{};
+    uint256 hash{};
 
     struct Comparator {
         bool operator()(const CBlockSnapshotKey &a, const CBlockSnapshotKey &b) const {
@@ -49,6 +49,11 @@ struct CBlockSnapshot {
     const leveldb::Snapshot *snapshot{};
     MapKV changed;
     CBlockSnapshotKey key;
+
+    CBlockSnapshot(const leveldb::Snapshot *snapshot, MapKV changed, const CBlockSnapshotKey &key)
+        : snapshot(snapshot),
+          changed(std::move(changed)),
+          key(key) {}
 };
 
 class CCheckedOutSnapshot {
@@ -69,7 +74,7 @@ private:
 };
 
 class CSnapshotManager {
-    CBlockSnapshot currentSnapshot;
+    std::unique_ptr<CBlockSnapshot> currentSnapshot;
     std::mutex mtx;
     CStorageLevelDB *db;
     std::map<CBlockSnapshotKey, CBlockSnapshotValue, CBlockSnapshotKey::Comparator> checkedOutMap;
@@ -82,8 +87,10 @@ public:
     CSnapshotManager &operator=(const CSnapshotManager &other) = delete;
 
     void SetBlockSnapshot(CCustomCSView &view, const CBlockIndex *block);
-    std::pair<MapKV, std::unique_ptr<CStorageLevelDB>> CheckoutSnapshot();
+    bool CheckoutSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB);
+    void GetGlobalSnapshot(MapKV &changed, std::unique_ptr<CStorageLevelDB> &snapshotDB);
     void ReturnSnapshot(const CBlockSnapshotKey &key);
+    void EraseCurrentSnapshot();
 };
 
 extern std::unique_ptr<CSnapshotManager> psnapshotManager;

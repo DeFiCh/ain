@@ -2220,7 +2220,6 @@ DisconnectResult CChainState::DisconnectBlock(const CBlock &block,
     auto prevHeight = pindex->pprev->nHeight;
 
     mnview.SetLastHeight(prevHeight);
-    SetLastValidatedHeight(prevHeight);
 
     return fClean ? DISCONNECT_OK : DISCONNECT_UNCLEAN;
 }
@@ -3464,7 +3463,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
         }
     }
     mnview.SetLastHeight(pindex->nHeight);
-    SetLastValidatedHeight(pindex->nHeight);
 
     auto &checkpoints = chainparams.Checkpoints().mapCheckpoints;
     auto it = checkpoints.lower_bound(pindex->nHeight);
@@ -3850,10 +3848,16 @@ bool CChainState::DisconnectTip(CValidationState &state,
 
     UpdateTip(pindexDelete->pprev, chainparams);
 
-    // ConnecTip might be called before psnapshotManager has been initialised
+    SetLastValidatedHeight(pindexDelete->pprev->nHeight);
+
+    // DisconnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
     if (psnapshotManager) {
-        psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexDelete->pprev);
+        if (pindexDelete->pprev->GetBlockTime() > (GetTime() - nMaxTipAge)) {
+            psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexDelete->pprev);
+        } else {
+            psnapshotManager->EraseCurrentSnapshot();
+        }
     }
 
     // Let wallets know transactions went from 1-confirmed to
@@ -4050,9 +4054,11 @@ bool CChainState::ConnectTip(CValidationState &state,
         }
     }
 
-    // DisconnecTip might be called before psnapshotManager has been initialised
+    SetLastValidatedHeight(pindexNew->nHeight);
+
+    // ConnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
-    if (psnapshotManager) {
+    if (psnapshotManager && pindexNew->GetBlockTime() > (GetTime() - nMaxTipAge)) {
         psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexNew);
     }
 

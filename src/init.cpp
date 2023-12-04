@@ -2228,7 +2228,6 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     // Set snapshot now chain has loaded
     psnapshotManager = std::make_unique<CSnapshotManager>(pcustomcsview->GetStorage().GetStorageLevelDB());
-    psnapshotManager->SetBlockSnapshot(*pcustomcsview, ::ChainActive().Tip());
 
 
     if (ShutdownRequested()) {
