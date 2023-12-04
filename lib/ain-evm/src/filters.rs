@@ -125,16 +125,12 @@ pub enum FilterError {
 impl From<FilterError> for EVMError {
     fn from(e: FilterError) -> Self {
         match e {
-            FilterError::InvalidFilter => EVMError::Other(format_err!("invalid filter")),
-            FilterError::FilterNotFound => EVMError::Other(format_err!("filter not found")),
-            FilterError::InvalidBlockRange => {
-                EVMError::Other(format_err!("invalid block range params"))
-            }
-            FilterError::ExceedBlockRange => {
-                EVMError::Other(format_err!("block range exceed max limit"))
-            }
-            FilterError::ExceedMaxTopics => EVMError::Other(format_err!("exceed max topics")),
-            FilterError::BlockNotFound => EVMError::Other(format_err!("block not found")),
+            FilterError::InvalidFilter => format_err!("invalid filter").into(),
+            FilterError::FilterNotFound => format_err!("filter not found").into(),
+            FilterError::InvalidBlockRange => format_err!("invalid block range params").into(),
+            FilterError::ExceedBlockRange => format_err!("block range exceed max limit").into(),
+            FilterError::ExceedMaxTopics => format_err!("exceed max topics").into(),
+            FilterError::BlockNotFound => format_err!("block not found").into(),
         }
     }
 }
