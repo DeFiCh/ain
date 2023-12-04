@@ -4,7 +4,6 @@ use crate::model::oracle_history::OracleHistory;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
-
 pub struct OracleHistoryDB {
     pub db: RocksDB,
 }
