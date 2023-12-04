@@ -11,12 +11,10 @@ pub enum RPCError {
     DebugNotEnabled,
     Error(Box<dyn std::error::Error>),
     EvmError(EVMError),
-    FromBlockGreaterThanToBlock,
     GasCapTooLow(u64),
     InsufficientFunds,
     InvalidBlockInput,
     InvalidDataInput,
-    InvalidLogFilter,
     InvalidGasPrice,
     InvalidTransactionMessage,
     InvalidTransactionType,
@@ -40,9 +38,6 @@ impl From<RPCError> for Error {
             RPCError::DebugNotEnabled => to_custom_err("debug_* RPCs have not been enabled"),
             RPCError::Error(e) => Error::Custom(format!("{e:?}")),
             RPCError::EvmError(e) => Error::Custom(format!("error calling EVM : {e:?}")),
-            RPCError::FromBlockGreaterThanToBlock => {
-                to_custom_err("fromBlock is greater than toBlock")
-            }
             RPCError::GasCapTooLow(cap) => {
                 Error::Custom(format!("gas required exceeds allowance {:#?}", cap))
             }
@@ -56,7 +51,6 @@ impl From<RPCError> for Error {
             RPCError::InvalidGasPrice => {
                 to_custom_err("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
             }
-            RPCError::InvalidLogFilter => to_custom_err("invalid log filter"),
             RPCError::InvalidTransactionMessage => {
                 to_custom_err("invalid transaction message parameters")
             }

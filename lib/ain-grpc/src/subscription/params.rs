@@ -25,7 +25,7 @@ pub enum Subscription {
 pub struct LogsSubscriptionParams {
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub address: Option<Vec<H160>>,
-    pub topics: Option<Vec<Option<H256>>>,
+    pub topics: Option<Vec<Vec<H256>>>,
 }
 
 /// Subscription kind.

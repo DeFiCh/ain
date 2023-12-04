@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ain_evm::{evm::EVMServices, log::Notification, storage::traits::BlockStorage};
+use ain_evm::{evm::EVMServices, filters::FilterCriteria, log::Notification, storage::traits::BlockStorage};
 use anyhow::format_err;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 use log::debug;
@@ -68,20 +68,21 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                     {
                         if let Notification::Block(hash) = notification {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
-                                let logs = match &params {
-                                    Some(SubscriptionParams::Logs(p)) => handler.logs.get_logs(
-                                        &p.address,
-                                        &p.topics,
-                                        block.header.number,
-                                    )?,
-                                    _ => {
-                                        handler.logs.get_logs(&None, &None, block.header.number)?
+                                let criteria = if let Some(SubscriptionParams::Logs(params)) = &params {
+                                    FilterCriteria {
+                                        addresses: params.address.clone(),
+                                        topics: params.topics.clone(),
+                                        ..Default::default()
                                     }
+                                } else {
+                                    FilterCriteria::default()
                                 };
-
+                                let logs = handler.filters.get_block_logs(&criteria, block.header.number)?;
                                 for log in logs {
                                     let _ = sink.send(&PubSubResult::Log(Box::new(log.into())));
                                 }
+                            } else {
+                                debug!(target: "pubsub", "Database error, could not get block with block hash:{:x?}", hash);
                             }
                         }
                     }
