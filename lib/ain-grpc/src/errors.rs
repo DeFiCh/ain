@@ -36,9 +36,7 @@ impl From<RPCError> for Error {
             RPCError::AccountError => to_custom_err("error getting account"),
             RPCError::BlockNotFound => to_custom_err("header not found"),
             RPCError::DebugNotEnabled => to_custom_err("debug_* RPCs have not been enabled"),
-            RPCError::Error(e) => {
-                Error::Custom(format!("{:?}", e.to_string()))
-            }
+            RPCError::Error(e) => Error::Custom(format!("{:?}", e.to_string())),
             RPCError::EvmError(e) => {
                 Error::Custom(format!("error calling EVM : {:?}", e.to_string()))
             }
