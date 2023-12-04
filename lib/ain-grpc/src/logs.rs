@@ -51,7 +51,7 @@ impl From<LogIndex> for LogResult {
 
 /// Call request
 #[serde_as]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct GetLogsRequest {
@@ -60,5 +60,12 @@ pub struct GetLogsRequest {
     pub block_hash: Option<H256>,
     pub from_block: Option<BlockNumber>,
     pub to_block: Option<BlockNumber>,
-    pub topics: Option<Vec<Vec<H256>>>,
+    pub topics: Option<LogRequestTopics>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum LogRequestTopics {
+    VecOfHashes(Vec<H256>),
+    VecOfHashVecs(Vec<Vec<H256>>),
 }

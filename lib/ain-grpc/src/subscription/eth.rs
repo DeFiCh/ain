@@ -8,7 +8,7 @@ use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSin
 use log::debug;
 
 use crate::subscription::{
-    params::{Subscription, SubscriptionParams},
+    params::{LogsSubscriptionParamsTopics, Subscription, SubscriptionParams},
     sync_status::{PubSubSyncStatus, SyncStatusMetadata},
     PubSubResult,
 };
@@ -72,9 +72,26 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
                                 let criteria =
                                     if let Some(SubscriptionParams::Logs(params)) = &params {
+                                        let topics = if let Some(topics) = params.topics.clone() {
+                                            match topics {
+                                                LogsSubscriptionParamsTopics::VecOfHashes(
+                                                    inputs,
+                                                ) => Some(
+                                                    inputs
+                                                        .into_iter()
+                                                        .map(|input| vec![input])
+                                                        .collect(),
+                                                ),
+                                                LogsSubscriptionParamsTopics::VecOfHashVecs(
+                                                    inputs,
+                                                ) => Some(inputs),
+                                            }
+                                        } else {
+                                            None
+                                        };
                                         FilterCriteria {
                                             addresses: params.address.clone(),
-                                            topics: params.topics.clone(),
+                                            topics,
                                             ..Default::default()
                                         }
                                     } else {

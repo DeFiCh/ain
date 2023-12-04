@@ -26,7 +26,7 @@ use crate::{
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
-    logs::{GetLogsRequest, LogResult},
+    logs::{GetLogsRequest, LogRequestTopics, LogResult},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
     transaction_request::{TransactionMessage, TransactionRequest},
@@ -993,13 +993,23 @@ impl MetachainRPCServer for MetachainRPCModule {
         } else {
             None
         };
+        let topics = if let Some(topics) = input.topics {
+            match topics {
+                LogRequestTopics::VecOfHashes(inputs) => {
+                    Some(inputs.into_iter().map(|input| vec![input]).collect())
+                }
+                LogRequestTopics::VecOfHashVecs(inputs) => Some(inputs),
+            }
+        } else {
+            None
+        };
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
             block_hash: input.block_hash,
             from_block,
             to_block,
             addresses: input.address,
-            topics: input.topics,
+            topics,
         };
         criteria
             .verify_criteria(curr_block)
@@ -1023,12 +1033,22 @@ impl MetachainRPCServer for MetachainRPCModule {
         } else {
             None
         };
+        let topics = if let Some(topics) = input.topics {
+            match topics {
+                LogRequestTopics::VecOfHashes(inputs) => {
+                    Some(inputs.into_iter().map(|input| vec![input]).collect())
+                }
+                LogRequestTopics::VecOfHashVecs(inputs) => Some(inputs),
+            }
+        } else {
+            None
+        };
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
             from_block,
             to_block,
             addresses: input.address,
-            topics: input.topics,
+            topics,
             ..Default::default()
         };
         criteria
