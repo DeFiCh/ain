@@ -88,7 +88,7 @@ impl FilterCriteria {
             let Some(end) = self.to_block else {
                 return Err(FilterError::InvalidFilter.into());
             };
-            if begin > U256::zero() && end > U256::zero() && (begin > end) {
+            if begin > end {
                 return Err(FilterError::InvalidBlockRange.into());
             }
             if end - begin > BLOCK_RANGE_LIMIT {
@@ -127,10 +127,10 @@ impl From<FilterError> for EVMError {
         match e {
             FilterError::InvalidFilter => format_err!("invalid filter").into(),
             FilterError::FilterNotFound => format_err!("filter not found").into(),
-            FilterError::InvalidBlockRange => format_err!("invalid block range params").into(),
+            FilterError::InvalidBlockRange => format_err!("fromBlock is greater than toBlock").into(),
             FilterError::ExceedBlockRange => format_err!("block range exceed max limit").into(),
             FilterError::ExceedMaxTopics => format_err!("exceed max topics").into(),
-            FilterError::BlockNotFound => format_err!("block not found").into(),
+            FilterError::BlockNotFound => format_err!("header not found").into(),
         }
     }
 }
@@ -142,27 +142,28 @@ pub struct FilterSystem {
 
 impl FilterSystem {
     pub fn create_log_filter(&mut self, criteria: FilterCriteria) -> usize {
-        let id = self.id.wrapping_add(1);
+        self.id = self.id.wrapping_add(1);
         self.cache.put(
-            id,
+            self.id,
             Filter::Logs(LogsFilter {
                 criteria,
                 last_block: None,
             }),
         );
-        id
+        self.id
     }
 
     pub fn create_block_filter(&mut self, block_number: U256) -> usize {
-        let id = self.id.wrapping_add(1);
-        self.cache.put(id, Filter::Blocks(block_number));
-        id
+        self.id = self.id.wrapping_add(1);
+        self.cache.put(self.id, Filter::Blocks(block_number));
+        self.id
     }
 
     pub fn create_tx_filter(&mut self) -> usize {
-        let id = self.id.wrapping_add(1);
-        self.cache.put(id, Filter::Transactions(BTreeSet::new()));
-        id
+        self.id = self.id.wrapping_add(1);
+        self.cache
+            .put(self.id, Filter::Transactions(BTreeSet::new()));
+        self.id
     }
 
     pub fn get_filter(&mut self, filter_id: usize) -> Result<Filter> {
@@ -245,46 +246,45 @@ impl FilterService {
         block_number: U256,
     ) -> Result<Vec<LogIndex>> {
         debug!("Getting logs for block {:#x?}", block_number);
-        if let Some(logs) = self.storage.get_logs(&block_number)? {
-            // Filter by addresses
-            let logs: Vec<LogIndex> = match &criteria.addresses {
-                None => logs.into_iter().flat_map(|(_, log)| log).collect(),
-                Some(addresses) => logs
-                    .into_iter()
-                    .filter(|(address, _)| addresses.contains(address))
-                    .flat_map(|(_, log)| log)
-                    .collect(),
-            };
+        // Possible for blocks to contain no logs, default to empty map.
+        let logs = self.storage.get_logs(&block_number)?.unwrap_or_default();
 
-            // Filter by topics
-            let logs = match &criteria.topics {
-                None => logs,
-                Some(topics) => logs
-                    .into_iter()
-                    .filter(|log| {
-                        log.topics
-                            .clone()
-                            .into_iter()
-                            .enumerate()
-                            .all(|(idx, log_item)| {
-                                if idx < topics.len() {
-                                    let topic = &topics[idx];
-                                    if topic.is_empty() {
-                                        true
-                                    } else {
-                                        topic.contains(&log_item)
-                                    }
-                                } else {
+        // Filter by addresses
+        let logs: Vec<LogIndex> = match &criteria.addresses {
+            None => logs.into_iter().flat_map(|(_, log)| log).collect(),
+            Some(addresses) => logs
+                .into_iter()
+                .filter(|(address, _)| addresses.contains(address))
+                .flat_map(|(_, log)| log)
+                .collect(),
+        };
+
+        // Filter by topics
+        let logs = match &criteria.topics {
+            None => logs,
+            Some(topics) => logs
+                .into_iter()
+                .filter(|log| {
+                    log.topics
+                        .clone()
+                        .into_iter()
+                        .enumerate()
+                        .all(|(idx, log_item)| {
+                            if idx < topics.len() {
+                                let topic = &topics[idx];
+                                if topic.is_empty() {
                                     true
+                                } else {
+                                    topic.contains(&log_item)
                                 }
-                            })
-                    })
-                    .collect(),
-            };
-            Ok(logs)
-        } else {
-            Err(FilterError::BlockNotFound.into())
-        }
+                            } else {
+                                true
+                            }
+                        })
+                })
+                .collect(),
+        };
+        Ok(logs)
     }
 
     pub fn get_logs_from_filter(&self, criteria: &FilterCriteria) -> Result<Vec<LogIndex>> {
@@ -305,7 +305,7 @@ impl FilterService {
 
             let mut logs = vec![];
             let mut curr = from_block;
-            while curr <= to_block || logs.len() < RESPONSE_LOG_LIMIT {
+            while curr <= to_block && logs.len() < RESPONSE_LOG_LIMIT {
                 let mut block_logs = self.get_block_logs(criteria, curr)?;
                 logs.append(&mut block_logs);
                 curr += U256::one();
@@ -339,7 +339,7 @@ impl FilterService {
     ) -> Result<Vec<H256>> {
         let mut out = vec![];
         let mut curr = last_block + U256::one();
-        while curr <= target_block || out.len() < RESPONSE_LOG_LIMIT {
+        while curr <= target_block && out.len() < RESPONSE_LOG_LIMIT {
             let hash = if let Some(block) = self.storage.get_block_by_number(&curr)? {
                 block.header.hash()
             } else {
