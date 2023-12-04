@@ -24,7 +24,7 @@ pub struct LogIndex {
     pub data: Vec<u8>,
 
     // Derived fields. These fields are filled in by the node
-	// but not secured by consensus.
+    // but not secured by consensus.
     // Block in which the transaction was included
     pub block_number: U256,
     // Hash of the transaction

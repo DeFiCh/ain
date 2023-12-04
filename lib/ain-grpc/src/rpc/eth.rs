@@ -1028,11 +1028,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             ..Default::default()
         };
         criteria.verify_criteria().map_err(RPCError::EvmError)?;
-        Ok(self
-            .handler
-            .filters
-            .create_log_filter(criteria)
-            .into())
+        Ok(self.handler.filters.create_log_filter(criteria).into())
     }
 
     fn new_block_filter(&self) -> RpcResult<U256> {

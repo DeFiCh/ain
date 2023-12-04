@@ -27,7 +27,9 @@ pub enum GetFilterChangesResult {
 impl From<FilterResults> for GetFilterChangesResult {
     fn from(result: FilterResults) -> Self {
         match result {
-            FilterResults::Logs(f) => GetFilterChangesResult::Logs(f.into_iter().map(|log| log.into()).collect()),
+            FilterResults::Logs(f) => {
+                GetFilterChangesResult::Logs(f.into_iter().map(|log| log.into()).collect())
+            }
             FilterResults::Blocks(f) => GetFilterChangesResult::NewBlock(f),
             FilterResults::Transactions(f) => GetFilterChangesResult::NewPendingTransactions(f),
         }

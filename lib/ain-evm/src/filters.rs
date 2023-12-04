@@ -1,6 +1,6 @@
 use std::{
-    collections::BTreeSet,
     cmp::min,
+    collections::BTreeSet,
     num::NonZeroUsize,
     sync::{Arc, RwLock},
 };
@@ -12,7 +12,10 @@ use lru::LruCache;
 
 use crate::{
     log::LogIndex,
-    storage::{traits::{LogStorage, BlockStorage}, Storage},
+    storage::{
+        traits::{BlockStorage, LogStorage},
+        Storage,
+    },
     EVMError, Result,
 };
 
@@ -65,11 +68,11 @@ pub struct FilterCriteria {
     // topic. Non-empty elements represent an alternative that matches any of the contained
     // topics.
     // Examples:
-	// {} or nil          matches any topic list
-	// {{A}}              matches topic A in first position
-	// {{}, {B}}          matches any topic in first position, B in second position
-	// {{A}, {B}}         matches topic A in first position, B in second position
-	// {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
+    // {} or nil          matches any topic list
+    // {{A}}              matches topic A in first position
+    // {{}, {B}}          matches any topic in first position, B in second position
+    // {{A}, {B}}         matches topic A in first position, B in second position
+    // {{A, B}}, {C, D}}  matches topic (A OR B) in first position, (C OR D) in second position
     pub topics: Option<Vec<Vec<H256>>>,
 }
 
@@ -124,8 +127,12 @@ impl From<FilterError> for EVMError {
         match e {
             FilterError::InvalidFilter => EVMError::Other(format_err!("invalid filter")),
             FilterError::FilterNotFound => EVMError::Other(format_err!("filter not found")),
-            FilterError::InvalidBlockRange => EVMError::Other(format_err!("invalid block range params")),
-            FilterError::ExceedBlockRange => EVMError::Other(format_err!("block range exceed max limit")),
+            FilterError::InvalidBlockRange => {
+                EVMError::Other(format_err!("invalid block range params"))
+            }
+            FilterError::ExceedBlockRange => {
+                EVMError::Other(format_err!("block range exceed max limit"))
+            }
             FilterError::ExceedMaxTopics => EVMError::Other(format_err!("exceed max topics")),
             FilterError::BlockNotFound => EVMError::Other(format_err!("block not found")),
         }
@@ -140,10 +147,13 @@ pub struct FilterSystem {
 impl FilterSystem {
     pub fn create_log_filter(&mut self, criteria: FilterCriteria) -> usize {
         let id = self.id.wrapping_add(1);
-        self.cache.put(id, Filter::Logs(LogsFilter {
-            criteria,
-            last_block: None,
-        }));
+        self.cache.put(
+            id,
+            Filter::Logs(LogsFilter {
+                criteria,
+                last_block: None,
+            }),
+        );
         id
     }
 
@@ -198,12 +208,13 @@ impl FilterService {
             system: RwLock::new(FilterSystem {
                 id: 0,
                 cache: LruCache::new(NonZeroUsize::new(FILTER_LRU_CACHE_DEFAULT_SIZE).unwrap()),
-        }),
+            }),
         }
     }
 
     pub fn create_log_filter(&self, criteria: FilterCriteria) -> usize {
-        let mut system: std::sync::RwLockWriteGuard<'_, FilterSystem> = self.system.write().unwrap();
+        let mut system: std::sync::RwLockWriteGuard<'_, FilterSystem> =
+            self.system.write().unwrap();
         system.create_log_filter(criteria)
     }
 
@@ -242,42 +253,37 @@ impl FilterService {
             // Filter by addresses
             let logs: Vec<LogIndex> = match &criteria.addresses {
                 None => logs.into_iter().flat_map(|(_, log)| log).collect(),
-                Some(addresses) => {
-                    logs
-                        .into_iter()
-                        .filter(|(address, _)| addresses.contains(address))
-                        .flat_map(|(_, log)| log)
-                        .collect()
-                }
+                Some(addresses) => logs
+                    .into_iter()
+                    .filter(|(address, _)| addresses.contains(address))
+                    .flat_map(|(_, log)| log)
+                    .collect(),
             };
 
             // Filter by topics
             let logs = match &criteria.topics {
                 None => logs,
-                Some(topics) => {
-                    logs
-                        .into_iter()
-                        .filter(|log| {
-                            log
-                                .topics
-                                .clone()
-                                .into_iter()
-                                .enumerate()
-                                .all(|(idx, log_item)| {
-                                    if idx < topics.len() {
-                                        let topic = &topics[idx];
-                                        if topic.is_empty() {
-                                            true
-                                        } else {
-                                            topic.contains(&log_item)
-                                        }
-                                    } else {
+                Some(topics) => logs
+                    .into_iter()
+                    .filter(|log| {
+                        log.topics
+                            .clone()
+                            .into_iter()
+                            .enumerate()
+                            .all(|(idx, log_item)| {
+                                if idx < topics.len() {
+                                    let topic = &topics[idx];
+                                    if topic.is_empty() {
                                         true
+                                    } else {
+                                        topic.contains(&log_item)
                                     }
-                                })
-                        })
-                        .collect()
-                }
+                                } else {
+                                    true
+                                }
+                            })
+                    })
+                    .collect(),
             };
             Ok(logs)
         } else {
@@ -287,13 +293,11 @@ impl FilterService {
 
     pub fn get_logs_from_filter(&self, criteria: &FilterCriteria) -> Result<Vec<LogIndex>> {
         if let Some(block_hash) = criteria.block_hash {
-            let block_number = if let Some(block) = self
-                .storage
-                .get_block_by_hash(&block_hash)? {
-                    block.header.number
-                } else {
-                    return Err(FilterError::BlockNotFound.into());
-                };
+            let block_number = if let Some(block) = self.storage.get_block_by_hash(&block_hash)? {
+                block.header.number
+            } else {
+                return Err(FilterError::BlockNotFound.into());
+            };
             self.get_block_logs(criteria, block_number)
         } else {
             let Some(from_block) = criteria.from_block else {
@@ -387,9 +391,7 @@ impl FilterService {
                 system.update_last_block(filter_id, curr_block)?;
                 Ok(FilterResults::Blocks(out))
             }
-            Filter::Transactions(_) => {
-                Ok(FilterResults::Transactions(vec![]))
-            }
+            Filter::Transactions(_) => Ok(FilterResults::Transactions(vec![])),
         }
     }
 }
