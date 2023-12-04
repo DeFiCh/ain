@@ -993,14 +993,17 @@ impl MetachainRPCServer for MetachainRPCModule {
         } else {
             None
         };
-        let criteria = FilterCriteria {
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let mut criteria = FilterCriteria {
             block_hash: input.block_hash,
             from_block,
             to_block,
             addresses: input.address,
             topics: input.topics,
         };
-        criteria.verify_criteria().map_err(RPCError::EvmError)?;
+        criteria
+            .verify_criteria(curr_block)
+            .map_err(RPCError::EvmError)?;
         let logs = self
             .handler
             .filters
@@ -1020,14 +1023,17 @@ impl MetachainRPCServer for MetachainRPCModule {
         } else {
             None
         };
-        let criteria = FilterCriteria {
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let mut criteria = FilterCriteria {
             from_block,
             to_block,
             addresses: input.address,
             topics: input.topics,
             ..Default::default()
         };
-        criteria.verify_criteria().map_err(RPCError::EvmError)?;
+        criteria
+            .verify_criteria(curr_block)
+            .map_err(RPCError::EvmError)?;
         Ok(self.handler.filters.create_log_filter(criteria).into())
     }
 
@@ -1042,10 +1048,11 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let res = self
             .handler
             .filters
-            .get_filter_changes_from_id(filter_id)
+            .get_filter_changes_from_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?
             .into();
         Ok(res)
@@ -1058,10 +1065,11 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let logs = self
             .handler
             .filters
-            .get_filter_logs_from_id(filter_id)
+            .get_filter_logs_from_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?;
         Ok(logs.into_iter().map(|log| log.into()).collect())
     }

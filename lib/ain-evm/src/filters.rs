@@ -77,21 +77,27 @@ pub struct FilterCriteria {
 }
 
 impl FilterCriteria {
-    pub fn verify_criteria(&self) -> Result<()> {
+    pub fn verify_criteria(&mut self, latest: U256) -> Result<()> {
         if self.block_hash.is_some() && (self.from_block.is_some() || self.to_block.is_some()) {
             return Err(FilterError::InvalidFilter.into());
         }
         if self.block_hash.is_none() {
-            let Some(begin) = self.from_block else {
-                return Err(FilterError::InvalidFilter.into());
+            let from_block = if let Some(from) = self.from_block {
+                from
+            } else {
+                // Default to genesis block if input not specified
+                U256::zero()
             };
-            let Some(end) = self.to_block else {
-                return Err(FilterError::InvalidFilter.into());
+            let to_block = if let Some(to) = self.to_block {
+                to
+            } else {
+                // Default to latest block (inclusive of finality count) if input not specifed
+                latest
             };
-            if begin > end {
+            if from_block > to_block {
                 return Err(FilterError::InvalidBlockRange.into());
             }
-            if end - begin > BLOCK_RANGE_LIMIT {
+            if to_block - from_block > BLOCK_RANGE_LIMIT {
                 return Err(FilterError::ExceedBlockRange.into());
             }
             if let Some(t) = &self.topics {
@@ -99,6 +105,8 @@ impl FilterCriteria {
                     return Err(FilterError::ExceedMaxTopics.into());
                 }
             }
+            self.from_block = Some(from_block);
+            self.to_block = Some(to_block);
         }
         Ok(())
     }
@@ -127,7 +135,9 @@ impl From<FilterError> for EVMError {
         match e {
             FilterError::InvalidFilter => format_err!("invalid filter").into(),
             FilterError::FilterNotFound => format_err!("filter not found").into(),
-            FilterError::InvalidBlockRange => format_err!("fromBlock is greater than toBlock").into(),
+            FilterError::InvalidBlockRange => {
+                format_err!("fromBlock is greater than toBlock").into()
+            }
             FilterError::ExceedBlockRange => format_err!("block range exceed max limit").into(),
             FilterError::ExceedMaxTopics => format_err!("exceed max topics").into(),
             FilterError::BlockNotFound => format_err!("header not found").into(),
@@ -351,13 +361,11 @@ impl FilterService {
         Ok(out)
     }
 
-    pub fn get_filter_logs_from_id(&self, filter_id: usize) -> Result<Vec<LogIndex>> {
-        let curr_block = if let Some(block) = self.storage.get_latest_block()? {
-            block.header.number
-        } else {
-            return Err(FilterError::BlockNotFound.into());
-        };
-
+    pub fn get_filter_logs_from_id(
+        &self,
+        filter_id: usize,
+        curr_block: U256,
+    ) -> Result<Vec<LogIndex>> {
         let mut system = self.system.write().unwrap();
         let entry = system.get_filter(filter_id)?;
         if let Filter::Logs(entry) = entry {
@@ -367,13 +375,11 @@ impl FilterService {
         }
     }
 
-    pub fn get_filter_changes_from_id(&self, filter_id: usize) -> Result<FilterResults> {
-        let curr_block = if let Some(block) = self.storage.get_latest_block()? {
-            block.header.number
-        } else {
-            return Err(FilterError::BlockNotFound.into());
-        };
-
+    pub fn get_filter_changes_from_id(
+        &self,
+        filter_id: usize,
+        curr_block: U256,
+    ) -> Result<FilterResults> {
         let mut system = self.system.write().unwrap();
         let entry = system.get_filter(filter_id)?;
         match entry {
