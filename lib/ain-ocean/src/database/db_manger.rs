@@ -4,8 +4,8 @@ use bitcoin::blockdata::block::Block;
 use bitcoin::blockdata::block::Header;
 use bitcoin::consensus::encode::serialize;
 use rocksdb::Options;
-use rocksdb::{ColumnFamilyDescriptor, IteratorMode, DB};
-use serde::Deserialize;
+use rocksdb::{ColumnFamilyDescriptor, DBIterator, IteratorMode, DB};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -20,6 +20,7 @@ pub trait ColumnFamilyOperations {
     fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
     fn delete(&self, cf_name: &str, key: &[u8]) -> Result<()>;
     fn get_total_row(&self) -> Result<()>;
+    fn iterator(&self, cf_name: &str, mode: IteratorMode) -> Result<(DBIterator)>;
 }
 
 impl RocksDB {
@@ -269,5 +270,13 @@ impl ColumnFamilyOperations for RocksDB {
         println!("Total rows in 'block_header': {}", block_header_count);
         println!("Total rows in 'block': {}", block_count);
         Ok(())
+    }
+
+    fn iterator(&self, cf_name: &str, mode: IteratorMode) -> Result<DBIterator> {
+        if let Some(cf_handle) = self.db.cf_handle(cf_name) {
+            Ok(self.db.iterator_cf(cf_handle, mode))
+        } else {
+            Err(anyhow!("Column family not found"))
+        }
     }
 }
