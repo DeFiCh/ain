@@ -14,7 +14,7 @@ impl OraclePriceAggrigatedDb {
         key: String,
         limit: i32,
         lt: String,
-    ) -> Result<(Vec<OraclePriceAggregated>)> {
+    ) -> Result<Vec<OraclePriceAggregated>> {
         todo!()
     }
     pub async fn put(&self, oracle: OraclePriceAggregated) -> Result<()> {
