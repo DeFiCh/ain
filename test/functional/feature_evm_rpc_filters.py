@@ -195,6 +195,15 @@ class EVMTest(DefiTestFramework):
             len(logs), self.num_td_logs + self.num_blocks * self.num_logs_in_each_block
         )
 
+        # Populate fromBlock and toBlock field with future block numbers
+        logs = self.nodes[0].eth_getLogs(
+            {
+                "fromBlock": curr_block + 1,
+                "toBlock": curr_block + 500,
+            }
+        )
+        assert_equal(len(logs), 0)
+
         # Populate block hash
         curr_block_hash = self.nodes[0].eth_getBlockByNumber(curr_block)["hash"]
         logs = self.nodes[0].eth_getLogs(
@@ -534,12 +543,45 @@ class EVMTest(DefiTestFramework):
             )
 
     def test_get_filter_changes_blocks_rpc(self):
-        return
+        self.rollback_to(self.start_height)
+
+        id = self.nodes[0].eth_newBlockFilter()
+        blocks = self.nodes[0].eth_getFilterChanges(id)
+        # Assert empty
+        assert_equal(len(blocks), 0)
+
+        # Create blocks
+        self.create_blocks()
+        blocks = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(len(blocks), self.num_blocks)
+
+        # Get changes again, assert empty
+        blocks = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(len(blocks), 0)
+
+        # Create blocks twice
+        self.create_blocks()
+        self.create_blocks()
+        blocks = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(len(blocks), self.num_blocks * 2)
 
     def test_get_filter_changes_txs_rpc(self):
-        return
+        self.rollback_to(self.start_height)
 
     def test_invalid_get_logs_rpc(self):
+        self.rollback_to(self.start_height)
+        curr_block = int(self.nodes[0].eth_blockNumber(), 16)
+        blockhash = self.nodes[0].eth_getBlockByNumber(curr_block)["hash"]
+
+        # Populate both blockHash and block range
+        assert_raises_rpc_error(
+            -32001,
+            "invalid filter",
+            self.nodes[0].eth_getLogs,
+            {"blockHash":  blockhash, "fromBlock": "0x1", "toBlock": "0x0"},
+        )
+
+        # Invalid block range
         assert_raises_rpc_error(
             -32001,
             "fromBlock is greater than toBlock",
@@ -547,14 +589,36 @@ class EVMTest(DefiTestFramework):
             {"fromBlock": "0x1", "toBlock": "0x0"},
         )
 
+        # Exceed max topics limit
+        topics = self.nodes[0].eth_getLogs({"fromBlock": "latest"})[0]["topics"]
+        assert_equal(len(topics) > 0, True)
+        invalid_topics = []
+        invalid_topics.append(topics[0])
+        invalid_topics.append(topics[0])
+        for topic in topics:
+            invalid_topics.append(topic)
+        assert_equal(len(invalid_topics) > 4, True)
+
         assert_raises_rpc_error(
             -32001,
-            "header not found",
+            "exceed max topics",
             self.nodes[0].eth_getLogs,
-            {"fromBlock": "0x1", "toBlock": "0x999999999"},
+            {"topics": invalid_topics},
+        )
+
+        # Exceed max block range limit
+        assert_raises_rpc_error(
+            -32001,
+            "block range exceed max limit",
+            self.nodes[0].eth_getLogs,
+            # 0 to 2001, invalid as default max range = 2000
+            {"fromBlock": "0x0", "toBlock": "0x7D1"},
         )
 
     def test_invalid_get_filter_logs_rpc(self):
+        self.rollback_to(self.start_height)
+
+        # Invalid block range
         assert_raises_rpc_error(
             -32001,
             "fromBlock is greater than toBlock",
@@ -562,11 +626,30 @@ class EVMTest(DefiTestFramework):
             {"fromBlock": "0x1", "toBlock": "0x0"},
         )
 
+        # Exceed max topics limit
+        topics = self.nodes[0].eth_getLogs({"fromBlock": "latest"})[0]["topics"]
+        assert_equal(len(topics) > 0, True)
+        invalid_topics = []
+        invalid_topics.append(topics[0])
+        invalid_topics.append(topics[0])
+        for topic in topics:
+            invalid_topics.append(topic)
+        assert_equal(len(invalid_topics) > 4, True)
+
+        assert_raises_rpc_error(
+            -32001,
+            "exceed max topics",
+            self.nodes[0].eth_newFilter,
+            {"topics": invalid_topics},
+        )
+
+        # Exceed max block range limit
         assert_raises_rpc_error(
             -32001,
             "block range exceed max limit",
             self.nodes[0].eth_newFilter,
-            {"fromBlock": "0x1", "toBlock": "0x999999999"},
+            # 0 to 2001, invalid as default max range = 2000
+            {"fromBlock": "0x0", "toBlock": "0x7D1"},
         )
 
     def run_test(self):

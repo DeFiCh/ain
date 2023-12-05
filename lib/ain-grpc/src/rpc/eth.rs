@@ -984,12 +984,22 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
         let from_block = if input.from_block.is_some() {
-            Some(self.get_block(input.from_block)?.header.number)
+            if let Some(BlockNumber::Num(block_num)) = input.from_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.from_block)?.header.number)
+            }
         } else {
             None
         };
         let to_block = if input.to_block.is_some() {
-            Some(self.get_block(input.to_block)?.header.number)
+            if let Some(BlockNumber::Num(block_num)) = input.to_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.to_block)?.header.number)
+            }
         } else {
             None
         };
