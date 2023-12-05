@@ -578,7 +578,7 @@ class EVMTest(DefiTestFramework):
             -32001,
             "invalid filter",
             self.nodes[0].eth_getLogs,
-            {"blockHash":  blockhash, "fromBlock": "0x1", "toBlock": "0x0"},
+            {"blockHash": blockhash, "fromBlock": "0x1", "toBlock": "0x0"},
         )
 
         # Invalid block range
