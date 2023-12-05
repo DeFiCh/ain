@@ -612,10 +612,16 @@ CTxMemPool::~CTxMemPool() {}
 
 CCustomCSView &CTxMemPool::accountsView() {
     if (!acview) {
+        LOCK(cs_main);
         assert(pcustomcsview);
         acview = std::make_unique<CCustomCSView>(*pcustomcsview);
     }
     return *acview;
+}
+
+void CTxMemPool::resetAccountsView() {
+    LOCK(cs_main);
+    acview = std::make_unique<CCustomCSView>(*pcustomcsview);
 }
 
 /**
@@ -1260,7 +1266,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
     }
 
     CAmount txfee{};
-    accountsView().Discard();
+    resetAccountsView();
     CCustomCSView viewDuplicate(accountsView());
 
     setEntries staged;
