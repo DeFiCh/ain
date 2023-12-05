@@ -523,10 +523,15 @@ class EVMTest(DefiTestFramework):
         for id in ids:
             contract_logs = self.nodes[0].eth_getFilterChanges(id)
             # Assert only logs from the minted blocks is returned
-            assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+            assert_equal(
+                len(contract_logs), self.num_blocks * self.num_logs_in_each_block
+            )
             total_contract_logs = self.nodes[0].eth_getFilterLogs(id)
             # Assert all logs from the contract address is returned
-            assert_equal(len(total_contract_logs), 2 * self.num_blocks * self.num_logs_in_each_block)
+            assert_equal(
+                len(total_contract_logs),
+                2 * self.num_blocks * self.num_logs_in_each_block,
+            )
 
     def test_get_filter_changes_blocks_rpc(self):
         return
