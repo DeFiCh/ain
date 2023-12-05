@@ -10,7 +10,7 @@ use ain_evm::{
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
-use ethereum::{BlockAny, EnvelopedEncodable, TransactionV2, Block};
+use ethereum::{BlockAny, EnvelopedEncodable, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use evm::{Config, ExitError, ExitReason};
 use jsonrpsee::{
