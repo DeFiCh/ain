@@ -274,6 +274,7 @@ class EVMTest(DefiTestFramework):
 
     def test_get_filter_logs_rpc(self):
         self.rollback_to(self.start_height)
+        self.filter_log_ids = []
 
         # Populate fromBlock and toBlock with string default parameters
         id = self.nodes[0].eth_newFilter(
@@ -283,10 +284,12 @@ class EVMTest(DefiTestFramework):
             }
         )
         logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 1)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(
             len(logs), self.num_td_logs + self.num_blocks * self.num_logs_in_each_block
         )
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         # Populate fromBlock and toBlock field with decimal values
         curr_block = int(self.nodes[0].eth_blockNumber(), 16)
@@ -297,10 +300,12 @@ class EVMTest(DefiTestFramework):
             }
         )
         logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 2)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(
             len(logs), self.num_td_logs + self.num_blocks * self.num_logs_in_each_block
         )
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         # Populate address field
         id = self.nodes[0].eth_newFilter(
@@ -311,8 +316,10 @@ class EVMTest(DefiTestFramework):
             }
         )
         contract_logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 3)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         id = self.nodes[0].eth_newFilter(
             {
@@ -322,8 +329,10 @@ class EVMTest(DefiTestFramework):
             }
         )
         contract_logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 4)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         # Populate topics field
         topics = contract_logs[0]["topics"]
@@ -336,8 +345,10 @@ class EVMTest(DefiTestFramework):
             }
         )
         contract_logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 5)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         nested_topics = []
         for topic in topics:
@@ -351,8 +362,10 @@ class EVMTest(DefiTestFramework):
             }
         )
         contract_logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 6)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         nested_single_topic = [[topics[0]]]
         id = self.nodes[0].eth_newFilter(
@@ -364,8 +377,10 @@ class EVMTest(DefiTestFramework):
             }
         )
         contract_logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 7)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
         many_nested_topics = []
         for _ in range(len(topics)):
@@ -379,14 +394,139 @@ class EVMTest(DefiTestFramework):
             }
         )
         contract_logs = self.nodes[0].eth_getFilterLogs(id)
-        assert_equal(int(id, 16), 8)
+        assert_equal(int(id, 16), self.last_id)
         assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        self.filter_log_ids.append(id)
+        self.last_id += 1
 
-    def test_remove_filter_logs_rpc(self):
-        return
+    def test_uninstall_filter_logs_rpc(self):
+        self.rollback_to(self.start_height)
+
+        for id in self.filter_log_ids:
+            res = self.nodes[0].eth_uninstallFilter(id)
+            assert_equal(res, True)
 
     def test_get_filter_changes_logs_rpc(self):
-        return
+        self.rollback_to(self.start_height)
+        ids = []
+
+        # Populate fromBlock and toBlock field with decimal values
+        curr_block = int(self.nodes[0].eth_blockNumber(), 16)
+        target_block = curr_block + self.num_blocks
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+            }
+        )
+        logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(
+            len(logs), self.num_td_logs + self.num_blocks * self.num_logs_in_each_block
+        )
+        self.last_id += 1
+
+        # Populate address field
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+                "address": self.contract_address,
+            }
+        )
+        contract_logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        ids.append(id)
+        self.last_id += 1
+
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+                "address": [self.contract_address],
+            }
+        )
+        contract_logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        ids.append(id)
+        self.last_id += 1
+
+        # Populate topics field
+        topics = contract_logs[0]["topics"]
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+                "address": self.contract_address,
+                "topics": topics,
+            }
+        )
+        contract_logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        ids.append(id)
+        self.last_id += 1
+
+        nested_topics = []
+        for topic in topics:
+            nested_topics.append([topic])
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+                "address": self.contract_address,
+                "topics": nested_topics,
+            }
+        )
+        contract_logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        ids.append(id)
+        self.last_id += 1
+
+        nested_single_topic = [[topics[0]]]
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+                "address": self.contract_address,
+                "topics": nested_single_topic,
+            }
+        )
+        contract_logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        ids.append(id)
+        self.last_id += 1
+
+        many_nested_topics = []
+        for _ in range(len(topics)):
+            many_nested_topics.append(topics)
+        id = self.nodes[0].eth_newFilter(
+            {
+                "fromBlock": 0,
+                "toBlock": target_block,
+                "address": self.contract_address,
+                "topics": many_nested_topics,
+            }
+        )
+        contract_logs = self.nodes[0].eth_getFilterChanges(id)
+        assert_equal(int(id, 16), self.last_id)
+        assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+        ids.append(id)
+        self.last_id += 1
+
+        # Mint blocks to test for changes
+        self.create_blocks()
+        for id in ids:
+            contract_logs = self.nodes[0].eth_getFilterChanges(id)
+            # Assert only logs from the minted blocks is returned
+            assert_equal(len(contract_logs), self.num_blocks * self.num_logs_in_each_block)
+            total_contract_logs = self.nodes[0].eth_getFilterLogs(id)
+            # Assert all logs from the contract address is returned
+            assert_equal(len(total_contract_logs), 2 * self.num_blocks * self.num_logs_in_each_block)
 
     def test_get_filter_changes_blocks_rpc(self):
         return
@@ -395,7 +535,19 @@ class EVMTest(DefiTestFramework):
         return
 
     def test_invalid_get_logs_rpc(self):
-        return
+        assert_raises_rpc_error(
+            -32001,
+            "fromBlock is greater than toBlock",
+            self.nodes[0].eth_getLogs,
+            {"fromBlock": "0x1", "toBlock": "0x0"},
+        )
+
+        assert_raises_rpc_error(
+            -32001,
+            "header not found",
+            self.nodes[0].eth_getLogs,
+            {"fromBlock": "0x1", "toBlock": "0x999999999"},
+        )
 
     def test_invalid_get_filter_logs_rpc(self):
         assert_raises_rpc_error(
@@ -407,7 +559,7 @@ class EVMTest(DefiTestFramework):
 
         assert_raises_rpc_error(
             -32001,
-            "header not found",
+            "block range exceed max limit",
             self.nodes[0].eth_newFilter,
             {"fromBlock": "0x1", "toBlock": "0x999999999"},
         )
@@ -423,12 +575,13 @@ class EVMTest(DefiTestFramework):
 
         # Set starting test state
         self.start_height = self.nodes[0].getblockcount()
+        self.last_id = 1
 
         self.test_get_logs_rpc()
 
         self.test_get_filter_logs_rpc()
 
-        self.test_remove_filter_logs_rpc()
+        self.test_uninstall_filter_logs_rpc()
 
         self.test_get_filter_changes_logs_rpc()
 

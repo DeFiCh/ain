@@ -10,7 +10,7 @@ use ain_evm::{
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
-use ethereum::{BlockAny, EnvelopedEncodable, TransactionV2};
+use ethereum::{BlockAny, EnvelopedEncodable, TransactionV2, Block};
 use ethereum_types::{H160, H256, U256};
 use evm::{Config, ExitError, ExitReason};
 use jsonrpsee::{
@@ -1024,12 +1024,22 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
         let from_block = if input.from_block.is_some() {
-            Some(self.get_block(input.from_block)?.header.number)
+            if let Some(BlockNumber::Num(block_num)) = input.from_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.from_block)?.header.number)
+            }
         } else {
             None
         };
         let to_block = if input.to_block.is_some() {
-            Some(self.get_block(input.to_block)?.header.number)
+            if let Some(BlockNumber::Num(block_num)) = input.to_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.to_block)?.header.number)
+            }
         } else {
             None
         };
