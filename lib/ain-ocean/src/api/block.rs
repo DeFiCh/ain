@@ -14,9 +14,9 @@ struct BlockHash {
 }
 
 #[derive(Deserialize)]
-struct ListBlocksRequest {
-    size: usize,
-    next: Option<String>
+pub struct ListBlocksRequest {
+    pub size: usize,
+    pub next: Option<String>
 }
 
 #[debug_handler]
@@ -33,7 +33,7 @@ async fn list_blocks(Json(req): Json<ListBlocksRequest>) -> Json<ApiPagedRespons
         ::of(
             blocks,
             req.size, 
-            |block| block.clone().id 
+            |block| block.clone().id
         )
     )
 }
@@ -82,5 +82,3 @@ pub struct Block {
     // size_stripped: u64,
     // weight: u64,
 }
-
-

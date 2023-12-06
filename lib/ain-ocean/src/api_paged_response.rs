@@ -61,18 +61,18 @@ struct ApiPage {
 }
 
 impl<T> ApiPagedResponse<T> {
-    pub fn new(data: Vec<T>, next: Option<String>) -> Self {
-        Self { data, page: ApiPage{ next } }
+    pub fn new(data: Vec<T>, next: Option<&str>) -> Self {
+        Self { data, page: ApiPage{ next: next.map(Into::into) } } // Option<&str> -> Option<String>
     }
 
-    pub fn next(data: Vec<T>, next: Option<String>) -> Self {
+    pub fn next(data: Vec<T>, next: Option<&str>) -> Self {
         Self::new(data, next)
     }
 
     pub fn of(data: Vec<T>, limit: usize, next_provider: impl Fn(&T) -> String) -> Self {
         if data.len() == limit && data.len() > 0 && limit > 0 {
             let next = next_provider(&data[limit - 1]);
-            Self::next(data, Some(next))
+            Self::next(data, Some(next.as_str()))
         } else {
             Self::next(data, None)
         }
@@ -87,16 +87,26 @@ impl<T> ApiPagedResponse<T> {
 mod tests {
     use super::{ApiPagedResponse, ApiPage};
     
+    #[derive(Clone, Debug)]
     struct Item {
         id: String,
         sort: String,
     }
     
+    impl Item {
+        fn new(id: &str, sort: &str) -> Self {
+            Self {
+                id: id.into(),
+                sort: sort.into(),
+            }
+        }
+    }
+    
     #[test]
     fn should_next_with_none() {
         let items: Vec<Item> = vec![
-            Item{id: "1".into(), sort: "a".into()},
-            Item{id: "2".into(), sort: "b".into()},
+            Item::new("0", "a"),
+            Item::new("1", "b"),
         ];
     
         let next = ApiPagedResponse::next(items, None).page.next;
@@ -106,34 +116,34 @@ mod tests {
     #[test]
     fn should_next_with_value() {
         let items: Vec<Item> = vec![
-            Item{id: "1".into(), sort: "a".into()},
-            Item{id: "2".into(), sort: "b".into()},
+            Item::new("0", "a"),
+            Item::new("1", "b"),
         ];
     
-        let next = ApiPagedResponse::next(items, Some("b".into())).page.next;
+        let next = ApiPagedResponse::next(items, Some("b")).page.next;
         assert_eq!(next, Some("b".into()));
     }
 
     #[test]
     fn should_of_with_limit_3() {
         let items: Vec<Item> = vec![
-            Item{id: "1".into(), sort: "a".into()},
-            Item{id: "2".into(), sort: "b".into()},
-            Item{id: "3".into(), sort: "c".into()},
+            Item::new("0", "a"),
+            Item::new("1", "b"),
+            Item::new("2", "c"),
         ];
         
-        let next = ApiPagedResponse::of(items, 3, |item| item.sort.to_owned()).page.next;
+        let next = ApiPagedResponse::of(items, 3, |item| item.clone().sort).page.next;
         assert_eq!(next, Some("c".into()))
     }
     
     #[test]
     fn should_not_create_with_limit_3_while_size_2() {
         let items: Vec<Item> = vec![
-            Item{id: "1".into(), sort: "a".into()},
-            Item{id: "2".into(), sort: "b".into()},
+            Item::new("0", "a"),
+            Item::new("1", "b"),
         ];
         
-        let page = ApiPagedResponse::of(items, 3, |item| item.sort.to_owned()).page;
+        let page = ApiPagedResponse::of(items, 3, |item| item.clone().sort).page;
         assert_eq!(page, ApiPage{next: None})
     }
 
