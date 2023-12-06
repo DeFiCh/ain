@@ -76,7 +76,7 @@ jsonrpsee-core = "0.16"
 jsonrpsee-server = "0.16"
 jsonrpsee-types = "0.16"
 
-axum = "0.7.1"
+axum = { version = "0.7.1", features = ["macros"] }
 
 tempdir = "0.3"
 
