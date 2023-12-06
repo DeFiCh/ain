@@ -769,7 +769,7 @@ fn evm_try_unsafe_bridge_dst20(
 ///
 /// Returns the transaction's hash
 #[ffi_fallible]
-fn evm_try_get_tx_hash(raw_tx: &str) -> Result<[u8; 32]> {
+fn evm_try_get_tx_hash(raw_tx: &str) -> Result<XHash> {
     let signed_tx = SERVICES
         .evm
         .core
