@@ -1003,16 +1003,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         } else {
             None
         };
-        let topics = if let Some(topics) = input.topics {
-            match topics {
-                LogRequestTopics::VecOfHashes(inputs) => {
-                    Some(inputs.into_iter().map(|input| vec![input]).collect())
-                }
-                LogRequestTopics::VecOfHashVecs(inputs) => Some(inputs),
+        let topics = input.topics.map(|topics| match topics {
+            LogRequestTopics::VecOfHashes(inputs) => {
+                inputs.into_iter().map(|input| vec![input]).collect()
             }
-        } else {
-            None
-        };
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+        });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
             block_hash: input.block_hash,
@@ -1053,16 +1049,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         } else {
             None
         };
-        let topics = if let Some(topics) = input.topics {
-            match topics {
-                LogRequestTopics::VecOfHashes(inputs) => {
-                    Some(inputs.into_iter().map(|input| vec![input]).collect())
-                }
-                LogRequestTopics::VecOfHashVecs(inputs) => Some(inputs),
+        let topics = input.topics.map(|topics| match topics {
+            LogRequestTopics::VecOfHashes(inputs) => {
+                inputs.into_iter().map(|input| vec![input]).collect()
             }
-        } else {
-            None
-        };
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+        });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
             from_block,
