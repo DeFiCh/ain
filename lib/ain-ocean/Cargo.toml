@@ -7,5 +7,8 @@ edition = "2021"
 
 [dependencies]
 axum.workspace = true
-serde.workspace = true
 hyper.workspace = true
+keccak-hash.workspace = true
+log.workspace = true
+serde.workspace = true
+thiserror.workspace = true
