@@ -324,25 +324,24 @@ UniValue vmmap(const JSONRPCRequest &request) {
         return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
     };
 
-    auto handleMapBlockNumberEVMToDVMRequest =
-        [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
-            uint64_t height;
-            bool success = ParseUInt64(input, &height);
-            if (!success || height < 0) {
-                throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
-            }
-            CrossBoundaryResult result;
-            auto hash = evm_try_get_block_hash_by_number(result, height);
-            auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
-            crossBoundaryOkOrThrow(result);
-            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-            if (!dvmBlockHash.val.has_value()) {
-                throwInvalidParam(dvmBlockHash.msg);
-            }
-            CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-            uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
-            return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
-        };
+    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+        uint64_t height;
+        bool success = ParseUInt64(input, &height);
+        if (!success || height < 0) {
+            throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
+        }
+        CrossBoundaryResult result;
+        auto hash = evm_try_get_block_hash_by_number(result, height);
+        auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
+        crossBoundaryOkOrThrow(result);
+        auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+        if (!dvmBlockHash.val.has_value()) {
+            throwInvalidParam(dvmBlockHash.msg);
+        }
+        CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
+        return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
+    };
 
     if (type == VMDomainRPCMapType::Auto) {
         auto [mapType, isResolved] = handleAutoInfer();
