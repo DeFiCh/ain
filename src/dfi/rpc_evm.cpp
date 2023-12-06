@@ -325,7 +325,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
     };
 
     auto handleMapBlockNumberEVMToDVMRequest =
-        [&throwInvalidParam, &ensureEVMHashStripped, &crossBoundaryOkOrThrow](const std::string &input) {
+        [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
             uint64_t height;
             bool success = ParseUInt64(input, &height);
             if (!success || height < 0) {
