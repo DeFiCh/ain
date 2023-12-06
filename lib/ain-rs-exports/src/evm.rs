@@ -107,7 +107,6 @@ fn evm_try_create_and_sign_transfer_domain_tx(
         // Send EvmOut to contract address
         (from_address, fixed_address)
     };
-    let native_address = format!("{:?}", H160::from(ctx.native_address));
 
     let value = try_from_satoshi(U256::from(ctx.value))?;
 
@@ -115,7 +114,7 @@ fn evm_try_create_and_sign_transfer_domain_tx(
         let from_address = ethabi::Token::Address(from_address);
         let to_address = ethabi::Token::Address(to_address);
         let value = ethabi::Token::Uint(value.0);
-        let native_address = ethabi::Token::String(native_address);
+        let native_address = ethabi::Token::String(ctx.native_address);
 
         let is_native_token_transfer = ctx.token_id == 0;
         if is_native_token_transfer {

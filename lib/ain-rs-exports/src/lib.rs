@@ -121,7 +121,7 @@ pub mod ffi {
     pub struct CreateTransferDomainContext {
         pub from: [u8; 20],
         pub to: [u8; 20],
-        pub native_address: [u8; 20],
+        pub native_address: String,
         pub direction: bool,
         pub value: u64,
         pub token_id: u32,
@@ -134,7 +134,7 @@ pub mod ffi {
     pub struct TransferDomainInfo {
         pub from: [u8; 20],
         pub to: [u8; 20],
-        pub native_address: [u8; 20],
+        pub native_address: String,
         pub direction: bool,
         pub value: u64,
         pub token_id: u32,

@@ -65,7 +65,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
             return DeFiErrors::TransferDomainETHDestAddress();
         }
         context.to = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
-        context.native_address = CKeyID::FromOrDefaultDestination(src).GetByteArray();
+        context.native_address = EncodeDestination(src);
         return Res::Ok();
 
     } else if (edge == VMDomainEdge::EVMToDVM) {
@@ -76,7 +76,7 @@ static Res ValidateTransferDomainScripts(const CScript &srcScript,
             return DeFiErrors::TransferDomainDVMDestAddress();
         }
         context.from = CKeyID::FromOrDefaultDestination(src).GetByteArray();
-        context.native_address = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
+        context.native_address = EncodeDestination(dest);
         return Res::Ok();
     }
 

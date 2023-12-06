@@ -162,7 +162,7 @@ pub struct ValidateTxInfo {
 pub struct TransferDomainTxInfo {
     pub from: XAddress,
     pub to: XAddress,
-    pub native_address: XAddress,
+    pub native_address: String,
     pub direction: bool,
     pub value: u64,
     pub token_id: u32,
@@ -542,7 +542,6 @@ impl EVMCoreService {
                 let from_address = H160::from(context.from);
                 (from_address, fixed_address)
             };
-            let native_address = format!("{:?}", H160::from(context.native_address));
             let value = try_from_satoshi(U256::from(context.value))?.0;
 
             let is_native_token_transfer = context.token_id == 0;
@@ -584,7 +583,7 @@ impl EVMCoreService {
                 let ethabi::Token::String(ref input_native_address) = token_inputs[3] else {
                     return Err(format_err!("invalid native address input in evm tx").into());
                 };
-                if native_address != *input_native_address {
+                if context.native_address != *input_native_address {
                     return Err(format_err!("invalid native address input in evm tx").into());
                 }
             } else {
@@ -635,7 +634,7 @@ impl EVMCoreService {
                 let ethabi::Token::String(ref input_native_address) = token_inputs[4] else {
                     return Err(format_err!("invalid native address input in evm tx").into());
                 };
-                if native_address != *input_native_address {
+                if context.native_address != *input_native_address {
                     return Err(format_err!("invalid native address input in evm tx").into());
                 }
             }

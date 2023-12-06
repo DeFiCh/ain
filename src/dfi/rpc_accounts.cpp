@@ -2330,12 +2330,12 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         std::copy(key.begin(), key.end(), privKey.begin());
 
         EvmAddressData to{};
-        EvmAddressData nativeAddress{};
+        std::string nativeAddress = "";
         if (isEVMIn) {
             to = CKeyID::FromOrDefaultDestination(dstDest).GetByteArray();
-            nativeAddress = CKeyID::FromOrDefaultDestination(srcDest).GetByteArray();
+            nativeAddress = ScriptToString(src.address);
         } else {
-            nativeAddress = CKeyID::FromOrDefaultDestination(dstDest).GetByteArray();
+            nativeAddress = ScriptToString(dst.address);
         }
         auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
         auto from = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
