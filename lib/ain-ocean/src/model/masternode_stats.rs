@@ -1,25 +1,18 @@
-use serde::{Serialize, Deserialize};
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct MasternodeStats {
     pub id: String,
     pub block: MasternodeStatsBlock,
     pub stats: MasternodeStatsStats,
 }
 
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct TimelockStats {
     pub weeks: i32,
     pub tvl: String,
     pub count: i32,
 }
 
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct MasternodeStatsBlock {
     pub hash: String,
     pub height: i32,
@@ -27,14 +20,9 @@ pub struct MasternodeStatsBlock {
     pub median_time: i32,
 }
 
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct MasternodeStatsStats {
     pub count: i32,
     pub tvl: String,
     pub locked: Vec<TimelockStats>,
 }
-
-
-

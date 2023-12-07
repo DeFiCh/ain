@@ -1,7 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct TransactionVin {
     pub id: String,
     pub txid: String,
@@ -12,8 +9,7 @@ pub struct TransactionVin {
     pub sequence: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct TransactionVinVout {
     pub id: String,
     pub txid: String,
@@ -23,14 +19,12 @@ pub struct TransactionVinVout {
     pub script: TransactionVinVoutScript,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct TransactionVinScript {
     pub hex: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct TransactionVinVoutScript {
     pub hex: String,
 }

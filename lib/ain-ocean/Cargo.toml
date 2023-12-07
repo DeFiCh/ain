@@ -12,3 +12,6 @@ keccak-hash.workspace = true
 log.workspace = true
 serde.workspace = true
 thiserror.workspace = true
+hex.workspace = true
+dftx-rs.workspace = true
+bitcoin.workspace = true

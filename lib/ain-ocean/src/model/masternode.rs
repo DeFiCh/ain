@@ -1,40 +1,32 @@
-use serde::{Serialize, Deserialize};
+use bitcoin::{BlockHash, Txid};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct Masternode {
     pub id: String,
-    pub sort: String,
+    pub sort: Option<String>,
     pub owner_address: String,
     pub operator_address: String,
-    pub creation_height: i32,
+    pub creation_height: u32,
     pub resign_height: i32,
-    pub resign_tx: String,
+    pub resign_tx: Option<String>,
     pub minted_blocks: i32,
-    pub timelock: i32,
+    pub timelock: u16,
     pub collateral: String,
     pub block: MasternodeBlock,
-    pub history: Vec<HistoryItem>,
+    pub history: Option<Vec<HistoryItem>>,
 }
 
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct MasternodeBlock {
     pub hash: String,
-    pub height: i32,
-    pub time: i32,
-    pub median_time: i32,
+    pub height: u32,
+    pub time: u64,
+    pub median_time: u64,
 }
 
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct HistoryItem {
     pub txid: String,
     pub owner_address: String,
     pub operator_address: String,
 }
-
-
-
