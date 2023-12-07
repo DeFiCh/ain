@@ -3853,7 +3853,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
     // DisconnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
     if (psnapshotManager) {
-        if (pindexDelete->pprev->GetBlockTime() > (GetTime() - nMaxTipAge)) {
+        if (!IsInitialBlockDownload()) {
             psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexDelete->pprev);
         } else {
             psnapshotManager->EraseCurrentSnapshot();
@@ -4058,7 +4058,7 @@ bool CChainState::ConnectTip(CValidationState &state,
 
     // ConnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
-    if (psnapshotManager && pindexNew->GetBlockTime() > (GetTime() - nMaxTipAge)) {
+    if (psnapshotManager && !IsInitialBlockDownload()) {
         psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexNew);
     }
 
