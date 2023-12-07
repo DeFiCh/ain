@@ -1,11 +1,5 @@
-use serde::{Serialize, Deserialize};
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct RawBlock {
     pub id: String,
     pub json: String,
 }
-
-
-

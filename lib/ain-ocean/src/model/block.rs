@@ -1,7 +1,4 @@
-use serde::{Serialize, Deserialize};
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct Block {
     pub id: String,
     pub hash: String,
@@ -22,6 +19,3 @@ pub struct Block {
     pub size_stripped: i32,
     pub weight: i32,
 }
-
-
-

@@ -344,6 +344,8 @@ pub mod ffi {
         );
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
+
+        fn ocean_index_block(block: String, block_height: u32);
     }
 
     // =========  Debug ==========
