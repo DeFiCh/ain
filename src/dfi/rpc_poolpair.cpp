@@ -745,6 +745,8 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
                      RPCArg::Type::STR,
                      RPCArg::Optional::OMITTED,
                      "Token reward to be paid on each block, multiple can be specified."},
+                    {"name", RPCArg::Type::STR, RPCArg::Optional::NO, "Pool name"},
+                    {"symbol", RPCArg::Type::STR, RPCArg::Optional::NO, "Pool symbol"},
                 },
             }, {
                 "inputs",
@@ -790,6 +792,7 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
     CAmount commission = -1;
     CScript ownerAddress;
     CBalances rewards;
+    std::string pairSymbol{}, pairName{};
     const UniValue &metaObj = request.params[0].get_obj();
     const UniValue &txInputs = request.params[1];
 
@@ -829,6 +832,12 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
                                                                std::numeric_limits<CAmount>::max()));
         }
     }
+    if (!metaObj["symbol"].isNull()) {
+        pairSymbol = metaObj["symbol"].get_str();
+    }
+    if (!metaObj["name"].isNull()) {
+        pairName = metaObj["name"].get_str();
+    }
     RejectErc55Address(ownerAddress);
 
     const auto txVersion = GetTransactionVersion(targetHeight);
@@ -839,19 +848,22 @@ UniValue updatepoolpair(const JSONRPCRequest &request) {
     rawTx.vin =
         GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, true, optAuthTx, txInputs, request.metadata.coinSelectOpts);
 
-    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
-    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair)
-             // serialize poolId as raw integer
-             << poolId.v << status << commission << ownerAddress;
+    CUpdatePoolPairMessage msg;
+    msg.poolId = poolId;
+    msg.status = status;
+    msg.commission = commission;
+    msg.ownerAddress = ownerAddress;
+    msg.rewards = rewards;
+    msg.pairSymbol = pairSymbol;
+    msg.pairName = pairName;
 
-    if (targetHeight >= Params().GetConsensus().DF5ClarkeQuayHeight) {
-        metadata << rewards;
-    }
+    CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    metadata << static_cast<unsigned char>(CustomTxType::UpdatePoolPair) << msg;
 
     CScript scriptMeta;
     scriptMeta << OP_RETURN << ToByteVector(metadata);
 
-    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+    rawTx.vout.emplace_back(0, scriptMeta);
 
     CCoinControl coinControl;
 

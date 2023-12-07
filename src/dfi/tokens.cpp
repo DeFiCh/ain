@@ -150,7 +150,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
     return {id, Res::Ok()};
 }
 
-Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, const bool tokenSplitUpdate) {
+Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool skipFinalisedCheck, const bool tokenSplitUpdate) {
     auto pair = GetTokenByCreationTx(newToken.creationTx);
     if (!pair) {
         return Res::Err("token with creationTx %s does not exist!", newToken.creationTx.ToString());
@@ -159,7 +159,7 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken, bool isPreBayfront, con
     DCT_ID id = pair->first;
     CTokenImpl &oldToken = pair->second;
 
-    if (!isPreBayfront) {
+    if (!skipFinalisedCheck) {
         // for compatibility, in potential case when someone cheat and create finalized token with old node (and then
         // alter dat for ex.)
         if (oldToken.IsFinalized()) {

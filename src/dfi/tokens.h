@@ -199,7 +199,7 @@ public:
 
     Res CreateDFIToken();
     ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, BlockContext *blockCtx = nullptr);
-    Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
+    Res UpdateToken(const CTokenImpl &newToken, bool skipFinalisedCheck = false, const bool tokenSplitUpdate = false);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const &id, const CAmount &amount);
