@@ -61,3 +61,7 @@ pub fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult) {
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
+
+pub fn ocean_index_block(block: String, block_height: u32) {
+    ain_ocean::index_block(block, block_height);
+}
