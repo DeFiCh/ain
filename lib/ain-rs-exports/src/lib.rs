@@ -329,6 +329,8 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         );
+
+        fn ocean_index_block(block: String, block_height: u32);
     }
 
     // =========  Debug ==========

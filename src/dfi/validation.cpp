@@ -2855,4 +2855,16 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
+
+
+    // Ocean archive
+    const auto oceanArchive{true};
+    if (oceanArchive) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << block;
+
+        // Convert the serialized data to a string
+        std::string serializedData = HexStr(ss.begin(), ss.end());
+        ocean_index_block(serializedData, pindex->nHeight);
+    }
 }

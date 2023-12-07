@@ -12,6 +12,7 @@ crate-type = ["staticlib"]
 [dependencies]
 ain-evm = { path = "../ain-evm" }
 ain-grpc = { path = "../ain-grpc" }
+ain-ocean = { path = "../ain-ocean" }
 ain-contracts = { path = "../ain-contracts" }
 ain-macros = { path = "../ain-macros" }
 ain-cpp-imports = { path = "../ain-cpp-imports" }

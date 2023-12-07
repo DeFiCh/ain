@@ -18,6 +18,8 @@ lto = true
 vsdb = { git = "https://github.com/defich/vsdb.git" }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
+bitcoin = { git = "https://github.com/Jouzo/rust-bitcoin.git" }
+bitcoin-io = { git = "https://github.com/Jouzo/rust-bitcoin.git" }
 
 [workspace.dependencies]
 
@@ -115,3 +117,7 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+#### Ocean dependencies
+dftx-rs = { git = "https://github.com/Jouzo/dftx-rs.git" }
+bitcoin = "0.31"

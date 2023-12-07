@@ -1,7 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct ScriptUnspent {
     pub id: String,
     pub hid: String,
@@ -11,8 +8,7 @@ pub struct ScriptUnspent {
     pub vout: ScriptUnspentVout,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct ScriptUnspentBlock {
     pub hash: String,
     pub height: i32,
@@ -20,15 +16,13 @@ pub struct ScriptUnspentBlock {
     pub median_time: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct ScriptUnspentScript {
     pub r#type: String,
     pub hex: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default)]
 pub struct ScriptUnspentVout {
     pub txid: String,
     pub n: i32,
