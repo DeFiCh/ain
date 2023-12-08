@@ -5,11 +5,11 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
-pub struct TransactionVinDb {
+pub struct TransactionVoutDb {
     pub db: RocksDB,
 }
 
-impl TransactionVinDb {
+impl TransactionVoutDb {
     pub async fn get(&self, txid: String, n: i64) -> Result<Option<TransactionVout>> {
         match self.db.get("transaction_vout", txid.as_bytes()) {
             Ok(Some(value)) => {
