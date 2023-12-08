@@ -3,6 +3,7 @@ use crate::database::db_manger::RocksDB;
 use crate::model::masternode::Masternode;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use serde_json;
 
 pub struct MasterNodeDB {
     pub db: RocksDB,

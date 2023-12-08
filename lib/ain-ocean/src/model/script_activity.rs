@@ -6,13 +6,6 @@ pub enum ScriptActivityType {
     Vout,
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ScriptActivityType {
-    #[default]
-    Vin,
-    Vout,
-}
-
 impl ScriptActivityType {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -22,7 +15,6 @@ impl ScriptActivityType {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityTypeHex {
     #[default]
@@ -39,9 +31,8 @@ impl ScriptActivityTypeHex {
     }
 }
 
-#[derive(Debug, Default)]
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Serialize, Deserialize)]
+
 pub struct ScriptActivity {
     pub id: String,
     pub hid: String,
