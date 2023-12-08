@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PoolSwapAggregated {
     pub id: String,
     pub key: String,
@@ -7,12 +10,14 @@ pub struct PoolSwapAggregated {
     pub block: PoolSwapAggregatedBlock,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PoolSwapAggregatedAggregated {
     pub amounts: Vec<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PoolSwapAggregatedBlock {
     pub median_time: i32,
 }

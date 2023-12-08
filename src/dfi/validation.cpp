@@ -2855,7 +2855,6 @@ void ProcessDeFiEvent(const CBlock &block,
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
 
-
     // Ocean archive
     const auto oceanArchive{true};
     if (oceanArchive) {

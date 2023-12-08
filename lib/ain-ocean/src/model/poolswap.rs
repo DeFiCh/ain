@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PoolSwap {
     pub id: String,
     pub txid: String,
@@ -10,7 +13,8 @@ pub struct PoolSwap {
     pub block: PoolSwapBlock,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct PoolSwapBlock {
     pub hash: String,
     pub height: i32,

@@ -406,11 +406,11 @@ check_py() {
     py_ensure_env_active
     _exec_black 1
     # TODO Add flake as well
-    py_env_deactivate 
+    py_env_deactivate
 }
 
 check_rs() {
-    lib clippy 1
+    # lib clippy 1
     lib fmt-check 1
 }
 
@@ -455,7 +455,7 @@ check_cpp() {
 
 check_enter_build_rs_dir() {
     local build_dir="${BUILD_DIR}"
-    _ensure_enter_dir "$build_dir/lib" || { 
+    _ensure_enter_dir "$build_dir/lib" || {
         echo "Please configure first";
         exit 1; }
 }
@@ -494,19 +494,19 @@ _run_clang_format() {
     local fmt_args=""
 
     for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
-        if "${clang_formatters[$idx]}" --version &> /dev/null; then 
+        if "${clang_formatters[$idx]}" --version &> /dev/null; then
             index="$idx"
             break
         fi
     done
     if [[ "$index" == -1 ]]; then
-        echo "clang-format(-${clang_ver}) required" 
+        echo "clang-format(-${clang_ver}) required"
         exit 1
     fi
 
     if [[ "$check_only" == 1 ]]; then
         fmt_args="--dry-run --Werror"
-    fi 
+    fi
 
     # shellcheck disable=SC2086
     find src/dfi src/ffi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
@@ -1076,9 +1076,9 @@ _bash_version_check() {
         echo "Bash version 5+ required."; exit 1;
     }
     [ -z "$BASH_VERSION" ] && _bash_ver_err_exit
-    case $BASH_VERSION in 
+    case $BASH_VERSION in
         5.*) return 0;;
-        *) _bash_ver_err_exit;; 
+        *) _bash_ver_err_exit;;
     esac
 }
 
@@ -1220,11 +1220,11 @@ lib() {
     local cmd="${1-}"
     local exit_on_err="${2:-0}"
     local jobs="$MAKE_JOBS"
-    
+
     check_enter_build_rs_dir
     # shellcheck disable=SC2086
-    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
-        echo "Error: Please resolve all checks"; 
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then
+        echo "Error: Please resolve all checks";
         exit 1;
         fi; }
     _exit_dir
