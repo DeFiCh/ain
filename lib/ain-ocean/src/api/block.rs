@@ -1,9 +1,12 @@
-use axum::{debug_handler, extract::{Path, Query}, Json, routing::get, Router};
+use axum::{
+    debug_handler,
+    extract::{Path, Query},
+    routing::get,
+    Json, Router,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::api_paged_response::ApiPagedResponse;
-use axum::{extract::Path, routing::get, Router};
-use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct BlockId {
@@ -18,7 +21,7 @@ struct BlockHash {
 #[derive(Deserialize)]
 pub struct ListBlocksQuery {
     pub size: usize,
-    pub next: Option<String>
+    pub next: Option<String>,
 }
 
 #[debug_handler]
@@ -31,15 +34,9 @@ async fn list_blocks(Query(query): Query<ListBlocksQuery>) -> Json<ApiPagedRespo
         Block { id: "2".into() },
     ];
 
-    Json(ApiPagedResponse
-        ::of(
-            blocks,
-            query.size,
-            |block| block.clone().id
-        )
-    )
-async fn list_blocks() -> String {
-    "List of blocks".to_string()
+    Json(ApiPagedResponse::of(blocks, query.size, |block| {
+        block.clone().id
+    }))
 }
 
 async fn get_block(Path(BlockId { id }): Path<BlockId>) -> String {

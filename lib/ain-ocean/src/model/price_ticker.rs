@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::oracle_price_aggregated::OraclePriceAggregated;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct PriceTicker {
     pub id: String,
     pub sort: String,
