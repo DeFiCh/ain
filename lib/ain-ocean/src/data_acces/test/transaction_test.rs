@@ -1,16 +1,12 @@
 #[cfg(test)]
 mod tests {
+    use crate::data_acces::transaction::TransactionVinDb;
+    use crate::data_acces::transaction_vout::TransactionVoutDb;
+    use crate::database::db_manger::{ColumnFamilyOperations, RocksDB};
+    use crate::model::transaction::{Transaction, TransactionBlock};
+    use crate::model::transaction_vout::{TransactionVout, TransactionVoutScript};
     use tempfile::tempdir;
     use tokio::task;
-
-    use crate::{
-        data_acces::{transaction::TransactionVinDb, transaction_vout::TransactionVoutDb},
-        database::db_manager::{ColumnFamilyOperations, RocksDB},
-        model::{
-            transaction::{Transaction, TransactionBlock},
-            transaction_vout::{TransactionVout, TransactionVoutScript},
-        },
-    };
 
     fn setup_test_db() -> TransactionVinDb {
         let temp_dir = tempdir().unwrap();
