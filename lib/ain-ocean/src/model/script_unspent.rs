@@ -1,4 +1,5 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptUnspent {
     pub id: String,
     pub hid: String,
@@ -8,7 +9,7 @@ pub struct ScriptUnspent {
     pub vout: ScriptUnspentVout,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptUnspentBlock {
     pub hash: String,
     pub height: i32,
@@ -16,13 +17,13 @@ pub struct ScriptUnspentBlock {
     pub median_time: i32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptUnspentScript {
     pub r#type: String,
     pub hex: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptUnspentVout {
     pub txid: String,
     pub n: i32,

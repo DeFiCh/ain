@@ -1,4 +1,5 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TransactionVout {
     pub id: String,
     pub txid: String,
@@ -8,7 +9,7 @@ pub struct TransactionVout {
     pub script: TransactionVoutScript,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TransactionVoutScript {
     pub hex: String,
     pub r#type: String,

@@ -1,4 +1,7 @@
-#[derive(Debug, Default)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Transaction {
     pub id: String,
     pub order: i32,
@@ -15,7 +18,8 @@ pub struct Transaction {
     pub vout_count: i32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionBlock {
     pub hash: String,
     pub height: i32,

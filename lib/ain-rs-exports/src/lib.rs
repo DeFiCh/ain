@@ -77,6 +77,7 @@ pub mod ffi {
     }
 
     // =========  FFI ==========
+    // =========  Core ==========
     pub struct CrossBoundaryResult {
         pub ok: bool,
         pub reason: String,

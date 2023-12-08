@@ -1,4 +1,5 @@
-#[derive(Debug, Default, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityType {
     #[default]
     Vin,
@@ -14,7 +15,7 @@ impl ScriptActivityType {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityTypeHex {
     #[default]
     Vin,
@@ -30,7 +31,8 @@ impl ScriptActivityTypeHex {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
+
 pub struct ScriptActivity {
     pub id: String,
     pub hid: String,
@@ -45,7 +47,7 @@ pub struct ScriptActivity {
     pub token_id: i32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptActivityBlock {
     pub hash: String,
     pub height: i32,
@@ -53,19 +55,19 @@ pub struct ScriptActivityBlock {
     pub median_time: i32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptActivityScript {
     pub r#type: String,
     pub hex: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptActivityVin {
     pub txid: String,
     pub n: i32,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ScriptActivityVout {
     pub txid: String,
     pub n: i32,
