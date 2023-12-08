@@ -12,7 +12,6 @@ pub struct OraclePriceAggregatedInterval {
     pub block: OraclePriceAggregatedIntervalBlock,
 }
 
-#[derive(Debug, Default)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
@@ -22,7 +21,6 @@ pub struct OraclePriceAggregatedIntervalAggregated {
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }
 
-#[derive(Debug, Default)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalBlock {
@@ -32,7 +30,6 @@ pub struct OraclePriceAggregatedIntervalBlock {
     pub median_time: i32,
 }
 
-#[derive(Debug, Default)]
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregatedOracles {
