@@ -14,6 +14,7 @@ pub(crate) trait Index {
 
 use bitcoin::BlockHash;
 use dftx_rs::{deserialize, Block, DfTx};
+use log::debug;
 
 pub(crate) struct BlockContext {
     height: u32,
@@ -23,6 +24,8 @@ pub(crate) struct BlockContext {
 }
 
 pub fn index_block(block: String, block_height: u32) -> Result<()> {
+    debug!("[index_block] Indexing block...");
+
     let hex = hex::decode(block)?;
     let block = deserialize::<Block>(&hex)?;
 
@@ -49,15 +52,15 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
 
             match dftx {
                 DfTx::CreateMasternode(data) => data.index(&context, tx)?,
-                DfTx::UpdateMasternode(data) => data.index(&context, tx)?,
-                DfTx::ResignMasternode(data) => data.index(&context, tx)?,
-                DfTx::AppointOracle(data) => data.index(&context, tx)?,
-                DfTx::RemoveOracle(data) => data.index(&context, tx)?,
-                DfTx::UpdateOracle(data) => data.index(&context, tx)?,
-                DfTx::SetOracleData(data) => data.index(&context, tx)?,
-                DfTx::PoolSwap(data) => data.index(&context, tx)?,
-                DfTx::CompositeSwap(data) => data.index(&context, tx)?,
-                DfTx::PlaceAuctionBid(data) => data.index(&context, tx)?,
+                // DfTx::UpdateMasternode(data) => data.index(&context, tx)?,
+                // DfTx::ResignMasternode(data) => data.index(&context, tx)?,
+                // DfTx::AppointOracle(data) => data.index(&context, tx)?,
+                // DfTx::RemoveOracle(data) => data.index(&context, tx)?,
+                // DfTx::UpdateOracle(data) => data.index(&context, tx)?,
+                // DfTx::SetOracleData(data) => data.index(&context, tx)?,
+                // DfTx::PoolSwap(data) => data.index(&context, tx)?,
+                // DfTx::CompositeSwap(data) => data.index(&context, tx)?,
+                // DfTx::PlaceAuctionBid(data) => data.index(&context, tx)?,
                 _ => (),
             }
         }
@@ -65,6 +68,6 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
     Ok(())
 }
 
-pub fn invalidate_block() {
-    todo!()
+pub fn invalidate_block(block: String, block_height: u32) -> Result<()> {
+    Ok(())
 }

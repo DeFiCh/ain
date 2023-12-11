@@ -1,10 +1,11 @@
 mod core;
 mod evm;
+mod ocean;
 mod prelude;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*};
+use crate::{core::*, evm::*, ocean::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -325,6 +326,11 @@ pub mod ffi {
             raw_tx: &str,
         );
 
-        fn ocean_index_block(block: String, block_height: u32);
+        fn ocean_index_block(result: &mut CrossBoundaryResult, block: String, block_height: u32);
+        fn ocean_invalidate_block(
+            result: &mut CrossBoundaryResult,
+            block: String,
+            block_height: u32,
+        );
     }
 }

@@ -55,5 +55,6 @@ pub mod ffi {
         fn getEvmValidationLruCacheCount() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
+        fn isOceanEnabled() -> bool;
     }
 }

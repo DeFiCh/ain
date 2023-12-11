@@ -1,4 +1,4 @@
-use axum::Router;
+use axum::{http::StatusCode, response::IntoResponse, Router};
 
 mod address;
 mod block;
@@ -13,8 +13,17 @@ mod rawtx;
 mod stats;
 mod tokens;
 mod transactions;
+use axum::routing::get;
+
+async fn ocean_not_activated() -> impl IntoResponse {
+    (StatusCode::FORBIDDEN, "Ocean is not activated")
+}
 
 pub fn ocean_router() -> Router {
+    if !ain_cpp_imports::is_ocean_rest_enabled() {
+        return Router::new().route("/*path", get(ocean_not_activated));
+    }
+
     Router::new()
         .nest("/address", address::router())
         .nest("/governance", governance::router())

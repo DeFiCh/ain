@@ -19,6 +19,7 @@
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
+#include <ffi/ffiexports.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>
@@ -2790,6 +2791,21 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
 
+    // Ocean archive
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << block;
+
+        // Convert the serialized data to a string
+        std::string serializedData = HexStr(ss.begin(), ss.end());
+
+        CrossBoundaryResult result;
+        ocean_index_block(result, serializedData, pindex->nHeight);
+        if (!result.ok) {
+            return Res::Err(result.reason.c_str());
+        }
+    }
+
     return Res::Ok();
 }
 
@@ -2856,15 +2872,4 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
-
-    // Ocean archive
-    const auto oceanArchive{true};
-    if (oceanArchive) {
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << block;
-
-        // Convert the serialized data to a string
-        std::string serializedData = HexStr(ss.begin(), ss.end());
-        ocean_index_block(serializedData, pindex->nHeight);
-    }
 }
