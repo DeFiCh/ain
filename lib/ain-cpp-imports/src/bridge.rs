@@ -60,5 +60,6 @@ pub mod ffi {
         fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
+        fn isOceanEnabled() -> bool;
     }
 }

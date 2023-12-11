@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ain-cpp-imports.workspace = true
+
 axum.workspace = true
 hyper.workspace = true
 keccak-hash.workspace = true

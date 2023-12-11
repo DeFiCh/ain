@@ -29,6 +29,8 @@ static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = true;
 
+static constexpr bool DEFAULT_OCEAN_ARCHIVE_ENABLED = false;
+
 struct Attributes {
     uint64_t blockGasTargetFactor;
     uint64_t blockGasLimit;
@@ -99,6 +101,6 @@ size_t getEvmValidationLruCacheCount();
 size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
-bool isEthSubscriptionEnabled();
+bool isOceanEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

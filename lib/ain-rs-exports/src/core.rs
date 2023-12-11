@@ -61,7 +61,3 @@ pub fn ain_rs_wipe_evm_folder() -> Result<()> {
     ain_grpc::wipe_evm_folder()?;
     Ok(())
 }
-
-pub fn ocean_index_block(block: String, block_height: u32) {
-    ain_ocean::index_block(block, block_height);
-}
