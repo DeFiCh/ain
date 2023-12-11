@@ -1,9 +1,11 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
-use crate::model::masternode::Masternode;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json;
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    model::masternode::Masternode,
+};
 
 pub struct MasterNodeDB {
     pub db: RocksDB,

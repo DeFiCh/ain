@@ -1,9 +1,11 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
-use crate::model::vault_auction_batch_history::VaultAuctionBatchHistory;
 use anyhow::{anyhow, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_json;
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    model::vault_auction_batch_history::VaultAuctionBatchHistory,
+};
 
 pub struct VaultAuctionDB {
     pub db: RocksDB,

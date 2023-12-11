@@ -1,10 +1,12 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
-use crate::model::masternode_stats::MasternodeStats;
 use anyhow::{anyhow, Result};
 use bitcoin::absolute::Height;
 use rocksdb::{ColumnFamilyDescriptor, IteratorMode, DB};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    model::masternode_stats::MasternodeStats,
+};
 
 #[derive(Debug)]
 pub struct MasterStatsDb {

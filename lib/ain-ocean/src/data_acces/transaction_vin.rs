@@ -1,8 +1,10 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
-use crate::model::transaction_vin::TransactionVin;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    model::transaction_vin::TransactionVin,
+};
 
 #[derive(Debug)]
 pub struct TransactionVinDb {
