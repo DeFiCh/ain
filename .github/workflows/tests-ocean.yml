@@ -60,6 +60,8 @@ jobs:
     name: Jellyfish Whale Api tests
     runs-on: ubuntu-latest
     needs: build
+    strategy:
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v4
