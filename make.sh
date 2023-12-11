@@ -242,7 +242,7 @@ package() {
 
     if [[ "$target" == "x86_64-w64-mingw32" ]]; then
         _ensure_enter_dir "${build_dir}"
-        zip -r "${pkg_path}" "${versioned_build_dir}/"
+        zip -r "${pkg_path}" "${versioned_build_dir}/__w/ain/ain/build/"
     else
         _ensure_enter_dir "${versioned_build_dir}"
         _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
