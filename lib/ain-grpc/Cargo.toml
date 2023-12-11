@@ -6,7 +6,7 @@ build = "build.rs"
 
 [dependencies]
 ain-evm = { path = "../ain-evm" }
-ain-cpp-imports = { path = "../ain-cpp-imports" }
+ain-cpp-imports.workspace = true
 ain-ocean = { path = "../ain-ocean" }
 cxx.workspace = true
 env_logger.workspace = true

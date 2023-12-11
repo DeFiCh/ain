@@ -33,15 +33,6 @@ impl Index for CreateMasternode {
             history: None,
         };
 
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .append(true)
-            .open("/tmp/masternode")
-            .expect("Unable to open file");
-
-        writeln!(file, "{:?}", masternode).expect("Unable to write to file");
-
         Ok(())
     }
 

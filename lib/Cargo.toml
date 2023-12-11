@@ -120,3 +120,6 @@ substrate-bn = "0.6"
 #### Ocean dependencies
 dftx-rs = { git = "https://github.com/Jouzo/dftx-rs.git" }
 bitcoin = "0.31"
+
+### Local crates
+ain-cpp-imports = { path = "./ain-cpp-imports" }

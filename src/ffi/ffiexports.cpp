@@ -377,3 +377,7 @@ bool isEthDebugRPCEnabled() {
 bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
 }
+
+bool isOceanEnabled() {
+    return gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED);
+}

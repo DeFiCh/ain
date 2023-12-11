@@ -21,6 +21,8 @@ static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
 static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 
+static constexpr bool DEFAULT_OCEAN_ARCHIVE_ENABLED = false;
+
 struct Attributes {
     uint64_t blockGasTargetFactor;
     uint64_t blockGasLimit;
@@ -87,5 +89,6 @@ size_t getEccLruCacheCount();
 size_t getEvmValidationLruCacheCount();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
+bool isOceanEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

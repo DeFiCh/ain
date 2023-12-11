@@ -212,6 +212,7 @@ dependencies = [
 name = "ain-ocean"
 version = "0.1.0"
 dependencies = [
+ "ain-cpp-imports",
  "anyhow",
  "axum 0.7.2",
  "bitcoin",

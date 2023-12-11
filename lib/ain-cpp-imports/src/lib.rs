@@ -280,5 +280,10 @@ pub fn is_eth_debug_trace_rpc_enabled() -> bool {
     ffi::isEthDebugTraceRPCEnabled()
 }
 
+/// Checks if Ocean REST API is enabled
+pub fn is_ocean_rest_enabled() -> bool {
+    ffi::isOceanEnabled()
+}
+
 #[cfg(test)]
 mod tests {}
