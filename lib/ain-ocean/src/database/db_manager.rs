@@ -1,13 +1,14 @@
-use crate::model::oracle::Oracle;
+use std::{collections::HashSet, sync::Arc};
+
 use anyhow::{anyhow, Result};
-use bitcoin::blockdata::block::Block;
-use bitcoin::blockdata::block::Header;
-use bitcoin::consensus::encode::serialize;
-use rocksdb::Options;
-use rocksdb::{ColumnFamilyDescriptor, DBIterator, IteratorMode, DB};
+use bitcoin::{
+    blockdata::block::{Block, Header},
+    consensus::encode::serialize,
+};
+use rocksdb::{ColumnFamilyDescriptor, DBIterator, IteratorMode, Options, DB};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::sync::Arc;
+
+use crate::model::oracle::Oracle;
 
 #[derive(Debug)]
 pub struct RocksDB {
