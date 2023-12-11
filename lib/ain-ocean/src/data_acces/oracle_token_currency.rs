@@ -1,8 +1,10 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
-use crate::model::oracle_token_currency::OracleTokenCurrency;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    model::oracle_token_currency::OracleTokenCurrency,
+};
 
 pub struct OracleTokenCurrencyDb {
     pub db: RocksDB,

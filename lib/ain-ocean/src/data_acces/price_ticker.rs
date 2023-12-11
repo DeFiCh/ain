@@ -1,8 +1,10 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
-use crate::model::price_ticker::PriceTicker;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    model::price_ticker::PriceTicker,
+};
 
 pub struct price_ticker {
     pub db: RocksDB,
