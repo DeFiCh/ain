@@ -7,6 +7,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::api_paged_response::ApiPagedResponse;
+use crate::api_query::PaginationQuery;
 
 #[derive(Deserialize)]
 struct BlockId {
@@ -18,14 +19,8 @@ struct BlockHash {
     hash: String,
 }
 
-#[derive(Deserialize)]
-pub struct ListBlocksQuery {
-    pub size: usize,
-    pub next: Option<String>,
-}
-
 #[debug_handler]
-async fn list_blocks(Query(query): Query<ListBlocksQuery>) -> Json<ApiPagedResponse<Block>> {
+async fn list_blocks(Query(query): Query<PaginationQuery>) -> Json<ApiPagedResponse<Block>> {
     // TODO(): query from db
     // db::block::list(req).await...
     let blocks = vec![
