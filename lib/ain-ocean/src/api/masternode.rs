@@ -7,7 +7,7 @@ use crate::{
     model::masternode::{MasternodeData, MasternodeState, MasternodeOwner, MasternodeOperator},
 };
 
-async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<Masternode>>> {
+async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<MasternodeData>>> {
     let masternodes = vec![
         MasternodeData {
             id: "e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
@@ -32,8 +32,8 @@ async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<J
     })))
 }
 
-async fn get_masternode(Path(masternode_id): Path<String>) -> OceanResult<Json<Masternode>> {
-    Ok(Json(Masternode {
+async fn get_masternode(Path(masternode_id): Path<String>) -> OceanResult<Json<MasternodeData>> {
+    Ok(Json(MasternodeData {
         id: "e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
         sort: "00000000e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
         state: MasternodeState::Enabled,
