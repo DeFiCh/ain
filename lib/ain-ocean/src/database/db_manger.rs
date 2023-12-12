@@ -10,6 +10,11 @@ pub struct RocksDB {
     cfs: HashSet<String>,
 }
 
+pub enum SortOrder {
+    Ascending,
+    Descending,
+}
+
 pub trait ColumnFamilyOperations {
     fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>>;
     fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
@@ -30,6 +35,8 @@ impl RocksDB {
             "block_map",
             "latest_block_height",
             "masternode_stats",
+            "masternode_map",
+            "masternode_block_height",
             "masternode",
             "oracle_history",
             "oracle_price_active",
@@ -46,8 +53,11 @@ impl RocksDB {
             "script_aggregation",
             "script_unspent",
             "transaction",
+            "transaction_mapper",
             "transaction_vin",
+            "transaction_vin_mapper",
             "transaction_vout",
+            "transaction_vout_mapper",
             "vault_auction_history",
             "pool_swap",
         ];

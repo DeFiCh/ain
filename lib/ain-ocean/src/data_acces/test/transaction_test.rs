@@ -96,4 +96,20 @@ mod tests {
         let result = txn_vin_db.delete(trx_id).await;
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_query_transaction() {
+        let txn_vin_db = setup_test_db();
+
+        let test_transaction = sample_transaction("tx1");
+        let trx_id = test_transaction.id.clone();
+
+        let result = txn_vin_db.store(test_transaction.clone()).await;
+        assert!(result.is_ok());
+
+        let result = txn_vin_db
+            .query_by_block_hash(test_transaction.block.hash.to_string(), 10, 0)
+            .await;
+        assert!(result.is_ok());
+    }
 }

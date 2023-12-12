@@ -1,5 +1,5 @@
 use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::RocksDB;
+use crate::database::db_manger::{RocksDB, SortOrder};
 use crate::model::block::Block;
 use anyhow::{anyhow, Error, Result};
 use rocksdb::{DBIteratorWithThreadMode, IteratorMode};
@@ -8,10 +8,6 @@ use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::hash;
 
-pub enum SortOrder {
-    Ascending,
-    Descending,
-}
 #[derive(Debug)]
 pub struct BlockDb {
     pub db: RocksDB,
