@@ -2,6 +2,7 @@
 mod tests {
     use super::*;
     use crate::data_acces::block::BlockDb;
+    use crate::database::db_manger::SortOrder;
     use crate::database::db_manger::{ColumnFamilyOperations, RocksDB};
     use crate::model::block::Block;
     use tempdir::TempDir;
@@ -126,7 +127,7 @@ mod tests {
 
         // Test the query_by_height method
         let result_blocks = block_db
-            .query_by_height(3, 4, crate::data_acces::block::SortOrder::Descending)
+            .query_by_height(3, 4, SortOrder::Descending)
             .await
             .unwrap();
         // Verify that the result contains the expected blocks
@@ -151,7 +152,7 @@ mod tests {
 
         // Test the query_by_height method
         let result_blocks = block_db
-            .query_by_height(5, 6, crate::data_acces::block::SortOrder::Ascending)
+            .query_by_height(5, 6, SortOrder::Ascending)
             .await
             .unwrap();
         // Verify that the result contains the expected blocks
