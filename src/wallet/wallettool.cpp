@@ -102,7 +102,7 @@ static void WalletShowInfo(CWallet* wallet_instance)
 
 bool ExecuteWalletToolFunc(const std::string& command, const std::string& name)
 {
-    fs::path path = fs::absolute(name, GetWalletDir());
+    fs::path path = fsbridge::AbsPathJoin(GetWalletDir(), fs::PathFromString(name));
 
     if (command == "create") {
         std::shared_ptr<CWallet> wallet_instance = CreateWallet(name, path);

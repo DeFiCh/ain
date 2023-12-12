@@ -41,5 +41,5 @@ InitWalletDirTestingSetup::~InitWalletDirTestingSetup()
 
 void InitWalletDirTestingSetup::SetWalletDir(const fs::path& walletdir_path)
 {
-    gArgs.ForceSetArg("-walletdir", walletdir_path.string());
+    gArgs.ForceSetArg("-walletdir", fs::PathToString(walletdir_path));
 }

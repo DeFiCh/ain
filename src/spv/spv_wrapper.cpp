@@ -206,7 +206,7 @@ CSpvWrapper::CSpvWrapper(bool isMainnet, size_t nCacheSize, bool fMemory, bool f
 
     // Configuring spv logs:
     // (we need intermediate persistent storage for filename here)
-    spv_internal_logfilename = AbsPathForConfigVal("spv.log").string();
+    spv_internal_logfilename = fs::PathToString(AbsPathForConfigVal(fs::PathFromString("spv.log")));
     spv_logfilename = spv_internal_logfilename.c_str();
     LogPrint(BCLog::SPV, "internal logs set to %s\n", spv_logfilename);
     spv_log2console = 0;
