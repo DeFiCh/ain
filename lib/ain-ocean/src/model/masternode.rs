@@ -25,7 +25,7 @@ pub struct MasternodeBlock {
     pub median_time: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub enum MasternodeState {
     PreEnabled,
     Enabled,
@@ -47,32 +47,32 @@ impl std::fmt::Display for MasternodeState {
         MasternodeState::PreBanned => write!(f, "PRE_BANNED"),
         MasternodeState::Banned => write!(f, "BANNED"),
         MasternodeState::Unknown => write!(f, "UNKNOWN"),
-       } 
+       }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct MasternodeOwner {
     pub address: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct MasternodeOperator {
     pub address: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct MasternodeCreation {
     pub height: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct MasternodeResign {
     pub tx: String,
     pub height: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MasternodeData {
     pub id: String,
