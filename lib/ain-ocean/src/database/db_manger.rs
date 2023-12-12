@@ -28,6 +28,7 @@ impl RocksDB {
             "default",
             "block",
             "block_map",
+            "latest_block_height",
             "masternode_stats",
             "masternode",
             "oracle_history",

@@ -4,9 +4,14 @@ use crate::model::block::Block;
 use anyhow::{anyhow, Error, Result};
 use rocksdb::{DBIteratorWithThreadMode, IteratorMode};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::hash;
 
+pub enum SortOrder {
+    Ascending,
+    Descending,
+}
 #[derive(Debug)]
 pub struct BlockDb {
     pub db: RocksDB,
@@ -55,39 +60,66 @@ impl BlockDb {
             Err(e) => Err(anyhow!(e)),
         }
     }
-    pub async fn get_heighest(&self) -> Result<Block> {
-        todo!()
+
+    pub async fn get_highest(&self) -> Result<Option<Block>> {
+        // Retrieve the latest block height
+        let latest_height_bytes = match self.db.get("latest_block_height", b"latest_block_height") {
+            Ok(Some(value)) => value,
+            Ok(None) => return Ok(None), // No latest block height set
+            Err(e) => return Err(anyhow!(e)),
+        };
+
+        // Convert the latest height bytes back to an integer
+        let latest_height = i32::from_be_bytes(
+            latest_height_bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| anyhow!("Byte length mismatch for latest height"))?,
+        );
+
+        // Retrieve the block with the latest height
+        match self.db.get("block", &latest_height.to_be_bytes()) {
+            Ok(Some(value)) => {
+                let block: Block = serde_json::from_slice(&value).map_err(|e| anyhow!(e))?;
+                Ok(Some(block))
+            }
+            Ok(None) => Ok(None), // No block found for the latest height
+            Err(e) => Err(anyhow!(e)),
+        }
     }
 
-    pub async fn query_by_height(&self, limit: i32, lt: i32) -> Result<Vec<Block>> {
+    pub async fn query_by_height(
+        &self,
+        limit: i32,
+        lt: i32,
+        sort_order: SortOrder,
+    ) -> Result<Vec<Block>> {
         let mut blocks: Vec<Block> = Vec::new();
 
-        // Use the iterator method to create an iterator for the "blocks" column family
         let iterator = self.db.iterator("block", IteratorMode::End)?;
-
-        // Collect the iterator into a vector
         let collected_blocks: Vec<_> = iterator.collect();
 
-        // Iterate over the collected vector in reverse
         for result in collected_blocks.into_iter().rev() {
             let (key, value) = match result {
                 Ok((key, value)) => (key, value),
                 Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
             };
 
-            // Deserialize the block
             let block: Block = serde_json::from_slice(&value)?;
 
-            // Check height conditions
             if block.height < lt {
-                // Collect blocks that meet the conditions
-                blocks.push(block.clone());
+                blocks.push(block);
 
-                // Check if the limit is reached
                 if blocks.len() == limit as usize {
                     break;
                 }
             }
+        }
+
+        // Sort blocks based on the specified sort order
+        match sort_order {
+            SortOrder::Ascending => blocks.sort_by(|a, b| a.height.cmp(&b.height)),
+            SortOrder::Descending => blocks.sort_by(|a, b| b.height.cmp(&a.height)),
         }
 
         Ok(blocks)
@@ -102,6 +134,13 @@ impl BlockDb {
                 let block_map_key = block.hash.as_bytes();
                 self.db
                     .put("block_map", block_map_key, &block_number.to_be_bytes())?;
+                self.db
+                    .delete("latest_block_height", b"latest_block_height")?;
+                self.db.put(
+                    "latest_block_height",
+                    b"latest_block_height",
+                    &block_number.to_be_bytes(),
+                )?;
                 Ok(())
             }
             Err(e) => Err(anyhow!(e)),
