@@ -25,6 +25,7 @@ pub struct MasternodeBlock {
     pub median_time: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default)]
 enum MasternodeState {
     PreEnabled,
     Enabled,
@@ -32,6 +33,7 @@ enum MasternodeState {
     Resigned,
     PreBanned,
     Banned,
+    #[default]
     Unknown,
 }
 
