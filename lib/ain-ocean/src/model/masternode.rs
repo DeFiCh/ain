@@ -82,7 +82,7 @@ pub struct MasternodeData {
     pub owner: MasternodeOwner,
     pub operator: MasternodeOperator,
     pub creation: MasternodeCreation,
-    pub resign: Option<MasternodeCreationResign>,
+    pub resign: Option<MasternodeResign>,
     pub timelock: i32,
 }
 
