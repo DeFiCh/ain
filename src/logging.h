@@ -66,7 +66,6 @@ namespace BCLog {
         RPCCACHE      = (1ull << 29ull),
         CUSTOMTXBENCH = (1ull << 30ull),
         CONNECT       = (1ull << 31ull),
-        SIGN          = (1ull << 32ull),
         ALL           = ~(0ull),
     };
 

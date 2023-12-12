@@ -200,7 +200,6 @@ public:
     bool IsEmpty() {
         return db->IsEmpty();
     }
-
     [[nodiscard]] std::shared_ptr<CStorageSnapshot> GetStorageSnapshot() const {
         return db->GetStorageSnapshot();
     }

@@ -276,7 +276,7 @@ struct RewardInfo {
 };
 
 
-std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
+std::optional<UniValue> VmInfoUniv(CCustomCSView &view, const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
         UniValue r(UniValue::VOBJ);
         r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
@@ -313,7 +313,7 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
         result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
         return result;
     }
-    auto res = RpcInfo(tx, std::numeric_limits<int>::max(), guess, txResults);
+    auto res = RpcInfo(view, tx, std::numeric_limits<int>::max(), guess, txResults);
     if (guess == CustomTxType::None) {
         return {};
     }
@@ -328,12 +328,12 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
     return result;
 }
 
-UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock) {
+UniValue ExtendedTxToUniv(CCustomCSView &view, const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock) {
     if (txDetails) {
         UniValue objTx(UniValue::VOBJ);
         TxToUniv(tx, uint256(), objTx, version != 3, RPCSerializationFlags(), version);
         if (version > 2) {
-            if (auto r = VmInfoUniv(tx, isEvmEnabledForBlock); r) {
+            if (auto r = VmInfoUniv(view, tx, isEvmEnabledForBlock); r) {
                 objTx.pushKV("vm", *r);
             }
         }
@@ -343,17 +343,17 @@ UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serializ
     }
 }
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
+UniValue blockToJSON(CCustomCSView &view, const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails, int version)
 {
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(view, consensus);
 
-    auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
+    auto txsToUniValue = [&](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
         for(const auto& tx : block.vtx) {
-            txs.push_back(ExtendedTxToUniv(*tx, txDetails, RPCSerializationFlags(), version, txDetails, isEvmEnabledForBlock));
+            txs.push_back(ExtendedTxToUniv(view, *tx, txDetails, RPCSerializationFlags(), version, txDetails, isEvmEnabledForBlock));
         }
         return txs;
     };
@@ -373,7 +373,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // For v3+, we fix the past mistakes and don't just modify existing root schema.
     // We'll add all these later.
     if (!v3plus) {
-        MinterInfo::From(block, blockindex, *pcustomcsview).ToUniValueLegacy(result);
+        MinterInfo::From(block, blockindex, view).ToUniValueLegacy(result);
     }
 
     result.pushKV("version", block.nVersion);
@@ -398,7 +398,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
     if (v3plus) {
-        MinterInfo::From(block, blockindex, *pcustomcsview).ToUniValue();
+        MinterInfo::From(block, blockindex, view).ToUniValue();
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
@@ -1161,7 +1161,8 @@ static UniValue getblock(const JSONRPCRequest& request)
         return strHex;
     }
 
-    return blockToJSON(block, tip, pblockindex, verbosity >= 2, verbosity);
+    auto view = ::GetViewSnapshot();
+    return blockToJSON(*view, block, tip, pblockindex, verbosity >= 2, verbosity);
 }
 
 static UniValue pruneblockchain(const JSONRPCRequest& request)
