@@ -116,7 +116,6 @@ impl BlockStorage for BlockStore {
 
     fn put_block(&self, block: &BlockAny) -> Result<()> {
         self.extend_transactions_from_block(block)?;
-
         let block_number = block.header.number;
         let hash = block.header.hash();
         let blocks_cf = self.column::<columns::Blocks>();
