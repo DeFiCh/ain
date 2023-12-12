@@ -1,11 +1,6 @@
-use crate::model::oracle::Oracle;
 use anyhow::{anyhow, Result};
-use bitcoin::blockdata::block::Block;
-use bitcoin::blockdata::block::Header;
-use bitcoin::consensus::encode::serialize;
 use rocksdb::Options;
 use rocksdb::{ColumnFamilyDescriptor, DBIterator, IteratorMode, DB};
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -32,6 +27,7 @@ impl RocksDB {
         let cf_names = [
             "default",
             "block",
+            "block_map",
             "masternode_stats",
             "masternode",
             "oracle_history",
@@ -72,42 +68,6 @@ impl RocksDB {
             .collect::<HashSet<_>>();
 
         Ok(Self { db, cfs })
-    }
-
-    pub fn put_block(&self, block: &Block) -> anyhow::Result<()> {
-        // Serialize the header to a byte vector
-        let serialized_header = serialize(block);
-        // Convert the block hash to string (Assume it's a suitable key)
-        let key = block.block_hash().to_string();
-        // Store the block header
-        self.put("block", key.as_bytes(), &serialized_header)?;
-        Ok(())
-    }
-
-    pub fn get_block(&self, key: &[u8]) -> anyhow::Result<Option<Vec<u8>>> {
-        self.get("block", key)
-    }
-
-    pub fn put_block_header(&self, header: &Header) -> anyhow::Result<()> {
-        // Serialize the header to a byte vector
-        let serialized_header = serialize(header);
-        // Convert the block hash to string (Assume it's a suitable key)
-        let key = header.block_hash().to_string();
-        // Store the block header
-        self.put("block_header", key.as_bytes(), &serialized_header)?;
-        // Update the latest block hash
-        let latest_block_hash = header.block_hash().to_string();
-        self.put_latest_block_hash(
-            "latest_block_hash",
-            b"latest_block_hash",
-            latest_block_hash.as_bytes(),
-        )?;
-
-        Ok(())
-    }
-
-    pub fn get_block_header(&self, key: &[u8]) -> anyhow::Result<Option<Vec<u8>>> {
-        self.get("block_header", key)
     }
 
     pub fn put_latest_block_hash(
@@ -167,25 +127,6 @@ impl RocksDB {
                     Ok(Some(value_str))
                 }
                 None => Ok(None),
-            }
-        } else {
-            Err(anyhow::anyhow!("Invalid column family name"))
-        }
-    }
-
-    //block_hash in block table
-    pub async fn block_hash_exists(&self, block_hash: &str) -> anyhow::Result<bool> {
-        let cf_name = "block";
-        if let Some(cf_name) = self.cfs.get(cf_name) {
-            let cf = self
-                .db
-                .cf_handle(cf_name)
-                .ok_or_else(|| anyhow::anyhow!("Failed to get column family handle"))?;
-
-            let key = block_hash.as_bytes();
-            match self.db.get_cf(cf, key)? {
-                Some(_) => Ok(true), // Block hash exists in the "block" column family
-                None => Ok(false),   // Block hash does not exist
             }
         } else {
             Err(anyhow::anyhow!("Invalid column family name"))
