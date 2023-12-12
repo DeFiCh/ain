@@ -1,5 +1,4 @@
 use axum::{
-    debug_handler,
     extract::{Path, Query},
     routing::get,
     Json, Router,
@@ -22,7 +21,6 @@ struct BlockHash {
     hash: String,
 }
 
-#[debug_handler]
 async fn list_blocks(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<Block>>> {
     // TODO(): query from lvldb.. or maybe pull from index
     let blocks = vec![
@@ -36,7 +34,6 @@ async fn list_blocks(Query(query): Query<PaginationQuery>) -> OceanResult<Json<A
     })))
 }
 
-#[debug_handler]
 async fn get_block(Path(BlockId { id }): Path<BlockId>) -> OceanResult<Json<Block>> {
     Ok(Json(Block {
         id,
