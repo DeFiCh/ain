@@ -4,7 +4,7 @@ use crate::{
     api_paged_response::ApiPagedResponse,
     api_query::PaginationQuery,
     error::OceanResult,
-    model::masternode::{MasternodeData, MasternodeState, MasternodeOwner, MasternodeOperator},
+    model::masternode::{MasternodeData, MasternodeState, MasternodeCreation, MasternodeOwner, MasternodeOperator},
 };
 
 async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<MasternodeData>>> {
