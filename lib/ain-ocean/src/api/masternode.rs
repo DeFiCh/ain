@@ -7,7 +7,6 @@ use crate::{
     model::masternode::{MasternodeData, MasternodeState, MasternodeOwner, MasternodeOperator},
 };
 
-
 async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<Masternode>>> {
     let masternodes = vec![
         MasternodeData {
