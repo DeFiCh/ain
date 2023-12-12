@@ -26,7 +26,7 @@ pub struct MasternodeBlock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-enum MasternodeState {
+pub enum MasternodeState {
     PreEnabled,
     Enabled,
     PreResigned,
