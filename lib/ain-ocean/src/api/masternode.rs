@@ -4,28 +4,12 @@ use crate::{
     api_paged_response::ApiPagedResponse,
     api_query::PaginationQuery,
     error::OceanResult,
-    model::masternode::{MasternodeData, MasternodeState, MasternodeCreation, MasternodeOwner, MasternodeOperator},
+    model::masternode::MasternodeData,
 };
 
 async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<MasternodeData>>> {
     let masternodes = vec![
-        MasternodeData {
-            id: "e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
-            sort: "00000000e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
-            state: MasternodeState::Enabled,
-            minted_blocks: 2,
-            owner: MasternodeOwner {
-                address: "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU".into(),
-            },
-            operator: MasternodeOperator {
-                address: "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy".into(),
-            },
-            creation: MasternodeCreation {
-                height: 0
-            },
-            resign: None,
-            timelock: 0
-        }
+        MasternodeData::new("0"),
     ];
     Ok(Json(ApiPagedResponse::of(masternodes, query.size, |masternode| {
         masternode.clone().id
@@ -33,23 +17,7 @@ async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<J
 }
 
 async fn get_masternode(Path(masternode_id): Path<String>) -> OceanResult<Json<MasternodeData>> {
-    Ok(Json(MasternodeData {
-        id: "e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
-        sort: "00000000e86c027861cc0af423313f4152a44a83296a388eb51bf1a6dde9bd75bed55fb4".into(),
-        state: MasternodeState::Enabled,
-        minted_blocks: 2,
-        owner: MasternodeOwner {
-            address: "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU".into(),
-        },
-        operator: MasternodeOperator {
-            address: "mswsMVsyGMj1FzDMbbxw2QW3KvQAv2FKiy".into(),
-        },
-        creation: MasternodeCreation {
-            height: 0
-        },
-        resign: None,
-        timelock: 0
-    }))
+    Ok(Json(MasternodeData::new(&masternode_id)))
 }
 
 pub fn router() -> Router {

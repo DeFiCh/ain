@@ -85,6 +85,27 @@ pub struct MasternodeData {
     pub resign: Option<MasternodeResign>,
     pub timelock: i32,
 }
+impl MasternodeData {
+    pub fn new(id: &str) -> Self {
+        Self {
+            id: id.repeat(64),
+            sort: id.repeat(72),
+            state: MasternodeState::Enabled,
+            minted_blocks: 2,
+            owner: MasternodeOwner {
+                address: id.repeat(34),
+            },
+            operator: MasternodeOperator {
+                address: id.repeat(34),
+            },
+            creation: MasternodeCreation {
+                height: 0
+            },
+            resign: None,
+            timelock: 0
+       }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
