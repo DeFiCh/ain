@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Error, Result};
-use serde::{Deserialize, Serialize};
+use rocksdb::{Direction, IteratorMode};
 use serde_json;
 
 use crate::{
@@ -17,8 +17,45 @@ impl ScriptAggretionDB {
         hid: String,
         limit: i32,
         lt: String,
+        sort_order: SortOrder,
     ) -> Result<Vec<ScriptAggregation>> {
-        todo!()
+        let iterator = self.db.iterator(
+            "script_aggregation",
+            IteratorMode::From(lt.as_bytes(), Direction::Reverse),
+        )?;
+
+        let mut script_aggre: Vec<ScriptAggregation> = Vec::new();
+
+        for item in iterator {
+            match item {
+                Ok((key, value)) => {
+                    let key_str = String::from_utf8_lossy(&key);
+
+                    if !key_str.starts_with(&hid) {
+                        break;
+                    }
+
+                    let vout: ScriptAggregation = serde_json::from_slice(&value)?;
+                    script_aggre.push(vout);
+
+                    if script_aggre.len() >= limit as usize {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Error iterating over the database: {:?}", err);
+                    return Err(err.into());
+                }
+            }
+        }
+
+        // Sorting based on the SortOrder
+        match sort_order {
+            SortOrder::Ascending => script_aggre.sort_by(|a, b| a.id.cmp(&b.id)),
+            SortOrder::Descending => script_aggre.sort_by(|a, b| b.id.cmp(&a.id)),
+        }
+
+        Ok(script_aggre)
     }
     pub async fn store(&self, aggregation: ScriptAggregation) -> Result<()> {
         match serde_json::to_string(&aggregation) {
@@ -26,6 +63,11 @@ impl ScriptAggretionDB {
                 let key = aggregation.hid.clone();
                 self.db
                     .put("script_aggregation", key.as_bytes(), value.as_bytes())?;
+
+                let h = aggregation.block.height.clone();
+                let height: &[u8] = &h.to_be_bytes();
+                self.db
+                    .put("script_aggregation_mapper", height, key.as_bytes())?;
                 Ok(())
             }
             Err(e) => Err(anyhow!(e)),
