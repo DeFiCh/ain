@@ -27,13 +27,13 @@ FILE *fopen(const fs::path& p, const char *mode)
 #endif
 }
 
-#ifndef WIN32
-
 fs::path AbsPathJoin(const fs::path& base, const fs::path& path)
 {
     assert(base.is_absolute());
     return path.empty() ? base : fs::path(base / path);
 }
+
+#ifndef WIN32
 
 static std::string GetErrorReason() {
     return std::strerror(errno);
