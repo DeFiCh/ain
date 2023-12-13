@@ -33,3 +33,4 @@ bitcoin_hashes = "0.12.0"
 structopt = { version = "0.3", default-features = false }
 tempfile = "3.8.1"
 anyhow.workspace = true
+log = "0.4.20"
