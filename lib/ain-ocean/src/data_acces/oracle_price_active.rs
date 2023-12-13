@@ -1,23 +1,26 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::{RocksDB, SortOrder};
 use crate::model::oracle_price_feed::OraclePriceFeed;
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    model::oracle_price_active::OraclePriceActive,
+};
 use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
-pub struct OraclePriceFeedDb {
+pub struct OraclePriceActiveDb {
     pub db: RocksDB,
 }
 
-impl OraclePriceFeedDb {
+impl OraclePriceActiveDb {
+
     pub async fn query(
         &self,
         oracle_id: String,
         limit: i32,
         lt: String,
         sort_order: SortOrder,
-    ) -> Result<Vec<OraclePriceFeed>> {
+    ) -> Result<Vec<OraclePriceActive>> {
         let iterator = self.db.iterator("oracle_price_active", IteratorMode::End)?;
-        let mut oracle_price_feed: Vec<OraclePriceFeed> = Vec::new();
+        let mut oracle_price_feed: Vec<OraclePriceActive> = Vec::new();
         let collected_blocks: Vec<_> = iterator.collect();
 
         for result in collected_blocks.into_iter().rev() {
@@ -26,7 +29,7 @@ impl OraclePriceFeedDb {
                 Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
             };
 
-            let oracle: OraclePriceFeed = serde_json::from_slice(&value)?;
+            let oracle: OraclePriceActive = serde_json::from_slice(&value)?;
             if oracle.key == oracle_id {
                 oracle_price_feed.push(oracle);
                 if oracle_price_feed.len() as i32 >= limit {
@@ -38,14 +41,14 @@ impl OraclePriceFeedDb {
         // Sort blocks based on the specified sort order
         match sort_order {
             SortOrder::Ascending => {
-                oracle_price_feed.sort_by(|a: &OraclePriceFeed, b| a.id.cmp(&b.id))
+                oracle_price_feed.sort_by(|a: &OraclePriceActive, b| a.id.cmp(&b.id))
             }
             SortOrder::Descending => oracle_price_feed.sort_by(|a, b| b.id.cmp(&a.id)),
         }
 
         Ok(oracle_price_feed)
     }
-    pub async fn put(&self, oracle_price_feed: OraclePriceFeed) -> Result<()> {
+    pub async fn put(&self, oracle_price_feed: OraclePriceActive) -> Result<()> {
         match serde_json::to_string(&oracle_price_feed) {
             Ok(value) => {
                 let key = oracle_price_feed.id.clone();

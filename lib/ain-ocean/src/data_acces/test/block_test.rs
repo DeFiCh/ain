@@ -2,8 +2,8 @@
 mod tests {
     use super::*;
     use crate::data_acces::block::BlockDb;
-    use crate::database::db_manger::SortOrder;
-    use crate::database::db_manger::{ColumnFamilyOperations, RocksDB};
+    use crate::database::db_manager::SortOrder;
+    use crate::database::db_manager::{ColumnFamilyOperations, RocksDB};
     use crate::model::block::Block;
     use tempdir::TempDir;
 

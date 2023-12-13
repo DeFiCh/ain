@@ -1,14 +1,10 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::{RocksDB, SortOrder};
-use crate::model::masternode::Masternode;
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    model::masternode::Masternode,
+};
 use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 use serde_json;
-
-use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
-    model::masternode::Masternode,
-};
 
 pub struct MasterNodeDB {
     pub db: RocksDB,

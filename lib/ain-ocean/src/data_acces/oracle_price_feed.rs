@@ -1,6 +1,7 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::{RocksDB, SortOrder};
-use crate::model::oracle_price_feed::OraclePriceFeed;
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    model::oracle_price_feed::OraclePriceFeed,
+};
 use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
