@@ -1,8 +1,9 @@
 use crate::database::db_manger::ColumnFamilyOperations;
 use crate::database::db_manger::RocksDB;
 use crate::model::script_unspent::ScriptUnspent;
-use anyhow::{anyhow, Error, Result};
-use serde::{Deserialize, Serialize};
+use anyhow::{anyhow, Result};
+use rocksdb::Direction;
+use rocksdb::IteratorMode;
 use serde_json;
 
 pub struct ScriptUnspentDB {
@@ -10,13 +11,46 @@ pub struct ScriptUnspentDB {
 }
 
 impl ScriptUnspentDB {
-    pub async fn query(&self, limit: i32, lt: String) -> Result<Vec<ScriptUnspent>> {
-        todo!()
+    pub async fn query(
+        &self,
+        hid: String,
+        limit: i32,
+        gt: Option<String>,
+    ) -> Result<Vec<ScriptUnspent>> {
+        let prefix = format!("script_unspent_hid_sort:{}:", gt.unwrap_or_default());
+        let iterator_result = self.db.iterator(
+            "script_unspent",
+            IteratorMode::From(prefix.as_bytes(), Direction::Forward),
+        )?;
+        let mut results = Vec::new();
+        for item in iterator_result {
+            match item {
+                Ok((key, value)) => {
+                    let key_str = String::from_utf8_lossy(&key);
+                    if !key_str.starts_with(&prefix) {
+                        break;
+                    }
+
+                    let script_unspent: ScriptUnspent = serde_json::from_slice(&value)?;
+
+                    results.push(script_unspent);
+
+                    if results.len() >= limit as usize {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    eprintln!("Error iterating over the database: {:?}", err);
+                    return Err(err.into());
+                }
+            }
+        }
+        Ok(results)
     }
     pub async fn store(&self, unspent: ScriptUnspent) -> Result<()> {
         match serde_json::to_string(&unspent) {
             Ok(value) => {
-                let key = unspent.id.clone();
+                let key = unspent.hid.clone();
                 self.db
                     .put("script_unspent", key.as_bytes(), value.as_bytes())?;
                 Ok(())
@@ -24,8 +58,8 @@ impl ScriptUnspentDB {
             Err(e) => Err(anyhow!(e)),
         }
     }
-    pub async fn delete(&self, id: String) -> Result<()> {
-        match self.db.delete("script_unspent", id.as_bytes()) {
+    pub async fn delete(&self, hid: String) -> Result<()> {
+        match self.db.delete("script_unspent", hid.as_bytes()) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow!(e)),
         }

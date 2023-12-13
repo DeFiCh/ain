@@ -1,8 +1,9 @@
 use crate::database::db_manger::ColumnFamilyOperations;
 use crate::database::db_manger::RocksDB;
+use crate::database::db_manger::SortOrder;
 use crate::model::poolswap_aggregated::PoolSwapAggregated;
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
+use rocksdb::IteratorMode;
 
 pub struct PoolSwapAggregatedDb {
     pub db: RocksDB,
@@ -11,11 +12,39 @@ pub struct PoolSwapAggregatedDb {
 impl PoolSwapAggregatedDb {
     pub async fn query(
         &self,
-        key: String,
+        id: String,
         limit: i32,
         lt: String,
+        sort_order: SortOrder,
     ) -> Result<(Vec<PoolSwapAggregated>)> {
-        todo!()
+        let iterator = self
+            .db
+            .iterator("pool_swap_aggregated", IteratorMode::End)?;
+        let mut pool_swap: Vec<PoolSwapAggregated> = Vec::new();
+        let collected_blocks: Vec<_> = iterator.collect();
+
+        for result in collected_blocks.into_iter().rev() {
+            let (key, value) = match result {
+                Ok((key, value)) => (key, value),
+                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
+            };
+
+            let ps: PoolSwapAggregated = serde_json::from_slice(&value)?;
+            if ps.id == id {
+                pool_swap.push(ps);
+                if pool_swap.len() as i32 >= limit {
+                    break;
+                }
+            }
+        }
+
+        // Sort blocks based on the specified sort order
+        match sort_order {
+            SortOrder::Ascending => pool_swap.sort_by(|a, b| a.id.cmp(&b.id)),
+            SortOrder::Descending => pool_swap.sort_by(|a, b| b.id.cmp(&a.id)),
+        }
+
+        Ok(pool_swap)
     }
     pub async fn put(&self, aggregated: PoolSwapAggregated) -> Result<()> {
         match serde_json::to_string(&aggregated) {

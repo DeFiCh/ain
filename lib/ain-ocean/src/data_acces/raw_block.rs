@@ -2,7 +2,6 @@ use crate::database::db_manger::ColumnFamilyOperations;
 use crate::database::db_manger::RocksDB;
 use crate::model::raw_block::RawBlock;
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct RawBlockDb {
