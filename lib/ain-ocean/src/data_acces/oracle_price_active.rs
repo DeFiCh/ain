@@ -11,7 +11,6 @@ pub struct OraclePriceActiveDb {
 }
 
 impl OraclePriceActiveDb {
-
     pub async fn query(
         &self,
         oracle_id: String,

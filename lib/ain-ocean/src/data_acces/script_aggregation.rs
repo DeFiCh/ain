@@ -3,7 +3,7 @@ use rocksdb::{Direction, IteratorMode};
 use serde_json;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB,SortOrder},
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::script_aggregation::ScriptAggregation,
 };
 
