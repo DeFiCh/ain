@@ -67,8 +67,11 @@
 #include <ffi/ffihelpers.h>
 #include <ffi/ffiexports.h>
 
-#include <stdint.h>
-#include <stdio.h>
+#include <condition_variable>
+#include <cstdint>
+#include <cstdio>
+#include <fstream>
+#include <string>
 
 #ifndef WIN32
 #include <attributes.h>
@@ -120,7 +123,7 @@ static fs::path GetPidFile()
 
 NODISCARD static bool CreatePidFile()
 {
-    fsbridge::ofstream file{GetPidFile()};
+    std::ofstream file{GetPidFile()};
     if (file) {
 #ifdef WIN32
         tfm::format(file, "%d\n", GetCurrentProcessId());

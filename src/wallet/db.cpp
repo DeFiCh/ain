@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
+#include <fs.h>
 #include <wallet/db.h>
 
 #include <util/strencodings.h>
@@ -870,7 +871,7 @@ bool BerkeleyDatabase::Backup(const std::string& strDest)
                     pathDest /= fs::PathFromString(strFile);
 
                 try {
-                    if (fs::equivalent(pathSrc, pathDest)) {
+                    if (fs::exists(pathDest) && fs::equivalent(pathSrc, pathDest)) {
                         LogPrintf("cannot backup to wallet source file %s\n", fs::PathToString(pathDest));
                         return false;
                     }

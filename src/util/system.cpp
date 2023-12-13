@@ -6,6 +6,8 @@
 #include <util/system.h>
 
 #include <chainparamsbase.h>
+#include <fs.h>
+#include <util/getuniquepath.h>
 #include <util/strencodings.h>
 #include <util/translation.h>
 
@@ -29,6 +31,8 @@
 #endif // __linux__
 
 #include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/resource.h>
@@ -63,6 +67,10 @@
 #include <malloc.h>
 #endif
 
+#include <fstream>
+#include <map>
+#include <memory>
+#include <string>
 #include <thread>
 
 // Application startup time (used for uptime calculation)
@@ -119,7 +127,7 @@ void ReleaseDirectoryLocks()
 
 bool DirIsWritable(const fs::path& directory)
 {
-    fs::path tmpFile = directory / fs::unique_path();
+    fs::path tmpFile = GetUniquePath(directory);
 
     FILE* file = fsbridge::fopen(tmpFile, "a");
     if (!file) return false;
@@ -313,6 +321,19 @@ NODISCARD static bool InterpretOption(std::string key, std::string val, unsigned
     args[key].push_back(val);
     return true;
 }
+
+namespace {
+    fs::path StripRedundantLastElementsOfPath(const fs::path& path)
+    {
+        auto result = path;
+        while (result.filename().empty() || fs::PathToString(result.filename()) == ".") {
+            result = result.parent_path();
+        }
+
+        assert(fs::equivalent(result, path));
+        return result;
+    }
+} // namespace
 
 ArgsManager::ArgsManager()
 {
@@ -740,7 +761,7 @@ const fs::path &GetBlocksDir()
     if (!path.empty()) return path;
 
     if (gArgs.IsArgSet("-blocksdir")) {
-        path = fs::system_complete(fs::PathFromString(gArgs.GetArg("-blocksdir", "")));
+        path = fs::absolute(fs::PathFromString(gArgs.GetArg("-blocksdir", "")));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -766,7 +787,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
 
     std::string datadir = gArgs.GetArg("-datadir", "");
     if (!datadir.empty()) {
-        path = fs::system_complete(fs::PathFromString(datadir));
+        path = fs::absolute(StripRedundantLastElementsOfPath(fs::PathFromString(datadir)));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -782,13 +803,14 @@ const fs::path &GetDataDir(bool fNetSpecific)
         fs::create_directories(path / "wallets");
     }
 
+    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
 bool CheckDataDirOption()
 {
     std::string datadir = gArgs.GetArg("-datadir", "");
-    return datadir.empty() || fs::is_directory(fs::system_complete(fs::PathFromString(datadir)));
+    return datadir.empty() || fs::is_directory(fs::absolute(fs::PathFromString(datadir)));
 }
 
 void ClearDatadirCache()
@@ -895,7 +917,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
     }
 
     const std::string confPath = GetArg("-conf", DEFI_CONF_FILENAME);
-    fsbridge::ifstream stream(GetConfigFile(confPath));
+    std::ifstream stream(GetConfigFile(confPath));
 
     // ok to not have a config file
     if (stream.good()) {
@@ -928,7 +950,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
             }
 
             for (const std::string& to_include : includeconf) {
-                fsbridge::ifstream include_config(GetConfigFile(to_include));
+                std::ifstream include_config(GetConfigFile(to_include));
                 if (include_config.good()) {
                     if (!ReadConfigStream(include_config, to_include, error, ignore_invalid_keys)) {
                         return false;
@@ -1000,7 +1022,7 @@ bool RenameOver(fs::path src, fs::path dest)
 }
 
 /**
- * Ignores exceptions thrown by Boost's create_directories if the requested directory exists.
+ * Ignores exceptions thrown by create_directories if the requested directory exists.
  * Specifically handles case where path p exists, but it wasn't possible for the user to
  * write to the parent directory.
  */
@@ -1187,16 +1209,6 @@ void SetupEnvironment()
     // Set the default input/output charset is utf-8
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
-#endif
-    // The path locale is lazy initialized and to avoid deinitialization errors
-    // in multithreading environments, it is set explicitly by the main thread.
-    // A dummy locale is used to extract the internal default locale, used by
-    // fs::path, which is then used to explicitly imbue the path.
-    std::locale loc = fs::path::imbue(std::locale::classic());
-#ifndef WIN32
-    fs::path::imbue(loc);
-#else
-    fs::path::imbue(std::locale(loc, new std::codecvt_utf8_utf16<wchar_t>()));
 #endif
 }
 

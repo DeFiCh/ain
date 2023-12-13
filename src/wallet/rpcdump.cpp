@@ -4,6 +4,7 @@
 
 #include <chain.h>
 #include <core_io.h>
+#include <fs.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
 #include <merkleblock.h>
@@ -21,8 +22,10 @@
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 
-#include <stdint.h>
+#include <cstdint>
+#include <fstream>
 #include <tuple>
+#include <string>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -579,7 +582,7 @@ UniValue importwallet(const JSONRPCRequest& request)
 
         EnsureWalletIsUnlocked(pwallet);
 
-        fsbridge::ifstream file;
+        std::ifstream file;
         file.open(fs::u8path(request.params[0].get_str()), std::ios::in | std::ios::ate);
         if (!file.is_open()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");
@@ -802,7 +805,7 @@ UniValue dumpwallet(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_PARAMETER, filepath.u8string() + " already exists. If you are sure this is what you want, move it out of the way first");
     }
 
-    fsbridge::ofstream file;
+    std::ofstream file;
     file.open(filepath);
     if (!file.is_open())
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot open wallet dump file");

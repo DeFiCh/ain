@@ -7,6 +7,11 @@
 #include <logging.h>
 #include <util/system.h>
 
+#include <exception>
+#include <fstream>
+#include <system_error>
+#include <vector>
+
 fs::path GetWalletDir()
 {
     fs::path path;
@@ -35,12 +40,12 @@ static bool IsBerkeleyBtree(const fs::path& path)
 
     // A Berkeley DB Btree file has at least 4K.
     // This check also prevents opening lock files.
-    boost::system::error_code ec;
+    std::error_code ec;
     auto size = fs::file_size(path, ec);
     if (ec) LogPrintf("%s: %s %s\n", __func__, ec.message(), fs::PathToString(path));
     if (size < 4096) return false;
 
-    fsbridge::ifstream file(path, std::ios::binary);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) return false;
 
     file.seekg(12, std::ios::beg); // Magic bytes start at offset 12
@@ -59,7 +64,7 @@ std::vector<fs::path> ListWalletDir()
     const fs::path wallet_dir = GetWalletDir();
     const size_t offset = wallet_dir.native().size() + 1;
     std::vector<fs::path> paths;
-    boost::system::error_code ec;
+    std::error_code ec;
 
     for (auto it = fs::recursive_directory_iterator(wallet_dir, ec); it != fs::recursive_directory_iterator(); it.increment(ec)) {
         if (ec) {
@@ -72,10 +77,10 @@ std::vector<fs::path> ListWalletDir()
         const auto path_str = it->path().native().substr(offset);
         const fs::path path{path_str.begin(), path_str.end()};
 
-        if (it->status().type() == fs::directory_file && IsBerkeleyBtree(it->path() / "wallet.dat")) {
+        if (it->status().type() == fs::file_type::directory && IsBerkeleyBtree(it->path() / "wallet.dat")) {
             // Found a directory which contains wallet.dat btree file, add it as a wallet.
             paths.emplace_back(path);
-        } else if (it.depth() == 0 && it->symlink_status().type() == fs::regular_file && IsBerkeleyBtree(it->path())) {
+        } else if (it.depth() == 0 && it->symlink_status().type() == fs::file_type::regular && IsBerkeleyBtree(it->path())) {
             if (it->path().filename() == "wallet.dat") {
                 // Found top-level wallet.dat btree file, add top level directory ""
                 // as a wallet.
@@ -95,12 +100,10 @@ std::vector<fs::path> ListWalletDir()
 
 WalletLocation::WalletLocation(const std::string& name)
     : m_name(name)
-    , m_path(fs::absolute(name, GetWalletDir()))
-{
-    m_file_path = fs::PathToString(m_path / m_name);
-}
+    , m_path(fs::absolute(name.empty() ? GetWalletDir() : fs::path(GetWalletDir() / fs::PathFromString(name))))
+{}
 
 bool WalletLocation::Exists() const
 {
-    return fs::symlink_status(m_path).type() != fs::file_not_found;
+    return fs::symlink_status(m_path).type() != fs::file_type::not_found;
 }
