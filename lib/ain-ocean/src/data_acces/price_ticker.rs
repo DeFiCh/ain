@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
+use rocksdb::IteratorMode;
 
 use crate::{
     database::db_manager::{ColumnFamilyOperations, RocksDB},
@@ -11,8 +11,35 @@ pub struct price_ticker {
 }
 
 impl price_ticker {
-    pub async fn query(&self, limit: i32, lt: String) -> Result<Vec<PriceTicker>> {
-        todo!()
+    pub async fn query(
+        &self,
+        limit: i32,
+        lt: String,
+        sort_order: SortOrder,
+    ) -> Result<Vec<PriceTicker>> {
+        let iterator = self.db.iterator("price_ticker", IteratorMode::End)?;
+        let mut pt: Vec<PriceTicker> = Vec::new();
+        let collected_items: Vec<_> = iterator.collect();
+
+        for result in collected_items.into_iter().rev() {
+            let value = match result {
+                Ok((_, value)) => value,
+                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
+            };
+
+            let price_ticker: PriceTicker = serde_json::from_slice(&value)?;
+            pt.push(price_ticker);
+            if pt.len() as i32 >= limit {
+                break;
+            }
+        }
+
+        match sort_order {
+            SortOrder::Ascending => pt.sort_by(|a, b| a.id.cmp(&b.id)),
+            SortOrder::Descending => pt.sort_by(|a, b| b.id.cmp(&a.id)),
+        }
+
+        Ok(pt)
     }
     pub async fn get(&self, id: String) -> Result<PriceTicker> {
         match self.db.get("price_ticker", id.as_bytes()) {

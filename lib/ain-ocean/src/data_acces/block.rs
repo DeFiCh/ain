@@ -1,12 +1,9 @@
 use crate::database::db_manger::ColumnFamilyOperations;
 use crate::database::db_manger::{RocksDB, SortOrder};
 use crate::model::block::Block;
-use anyhow::{anyhow, Error, Result};
-use rocksdb::{DBIteratorWithThreadMode, IteratorMode};
-use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use anyhow::{anyhow, Result};
+use rocksdb::IteratorMode;
 use std::convert::TryInto;
-use std::hash;
 
 #[derive(Debug)]
 pub struct BlockDb {
