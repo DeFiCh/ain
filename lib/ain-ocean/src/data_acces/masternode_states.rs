@@ -1,14 +1,11 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::{RocksDB, SortOrder};
-use crate::model::masternode_stats::MasternodeStats;
 use anyhow::{anyhow, Result};
 use bitcoin::absolute::Height;
-use rocksdb::{ColumnFamilyDescriptor, IteratorMode, DB};
+use rocksdb::{IteratorMode, DB};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::masternode_stats::MasternodeStats,
 };
 

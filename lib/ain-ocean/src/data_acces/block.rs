@@ -1,6 +1,8 @@
-use crate::database::db_manger::ColumnFamilyOperations;
-use crate::database::db_manger::{RocksDB, SortOrder};
-use crate::model::block::Block;
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    model::block::Block,
+};
+
 use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 use std::convert::TryInto;

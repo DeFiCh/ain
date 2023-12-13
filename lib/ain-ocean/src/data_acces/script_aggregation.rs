@@ -1,9 +1,9 @@
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Result};
 use rocksdb::{Direction, IteratorMode};
 use serde_json;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    database::db_manager::{ColumnFamilyOperations, RocksDB,SortOrder},
     model::script_aggregation::ScriptAggregation,
 };
 

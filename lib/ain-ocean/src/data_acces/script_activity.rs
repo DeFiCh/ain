@@ -1,11 +1,10 @@
-use anyhow::{anyhow, Error, Result};
-use serde::{Deserialize, Serialize};
-use serde_json;
-
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::script_activity::ScriptActivity,
 };
+use anyhow::{anyhow, Result};
+use rocksdb::{Direction, IteratorMode};
+use serde_json;
 
 pub struct ScriptUnspentDB {
     pub db: RocksDB,

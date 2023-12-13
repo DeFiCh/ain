@@ -16,6 +16,11 @@ pub struct RocksDB {
     cfs: HashSet<String>,
 }
 
+pub enum SortOrder {
+    Ascending,
+    Descending,
+}
+
 pub trait ColumnFamilyOperations {
     fn get(&self, cf_name: &str, key: &[u8]) -> Result<Option<Vec<u8>>>;
     fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
