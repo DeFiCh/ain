@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB,SortOrder},
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::oracle::Oracle,
 };
 

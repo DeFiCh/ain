@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB,SortOrder},
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::price_ticker::PriceTicker,
 };
 
