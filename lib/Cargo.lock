@@ -221,8 +221,10 @@ dependencies = [
  "dftx-rs",
  "futures",
  "hex",
+ "hyper 0.14.27",
  "json",
  "jsonrpsee 0.20.3",
+ "keccak-hash",
  "log",
  "rocksdb",
  "serde",
@@ -515,7 +517,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.39",
+ "syn 2.0.41",
 ]
 
 [[package]]
