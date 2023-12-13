@@ -2,8 +2,8 @@ use crate::database::db_manger::ColumnFamilyOperations;
 use crate::database::db_manger::RocksDB;
 use crate::model::oracle_price_aggregated_interval::OraclePriceAggregatedInterval;
 use anyhow::{anyhow, Result};
-use rocksdb::{ColumnFamilyDescriptor, IteratorMode, DB};
-use serde::{Deserialize, Serialize};
+use rocksdb::IteratorMode;
+
 pub struct OraclePriceAggregatedIntervalDb {
     pub db: RocksDB,
 }

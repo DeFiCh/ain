@@ -51,6 +51,7 @@ impl RocksDB {
             "raw_block",
             "script_activity",
             "script_aggregation",
+            "script_aggregation_mapper",
             "script_unspent",
             "transaction",
             "transaction_mapper",
