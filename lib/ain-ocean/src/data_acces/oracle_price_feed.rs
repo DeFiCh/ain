@@ -16,9 +16,7 @@ impl OraclePriceFeedDb {
         lt: String,
         sort_order: SortOrder,
     ) -> Result<Vec<OraclePriceFeed>> {
-        let iterator = self
-            .db
-            .iterator("oracle_price_feed", IteratorMode::End)?;
+        let iterator = self.db.iterator("oracle_price_feed", IteratorMode::End)?;
         let mut oracle_price_feed: Vec<OraclePriceFeed> = Vec::new();
         let collected_blocks: Vec<_> = iterator.collect();
 
@@ -39,7 +37,9 @@ impl OraclePriceFeedDb {
 
         // Sort blocks based on the specified sort order
         match sort_order {
-            SortOrder::Ascending => oracle_price_feed.sort_by(|a: &OraclePriceFeed, b| a.id.cmp(&b.id)),
+            SortOrder::Ascending => {
+                oracle_price_feed.sort_by(|a: &OraclePriceFeed, b| a.id.cmp(&b.id))
+            }
             SortOrder::Descending => oracle_price_feed.sort_by(|a, b| b.id.cmp(&a.id)),
         }
 
