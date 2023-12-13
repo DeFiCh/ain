@@ -105,7 +105,9 @@ class MultiWalletTest(DefiTestFramework):
             assert_equal(os.path.isfile(wallet_file(wallet_name)), True)
 
         # should not initialize if wallet path can't be created
-        exp_stderr = "filesystem error:" if sys.platform != 'win32' else "create_directories:"
+        exp_stderr = (
+            "filesystem error:" if sys.platform != "win32" else "create_directories:"
+        )
         self.nodes[0].assert_start_raises_init_error(
             ["-wallet=wallet.dat/bad"], exp_stderr, match=ErrorMatch.PARTIAL_REGEX
         )
