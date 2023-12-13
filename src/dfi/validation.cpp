@@ -18,8 +18,8 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
-#include <ffi/ffihelpers.h>
 #include <ffi/ffiexports.h>
+#include <ffi/ffihelpers.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>
