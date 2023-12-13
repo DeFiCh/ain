@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
 
 use crate::{
     database::db_manager::{ColumnFamilyOperations, RocksDB},
