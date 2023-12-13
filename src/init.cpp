@@ -757,13 +757,14 @@ static void CleanupBlockRevFiles()
     LogPrintf("Removing unusable blk?????.dat and rev?????.dat files for -reindex with -prune\n");
     fs::path blocksdir = GetBlocksDir();
     for (fs::directory_iterator it(blocksdir); it != fs::directory_iterator(); it++) {
+        const std::string path = fs::PathToString(it->path().filename());
         if (fs::is_regular_file(*it) &&
-            it->path().filename().native().length() == 12 &&
-            it->path().filename().native().substr(8,4) == ".dat")
+            path.length() == 12 &&
+            path.substr(8,4) == ".dat")
         {
-            if (it->path().filename().native().substr(0,3) == "blk")
-                mapBlockFiles[it->path().filename().native().substr(3,5)] = it->path();
-            else if (it->path().filename().native().substr(0,3) == "rev")
+            if (path.substr(0,3) == "blk")
+                mapBlockFiles[path.substr(3,5)] = it->path();
+            else if (path.substr(0,3) == "rev")
                 remove(it->path());
         }
     }
