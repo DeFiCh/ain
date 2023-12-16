@@ -1,6 +1,9 @@
-ARG TARGET=x86_64-pc-linux-gnu
+# This is required to be passed in for compilation. 
+# This is the dockerfile to use for adding support to new arch or or arch
+# without end docker images, like darwin x84_64 and darwin aarch64 platforms 
+ARG TARGET=unknown
 
-FROM --platform=linux/amd64 ubuntu:latest as defi
+FROM ubuntu:latest as defi
 ARG TARGET
 ARG BINARY_DIR
 ENV PATH=/app/bin:$PATH

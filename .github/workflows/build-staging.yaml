@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
 
 env:
+  BUILD_VERSION: latest # Computed
+  BUILD_TYPE: unknown # Computed
+  PKG_TYPE: unknown # Computed
   MAKE_DEBUG: 0
   GIT_VERSION: 1
 
@@ -11,7 +14,7 @@ jobs:
   # We keep the flow as similar as close to release flow as possible
   # to validate change before it gets into release, even though
   # these don't create end artifacts to use
-  stage-release:
+  build:
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     strategy:
@@ -44,9 +47,9 @@ jobs:
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
           ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}.SHA256
 
-  stage-docker-release:
+  dockerize:
     runs-on: ubuntu-latest
-    needs: [stage-release]
+    needs: [build]
     env:
       TARGET: x86_64-pc-linux-gnu
 
@@ -65,5 +68,5 @@ jobs:
     - name: Unpack binaries
       run: tar -xvzf ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }} -C ./build/
 
-    - name: Build defi image
-      run: rm .dockerignore && ./make.sh docker-build-from-binaries
+    - name: Build image
+      run: rm .dockerignore && ./make.sh docker-generate-from-build

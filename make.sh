@@ -20,7 +20,7 @@ setup_vars() {
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
     DOCKER_RELATIVE_BUILD_DIR=${DOCKER_RELATIVE_BUILD_DIR:-"./build"}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
-    DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
+    DOCKERFILE_PREBUILT=${DOCKERFILE_PREBUILT:-"${DOCKERFILES_DIR}/prebuilt.dockerfile"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
@@ -324,20 +324,20 @@ docker_release() {
     _sign "$target"
 }
 
-docker_build_from_binaries() {
+docker-generate-from-build() {
     local target=${1:-${TARGET}}
     local img_prefix="${IMAGE_PREFIX}"
     local img_version="${IMAGE_VERSION}"
     local build_dir="${DOCKER_RELATIVE_BUILD_DIR}"
 
     local docker_context="${DOCKER_ROOT_CONTEXT}"
-    local docker_file="${DEFI_DOCKERFILE}"
+    local docker_file="${DOCKERFILE_PREBUILT}"
 
-    echo "> docker-build-from-binaries";
+    echo "> docker-generate-from-build";
 
     local img="${img_prefix}-${target}:${img_version}"
     echo "> building: ${img}"
-    echo "> docker defi build: ${img}"
+    echo "> docker build: ${img}"
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"

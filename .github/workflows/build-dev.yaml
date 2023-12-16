@@ -17,8 +17,10 @@ concurrency:
 
 env:
   BUILD_VERSION: latest # Computed
+  BUILD_TYPE: unknown # Computed
+  PKG_TYPE: unknown # Computed
   DOCKER_HUB_USER: defi
-  # Note: We do not use debug build on CI for dev as well, since debug builds 
+  # Note: We do not use debug build on CI for dev currently, since debug builds 
   # take 5x the amount of space and run the GitHub CI workers out of space. 
   # make.sh still defaults to debug for local builds
   MAKE_DEBUG: 0
@@ -74,6 +76,7 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
+    # TODO(@sieniven): Why was this necessary again? Let's add a comment
     - name: Delete previous cpp build cache
       if: ${{ github.ref == 'refs/heads/master' && steps.cpp-cache-restore.outputs.cache-hit }}
       continue-on-error: true
@@ -93,7 +96,7 @@ jobs:
           ~/.ccache
         key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
-  docker-build:
+  dockerize:
     runs-on: ubuntu-latest
     needs: [build]
     env:
@@ -114,8 +117,8 @@ jobs:
     - name: Unpack binaries
       run: tar -xvzf ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }} -C ./build/
 
-    - name: Build defi image
-      run: rm .dockerignore && ./make.sh docker-build-from-binaries
+    - name: Build image
+      run: rm .dockerignore && ./make.sh docker-generate-from-build
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
