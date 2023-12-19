@@ -12,7 +12,7 @@ jobs:
   # to validate change before it gets into release, even though
   # these don't create end artifacts to use
   stage-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     container: defi/ain-builder:latest
     strategy:
       matrix:
