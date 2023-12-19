@@ -241,11 +241,8 @@ package() {
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
     if [[ "$target" == "x86_64-w64-mingw32" ]]; then
-        _ensure_enter_dir "${versioned_build_dir}"
-        cd ..
-        local dir_to_zip
-        dir_to_zip=$(basename "${versioned_build_dir}")
-        zip -r "${pkg_path}" "${dir_to_zip}/"
+        _ensure_enter_dir "${build_dir}"
+        zip -r "${pkg_path}" "$(basename "${versioned_build_dir}")"
     else
         _ensure_enter_dir "${versioned_build_dir}"
         _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
