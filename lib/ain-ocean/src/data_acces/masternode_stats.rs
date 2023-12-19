@@ -1,14 +1,10 @@
-use anyhow::{anyhow, Result};
-use bitcoin::absolute::Height;
-use rocksdb::{IteratorMode, DB};
-use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-
 use crate::{
     database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::masternode_stats::MasternodeStats,
 };
-
+use anyhow::Context;
+use anyhow::{anyhow, Result};
+use rocksdb::IteratorMode;
 #[derive(Debug)]
 pub struct MasterStatsDb {
     pub db: RocksDB,
@@ -43,43 +39,38 @@ impl MasterStatsDb {
             Err(e) => Err(anyhow!(e)),
         }
     }
+
     pub async fn query(
         &self,
         limit: i32,
         lt: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<MasternodeStats>> {
-        let iterator = self.db.iterator("masternode_stats", IteratorMode::End)?;
-        let mut master_node: Vec<MasternodeStats> = Vec::new();
-        let collected_blocks: Vec<_> = iterator.collect();
-
-        for result in collected_blocks.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let master_stats: MasternodeStats = serde_json::from_slice(&value)?;
-
-            if master_stats.block.height < lt {
-                master_node.push(master_stats);
-
-                if master_node.len() == limit as usize {
-                    break;
-                }
-            }
-        }
-
-        // Sort blocks based on the specified sort order
-        match sort_order {
-            SortOrder::Ascending => master_node.sort_by(|a, b| a.block.height.cmp(&b.block.height)),
-            SortOrder::Descending => {
-                master_node.sort_by(|a, b| b.block.height.cmp(&a.block.height))
-            }
-        }
-
-        Ok(master_node)
+        let iter_mode: IteratorMode = sort_order.into();
+        let master_node: Result<Vec<_>> = self
+            .db
+            .iterator("masternode_stats", iter_mode)?
+            .into_iter()
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let stats: MasternodeStats = serde_json::from_slice(&value)?;
+                        if stats.block.height < lt {
+                            Ok(stats)
+                        } else {
+                            Err(anyhow!("Value is not less than lt")
+                                .context("Contextual error message"))
+                        }
+                    })
+            })
+            .collect();
+        Ok(master_node?)
     }
+
     pub async fn get(&self, height: i32) -> Result<Option<MasternodeStats>> {
         let bytes: &[u8] = &height.to_be_bytes();
         match self.db.get("masternode_stats", bytes) {

@@ -1,6 +1,6 @@
 pub mod block;
 pub mod masternode;
-pub mod masternode_states;
+pub mod masternode_stats;
 pub mod oracle;
 pub mod oracle_price_active;
 pub mod oracle_price_aggregated;
