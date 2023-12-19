@@ -14,36 +14,34 @@ impl MasterNodeDB {
     pub async fn query(
         &self,
         limit: i32,
-        lt: i32,
+        lt: u32,
         sort_order: SortOrder,
     ) -> Result<Vec<Masternode>> {
-        let iterator = self.db.iterator("masternode", IteratorMode::End)?;
-        let mut master_node: Vec<Masternode> = Vec::new();
-        let collected_blocks: Vec<_> = iterator.collect();
+        let iter_mode: IteratorMode = sort_order.into();
+        let master_node: Result<Vec<_>> = self
+            .db
+            .iterator("masternode", iter_mode)?
+            .into_iter()
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e)
+                            .context("error master_node query error")
+                    })
+                    .and_then(|(_key, value)| {
+                        let stats: Masternode = serde_json::from_slice(&value)?;
+                        if stats.block.height < lt {
+                            Ok(stats)
+                        } else {
+                            Err(anyhow!("Value is not less than lt")
+                                .context("Contextual error message"))
+                        }
+                    })
+            })
+            .collect();
 
-        for result in collected_blocks.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let master_stats: Masternode = serde_json::from_slice(&value)?;
-            master_node.push(master_stats);
-
-            if master_node.len() == limit as usize {
-                break;
-            }
-        }
-
-        // Sort blocks based on the specified sort order
-        match sort_order {
-            SortOrder::Ascending => master_node.sort_by(|a, b| a.block.height.cmp(&b.block.height)),
-            SortOrder::Descending => {
-                master_node.sort_by(|a, b| b.block.height.cmp(&a.block.height))
-            }
-        }
-
-        Ok(master_node)
+        master_node.and_then(|result| Ok(result))
     }
     pub async fn get(&self, id: String) -> Result<Option<Masternode>> {
         match self.db.get("masternode", id.as_bytes()) {
