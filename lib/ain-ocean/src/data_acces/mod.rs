@@ -1,9 +1,11 @@
 pub mod block;
 pub mod masternode;
-pub mod masternode_states;
+pub mod masternode_stats;
 pub mod oracle;
+pub mod oracle_price_active;
 pub mod oracle_price_aggregated;
 pub mod oracle_price_aggregated_interval;
+pub mod oracle_price_feed;
 pub mod oracle_token_currency;
 pub mod order_history;
 pub mod pool_swap;

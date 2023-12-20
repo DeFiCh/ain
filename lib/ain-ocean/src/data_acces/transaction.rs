@@ -23,15 +23,29 @@ impl TransactionVinDb {
         }
     }
     pub async fn store(&self, txn: Transaction) -> Result<()> {
-        match serde_json::to_string(&txn) {
-            Ok(value) => {
-                let key = txn.id.clone();
-                self.db
-                    .put("transaction", key.as_bytes(), value.as_bytes())?;
-                Ok(())
-            }
-            Err(e) => Err(anyhow!(e)),
-        }
+        let value = serde_json::to_string(&txn)?;
+        let txid_key = txn.txid.clone();
+        self.db
+            .put("transaction", txid_key.as_bytes(), value.as_bytes())?;
+
+        // Retrieve existing transaction IDs for the block hash, if any
+        let mut txn_ids = match self
+            .db
+            .get("transaction_mapper", txn.block.hash.as_bytes())?
+        {
+            Some(bytes) => serde_json::from_slice::<Vec<String>>(&bytes)?,
+            None => vec![],
+        };
+
+        // Add the new transaction ID to the list
+        txn_ids.push(txn.txid);
+        let txn_ids_value = serde_json::to_string(&txn_ids)?;
+        self.db.put(
+            "transaction_mapper",
+            txn.block.hash.as_bytes(),
+            txn_ids_value.as_bytes(),
+        )?;
+        Ok(())
     }
     pub async fn delete(&self, txid: String) -> Result<()> {
         match self.db.delete("transaction", txid.as_bytes()) {
@@ -39,12 +53,39 @@ impl TransactionVinDb {
             Err(e) => Err(anyhow!(e)),
         }
     }
-    pub async fn query_by_blockhash(
+    pub async fn query_by_block_hash(
         &self,
         hash: String,
         limit: i32,
         lt: i32,
     ) -> Result<Vec<Transaction>> {
-        todo!()
+        let mut transactions = Vec::new();
+
+        // Retrieve the transaction ID(s) associated with the block hash
+        match self.db.get("transaction_mapper", hash.as_bytes()) {
+            Ok(Some(txn_id_bytes)) => {
+                // Assuming one block hash maps to multiple transaction IDs
+                println!("the value in trx{:?}", txn_id_bytes);
+                let txn_ids: Vec<String> = serde_json::from_slice::<Vec<String>>(&txn_id_bytes)?;
+
+                for txn_id in txn_ids.iter().take(limit as usize) {
+                    // Retrieve the transaction details for each transaction ID
+                    match self.db.get("transaction", txn_id.as_bytes()) {
+                        Ok(Some(txn_bytes)) => {
+                            let txn: Transaction = serde_json::from_slice(&txn_bytes)?;
+                            transactions.push(txn);
+                        }
+                        Ok(None) => {
+                            return Err(anyhow!("Transaction not found for ID: {}", txn_id))
+                        }
+                        Err(e) => return Err(anyhow!("Database error: {}", e)),
+                    }
+                }
+            }
+            Ok(None) => return Err(anyhow!("No transactions found for block hash: {}", hash)),
+            Err(e) => return Err(anyhow!("Database error: {}", e)),
+        }
+
+        Ok(transactions)
     }
 }
