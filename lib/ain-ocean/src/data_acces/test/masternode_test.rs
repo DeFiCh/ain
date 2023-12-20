@@ -74,8 +74,8 @@ mod tests {
             let result = master_node.store(masternode).await;
             assert!(result.is_ok());
         }
-        // let query_result = master_node.query(5, 8, SortOrder::Ascending).await;
-        // assert!(query_result.is_err());
+        let query_result = master_node.query(5, 8, SortOrder::Ascending).await;
+        assert!(query_result.is_err());
         // let queried_masternodes = query_result.unwrap();
         // assert_eq!(queried_masternodes.len(), 5);
     }
