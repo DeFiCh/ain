@@ -55,25 +55,6 @@ jobs:
         name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
-    - name: Delete previous cpp build cache
-      if: ${{ github.ref == 'refs/heads/master' && steps.cpp-cache-restore.outputs.cache-hit }}
-      continue-on-error: true
-      run: |
-        gh extension install actions/gh-actions-cache
-        gh actions-cache delete "cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}" --confirm
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Save cpp build cache
-      if: ${{ github.ref == 'refs/heads/master' }}
-      uses: actions/cache/save@v3
-      with:
-        path: |
-          ./build/depends
-          ./build/src
-          ~/.ccache
-        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
-
   docker-build:
     runs-on: ubuntu-latest
     needs: [build]
