@@ -26,7 +26,8 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, x64, builder]
+    runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
     strategy:
       matrix:
         target: [x86_64-w64-mingw32]
