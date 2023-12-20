@@ -225,7 +225,7 @@ package() {
     local pkg_path
     if [[ "$target" == "x86_64-w64-mingw32" ]]; then
         pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
-    else        
+    else
         pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.tar.gz")"
     fi
 
