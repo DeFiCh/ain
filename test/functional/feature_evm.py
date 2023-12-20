@@ -39,6 +39,7 @@ class EVMTest(DefiTestFramework):
             "-fortcanningepilogueheight=96",
             "-grandcentralheight=101",
             "-metachainheight=105",
+            "-df23height=105",
             "-subsidytest=1",
             "-ethdebug=1",
         ]
@@ -63,6 +64,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -361,6 +363,7 @@ class EVMTest(DefiTestFramework):
                             "amount": "100@DFI",
                             "domain": 3,
                         },
+                        "singlekeycheck": False,
                     }
                 ],
             )
@@ -383,6 +386,7 @@ class EVMTest(DefiTestFramework):
                             "amount": "100@DFI",
                             "domain": 3,
                         },
+                        "singlekeycheck": False,
                     }
                 ],
             )
@@ -418,6 +422,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -447,6 +452,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -581,6 +587,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -610,6 +617,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -639,6 +647,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -738,6 +747,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "200@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -1362,6 +1372,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "0.1@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -1377,6 +1388,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "0.1@DFI",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -1396,6 +1408,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "2@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -1416,6 +1429,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "20@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

@@ -14,6 +14,8 @@ from test_framework.util import (
 from test_framework.evm_contract import EVMContract
 from test_framework.evm_key_pair import EvmKeyPair
 
+import json
+import math
 from decimal import Decimal
 
 
@@ -27,6 +29,7 @@ def transfer_domain(node, fromAddr, toAddr, amount, fromDomain, toDomain):
                     "amount": amount,
                     "domain": toDomain,
                 },
+                "singlekeycheck": False,
             }
         ]
     )
@@ -53,6 +56,7 @@ class EVMTest(DefiTestFramework):
             "-fortcanningepilogueheight=96",
             "-grandcentralheight=101",
             "-metachainheight=150",
+            "-df23height=105",
             "-subsidytest=1",
         ]
         self.extra_args = [node_args, node_args]
@@ -264,7 +268,7 @@ class EVMTest(DefiTestFramework):
 
         self.start_height = self.nodes[0].getblockcount()
 
-    def check_initial_balance(self):
+    def setup_after_evm_activation(self):
         self.rollback_to(self.start_height)
 
         # Check initial balances
@@ -273,6 +277,43 @@ class EVMTest(DefiTestFramework):
         assert_equal(self.dfi_balance, Decimal("101"))
         assert_equal(self.eth_balance, int_to_eth_u256(0))
         assert_equal(len(self.nodes[0].getaccount(self.eth_address, {}, True)), 0)
+
+        self.contract_address_btc = self.nodes[0].w3.to_checksum_address(
+            "0xff00000000000000000000000000000000000001"
+        )
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        self.bytecode = json.loads(
+            open(
+                get_solc_artifact_path("dst20", "deployed_bytecode.json"),
+                "r",
+                encoding="utf8",
+            ).read()
+        )["object"]
+        assert_equal(self.btc.functions.name().call(), "BTC token")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+
+        # check BTC migration
+        genesis_block = self.nodes[0].eth_getBlockByNumber("0x0")
+        btc_tx = genesis_block["transactions"][5]
+        receipt = self.nodes[0].eth_getTransactionReceipt(btc_tx)
+        tx = self.nodes[0].eth_getTransactionByHash(btc_tx)
+        assert_equal(
+            self.nodes[0].w3.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_btc,
+        )
+        assert_equal(receipt["from"], tx["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
+        assert_equal(
+            self.nodes[0].w3.to_hex(
+                self.nodes[0].w3.eth.get_code(self.contract_address_btc)
+            ),
+            self.bytecode,
+        )
 
     def invalid_parameters(self):
         self.rollback_to(self.start_height)
@@ -290,6 +331,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -305,6 +347,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -320,6 +363,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -339,6 +383,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -354,6 +399,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": "evm",
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -369,6 +415,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -384,6 +431,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 4,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -399,6 +447,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -410,6 +459,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 2},
                     "dst": {"address": "blablabla", "amount": "100@DFI", "domain": 3},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -443,6 +493,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "101@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -539,6 +590,7 @@ class EVMTest(DefiTestFramework):
                 {
                     "src": {"address": self.address, "amount": "100@DFI", "domain": 3},
                     "dst": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -558,6 +610,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -573,6 +626,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "100@DFI", "domain": 3},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -588,6 +642,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "101@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -603,6 +658,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "10@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 },
                 {
                     "src": {
@@ -615,6 +671,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "10@DFI",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 },
             ],
         )
@@ -634,6 +691,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "1@" + self.symbolUSER,
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -653,6 +711,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "1@" + self.symbolBTCDFI,
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -727,6 +786,286 @@ class EVMTest(DefiTestFramework):
             attributes["v0/live/economy/evm/block/fee_priority"], Decimal("0E-8")
         )
 
+    def valid_single_key_transfer(self):
+        self.rollback_to(self.start_height)
+
+        # Valid DVM legacy address to EVM address with same key transfer
+        legacy_address = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].accounttoaccount(self.address, {legacy_address: "1@DFI"})
+        self.nodes[0].accounttoaccount(self.address, {legacy_address: "1@BTC"})
+        self.nodes[0].generate(1)
+
+        # Native transfer
+        legacy_erc55_address = self.nodes[0].addressmap(legacy_address, 1)["format"][
+            "erc55"
+        ]
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": legacy_address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": legacy_erc55_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(legacy_erc55_address)
+        assert_equal(balance, int_to_eth_u256(1))
+
+        # Token transfer
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": legacy_address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": legacy_erc55_address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.btc.functions.balanceOf(legacy_erc55_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+
+        # Valid DVM bech32 address to EVM address with same key transfer
+        bech32_address = self.nodes[0].getnewaddress("", "bech32")
+        self.nodes[0].accounttoaccount(self.address, {bech32_address: "1@DFI"})
+        self.nodes[0].accounttoaccount(self.address, {bech32_address: "1@BTC"})
+        self.nodes[0].generate(1)
+
+        # Native transfer
+        bech32_erc55_address = self.nodes[0].addressmap(bech32_address, 1)["format"][
+            "erc55"
+        ]
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": bech32_address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": bech32_erc55_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(bech32_erc55_address)
+        assert_equal(balance, int_to_eth_u256(1))
+
+        # Token transfer
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": bech32_address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": bech32_erc55_address,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.btc.functions.balanceOf(bech32_erc55_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(1),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(2),
+        )
+
+        # Valid ERC55 address to DVM bech32 address with same key transfer
+        erc55_address = self.nodes[0].getnewaddress("", "erc55")
+        transfer_domain(self.nodes[0], self.address, erc55_address, "2@DFI", 2, 3)
+        transfer_domain(self.nodes[0], self.address, erc55_address, "2@BTC", 2, 3)
+        self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(erc55_address)
+        assert_equal(balance, int_to_eth_u256(2))
+        assert_equal(
+            self.btc.functions.balanceOf(erc55_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(2),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(4),
+        )
+
+        # Native transfer
+        erc55_bech32_address = self.nodes[0].addressmap(erc55_address, 2)["format"][
+            "bech32"
+        ]
+        erc55_legacy_address = self.nodes[0].addressmap(erc55_address, 2)["format"][
+            "legacy"
+        ]
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": erc55_address, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": erc55_bech32_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": erc55_address, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": erc55_legacy_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(erc55_address)
+        assert_equal(balance, int_to_eth_u256(0))
+        balance = self.nodes[0].getaccount(erc55_bech32_address, {}, True)["0"]
+        assert_equal(balance, Decimal("1"))
+        balance = self.nodes[0].getaccount(erc55_legacy_address, {}, True)["0"]
+        assert_equal(balance, Decimal("1"))
+
+        # Token transfer
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": erc55_address, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": erc55_bech32_address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": erc55_address, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": erc55_legacy_address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+        assert_equal(
+            self.btc.functions.balanceOf(erc55_address).call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(0),
+        )
+        assert_equal(
+            self.btc.functions.totalSupply().call()
+            / math.pow(10, self.btc.functions.decimals().call()),
+            Decimal(2),
+        )
+        balance = self.nodes[0].getaccount(erc55_bech32_address, {}, True)["1"]
+        assert_equal(balance, Decimal("1"))
+        balance = self.nodes[0].getaccount(erc55_legacy_address, {}, True)["1"]
+        assert_equal(balance, Decimal("1"))
+
+    def invalid_single_key_transfer(self):
+        self.rollback_to(self.start_height)
+
+        # Invalid DVM legacy address to EVM address with different key transfer
+        legacy_address = self.nodes[0].getnewaddress("", "legacy")
+        self.nodes[0].accounttoaccount(self.address, {legacy_address: "1@DFI"})
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(
+            -5,
+            "Dst address does not match source key",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": legacy_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
+        # Invalid DVM bech32 address to EVM address with different key transfer
+        bech32_address = self.nodes[0].getnewaddress("", "bech32")
+        self.nodes[0].accounttoaccount(self.address, {bech32_address: "1@DFI"})
+        self.nodes[0].generate(1)
+        assert_raises_rpc_error(
+            -5,
+            "Dst address does not match source key",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": bech32_address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "dst": {
+                        "address": self.eth_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                }
+            ],
+        )
+
+        # Invalid ERC55 address to DVM bech32 address with different key transfer
+        erc55_address = self.nodes[0].getnewaddress("", "erc55")
+        transfer_domain(self.nodes[0], self.address, erc55_address, "1@DFI", 2, 3)
+        self.nodes[0].generate(1)
+        balance = self.nodes[0].eth_getBalance(erc55_address)
+        assert_equal(balance, int_to_eth_u256(1))
+        assert_raises_rpc_error(
+            -5,
+            "Dst address does not match source key",
+            self.nodes[0].transferdomain,
+            [
+                {
+                    "src": {
+                        "address": erc55_address,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                }
+            ],
+        )
+
     def invalid_transfer_sc(self):
         self.rollback_to(self.start_height)
 
@@ -740,6 +1079,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -784,6 +1124,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "1@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -803,6 +1144,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "1@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -818,6 +1160,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -863,6 +1206,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "101@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -965,6 +1309,7 @@ class EVMTest(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "100@DFI", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -1259,7 +1604,7 @@ class EVMTest(DefiTestFramework):
         self.setup()
         self.invalid_before_fork_and_disabled()
 
-        self.check_initial_balance()
+        self.setup_after_evm_activation()
         self.invalid_parameters()
 
         # Transfer DVM->EVM
@@ -1269,6 +1614,10 @@ class EVMTest(DefiTestFramework):
         # Transfer EVM->DVM
         self.invalid_values_evm_dvm()
         self.valid_transfer_evm_dvm()
+
+        # Single key transfer
+        self.valid_single_key_transfer()
+        self.invalid_single_key_transfer()
 
         # Transfer to smart contract
         self.invalid_transfer_sc()

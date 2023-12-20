@@ -6,8 +6,7 @@ use ain_evm::{
     core::EthCallArgs,
     evm::EVMServices,
     executor::TxResponse,
-    filters::Filter,
-    log::FilterType,
+    filters::FilterCriteria,
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
@@ -27,7 +26,7 @@ use crate::{
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
-    logs::{GetLogsRequest, LogResult},
+    logs::{GetLogsRequest, LogRequestTopics, LogResult},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
     transaction_request::{TransactionMessage, TransactionRequest},
@@ -1006,160 +1005,131 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
-        if input.block_hash.is_some() && (input.to_block.is_some() || input.from_block.is_some()) {
-            return Err(RPCError::InvalidBlockInput.into());
-        }
-
-        let block_numbers = match input.block_hash {
-            None => {
-                // use fromBlock-toBlock
-                let mut block_number = self.get_block(input.from_block)?.header.number;
-                let to_block_number = self.get_block(input.to_block)?.header.number;
-                let mut block_numbers = Vec::new();
-                if block_number > to_block_number {
-                    return Err(RPCError::FromBlockGreaterThanToBlock.into());
-                }
-
-                while block_number <= to_block_number {
-                    block_numbers.push(block_number);
-                    block_number = block_number
-                        .checked_add(U256::one())
-                        .ok_or(RPCError::ValueOverflow)?;
-                }
-                Ok::<Vec<U256>, Error>(block_numbers)
+        let from_block = if input.from_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.from_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.from_block)?.header.number)
             }
-            Some(block_hash) => {
-                let block_number = self
-                    .handler
-                    .storage
-                    .get_block_by_hash(&block_hash)
-                    .map_err(to_custom_err)?
-                    .ok_or(RPCError::BlockNotFound)?
-                    .header
-                    .number;
-                Ok(vec![block_number])
+        } else {
+            None
+        };
+        let to_block = if input.to_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.to_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.to_block)?.header.number)
             }
-        }?;
-
-        let logs_result = block_numbers
-            .into_iter()
-            .map(|block_number| {
-                self.handler
-                    .logs
-                    .get_logs(&input.address, &input.topics, block_number)
-                    .map_err(to_custom_err)
-            })
-            .collect::<RpcResult<Vec<Vec<_>>>>()?
-            .into_iter()
-            .flatten()
-            .map(LogResult::from)
-            .collect::<Vec<_>>();
-        Ok(logs_result)
+        } else {
+            None
+        };
+        let topics = input.topics.map(|topics| match topics {
+            LogRequestTopics::VecOfHashes(inputs) => {
+                inputs.into_iter().map(|input| vec![input]).collect()
+            }
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+        });
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let mut criteria = FilterCriteria {
+            block_hash: input.block_hash,
+            from_block,
+            to_block,
+            addresses: input.address,
+            topics,
+        };
+        criteria
+            .verify_criteria(curr_block)
+            .map_err(RPCError::EvmError)?;
+        let logs = self
+            .handler
+            .filters
+            .get_logs_from_filter(&criteria)
+            .map_err(RPCError::EvmError)?;
+        Ok(logs.into_iter().map(|log| log.into()).collect())
     }
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
-        let from_block_number = self.get_block(input.from_block)?.header.number;
-        let to_block_number = self.get_block(input.to_block)?.header.number;
-        if from_block_number > to_block_number {
-            return Err(RPCError::FromBlockGreaterThanToBlock.into());
-        }
-
-        Ok(self
-            .handler
-            .filters
-            .create_logs_filter(
-                input.address,
-                input.topics,
-                from_block_number,
-                to_block_number,
-            )
-            .into())
+        let from_block = if input.from_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.from_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.from_block)?.header.number)
+            }
+        } else {
+            None
+        };
+        let to_block = if input.to_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.to_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.to_block)?.header.number)
+            }
+        } else {
+            None
+        };
+        let topics = input.topics.map(|topics| match topics {
+            LogRequestTopics::VecOfHashes(inputs) => {
+                inputs.into_iter().map(|input| vec![input]).collect()
+            }
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+        });
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let mut criteria = FilterCriteria {
+            from_block,
+            to_block,
+            addresses: input.address,
+            topics,
+            ..Default::default()
+        };
+        criteria
+            .verify_criteria(curr_block)
+            .map_err(RPCError::EvmError)?;
+        Ok(self.handler.filters.create_log_filter(criteria).into())
     }
 
     fn new_block_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_block_filter().into())
+        Ok(self
+            .handler
+            .filters
+            .create_block_filter()
+            .map_err(RPCError::EvmError)?
+            .into())
     }
 
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
-        let filter = usize::try_from(filter_id)
-            .and_then(|id| self.handler.filters.get_filter(id))
-            .map_err(to_custom_err)?;
-
-        let res = match filter {
-            Filter::Logs(filter) => {
-                let current_block_height = match self
-                    .handler
-                    .storage
-                    .get_latest_block()
-                    .map_err(RPCError::EvmError)?
-                {
-                    None => return Err(RPCError::BlockNotFound.into()),
-                    Some(block) => block.header.number,
-                };
-
-                let logs = self
-                    .handler
-                    .logs
-                    .get_logs_from_filter(&filter, &FilterType::GetFilterChanges)
-                    .map_err(to_custom_err)?
-                    .into_iter()
-                    .map(LogResult::from)
-                    .collect();
-
-                usize::try_from(filter_id)
-                    .and_then(|id| {
-                        self.handler
-                            .filters
-                            .update_last_block(id, current_block_height)
-                    })
-                    .map_err(to_custom_err)?;
-
-                GetFilterChangesResult::Logs(logs)
-            }
-            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
-                usize::try_from(filter_id)
-                    .and_then(|id| self.handler.filters.get_entries_from_filter(id))
-                    .map_err(to_custom_err)?,
-            ),
-            Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
-                usize::try_from(filter_id)
-                    .and_then(|id| self.handler.filters.get_entries_from_filter(id))
-                    .map_err(to_custom_err)?,
-            ),
-        };
-
+        let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let res = self
+            .handler
+            .filters
+            .get_filter_changes_from_id(filter_id, curr_block)
+            .map_err(RPCError::EvmError)?
+            .into();
         Ok(res)
     }
 
     fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
-
         Ok(self.handler.filters.delete_filter(filter_id))
     }
 
     fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
-        let filter = usize::try_from(filter_id)
-            .and_then(|id| self.handler.filters.get_filter(id))
-            .map_err(to_custom_err)?;
-
-        match filter {
-            Filter::Logs(filter) => {
-                let logs = self
-                    .handler
-                    .logs
-                    .get_logs_from_filter(&filter, &FilterType::GetFilterLogs)
-                    .map_err(to_custom_err)?
-                    .into_iter()
-                    .map(LogResult::from)
-                    .collect();
-                Ok(logs)
-            }
-            _ => Err(RPCError::InvalidLogFilter.into()),
-        }
+        let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let logs = self
+            .handler
+            .filters
+            .get_filter_logs_from_id(filter_id, curr_block)
+            .map_err(RPCError::EvmError)?;
+        Ok(logs.into_iter().map(|log| log.into()).collect())
     }
 
     fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_transaction_filter().into())
+        Ok(self.handler.filters.create_tx_filter().into())
     }
 }
 

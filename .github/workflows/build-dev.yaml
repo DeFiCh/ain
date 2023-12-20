@@ -25,25 +25,97 @@ env:
   GIT_VERSION: 1
 
 jobs:
-  linux-x64:
+  build:
     runs-on: ubuntu-latest
+    container: defi/ain-builder:latest
+    strategy:
+      matrix:
+        target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
     env:
-      TARGET: x86_64-pc-linux-gnu
+      TARGET: ${{matrix.target}}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - name: Build and package
-      run: ./make.sh docker-release
+    - name: Setup dependencies
+      run: ./make.sh ci-setup-deps
 
-    - name: Publish artifact - x86_64-pc-linux-gnu
+    - name: Setup user dependencies
+      run: ./make.sh ci-setup-user-deps
+
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
+    - name: Rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
+
+    - name: Build and package
+      run: ./make.sh release
+
+    - name: Publish artifact
       uses: actions/upload-artifact@v3
       with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-pc-linux-gnu.tar.gz
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
+
+    - name: Delete previous cpp build cache
+      if: ${{ github.ref == 'refs/heads/master' && steps.cpp-cache-restore.outputs.cache-hit }}
+      continue-on-error: true
+      run: |
+        gh extension install actions/gh-actions-cache
+        gh actions-cache delete "cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}" --confirm
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Save cpp build cache
+      if: ${{ github.ref == 'refs/heads/master' }}
+      uses: actions/cache/save@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      TARGET: x86_64-pc-linux-gnu
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Populate environment
+      run: ./make.sh ci-export-vars
+
+    - name: Download binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}
+        path: ./build/
+    
+    - name: Unpack binaries
+      run: tar -xvzf ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }} -C ./build/
+
+    - name: Build defi image
+      run: rm .dockerignore && ./make.sh docker-build-from-binaries
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -54,45 +126,5 @@ jobs:
     - name: Push to Docker Hub
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-x86_64-pc-linux-gnu:${ver} defi/defichain:${ver}
+        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
         docker push defi/defichain:${ver}
-
-  win-x64:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-w64-mingw32
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: ./make.sh docker-release
-
-    - name: Publish artifact - x86_64-w64-mingw32
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-w64-mingw32.tar.gz
-
-  osx-x64:
-    runs-on: ubuntu-latest
-    env:
-      TARGET: x86_64-apple-darwin
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Populate environment
-      run: ./make.sh ci-export-vars
-
-    - name: Build and package
-      run: ./make.sh docker-release
-
-    - name: Publish artifact - x86_64-apple-darwin
-      uses: actions/upload-artifact@v3
-      with:
-        name: defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin
-        path: ./build/defichain-${{ env.BUILD_VERSION }}-x86_64-apple-darwin.tar.gz

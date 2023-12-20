@@ -40,6 +40,7 @@ class EVMTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23height=105",
                 "-subsidytest=1",
             ],
         ]
@@ -100,6 +101,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "50@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

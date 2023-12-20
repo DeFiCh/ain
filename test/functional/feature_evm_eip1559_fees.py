@@ -37,6 +37,7 @@ class EIP1559Fees(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23height=105",
                 "-subsidytest=1",
             ]
         ]
@@ -77,6 +78,7 @@ class EIP1559Fees(DefiTestFramework):
                         "amount": "10@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
