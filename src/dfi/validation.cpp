@@ -1565,7 +1565,6 @@ static Res PoolSplits(CCustomCSView &view,
 
                 res = addView.AddBalance(owner, {newPoolId, liquidity});
                 if (!res) {
-                    addView.Discard();
                     refundBalances();
                     continue;
                 }

@@ -1,12 +1,15 @@
 use axum::{
-    debug_handler,
     extract::{Path, Query},
     routing::get,
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::api_paged_response::ApiPagedResponse;
+use crate::{
+    api_paged_response::ApiPagedResponse,
+    api_query::PaginationQuery,
+    error::OceanResult,
+};
 
 #[derive(Deserialize)]
 struct BlockId {
@@ -18,29 +21,23 @@ struct BlockHash {
     hash: String,
 }
 
-#[derive(Deserialize)]
-pub struct ListBlocksQuery {
-    pub size: usize,
-    pub next: Option<String>,
-}
-
-#[debug_handler]
-async fn list_blocks(Query(query): Query<ListBlocksQuery>) -> Json<ApiPagedResponse<Block>> {
-    // TODO(): query from db
-    // db::block::list(req).await...
+async fn list_blocks(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<Block>>> {
+    // TODO(): query from lvldb.. or maybe pull from index
     let blocks = vec![
         Block { id: "0".into() },
         Block { id: "1".into() },
         Block { id: "2".into() },
     ];
 
-    Json(ApiPagedResponse::of(blocks, query.size, |block| {
+    Ok(Json(ApiPagedResponse::of(blocks, query.size, |block| {
         block.clone().id
-    }))
+    })))
 }
 
-async fn get_block(Path(BlockId { id }): Path<BlockId>) -> String {
-    format!("Details of block with id {}", id)
+async fn get_block(Path(BlockId { id }): Path<BlockId>) -> OceanResult<Json<Block>> {
+    Ok(Json(Block {
+        id,
+    }))
 }
 
 async fn get_transactions(Path(BlockHash { hash }): Path<BlockHash>) -> String {

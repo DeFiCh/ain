@@ -34,3 +34,4 @@ structopt = { version = "0.3", default-features = false }
 tempfile = "3.8.1"
 anyhow.workspace = true
 chrono = "0.4.31"
+cached.workspace = true

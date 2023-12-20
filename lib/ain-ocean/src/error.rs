@@ -2,11 +2,10 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use thiserror::Error;
 
 pub type OceanResult<T> = Result<T, OceanError>;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum OceanError {}
 
 impl IntoResponse for OceanError {
