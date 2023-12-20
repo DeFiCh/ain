@@ -5,7 +5,7 @@ use bitcoin::{
     blockdata::block::{Block, Header},
     consensus::encode::serialize,
 };
-use rocksdb::{ColumnFamilyDescriptor, DBIterator, IteratorMode, Options, DB};
+use rocksdb::{ColumnFamilyDescriptor, DBIterator, Direction, IteratorMode, Options, DB};
 use serde::{Deserialize, Serialize};
 
 use crate::model::oracle::Oracle;
@@ -14,6 +14,12 @@ use crate::model::oracle::Oracle;
 pub struct RocksDB {
     db: Arc<DB>,
     cfs: HashSet<String>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum SortOrder {
+    Ascending,
+    Descending,
 }
 
 pub trait ColumnFamilyOperations {
@@ -278,6 +284,15 @@ impl ColumnFamilyOperations for RocksDB {
             Ok(self.db.iterator_cf(cf_handle, mode))
         } else {
             Err(anyhow!("Column family not found"))
+        }
+    }
+}
+
+impl<'a> From<SortOrder> for IteratorMode<'a> {
+    fn from(sort_order: SortOrder) -> Self {
+        match sort_order {
+            SortOrder::Ascending => IteratorMode::Start,
+            SortOrder::Descending => IteratorMode::From(b"", Direction::Reverse),
         }
     }
 }

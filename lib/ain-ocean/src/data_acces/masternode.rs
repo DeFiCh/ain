@@ -1,19 +1,47 @@
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
-use serde_json;
-
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
     model::masternode::Masternode,
 };
+use anyhow::{anyhow, Result};
+use rocksdb::IteratorMode;
+use serde_json;
 
 pub struct MasterNodeDB {
     pub db: RocksDB,
 }
 
 impl MasterNodeDB {
-    pub async fn query(&self, limit: i32, lt: i32) -> Result<Vec<Masternode>> {
-        todo!()
+    pub async fn query(
+        &self,
+        limit: i32,
+        lt: u32,
+        sort_order: SortOrder,
+    ) -> Result<Vec<Masternode>> {
+        let iter_mode: IteratorMode = sort_order.into();
+        let master_node: Result<Vec<_>> = self
+            .db
+            .iterator("masternode", iter_mode)?
+            .into_iter()
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e)
+                            .context("error master_node query error")
+                    })
+                    .and_then(|(_key, value)| {
+                        let stats: Masternode = serde_json::from_slice(&value)?;
+                        if stats.block.height < lt {
+                            Ok(stats)
+                        } else {
+                            Err(anyhow!("Value is not less than lt")
+                                .context("Contextual error message"))
+                        }
+                    })
+            })
+            .collect();
+
+        master_node.and_then(|result| Ok(result))
     }
     pub async fn get(&self, id: String) -> Result<Option<Masternode>> {
         match self.db.get("masternode", id.as_bytes()) {
