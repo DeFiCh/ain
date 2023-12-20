@@ -1165,7 +1165,6 @@ ci_export_vars() {
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
-        echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
 
         if [[ "${MAKE_DEBUG}" == "1" ]]; then
