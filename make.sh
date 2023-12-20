@@ -223,11 +223,11 @@ package() {
     local pkg_name="${img_prefix}-${img_version}-${target}"
 
     local pkg_path
-    # if [[ "$target" == "x86_64-w64-mingw32" ]]; then
-    #     pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
-    # else
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
+    else        
         pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.tar.gz")"
-    # fi
+    fi
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
@@ -240,13 +240,16 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
-    # if [[ "$target" == "x86_64-w64-mingw32" ]]; then
-    #     _ensure_enter_dir "${build_dir}"
-    #     zip -r "${pkg_path}" "$(basename "${versioned_build_dir}")"
-    # else
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        _ensure_enter_dir "${versioned_build_dir}"
+        cd ..
+        local dir_to_zip
+        dir_to_zip=$(basename "${versioned_build_dir}")
+        zip -r "${pkg_path}" "${dir_to_zip}/"
+    else
         _ensure_enter_dir "${versioned_build_dir}"
         _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
-    # fi
+    fi
     sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
     _exit_dir
 
@@ -1171,11 +1174,11 @@ ci_export_vars() {
             echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
         fi
 
-        # if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
-        #     echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
-        # else
+        if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+            echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
+        else
             echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
-        # fi
+        fi
     fi
 }
 
