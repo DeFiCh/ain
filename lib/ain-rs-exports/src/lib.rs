@@ -7,7 +7,7 @@ mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, debug::*, evm::*, util::*, ocean::*};
+use crate::{core::*, debug::*, evm::*, ocean::*, util::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -103,7 +103,7 @@ pub mod ffi {
         pub key: u32,
         pub key_id: u32,
     }
-  
+
     // ========== EVM ==========
 
     pub struct CreateTransactionContext<'a> {

@@ -1,19 +1,23 @@
-use axum::{extract::{Path, Query}, routing::get, Router, Json};
+use axum::{
+    extract::{Path, Query},
+    routing::get,
+    Json, Router,
+};
 
 use crate::{
-    api_paged_response::ApiPagedResponse,
-    api_query::PaginationQuery,
-    error::OceanResult,
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult,
     model::masternode::MasternodeData,
 };
 
-async fn list_masternodes(Query(query): Query<PaginationQuery>) -> OceanResult<Json<ApiPagedResponse<MasternodeData>>> {
-    let masternodes = vec![
-        MasternodeData::new("0"),
-    ];
-    Ok(Json(ApiPagedResponse::of(masternodes, query.size, |masternode| {
-        masternode.clone().id
-    })))
+async fn list_masternodes(
+    Query(query): Query<PaginationQuery>,
+) -> OceanResult<Json<ApiPagedResponse<MasternodeData>>> {
+    let masternodes = vec![MasternodeData::new("0")];
+    Ok(Json(ApiPagedResponse::of(
+        masternodes,
+        query.size,
+        |masternode| masternode.clone().id,
+    )))
 }
 
 async fn get_masternode(Path(masternode_id): Path<String>) -> OceanResult<Json<MasternodeData>> {

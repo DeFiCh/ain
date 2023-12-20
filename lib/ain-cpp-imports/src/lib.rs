@@ -114,6 +114,9 @@ mod ffi {
     pub fn isEthDebugTraceRPCEnabled() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn isOceanEnabled() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
