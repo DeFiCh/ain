@@ -41,8 +41,6 @@ jobs:
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
-    - run: echo "/root/.cargo/bin" >> $GITHUB_PATH
-
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
