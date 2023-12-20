@@ -1,6 +1,6 @@
+use std::{env, fs, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::{env, fs};
 use structopt::StructOpt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, StructOpt)]

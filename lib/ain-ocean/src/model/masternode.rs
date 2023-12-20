@@ -39,15 +39,15 @@ pub enum MasternodeState {
 
 impl std::fmt::Display for MasternodeState {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-       match self {
-        MasternodeState::PreEnabled => write!(f, "PRE_ENABLED"),
-        MasternodeState::Enabled => write!(f, "ENABLED"),
-        MasternodeState::PreResigned => write!(f, "PRE_RESIGNED"),
-        MasternodeState::Resigned => write!(f, "RESIGNED"),
-        MasternodeState::PreBanned => write!(f, "PRE_BANNED"),
-        MasternodeState::Banned => write!(f, "BANNED"),
-        MasternodeState::Unknown => write!(f, "UNKNOWN"),
-       }
+        match self {
+            MasternodeState::PreEnabled => write!(f, "PRE_ENABLED"),
+            MasternodeState::Enabled => write!(f, "ENABLED"),
+            MasternodeState::PreResigned => write!(f, "PRE_RESIGNED"),
+            MasternodeState::Resigned => write!(f, "RESIGNED"),
+            MasternodeState::PreBanned => write!(f, "PRE_BANNED"),
+            MasternodeState::Banned => write!(f, "BANNED"),
+            MasternodeState::Unknown => write!(f, "UNKNOWN"),
+        }
     }
 }
 
@@ -98,12 +98,10 @@ impl MasternodeData {
             operator: MasternodeOperator {
                 address: id.repeat(34),
             },
-            creation: MasternodeCreation {
-                height: 0
-            },
+            creation: MasternodeCreation { height: 0 },
             resign: None,
-            timelock: 0
-       }
+            timelock: 0,
+        }
     }
 }
 

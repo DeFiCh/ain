@@ -100,7 +100,10 @@ pub fn router() -> Router {
             get(list_pool_swap_aggregates),
         )
         .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
-        .route("/paths/best/from/:fromTokenId/to/:toTokenId", get(get_best_path))
+        .route(
+            "/paths/best/from/:fromTokenId/to/:toTokenId",
+            get(get_best_path),
+        )
         .route("/paths/from/:fromTokenId/to/:toTokenId", get(get_all_paths))
         .route("/dexprices", get(list_dex_prices))
 }
