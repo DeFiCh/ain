@@ -21,7 +21,7 @@ env:
   # Note: We do not use debug build on CI for dev as well, since debug builds 
   # take 5x the amount of space and run the GitHub CI workers out of space. 
   # make.sh still defaults to debug for local builds
-  MAKE_DEBUG: 0
+  MAKE_DEBUG: 1
   GIT_VERSION: 1
 
 jobs:
