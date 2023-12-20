@@ -1,11 +1,13 @@
 mod core;
+mod debug;
 mod evm;
 mod ocean;
 mod prelude;
+mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, evm::*, ocean::*};
+use crate::{core::*, debug::*, evm::*, util::*, ocean::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -23,6 +25,33 @@ impl BlockTemplateWrapper {
 
 #[cxx::bridge]
 pub mod ffi {
+    // =========  FFI ==========
+    pub struct CrossBoundaryResult {
+        pub ok: bool,
+        pub reason: String,
+    }
+
+    // =========  Util ==========
+    extern "Rust" {
+        fn rs_try_from_utf8(result: &mut CrossBoundaryResult, string: &'static [u8]) -> String;
+    }
+
+    // =========  Core ==========
+    extern "Rust" {
+        fn ain_rs_preinit(result: &mut CrossBoundaryResult);
+        fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
+        fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
+        fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
+        fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
+
+        // Networking
+        fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
+        fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
+    }
+
     // ========== Block ==========
     #[derive(Default)]
     pub struct EVMBlockHeader {
@@ -74,30 +103,7 @@ pub mod ffi {
         pub key: u32,
         pub key_id: u32,
     }
-
-    // =========  FFI ==========
-    // =========  Core ==========
-    pub struct CrossBoundaryResult {
-        pub ok: bool,
-        pub reason: String,
-    }
-
-    // =========  Core ==========
-    extern "Rust" {
-        fn ain_rs_preinit(result: &mut CrossBoundaryResult);
-        fn ain_rs_init_logging(result: &mut CrossBoundaryResult);
-        fn ain_rs_init_core_services(result: &mut CrossBoundaryResult);
-        fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult);
-        fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult);
-
-        // Networking
-        fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_init_network_rest_ocean(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str);
-        fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
-    }
-
+  
     // ========== EVM ==========
 
     pub struct CreateTransactionContext<'a> {
@@ -131,6 +137,12 @@ pub mod ffi {
         pub direction: bool,
         pub value: u64,
         pub token_id: u32,
+    }
+
+    pub struct DST20TokenInfo {
+        pub id: u64,
+        pub name: String,
+        pub symbol: String,
     }
 
     #[derive(Default)]
@@ -295,9 +307,7 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             block_template: &mut BlockTemplateWrapper,
             native_hash: &str,
-            name: &str,
-            symbol: &str,
-            token_id: u64,
+            token: DST20TokenInfo,
         );
 
         fn evm_try_unsafe_bridge_dst20(
@@ -332,5 +342,17 @@ pub mod ffi {
             block: String,
             block_height: u32,
         );
+    }
+
+    // =========  Debug ==========
+    extern "Rust" {
+        fn debug_dump_db(
+            result: &mut CrossBoundaryResult,
+            arg: String,
+            start: String,
+            limit: String,
+        ) -> String;
+
+        fn debug_log_account_states(result: &mut CrossBoundaryResult) -> String;
     }
 }

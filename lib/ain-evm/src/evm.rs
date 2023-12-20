@@ -113,7 +113,7 @@ impl EVMServices {
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
-                filters: FilterService::new(),
+                filters: FilterService::new(Arc::clone(&storage)),
                 storage,
                 channel: NotificationChannel {
                     sender,
@@ -127,7 +127,7 @@ impl EVMServices {
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
-                filters: FilterService::new(),
+                filters: FilterService::new(Arc::clone(&storage)),
                 storage,
                 channel: NotificationChannel {
                     sender,
@@ -260,8 +260,6 @@ impl EVMServices {
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number)?;
             self.receipt.put_receipts(receipts)?;
-            self.filters.add_block_to_filters(block.header.hash());
-
             self.channel
                 .sender
                 .send(Notification::Block(block.header.hash()))
@@ -567,11 +565,7 @@ impl EVMServices {
 
         self.verify_tx_fees(template.get_block_base_fee_per_gas(), &tx)?;
         let tx_update = self.update_block_template_state_from_tx(template, tx.clone())?;
-        let tx_hash = tx_update.tx.hash();
-
         template.add_tx(tx_update, hash)?;
-        self.filters.add_tx_to_filters(tx_hash);
-
         Ok(())
     }
 

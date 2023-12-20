@@ -86,7 +86,8 @@ mod ffi {
         // Just the logs are skipped.
     }
 
-    pub fn getDST20Tokens(_mnview_ptr: usize) -> Vec<DST20Token> {
+    #[allow(clippy::ptr_arg)]
+    pub fn getDST20Tokens(_mnview_ptr: usize, _tokens: &mut Vec<DST20Token>) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getClientVersion() -> String {
@@ -238,9 +239,10 @@ pub fn log_print(message: &str) {
     ffi::CppLogPrintf(message.to_owned());
 }
 
-/// Fetches all DST20 tokens in view.
-pub fn get_dst20_tokens(mnview_ptr: usize) -> Vec<ffi::DST20Token> {
-    ffi::getDST20Tokens(mnview_ptr)
+/// Fetches all DST20 tokens in view, returns the result of the migration
+#[allow(clippy::ptr_arg)]
+pub fn get_dst20_tokens(mnview_ptr: usize, tokens: &mut Vec<ffi::DST20Token>) -> bool {
+    ffi::getDST20Tokens(mnview_ptr, tokens)
 }
 
 /// Returns the number of CPU cores available to the node.
