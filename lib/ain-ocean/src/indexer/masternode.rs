@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use dftx_rs::{masternode::*, Transaction};
 use log::debug;
 

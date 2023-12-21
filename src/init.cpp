@@ -2349,11 +2349,11 @@ bool AppInitMain(InitInterfaces& interfaces)
         // bind ocean REST addresses
         // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
             // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, "127.0.0.1:3002"))
-            if (!res) {
-                // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
-                return false;
-            }
+            // auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, "127.0.0.1:3002"))
+            // if (!res) {
+            //     // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
+            //     return false;
+            // }
         // }
     }
     uiInterface.InitMessage(_("Done loading").translated);

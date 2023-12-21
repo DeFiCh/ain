@@ -5,8 +5,6 @@ mod pool;
 
 use dftx_rs::Transaction;
 
-pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 pub(crate) trait Index {
     fn index(&self, context: &BlockContext, tx: Transaction) -> Result<()>;
     fn invalidate(&self);
@@ -15,6 +13,8 @@ pub(crate) trait Index {
 use bitcoin::BlockHash;
 use dftx_rs::{deserialize, Block, DfTx};
 use log::debug;
+
+use crate::Result;
 
 pub(crate) struct BlockContext {
     height: u32,

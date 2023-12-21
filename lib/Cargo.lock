@@ -106,11 +106,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ain-db"
+version = "0.1.0"
+dependencies = [
+ "ain-cpp-imports",
+ "bincode",
+ "rocksdb",
+ "serde",
+]
+
+[[package]]
 name = "ain-evm"
 version = "0.1.0"
 dependencies = [
  "ain-contracts",
  "ain-cpp-imports",
+ "ain-db",
  "anyhow",
  "axum 0.7.2",
  "bincode",
@@ -213,12 +224,14 @@ name = "ain-ocean"
 version = "0.1.0"
 dependencies = [
  "ain-cpp-imports",
+ "ain-db",
  "anyhow",
  "axum 0.7.2",
+ "bincode",
  "bitcoin",
  "bitcoin_hashes 0.12.0",
- "chrono",
  "cached",
+ "chrono",
  "ctrlc",
  "dftx-rs",
  "futures",
@@ -227,6 +240,7 @@ dependencies = [
  "json",
  "jsonrpsee 0.20.3",
  "keccak-hash",
+ "lazy_static",
  "log",
  "rocksdb",
  "serde",

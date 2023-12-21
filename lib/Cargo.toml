@@ -124,3 +124,4 @@ cached = "0.46"
 
 ### Local crates
 ain-cpp-imports = { path = "./ain-cpp-imports" }
+ain-db = { path = "./ain-db" }
