@@ -1,5 +1,5 @@
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::masternode_stats::MasternodeStats,
 };
 use anyhow::Context;
@@ -43,10 +43,10 @@ impl MasterStatsDb {
     pub async fn query(
         &self,
         limit: i32,
-        lt: i32,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<MasternodeStats>> {
-        let iter_mode: IteratorMode = sort_order.into();
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
         let master_node: Result<Vec<_>> = self
             .db
             .iterator("masternode_stats", iter_mode)?
@@ -59,10 +59,10 @@ impl MasterStatsDb {
                     })
                     .and_then(|(_key, value)| {
                         let stats: MasternodeStats = serde_json::from_slice(&value)?;
-                        if stats.block.height < lt {
+                        if stats.block.height < start_index {
                             Ok(stats)
                         } else {
-                            Err(anyhow!("Value is not less than lt")
+                            Err(anyhow!("Value is not less than start_index")
                                 .context("Contextual error message"))
                         }
                     })
@@ -70,7 +70,6 @@ impl MasterStatsDb {
             .collect();
         Ok(master_node?)
     }
-
     pub async fn get(&self, height: i32) -> Result<Option<MasternodeStats>> {
         let bytes: &[u8] = &height.to_be_bytes();
         match self.db.get("masternode_stats", bytes) {

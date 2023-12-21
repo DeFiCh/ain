@@ -17,7 +17,7 @@ impl PoolSwapAggregatedDb {
         limit: i32,
         lt: String,
         sort_order: SortOrder,
-    ) -> Result<(Vec<PoolSwapAggregated>)> {
+    ) -> Result<Vec<PoolSwapAggregated>> {
         let iterator = self
             .db
             .iterator("pool_swap_aggregated", IteratorMode::End)?;

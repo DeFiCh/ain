@@ -1,5 +1,5 @@
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::masternode::Masternode,
 };
 use anyhow::{anyhow, Result};
@@ -14,10 +14,10 @@ impl MasterNodeDB {
     pub async fn query(
         &self,
         limit: i32,
-        lt: u32,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<Masternode>> {
-        let iter_mode: IteratorMode = sort_order.into();
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
         let master_node: Result<Vec<_>> = self
             .db
             .iterator("masternode", iter_mode)?
@@ -31,12 +31,7 @@ impl MasterNodeDB {
                     })
                     .and_then(|(_key, value)| {
                         let stats: Masternode = serde_json::from_slice(&value)?;
-                        if stats.block.height < lt {
-                            Ok(stats)
-                        } else {
-                            Err(anyhow!("Value is not less than lt")
-                                .context("Contextual error message"))
-                        }
+                        Ok(stats)
                     })
             })
             .collect();

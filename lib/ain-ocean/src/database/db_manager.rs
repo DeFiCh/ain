@@ -27,7 +27,7 @@ pub trait ColumnFamilyOperations {
     fn put(&self, cf_name: &str, key: &[u8], value: &[u8]) -> Result<()>;
     fn delete(&self, cf_name: &str, key: &[u8]) -> Result<()>;
     fn get_total_row(&self) -> Result<()>;
-    fn iterator(&self, cf_name: &str, mode: IteratorMode) -> Result<(DBIterator)>;
+    fn iterator(&self, cf_name: &str, mode: IteratorMode) -> Result<DBIterator>;
 }
 
 impl RocksDB {
@@ -288,11 +288,23 @@ impl ColumnFamilyOperations for RocksDB {
     }
 }
 
-impl<'a> From<SortOrder> for IteratorMode<'a> {
-    fn from(sort_order: SortOrder) -> Self {
-        match sort_order {
-            SortOrder::Ascending => IteratorMode::Start,
-            SortOrder::Descending => IteratorMode::From(b"", Direction::Reverse),
-        }
+pub struct MyIteratorMode(IteratorMode<'static>);
+
+impl From<(SortOrder, i32)> for MyIteratorMode {
+    fn from((sort_order, start_index): (SortOrder, i32)) -> Self {
+        let bytes = start_index.to_be_bytes().to_vec();
+        let bytes_static: &'static [u8] = Box::leak(bytes.into_boxed_slice()); // Convert to static slice
+        let iterator_mode = match sort_order {
+            SortOrder::Ascending => IteratorMode::From(bytes_static, Direction::Forward),
+            SortOrder::Descending => IteratorMode::From(bytes_static, Direction::Reverse),
+        };
+        MyIteratorMode(iterator_mode)
+    }
+}
+
+// Implement Into directly for MyIteratorMode to avoid conflicts
+impl Into<IteratorMode<'static>> for MyIteratorMode {
+    fn into(self) -> IteratorMode<'static> {
+        self.0
     }
 }
