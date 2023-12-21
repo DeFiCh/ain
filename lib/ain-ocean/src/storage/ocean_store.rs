@@ -29,36 +29,35 @@ impl OceanStore {
 }
 
 impl OceanStore {
-    pub fn get<C>(&self, key: C::Index) -> Result<Option<C::Type>>
-    where
-        C: Column + TypedColumn + ColumnName,
-    {
+    pub fn get<C: Column + TypedColumn + ColumnName>(
+        &self,
+        key: C::Index,
+    ) -> Result<Option<C::Type>> {
         let col = self.column::<C>();
         Ok(col.get(&key)?)
     }
 
-    pub fn put<C>(&self, key: &C::Index, val: &C::Type) -> Result<()>
-    where
-        C: Column + TypedColumn + ColumnName,
-    {
+    pub fn put<C: Column + TypedColumn + ColumnName>(
+        &self,
+        key: &C::Index,
+        val: &C::Type,
+    ) -> Result<()> {
         let col = self.column::<C>();
         let serialized_value = bincode::serialize(val)?;
         Ok(col.put_bytes(key, &serialized_value)?)
     }
 
-    pub fn delete<C>(&self, key: &C::Index) -> Result<()>
-    where
-        C: Column + TypedColumn + ColumnName,
-    {
+    pub fn delete<C: Column + TypedColumn + ColumnName>(&self, key: &C::Index) -> Result<()> {
         let col = self.column::<C>();
         Ok(col.delete(key)?)
     }
 
-    pub fn list<C>(&self, from: Option<C::Index>, limit: usize) -> Vec<(C::Index, C::Type)>
-    where
-        C: Column + TypedColumn + ColumnName,
-    {
+    pub fn list<C: Column + TypedColumn + ColumnName>(
+        &self,
+        from: Option<C::Index>,
+        limit: usize,
+    ) -> Result<Vec<(C::Index, C::Type)>> {
         let col = self.column::<C>();
-        col.iter(from, limit).collect()
+        Ok(col.iter(from, limit).collect())
     }
 }

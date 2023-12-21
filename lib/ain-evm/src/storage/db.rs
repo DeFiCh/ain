@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use ain_db::{Column, ColumnName, LedgerColumn, TypedColumn};
+use ain_db::{Column, ColumnName, DBError, LedgerColumn, TypedColumn};
 use bincode;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
@@ -17,7 +17,7 @@ use rocksdb::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{log::LogIndex, receipt::Receipt, Result};
+use crate::{log::LogIndex, receipt::Receipt};
 
 pub mod columns {
 
@@ -120,8 +120,8 @@ impl Column for columns::Transactions {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        Self::Index::from_slice(&raw_key)
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Ok(Self::Index::from_slice(&raw_key))
     }
 }
 
@@ -134,8 +134,8 @@ impl Column for columns::Blocks {
         bytes.to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        Self::Index::from(&*raw_key)
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Ok(Self::Index::from(&*raw_key))
     }
 }
 
@@ -146,8 +146,8 @@ impl Column for columns::Receipts {
         index.to_fixed_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        Self::Index::from_slice(&raw_key)
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Ok(Self::Index::from_slice(&raw_key))
     }
 }
 
@@ -158,8 +158,8 @@ impl Column for columns::BlockMap {
         index.to_fixed_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        Self::Index::from_slice(&raw_key)
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Ok(Self::Index::from_slice(&raw_key))
     }
 }
 
@@ -170,8 +170,8 @@ impl Column for columns::LatestBlockNumber {
         b"latest".to_vec()
     }
 
-    fn get_key(_raw_key: Box<[u8]>) -> Self::Index {
-        "latest"
+    fn get_key(_raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Ok("latest")
     }
 }
 
@@ -184,8 +184,8 @@ impl Column for columns::AddressLogsMap {
         bytes.to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        Self::Index::from(&*raw_key)
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Ok(Self::Index::from(&*raw_key))
     }
 }
 
@@ -199,10 +199,10 @@ impl Column for columns::AddressCodeMap {
         bytes
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
         let address = H160::from_slice(&raw_key[..20]);
         let code_hash = H256::from_slice(&raw_key[20..]);
-        (address, code_hash)
+        Ok((address, code_hash))
     }
 }
 
@@ -219,14 +219,14 @@ impl Column for columns::BlockDeployedCodeHashes {
         bytes
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
         let u256_bytes = &raw_key[0..32];
         let h160_bytes = &raw_key[32..52];
 
         let u256 = U256::from_big_endian(u256_bytes);
         let h160 = H160::from_slice(h160_bytes);
 
-        (u256, h160)
+        Ok((u256, h160))
     }
 }
 

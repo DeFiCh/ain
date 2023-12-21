@@ -1,3 +1,5 @@
+use crate::Result;
+
 pub mod block;
 pub mod masternode;
 pub mod masternode_stats;
@@ -20,3 +22,10 @@ pub mod transaction;
 pub mod transaction_vin;
 pub mod transaction_vout;
 pub mod vault_auction_batch_history;
+
+trait RepositoryOps<K, V> {
+    fn get(&self, key: K) -> Result<Option<V>>;
+    fn put(&self, key: &K, masternode: &V) -> Result<()>;
+    fn delete(&self, key: &K) -> Result<()>;
+    fn list(&self, from: Option<K>, limit: usize) -> Result<Vec<(K, V)>>;
+}

@@ -110,6 +110,7 @@ name = "ain-db"
 version = "0.1.0"
 dependencies = [
  "ain-cpp-imports",
+ "anyhow",
  "bincode",
  "rocksdb",
  "serde",
@@ -225,6 +226,7 @@ version = "0.1.0"
 dependencies = [
  "ain-cpp-imports",
  "ain-db",
+ "ain-macros",
  "anyhow",
  "axum 0.7.2",
  "bincode",

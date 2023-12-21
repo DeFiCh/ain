@@ -1,5 +1,9 @@
-use ain_db::{Column, ColumnName, TypedColumn};
+use ain_db::{Column, ColumnName, DBError, TypedColumn};
+use anyhow::format_err;
+use bitcoin::{hashes::Hash, Txid};
 use rocksdb::IteratorMode;
+
+use crate::model::{masternode::Masternode, masternode_stats::MasternodeStats};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SortOrder {
@@ -158,6 +162,7 @@ pub const COLUMN_NAMES: [&'static str; 20] = [
 //
 // Column trait impl
 //
+
 impl Column for columns::Block {
     type Index = String;
 
@@ -165,34 +170,37 @@ impl Column for columns::Block {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
 
 impl Column for columns::MasternodeStats {
-    type Index = String;
+    type Index = Txid;
 
     fn key(index: &Self::Index) -> Vec<u8> {
-        index.as_bytes().to_vec()
+        index.as_byte_array().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Self::Index::from_slice(&raw_key)
+            .map_err(|_| DBError::Custom(format_err!("Error parsing key")))
     }
 }
 
 impl Column for columns::Masternode {
-    type Index = String;
+    type Index = Txid;
 
     fn key(index: &Self::Index) -> Vec<u8> {
-        index.as_bytes().to_vec()
+        index.as_byte_array().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        Self::Index::from_slice(&raw_key)
+            .map_err(|_| DBError::Custom(format_err!("Error parsing key")))
     }
 }
+
 impl Column for columns::OracleHistory {
     type Index = String;
 
@@ -200,8 +208,8 @@ impl Column for columns::OracleHistory {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
 
@@ -212,8 +220,8 @@ impl Column for columns::OraclePriceActive {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
 
@@ -224,10 +232,11 @@ impl Column for columns::OraclePriveAggregated {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::OraclePriveAggregatedInterval {
     type Index = String;
 
@@ -235,10 +244,11 @@ impl Column for columns::OraclePriveAggregatedInterval {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::OraclePriveFeed {
     type Index = String;
 
@@ -246,10 +256,11 @@ impl Column for columns::OraclePriveFeed {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::OracleTokenCurrency {
     type Index = String;
 
@@ -257,10 +268,11 @@ impl Column for columns::OracleTokenCurrency {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::PoolSwapAggregated {
     type Index = String;
 
@@ -268,10 +280,11 @@ impl Column for columns::PoolSwapAggregated {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::PoolSwap {
     type Index = String;
 
@@ -279,10 +292,11 @@ impl Column for columns::PoolSwap {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::PriceTicker {
     type Index = String;
 
@@ -290,10 +304,11 @@ impl Column for columns::PriceTicker {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::RawBlock {
     type Index = String;
 
@@ -301,10 +316,11 @@ impl Column for columns::RawBlock {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::ScriptActivity {
     type Index = String;
 
@@ -312,10 +328,11 @@ impl Column for columns::ScriptActivity {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::ScriptAggregation {
     type Index = String;
 
@@ -323,10 +340,11 @@ impl Column for columns::ScriptAggregation {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::ScriptUnspent {
     type Index = String;
 
@@ -334,10 +352,11 @@ impl Column for columns::ScriptUnspent {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::Transaction {
     type Index = String;
 
@@ -345,10 +364,11 @@ impl Column for columns::Transaction {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::TransactionVin {
     type Index = String;
 
@@ -356,10 +376,11 @@ impl Column for columns::TransactionVin {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::TransactionVout {
     type Index = String;
 
@@ -367,10 +388,11 @@ impl Column for columns::TransactionVout {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
+
 impl Column for columns::VaultAuctionHistory {
     type Index = String;
 
@@ -378,8 +400,8 @@ impl Column for columns::VaultAuctionHistory {
         index.as_bytes().to_vec()
     }
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index {
-        unsafe { Self::Index::from_utf8_unchecked(raw_key.to_vec()) }
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
+        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
     }
 }
 
@@ -389,60 +411,79 @@ impl Column for columns::VaultAuctionHistory {
 impl TypedColumn for columns::Block {
     type Type = String;
 }
+
 impl TypedColumn for columns::MasternodeStats {
-    type Type = String;
+    type Type = MasternodeStats;
 }
+
 impl TypedColumn for columns::Masternode {
-    type Type = String;
+    type Type = Masternode;
 }
+
 impl TypedColumn for columns::OracleHistory {
     type Type = String;
 }
+
 impl TypedColumn for columns::OraclePriceActive {
     type Type = String;
 }
+
 impl TypedColumn for columns::OraclePriveAggregated {
     type Type = String;
 }
+
 impl TypedColumn for columns::OraclePriveAggregatedInterval {
     type Type = String;
 }
+
 impl TypedColumn for columns::OraclePriveFeed {
     type Type = String;
 }
+
 impl TypedColumn for columns::OracleTokenCurrency {
     type Type = String;
 }
+
 impl TypedColumn for columns::PoolSwapAggregated {
     type Type = String;
 }
+
 impl TypedColumn for columns::PoolSwap {
     type Type = String;
 }
+
 impl TypedColumn for columns::PriceTicker {
     type Type = String;
 }
+
 impl TypedColumn for columns::RawBlock {
     type Type = String;
 }
+
 impl TypedColumn for columns::ScriptActivity {
     type Type = String;
 }
+
 impl TypedColumn for columns::ScriptAggregation {
     type Type = String;
 }
+
 impl TypedColumn for columns::ScriptUnspent {
     type Type = String;
 }
+
 impl TypedColumn for columns::Transaction {
     type Type = String;
 }
+
 impl TypedColumn for columns::TransactionVin {
     type Type = String;
 }
+
 impl TypedColumn for columns::TransactionVout {
     type Type = String;
 }
+
 impl TypedColumn for columns::VaultAuctionHistory {
     type Type = String;
 }

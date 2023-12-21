@@ -10,6 +10,7 @@ debug = true
 [dependencies]
 ain-cpp-imports.workspace = true
 ain-db.workspace = true
+ain-macros.workspace = true
 
 axum.workspace = true
 hyper.workspace = true

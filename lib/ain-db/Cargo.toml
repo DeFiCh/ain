@@ -10,3 +10,4 @@ serde.workspace = true
 bincode.workspace = true
 rocksdb.workspace = true
 ain-cpp-imports.workspace = true
+anyhow.workspace = true

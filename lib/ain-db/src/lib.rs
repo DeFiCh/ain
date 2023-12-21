@@ -115,7 +115,7 @@ pub trait Column {
 
     fn key(index: &Self::Index) -> Vec<u8>;
 
-    fn get_key(raw_key: Box<[u8]>) -> Self::Index;
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index>;
 }
 
 //
@@ -187,7 +187,7 @@ where
             .filter_map(|k| {
                 k.ok().and_then(|(k, v)| {
                     let value = bincode::deserialize(&v).ok()?;
-                    let key = C::get_key(k);
+                    let key = C::get_key(k).ok()?;
                     Some((key, value))
                 })
             })
@@ -204,7 +204,7 @@ use rocksdb::Error as RocksDBError;
 pub enum DBError {
     RocksDBError(RocksDBError),
     Bincode(BincodeError),
-    CustomError(String),
+    Custom(anyhow::Error),
 }
 
 impl fmt::Display for DBError {
@@ -212,7 +212,7 @@ impl fmt::Display for DBError {
         match self {
             DBError::RocksDBError(e) => write!(f, "RocksDB Error: {e}"),
             DBError::Bincode(e) => write!(f, "Bincode Error: {e}"),
-            DBError::CustomError(e) => write!(f, "Custom Error: {e}"),
+            DBError::Custom(e) => write!(f, "Custom Error: {e}"),
         }
     }
 }
