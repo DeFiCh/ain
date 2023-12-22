@@ -1,9 +1,10 @@
+use anyhow::{anyhow, Result};
+use rocksdb::IteratorMode;
+
 use crate::{
     database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::oracle_price_feed::OraclePriceFeed,
 };
-use anyhow::{anyhow, Result};
-use rocksdb::IteratorMode;
 
 pub struct OraclePriceFeedDb {
     pub db: RocksDB,

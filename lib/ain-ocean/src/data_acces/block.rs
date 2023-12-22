@@ -1,11 +1,12 @@
+use std::convert::TryInto;
+
+use anyhow::{anyhow, Result};
+use rocksdb::IteratorMode;
+
 use crate::{
     database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::block::Block,
 };
-
-use anyhow::{anyhow, Result};
-use rocksdb::IteratorMode;
-use std::convert::TryInto;
 
 #[derive(Debug)]
 pub struct BlockDb {

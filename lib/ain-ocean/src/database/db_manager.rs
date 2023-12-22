@@ -1,10 +1,11 @@
+use std::{collections::HashSet, sync::Arc};
+
 use anyhow::{anyhow, Result};
 use bitcoin::{
     blockdata::block::{Block, Header},
     consensus::encode::serialize,
 };
 use rocksdb::{ColumnFamilyDescriptor, DBIterator, Direction, IteratorMode, Options, DB};
-use std::{collections::HashSet, sync::Arc};
 
 #[derive(Debug)]
 pub struct RocksDB {

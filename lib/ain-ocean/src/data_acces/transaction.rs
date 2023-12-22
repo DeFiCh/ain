@@ -1,11 +1,12 @@
-use crate::{
-    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
-    model::transaction::Transaction,
-};
 use anyhow::{anyhow, Result};
 use bitcoin::string;
 use rocksdb::IteratorMode;
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
+    model::transaction::Transaction,
+};
 
 #[derive(Debug)]
 pub struct TransactionVinDb {

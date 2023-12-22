@@ -1,10 +1,10 @@
+use anyhow::{anyhow, Context, Result};
+use rocksdb::IteratorMode;
+
 use crate::{
     database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::masternode_stats::MasternodeStats,
 };
-use anyhow::Context;
-use anyhow::{anyhow, Result};
-use rocksdb::IteratorMode;
 #[derive(Debug)]
 pub struct MasterStatsDb {
     pub db: RocksDB,

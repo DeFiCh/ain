@@ -1,11 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::data_acces::block::BlockDb;
-    use crate::database::db_manager::SortOrder;
-    use crate::database::db_manager::{ColumnFamilyOperations, RocksDB};
-    use crate::model::block::Block;
     use tempdir::TempDir;
+
+    use super::*;
+    use crate::{
+        data_acces::block::BlockDb,
+        database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+        model::block::Block,
+    };
 
     pub fn create_dummy_block(height: i32) -> Block {
         Block {
