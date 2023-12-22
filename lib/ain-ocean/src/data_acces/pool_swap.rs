@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::poolswap::PoolSwap,
 };
 
@@ -15,35 +15,27 @@ impl PoolSwapDb {
         &self,
         id: String,
         limit: i32,
-        lt: String,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<PoolSwap>> {
-        let iterator = self.db.iterator("pool_swap", IteratorMode::End)?;
-        let mut pool_vin: Vec<PoolSwap> = Vec::new();
-        let collected_blocks: Vec<_> = iterator.collect();
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let pool_swap: Result<Vec<_>> = self
+            .db
+            .iterator_by_id("pool_swap", &id, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let pool: PoolSwap = serde_json::from_slice(&value)?;
 
-        for result in collected_blocks.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let vin: PoolSwap = serde_json::from_slice(&value)?;
-            if vin.id == id {
-                pool_vin.push(vin);
-                if pool_vin.len() as i32 >= limit {
-                    break;
-                }
-            }
-        }
-
-        // Sort blocks based on the specified sort order
-        match sort_order {
-            SortOrder::Ascending => pool_vin.sort_by(|a, b| a.txid.cmp(&b.txid)),
-            SortOrder::Descending => pool_vin.sort_by(|a, b| b.txid.cmp(&a.txid)),
-        }
-
-        Ok(pool_vin)
+                        Ok(pool)
+                    })
+            })
+            .collect();
+        Ok(pool_swap?)
     }
     pub async fn put(&self, swap: PoolSwap) -> Result<()> {
         match serde_json::to_string(&swap) {

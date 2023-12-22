@@ -5,7 +5,7 @@ mod tests {
 
     use crate::{
         data_acces::{transaction::TransactionVinDb, transaction_vout::TransactionVoutDb},
-        database::db_manager::{ColumnFamilyOperations, RocksDB},
+        database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
         model::{
             transaction::{Transaction, TransactionBlock},
             transaction_vout::{TransactionVout, TransactionVoutScript},
@@ -112,7 +112,12 @@ mod tests {
         assert!(result.is_ok());
 
         let result = txn_vin_db
-            .query_by_block_hash(test_transaction.block.hash.to_string(), 10, 0)
+            .query_by_block_hash(
+                test_transaction.block.hash.to_string(),
+                10,
+                0,
+                SortOrder::Descending,
+            )
             .await;
         assert!(result.is_ok());
     }

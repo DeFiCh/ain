@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::transaction_vout::TransactionVout,
 };
 
@@ -57,26 +57,25 @@ impl TransactionVoutDb {
         &self,
         tx_id: String,
         limit: i32,
-        lt: i32,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<TransactionVout>> {
-        let iterator = self.db.iterator("transaction_vout", IteratorMode::End)?;
-        let mut trx_vout: Vec<TransactionVout> = Vec::new();
-        if let Some(bytes) = self.db.get("transaction_vout_mapper", tx_id.as_bytes())? {
-            let vout_ids: Vec<String> = serde_json::from_slice(&bytes)?;
-            for vout_id in vout_ids.iter().take(limit as usize) {
-                if let Some(vout_bytes) = self.db.get("transaction_vout", vout_id.as_bytes())? {
-                    let vout: TransactionVout = serde_json::from_slice(&vout_bytes)?;
-                    trx_vout.push(vout);
-                }
-            }
-        }
-
-        match sort_order {
-            SortOrder::Ascending => trx_vout.sort_by(|a, b| a.n.cmp(&b.n)),
-            SortOrder::Descending => trx_vout.sort_by(|a, b| b.n.cmp(&a.n)),
-        }
-
-        Ok(trx_vout)
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let transaction_vin: Result<Vec<_>> = self
+            .db
+            .iterator_by_id("transaction_vout", &tx_id, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let trx_vout: TransactionVout = serde_json::from_slice(&value)?;
+                        Ok(trx_vout)
+                    })
+            })
+            .collect();
+        Ok(transaction_vin?)
     }
 }

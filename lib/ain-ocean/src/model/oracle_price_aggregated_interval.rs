@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedInterval {
     pub id: String,
@@ -12,7 +12,7 @@ pub struct OraclePriceAggregatedInterval {
     pub block: OraclePriceAggregatedIntervalBlock,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
@@ -21,7 +21,7 @@ pub struct OraclePriceAggregatedIntervalAggregated {
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalBlock {
     pub hash: String,
@@ -30,7 +30,7 @@ pub struct OraclePriceAggregatedIntervalBlock {
     pub median_time: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregatedOracles {
     pub active: i32,

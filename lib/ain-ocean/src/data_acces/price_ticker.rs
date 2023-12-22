@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::price_ticker::PriceTicker,
 };
 
@@ -14,32 +14,27 @@ impl price_ticker {
     pub async fn query(
         &self,
         limit: i32,
-        lt: String,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<PriceTicker>> {
-        let iterator = self.db.iterator("price_ticker", IteratorMode::End)?;
-        let mut pt: Vec<PriceTicker> = Vec::new();
-        let collected_items: Vec<_> = iterator.collect();
-
-        for result in collected_items.into_iter().rev() {
-            let value = match result {
-                Ok((_, value)) => value,
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let price_ticker: PriceTicker = serde_json::from_slice(&value)?;
-            pt.push(price_ticker);
-            if pt.len() as i32 >= limit {
-                break;
-            }
-        }
-
-        match sort_order {
-            SortOrder::Ascending => pt.sort_by(|a, b| a.id.cmp(&b.id)),
-            SortOrder::Descending => pt.sort_by(|a, b| b.id.cmp(&a.id)),
-        }
-
-        Ok(pt)
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let price_ticker: Result<Vec<_>> = self
+            .db
+            .iterator("price_ticker", iter_mode)?
+            .into_iter()
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let pt: PriceTicker = serde_json::from_slice(&value)?;
+                        Ok(pt)
+                    })
+            })
+            .collect();
+        Ok(price_ticker?)
     }
     pub async fn get(&self, id: String) -> Result<PriceTicker> {
         match self.db.get("price_ticker", id.as_bytes()) {

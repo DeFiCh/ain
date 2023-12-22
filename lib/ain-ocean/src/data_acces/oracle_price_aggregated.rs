@@ -1,5 +1,5 @@
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::oracle_price_aggregated::OraclePriceAggregated,
 };
 use anyhow::{anyhow, Result};
@@ -14,39 +14,29 @@ impl OraclePriceAggrigatedDb {
         &self,
         oracle_key: String,
         limit: i32,
-        lt: String,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<OraclePriceAggregated>> {
-        let iterator = self
+        let iter_mode: IteratorMode<'static> =
+            MyIteratorMode::from((sort_order, start_index)).into();
+        let oracle_price_aggregated: Result<Vec<_>> = self
             .db
-            .iterator("oracle_price_aggregated", IteratorMode::End)?;
-        let mut oracle_pa: Vec<OraclePriceAggregated> = Vec::new();
-        let collected_blocks: Vec<_> = iterator.collect();
+            .iterator_by_id("oracle_price_aggregated", &oracle_key, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let oracle_price_aggr: OraclePriceAggregated =
+                            serde_json::from_slice(&value)?;
 
-        for result in collected_blocks.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let oracle: OraclePriceAggregated = serde_json::from_slice(&value)?;
-            if oracle.key == oracle_key {
-                oracle_pa.push(oracle);
-                if oracle_pa.len() as i32 >= limit {
-                    break;
-                }
-            }
-        }
-
-        // Sort blocks based on the specified sort order
-        match sort_order {
-            SortOrder::Ascending => {
-                oracle_pa.sort_by(|a: &OraclePriceAggregated, b| a.id.cmp(&b.id))
-            }
-            SortOrder::Descending => oracle_pa.sort_by(|a, b| b.id.cmp(&a.id)),
-        }
-
-        Ok(oracle_pa)
+                        Ok(oracle_price_aggr)
+                    })
+            })
+            .collect();
+        Ok(oracle_price_aggregated?)
     }
     pub async fn put(&self, oracle: OraclePriceAggregated) -> Result<()> {
         match serde_json::to_string(&oracle) {

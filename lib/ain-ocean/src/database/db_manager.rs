@@ -1,14 +1,10 @@
-use std::{collections::HashSet, sync::Arc};
-
 use anyhow::{anyhow, Result};
 use bitcoin::{
     blockdata::block::{Block, Header},
     consensus::encode::serialize,
 };
 use rocksdb::{ColumnFamilyDescriptor, DBIterator, Direction, IteratorMode, Options, DB};
-use serde::{Deserialize, Serialize};
-
-use crate::model::oracle::Oracle;
+use std::{collections::HashSet, sync::Arc};
 
 #[derive(Debug)]
 pub struct RocksDB {
@@ -28,6 +24,7 @@ pub trait ColumnFamilyOperations {
     fn delete(&self, cf_name: &str, key: &[u8]) -> Result<()>;
     fn get_total_row(&self) -> Result<()>;
     fn iterator(&self, cf_name: &str, mode: IteratorMode) -> Result<DBIterator>;
+    fn iterator_by_id(&self, cf_name: &str, id: &str, mode: IteratorMode) -> Result<DBIterator>;
 }
 
 impl RocksDB {
@@ -282,6 +279,19 @@ impl ColumnFamilyOperations for RocksDB {
     fn iterator(&self, cf_name: &str, mode: IteratorMode) -> Result<DBIterator> {
         if let Some(cf_handle) = self.db.cf_handle(cf_name) {
             Ok(self.db.iterator_cf(cf_handle, mode))
+        } else {
+            Err(anyhow!("Column family not found"))
+        }
+    }
+
+    fn iterator_by_id(
+        &self,
+        cf_name: &str,
+        id: &str,
+        iterator_mode: IteratorMode,
+    ) -> Result<DBIterator> {
+        if let Some(cf_handle) = self.db.cf_handle(cf_name) {
+            Ok(self.db.iterator_cf(cf_handle, iterator_mode))
         } else {
             Err(anyhow!("Column family not found"))
         }

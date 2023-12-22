@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::oracle::Oracle,
 };
 
@@ -16,32 +16,28 @@ impl OracleDb {
     pub async fn query(
         &self,
         limit: i32,
-        lt: String,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<Oracle>> {
-        let iterator = self.db.iterator("oracle", IteratorMode::End)?;
-        let mut oracles: Vec<Oracle> = Vec::new();
-        let collected_items: Vec<_> = iterator.collect();
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let oracle: Result<Vec<_>> = self
+            .db
+            .iterator("oracle", iter_mode)?
+            .into_iter()
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let _oracle: Oracle = serde_json::from_slice(&value)?;
 
-        for result in collected_items.into_iter().rev() {
-            let value = match result {
-                Ok((_, value)) => value,
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let oracle: Oracle = serde_json::from_slice(&value)?;
-            oracles.push(oracle);
-            if oracles.len() as i32 >= limit {
-                break;
-            }
-        }
-
-        match sort_order {
-            SortOrder::Ascending => oracles.sort_by(|a, b| a.id.cmp(&b.id)),
-            SortOrder::Descending => oracles.sort_by(|a, b| b.id.cmp(&a.id)),
-        }
-
-        Ok(oracles)
+                        Ok(_oracle)
+                    })
+            })
+            .collect();
+        Ok(oracle?)
     }
 
     pub async fn store(&self, oracle: Oracle) -> Result<()> {

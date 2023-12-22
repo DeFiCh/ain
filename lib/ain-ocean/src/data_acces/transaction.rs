@@ -1,10 +1,11 @@
-use anyhow::{anyhow, Result};
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::transaction::Transaction,
 };
+use anyhow::{anyhow, Result};
+use bitcoin::string;
+use rocksdb::IteratorMode;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct TransactionVinDb {
@@ -57,35 +58,26 @@ impl TransactionVinDb {
         &self,
         hash: String,
         limit: i32,
-        lt: i32,
+        start_index: i32,
+        sort_order: SortOrder,
     ) -> Result<Vec<Transaction>> {
-        let mut transactions = Vec::new();
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let transaction: Result<Vec<_>> = self
+            .db
+            .iterator_by_id("transaction_mapper", &hash, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let trx: Transaction = serde_json::from_slice(&value)?;
+                        Ok(trx)
+                    })
+            })
+            .collect();
 
-        // Retrieve the transaction ID(s) associated with the block hash
-        match self.db.get("transaction_mapper", hash.as_bytes()) {
-            Ok(Some(txn_id_bytes)) => {
-                // Assuming one block hash maps to multiple transaction IDs
-                println!("the value in trx{:?}", txn_id_bytes);
-                let txn_ids: Vec<String> = serde_json::from_slice::<Vec<String>>(&txn_id_bytes)?;
-
-                for txn_id in txn_ids.iter().take(limit as usize) {
-                    // Retrieve the transaction details for each transaction ID
-                    match self.db.get("transaction", txn_id.as_bytes()) {
-                        Ok(Some(txn_bytes)) => {
-                            let txn: Transaction = serde_json::from_slice(&txn_bytes)?;
-                            transactions.push(txn);
-                        }
-                        Ok(None) => {
-                            return Err(anyhow!("Transaction not found for ID: {}", txn_id))
-                        }
-                        Err(e) => return Err(anyhow!("Database error: {}", e)),
-                    }
-                }
-            }
-            Ok(None) => return Err(anyhow!("No transactions found for block hash: {}", hash)),
-            Err(e) => return Err(anyhow!("Database error: {}", e)),
-        }
-
-        Ok(transactions)
+        Ok(transaction?)
     }
 }

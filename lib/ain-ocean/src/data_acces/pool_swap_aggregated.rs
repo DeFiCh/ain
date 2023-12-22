@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use rocksdb::IteratorMode;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::poolswap_aggregated::PoolSwapAggregated,
 };
 
@@ -15,37 +15,27 @@ impl PoolSwapAggregatedDb {
         &self,
         id: String,
         limit: i32,
-        lt: String,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<PoolSwapAggregated>> {
-        let iterator = self
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let pool_swap_aggr: Result<Vec<_>> = self
             .db
-            .iterator("pool_swap_aggregated", IteratorMode::End)?;
-        let mut pool_swap: Vec<PoolSwapAggregated> = Vec::new();
-        let collected_blocks: Vec<_> = iterator.collect();
+            .iterator_by_id("pool_swap_aggregated", &id, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let pool_swap: PoolSwapAggregated = serde_json::from_slice(&value)?;
 
-        for result in collected_blocks.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let ps: PoolSwapAggregated = serde_json::from_slice(&value)?;
-            if ps.id == id {
-                pool_swap.push(ps);
-                if pool_swap.len() as i32 >= limit {
-                    break;
-                }
-            }
-        }
-
-        // Sort blocks based on the specified sort order
-        match sort_order {
-            SortOrder::Ascending => pool_swap.sort_by(|a, b| a.id.cmp(&b.id)),
-            SortOrder::Descending => pool_swap.sort_by(|a, b| b.id.cmp(&a.id)),
-        }
-
-        Ok(pool_swap)
+                        Ok(pool_swap)
+                    })
+            })
+            .collect();
+        Ok(pool_swap_aggr?)
     }
     pub async fn put(&self, aggregated: PoolSwapAggregated) -> Result<()> {
         match serde_json::to_string(&aggregated) {

@@ -3,7 +3,7 @@ use rocksdb::{Direction, IteratorMode};
 use serde_json;
 
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::script_aggregation::ScriptAggregation,
 };
 
@@ -16,46 +16,26 @@ impl ScriptAggretionDB {
         &self,
         hid: String,
         limit: i32,
-        lt: String,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<ScriptAggregation>> {
-        let iterator = self.db.iterator(
-            "script_aggregation",
-            IteratorMode::From(lt.as_bytes(), Direction::Reverse),
-        )?;
-
-        let mut script_aggre: Vec<ScriptAggregation> = Vec::new();
-
-        for item in iterator {
-            match item {
-                Ok((key, value)) => {
-                    let key_str = String::from_utf8_lossy(&key);
-
-                    if !key_str.starts_with(&hid) {
-                        break;
-                    }
-
-                    let vout: ScriptAggregation = serde_json::from_slice(&value)?;
-                    script_aggre.push(vout);
-
-                    if script_aggre.len() >= limit as usize {
-                        break;
-                    }
-                }
-                Err(err) => {
-                    eprintln!("Error iterating over the database: {:?}", err);
-                    return Err(err.into());
-                }
-            }
-        }
-
-        // Sorting based on the SortOrder
-        match sort_order {
-            SortOrder::Ascending => script_aggre.sort_by(|a, b| a.id.cmp(&b.id)),
-            SortOrder::Descending => script_aggre.sort_by(|a, b| b.id.cmp(&a.id)),
-        }
-
-        Ok(script_aggre)
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let script_activity: Result<Vec<_>> = self
+            .db
+            .iterator_by_id("script_aggregation", &hid, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let sa: ScriptAggregation = serde_json::from_slice(&value)?;
+                        Ok(sa)
+                    })
+            })
+            .collect();
+        Ok(script_activity?)
     }
     pub async fn store(&self, aggregation: ScriptAggregation) -> Result<()> {
         match serde_json::to_string(&aggregation) {

@@ -1,5 +1,5 @@
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB, SortOrder},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::block::Block,
 };
 
@@ -86,38 +86,27 @@ impl BlockDb {
     pub async fn query_by_height(
         &self,
         limit: i32,
-        lt: i32,
+        start_index: i32,
         sort_order: SortOrder,
     ) -> Result<Vec<Block>> {
-        let mut blocks: Vec<Block> = Vec::new();
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let blocks: Result<Vec<_>> = self
+            .db
+            .iterator("block", iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let bl: Block = serde_json::from_slice(&value)?;
+                        Ok(bl)
+                    })
+            })
+            .collect();
 
-        let iterator = self.db.iterator("block", IteratorMode::End)?;
-        let collected_blocks: Vec<_> = iterator.collect();
-
-        for result in collected_blocks.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let block: Block = serde_json::from_slice(&value)?;
-
-            if block.height < lt {
-                blocks.push(block);
-
-                if blocks.len() == limit as usize {
-                    break;
-                }
-            }
-        }
-
-        // Sort blocks based on the specified sort order
-        match sort_order {
-            SortOrder::Ascending => blocks.sort_by(|a, b| a.height.cmp(&b.height)),
-            SortOrder::Descending => blocks.sort_by(|a, b| b.height.cmp(&a.height)),
-        }
-
-        Ok(blocks)
+        Ok(blocks?)
     }
 
     pub async fn put_block(&self, block: Block) -> Result<()> {

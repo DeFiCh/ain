@@ -1,9 +1,9 @@
 use crate::{
-    database::db_manager::{ColumnFamilyOperations, RocksDB},
+    database::db_manager::{ColumnFamilyOperations, MyIteratorMode, RocksDB, SortOrder},
     model::oracle_price_aggregated_interval::OraclePriceAggregatedInterval,
 };
 use anyhow::{anyhow, Result};
-use rocksdb::{ColumnFamilyDescriptor, IteratorMode, DB};
+use rocksdb::IteratorMode;
 
 pub struct OraclePriceAggregatedIntervalDb {
     pub db: RocksDB,
@@ -14,33 +14,28 @@ impl OraclePriceAggregatedIntervalDb {
         &self,
         key: String,
         limit: i32,
-        lt: String,
+        start_index: i32,
+        sort_order: SortOrder,
     ) -> Result<Vec<OraclePriceAggregatedInterval>> {
-        let iterator = self
+        let iter_mode: IteratorMode = MyIteratorMode::from((sort_order, start_index)).into();
+        let oracle_price_aggregated: Result<Vec<_>> = self
             .db
-            .iterator("oracle_price_aggregated_interval", IteratorMode::End)?;
-        let mut oracle_prices: Vec<OraclePriceAggregatedInterval> = Vec::new();
-        let collected_items: Vec<_> = iterator.collect();
+            .iterator_by_id("oracle_price_aggregated_interval", &key, iter_mode)?
+            .take(limit as usize)
+            .map(|result| {
+                result
+                    .map_err(|e| {
+                        anyhow!("Error during iteration: {}", e).context("Contextual error message")
+                    })
+                    .and_then(|(_key, value)| {
+                        let oracle_price_interval: OraclePriceAggregatedInterval =
+                            serde_json::from_slice(&value)?;
 
-        for result in collected_items.into_iter().rev() {
-            let (key, value) = match result {
-                Ok((key, value)) => (key, value),
-                Err(err) => return Err(anyhow!("Error during iteration: {}", err)),
-            };
-
-            let oracle_price: OraclePriceAggregatedInterval = serde_json::from_slice(&value)?;
-
-            // Check if the id is less than 'lt'
-            if String::from_utf8(key.to_vec())? < lt {
-                oracle_prices.push(oracle_price);
-
-                if oracle_prices.len() == limit as usize {
-                    break;
-                }
-            }
-        }
-
-        Ok(oracle_prices)
+                        Ok(oracle_price_interval)
+                    })
+            })
+            .collect();
+        Ok(oracle_price_aggregated?)
     }
     pub async fn put(&self, oracle: OraclePriceAggregatedInterval) -> Result<()> {
         match serde_json::to_string(&oracle) {
