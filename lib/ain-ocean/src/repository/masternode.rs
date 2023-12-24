@@ -21,3 +21,21 @@ impl MasternodeRepository {
         Self { store }
     }
 }
+
+type MasternodeByHeightKey = (u32, usize);
+
+#[derive(Repository)]
+#[repository(
+    K = "MasternodeByHeightKey",
+    V = "String",
+    Column = "MasternodeByHeight"
+)]
+pub struct MasternodeByHeightRepository {
+    pub store: Arc<OceanStore>,
+}
+
+impl MasternodeByHeightRepository {
+    pub fn new(store: Arc<OceanStore>) -> Self {
+        Self { store }
+    }
+}

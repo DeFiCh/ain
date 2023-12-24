@@ -7,7 +7,7 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 pub use indexer::{index_block, invalidate_block};
-use repository::masternode::MasternodeRepository;
+use repository::{MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository};
 pub mod api;
 mod model;
 mod repository;
@@ -27,14 +27,24 @@ lazy_static::lazy_static! {
     };
 }
 
+pub struct MasternodeService {
+    by_id: MasternodeRepository,
+    by_height: MasternodeByHeightRepository,
+    stats: MasternodeStatsRepository,
+}
+
 pub struct Services {
-    masternode: MasternodeRepository,
+    masternode: MasternodeService,
 }
 
 impl Services {
     fn new(store: Arc<OceanStore>) -> Self {
         Self {
-            masternode: MasternodeRepository::new(Arc::clone(&store)),
+            masternode: MasternodeService {
+                by_id: MasternodeRepository::new(Arc::clone(&store)),
+                by_height: MasternodeByHeightRepository::new(Arc::clone(&store)),
+                stats: MasternodeStatsRepository::new(Arc::clone(&store)),
+            },
         }
     }
 }

@@ -5,14 +5,19 @@ use super::BlockContext;
 use crate::{
     indexer::{Index, Result},
     model::{Masternode, MasternodeBlock},
+    repository::RepositoryOps,
+    SERVICES,
 };
 
 impl Index for CreateMasternode {
-    fn index(&self, context: &BlockContext, tx: Transaction) -> Result<()> {
+    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         debug!("[CreateMasternode] Indexing...");
+        let txid = tx.txid();
+        debug!("[CreateMasternode] Indexing {txid:?}");
 
         let masternode = Masternode {
-            id: tx.txid().to_string(),
+            id: txid.to_string(),
+            sort: format!("{}-{}", context.height, idx),
             owner_address: tx.output[1].script_pubkey.to_hex_string(),
             operator_address: tx.output[1].script_pubkey.to_hex_string(),
             creation_height: context.height,
@@ -27,11 +32,14 @@ impl Index for CreateMasternode {
                 median_time: context.median_time,
             },
             collateral: tx.output[1].value.to_string(),
-            sort: None,
             history: None,
         };
 
-        Ok(())
+        SERVICES.masternode.by_id.put(&txid, &masternode)?;
+        SERVICES
+            .masternode
+            .by_height
+            .put(&(context.height, idx), &txid.to_string())
     }
 
     fn invalidate(&self) {
@@ -40,7 +48,7 @@ impl Index for CreateMasternode {
 }
 
 impl Index for UpdateMasternode {
-    fn index(&self, context: &BlockContext, tx: Transaction) -> Result<()> {
+    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         debug!("[UpdateMasternode] Indexing...");
         // TODO
         // Get mn
@@ -56,7 +64,7 @@ impl Index for UpdateMasternode {
 }
 
 impl Index for ResignMasternode {
-    fn index(&self, context: &BlockContext, tx: Transaction) -> Result<()> {
+    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         debug!("[ResignMasternode] Indexing...");
         // TODO
         // Get mn

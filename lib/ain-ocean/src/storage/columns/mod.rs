@@ -41,10 +41,11 @@ pub use transaction_vin::*;
 pub use transaction_vout::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&'static str; 20] = [
+pub const COLUMN_NAMES: [&'static str; 21] = [
     block::Block::NAME,
     masternode_stats::MasternodeStats::NAME,
     masternode::Masternode::NAME,
+    masternode::MasternodeByHeight::NAME,
     oracle_history::OracleHistory::NAME,
     oracle_price_active::OraclePriceActive::NAME,
     oracle_price_aggregated::OraclePriceAggregated::NAME,

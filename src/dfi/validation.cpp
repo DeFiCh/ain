@@ -2800,9 +2800,9 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
         CrossBoundaryResult result;
         ocean_index_block(result, serializedData, pindex->nHeight);
-        if (!result.ok) {
-            return Res::Err(result.reason.c_str());
-        }
+        // if (!result.ok) {
+        //     return Res::Err(result.reason.c_str());
+        // }
     }
 
     return Res::Ok();

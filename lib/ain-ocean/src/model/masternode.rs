@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Masternode {
-    pub id: String,
-    pub sort: Option<String>,
+    pub id: String,   // Keep for backward compatibility
+    pub sort: String, // Keep for backward compatibility
     pub owner_address: String,
     pub operator_address: String,
     pub creation_height: u32,
@@ -52,26 +52,12 @@ impl std::fmt::Display for MasternodeState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct MasternodeOwner {
-    pub address: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct MasternodeOperator {
-    pub address: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct MasternodeCreation {
-    pub height: i32,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct MasternodeResign {
     pub tx: String,
     pub height: i32,
 }
 
+// TODO impl From<Masternode> for MasternodeData
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MasternodeData {
@@ -79,30 +65,11 @@ pub struct MasternodeData {
     pub sort: String,
     pub state: MasternodeState,
     pub minted_blocks: i32,
-    pub owner: MasternodeOwner,
-    pub operator: MasternodeOperator,
-    pub creation: MasternodeCreation,
+    pub owner: String,
+    pub operator: String,
+    pub creation: u32,
     pub resign: Option<MasternodeResign>,
-    pub timelock: i32,
-}
-impl MasternodeData {
-    pub fn new(id: &str) -> Self {
-        Self {
-            id: id.repeat(64),
-            sort: id.repeat(72),
-            state: MasternodeState::Enabled,
-            minted_blocks: 2,
-            owner: MasternodeOwner {
-                address: id.repeat(34),
-            },
-            operator: MasternodeOperator {
-                address: id.repeat(34),
-            },
-            creation: MasternodeCreation { height: 0 },
-            resign: None,
-            timelock: 0,
-        }
-    }
+    pub timelock: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
