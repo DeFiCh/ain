@@ -6,7 +6,7 @@ use axum::{
 
 use crate::{
     api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult,
-    model::masternode::MasternodeData,
+    model::MasternodeData,
 };
 
 async fn list_masternodes(

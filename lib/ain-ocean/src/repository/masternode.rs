@@ -5,7 +5,7 @@ use bitcoin::Txid;
 
 use super::RepositoryOps;
 use crate::{
-    model::masternode::Masternode,
+    model::Masternode,
     storage::{columns, ocean_store::OceanStore},
     Result,
 };

@@ -4,7 +4,7 @@ use log::debug;
 use super::BlockContext;
 use crate::{
     indexer::{Index, Result},
-    model::masternode::{Masternode, MasternodeBlock},
+    model::{Masternode, MasternodeBlock},
 };
 
 impl Index for CreateMasternode {
