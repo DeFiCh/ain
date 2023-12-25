@@ -75,7 +75,7 @@ jobs:
         path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
     - name: Delete previous cpp build cache
-      if: ${{ github.ref == 'refs/heads/master' && steps.cpp-cache-restore.outputs.cache-hit }}
+      # if: ${{ github.ref == 'refs/heads/master' && steps.cpp-cache-restore.outputs.cache-hit }}
       continue-on-error: true
       run: |
         gh extension install actions/gh-actions-cache
