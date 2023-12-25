@@ -26,7 +26,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, builder]
     container: defi/ain-builder:latest
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: ./make.sh ci-setup-deps
+      run: sudo ./make.sh ci-setup-deps
 
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
