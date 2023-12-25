@@ -8,7 +8,7 @@ impl Index for AppointOracle {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }
@@ -18,7 +18,7 @@ impl Index for RemoveOracle {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }
@@ -28,7 +28,7 @@ impl Index for UpdateOracle {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }
@@ -38,7 +38,7 @@ impl Index for SetOracleData {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }

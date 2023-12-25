@@ -42,8 +42,11 @@ impl Index for CreateMasternode {
             .put(&(context.height, idx), &txid.to_string())
     }
 
-    fn invalidate(&self) {
-        todo!()
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+        debug!("[CreateMasternode] Invalidating...");
+        let txid = tx.txid();
+        SERVICES.masternode.by_id.delete(&txid)?;
+        SERVICES.masternode.by_height.delete(&(context.height, idx))
     }
 }
 
@@ -56,10 +59,11 @@ impl Index for UpdateMasternode {
         Ok(())
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         // TODO
         // Get mn
         // Restore from history
+        Ok(())
     }
 }
 
@@ -72,9 +76,10 @@ impl Index for ResignMasternode {
         Ok(())
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         // TODO
         // Get mn
         // Set resign height to -1
+        Ok(())
     }
 }

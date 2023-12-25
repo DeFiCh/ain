@@ -7,7 +7,7 @@ use dftx_rs::Transaction;
 
 pub(crate) trait Index {
     fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
-    fn invalidate(&self);
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
 
 use bitcoin::BlockHash;

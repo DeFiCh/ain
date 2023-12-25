@@ -8,7 +8,7 @@ impl Index for PlaceAuctionBid {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }

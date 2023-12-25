@@ -8,7 +8,7 @@ impl Index for PoolSwap {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }
@@ -18,7 +18,7 @@ impl Index for CompositeSwap {
         todo!()
     }
 
-    fn invalidate(&self) {
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 }
