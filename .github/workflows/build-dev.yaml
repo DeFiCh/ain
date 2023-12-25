@@ -84,7 +84,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Save cpp build cache
-      if: ${{ github.ref == 'refs/heads/master' }}
+      # if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
         path: |
