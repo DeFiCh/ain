@@ -47,15 +47,15 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
-    - name: Restore cpp build cache
-      id: cpp-cache-restore
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-          ./build/depends
-          ./build/src
-          ~/.ccache
-        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+    # - name: Restore cpp build cache
+    #   id: cpp-cache-restore
+    #   uses: actions/cache/restore@v3
+    #   with:
+    #     path: |
+    #       ./build/depends
+    #       ./build/src
+    #       ~/.ccache
+    #     key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
 
     # - name: Rust build cache
     #   uses: Swatinem/rust-cache@v2
