@@ -3,15 +3,85 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    api_paged_response::ApiPagedResponse,
-    api_query::PaginationQuery,
-    error::OceanResult,
-    model::{MasternodeData, MasternodeState},
-    repository::RepositoryOps,
-    SERVICES,
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult,
+    model::Masternode, repository::RepositoryOps, SERVICES,
 };
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MasternodeState {
+    PreEnabled,
+    Enabled,
+    PreResigned,
+    Resigned,
+    PreBanned,
+    Banned,
+    #[default]
+    Unknown,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct MasternodeOwner {
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct MasternodeOperator {
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct MasternodeCreation {
+    pub height: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct MasternodeResign {
+    pub tx: String,
+    pub height: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MasternodeData {
+    pub id: String,
+    pub sort: String,
+    pub state: MasternodeState,
+    pub minted_blocks: i32,
+    pub owner: MasternodeOwner,
+    pub operator: MasternodeOperator,
+    pub creation: MasternodeCreation,
+    pub resign: Option<MasternodeResign>,
+    pub timelock: u16,
+}
+
+impl From<Masternode> for MasternodeData {
+    fn from(v: Masternode) -> Self {
+        MasternodeData {
+            id: v.id,
+            sort: v.sort,
+            state: MasternodeState::default(), // TODO Handle mn state
+            minted_blocks: v.minted_blocks,
+            owner: MasternodeOwner {
+                address: v.owner_address,
+            },
+            operator: MasternodeOperator {
+                address: v.operator_address,
+            },
+            creation: MasternodeCreation {
+                height: v.creation_height,
+            },
+            resign: v.resign_tx.map(|tx| MasternodeResign {
+                tx,
+                height: v.resign_height,
+            }),
+            timelock: v.timelock,
+        }
+    }
+}
 
 async fn list_masternodes(
     Query(query): Query<PaginationQuery>,
@@ -44,17 +114,7 @@ async fn list_masternodes(
                 .get(id)?
                 .ok_or("Missing masternode index")?;
 
-            Ok(MasternodeData {
-                id: mn.id,
-                sort: mn.sort,
-                state: MasternodeState::Enabled, // TODO Handle mn state
-                minted_blocks: mn.minted_blocks,
-                owner: mn.owner_address,
-                operator: mn.operator_address,
-                creation: mn.creation_height,
-                resign: None,
-                timelock: mn.timelock,
-            })
+            Ok(mn.into())
         })
         .collect::<OceanResult<Vec<_>>>()?;
 
@@ -69,17 +129,7 @@ async fn get_masternode(
     Path(masternode_id): Path<String>,
 ) -> OceanResult<Json<Option<MasternodeData>>> {
     let id: bitcoin::Txid = masternode_id.parse()?;
-    let mn = SERVICES.masternode.by_id.get(id)?.map(|mn| MasternodeData {
-        id: mn.id,
-        sort: mn.sort,
-        state: MasternodeState::Enabled, // TODO Handle mn state
-        minted_blocks: mn.minted_blocks,
-        owner: mn.owner_address,
-        operator: mn.operator_address,
-        creation: mn.creation_height,
-        resign: None,
-        timelock: mn.timelock,
-    });
+    let mn = SERVICES.masternode.by_id.get(id)?.map(Into::into);
 
     Ok(Json(mn))
 }
