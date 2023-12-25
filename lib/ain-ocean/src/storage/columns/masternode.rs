@@ -50,13 +50,13 @@ impl Column for MasternodeByHeight {
     }
 
     fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        if raw_key.len() < 12 {
-            return Err(DBError::Custom(format_err!("Key length is too short")));
+        if raw_key.len() != 12 {
+            return Err(DBError::Custom(format_err!("Wrong key length")));
         }
 
-        let height_bytes = <[u8; 4]>::try_from(&raw_key[0..4])
+        let height_bytes = <[u8; 4]>::try_from(&raw_key[..4])
             .map_err(|_| DBError::Custom(format_err!("Invalid height bytes")))?;
-        let txno_bytes = <[u8; 8]>::try_from(&raw_key[4..8])
+        let txno_bytes = <[u8; 8]>::try_from(&raw_key[4..])
             .map_err(|_| DBError::Custom(format_err!("Invalid txno bytes")))?;
 
         let height = u32::from_be_bytes(height_bytes);
