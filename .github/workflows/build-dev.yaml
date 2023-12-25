@@ -62,7 +62,7 @@ jobs:
       id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
-        # save-if: ${{ github.ref == 'refs/heads/master' }}
+        save-if: ${{ github.ref == 'refs/heads/master' }}
         shared-key: ${{ env.TARGET }}
 
     - name: Build and package
