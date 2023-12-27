@@ -19,8 +19,7 @@ impl Column for MasternodeStats {
     }
 
     fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Self::Index::from_slice(&raw_key)
-            .map_err(|_| DBError::Custom(format_err!("Error parsing key")))
+        Self::Index::from_slice(&raw_key).map_err(|_| DBError::ParseKey)
     }
 }
 

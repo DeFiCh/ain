@@ -1,8 +1,5 @@
 use ain_db::{Column, ColumnName, DBError, TypedColumn};
-use anyhow::format_err;
-use bitcoin::{hashes::Hash, Txid};
-
-use crate::model;
+use bitcoin::{hashes::Hash, BlockHash};
 
 #[derive(Debug)]
 pub struct RawBlock;
@@ -12,14 +9,14 @@ impl ColumnName for RawBlock {
 }
 
 impl Column for RawBlock {
-    type Index = String;
+    type Index = BlockHash;
 
     fn key(index: &Self::Index) -> Vec<u8> {
-        index.as_bytes().to_vec()
+        index.as_byte_array().to_vec()
     }
 
     fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        unsafe { Ok(Self::Index::from_utf8_unchecked(raw_key.to_vec())) }
+        Self::Index::from_slice(&raw_key).map_err(|_| DBError::ParseKey)
     }
 }
 

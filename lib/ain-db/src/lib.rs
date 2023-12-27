@@ -9,7 +9,7 @@ use std::{
 use bincode;
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, IteratorMode,
-    Options, DB,
+    Options, PerfContext, DB,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -204,6 +204,7 @@ use rocksdb::Error as RocksDBError;
 pub enum DBError {
     RocksDBError(RocksDBError),
     Bincode(BincodeError),
+    ParseKey,
     Custom(anyhow::Error),
 }
 
@@ -212,6 +213,7 @@ impl fmt::Display for DBError {
         match self {
             DBError::RocksDBError(e) => write!(f, "RocksDB Error: {e}"),
             DBError::Bincode(e) => write!(f, "Bincode Error: {e}"),
+            DBError::ParseKey => write!(f, "Error parsing key"),
             DBError::Custom(e) => write!(f, "Custom Error: {e}"),
         }
     }
