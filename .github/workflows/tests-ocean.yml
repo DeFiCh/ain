@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - master
+      - feature/ocean-archive # TODO(): remove before merge to master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -47,19 +48,35 @@ jobs:
         name: defi-bins
         path: build/src/defid
 
-    - name: Build docker
-      run: "docker build -t test-build-container -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [build]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Populate environment
+        run: ./make.sh ci-export-vars
+      
+      - name: Download binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: defi-bins
+          path: ./build/
 
-    - name: Upload docker
-      uses: actions/upload-artifact@v3
-      with:
-        name: defi-docker
-        path: .
+      - name: Build docker
+        run: "docker build -t test-build-container -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
 
+      - name: Upload docker
+        uses: actions/upload-artifact@v3
+        with:
+          name: defi-docker
+          path: .
+          
   test:
     name: Jellyfish Whale Api tests
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, docker-build]
     strategy:
       fail-fast: false
 
