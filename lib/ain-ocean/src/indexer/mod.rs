@@ -5,16 +5,16 @@ mod pool;
 
 use dftx_rs::Transaction;
 
-pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
 pub(crate) trait Index {
-    fn index(&self, context: &BlockContext, tx: Transaction) -> Result<()>;
-    fn invalidate(&self);
+    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
+    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
 
 use bitcoin::BlockHash;
 use dftx_rs::{deserialize, Block, DfTx};
 use log::debug;
+
+use crate::Result;
 
 pub(crate) struct BlockContext {
     height: u32,
@@ -36,7 +36,7 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
         median_time: 0, // TODO
     };
 
-    for tx in block.txdata {
+    for (idx, tx) in block.txdata.into_iter().enumerate() {
         let bytes = tx.output[0].script_pubkey.as_bytes();
         if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
             let offset = 1 + match bytes[1] {
@@ -51,16 +51,16 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
             let dftx = deserialize::<DfTx>(raw_tx)?;
 
             match dftx {
-                DfTx::CreateMasternode(data) => data.index(&context, tx)?,
-                // DfTx::UpdateMasternode(data) => data.index(&context, tx)?,
-                // DfTx::ResignMasternode(data) => data.index(&context, tx)?,
-                // DfTx::AppointOracle(data) => data.index(&context, tx)?,
-                // DfTx::RemoveOracle(data) => data.index(&context, tx)?,
-                // DfTx::UpdateOracle(data) => data.index(&context, tx)?,
-                // DfTx::SetOracleData(data) => data.index(&context, tx)?,
-                // DfTx::PoolSwap(data) => data.index(&context, tx)?,
-                // DfTx::CompositeSwap(data) => data.index(&context, tx)?,
-                // DfTx::PlaceAuctionBid(data) => data.index(&context, tx)?,
+                DfTx::CreateMasternode(data) => data.index(&context, tx, idx)?,
+                // DfTx::UpdateMasternode(data) => data.index(&context, tx, idx)?,
+                // DfTx::ResignMasternode(data) => data.index(&context, tx, idx)?,
+                // DfTx::AppointOracle(data) => data.index(&context, tx, idx)?,
+                // DfTx::RemoveOracle(data) => data.index(&context, tx, idx)?,
+                // DfTx::UpdateOracle(data) => data.index(&context, tx, idx)?,
+                // DfTx::SetOracleData(data) => data.index(&context, tx, idx)?,
+                // DfTx::PoolSwap(data) => data.index(&context, tx, idx)?,
+                // DfTx::CompositeSwap(data) => data.index(&context, tx, idx)?,
+                // DfTx::PlaceAuctionBid(data) => data.index(&context, tx, idx)?,
                 _ => (),
             }
         }
