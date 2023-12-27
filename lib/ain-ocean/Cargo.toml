@@ -9,6 +9,8 @@ debug = true
 
 [dependencies]
 ain-cpp-imports.workspace = true
+ain-db.workspace = true
+ain-macros.workspace = true
 
 axum.workspace = true
 hyper.workspace = true
@@ -35,3 +37,5 @@ tempfile = "3.8.1"
 anyhow.workspace = true
 chrono = "0.4.31"
 cached.workspace = true
+lazy_static.workspace = true
+bincode.workspace = true

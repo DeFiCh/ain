@@ -3,9 +3,48 @@ pub mod api_query;
 pub mod error;
 mod indexer;
 
+use std::{path::PathBuf, sync::Arc};
+
 pub use api::ocean_router;
 pub use indexer::{index_block, invalidate_block};
+use repository::{MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository};
 pub mod api;
-mod data_acces;
-pub mod database;
 mod model;
+mod repository;
+pub mod storage;
+use crate::storage::ocean_store::OceanStore;
+
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+lazy_static::lazy_static! {
+    // Global services exposed by the library
+    pub static ref SERVICES: Services = {
+        let datadir = ain_cpp_imports::get_datadir();
+        let store = OceanStore::new(&PathBuf::from(datadir)).expect("Error initialization Ocean storage");
+        Services::new(
+            Arc::new(store)
+        )
+    };
+}
+
+pub struct MasternodeService {
+    by_id: MasternodeRepository,
+    by_height: MasternodeByHeightRepository,
+    stats: MasternodeStatsRepository,
+}
+
+pub struct Services {
+    masternode: MasternodeService,
+}
+
+impl Services {
+    fn new(store: Arc<OceanStore>) -> Self {
+        Self {
+            masternode: MasternodeService {
+                by_id: MasternodeRepository::new(Arc::clone(&store)),
+                by_height: MasternodeByHeightRepository::new(Arc::clone(&store)),
+                stats: MasternodeStatsRepository::new(Arc::clone(&store)),
+            },
+        }
+    }
+}

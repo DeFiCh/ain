@@ -59,6 +59,8 @@ pub enum EVMError {
     JsonRpcError(#[from] jsonrpsee_core::Error),
     #[error("EVM: rocksdb error")]
     RocksDBError(#[from] rocksdb::Error),
+    #[error("EVM: db error")]
+    DBError(#[from] ain_db::DBError),
     #[error("EVM: ethabi error")]
     EthAbiError(#[from] ethabi::Error),
     #[error(transparent)]
