@@ -4,7 +4,7 @@ use super::BlockContext;
 use crate::indexer::{Index, Result};
 
 impl Index for PoolSwap {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 
@@ -14,7 +14,7 @@ impl Index for PoolSwap {
 }
 
 impl Index for CompositeSwap {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 

@@ -4,7 +4,7 @@ use super::BlockContext;
 use crate::indexer::{Index, Result};
 
 impl Index for AppointOracle {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 
@@ -14,7 +14,7 @@ impl Index for AppointOracle {
 }
 
 impl Index for RemoveOracle {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 
@@ -24,7 +24,7 @@ impl Index for RemoveOracle {
 }
 
 impl Index for UpdateOracle {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 
@@ -34,7 +34,7 @@ impl Index for UpdateOracle {
 }
 
 impl Index for SetOracleData {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 

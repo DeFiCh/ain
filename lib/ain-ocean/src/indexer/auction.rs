@@ -4,7 +4,7 @@ use super::BlockContext;
 use crate::indexer::{Index, Result};
 
 impl Index for PlaceAuctionBid {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         todo!()
     }
 
