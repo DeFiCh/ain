@@ -6,7 +6,7 @@ mod pool;
 use dftx_rs::Transaction;
 
 pub(crate) trait Index {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
     fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
 
@@ -27,9 +27,10 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
     debug!("[index_block] Indexing block...");
 
     let hex = hex::decode(block)?;
+    debug!("got hex");
     let block = deserialize::<Block>(&hex)?;
-
-    let context = BlockContext {
+    debug!("got block");
+    let ctx = BlockContext {
         height: block_height,
         hash: block.block_hash(),
         time: 0,        // TODO
@@ -47,24 +48,23 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
             };
 
             let raw_tx = &bytes[offset..];
-
             let dftx = deserialize::<DfTx>(raw_tx)?;
-
             match dftx {
-                DfTx::CreateMasternode(data) => data.index(&context, tx, idx)?,
-                // DfTx::UpdateMasternode(data) => data.index(&context, tx, idx)?,
-                // DfTx::ResignMasternode(data) => data.index(&context, tx, idx)?,
-                // DfTx::AppointOracle(data) => data.index(&context, tx, idx)?,
-                // DfTx::RemoveOracle(data) => data.index(&context, tx, idx)?,
-                // DfTx::UpdateOracle(data) => data.index(&context, tx, idx)?,
-                // DfTx::SetOracleData(data) => data.index(&context, tx, idx)?,
-                // DfTx::PoolSwap(data) => data.index(&context, tx, idx)?,
-                // DfTx::CompositeSwap(data) => data.index(&context, tx, idx)?,
-                // DfTx::PlaceAuctionBid(data) => data.index(&context, tx, idx)?,
+                DfTx::CreateMasternode(data) => data.index(&ctx, tx, idx)?,
+                DfTx::UpdateMasternode(data) => data.index(&ctx, tx, idx)?,
+                DfTx::ResignMasternode(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::AppointOracle(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::RemoveOracle(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::UpdateOracle(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::SetOracleData(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
+                // DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
                 _ => (),
             }
         }
     }
+
     Ok(())
 }
 

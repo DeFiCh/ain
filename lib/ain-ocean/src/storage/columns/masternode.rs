@@ -66,5 +66,5 @@ impl Column for MasternodeByHeight {
 }
 
 impl TypedColumn for MasternodeByHeight {
-    type Type = String;
+    type Type = Txid;
 }

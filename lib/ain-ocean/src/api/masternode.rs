@@ -3,6 +3,7 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -23,28 +24,28 @@ pub enum MasternodeState {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MasternodeOwner {
     pub address: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MasternodeOperator {
     pub address: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MasternodeCreation {
     pub height: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MasternodeResign {
-    pub tx: String,
-    pub height: i32,
+    pub tx: Txid,
+    pub height: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MasternodeData {
     pub id: String,
@@ -61,22 +62,25 @@ pub struct MasternodeData {
 impl From<Masternode> for MasternodeData {
     fn from(v: Masternode) -> Self {
         MasternodeData {
-            id: v.id,
+            id: v.id.to_string(),
             sort: v.sort,
             state: MasternodeState::default(), // TODO Handle mn state
             minted_blocks: v.minted_blocks,
             owner: MasternodeOwner {
-                address: v.owner_address,
+                address: v.owner_address.to_hex_string(),
             },
             operator: MasternodeOperator {
-                address: v.operator_address,
+                address: v.operator_address.to_hex_string(),
             },
             creation: MasternodeCreation {
                 height: v.creation_height,
             },
             resign: v.resign_tx.map(|tx| MasternodeResign {
                 tx,
-                height: v.resign_height,
+                height: match v.resign_height {
+                    None => -1,
+                    Some(v) => v as i64,
+                },
             }),
             timelock: v.timelock,
         }
@@ -106,12 +110,11 @@ async fn list_masternodes(
         .by_height
         .list(next, query.size)?
         .iter()
-        .map(|(_, mn_id)| {
-            let id: bitcoin::Txid = mn_id.parse()?;
+        .map(|(_, id)| {
             let mn = SERVICES
                 .masternode
                 .by_id
-                .get(id)?
+                .get(*id)?
                 .ok_or("Missing masternode index")?;
 
             Ok(mn.into())
@@ -126,10 +129,13 @@ async fn list_masternodes(
 }
 
 async fn get_masternode(
-    Path(masternode_id): Path<String>,
+    Path(masternode_id): Path<Txid>,
 ) -> OceanResult<Json<Option<MasternodeData>>> {
-    let id: bitcoin::Txid = masternode_id.parse()?;
-    let mn = SERVICES.masternode.by_id.get(id)?.map(Into::into);
+    let mn = SERVICES
+        .masternode
+        .by_id
+        .get(masternode_id)?
+        .map(Into::into);
 
     Ok(Json(mn))
 }

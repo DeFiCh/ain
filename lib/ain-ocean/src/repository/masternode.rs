@@ -25,11 +25,7 @@ impl MasternodeRepository {
 type MasternodeByHeightKey = (u32, usize);
 
 #[derive(Repository)]
-#[repository(
-    K = "MasternodeByHeightKey",
-    V = "String",
-    Column = "MasternodeByHeight"
-)]
+#[repository(K = "MasternodeByHeightKey", V = "Txid", Column = "MasternodeByHeight")]
 pub struct MasternodeByHeightRepository {
     pub store: Arc<OceanStore>,
 }

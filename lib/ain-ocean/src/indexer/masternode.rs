@@ -1,85 +1,130 @@
+use bitcoin::{hashes::Hash, PubkeyHash, ScriptBuf, WPubkeyHash};
 use dftx_rs::{masternode::*, Transaction};
 use log::debug;
 
 use super::BlockContext;
 use crate::{
     indexer::{Index, Result},
-    model::{Masternode, MasternodeBlock},
+    model::{HistoryItem, Masternode, MasternodeBlock},
     repository::RepositoryOps,
     SERVICES,
 };
 
+fn get_operator_script(hash: &PubkeyHash, r#type: u8) -> Result<ScriptBuf> {
+    match r#type {
+        0x1 => Ok(ScriptBuf::new_p2pkh(hash)),
+        0x4 => Ok(ScriptBuf::new_p2wpkh(&WPubkeyHash::hash(
+            hash.as_byte_array(),
+        ))),
+        _ => Err("Unsupported type".into()),
+    }
+}
+
 impl Index for CreateMasternode {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         debug!("[CreateMasternode] Indexing...");
         let txid = tx.txid();
-        debug!("[CreateMasternode] Indexing {txid:?}");
 
         let masternode = Masternode {
-            id: txid.to_string(),
-            sort: format!("{}-{}", context.height, idx),
-            owner_address: tx.output[1].script_pubkey.to_hex_string(),
-            operator_address: tx.output[1].script_pubkey.to_hex_string(),
-            creation_height: context.height,
-            resign_height: -1,
+            id: txid,
+            sort: format!("{}-{}", ctx.height, idx),
+            owner_address: tx.output[1].script_pubkey.clone(),
+            operator_address: get_operator_script(&self.operator_pub_key_hash, self.operator_type)?,
+            creation_height: ctx.height,
+            resign_height: None,
             resign_tx: None,
             minted_blocks: 0,
             timelock: self.timelock.0.unwrap_or_default(),
             block: MasternodeBlock {
-                hash: context.hash.to_string(),
-                height: context.height,
-                time: context.time,
-                median_time: context.median_time,
+                hash: ctx.hash,
+                height: ctx.height,
+                time: ctx.time,
+                median_time: ctx.median_time,
             },
             collateral: tx.output[1].value.to_string(),
-            history: None,
+            history: Vec::new(),
         };
 
         SERVICES.masternode.by_id.put(&txid, &masternode)?;
-        SERVICES
-            .masternode
-            .by_height
-            .put(&(context.height, idx), &txid.to_string())
+        SERVICES.masternode.by_height.put(&(ctx.height, idx), &txid)
     }
 
-    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn invalidate(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         debug!("[CreateMasternode] Invalidating...");
         let txid = tx.txid();
         SERVICES.masternode.by_id.delete(&txid)?;
-        SERVICES.masternode.by_height.delete(&(context.height, idx))
+        SERVICES.masternode.by_height.delete(&(ctx.height, idx))
     }
 }
 
 impl Index for UpdateMasternode {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, _ctx: &BlockContext, tx: Transaction, _idx: usize) -> Result<()> {
         debug!("[UpdateMasternode] Indexing...");
-        // TODO
-        // Get mn
-        // Update fields
+        if let Some(mut mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+            mn.history.push(HistoryItem {
+                owner_address: mn.owner_address.clone(),
+                operator_address: mn.operator_address.clone(),
+            });
+
+            for update in self.updates.as_ref() {
+                debug!("update : {:?}", update);
+                match update.r#type {
+                    0x1 => mn.owner_address = tx.output[1].script_pubkey.clone(),
+                    0x2 => {
+                        if let Some(hash) = update.address.address_pub_key_hash {
+                            mn.operator_address = get_operator_script(&hash, update.address.r#type)?
+                        }
+                    }
+                    _ => (),
+                }
+            }
+
+            SERVICES.masternode.by_id.put(&self.node_id, &mn)?;
+        }
         Ok(())
     }
 
-    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
-        // TODO
-        // Get mn
-        // Restore from history
+    fn invalidate(&self, _ctx: &BlockContext, _tx: Transaction, _idx: usize) -> Result<()> {
+        debug!("[UpdateMasternode] Invalidating...");
+        if let Some(mut mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+            if let Some(history_item) = mn.history.pop() {
+                mn.owner_address = history_item.owner_address;
+                mn.operator_address = history_item.operator_address;
+            }
+
+            SERVICES.masternode.by_id.put(&self.node_id, &mn)?;
+        }
         Ok(())
     }
 }
 
 impl Index for ResignMasternode {
-    fn index(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: Transaction, _idx: usize) -> Result<()> {
         debug!("[ResignMasternode] Indexing...");
-        // TODO
-        // Get mn
-        // Set resign tx and resign height
+        if let Some(mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+            SERVICES.masternode.by_id.put(
+                &self.node_id,
+                &Masternode {
+                    resign_height: Some(ctx.height),
+                    resign_tx: Some(tx.txid()),
+                    ..mn
+                },
+            )?;
+        }
         Ok(())
     }
 
-    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
-        // TODO
-        // Get mn
-        // Set resign height to -1
+    fn invalidate(&self, _ctx: &BlockContext, _tx: Transaction, _idx: usize) -> Result<()> {
+        debug!("[ResignMasternode] Invalidating...");
+        if let Some(mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+            SERVICES.masternode.by_id.put(
+                &self.node_id,
+                &Masternode {
+                    resign_height: None,
+                    ..mn
+                },
+            )?;
+        }
         Ok(())
     }
 }
