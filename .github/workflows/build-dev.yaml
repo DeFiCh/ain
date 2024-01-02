@@ -26,7 +26,7 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, x64, builder]
+    runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
-      run: sudo ./make.sh ci-setup-deps
+      run: ./make.sh ci-setup-deps
 
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
@@ -62,7 +62,7 @@ jobs:
       id: rust-cache-restore
       with:
         workspaces: lib -> ../build/lib/target
-        save-if: ${{ github.ref == 'refs/heads/master' }}
+        # save-if: ${{ github.ref == 'refs/heads/master' }}
         shared-key: ${{ env.TARGET }}
 
     - name: Build and package
@@ -84,7 +84,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Save cpp build cache
-      if: ${{ github.ref == 'refs/heads/master' }}
+      # if: ${{ github.ref == 'refs/heads/master' }}
       uses: actions/cache/save@v3
       with:
         path: |
