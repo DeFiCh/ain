@@ -6,10 +6,11 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::format_err;
 use bincode;
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, IteratorMode,
-    Options, PerfContext, DB,
+    Options, DB,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -66,10 +67,10 @@ impl Rocks {
         Ok(())
     }
 
-    pub fn cf_handle(&self, cf: &str) -> &ColumnFamily {
+    pub fn cf_handle(&self, cf: &str) -> Result<&ColumnFamily> {
         self.0
             .cf_handle(cf)
-            .expect("should never get an unknown column")
+            .ok_or_else(|| DBError::Custom(format_err!("Unknown column: {}", cf)))
     }
 
     fn get_cf(&self, cf: &ColumnFamily, key: &[u8]) -> Result<Option<Vec<u8>>> {
@@ -111,11 +112,15 @@ pub trait ColumnName {
 // Column trait. Define associated index type
 //
 pub trait Column {
-    type Index: Debug;
+    type Index: Debug + Serialize + DeserializeOwned;
 
-    fn key(index: &Self::Index) -> Vec<u8>;
+    fn key(index: &Self::Index) -> Result<Vec<u8>> {
+        bincode::serialize(index).map_err(DBError::Bincode)
+    }
 
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index>;
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index> {
+        bincode::deserialize(&raw_key).map_err(DBError::Bincode)
+    }
 }
 
 //
@@ -139,14 +144,14 @@ where
     C: Column + ColumnName,
 {
     pub fn get_bytes(&self, key: &C::Index) -> Result<Option<Vec<u8>>> {
-        self.backend.get_cf(self.handle(), &C::key(key))
+        self.backend.get_cf(self.handle()?, &C::key(key)?)
     }
 
     pub fn put_bytes(&self, key: &C::Index, value: &[u8]) -> Result<()> {
-        self.backend.put_cf(self.handle(), &C::key(key), value)
+        self.backend.put_cf(self.handle()?, &C::key(key)?, value)
     }
 
-    pub fn handle(&self) -> &ColumnFamily {
+    pub fn handle(&self) -> Result<&ColumnFamily> {
         self.backend.cf_handle(C::NAME)
     }
 }
@@ -170,20 +175,25 @@ where
     }
 
     pub fn delete(&self, key: &C::Index) -> Result<()> {
-        self.backend.delete_cf(self.handle(), &C::key(key))
+        self.backend.delete_cf(self.handle()?, &C::key(key)?)
     }
 
     pub fn iter(
         &self,
         from: Option<C::Index>,
         limit: usize,
-    ) -> impl Iterator<Item = (C::Index, C::Type)> + '_ {
-        let index = from.as_ref().map(|i| C::key(i)).unwrap_or_default();
+    ) -> Result<impl Iterator<Item = (C::Index, C::Type)> + '_> {
+        let index = from
+            .as_ref()
+            .map(|i| C::key(i))
+            .transpose()?
+            .unwrap_or_default();
         let iterator_mode = from.map_or(IteratorMode::Start, |_| {
             IteratorMode::From(&index, rocksdb::Direction::Forward)
         });
-        self.backend
-            .iterator_cf::<C>(self.handle(), iterator_mode)
+        let it = self
+            .backend
+            .iterator_cf::<C>(self.handle()?, iterator_mode)
             .filter_map(|k| {
                 k.ok().and_then(|(k, v)| {
                     let value = bincode::deserialize(&v).ok()?;
@@ -191,7 +201,8 @@ where
                     Some((key, value))
                 })
             })
-            .take(limit)
+            .take(limit);
+        Ok(it)
     }
 }
 
