@@ -115,119 +115,42 @@ pub const COLUMN_NAMES: [&'static str; 8] = [
 
 impl Column for columns::Transactions {
     type Index = H256;
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        index.as_bytes().to_vec()
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Ok(Self::Index::from_slice(&raw_key))
-    }
 }
 
 impl Column for columns::Blocks {
     type Index = U256;
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        let mut bytes = [0_u8; 32];
-        index.to_big_endian(&mut bytes);
-        bytes.to_vec()
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Ok(Self::Index::from(&*raw_key))
-    }
 }
 
 impl Column for columns::Receipts {
     type Index = H256;
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        index.to_fixed_bytes().to_vec()
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Ok(Self::Index::from_slice(&raw_key))
-    }
 }
 
 impl Column for columns::BlockMap {
     type Index = H256;
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        index.to_fixed_bytes().to_vec()
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Ok(Self::Index::from_slice(&raw_key))
-    }
 }
 
 impl Column for columns::LatestBlockNumber {
-    type Index = &'static str;
+    type Index = String;
 
-    fn key(_index: &Self::Index) -> Vec<u8> {
-        b"latest".to_vec()
+    fn key(_index: &Self::Index) -> Result<Vec<u8>, DBError> {
+        Ok(b"latest".to_vec())
     }
 
     fn get_key(_raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Ok("latest")
+        Ok(String::from("latest"))
     }
 }
 
 impl Column for columns::AddressLogsMap {
     type Index = U256;
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        let mut bytes = [0_u8; 32];
-        index.to_big_endian(&mut bytes);
-        bytes.to_vec()
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        Ok(Self::Index::from(&*raw_key))
-    }
 }
 
 impl Column for columns::AddressCodeMap {
     type Index = (H160, H256);
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(20 + 32);
-        bytes.extend_from_slice(&index.0.to_fixed_bytes());
-        bytes.extend_from_slice(&index.1.to_fixed_bytes());
-        bytes
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        let address = H160::from_slice(&raw_key[..20]);
-        let code_hash = H256::from_slice(&raw_key[20..]);
-        Ok((address, code_hash))
-    }
 }
 
 impl Column for columns::BlockDeployedCodeHashes {
     type Index = (U256, H160);
-
-    fn key(index: &Self::Index) -> Vec<u8> {
-        let mut u256_bytes = [0_u8; 32];
-        index.0.to_big_endian(&mut u256_bytes);
-
-        let mut bytes = Vec::with_capacity(32 + 20);
-        bytes.extend_from_slice(&u256_bytes);
-        bytes.extend_from_slice(&index.1.to_fixed_bytes());
-        bytes
-    }
-
-    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index, DBError> {
-        let u256_bytes = &raw_key[0..32];
-        let h160_bytes = &raw_key[32..52];
-
-        let u256 = U256::from_big_endian(u256_bytes);
-        let h160 = H160::from_slice(h160_bytes);
-
-        Ok((u256, h160))
-    }
 }
 
 //

@@ -128,7 +128,7 @@ impl BlockStorage for BlockStore {
     fn get_latest_block(&self) -> Result<Option<BlockAny>> {
         let latest_block_cf = self.column::<columns::LatestBlockNumber>();
 
-        match latest_block_cf.get(&"")? {
+        match latest_block_cf.get(&String::new())? {
             Some(block_number) => self.get_block_by_number(&block_number),
             None => Ok(None),
         }
@@ -138,7 +138,8 @@ impl BlockStorage for BlockStore {
         if let Some(block) = block {
             let latest_block_cf = self.column::<columns::LatestBlockNumber>();
             let block_number = block.header.number;
-            latest_block_cf.put(&"", &block_number)?;
+            // latest_block_cf.put(&"", &block_number)?;
+            latest_block_cf.put(&String::new(), &block_number)?;
         }
         Ok(())
     }
@@ -226,15 +227,16 @@ impl Rollback for BlockStore {
 
             if let Some(block) = self.get_block_by_hash(&block.header.parent_hash)? {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
-                latest_block_cf.put(&"", &block.header.number)?;
+                // latest_block_cf.put(&"", &block.header.number)?;
+                latest_block_cf.put(&String::new(), &block.header.number)?;
             }
 
             let logs_cf = self.column::<columns::AddressLogsMap>();
             logs_cf.delete(&block.header.number)?;
 
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-            let mut iter =
-                block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), usize::MAX);
+            let mut iter = block_deployed_codes_cf
+                .iter(Some((block.header.number, H160::zero())), usize::MAX)?;
 
             let address_codes_cf = self.column::<columns::AddressCodeMap>();
             for ((block_number, address), hash) in &mut iter {
@@ -323,7 +325,7 @@ impl BlockStore {
         let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
             .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
 
-        for (k, v) in self.column::<C>().iter(from, limit) {
+        for (k, v) in self.column::<C>().iter(from, limit)? {
             if out.len() > response_max_size {
                 return Err(format_err!("exceed response max size limit").into());
             }

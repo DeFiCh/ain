@@ -41,7 +41,7 @@ pub use transaction_vin::*;
 pub use transaction_vout::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&'static str; 21] = [
+pub const COLUMN_NAMES: [&'static str; 22] = [
     block::Block::NAME,
     masternode_stats::MasternodeStats::NAME,
     masternode::Masternode::NAME,
@@ -63,4 +63,5 @@ pub const COLUMN_NAMES: [&'static str; 21] = [
     transaction_vin::TransactionVin::NAME,
     transaction_vout::TransactionVout::NAME,
     vault_auction_history::VaultAuctionHistory::NAME,
+    vault_auction_history::VaultAuctionHistoryByHeight::NAME,
 ];
