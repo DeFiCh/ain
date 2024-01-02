@@ -65,7 +65,7 @@ jobs:
         shared-key: ${{ env.TARGET }}
 
     - name: Build and package
-      run: ./make.sh release
+      run: sudo ./make.sh release
 
     - name: Publish artifact
       uses: actions/upload-artifact@v3
