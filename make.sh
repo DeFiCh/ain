@@ -1187,8 +1187,11 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
-    DEBIAN_FRONTEND=noninteractive pkg_install_gh_cli
     ci_setup_deps_target
+}
+
+ci_setup_gh_cli() {
+    DEBIAN_FRONTEND=noninteractive pkg_install_gh_cli
 }
 
 ci_setup_deps_target() {
