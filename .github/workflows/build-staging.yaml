@@ -27,6 +27,8 @@ jobs:
           container: defi/ain-builder:latest
         - target: aarch64-apple-darwin
           container: defi/ain-builder:latest
+    container:
+      image: ${{ matrix.container }}
     env:
       TARGET: ${{matrix.target}}
 
