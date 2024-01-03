@@ -19,6 +19,17 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-pc-linux-gnu, aarch64-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin, aarch64-apple-darwin]
+        include:
+        - target: x86_64-pc-linux-gnu
+          container: defi/ain-builder:latest
+        - target: aarch64-linux-gnu
+          container: defi/ain-builder:latest
+        - target: x86_64-w64-mingw32
+          container: defi/ain-win-builder:latest
+        - target: x86_64-apple-darwin
+          container: defi/ain-builder:latest
+        - target: aarch64-apple-darwin
+          container: defi/ain-builder:latest
     env:
       TARGET: ${{matrix.target}}
 
