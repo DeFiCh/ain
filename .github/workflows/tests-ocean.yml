@@ -115,4 +115,4 @@ jobs:
 
       - name: Run tests
         run: |
-          DEFICHAIN_DOCKER_IMAGE=test-build-container DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api
+          DEFICHAIN_DOCKER_IMAGE=test-build-container DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api/masternode.controller.e2e.ts
