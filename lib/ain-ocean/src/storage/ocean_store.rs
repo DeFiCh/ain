@@ -58,6 +58,7 @@ impl OceanStore {
         limit: usize,
     ) -> Result<Vec<(C::Index, C::Type)>> {
         let col = self.column::<C>();
-        Ok(col.iter(from, limit).collect())
+        let list = col.iter(from, limit)?.collect();
+        Ok(list)
     }
 }

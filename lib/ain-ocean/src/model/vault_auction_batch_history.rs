@@ -1,24 +1,28 @@
+use bitcoin::{Amount, BlockHash, ScriptBuf, Txid};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+pub type AuctionHistoryKey = (Txid, u32, Txid);
+pub type AuctionHistoryByHeightKey = (Txid, u32, u32, usize);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultAuctionBatchHistory {
     pub id: String,
     pub key: String,
     pub sort: String,
-    pub vault_id: String,
-    pub index: i32,
-    pub from: String,
-    pub amount: String,
-    pub token_id: i32,
+    pub vault_id: Txid,
+    pub index: usize,
+    pub from: ScriptBuf,
+    pub amount: i64,
+    pub token_id: u64,
     pub block: VaultAuctionBatchHistoryBlock,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultAuctionBatchHistoryBlock {
-    pub hash: String,
-    pub height: i32,
-    pub time: i32,
-    pub median_time: i32,
+    pub hash: BlockHash,
+    pub height: u32,
+    pub time: u64,
+    pub median_time: u64,
 }
