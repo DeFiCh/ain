@@ -273,13 +273,15 @@ class CPoolSwap {
     uint32_t height;
     CAmount result{0};
     DCT_ID currentID;
+    std::optional<CustomTxType> txType;
 
 public:
     std::vector<std::pair<std::string, std::string>> errors;
 
-    CPoolSwap(const CPoolSwapMessage &obj, uint32_t height)
+    CPoolSwap(const CPoolSwapMessage &obj, uint32_t height, std::optional<CustomTxType> txType = std::nullopt)
         : obj(obj),
-          height(height) {}
+          height(height),
+          txType(txType) {}
 
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, const Consensus::Params &consensus, bool testOnly = false);
     Res ExecuteSwap(CCustomCSView &view,

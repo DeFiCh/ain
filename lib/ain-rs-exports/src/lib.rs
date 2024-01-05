@@ -333,6 +333,8 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         );
+
+        fn evm_try_set_tx_result(result: &mut CrossBoundaryResult, tx_type: u8, result_ptr: usize);
     }
 
     // =========  Debug ==========

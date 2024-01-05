@@ -881,3 +881,8 @@ fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
         .send(Notification::Transaction(signed_tx.hash()))
         .map_err(|e| format_err!(e.to_string()))?)
 }
+
+#[ffi_fallible]
+fn evm_try_set_tx_result(_tx_type: u8, _result_ptr: usize) -> Result<()> {
+    Ok(())
+}
