@@ -64,8 +64,8 @@ struct OverlayData {
     storage: HashMap<H256, H256>,
 }
 
-#[derive(Debug, Clone)]
-struct Overlay {
+#[derive(Debug, Clone, Default)]
+pub struct Overlay {
     state: HashMap<H160, OverlayData>,
     changeset: Vec<HashMap<H160, OverlayData>>,
     deletes: HashSet<H160>,
@@ -145,6 +145,7 @@ impl EVMBackend {
         trie_store: Arc<TrieDBStore>,
         storage: Arc<Storage>,
         vicinity: Vicinity,
+        overlay: Option<Overlay>,
     ) -> Result<Self> {
         let state = trie_store
             .trie_db
@@ -156,7 +157,7 @@ impl EVMBackend {
             trie_store,
             storage,
             vicinity,
-            overlay: Overlay::new(),
+            overlay: overlay.unwrap_or_default(),
         })
     }
 
