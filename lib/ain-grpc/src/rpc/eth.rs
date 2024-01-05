@@ -355,7 +355,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn accounts(&self) -> RpcResult<Vec<String>> {
-        let accounts = ain_cpp_imports::get_accounts().unwrap();
+        let accounts = ain_cpp_imports::get_accounts()
+            .map_err(|e| to_custom_err(format!("Error getting accounts {e}")))?;
         Ok(accounts)
     }
 
@@ -619,7 +620,8 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let accounts = self.accounts()?;
 
                 match accounts.get(0) {
-                    Some(account) => H160::from_str(account.as_str()).unwrap(),
+                    Some(account) => H160::from_str(account.as_str())
+                        .map_err(|_| to_custom_err("Wrong from address"))?,
                     None => return Err(to_custom_err("from is not available")),
                 }
             }
@@ -654,7 +656,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = Some(chain_id);
                 m.gas_limit = gas_limit;
                 if gas_price.is_none() {
-                    m.gas_price = self.gas_price().unwrap();
+                    m.gas_price = self.gas_price()?;
                 }
                 TransactionMessage::Legacy(m)
             }
@@ -663,7 +665,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = chain_id;
                 m.gas_limit = gas_limit;
                 if gas_price.is_none() {
-                    m.gas_price = self.gas_price().unwrap();
+                    m.gas_price = self.gas_price()?;
                 }
                 TransactionMessage::EIP2930(m)
             }
@@ -672,7 +674,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = chain_id;
                 m.gas_limit = gas_limit;
                 if max_fee_per_gas.is_none() {
-                    m.max_fee_per_gas = self.gas_price().unwrap();
+                    m.max_fee_per_gas = self.gas_price()?;
                 }
                 TransactionMessage::EIP1559(m)
             }
@@ -681,7 +683,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let signed = sign(from, message).unwrap();
+        let signed = sign(from, message)?;
         let encoded = hex::encode(signed.encode());
         Ok(encoded)
     }
@@ -1111,19 +1113,17 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 }
 
-fn sign(
-    address: H160,
-    message: TransactionMessage,
-) -> Result<TransactionV2, Box<dyn std::error::Error>> {
-    debug!(target:"rpc", "sign address {:#x}", address);
+fn sign(address: H160, message: TransactionMessage) -> RpcResult<TransactionV2> {
+    debug!(target: "rpc", "sign address {:#x}", address);
     let key = format!("{address:?}");
-    let priv_key = get_eth_priv_key(key).unwrap();
-    let secret_key = SecretKey::parse(&priv_key).unwrap();
+    let priv_key = get_eth_priv_key(key).map_err(|_| to_custom_err("Invalid private key"))?;
+    let secret_key = SecretKey::parse(&priv_key)
+        .map_err(|e| to_custom_err(format!("Error parsing SecretKey {e}")))?;
 
     match message {
         TransactionMessage::Legacy(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let v = match m.chain_id {
                 None => 27 + u64::from(recid.serialize()),
@@ -1138,7 +1138,7 @@ fn sign(
                 value: m.value,
                 input: m.input,
                 signature: ethereum::TransactionSignature::new(v, r, s)
-                    .ok_or(to_custom_err("signer generated invalid signature"))?,
+                    .ok_or(to_custom_err("Signer generated invalid signature"))?,
                 gas_price: m.gas_price,
                 gas_limit: m.gas_limit,
                 action: m.action,
@@ -1146,7 +1146,7 @@ fn sign(
         }
         TransactionMessage::EIP2930(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
@@ -1168,7 +1168,7 @@ fn sign(
         }
         TransactionMessage::EIP1559(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
