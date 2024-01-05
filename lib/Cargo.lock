@@ -197,6 +197,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "ain-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "ain-rs-exports"
+version = "0.1.0"
+dependencies = [
+ "ain-contracts",
+ "ain-cpp-imports",
+ "ain-evm",
+ "ain-grpc",
+ "ain-macros",
+ "anyhow",
+ "cxx",
+ "cxx-gen",
+ "ethabi",
+ "ethereum",
+ "ethereum-types",
+ "hex",
+ "log",
+ "proc-macro2",
+ "rlp",
+ "serde_json",
+]
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -983,6 +1014,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scratch",
+ "syn 2.0.38",
+]
+
+[[package]]
+name = "cxx-gen"
+version = "0.7.112"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aeb9e5a1091e58561a9e50c4e725f3e4365e7272d9a9d9cf3ce4b8537a746113"
+dependencies = [
+ "codespan-reporting",
+ "proc-macro2",
+ "quote",
  "syn 2.0.38",
 ]
 
