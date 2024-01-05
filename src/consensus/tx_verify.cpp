@@ -180,6 +180,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     const auto txType = GuessCustomTxType(tx, dummy);
 
     if (txType == CustomTxType::UpdateMasternode) {
+        CCustomCSView discardCache(mnview);
         BlockContext blockCtx(nSpendHeight, {}, chainparams.GetConsensus(), &discardCache);
         auto txCtx = TransactionContext{
                 inputs,
@@ -188,7 +189,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
         };
         auto &[res, txMessage] = txCtx.GetTxMessage();
         if (!res) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-updatemasternode-message", strprintf("%sTx: %s", ToString(txType), res.msg));
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-updatemasternode-message", strprintf("%sTx: %s", ToString(txType), res.msg));
         }
         auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
         for (const auto &item : obj.updates) {
