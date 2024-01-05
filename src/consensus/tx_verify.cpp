@@ -179,22 +179,25 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
     std::vector<unsigned char> dummy;
     const auto txType = GuessCustomTxType(tx, dummy);
 
-    if (IsBelowDF6MintTokenOrAccountToUtxos(txType, nSpendHeight) || (nSpendHeight >= chainparams.GetConsensus().DF20GrandCentralHeight && txType == CustomTxType::UpdateMasternode)) {
-        CCustomCSView discardCache(mnview, nullptr, nullptr, nullptr);
-        // Note: TXs are already filtered. So we pass isEVMEnabled to false, but for future proof, refactor this enough,
-        // that it's propagated.
-        // 
-        // Note: We set time to 0 here. Take care not to use time
-        // in Apply for MintToken or AccountToUtxos path.
+    if (txType == CustomTxType::UpdateMasternode) {
         BlockContext blockCtx(nSpendHeight, {}, chainparams.GetConsensus(), &discardCache);
         auto txCtx = TransactionContext{
                 inputs,
                 tx,
                 blockCtx,
         };
-        auto res = ApplyCustomTx(blockCtx, txCtx, &canSpend);
-        if (!res.ok && (res.code & CustomTxErrCodes::Fatal)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-customtx", res.msg);
+        auto &[res, txMessage] = txCtx.GetTxMessage();
+        if (!res) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-updatemasternode-message", strprintf("%sTx: %s", ToString(txType), res.msg));
+        }
+        auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
+        for (const auto &item : obj.updates) {
+            if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
+                if (const auto node = mnview.GetMasternode(obj.mnId)) {
+                    canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
+                }
+                break;
+            }
         }
     }
 
