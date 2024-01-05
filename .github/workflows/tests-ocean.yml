@@ -62,7 +62,7 @@ jobs:
         with:
           repository: birthdayresearch/jellyfishsdk
           # ref: 'main'
-          ref: 'canonbrother/defid-ocean'
+          ref: 'canonbrother/defid-ocean' # TODO(): remove before merge to master
 
       - name: Download binaries
         uses: actions/download-artifact@v3
@@ -91,4 +91,4 @@ jobs:
       - name: Run tests
         run: |
           npm ci
-          DEFICHAIN_DOCKER_IMAGE=test-build-container DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api/masternode.controller.e2e.ts
+          DEFICHAIN_DOCKER_IMAGE=test-build-container DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api
