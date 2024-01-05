@@ -28,7 +28,7 @@ use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
-    backend::{BackendError, EVMBackend, Vicinity},
+    backend::{BackendError, EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     blocktemplate::BlockTemplate,
     executor::{AinExecutor, ExecutorContext, TxResponse},
@@ -240,7 +240,7 @@ impl EVMCoreService {
         self.trie_store.flush()
     }
 
-    pub fn call(&self, arguments: EthCallArgs) -> Result<TxResponse> {
+    pub fn call(&self, arguments: EthCallArgs, overlay: Option<Overlay>) -> Result<TxResponse> {
         let EthCallArgs {
             caller,
             to,
@@ -277,6 +277,7 @@ impl EVMCoreService {
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             vicinity,
+            overlay,
         )
         .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
 
@@ -758,6 +759,7 @@ impl EVMCoreService {
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             vicinity,
+            None,
         )
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
         backend.update_vicinity_from_tx(tx)?;
@@ -824,6 +826,7 @@ impl EVMCoreService {
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             Vicinity::default(),
+            None,
         )?;
         Ok(backend.get_account(&address))
     }
@@ -893,6 +896,7 @@ impl EVMCoreService {
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
             vicinity,
+            None,
         )
     }
 
@@ -910,6 +914,7 @@ impl EVMCoreService {
                 ),
                 ..Vicinity::default()
             },
+            None,
         )
     }
 

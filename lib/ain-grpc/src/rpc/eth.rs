@@ -1,4 +1,4 @@
-use std::{convert::Into, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, convert::Into, str::FromStr, sync::Arc};
 
 use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::{
@@ -6,8 +6,7 @@ use ain_evm::{
     core::EthCallArgs,
     evm::EVMServices,
     executor::TxResponse,
-    filters::Filter,
-    log::FilterType,
+    filters::FilterCriteria,
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     transaction::SignedTx,
 };
@@ -23,11 +22,11 @@ use log::{debug, trace};
 
 use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
-    call_request::CallRequest,
+    call_request::{override_to_overlay, CallRequest, CallStateOverride},
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
-    logs::{GetLogsRequest, LogResult},
+    logs::{GetLogsRequest, LogRequestTopics, LogResult},
     receipt::ReceiptResult,
     sync::{SyncInfo, SyncState},
     transaction_request::{TransactionMessage, TransactionRequest},
@@ -43,7 +42,12 @@ pub trait MetachainRPC {
     /// Makes a call to the Ethereum node without creating a transaction on the blockchain.
     /// Returns the output data as a hexadecimal string.
     #[method(name = "call")]
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes>;
+    fn call(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<Bytes>;
 
     /// Retrieves the list of accounts managed by the node.
     /// Returns a vector of Ethereum addresses as hexadecimal strings.
@@ -208,8 +212,12 @@ pub trait MetachainRPC {
 
     /// Estimate gas needed for execution of given contract.
     #[method(name = "estimateGas")]
-    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockNumber>)
-        -> RpcResult<U256>;
+    fn estimate_gas(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<U256>;
 
     /// Returns current gas_price.
     #[method(name = "gasPrice")]
@@ -310,7 +318,12 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+    fn call(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
 
         let caller = call.from.unwrap_or_default();
@@ -331,16 +344,19 @@ impl MetachainRPCServer for MetachainRPCModule {
         } = self
             .handler
             .core
-            .call(EthCallArgs {
-                caller,
-                to: call.to,
-                value: call.value.unwrap_or_default(),
-                data,
-                gas_limit,
-                gas_price,
-                access_list: call.access_list.unwrap_or_default(),
-                block_number: block.header.number,
-            })
+            .call(
+                EthCallArgs {
+                    caller,
+                    to: call.to,
+                    value: call.value.unwrap_or_default(),
+                    data,
+                    gas_limit,
+                    gas_price,
+                    access_list: call.access_list.unwrap_or_default(),
+                    block_number: block.header.number,
+                },
+                state_overrides.map(override_to_overlay),
+            )
             .map_err(RPCError::EvmError)?;
 
         match exit_reason {
@@ -356,7 +372,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn accounts(&self) -> RpcResult<Vec<String>> {
-        let accounts = ain_cpp_imports::get_accounts().unwrap();
+        let accounts = ain_cpp_imports::get_accounts()
+            .map_err(|e| to_custom_err(format!("Error getting accounts {e}")))?;
         Ok(accounts)
     }
 
@@ -620,7 +637,8 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let accounts = self.accounts()?;
 
                 match accounts.get(0) {
-                    Some(account) => H160::from_str(account.as_str()).unwrap(),
+                    Some(account) => H160::from_str(account.as_str())
+                        .map_err(|_| to_custom_err("Wrong from address"))?,
                     None => return Err(to_custom_err("from is not available")),
                 }
             }
@@ -655,7 +673,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = Some(chain_id);
                 m.gas_limit = gas_limit;
                 if gas_price.is_none() {
-                    m.gas_price = self.gas_price().unwrap();
+                    m.gas_price = self.gas_price()?;
                 }
                 TransactionMessage::Legacy(m)
             }
@@ -664,7 +682,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = chain_id;
                 m.gas_limit = gas_limit;
                 if gas_price.is_none() {
-                    m.gas_price = self.gas_price().unwrap();
+                    m.gas_price = self.gas_price()?;
                 }
                 TransactionMessage::EIP2930(m)
             }
@@ -673,7 +691,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = chain_id;
                 m.gas_limit = gas_limit;
                 if max_fee_per_gas.is_none() {
-                    m.max_fee_per_gas = self.gas_price().unwrap();
+                    m.max_fee_per_gas = self.gas_price()?;
                 }
                 TransactionMessage::EIP1559(m)
             }
@@ -682,7 +700,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let signed = sign(from, message).unwrap();
+        let signed = sign(from, message)?;
         let encoded = hex::encode(signed.encode());
         Ok(encoded)
     }
@@ -763,6 +781,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         &self,
         call: CallRequest,
         block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
 
@@ -775,6 +794,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let call_gas = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
+        let overlay = state_overrides.map(override_to_overlay);
         // Determine the lowest and highest possible gas limits to binary search in between
         let mut lo = Self::CONFIG.gas_transaction_call - 1;
         let mut hi = call_gas;
@@ -827,16 +847,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             let tx_response = self
                 .handler
                 .core
-                .call(EthCallArgs {
-                    caller,
-                    to: call.to,
-                    value: call.value.unwrap_or_default(),
-                    data,
-                    gas_limit,
-                    gas_price: fee_cap,
-                    access_list: call.access_list.clone().unwrap_or_default(),
-                    block_number: block.header.number,
-                })
+                .call(
+                    EthCallArgs {
+                        caller,
+                        to: call.to,
+                        value: call.value.unwrap_or_default(),
+                        data,
+                        gas_limit,
+                        gas_price: fee_cap,
+                        access_list: call.access_list.clone().unwrap_or_default(),
+                        block_number: block.header.number,
+                    },
+                    overlay.clone(),
+                )
                 .map_err(RPCError::EvmError)?;
 
             match tx_response.exit_reason {
@@ -984,175 +1007,144 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn get_logs(&self, input: GetLogsRequest) -> RpcResult<Vec<LogResult>> {
-        if input.block_hash.is_some() && (input.to_block.is_some() || input.from_block.is_some()) {
-            return Err(RPCError::InvalidBlockInput.into());
-        }
-
-        let block_numbers = match input.block_hash {
-            None => {
-                // use fromBlock-toBlock
-                let mut block_number = self.get_block(input.from_block)?.header.number;
-                let to_block_number = self.get_block(input.to_block)?.header.number;
-                let mut block_numbers = Vec::new();
-                if block_number > to_block_number {
-                    return Err(RPCError::FromBlockGreaterThanToBlock.into());
-                }
-
-                while block_number <= to_block_number {
-                    block_numbers.push(block_number);
-                    block_number = block_number
-                        .checked_add(U256::one())
-                        .ok_or(RPCError::ValueOverflow)?;
-                }
-                Ok::<Vec<U256>, Error>(block_numbers)
+        let from_block = if input.from_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.from_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.from_block)?.header.number)
             }
-            Some(block_hash) => {
-                let block_number = self
-                    .handler
-                    .storage
-                    .get_block_by_hash(&block_hash)
-                    .map_err(to_custom_err)?
-                    .ok_or(RPCError::BlockNotFound)?
-                    .header
-                    .number;
-                Ok(vec![block_number])
+        } else {
+            None
+        };
+        let to_block = if input.to_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.to_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.to_block)?.header.number)
             }
-        }?;
-
-        let logs_result = block_numbers
-            .into_iter()
-            .map(|block_number| {
-                self.handler
-                    .logs
-                    .get_logs(&input.address, &input.topics, block_number)
-                    .map_err(to_custom_err)
-            })
-            .collect::<RpcResult<Vec<Vec<_>>>>()?
-            .into_iter()
-            .flatten()
-            .map(LogResult::from)
-            .collect::<Vec<_>>();
-        Ok(logs_result)
+        } else {
+            None
+        };
+        let topics = input.topics.map(|topics| match topics {
+            LogRequestTopics::VecOfHashes(inputs) => {
+                inputs.into_iter().map(|input| vec![input]).collect()
+            }
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+        });
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let mut criteria = FilterCriteria {
+            block_hash: input.block_hash,
+            from_block,
+            to_block,
+            addresses: input.address,
+            topics,
+        };
+        criteria
+            .verify_criteria(curr_block)
+            .map_err(RPCError::EvmError)?;
+        let logs = self
+            .handler
+            .filters
+            .get_logs_from_filter(&criteria)
+            .map_err(RPCError::EvmError)?;
+        Ok(logs.into_iter().map(|log| log.into()).collect())
     }
 
     fn new_filter(&self, input: NewFilterRequest) -> RpcResult<U256> {
-        let from_block_number = self.get_block(input.from_block)?.header.number;
-        let to_block_number = self.get_block(input.to_block)?.header.number;
-        if from_block_number > to_block_number {
-            return Err(RPCError::FromBlockGreaterThanToBlock.into());
-        }
-
-        Ok(self
-            .handler
-            .filters
-            .create_logs_filter(
-                input.address,
-                input.topics,
-                from_block_number,
-                to_block_number,
-            )
-            .into())
+        let from_block = if input.from_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.from_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.from_block)?.header.number)
+            }
+        } else {
+            None
+        };
+        let to_block = if input.to_block.is_some() {
+            if let Some(BlockNumber::Num(block_num)) = input.to_block {
+                // Allow future block number to be specified
+                Some(U256::from(block_num))
+            } else {
+                Some(self.get_block(input.to_block)?.header.number)
+            }
+        } else {
+            None
+        };
+        let topics = input.topics.map(|topics| match topics {
+            LogRequestTopics::VecOfHashes(inputs) => {
+                inputs.into_iter().map(|input| vec![input]).collect()
+            }
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+        });
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let mut criteria = FilterCriteria {
+            from_block,
+            to_block,
+            addresses: input.address,
+            topics,
+            ..Default::default()
+        };
+        criteria
+            .verify_criteria(curr_block)
+            .map_err(RPCError::EvmError)?;
+        Ok(self.handler.filters.create_log_filter(criteria).into())
     }
 
     fn new_block_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_block_filter().into())
+        Ok(self
+            .handler
+            .filters
+            .create_block_filter()
+            .map_err(RPCError::EvmError)?
+            .into())
     }
 
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
-        let filter = usize::try_from(filter_id)
-            .and_then(|id| self.handler.filters.get_filter(id))
-            .map_err(to_custom_err)?;
-
-        let res = match filter {
-            Filter::Logs(filter) => {
-                let current_block_height = match self
-                    .handler
-                    .storage
-                    .get_latest_block()
-                    .map_err(RPCError::EvmError)?
-                {
-                    None => return Err(RPCError::BlockNotFound.into()),
-                    Some(block) => block.header.number,
-                };
-
-                let logs = self
-                    .handler
-                    .logs
-                    .get_logs_from_filter(&filter, &FilterType::GetFilterChanges)
-                    .map_err(to_custom_err)?
-                    .into_iter()
-                    .map(LogResult::from)
-                    .collect();
-
-                usize::try_from(filter_id)
-                    .and_then(|id| {
-                        self.handler
-                            .filters
-                            .update_last_block(id, current_block_height)
-                    })
-                    .map_err(to_custom_err)?;
-
-                GetFilterChangesResult::Logs(logs)
-            }
-            Filter::NewBlock(_) => GetFilterChangesResult::NewBlock(
-                usize::try_from(filter_id)
-                    .and_then(|id| self.handler.filters.get_entries_from_filter(id))
-                    .map_err(to_custom_err)?,
-            ),
-            Filter::NewPendingTransactions(_) => GetFilterChangesResult::NewPendingTransactions(
-                usize::try_from(filter_id)
-                    .and_then(|id| self.handler.filters.get_entries_from_filter(id))
-                    .map_err(to_custom_err)?,
-            ),
-        };
-
+        let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let res = self
+            .handler
+            .filters
+            .get_filter_changes_from_id(filter_id, curr_block)
+            .map_err(RPCError::EvmError)?
+            .into();
         Ok(res)
     }
 
     fn uninstall_filter(&self, filter_id: U256) -> RpcResult<bool> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
-
         Ok(self.handler.filters.delete_filter(filter_id))
     }
 
     fn get_filter_logs(&self, filter_id: U256) -> RpcResult<Vec<LogResult>> {
-        let filter = usize::try_from(filter_id)
-            .and_then(|id| self.handler.filters.get_filter(id))
-            .map_err(to_custom_err)?;
-
-        match filter {
-            Filter::Logs(filter) => {
-                let logs = self
-                    .handler
-                    .logs
-                    .get_logs_from_filter(&filter, &FilterType::GetFilterLogs)
-                    .map_err(to_custom_err)?
-                    .into_iter()
-                    .map(LogResult::from)
-                    .collect();
-                Ok(logs)
-            }
-            _ => Err(RPCError::InvalidLogFilter.into()),
-        }
+        let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        let logs = self
+            .handler
+            .filters
+            .get_filter_logs_from_id(filter_id, curr_block)
+            .map_err(RPCError::EvmError)?;
+        Ok(logs.into_iter().map(|log| log.into()).collect())
     }
 
     fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_transaction_filter().into())
+        Ok(self.handler.filters.create_tx_filter().into())
     }
 }
 
-fn sign(
-    address: H160,
-    message: TransactionMessage,
-) -> Result<TransactionV2, Box<dyn std::error::Error>> {
-    debug!(target:"rpc", "sign address {:#x}", address);
-    let priv_key = get_eth_priv_key(address.to_fixed_bytes()).unwrap();
-    let secret_key = SecretKey::parse(&priv_key).unwrap();
+fn sign(address: H160, message: TransactionMessage) -> RpcResult<TransactionV2> {
+    debug!(target: "rpc", "sign address {:#x}", address);
+    let priv_key = get_eth_priv_key(address.to_fixed_bytes()).map_err(|_| to_custom_err("Invalid private key"))?;
+    let secret_key = SecretKey::parse(&priv_key)
+        .map_err(|e| to_custom_err(format!("Error parsing SecretKey {e}")))?;
 
     match message {
         TransactionMessage::Legacy(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let v = match m.chain_id {
                 None => 27 + u64::from(recid.serialize()),
@@ -1167,7 +1159,7 @@ fn sign(
                 value: m.value,
                 input: m.input,
                 signature: ethereum::TransactionSignature::new(v, r, s)
-                    .ok_or(to_custom_err("signer generated invalid signature"))?,
+                    .ok_or(to_custom_err("Signer generated invalid signature"))?,
                 gas_price: m.gas_price,
                 gas_limit: m.gas_limit,
                 action: m.action,
@@ -1175,7 +1167,7 @@ fn sign(
         }
         TransactionMessage::EIP2930(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
@@ -1197,7 +1189,7 @@ fn sign(
         }
         TransactionMessage::EIP1559(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
