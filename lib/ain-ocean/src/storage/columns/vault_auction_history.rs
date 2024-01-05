@@ -1,6 +1,4 @@
-use ain_db::{Column, ColumnName, DBError, TypedColumn};
-use anyhow::format_err;
-use bitcoin::{hashes::Hash, Txid};
+use ain_db::{Column, ColumnName, TypedColumn};
 
 use crate::model;
 

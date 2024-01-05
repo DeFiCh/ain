@@ -1,5 +1,6 @@
 use std::num::ParseIntError;
 
+use ain_db::DBError;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -15,6 +16,8 @@ pub enum OceanError {
     HexToArrayError(#[from] HexToArrayError),
     #[error("Ocean: ParseIntError error: {0:?}")]
     ParseIntError(#[from] ParseIntError),
+    #[error("Ocean: DBError error: {0:?}")]
+    DBError(#[from] DBError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

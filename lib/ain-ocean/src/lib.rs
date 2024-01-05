@@ -1,3 +1,5 @@
+#![feature(return_position_impl_trait_in_trait)]
+
 pub mod api_paged_response;
 pub mod api_query;
 pub mod error;

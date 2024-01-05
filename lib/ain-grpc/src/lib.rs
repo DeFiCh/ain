@@ -127,7 +127,6 @@ pub fn init_network_rest_ocean(addr: String) -> Result<()> {
     let addr = addr.as_str().parse::<SocketAddr>()?;
     let runtime = &SERVICES;
 
-    let handle = runtime.tokio_runtime.clone();
     let listener = runtime
         .tokio_runtime
         .block_on(tokio::net::TcpListener::bind(addr))?;

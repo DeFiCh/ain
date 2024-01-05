@@ -108,13 +108,14 @@ async fn list_masternodes(
     let masternodes = SERVICES
         .masternode
         .by_height
-        .list(next, query.size)?
-        .iter()
-        .map(|(_, id)| {
+        .list(next)?
+        .take(query.size)
+        .map(|item| {
+            let (_, id) = item?;
             let mn = SERVICES
                 .masternode
                 .by_id
-                .get(*id)?
+                .get(&id)?
                 .ok_or("Missing masternode index")?;
 
             Ok(mn.into())
@@ -124,7 +125,7 @@ async fn list_masternodes(
     Ok(Json(ApiPagedResponse::of(
         masternodes,
         query.size,
-        |masternode| masternode.clone().id,
+        |masternode| masternode.clone().sort,
     )))
 }
 
@@ -134,7 +135,7 @@ async fn get_masternode(
     let mn = SERVICES
         .masternode
         .by_id
-        .get(masternode_id)?
+        .get(&masternode_id)?
         .map(Into::into);
 
     Ok(Json(mn))

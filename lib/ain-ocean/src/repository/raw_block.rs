@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ain_db::LedgerColumn;
 use ain_macros::Repository;
 use bitcoin::BlockHash;
 
@@ -10,13 +11,17 @@ use crate::{
 };
 
 #[derive(Repository)]
-#[repository(K = "BlockHash", V = "String", Column = "RawBlock")]
+#[repository(K = "BlockHash", V = "String")]
 pub struct RawBlockRepository {
     pub store: Arc<OceanStore>,
+    col: LedgerColumn<columns::RawBlock>,
 }
 
 impl RawBlockRepository {
     pub fn new(store: Arc<OceanStore>) -> Self {
-        Self { store }
+        Self {
+            col: store.column(),
+            store,
+        }
     }
 }

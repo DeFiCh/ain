@@ -1,21 +1,8 @@
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    iter::Iterator,
-    marker::PhantomData,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::collections::HashMap;
 
-use ain_db::{Column, ColumnName, DBError, LedgerColumn, TypedColumn};
-use bincode;
+use ain_db::{Column, ColumnName, DBError, TypedColumn};
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
-use rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, IteratorMode,
-    Options, DB,
-};
-use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{log::LogIndex, receipt::Receipt};
 
