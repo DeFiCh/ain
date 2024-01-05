@@ -1137,7 +1137,8 @@ impl MetachainRPCServer for MetachainRPCModule {
 
 fn sign(address: H160, message: TransactionMessage) -> RpcResult<TransactionV2> {
     debug!(target: "rpc", "sign address {:#x}", address);
-    let priv_key = get_eth_priv_key(address.to_fixed_bytes()).map_err(|_| to_custom_err("Invalid private key"))?;
+    let priv_key = get_eth_priv_key(address.to_fixed_bytes())
+        .map_err(|_| to_custom_err("Invalid private key"))?;
     let secret_key = SecretKey::parse(&priv_key)
         .map_err(|e| to_custom_err(format!("Error parsing SecretKey {e}")))?;
 
