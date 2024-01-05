@@ -19,6 +19,10 @@ async fn ocean_not_activated() -> impl IntoResponse {
     (StatusCode::FORBIDDEN, "Ocean is not activated")
 }
 
+async fn not_found() -> impl IntoResponse {
+    (StatusCode::NOT_FOUND, "Not found")
+}
+
 pub fn ocean_router() -> Router {
     if !ain_cpp_imports::is_ocean_rest_enabled() {
         return Router::new().route("/*path", get(ocean_not_activated));
@@ -38,4 +42,5 @@ pub fn ocean_router() -> Router {
         .nest("/tokens", tokens::router())
         .nest("/transactions", transactions::router())
         .nest("/blocks", block::router())
+        .fallback(not_found)
 }
