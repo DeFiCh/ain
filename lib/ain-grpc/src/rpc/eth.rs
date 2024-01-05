@@ -1078,6 +1078,10 @@ impl MetachainRPCServer for MetachainRPCModule {
             .into())
     }
 
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_tx_filter().into())
+    }
+
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
@@ -1104,10 +1108,6 @@ impl MetachainRPCServer for MetachainRPCModule {
             .get_filter_logs_from_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?;
         Ok(logs.into_iter().map(|log| log.into()).collect())
-    }
-
-    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_tx_filter().into())
     }
 }
 
