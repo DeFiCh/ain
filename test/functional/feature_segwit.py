@@ -342,26 +342,26 @@ class SegWitTest(DefiTestFramework):
         )
         self.fail_accept(
             self.nodes[2],
-            "non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)",
+            "non-mandatory-script-verify-flag (Witness program hash mismatch)",
             wit_ids[NODE_2][WIT_V0][2],
             sign=False,
         )
         self.fail_accept(
             self.nodes[2],
-            "non-mandatory-script-verify-flag (Witness program was passed an empty witness) (code 64)",
+            "non-mandatory-script-verify-flag (Witness program was passed an empty witness)",
             wit_ids[NODE_2][WIT_V1][2],
             sign=False,
         )
         self.fail_accept(
             self.nodes[2],
-            "non-mandatory-script-verify-flag (Witness program hash mismatch) (code 64)",
+            "non-mandatory-script-verify-flag (Witness program hash mismatch)",
             p2sh_ids[NODE_2][WIT_V0][2],
             sign=False,
             redeem_script=witness_script(False, self.pubkey[2]),
         )
         self.fail_accept(
             self.nodes[2],
-            "non-mandatory-script-verify-flag (Witness program was passed an empty witness) (code 64)",
+            "non-mandatory-script-verify-flag (Witness program was passed an empty witness)",
             p2sh_ids[NODE_2][WIT_V1][2],
             sign=False,
             redeem_script=witness_script(True, self.pubkey[2]),

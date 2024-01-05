@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
-use ain_evm::{evm::EVMServices, log::Notification, storage::traits::BlockStorage};
+use ain_evm::{
+    evm::EVMServices, filters::FilterCriteria, log::Notification, storage::traits::BlockStorage,
+};
 use anyhow::format_err;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 use log::debug;
 
 use crate::subscription::{
-    params::{Subscription, SubscriptionParams},
+    params::{LogsSubscriptionParamsTopics, Subscription, SubscriptionParams},
     sync_status::{PubSubSyncStatus, SyncStatusMetadata},
     PubSubResult,
 };
@@ -68,20 +70,41 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                     {
                         if let Notification::Block(hash) = notification {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
-                                let logs = match &params {
-                                    Some(SubscriptionParams::Logs(p)) => handler.logs.get_logs(
-                                        &p.address,
-                                        &p.topics,
-                                        block.header.number,
-                                    )?,
-                                    _ => {
-                                        handler.logs.get_logs(&None, &None, block.header.number)?
-                                    }
-                                };
-
+                                let criteria =
+                                    if let Some(SubscriptionParams::Logs(params)) = &params {
+                                        let topics = if let Some(topics) = params.topics.clone() {
+                                            match topics {
+                                                LogsSubscriptionParamsTopics::VecOfHashes(
+                                                    inputs,
+                                                ) => Some(
+                                                    inputs
+                                                        .into_iter()
+                                                        .map(|input| vec![input])
+                                                        .collect(),
+                                                ),
+                                                LogsSubscriptionParamsTopics::VecOfHashVecs(
+                                                    inputs,
+                                                ) => Some(inputs),
+                                            }
+                                        } else {
+                                            None
+                                        };
+                                        FilterCriteria {
+                                            addresses: params.address.clone(),
+                                            topics,
+                                            ..Default::default()
+                                        }
+                                    } else {
+                                        FilterCriteria::default()
+                                    };
+                                let logs = handler
+                                    .filters
+                                    .get_block_logs(&criteria, block.header.number)?;
                                 for log in logs {
                                     let _ = sink.send(&PubSubResult::Log(Box::new(log.into())));
                                 }
+                            } else {
+                                debug!(target: "pubsub", "Database error, could not get block with block hash:{:x?}", hash);
                             }
                         }
                     }

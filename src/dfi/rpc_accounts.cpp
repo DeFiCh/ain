@@ -2450,7 +2450,6 @@ UniValue getburninfo(const JSONRPCRequest &request) {
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
 
-    CBalances consortiumTokens;
     CBalances paybackfees;
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
@@ -2571,7 +2570,7 @@ UniValue getburninfo(const JSONRPCRequest &request) {
                     // token burn with burnToken tx
                     if (value.category == uint8_t(CustomTxType::BurnToken)) {
                         for (auto const &diff : value.diff) {
-                            currentResult->nonConsortiumTokens.Add({diff.first, diff.second});
+                            currentResult->burntTokens.Add({diff.first, diff.second});
                         }
                         return true;
                     }
@@ -2603,31 +2602,17 @@ UniValue getburninfo(const JSONRPCRequest &request) {
         totalResult->burntFee += r->burntFee;
         totalResult->auctionFee += r->auctionFee;
         totalResult->burntTokens.AddBalances(r->burntTokens.balances);
-        totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
         totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
         totalResult->paybackFee.AddBalances(r->paybackFee.balances);
     }
 
     GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
 
-    liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-    auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
-
-    for (const auto &token : totalResult->nonConsortiumTokens.balances) {
-        TAmounts amount;
-        amount[token.first] = balances[token.first].burnt;
-        consortiumTokens.AddBalances(amount);
-    }
-
-    totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
-    totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
-
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(totalResult->burntDFI));
 
     result.pushKV("tokens", AmountsToJSON(totalResult->burntTokens.balances));
-    result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(totalResult->burntFee));
     result.pushKV("auctionburn", ValueFromAmount(totalResult->auctionFee));
     result.pushKV("paybackburn", AmountsToJSON(totalResult->paybackFee.balances));

@@ -170,7 +170,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
-        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, REJECT_INVALID, "bad-txns-inputs-missingorspent",
+        return state.Invalid(ValidationInvalidReason::TX_MISSING_INPUTS, false, "bad-txns-inputs-missingorspent",
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
@@ -209,18 +209,18 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
         // If prev is coinbase, check that it's matured
         if (coin.IsCoinBase() && nSpendHeight - coin.nHeight < COINBASE_MATURITY) {
-            return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, REJECT_INVALID, "bad-txns-premature-spend-of-coinbase",
+            return state.Invalid(ValidationInvalidReason::TX_PREMATURE_SPEND, false, "bad-txns-premature-spend-of-coinbase",
                 strprintf("tried to spend coinbase at depth %d", nSpendHeight - coin.nHeight));
         }
 
         // Check for negative or overflow input values
         nValuesIn[coin.out.nTokenId] += coin.out.nValue;
         if (!MoneyRange(coin.out.nValue) || !MoneyRange(nValuesIn[coin.out.nTokenId])) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-inputvalues-outofrange");
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-inputvalues-outofrange");
         }
         /// @todo tokens: later match the range with TotalSupply
         if (canSpend != prevout.hash && prevout.n == 1 && !mnview.CanSpend(prevout.hash, nSpendHeight)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-collateral-locked",
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-collateral-locked",
                 strprintf("tried to spend locked collateral for %s", prevout.hash.ToString())); /// @todo may be somehow place the height of unlocking?
         }
     }
@@ -230,27 +230,27 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, CValidationState& state, c
 
     // special (old) case for 'DFI'. Do not "optimize" due to tests compatibility
     if (nValuesIn[DCT_ID{0}] < non_minted_values_out[DCT_ID{0}]) {
-        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-in-belowout",
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-in-belowout",
             strprintf("value in (%s) < value out (%s)", FormatMoney(nValuesIn[DCT_ID{0}]), FormatMoney(non_minted_values_out[DCT_ID{0}])));
     }
 
     // Tally transaction fees
     const CAmount txfee_aux = nValuesIn[DCT_ID{0}] - non_minted_values_out[DCT_ID{0}];
     if (!MoneyRange(txfee_aux)) {
-        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-fee-outofrange");
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-fee-outofrange");
     }
     txfee = txfee_aux;
 
     // after fee calc it is guaranteed that both values[0] exists (even if zero)
     if (tx.nVersion < CTransaction::TOKENS_MIN_VERSION && (nValuesIn.size() > 1 || non_minted_values_out.size() > 1)) {
-        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-tokens-in-old-version-tx");
+        return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-tokens-in-old-version-tx");
     }
 
     for (auto const & kv : non_minted_values_out) {
         DCT_ID const & tokenId = kv.first;
 
         if (nValuesIn[tokenId] < kv.second) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, REJECT_INVALID, "bad-txns-minttokens-in-belowout",
+            return state.Invalid(ValidationInvalidReason::CONSENSUS, false, "bad-txns-minttokens-in-belowout",
                 strprintf("token (%s) value in (%s) < value out (%s)", tokenId.ToString(), FormatMoney(nValuesIn[tokenId]), FormatMoney(kv.second)));
 
         }
