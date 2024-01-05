@@ -51,8 +51,7 @@ impl Index for CreateMasternode {
 
     fn invalidate(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
         debug!("[CreateMasternode] Invalidating...");
-        let txid = tx.txid();
-        SERVICES.masternode.by_id.delete(&txid)?;
+        SERVICES.masternode.by_id.delete(&tx.txid())?;
         SERVICES.masternode.by_height.delete(&(ctx.height, idx))
     }
 }
@@ -60,7 +59,7 @@ impl Index for CreateMasternode {
 impl Index for UpdateMasternode {
     fn index(&self, _ctx: &BlockContext, tx: Transaction, _idx: usize) -> Result<()> {
         debug!("[UpdateMasternode] Indexing...");
-        if let Some(mut mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+        if let Some(mut mn) = SERVICES.masternode.by_id.get(&self.node_id)? {
             mn.history.push(HistoryItem {
                 owner_address: mn.owner_address.clone(),
                 operator_address: mn.operator_address.clone(),
@@ -86,7 +85,7 @@ impl Index for UpdateMasternode {
 
     fn invalidate(&self, _ctx: &BlockContext, _tx: Transaction, _idx: usize) -> Result<()> {
         debug!("[UpdateMasternode] Invalidating...");
-        if let Some(mut mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+        if let Some(mut mn) = SERVICES.masternode.by_id.get(&self.node_id)? {
             if let Some(history_item) = mn.history.pop() {
                 mn.owner_address = history_item.owner_address;
                 mn.operator_address = history_item.operator_address;
@@ -101,7 +100,7 @@ impl Index for UpdateMasternode {
 impl Index for ResignMasternode {
     fn index(&self, ctx: &BlockContext, tx: Transaction, _idx: usize) -> Result<()> {
         debug!("[ResignMasternode] Indexing...");
-        if let Some(mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+        if let Some(mn) = SERVICES.masternode.by_id.get(&self.node_id)? {
             SERVICES.masternode.by_id.put(
                 &self.node_id,
                 &Masternode {
@@ -116,7 +115,7 @@ impl Index for ResignMasternode {
 
     fn invalidate(&self, _ctx: &BlockContext, _tx: Transaction, _idx: usize) -> Result<()> {
         debug!("[ResignMasternode] Invalidating...");
-        if let Some(mn) = SERVICES.masternode.by_id.get(self.node_id)? {
+        if let Some(mn) = SERVICES.masternode.by_id.get(&self.node_id)? {
             SERVICES.masternode.by_id.put(
                 &self.node_id,
                 &Masternode {

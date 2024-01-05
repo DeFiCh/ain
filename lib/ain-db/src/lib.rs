@@ -181,8 +181,7 @@ where
     pub fn iter(
         &self,
         from: Option<C::Index>,
-        limit: usize,
-    ) -> Result<impl Iterator<Item = (C::Index, C::Type)> + '_> {
+    ) -> Result<impl Iterator<Item = Result<(C::Index, C::Type)>> + '_> {
         let index = from
             .as_ref()
             .map(|i| C::key(i))
@@ -191,18 +190,15 @@ where
         let iterator_mode = from.map_or(IteratorMode::Start, |_| {
             IteratorMode::From(&index, rocksdb::Direction::Forward)
         });
-        let it = self
+        Ok(self
             .backend
             .iterator_cf::<C>(self.handle()?, iterator_mode)
-            .filter_map(|k| {
-                k.ok().and_then(|(k, v)| {
-                    let value = bincode::deserialize(&v).ok()?;
-                    let key = C::get_key(k).ok()?;
-                    Some((key, value))
-                })
-            })
-            .take(limit);
-        Ok(it)
+            .map(|k| {
+                let (key, value) = k?;
+                let value = bincode::deserialize(&value)?;
+                let key = C::get_key(key)?;
+                Ok((key, value))
+            }))
     }
 }
 

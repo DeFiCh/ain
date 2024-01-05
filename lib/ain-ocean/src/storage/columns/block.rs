@@ -1,6 +1,5 @@
-use ain_db::{Column, ColumnName, DBError, TypedColumn};
-use anyhow::format_err;
-use bitcoin::{hashes::Hash, BlockHash};
+use ain_db::{Column, ColumnName, TypedColumn};
+use bitcoin::BlockHash;
 
 use crate::model;
 

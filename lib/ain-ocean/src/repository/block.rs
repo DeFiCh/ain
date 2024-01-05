@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ain_db::LedgerColumn;
 use ain_macros::Repository;
 use bitcoin::BlockHash;
 
@@ -11,34 +12,46 @@ use crate::{
 };
 
 #[derive(Repository)]
-#[repository(K = "BlockHash", V = "Block", Column = "Block")]
+#[repository(K = "BlockHash", V = "Block")]
 pub struct BlockRepository {
     pub store: Arc<OceanStore>,
+    col: LedgerColumn<columns::Block>,
 }
 
 impl BlockRepository {
     pub fn new(store: Arc<OceanStore>) -> Self {
-        Self { store }
+        Self {
+            col: store.column(),
+            store,
+        }
     }
 }
 
 #[derive(Repository)]
-#[repository(K = "u32", V = "BlockHash", Column = "BlockByHeight")]
+#[repository(K = "u32", V = "BlockHash")]
 pub struct BlockByHeightRepository {
     pub store: Arc<OceanStore>,
+    col: LedgerColumn<columns::BlockByHeight>,
 }
 
 impl BlockByHeightRepository {
     pub fn new(store: Arc<OceanStore>) -> Self {
-        Self { store }
+        Self {
+            col: store.column(),
+            store,
+        }
     }
 }
 
 impl BlockByHeightRepository {
     pub fn get_highest(&self) -> Result<Option<Block>> {
-        match self.store.list::<columns::BlockByHeight>(None, 1)?.first() {
+        match self.col.iter(None)?.next() {
             None => Ok(None),
-            Some((_, id)) => Ok(self.store.get::<columns::Block>(*id)?),
+            Some(Ok((_, id))) => {
+                let col = self.store.column::<columns::Block>();
+                Ok(col.get(&id)?)
+            }
+            Some(Err(e)) => Err(e.into()),
         }
     }
 }

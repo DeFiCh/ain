@@ -233,11 +233,11 @@ impl Rollback for BlockStore {
             logs_cf.delete(&block.header.number)?;
 
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-            let mut iter = block_deployed_codes_cf
-                .iter(Some((block.header.number, H160::zero())), usize::MAX)?;
-
             let address_codes_cf = self.column::<columns::AddressCodeMap>();
-            for ((block_number, address), hash) in &mut iter {
+
+            for item in block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())))? {
+                let ((block_number, address), hash) = item?;
+
                 if block_number == block.header.number {
                     address_codes_cf.delete(&(address, hash))?;
                     block_deployed_codes_cf.delete(&(block.header.number, address))?;
@@ -323,7 +323,9 @@ impl BlockStore {
         let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
             .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
 
-        for (k, v) in self.column::<C>().iter(from, limit)? {
+        for item in self.column::<C>().iter(from)?.take(limit) {
+            let (k, v) = item?;
+
             if out.len() > response_max_size {
                 return Err(format_err!("exceed response max size limit").into());
             }

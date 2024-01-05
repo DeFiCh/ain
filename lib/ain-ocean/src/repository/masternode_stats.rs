@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ain_db::LedgerColumn;
 use ain_macros::Repository;
 use bitcoin::Txid;
 
@@ -11,13 +12,17 @@ use crate::{
 };
 
 #[derive(Repository)]
-#[repository(K = "Txid", V = "MasternodeStats", Column = "MasternodeStats")]
+#[repository(K = "Txid", V = "MasternodeStats")]
 pub struct MasternodeStatsRepository {
     pub store: Arc<OceanStore>,
+    col: LedgerColumn<columns::MasternodeStats>,
 }
 
 impl MasternodeStatsRepository {
     pub fn new(store: Arc<OceanStore>) -> Self {
-        Self { store }
+        Self {
+            col: store.column(),
+            store,
+        }
     }
 }

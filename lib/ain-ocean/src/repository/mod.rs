@@ -43,8 +43,11 @@ pub use transaction_vout::*;
 pub use vault_auction_batch_history::*;
 
 pub trait RepositoryOps<K, V> {
-    fn get(&self, key: K) -> Result<Option<V>>;
+    fn get(&self, key: &K) -> Result<Option<V>>;
     fn put(&self, key: &K, masternode: &V) -> Result<()>;
     fn delete(&self, key: &K) -> Result<()>;
-    fn list(&self, from: Option<K>, limit: usize) -> Result<Vec<(K, V)>>;
+    fn list(
+        &self,
+        from: Option<K>,
+    ) -> Result<impl Iterator<Item = std::result::Result<(K, V), ain_db::DBError>>>;
 }
