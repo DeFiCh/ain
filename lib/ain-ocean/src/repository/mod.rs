@@ -46,8 +46,8 @@ pub trait RepositoryOps<K, V> {
     fn get(&self, key: &K) -> Result<Option<V>>;
     fn put(&self, key: &K, masternode: &V) -> Result<()>;
     fn delete(&self, key: &K) -> Result<()>;
-    fn list(
-        &self,
+    fn list<'a>(
+        &'a self,
         from: Option<K>,
-    ) -> Result<impl Iterator<Item = std::result::Result<(K, V), ain_db::DBError>>>;
+    ) -> Result<Box<dyn Iterator<Item = std::result::Result<(K, V), ain_db::DBError>> + 'a>>;
 }
