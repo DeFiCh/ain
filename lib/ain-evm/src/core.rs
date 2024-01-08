@@ -884,7 +884,7 @@ impl EVMCoreService {
             .into_iter()
             .map(|(address, storage_keys)| AccessListItem {
                 address,
-                storage_keys,
+                storage_keys: Vec::from_iter(storage_keys),
             })
             .collect();
 
