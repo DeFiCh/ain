@@ -846,7 +846,7 @@ impl EVMCoreService {
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            vicinity,
+            vicinity.clone(),
             None,
         )
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
@@ -856,12 +856,14 @@ impl EVMCoreService {
         static CONFIG: Config = Config::shanghai();
         let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
         let state = MemoryStackState::new(metadata.clone(), &backend);
+        let al_state = MemoryStackState::new(metadata, &backend);
         let precompiles = MetachainPrecompiles;
         let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
+        let mut al_executor = StackExecutor::new_with_precompiles(al_state, &CONFIG, &precompiles);
 
         let mut listener = crate::eventlistener::StorageAccessListener::new();
 
-        let used_gas = runtime_using(&mut listener, move || {
+        runtime_using(&mut listener, move || {
             let access_list = access_list
                 .into_iter()
                 .map(|x| (x.address, x.storage_keys))
@@ -875,11 +877,9 @@ impl EVMCoreService {
                 gas_limit,
                 access_list,
             );
+        });
 
-            Ok::<_, EVMError>(executor.used_gas())
-        })?;
-
-        let access_list: AccessList = listener
+        let al: AccessList = listener
             .access_list
             .into_iter()
             .map(|(address, storage_keys)| AccessListItem {
@@ -888,7 +888,18 @@ impl EVMCoreService {
             })
             .collect();
 
-        Ok((access_list, used_gas))
+        al_executor.transact_call(
+            caller,
+            to.unwrap(),
+            value,
+            data.to_vec(),
+            gas_limit,
+            al.iter()
+                .map(|item| (item.address, item.storage_keys.clone()))
+                .collect(),
+        );
+
+        Ok((al, al_executor.used_gas()))
     }
 }
 

@@ -2,6 +2,7 @@
 extern crate serde;
 extern crate serde_json;
 
+mod access_list;
 pub mod block;
 pub mod call_request;
 pub mod codegen;
@@ -12,14 +13,12 @@ pub mod logging;
 mod logs;
 mod receipt;
 pub mod rpc;
+mod subscription;
 mod sync;
 mod transaction;
 mod transaction_request;
 mod utils;
 
-mod subscription;
-
-mod access_list;
 #[cfg(test)]
 mod tests;
 
