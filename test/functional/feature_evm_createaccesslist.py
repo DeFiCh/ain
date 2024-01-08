@@ -3,18 +3,16 @@
 # Copyright (c) DeFi Blockchain Developers
 # Distributed under the MIT software license, see the accompanying
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
-"""Test EVM behaviour"""
+"""Test eth_createAccessList RPC behaviour"""
 
 import math
 import json
-import time
 from decimal import Decimal
 
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
-    assert_raises_rpc_error,
     get_solc_artifact_path,
 )
 from web3 import Web3
