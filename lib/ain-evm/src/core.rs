@@ -12,8 +12,8 @@ use ain_contracts::{
 };
 use anyhow::format_err;
 use ethereum::{
-    AccessList, Account, Block, EnvelopedEncodable, Log, PartialHeader, TransactionAction,
-    TransactionV2,
+    AccessList, AccessListItem, Account, Block, EnvelopedEncodable, Log, PartialHeader,
+    TransactionAction, TransactionV2,
 };
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use evm::{
@@ -815,6 +815,80 @@ impl EVMCoreService {
             })?;
 
         Ok((listener.trace, execution_success, return_value, used_gas))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<(AccessList, u64)> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+            block_number,
+            ..
+        } = arguments;
+
+        let block_header = self
+            .storage
+            .get_block_by_number(&block_number)?
+            .ok_or_else(|| format_err!("Block not found"))
+            .map(|block| block.header)?;
+        let state_root = block_header.state_root;
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
+
+        let vicinity = Vicinity::from(block_header);
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            None,
+        )
+        .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        backend.vicinity.origin = caller;
+        backend.vicinity.gas_price = arguments.gas_price;
+
+        static CONFIG: Config = Config::shanghai();
+        let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
+        let state = MemoryStackState::new(metadata.clone(), &backend);
+        let precompiles = MetachainPrecompiles;
+        let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
+
+        let mut listener = crate::eventlistener::StorageAccessListener::new();
+
+        let used_gas = runtime_using(&mut listener, move || {
+            let access_list = access_list
+                .into_iter()
+                .map(|x| (x.address, x.storage_keys))
+                .collect::<Vec<_>>();
+
+            executor.transact_call(
+                caller,
+                to.unwrap(),
+                value,
+                data.to_vec(),
+                gas_limit,
+                access_list,
+            );
+
+            Ok::<_, EVMError>(executor.used_gas())
+        })?;
+
+        let access_list: AccessList = listener
+            .access_list
+            .into_iter()
+            .map(|(address, storage_keys)| AccessListItem {
+                address,
+                storage_keys,
+            })
+            .collect();
+
+        Ok((access_list, used_gas))
     }
 }
 

@@ -1,4 +1,5 @@
-use std::collections::VecDeque;
+use ethereum_types::{H160, H256};
+use std::collections::{HashMap, VecDeque};
 
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
 use evm_runtime::{
@@ -37,6 +38,18 @@ impl GasListener {
             gas: VecDeque::new(),
             gas_cost: VecDeque::new(),
             first_cost: true,
+        }
+    }
+}
+
+pub struct StorageAccessListener {
+    pub access_list: HashMap<H160, Vec<H256>>,
+}
+
+impl StorageAccessListener {
+    pub fn new() -> Self {
+        Self {
+            access_list: HashMap::new(),
         }
     }
 }
@@ -137,6 +150,21 @@ impl RuntimeEventListener for Listener {
             } => {
                 debug!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
             }
+        }
+    }
+}
+
+impl RuntimeEventListener for StorageAccessListener {
+    fn event(&mut self, event: RuntimeEvent<'_>) {
+        debug!("event runtime : {:#?}", event);
+        match event {
+            RuntimeEvent::SLoad { address, index, .. } => {
+                self.access_list.entry(address).or_default().push(index);
+            }
+            RuntimeEvent::SStore { address, index, .. } => {
+                self.access_list.entry(address).or_default().push(index);
+            }
+            _ => {}
         }
     }
 }

@@ -19,6 +19,7 @@ mod utils;
 
 mod subscription;
 
+mod access_list;
 #[cfg(test)]
 mod tests;
 

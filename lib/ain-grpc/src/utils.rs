@@ -19,10 +19,7 @@ pub fn format_u256(number: U256) -> String {
 
 pub fn try_get_reverted_error_or_default(data: &[u8]) -> String {
     if data.len() > MESSAGE_START_IDX {
-        let Ok(message_len) = U256::try_from(&data[MESSAGE_LENGTH_START_IDX..MESSAGE_START_IDX])
-        else {
-            return Default::default();
-        };
+        let message_len = U256::from(&data[MESSAGE_LENGTH_START_IDX..MESSAGE_START_IDX]);
         let Ok(message_len) = usize::try_from(message_len) else {
             return Default::default();
         };

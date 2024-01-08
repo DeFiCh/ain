@@ -20,6 +20,7 @@ use jsonrpsee::{
 use libsecp256k1::SecretKey;
 use log::{debug, trace};
 
+use crate::access_list::AccessListResult;
 use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
     call_request::{override_to_overlay, CallRequest, CallStateOverride},
@@ -274,6 +275,13 @@ pub trait MetachainRPC {
 
     #[method(name = "newPendingTransactionFilter")]
     fn new_pending_transaction_filter(&self) -> RpcResult<U256>;
+
+    #[method(name = "createAccessList")]
+    fn create_access_list(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<AccessListResult>;
 }
 
 pub struct MetachainRPCModule {
@@ -636,7 +644,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             None => {
                 let accounts = self.accounts()?;
 
-                match accounts.get(0) {
+                match accounts.first() {
                     Some(account) => H160::from_str(account.as_str())
                         .map_err(|_| to_custom_err("Wrong from address"))?,
                     None => return Err(to_custom_err("from is not available")),
@@ -1132,6 +1140,41 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
         Ok(self.handler.filters.create_tx_filter().into())
+    }
+
+    fn create_access_list(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<AccessListResult> {
+        let caller = call.from.unwrap_or_default();
+        let byte_data = call.get_data()?;
+        let data = byte_data.0.as_slice();
+
+        // Get gas
+        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
+        let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
+            .map_err(to_custom_err)?;
+
+        let block = self.get_block(block_number)?;
+        let block_base_fee = block.header.base_fee;
+        let gas_price = call.get_effective_gas_price(block_base_fee)?;
+
+        Ok(self
+            .handler
+            .core
+            .create_access_list(EthCallArgs {
+                caller,
+                to: call.to,
+                value: call.value.unwrap_or_default(),
+                data,
+                gas_limit,
+                gas_price,
+                access_list: call.access_list.unwrap_or_default(),
+                block_number: block.header.number,
+            })
+            .map_err(to_custom_err)?
+            .into())
     }
 }
 
