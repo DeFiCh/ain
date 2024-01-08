@@ -8,8 +8,9 @@ use std::{path::PathBuf, sync::Arc};
 pub use api::ocean_router;
 pub use indexer::{index_block, invalidate_block};
 use repository::{
-    BlockByHeightRepository, BlockRepository, MasternodeByHeightRepository, MasternodeRepository,
-    MasternodeStatsRepository, RawBlockRepository,
+    AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
+    BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
+    RawBlockRepository,
 };
 pub mod api;
 mod model;
@@ -42,9 +43,15 @@ pub struct BlockService {
     by_height: BlockByHeightRepository,
 }
 
+pub struct AuctionService {
+    by_id: AuctionHistoryRepository,
+    by_height: AuctionHistoryByHeightRepository,
+}
+
 pub struct Services {
     masternode: MasternodeService,
     block: BlockService,
+    auction: AuctionService,
 }
 
 impl Services {
@@ -59,6 +66,10 @@ impl Services {
                 raw: RawBlockRepository::new(Arc::clone(&store)),
                 by_id: BlockRepository::new(Arc::clone(&store)),
                 by_height: BlockByHeightRepository::new(Arc::clone(&store)),
+            },
+            auction: AuctionService {
+                by_id: AuctionHistoryRepository::new(Arc::clone(&store)),
+                by_height: AuctionHistoryByHeightRepository::new(Arc::clone(&store)),
             },
         }
     }
