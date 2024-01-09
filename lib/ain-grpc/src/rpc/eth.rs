@@ -1,4 +1,4 @@
-use std::{convert::Into, str::FromStr, sync::Arc};
+use std::{collections::BTreeMap, convert::Into, str::FromStr, sync::Arc};
 
 use ain_cpp_imports::get_eth_priv_key;
 use ain_evm::{
@@ -22,7 +22,7 @@ use log::{debug, trace};
 
 use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
-    call_request::CallRequest,
+    call_request::{override_to_overlay, CallRequest, CallStateOverride},
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
@@ -42,7 +42,12 @@ pub trait MetachainRPC {
     /// Makes a call to the Ethereum node without creating a transaction on the blockchain.
     /// Returns the output data as a hexadecimal string.
     #[method(name = "call")]
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes>;
+    fn call(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<Bytes>;
 
     /// Retrieves the list of accounts managed by the node.
     /// Returns a vector of Ethereum addresses as hexadecimal strings.
@@ -207,8 +212,12 @@ pub trait MetachainRPC {
 
     /// Estimate gas needed for execution of given contract.
     #[method(name = "estimateGas")]
-    fn estimate_gas(&self, call: CallRequest, block_number: Option<BlockNumber>)
-        -> RpcResult<U256>;
+    fn estimate_gas(
+        &self,
+        input: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<U256>;
 
     /// Returns current gas_price.
     #[method(name = "gasPrice")]
@@ -309,7 +318,12 @@ impl MetachainRPCModule {
 }
 
 impl MetachainRPCServer for MetachainRPCModule {
-    fn call(&self, call: CallRequest, block_number: Option<BlockNumber>) -> RpcResult<Bytes> {
+    fn call(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
+    ) -> RpcResult<Bytes> {
         debug!(target:"rpc",  "Call, input {:#?}", call);
 
         let caller = call.from.unwrap_or_default();
@@ -330,16 +344,19 @@ impl MetachainRPCServer for MetachainRPCModule {
         } = self
             .handler
             .core
-            .call(EthCallArgs {
-                caller,
-                to: call.to,
-                value: call.value.unwrap_or_default(),
-                data,
-                gas_limit,
-                gas_price,
-                access_list: call.access_list.unwrap_or_default(),
-                block_number: block.header.number,
-            })
+            .call(
+                EthCallArgs {
+                    caller,
+                    to: call.to,
+                    value: call.value.unwrap_or_default(),
+                    data,
+                    gas_limit,
+                    gas_price,
+                    access_list: call.access_list.unwrap_or_default(),
+                    block_number: block.header.number,
+                },
+                state_overrides.map(override_to_overlay),
+            )
             .map_err(RPCError::EvmError)?;
 
         match exit_reason {
@@ -355,7 +372,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn accounts(&self) -> RpcResult<Vec<String>> {
-        let accounts = ain_cpp_imports::get_accounts().unwrap();
+        let accounts = ain_cpp_imports::get_accounts()
+            .map_err(|e| to_custom_err(format!("Error getting accounts {e}")))?;
         Ok(accounts)
     }
 
@@ -619,7 +637,8 @@ impl MetachainRPCServer for MetachainRPCModule {
                 let accounts = self.accounts()?;
 
                 match accounts.get(0) {
-                    Some(account) => H160::from_str(account.as_str()).unwrap(),
+                    Some(account) => H160::from_str(account.as_str())
+                        .map_err(|_| to_custom_err("Wrong from address"))?,
                     None => return Err(to_custom_err("from is not available")),
                 }
             }
@@ -654,7 +673,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = Some(chain_id);
                 m.gas_limit = gas_limit;
                 if gas_price.is_none() {
-                    m.gas_price = self.gas_price().unwrap();
+                    m.gas_price = self.gas_price()?;
                 }
                 TransactionMessage::Legacy(m)
             }
@@ -663,7 +682,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = chain_id;
                 m.gas_limit = gas_limit;
                 if gas_price.is_none() {
-                    m.gas_price = self.gas_price().unwrap();
+                    m.gas_price = self.gas_price()?;
                 }
                 TransactionMessage::EIP2930(m)
             }
@@ -672,7 +691,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 m.chain_id = chain_id;
                 m.gas_limit = gas_limit;
                 if max_fee_per_gas.is_none() {
-                    m.max_fee_per_gas = self.gas_price().unwrap();
+                    m.max_fee_per_gas = self.gas_price()?;
                 }
                 TransactionMessage::EIP1559(m)
             }
@@ -681,7 +700,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             }
         };
 
-        let signed = sign(from, message).unwrap();
+        let signed = sign(from, message)?;
         let encoded = hex::encode(signed.encode());
         Ok(encoded)
     }
@@ -762,6 +781,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         &self,
         call: CallRequest,
         block_number: Option<BlockNumber>,
+        state_overrides: Option<BTreeMap<H160, CallStateOverride>>,
     ) -> RpcResult<U256> {
         debug!(target:"rpc",  "Estimate gas, input {:#?}", call);
 
@@ -774,6 +794,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let call_gas = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
+        let overlay = state_overrides.map(override_to_overlay);
         // Determine the lowest and highest possible gas limits to binary search in between
         let mut lo = Self::CONFIG.gas_transaction_call - 1;
         let mut hi = call_gas;
@@ -826,16 +847,19 @@ impl MetachainRPCServer for MetachainRPCModule {
             let tx_response = self
                 .handler
                 .core
-                .call(EthCallArgs {
-                    caller,
-                    to: call.to,
-                    value: call.value.unwrap_or_default(),
-                    data,
-                    gas_limit,
-                    gas_price: fee_cap,
-                    access_list: call.access_list.clone().unwrap_or_default(),
-                    block_number: block.header.number,
-                })
+                .call(
+                    EthCallArgs {
+                        caller,
+                        to: call.to,
+                        value: call.value.unwrap_or_default(),
+                        data,
+                        gas_limit,
+                        gas_price: fee_cap,
+                        access_list: call.access_list.clone().unwrap_or_default(),
+                        block_number: block.header.number,
+                    },
+                    overlay.clone(),
+                )
                 .map_err(RPCError::EvmError)?;
 
             match tx_response.exit_reason {
@@ -1111,19 +1135,17 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 }
 
-fn sign(
-    address: H160,
-    message: TransactionMessage,
-) -> Result<TransactionV2, Box<dyn std::error::Error>> {
-    debug!(target:"rpc", "sign address {:#x}", address);
+fn sign(address: H160, message: TransactionMessage) -> RpcResult<TransactionV2> {
+    debug!(target: "rpc", "sign address {:#x}", address);
     let key = format!("{address:?}");
-    let priv_key = get_eth_priv_key(key).unwrap();
-    let secret_key = SecretKey::parse(&priv_key).unwrap();
+    let priv_key = get_eth_priv_key(key).map_err(|_| to_custom_err("Invalid private key"))?;
+    let secret_key = SecretKey::parse(&priv_key)
+        .map_err(|e| to_custom_err(format!("Error parsing SecretKey {e}")))?;
 
     match message {
         TransactionMessage::Legacy(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let v = match m.chain_id {
                 None => 27 + u64::from(recid.serialize()),
@@ -1138,7 +1160,7 @@ fn sign(
                 value: m.value,
                 input: m.input,
                 signature: ethereum::TransactionSignature::new(v, r, s)
-                    .ok_or(to_custom_err("signer generated invalid signature"))?,
+                    .ok_or(to_custom_err("Signer generated invalid signature"))?,
                 gas_price: m.gas_price,
                 gas_limit: m.gas_limit,
                 action: m.action,
@@ -1146,7 +1168,7 @@ fn sign(
         }
         TransactionMessage::EIP2930(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
@@ -1168,7 +1190,7 @@ fn sign(
         }
         TransactionMessage::EIP1559(m) => {
             let signing_message = libsecp256k1::Message::parse_slice(&m.hash()[..])
-                .map_err(|_| to_custom_err("invalid signing message"))?;
+                .map_err(|_| to_custom_err("Invalid signing message"))?;
             let (signature, recid) = libsecp256k1::sign(&signing_message, &secret_key);
             let rs = signature.serialize();
             let r = H256::from_slice(&rs[0..32]);
