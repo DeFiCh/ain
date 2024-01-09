@@ -1,5 +1,7 @@
-use bitcoin::{BlockHash, ScriptBuf, Txid};
+use bitcoin::{ScriptBuf, Txid};
 use serde::{Deserialize, Serialize};
+
+use super::BlockContext;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Masternode {
@@ -13,7 +15,7 @@ pub struct Masternode {
     pub minted_blocks: i32,
     pub timelock: u16,
     pub collateral: String,
-    pub block: MasternodeBlock,
+    pub block: BlockContext,
     pub history: Vec<HistoryItem>,
 }
 
@@ -22,13 +24,4 @@ pub struct Masternode {
 pub struct HistoryItem {
     pub owner_address: ScriptBuf,
     pub operator_address: ScriptBuf,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MasternodeBlock {
-    pub hash: BlockHash,
-    pub height: u32,
-    pub time: u64,
-    pub median_time: u64,
 }

@@ -4,7 +4,7 @@ use log::debug;
 use super::BlockContext;
 use crate::{
     indexer::{Index, Result},
-    model::{VaultAuctionBatchHistory, VaultAuctionBatchHistoryBlock},
+    model::VaultAuctionBatchHistory,
     repository::RepositoryOps,
     SERVICES,
 };
@@ -22,12 +22,7 @@ impl Index for PlaceAuctionBid {
             from: self.from.clone(),
             amount: self.token_amount.amount,
             token_id: self.token_amount.token.0,
-            block: VaultAuctionBatchHistoryBlock {
-                hash: ctx.hash,
-                height: ctx.height,
-                time: ctx.time,
-                median_time: ctx.median_time,
-            },
+            block: ctx.clone(),
         };
         debug!("auction : {:?}", auction);
 
