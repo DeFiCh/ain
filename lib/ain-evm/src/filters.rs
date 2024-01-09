@@ -170,8 +170,7 @@ impl FilterSystem {
 
     pub fn create_tx_filter(&mut self) -> usize {
         self.id = self.id.wrapping_add(1);
-        self.cache
-            .put(self.id, Filter::Transactions(None));
+        self.cache.put(self.id, Filter::Transactions(None));
         self.id
     }
 
