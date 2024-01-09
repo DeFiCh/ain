@@ -883,6 +883,6 @@ fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
 }
 
 #[ffi_fallible]
-fn evm_try_set_tx_result(_tx_type: u8, _result_ptr: usize) -> Result<()> {
+fn evm_try_set_tx_result(_tx_type: u8, _tx_hash: [u8; 32], _result_ptr: usize) -> Result<()> {
     Ok(())
 }

@@ -129,9 +129,10 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessage &obj) const {
 
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
-    return CPoolSwap(obj, height, CustomTxType::PoolSwap).ExecuteSwap(mnview, {}, consensus);
+    return CPoolSwap(obj, height, std::make_pair(CustomTxType::PoolSwap, tx.GetHash())).ExecuteSwap(mnview, {}, consensus);
 }
 
 Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
@@ -142,9 +143,10 @@ Res CPoolPairsConsensus::operator()(const CPoolSwapMessageV2 &obj) const {
 
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
+    const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
 
-    return CPoolSwap(obj.swapInfo, height, CustomTxType::PoolSwapV2).ExecuteSwap(mnview, obj.poolIDs, consensus);
+    return CPoolSwap(obj.swapInfo, height, std::make_pair(CustomTxType::PoolSwapV2, tx.GetHash())).ExecuteSwap(mnview, obj.poolIDs, consensus);
 }
 
 Res CPoolPairsConsensus::operator()(const CLiquidityMessage &obj) const {

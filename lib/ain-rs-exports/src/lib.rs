@@ -334,7 +334,7 @@ pub mod ffi {
             raw_tx: &str,
         );
 
-        fn evm_try_set_tx_result(result: &mut CrossBoundaryResult, tx_type: u8, result_ptr: usize);
+        fn evm_try_set_tx_result(result: &mut CrossBoundaryResult, tx_type: u8, tx_hash: [u8; 32], result_ptr: usize);
     }
 
     // =========  Debug ==========

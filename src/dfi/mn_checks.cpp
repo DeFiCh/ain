@@ -1141,9 +1141,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     result = swapAmountResult.nValue;
 
     // Send final swap amount Rust side for indexer
-    if (txType) {
+    if (txInfo) {
+        const auto &[txType, txHash] = *txInfo;
         CrossBoundaryResult ffiResult;
-        evm_try_set_tx_result(ffiResult, static_cast<uint8_t>(*txType), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
+        evm_try_set_tx_result(ffiResult, static_cast<uint8_t>(txType), txHash.GetByteArray(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
     }
 
     return Res::Ok();
