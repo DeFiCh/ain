@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+use super::BlockContext;
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MasternodeStats {
     pub id: String,
-    pub block: MasternodeStatsBlock,
+    pub block: BlockContext,
     pub stats: MasternodeStatsStats,
 }
 
@@ -14,15 +16,6 @@ pub struct TimelockStats {
     pub weeks: i32,
     pub tvl: String,
     pub count: i32,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct MasternodeStatsBlock {
-    pub hash: String,
-    pub height: i32,
-    pub time: i32,
-    pub median_time: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
