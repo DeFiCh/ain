@@ -1,4 +1,15 @@
-use axum::{extract::Path, routing::get, Router};
+use axum::{
+    extract::{Path, Query},
+    routing::get,
+    Json, Router,
+};
+use bitcoin::Txid;
+use log::debug;
+
+use crate::{
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult,
+    model::VaultAuctionBatchHistory, repository::RepositoryOps, SERVICES,
+};
 
 async fn list_scheme() -> String {
     "List of loan schemes".to_string()
@@ -33,12 +44,61 @@ async fn get_vault(Path(vault_id): Path<String>) -> String {
 }
 
 async fn list_vault_auction_history(
-    Path((vault_id, height, batch_index)): Path<(String, i64, i64)>,
-) -> String {
-    format!(
+    Path((vault_id, height, batch_index)): Path<(Txid, u32, u32)>,
+    Query(query): Query<PaginationQuery>,
+) -> OceanResult<Json<ApiPagedResponse<VaultAuctionBatchHistory>>> {
+    println!("listvault auction history");
+    debug!(
         "Auction history for vault id {}, height {}, batch index {}",
         vault_id, height, batch_index
-    )
+    );
+    let next = query
+        .next
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 2 {
+                return Err("Invalid query format");
+            }
+
+            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
+            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
+
+            Ok((height, txno))
+        })
+        .transpose()?
+        .unwrap_or_default();
+
+    debug!("next : {:?}", next);
+
+    let size = if query.size > 0 { query.size } else { 20 };
+
+    let auctions = SERVICES
+        .auction
+        .by_height
+        .list(Some((vault_id, batch_index, next.0, next.1)))?
+        .take(size)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == vault_id && k.1 == batch_index,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, id) = item?;
+
+            let auction = SERVICES
+                .auction
+                .by_id
+                .get(&id)?
+                .ok_or("Missing auction index")?;
+
+            Ok(auction)
+        })
+        .collect::<OceanResult<Vec<_>>>()?;
+
+    Ok(Json(ApiPagedResponse::of(
+        auctions,
+        query.size,
+        |auction| auction.clone().sort,
+    )))
 }
 
 async fn list_auction() -> String {

@@ -1,4 +1,4 @@
-use bitcoin::{Amount, BlockHash, ScriptBuf, Txid};
+use bitcoin::{BlockHash, ScriptBuf, Txid};
 use serde::{Deserialize, Serialize};
 
 pub type AuctionHistoryKey = (Txid, u32, Txid);

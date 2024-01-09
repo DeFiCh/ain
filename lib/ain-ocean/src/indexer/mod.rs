@@ -59,7 +59,7 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
                 // DfTx::SetOracleData(data) => data.index(&ctx, tx, idx)?,
                 // DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
                 // DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
+                DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
                 _ => (),
             }
         }
