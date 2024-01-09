@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+use super::BlockContext;
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActive {
     pub id: String,
@@ -9,10 +11,10 @@ pub struct OraclePriceActive {
     pub active: OraclePriceActiveActive,
     pub next: OraclePriceActiveNext,
     pub is_live: bool,
-    pub block: OraclePriceActiveBlock,
+    pub block: BlockContext,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveActive {
     pub amount: String,
@@ -20,7 +22,7 @@ pub struct OraclePriceActiveActive {
     pub oracles: OraclePriceActiveActiveOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveNext {
     pub amount: String,
@@ -28,23 +30,14 @@ pub struct OraclePriceActiveNext {
     pub oracles: OraclePriceActiveNextOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct OraclePriceActiveBlock {
-    pub hash: String,
-    pub height: i32,
-    pub time: i32,
-    pub median_time: i32,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveActiveOracles {
     pub active: i32,
     pub total: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveNextOracles {
     pub active: i32,

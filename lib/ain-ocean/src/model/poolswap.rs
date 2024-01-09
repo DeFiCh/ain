@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+use super::BlockContext;
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolSwap {
     pub id: String,
@@ -10,14 +12,5 @@ pub struct PoolSwap {
     pub sort: String,
     pub from_amount: String,
     pub from_token_id: i32,
-    pub block: PoolSwapBlock,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct PoolSwapBlock {
-    pub hash: String,
-    pub height: i32,
-    pub time: i32,
-    pub median_time: i32,
+    pub block: BlockContext,
 }

@@ -97,7 +97,7 @@ async fn list_vault_auction_history(
     Ok(Json(ApiPagedResponse::of(
         auctions,
         query.size,
-        |auction| auction.clone().sort,
+        |auction| auction.sort.to_string(),
     )))
 }
 
