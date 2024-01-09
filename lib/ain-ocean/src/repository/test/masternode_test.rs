@@ -1,11 +1,14 @@
 #[cfg(test_off)]
 mod tests {
-    use super::*;
-    use crate::data_acces::masternode::MasterNodeDB;
-    use crate::database::db_manager::{RocksDB, SortOrder};
-    use crate::model::masternode::{HistoryItem, Masternode, MasternodeBlock};
     use chrono::Utc;
     use tempfile::tempdir;
+
+    use super::*;
+    use crate::{
+        data_acces::masternode::MasterNodeDB,
+        database::db_manager::{RocksDB, SortOrder},
+        model::masternode::{HistoryItem, Masternode, MasternodeBlock},
+    };
 
     fn setup_test_db() -> MasterNodeDB {
         let temp_dir = tempdir().unwrap();
