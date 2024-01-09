@@ -27,10 +27,15 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: defi/ain-builder:latest
     strategy:
       matrix:
         target: [x86_64-pc-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
+        include:
+        - container: defi/ain-builder:latest
+        - target: x86_64-w64-mingw32
+          container: defi/ain-win-builder:latest
+    container:
+      image: ${{ matrix.container }}
     env:
       TARGET: ${{matrix.target}}
 

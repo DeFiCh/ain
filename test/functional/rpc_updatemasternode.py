@@ -472,7 +472,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         rawtx = self.nodes[0].createrawtransaction(
             [
                 {"txid": mn_id, "vout": 1},
-                {"txid": missing_auth_tx, "vout": missing_input_vout},
                 {"txid": owner_auth_tx, "vout": owner_auth_vout},
             ],
             [
@@ -483,7 +482,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_raises_rpc_error(
             -26,
-            "bad-txns-collateral-locked, tried to spend locked collateral for",
+            "Incorrect collateral amount. Found: 10.10000000 Expected: 10.00000000",
             self.nodes[0].sendrawtransaction,
             signed_rawtx["hex"],
         )

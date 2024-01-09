@@ -526,6 +526,7 @@ impl EVMServices {
             Arc::clone(&self.core.trie_store),
             Arc::clone(&self.storage),
             vicinity.clone(),
+            None,
         )?;
 
         let template = BlockTemplate::new(vicinity, ctx, backend);

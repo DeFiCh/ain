@@ -232,7 +232,7 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx);
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 
