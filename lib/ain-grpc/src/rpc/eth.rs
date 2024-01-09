@@ -1129,7 +1129,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         let logs = self
             .handler
             .filters
-            .get_filter_logs_from_id(filter_id, curr_block)
+            .get_logs_filter_from_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?;
         Ok(logs.into_iter().map(|log| log.into()).collect())
     }

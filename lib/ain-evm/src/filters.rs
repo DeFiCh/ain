@@ -1,6 +1,5 @@
 use std::{
     cmp::min,
-    collections::BTreeSet,
     num::NonZeroUsize,
     sync::{Arc, RwLock},
 };
@@ -46,8 +45,8 @@ pub enum Filter {
     Logs(LogsFilter),
     // Blocks filter holds the last block number polled.
     Blocks(U256),
-    // Transactions filter holds the last set of tx hashes polled.
-    Transactions(BTreeSet<H256>),
+    // Transactions filter holds the latest unix time of evm tx hashes polled.
+    Transactions(Option<i64>),
 }
 
 // FilterCriteria encapsulates the arguments to the filter query, containing options
@@ -172,7 +171,7 @@ impl FilterSystem {
     pub fn create_tx_filter(&mut self) -> usize {
         self.id = self.id.wrapping_add(1);
         self.cache
-            .put(self.id, Filter::Transactions(BTreeSet::new()));
+            .put(self.id, Filter::Transactions(None));
         self.id
     }
 
@@ -188,7 +187,8 @@ impl FilterSystem {
         self.cache.pop(&filter_id).is_some()
     }
 
-    pub fn update_last_block(&mut self, filter_id: usize, last_block: U256) -> Result<()> {
+    // Update last block information for logs and blocks filter
+    pub fn update_filter_last_block(&mut self, filter_id: usize, last_block: U256) -> Result<()> {
         if let Some(entry) = self.cache.get_mut(&filter_id) {
             match entry {
                 Filter::Logs(f) => f.last_block = Some(last_block),
@@ -196,6 +196,25 @@ impl FilterSystem {
                 Filter::Transactions(_) => return Err(FilterError::InvalidFilter.into()),
             };
             Ok(())
+        } else {
+            Err(FilterError::FilterNotFound.into())
+        }
+    }
+
+    // Update last pending tx entry time for pending txs filter
+    pub fn update_filter_last_tx_time(
+        &mut self,
+        filter_id: usize,
+        last_entry_time: i64,
+    ) -> Result<()> {
+        if let Some(entry) = self.cache.get_mut(&filter_id) {
+            match entry {
+                Filter::Transactions(last_time) => {
+                    *last_time = Some(last_entry_time);
+                    Ok(())
+                }
+                _ => Err(FilterError::InvalidFilter.into()),
+            }
         } else {
             Err(FilterError::FilterNotFound.into())
         }
@@ -248,8 +267,19 @@ impl FilterService {
     }
 }
 
-// Filter methods
+// Log filter methods
 impl FilterService {
+    /// Get logs from a specified block based on filter criteria.
+    ///
+    /// # Arguments
+    ///
+    /// * `criteria` - The log filter criteria
+    /// * `block_number` - The block number of the block to get the transaction logs from.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of transaction logs.
+    ///
     pub fn get_block_logs(
         &self,
         criteria: &FilterCriteria,
@@ -297,6 +327,16 @@ impl FilterService {
         Ok(logs)
     }
 
+    /// Get all transaction logs from a specified criteria.
+    ///
+    /// # Arguments
+    ///
+    /// * `criteria` - The log filter criteria
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of transaction logs.
+    ///
     pub fn get_logs_from_filter(&self, criteria: &FilterCriteria) -> Result<Vec<LogIndex>> {
         if let Some(block_hash) = criteria.block_hash {
             let block_number = if let Some(block) = self.storage.get_block_by_hash(&block_hash)? {
@@ -324,7 +364,19 @@ impl FilterService {
         }
     }
 
-    pub fn get_filter_logs_from_entry(
+    /// Get all transaction logs from a logs filter entry.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - The log filter entry.
+    /// * `filter_change` - Flag to specify getting logs based on filter changes or criteria.
+    /// * `curr_block` - The current latest block number.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of transaction logs.
+    ///
+    pub fn get_logs_filter_from_entry(
         &self,
         entry: LogsFilter,
         filter_change: bool,
@@ -341,8 +393,22 @@ impl FilterService {
         }
         self.get_logs_from_filter(&criteria)
     }
+}
 
-    pub fn get_filter_blocks_from_entry(
+// Block and pending transactions filter methods
+impl FilterService {
+    /// Get all new block hashes within the target block range of a block filter entry.
+    ///
+    /// # Arguments
+    ///
+    /// * `last_block` - The last queried block number of the block filter.
+    /// * `target_block` - The target block number of the block filter.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of new block hash changes.
+    ///
+    pub fn get_blocks_filter_from_entry(
         &self,
         last_block: U256,
         target_block: U256,
@@ -361,7 +427,41 @@ impl FilterService {
         Ok(out)
     }
 
-    pub fn get_filter_logs_from_id(
+    /// Get all new pending transaction hashes of a pending txs filter entry.
+    ///
+    /// # Arguments
+    ///
+    /// * `last_entry_time` - The last queried pending tx time that entered the tx mempool.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of pending transaction hash changes.
+    ///
+    pub fn get_pending_txs_filter_from_entry(
+        &self,
+        last_entry_time: Option<i64>,
+    ) -> Result<(Vec<H256>, i64)> {
+        // Add ffi to get all current pending txs in mempool, sorted by entry time
+        // Discard pending txs that are above last_entry_time
+        // Return the new pending txs and the new latest entry time
+        Ok((vec![], 0))
+    }
+}
+
+// Filter service methods
+impl FilterService {
+    /// Get the full transaction logs from the filter id.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_id` - The filter entry id.
+    /// * `curr_block` - The current latest block number.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of transaction logs.
+    ///
+    pub fn get_logs_filter_from_id(
         &self,
         filter_id: usize,
         curr_block: U256,
@@ -369,12 +469,25 @@ impl FilterService {
         let mut system = self.system.write().unwrap();
         let entry = system.get_filter(filter_id)?;
         if let Filter::Logs(entry) = entry {
-            self.get_filter_logs_from_entry(entry, false, curr_block)
+            self.get_logs_filter_from_entry(entry, false, curr_block)
         } else {
             Err(FilterError::InvalidFilter.into())
         }
     }
 
+    /// Get filter changes from the filter id.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter_id` - The filter entry id.
+    /// * `curr_block` - The current latest block number.
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of transaction logs if logs filter entry.
+    /// Returns a vector of new block hash changes if blocks filter entry.
+    /// Returns a vector of transaction logs if pending transactions filter entry.
+    ///
     pub fn get_filter_changes_from_id(
         &self,
         filter_id: usize,
@@ -384,16 +497,21 @@ impl FilterService {
         let entry = system.get_filter(filter_id)?;
         match entry {
             Filter::Logs(entry) => {
-                let out = self.get_filter_logs_from_entry(entry, true, curr_block)?;
-                system.update_last_block(filter_id, curr_block)?;
+                let out = self.get_logs_filter_from_entry(entry, true, curr_block)?;
+                system.update_filter_last_block(filter_id, curr_block)?;
                 Ok(FilterResults::Logs(out))
             }
             Filter::Blocks(last_block) => {
-                let out = self.get_filter_blocks_from_entry(last_block, curr_block)?;
-                system.update_last_block(filter_id, curr_block)?;
+                let out = self.get_blocks_filter_from_entry(last_block, curr_block)?;
+                system.update_filter_last_block(filter_id, curr_block)?;
                 Ok(FilterResults::Blocks(out))
             }
-            Filter::Transactions(_) => Ok(FilterResults::Transactions(vec![])),
+            Filter::Transactions(last_entry_time) => {
+                let (out, curr_last_entry_time) =
+                    self.get_pending_txs_filter_from_entry(last_entry_time)?;
+                system.update_filter_last_tx_time(filter_id, curr_last_entry_time)?;
+                Ok(FilterResults::Transactions(vec![]))
+            }
         }
     }
 }
