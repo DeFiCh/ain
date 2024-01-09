@@ -1,3 +1,4 @@
+use bitcoin::BlockHash;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
@@ -21,4 +22,13 @@ pub struct Block {
     pub size: i32,
     pub size_stripped: i32,
     pub weight: i32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockContext {
+    pub hash: BlockHash,
+    pub height: u32,
+    pub time: u64,
+    pub median_time: u64,
 }

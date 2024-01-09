@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+use super::BlockContext;
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OracleHistory {
     pub id: String,
@@ -9,7 +11,7 @@ pub struct OracleHistory {
     pub owner_address: String,
     pub weightage: i32,
     pub price_feeds: Vec<PriceFeedsItem>,
-    pub block: OracleHistoryBlock,
+    pub block: BlockContext,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -17,13 +19,4 @@ pub struct OracleHistory {
 pub struct PriceFeedsItem {
     pub token: String,
     pub currency: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct OracleHistoryBlock {
-    pub hash: String,
-    pub height: i32,
-    pub time: i32,
-    pub median_time: i32,
 }

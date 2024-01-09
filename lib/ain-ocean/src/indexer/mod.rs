@@ -10,18 +10,10 @@ pub(crate) trait Index {
     fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
 
-use bitcoin::BlockHash;
 use dftx_rs::{deserialize, Block, DfTx};
 use log::debug;
 
-use crate::Result;
-
-pub(crate) struct BlockContext {
-    height: u32,
-    hash: BlockHash,
-    time: u64,
-    median_time: u64,
-}
+use crate::{model::BlockContext, Result};
 
 pub fn index_block(block: String, block_height: u32) -> Result<()> {
     debug!("[index_block] Indexing block...");

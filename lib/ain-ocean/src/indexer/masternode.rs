@@ -5,7 +5,7 @@ use log::debug;
 use super::BlockContext;
 use crate::{
     indexer::{Index, Result},
-    model::{HistoryItem, Masternode, MasternodeBlock},
+    model::{HistoryItem, Masternode},
     repository::RepositoryOps,
     SERVICES,
 };
@@ -35,12 +35,7 @@ impl Index for CreateMasternode {
             resign_tx: None,
             minted_blocks: 0,
             timelock: self.timelock.0.unwrap_or_default(),
-            block: MasternodeBlock {
-                hash: ctx.hash,
-                height: ctx.height,
-                time: ctx.time,
-                median_time: ctx.median_time,
-            },
+            block: ctx.clone(),
             collateral: tx.output[1].value.to_string(),
             history: Vec::new(),
         };
