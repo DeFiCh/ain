@@ -211,6 +211,34 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
     return ret;
 }
 
+static UniValue getnodestatusinfo(const JSONRPCRequest& request)
+{
+            RPCHelpMan{"gethealthstatus",
+                "\nReturns data about the node status information as a json array of objects.\n",
+                {},
+                RPCResult{
+            "{\n"
+            "  \"health_status\": true|false,     (boolean) Health status flag (sync_to_tip && connected_nodes) \n"
+            "  \"sync_to_tip\": true|false,       (boolean) Whether node is sync-ed to tip\n"
+            "  \"connected_nodes\": true|false,   (boolean) Whether node is connected to alive peers. Minimum of 5 peer nodes with a successful ping and lastrecv of less than 20 minutes\n"
+            "}\n"
+                },
+                RPCExamples{
+                    HelpExampleCli("gethealthstatus", "")
+            + HelpExampleRpc("gethealthstatus", "")
+                },
+            }.Check(request);
+
+    const auto view = ::GetViewSnapshot();
+    const auto validatedHeight = view->GetLastHeight();
+
+    if(!g_connman)
+        throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
+    std::vector<CNodeStats> vstats;
+    g_connman->GetNodeStats(vstats);
+}
+
 static UniValue addnode(const JSONRPCRequest& request)
 {
     std::string strCommand;
@@ -573,6 +601,7 @@ static UniValue getversioninfo(const JSONRPCRequest& request){
     nodeInfoObj.pushKV("spv",spvInfoObj);
     return nodeInfoObj;
 }
+
 static UniValue setban(const JSONRPCRequest& request)
 {
     const RPCHelpMan help{"setban",
