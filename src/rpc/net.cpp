@@ -26,6 +26,9 @@
 
 #include <univalue.h>
 
+static const int64_t DEFAULT_MINIMUM_ACTIVE_NODE_PEERS = 5;
+static const int64_t DEFAULT_ACTIVE_PEER_CONNECTION_TIMEOUT = 300;
+
 static UniValue getconnectioncount(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getconnectioncount",
@@ -220,7 +223,7 @@ static UniValue getnodestatusinfo(const JSONRPCRequest& request)
             "{\n"
             "  \"health_status\": true|false,     (boolean) Health status flag (sync_to_tip && connected_nodes) \n"
             "  \"sync_to_tip\": true|false,       (boolean) Whether node is sync-ed to tip\n"
-            "  \"connected_nodes\": true|false,   (boolean) Whether node is connected to alive peers. Minimum of 5 peer nodes with a successful ping and lastrecv of less than 20 minutes\n"
+            "  \"active_peer_nodes\": true|false, (boolean) Whether node is connected to minimum number of active peer nodes. Minimum of " + std::to_string(DEFAULT_MINIMUM_ACTIVE_NODE_PEERS) + "peer nodes with a lastrecv of less than " + std::to_string(DEFAULT_ACTIVE_PEER_CONNECTION_TIMEOUT) + " seconds\n"
             "}\n"
                 },
                 RPCExamples{
@@ -229,14 +232,34 @@ static UniValue getnodestatusinfo(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    const auto view = ::GetViewSnapshot();
-    const auto validatedHeight = view->GetLastHeight();
-
     if(!g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
     std::vector<CNodeStats> vstats;
     g_connman->GetNodeStats(vstats);
+
+    // Check node if it is connected to minimum number of active peer nodes
+    int active_peers = 0;
+    int64_t currTime = GetSystemTimeInSeconds();
+    for (const CNodeStats& stats : vstats) {
+        if (currTime - stats.nLastRecv <= DEFAULT_ACTIVE_PEER_CONNECTION_TIMEOUT) {
+            active_peers++;
+            if (active_peers == DEFAULT_MINIMUM_ACTIVE_NODE_PEERS)
+                break;
+        }
+    }
+    bool activePeerNodes = active_peers >= DEFAULT_MINIMUM_ACTIVE_NODE_PEERS;
+
+    // Check chain tip is at block headers tip
+    const auto chainHeight = (int)::ChainActive().Height();
+    const auto headerHeight = pindexBestHeader ? pindexBestHeader->nHeight : -1;
+    bool syncToTip = chainHeight == headerHeight;
+
+    UniValue obj(UniValue::VOBJ);
+    obj.pushKV("health_status", syncToTip && activePeerNodes);
+    obj.pushKV("sync_to_tip", syncToTip);
+    obj.pushKV("active_peer_nodes", activePeerNodes);
+    return obj;
 }
 
 static UniValue addnode(const JSONRPCRequest& request)
@@ -815,6 +838,7 @@ static const CRPCCommand commands[] =
     { "network",            "getconnectioncount",     &getconnectioncount,     {} },
     { "network",            "ping",                   &ping,                   {} },
     { "network",            "getpeerinfo",            &getpeerinfo,            {} },
+    { "network",            "getnodestatusinfo",      &getnodestatusinfo,      {} },
     { "network",            "addnode",                &addnode,                {"node","command"} },
     { "network",            "disconnectnode",         &disconnectnode,         {"address", "nodeid"} },
     { "network",            "getaddednodeinfo",       &getaddednodeinfo,       {"node"} },
