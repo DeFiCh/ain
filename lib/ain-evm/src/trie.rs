@@ -66,6 +66,7 @@ impl TrieDBStore {
             Arc::clone(trie_store),
             Arc::clone(storage),
             Vicinity::default(),
+            None,
         )
         .expect("Could not restore backend");
 

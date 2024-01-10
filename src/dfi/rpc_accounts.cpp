@@ -1415,7 +1415,6 @@ UniValue listaccounthistory(const JSONRPCRequest &request) {
 
             // starting new account
             if (account.empty() && lastOwner != key.owner) {
-                view.Discard();
                 lastOwner = key.owner;
                 lastHeight = maxBlockHeight;
             }
@@ -1884,7 +1883,6 @@ UniValue accounthistorycount(const JSONRPCRequest &request) {
             if (!noRewards) {
                 // starting new account
                 if (lastOwner != key.owner) {
-                    view.Discard();
                     lastOwner = key.owner;
                     lastHeight = currentHeight;
                 }
@@ -2172,10 +2170,19 @@ UniValue transferdomain(const JSONRPCRequest &request) {
                                     // {"data", RPCArg::Type::STR, RPCArg::Optional::OMITTED, "Optional data"},
                                 },
                             },
-                            {"nonce",
-                             RPCArg::Type::NUM,
-                             RPCArg::Optional::OMITTED,
-                             "Optional parameter to specify the transaction nonce"},
+                            {
+                                "nonce",
+                                RPCArg::Type::NUM,
+                                RPCArg::Optional::OMITTED,
+                                "Optional parameter to specify the transaction nonce",
+                            },
+                            {
+                                "singlekeycheck",
+                                RPCArg::Type::BOOL,
+                                RPCArg::Optional::OMITTED,
+                                "Optional flag to ensure single key check between the corresponding address types "
+                                "(default = true)",
+                            },
                         },
                     },
                 },
@@ -2210,12 +2217,21 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     std::vector<std::pair<std::string, uint64_t>> nonce_cache;
 
     for (unsigned int i = 0; i < srcDstArray.size(); i++) {
-        const UniValue &elem = srcDstArray[i];
-        RPCTypeCheck(elem, {UniValue::VOBJ, UniValue::VOBJ, UniValue::VNUM}, false);
+        const UniValue &elem = srcDstArray[i].get_obj();
+        RPCTypeCheckObj(elem,
+                        {
+                            {"src",            UniValueType(UniValue::VOBJ) },
+                            {"dst",            UniValueType(UniValue::VOBJ) },
+                            {"nonce",          UniValueType(UniValue::VNUM) },
+                            {"singlekeycheck", UniValueType(UniValue::VBOOL)},
+        },
+                        true,
+                        true);
 
         const UniValue &srcObj = elem["src"].get_obj();
         const UniValue &dstObj = elem["dst"].get_obj();
         const UniValue &nonceObj = elem["nonce"];
+        const UniValue &singlekeycheckObj = elem["singlekeycheck"];
 
         CTransferDomainItem src, dst;
 
@@ -2289,6 +2305,20 @@ UniValue transferdomain(const JSONRPCRequest &request) {
 
         // if (!dstObj["data"].isNull())
         //     dst.data.assign(dstObj["data"].getValStr().begin(), dstObj["data"].getValStr().end());
+
+        // Single key check
+        auto singlekeycheck = gArgs.GetBoolArg("-tdsinglekeycheck", true);
+        if (!singlekeycheckObj.isNull()) {
+            singlekeycheck = singlekeycheckObj.getBool();
+        }
+        if (singlekeycheck) {
+            auto dstKey = AddrToPubKey(pwallet, ScriptToString(dst.address));
+            auto [uncompSrcKey, compSrcKey] = GetBothPubkeyCompressions(srcKey);
+            auto [uncompDstKey, compDstKey] = GetBothPubkeyCompressions(dstKey);
+            if (uncompSrcKey != uncompDstKey || compSrcKey != compDstKey) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Dst address does not match source key");
+            }
+        }
 
         // Create signed EVM TX
         CKey key;
@@ -2420,7 +2450,6 @@ UniValue getburninfo(const JSONRPCRequest &request) {
     CAmount dfiPaybackFee{0};
     CAmount burnt{0};
 
-    CBalances consortiumTokens;
     CBalances paybackfees;
     CBalances paybacktokens;
     CBalances dfi2203Tokens;
@@ -2541,7 +2570,7 @@ UniValue getburninfo(const JSONRPCRequest &request) {
                     // token burn with burnToken tx
                     if (value.category == uint8_t(CustomTxType::BurnToken)) {
                         for (auto const &diff : value.diff) {
-                            currentResult->nonConsortiumTokens.Add({diff.first, diff.second});
+                            currentResult->burntTokens.Add({diff.first, diff.second});
                         }
                         return true;
                     }
@@ -2573,31 +2602,17 @@ UniValue getburninfo(const JSONRPCRequest &request) {
         totalResult->burntFee += r->burntFee;
         totalResult->auctionFee += r->auctionFee;
         totalResult->burntTokens.AddBalances(r->burntTokens.balances);
-        totalResult->nonConsortiumTokens.AddBalances(r->nonConsortiumTokens.balances);
         totalResult->dexfeeburn.AddBalances(r->dexfeeburn.balances);
         totalResult->paybackFee.AddBalances(r->paybackFee.balances);
     }
 
     GetMemoizedResultCache().Set(request, {height, hash, *totalResult});
 
-    liveKey = {AttributeTypes::Live, ParamIDs::Economy, EconomyKeys::ConsortiumMinted};
-    auto balances = attributes->GetValue(liveKey, CConsortiumGlobalMinted{});
-
-    for (const auto &token : totalResult->nonConsortiumTokens.balances) {
-        TAmounts amount;
-        amount[token.first] = balances[token.first].burnt;
-        consortiumTokens.AddBalances(amount);
-    }
-
-    totalResult->nonConsortiumTokens.SubBalances(consortiumTokens.balances);
-    totalResult->burntTokens.AddBalances(totalResult->nonConsortiumTokens.balances);
-
     UniValue result(UniValue::VOBJ);
     result.pushKV("address", ScriptToString(burnAddress));
     result.pushKV("amount", ValueFromAmount(totalResult->burntDFI));
 
     result.pushKV("tokens", AmountsToJSON(totalResult->burntTokens.balances));
-    result.pushKV("consortiumtokens", AmountsToJSON(consortiumTokens.balances));
     result.pushKV("feeburn", ValueFromAmount(totalResult->burntFee));
     result.pushKV("auctionburn", ValueFromAmount(totalResult->auctionFee));
     result.pushKV("paybackburn", AmountsToJSON(totalResult->paybackFee.balances));

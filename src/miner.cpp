@@ -131,13 +131,17 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     assert(pindexPrev != nullptr);
     nHeight = pindexPrev->nHeight + 1;
 
-    const auto myIDs = pcustomcsview->AmIOperator();
-    if (!myIDs) {
-        return Res::Err("Node has no operators");
-    }
-    const auto nodePtr = pcustomcsview->GetMasternode(myIDs->second);
-    if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
-        return Res::Err("Node is not active");
+    std::optional<std::pair<CKeyID, uint256>> myIDs;
+    std::optional<CMasternode> nodePtr;
+    if (!blockTime) {
+        myIDs = pcustomcsview->AmIOperator();
+        if (!myIDs) {
+            return Res::Err("Node has no operators");
+        }
+        nodePtr = pcustomcsview->GetMasternode(myIDs->second);
+        if (!nodePtr || !nodePtr->IsActive(nHeight, *pcustomcsview)) {
+            return Res::Err("Node is not active");
+        }
     }
 
     auto consensus = chainparams.GetConsensus();
@@ -233,7 +237,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
 
     int nPackagesSelected = 0;
     int nDescendantsUpdated = 0;
-    BlockContext blockCtx;
+    BlockContext blockCtx(nHeight, pblock->nTime, chainparams.GetConsensus());
     auto &mnview = blockCtx.GetView();
     if (!blockTime) {
         UpdateTime(pblock, consensus, pindexPrev);  // update time before tx packaging
@@ -439,7 +443,7 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     pblock->hashPrevBlock = pindexPrev->GetBlockHash();
     pblock->deprecatedHeight = pindexPrev->nHeight + 1;
     pblock->nBits = pos::GetNextWorkRequired(pindexPrev, pblock->nTime, consensus);
-    if (!blockTime) {
+    if (myIDs) {
         pblock->stakeModifier = pos::ComputeStakeModifier(pindexPrev->stakeModifier, myIDs->first);
     }
 
@@ -875,9 +879,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                 auto txCtx = TransactionContext{
                     coins,
                     tx,
-                    chainparams.GetConsensus(),
-                    static_cast<uint32_t>(nHeight),
-                    pblock->nTime,
+                    blockCtx,
                 };
 
                 // Copy block context and update to cache view

@@ -37,8 +37,8 @@ class EVMTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23height=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
         ]
 
@@ -104,6 +104,7 @@ class EVMTest(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -328,6 +329,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -441,6 +443,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -535,6 +538,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -1026,6 +1030,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -1052,6 +1057,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ]
             )
@@ -1077,6 +1083,7 @@ class EVMTest(DefiTestFramework):
                             "domain": 3,
                         },
                         "nonce": start_nonce_erc55 + i,
+                        "singlekeycheck": False,
                     }
                 ],
             )

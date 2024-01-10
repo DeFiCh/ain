@@ -46,7 +46,6 @@ class DUSDFactorPctTests(DefiTestFramework):
                 "-fortcanningepilogueheight=1",
                 f"-grandcentralheight={self.grandcentralheight}",
                 "-jellyfish_regtest=1",
-                "-txindex=1",
                 "-simulatemainnet=1",
             ]
         ]

@@ -7,7 +7,7 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    fund_tx,
+    create_address_utxo,
 )
 from decimal import Decimal
 
@@ -18,7 +18,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.setup_clean_chain = True
         self.extra_args = [
             [
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -26,7 +25,6 @@ class TestForcedRewardAddress(DefiTestFramework):
                 "-grandcentralheight=110",
             ],
             [
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -326,7 +324,6 @@ class TestForcedRewardAddress(DefiTestFramework):
             [
                 "-gen",
                 "-masternode_operator=" + operator_address,
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
@@ -347,7 +344,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         )
 
         self.nodes[0].updatemasternode(mn_id, {"rewardAddress": ""})
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(11)
 
         # CLI Reward address for test -rewardaddress
         cli_reward_address = self.nodes[0].getnewaddress("", "legacy")
@@ -355,31 +352,18 @@ class TestForcedRewardAddress(DefiTestFramework):
         self.restart_node(
             0,
             [
-                "-gen",
                 "-masternode_operator=" + operator_address,
                 "-rewardaddress=" + cli_reward_address,
-                "-txindex=1",
                 "-txnotokens=0",
                 "-amkheight=50",
                 "-bayfrontheight=50",
                 "-grandcentralheight=1",
                 "-metachainheight=510",
+                "-df23height=510",
             ],
         )
 
-        # Mine blocks
-        self.nodes[0].generate(101)
-
-        # Check balance to new reward address
-        assert_equal(
-            len(self.nodes[0].listunspent(addresses=[forced_reward_address])), 1
-        )
-        assert_equal(
-            self.nodes[0].listunspent(addresses=[forced_reward_address])[0]["amount"],
-            Decimal("19.00000000"),
-        )
-
-        # Test updating operator and reward address simultaniously
+        # Test updating operator and reward address simultaneously
         new_operator_address = self.nodes[0].getnewaddress("", "legacy")
         new_reward_address = self.nodes[0].getnewaddress("", "legacy")
         self.nodes[0].updatemasternode(
@@ -448,11 +432,15 @@ class TestForcedRewardAddress(DefiTestFramework):
         # Set up input / output tests
         not_collateral = self.nodes[0].getnewaddress("", "legacy")
         owner_address = self.nodes[0].getnewaddress("", "legacy")
-        [not_collateral_tx, not_collateral_vout] = fund_tx(
+        [not_collateral_tx, not_collateral_vout] = create_address_utxo(
             self.nodes[0], not_collateral, 10
         )
-        [missing_auth_tx, missing_input_vout] = fund_tx(self.nodes[0], mn_owner, 0.1)
-        [owner_auth_tx, owner_auth_vout] = fund_tx(self.nodes[0], owner_address, 0.1)
+        [missing_auth_tx, missing_input_vout] = create_address_utxo(
+            self.nodes[0], mn_owner, 0.1
+        )
+        [owner_auth_tx, owner_auth_vout] = create_address_utxo(
+            self.nodes[0], owner_address, 0.1
+        )
 
         # Get TX to use OP_RETURN output
         missing_tx = self.nodes[0].updatemasternode(
@@ -484,7 +472,6 @@ class TestForcedRewardAddress(DefiTestFramework):
         rawtx = self.nodes[0].createrawtransaction(
             [
                 {"txid": mn_id, "vout": 1},
-                {"txid": missing_auth_tx, "vout": missing_input_vout},
                 {"txid": owner_auth_tx, "vout": owner_auth_vout},
             ],
             [
@@ -495,7 +482,7 @@ class TestForcedRewardAddress(DefiTestFramework):
         signed_rawtx = self.nodes[0].signrawtransactionwithwallet(rawtx)
         assert_raises_rpc_error(
             -26,
-            "bad-txns-collateral-locked, tried to spend locked collateral for",
+            "Incorrect collateral amount. Found: 10.10000000 Expected: 10.00000000",
             self.nodes[0].sendrawtransaction,
             signed_rawtx["hex"],
         )
@@ -513,9 +500,8 @@ class TestForcedRewardAddress(DefiTestFramework):
         assert_equal(result["state"], "PRE_RESIGNED")
 
         # Roll back resignation
-        self.nodes[0].invalidateblock(
-            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
-        )
+        count = self.nodes[0].getblockcount()
+        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(count))
         result = self.nodes[0].getmasternode(mn_id)[mn_id]
         assert_equal(result["state"], "ENABLED")
 

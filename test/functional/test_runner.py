@@ -83,6 +83,7 @@ EXTENDED_SCRIPTS = [
     "mempool_accept.py",  # moved to ext due to heavy load for trevis
     "wallet_backup.py",  # moved to ext due to heavy load for trevis
     "feature_on_chain_government_govvar_update.py",
+    "feature_multisig_vault.py",
 ]
 
 BASE_SCRIPTS = [
@@ -200,7 +201,6 @@ BASE_SCRIPTS = [
     "feature_masternode_operator.py",
     "feature_mine_cached.py",
     "feature_mempool_dakota.py",
-    "feature_consortium.py",
     "interface_http.py",
     "interface_http_cors.py",
     "interface_http_cors_wildcard.py",

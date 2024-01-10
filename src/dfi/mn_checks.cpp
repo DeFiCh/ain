@@ -511,7 +511,7 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend) {
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &consensus = txCtx.GetConsensus();
@@ -566,18 +566,6 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *ca
         res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
         if (res) {
-            if (canSpend && txType == CustomTxType::UpdateMasternode) {
-                auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
-                for (const auto &item : obj.updates) {
-                    if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
-                        if (const auto node = mnview.GetMasternode(obj.mnId)) {
-                            *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
-                        }
-                        break;
-                    }
-                }
-            }
-
             // Track burn fee
             if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
                 mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);
@@ -1510,15 +1498,13 @@ void TransferDomainConfig::SetToAttributesIfNotExists(ATTRIBUTES &attrs) const {
 
 TransactionContext::TransactionContext(const CCoinsViewCache &coins,
                                        const CTransaction &tx,
-                                       const Consensus::Params &consensus,
-                                       const uint32_t height,
-                                       const uint64_t time,
+                                       const BlockContext &blockCtx,
                                        const uint32_t txn)
     : coins(coins),
       tx(tx),
-      consensus(consensus),
-      height(height),
-      time(time),
+      consensus(blockCtx.GetConsensus()),
+      height(blockCtx.GetHeight()),
+      time(blockCtx.GetTime()),
       txn(txn) {
     metadataValidation = height >= static_cast<uint32_t>(consensus.DF11FortCanningHeight);
 }
