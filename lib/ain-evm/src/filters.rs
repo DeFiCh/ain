@@ -466,12 +466,11 @@ impl FilterService {
 
         let new_tx_hashes = new_pool_txs
             .iter()
-            .map(|pool_tx| {
+            .flat_map(|pool_tx| {
                 self.tx_cache
                     .try_get_or_create(pool_tx.data.as_str())
                     .map(|tx| tx.hash())
             })
-            .flatten()
             .collect();
         Ok((new_tx_hashes, entry_time))
     }

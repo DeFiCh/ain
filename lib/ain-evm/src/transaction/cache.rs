@@ -7,7 +7,7 @@ use lru::LruCache;
 
 use crate::{transaction::SignedTx, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TransactionCache {
     pub signed_tx_cache: SignedTxCache,
     pub tx_validation_cache: TxValidationCache,
