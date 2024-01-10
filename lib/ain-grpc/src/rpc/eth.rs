@@ -724,7 +724,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             let signed_tx: SignedTx = self
                 .handler
                 .core
-                .signed_tx_cache
+                .tx_cache
                 .try_get_or_create(raw_tx)
                 .map_err(RPCError::EvmError)?;
 

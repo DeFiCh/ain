@@ -15,6 +15,7 @@ use crate::{
         traits::{BlockStorage, LogStorage},
         Storage,
     },
+    transaction::cache::TransactionCache,
     EVMError, Result,
 };
 
@@ -222,14 +223,16 @@ impl FilterSystem {
 
 pub struct FilterService {
     storage: Arc<Storage>,
+    tx_cache: Arc<TransactionCache>,
     system: RwLock<FilterSystem>,
 }
 
 // Filter system methods
 impl FilterService {
-    pub fn new(storage: Arc<Storage>) -> Self {
+    pub fn new(storage: Arc<Storage>, tx_cache: Arc<TransactionCache>) -> Self {
         Self {
             storage,
+            tx_cache,
             system: RwLock::new(FilterSystem {
                 id: 0,
                 cache: LruCache::new(NonZeroUsize::new(FILTER_LRU_CACHE_DEFAULT_SIZE).unwrap()),
@@ -440,10 +443,37 @@ impl FilterService {
         &self,
         last_entry_time: Option<i64>,
     ) -> Result<(Vec<H256>, i64)> {
-        // Add ffi to get all current pending txs in mempool, sorted by entry time
-        // Discard pending txs that are above last_entry_time
-        // Return the new pending txs and the new latest entry time
-        Ok((vec![], 0))
+        let last_entry_time = last_entry_time.unwrap_or_default();
+        let mut pool_txs = ain_cpp_imports::get_pool_transactions()
+            .map_err(|_| format_err!("Error getting pooled transactions"))?;
+
+        // Discard pending txs that are above last entry time
+        let mut new_pool_txs = Vec::new();
+        if let Some(index) = pool_txs
+            .iter()
+            .position(|pool_tx| pool_tx.entry_time > last_entry_time)
+        {
+            pool_txs.drain(..index);
+            new_pool_txs = pool_txs;
+        }
+
+        // get new latest entry time
+        let entry_time = if let Some(last_tx) = new_pool_txs.last() {
+            last_tx.entry_time
+        } else {
+            0
+        };
+
+        let new_tx_hashes = new_pool_txs
+            .iter()
+            .map(|pool_tx| {
+                self.tx_cache
+                    .try_get_or_create(pool_tx.data.as_str())
+                    .map(|tx| tx.hash())
+            })
+            .flatten()
+            .collect();
+        Ok((new_tx_hashes, entry_time))
     }
 }
 
@@ -506,10 +536,10 @@ impl FilterService {
                 Ok(FilterResults::Blocks(out))
             }
             Filter::Transactions(last_entry_time) => {
-                let (out, curr_last_entry_time) =
+                let (out, curr_entry_time) =
                     self.get_pending_txs_filter_from_entry(last_entry_time)?;
-                system.update_filter_last_tx_time(filter_id, curr_last_entry_time)?;
-                Ok(FilterResults::Transactions(vec![]))
+                system.update_filter_last_tx_time(filter_id, curr_entry_time)?;
+                Ok(FilterResults::Transactions(out))
             }
         }
     }
