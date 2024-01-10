@@ -489,7 +489,7 @@ impl FilterService {
     ///
     /// Returns a vector of transaction logs.
     ///
-    pub fn get_logs_filter_from_id(
+    pub fn get_logs_from_filter_id(
         &self,
         filter_id: usize,
         curr_block: U256,
@@ -516,7 +516,7 @@ impl FilterService {
     /// Returns a vector of new block hash changes if blocks filter entry.
     /// Returns a vector of transaction logs if pending transactions filter entry.
     ///
-    pub fn get_filter_changes_from_id(
+    pub fn get_changes_from_filter_id(
         &self,
         filter_id: usize,
         curr_block: U256,
