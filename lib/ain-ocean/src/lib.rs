@@ -6,7 +6,7 @@ mod indexer;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
-pub use indexer::{index_block, invalidate_block};
+pub use indexer::{BlockV2Info, index_block, invalidate_block};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
