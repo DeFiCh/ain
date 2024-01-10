@@ -2810,9 +2810,8 @@ Res ProcessDeFiEventFallible(const CBlock &block,
         info.size_stripped = GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
         info.weight = GetBlockWeight(block);
         info.stake_modifier = pindex->stakeModifier.ToString();
-        info.minter = "", // TODO;
-        info.masternode = "", // TODO;
-        info.reward = "", // TODO;
+        info.minter = "", // mn operator address
+        info.masternode = "", // mn owner address
         ocean_index_block(result, serializedData, info);
         // if (!result.ok) {
         //     return Res::Err(result.reason.c_str());

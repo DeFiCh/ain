@@ -32,7 +32,6 @@ pub struct BlockV2Info {
     pub stake_modifier: String,
     pub minter: String,
     pub masternode: String,
-    pub reward: String,
 }
 
 pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
@@ -67,7 +66,6 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
         size: info.size,
         size_stripped: info.size_stripped,
         weight: info.weight,
-        reward: info.reward.to_owned(),
     };
 
     SERVICES.block.raw.put(&ctx.hash,  &encoded_block)?;

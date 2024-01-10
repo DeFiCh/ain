@@ -21,7 +21,6 @@ pub struct Block {
     pub size: usize,
     pub size_stripped: usize,
     pub weight: i64,
-    pub reward: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

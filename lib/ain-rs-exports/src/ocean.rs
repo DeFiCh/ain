@@ -15,7 +15,6 @@ pub fn convert(b: &BlockV2InfoFFI) -> BlockV2Info {
         stake_modifier: b.stake_modifier.to_owned(),
         minter: b.minter.to_owned(),
         masternode: b.masternode.to_owned(),
-        reward: b.reward.to_owned(),
     }
 }
 

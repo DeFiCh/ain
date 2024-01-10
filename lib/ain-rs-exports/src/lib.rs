@@ -65,7 +65,6 @@ pub mod ffi {
         pub stake_modifier: String,
         pub minter: String,
         pub masternode: String,
-        pub reward: String,
     }
 
     // ========== Block ==========
