@@ -216,7 +216,7 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
 
 static UniValue getnodestatusinfo(const JSONRPCRequest& request)
 {
-            RPCHelpMan{"gethealthstatus",
+            RPCHelpMan{"getnodestatusinfo",
                 "\nReturns data about the node status information as a json array of objects.\n",
                 {},
                 RPCResult{
@@ -227,8 +227,8 @@ static UniValue getnodestatusinfo(const JSONRPCRequest& request)
             "}\n"
                 },
                 RPCExamples{
-                    HelpExampleCli("gethealthstatus", "")
-            + HelpExampleRpc("gethealthstatus", "")
+                    HelpExampleCli("getnodestatusinfo", "")
+            + HelpExampleRpc("getnodestatusinfo", "")
                 },
             }.Check(request);
 
