@@ -988,6 +988,28 @@ class DST20(DefiTestFramework):
             Decimal(0),
         )
 
+    def test_update_token(self):
+        self.node.updatetoken("USDT", {"symbol": "USDT2"})
+        self.node.updatetoken("BTC", {"name": "BTC2"})
+        self.node.updatetoken("ETH", {"name": "ETH2", "symbol": "ETH2"})
+        self.node.generate(1)
+
+        assert_equal(self.node.gettoken("USDT2")["1"]["symbol"], "USDT2")
+        assert_equal(self.node.gettoken("USDT2")["1"]["name"], "USDT token")
+        assert_equal(self.usdt.functions.symbol().call(), "USDT2")
+        assert_equal(self.usdt.functions.name().call(), "USDT token")
+
+        assert_equal(self.node.gettoken("BTC")["2"]["symbol"], "BTC")
+        assert_equal(self.node.gettoken("BTC")["2"]["name"], "BTC2")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+        assert_equal(self.btc.functions.name().call(), "BTC2")
+
+        assert_equal(self.node.gettoken("ETH2")["3"]["symbol"], "ETH2")
+        assert_equal(self.node.gettoken("ETH2")["3"]["name"], "ETH2")
+        assert_equal(self.eth.functions.symbol().call(), "ETH2")
+        assert_equal(self.eth.functions.name().call(), "ETH2")
+
+
     def run_test(self):
         self.node = self.nodes[0]
         self.w0 = self.node.w3
@@ -1115,6 +1137,8 @@ class DST20(DefiTestFramework):
         self.test_loan_token()
 
         self.test_dst20_back_and_forth()
+
+        self.test_update_token()
 
 
 if __name__ == "__main__":
