@@ -62,6 +62,7 @@ pub mod ffi {
         pub size: usize,
         pub size_stripped: usize,
         pub weight: i64,
+        pub stake_modifier: String,
         pub minter: String,
         pub masternode: String,
         pub reward: String,

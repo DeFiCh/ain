@@ -12,6 +12,7 @@ pub fn convert(b: &BlockV2InfoFFI) -> BlockV2Info {
         size: b.size,
         size_stripped: b.size_stripped,
         weight: b.weight,
+        stake_modifier: b.stake_modifier.to_owned(),
         minter: b.minter.to_owned(),
         masternode: b.masternode.to_owned(),
         reward: b.reward.to_owned(),

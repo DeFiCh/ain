@@ -29,6 +29,7 @@ pub struct BlockV2Info {
     pub size: usize,
     pub size_stripped: usize,
     pub weight: i64,
+    pub stake_modifier: String,
     pub minter: String,
     pub masternode: String,
     pub reward: String,
@@ -61,8 +62,7 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
         masternode: info.masternode.to_owned(),
         minter: info.minter.to_owned(),
         minter_block_count: info.minter_block_count,
-        // stake_modifier: String::from_utf8(block.header.stake_modifier.to_vec()).unwrap(), // TODO
-        stake_modifier: "".to_string(),
+        stake_modifier: info.stake_modifier.to_owned(),
         merkleroot: block.header.merkle_root.to_string(),
         size: info.size,
         size_stripped: info.size_stripped,
