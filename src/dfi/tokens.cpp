@@ -198,7 +198,7 @@ Res CTokensView::UpdateToken(const CTokenImpl &newToken,
     // apply DAT flag and symbol only AFTER dealing with symbol indexes:
     oldToken.symbol = newToken.symbol;
 
-    if (blockCtx) {
+    if (blockCtx && blockCtx->GetHeight() >= blockCtx->GetConsensus().DF23Height) {
         const auto shouldUpdateDst20 = blockCtx->GetEVMEnabledForBlock();
         const auto &evmTemplate = blockCtx->GetEVMTemplate();
         if (shouldUpdateDst20 && evmTemplate) {

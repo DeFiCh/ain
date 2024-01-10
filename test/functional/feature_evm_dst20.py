@@ -42,7 +42,7 @@ class DST20(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=153",
-                "-df23height=153",
+                "-df23height=166",
                 "-subsidytest=1",
             ]
         ]
@@ -989,15 +989,22 @@ class DST20(DefiTestFramework):
         )
 
     def test_update_token(self):
+        self.node.updatetoken("USDT", {"name": "USDT"})
+        self.node.generate(1)
+
+        assert_equal(self.node.gettoken("USDT")["1"]["name"], "USDT")
+        assert_equal(self.usdt.functions.name().call(), "USDT token")
+
+        # after fork, DF23 all changes should be updated
         self.node.updatetoken("USDT", {"symbol": "USDT2"})
         self.node.updatetoken("BTC", {"name": "BTC2"})
         self.node.updatetoken("ETH", {"name": "ETH2", "symbol": "ETH2"})
         self.node.generate(1)
 
         assert_equal(self.node.gettoken("USDT2")["1"]["symbol"], "USDT2")
-        assert_equal(self.node.gettoken("USDT2")["1"]["name"], "USDT token")
+        assert_equal(self.node.gettoken("USDT2")["1"]["name"], "USDT")
         assert_equal(self.usdt.functions.symbol().call(), "USDT2")
-        assert_equal(self.usdt.functions.name().call(), "USDT token")
+        assert_equal(self.usdt.functions.name().call(), "USDT")
 
         assert_equal(self.node.gettoken("BTC")["2"]["symbol"], "BTC")
         assert_equal(self.node.gettoken("BTC")["2"]["name"], "BTC2")
@@ -1008,7 +1015,6 @@ class DST20(DefiTestFramework):
         assert_equal(self.node.gettoken("ETH2")["3"]["name"], "ETH2")
         assert_equal(self.eth.functions.symbol().call(), "ETH2")
         assert_equal(self.eth.functions.name().call(), "ETH2")
-
 
     def run_test(self):
         self.node = self.nodes[0]
