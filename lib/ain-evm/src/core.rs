@@ -817,7 +817,6 @@ impl EVMCoreService {
         Ok((listener.trace, execution_success, return_value, used_gas))
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<(AccessList, u64)> {
         let EthCallArgs {
             caller,
@@ -841,17 +840,18 @@ impl EVMCoreService {
             block_number, state_root
         );
 
-        let vicinity = Vicinity::from(block_header);
-        let mut backend = EVMBackend::from_root(
+        let mut vicinity = Vicinity::from(block_header);
+        vicinity.origin = caller;
+        vicinity.gas_price = arguments.gas_price;
+
+        let backend = EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
             Arc::clone(&self.storage),
-            vicinity.clone(),
+            vicinity,
             None,
         )
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        backend.vicinity.origin = caller;
-        backend.vicinity.gas_price = arguments.gas_price;
 
         static CONFIG: Config = Config::shanghai();
         let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
