@@ -41,8 +41,9 @@ pub use transaction_vin::*;
 pub use transaction_vout::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&'static str; 22] = [
+pub const COLUMN_NAMES: [&'static str; 23] = [
     block::Block::NAME,
+    block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
     masternode::Masternode::NAME,
     masternode::MasternodeByHeight::NAME,
