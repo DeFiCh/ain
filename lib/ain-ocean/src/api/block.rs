@@ -4,8 +4,6 @@ use axum::{
     Json, Router,
 };
 use bitcoin::BlockHash;
-use log::debug;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     api_paged_response::ApiPagedResponse,
@@ -15,11 +13,6 @@ use crate::{
     repository::RepositoryOps,
     model::Block,
 };
-
-#[derive(Deserialize)]
-struct BlockId {
-    id: String,
-}
 
 async fn list_blocks(
     Query(query): Query<PaginationQuery>,
