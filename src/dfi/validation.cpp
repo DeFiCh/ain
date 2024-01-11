@@ -21,6 +21,7 @@
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <validation.h>
+#include <consensus/validation.h>
 
 #include <boost/asio.hpp>
 
@@ -2798,7 +2799,19 @@ Res ProcessDeFiEventFallible(const CBlock &block,
         std::string serializedData = HexStr(ss.begin(), ss.end());
 
         CrossBoundaryResult result;
-        ocean_index_block(result, serializedData, pindex->nHeight);
+        BlockV2Info info;
+        info.height = pindex->nHeight;
+        info.difficulty = pindex->nBits;
+        info.version = pindex->nVersion;
+        info.median_time = (int64_t)pindex->GetMedianTimePast();
+        info.minter_block_count = pindex->mintedBlocks;
+        info.size = GetSerializeSize(block, PROTOCOL_VERSION);
+        info.size_stripped = GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+        info.weight = GetBlockWeight(block);
+        info.stake_modifier = pindex->stakeModifier.ToString();
+        info.minter = "", // mn operator address
+        info.masternode = "", // mn owner address
+        ocean_index_block(result, serializedData, info);
         // if (!result.ok) {
         //     return Res::Err(result.reason.c_str());
         // }

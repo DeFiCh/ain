@@ -55,6 +55,21 @@ pub mod ffi {
         fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult);
     }
 
+    #[derive(Default)]
+    pub struct BlockV2Info {
+        pub height: u32,
+        pub difficulty: u32,
+        pub version: i32,
+        pub median_time: i64,
+        pub minter_block_count: u64,
+        pub size: usize,
+        pub size_stripped: usize,
+        pub weight: i64,
+        pub stake_modifier: String,
+        pub minter: String,
+        pub masternode: String,
+    }
+
     // ========== Block ==========
     #[derive(Default)]
     pub struct EVMBlockHeader {
@@ -346,11 +361,11 @@ pub mod ffi {
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
 
-        fn ocean_index_block(result: &mut CrossBoundaryResult, block: String, block_height: u32);
+        fn ocean_index_block(result: &mut CrossBoundaryResult, block: String, info: &BlockV2Info);
         fn ocean_invalidate_block(
             result: &mut CrossBoundaryResult,
             block: String,
-            block_height: u32,
+            info: &BlockV2Info,
         );
     }
 
