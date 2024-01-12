@@ -18,6 +18,7 @@ mod script_unspent;
 mod transaction;
 mod transaction_vin;
 mod transaction_vout;
+mod tx_result;
 mod vault_auction_batch_history;
 
 pub use block::*;
@@ -40,4 +41,5 @@ pub use script_unspent::*;
 pub use transaction::*;
 pub use transaction_vin::*;
 pub use transaction_vout::*;
+pub use tx_result::*;
 pub use vault_auction_batch_history::*;

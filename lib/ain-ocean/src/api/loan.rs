@@ -7,8 +7,8 @@ use bitcoin::Txid;
 use log::debug;
 
 use crate::{
-    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult,
-    model::VaultAuctionBatchHistory, repository::RepositoryOps, SERVICES,
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery,
+    model::VaultAuctionBatchHistory, repository::RepositoryOps, Result, SERVICES,
 };
 
 async fn list_scheme() -> String {
@@ -46,7 +46,7 @@ async fn get_vault(Path(vault_id): Path<String>) -> String {
 async fn list_vault_auction_history(
     Path((vault_id, height, batch_index)): Path<(Txid, u32, u32)>,
     Query(query): Query<PaginationQuery>,
-) -> OceanResult<Json<ApiPagedResponse<VaultAuctionBatchHistory>>> {
+) -> Result<Json<ApiPagedResponse<VaultAuctionBatchHistory>>> {
     println!("listvault auction history");
     debug!(
         "Auction history for vault id {}, height {}, batch index {}",
@@ -92,7 +92,7 @@ async fn list_vault_auction_history(
 
             Ok(auction)
         })
-        .collect::<OceanResult<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(Json(ApiPagedResponse::of(
         auctions,

@@ -17,6 +17,7 @@ mod script_unspent;
 mod transaction;
 mod transaction_vin;
 mod transaction_vout;
+mod tx_result;
 mod vault_auction_history;
 
 use ain_db::ColumnName;
@@ -39,9 +40,10 @@ pub use script_unspent::*;
 pub use transaction::*;
 pub use transaction_vin::*;
 pub use transaction_vout::*;
+pub use tx_result::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&'static str; 23] = [
+pub const COLUMN_NAMES: [&'static str; 24] = [
     block::Block::NAME,
     block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
@@ -63,6 +65,7 @@ pub const COLUMN_NAMES: [&'static str; 23] = [
     transaction::Transaction::NAME,
     transaction_vin::TransactionVin::NAME,
     transaction_vout::TransactionVout::NAME,
+    tx_result::TxResult::NAME,
     vault_auction_history::VaultAuctionHistory::NAME,
     vault_auction_history::VaultAuctionHistoryByHeight::NAME,
 ];

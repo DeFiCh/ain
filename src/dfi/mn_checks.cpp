@@ -982,6 +982,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     // Set amount to be swapped in pool
     CTokenAmount swapAmountResult{obj.idTokenFrom, obj.amountFrom};
 
+    struct PoolSwapResult {
+        int64_t toAmount;
+        uint32_t poolId;
+    };
+
+    PoolSwapResult finalSwapAmount;
+
     for (size_t i{0}; i < poolIDs.size(); ++i) {
         // Also used to generate pool specific error messages for RPC users
         currentID = poolIDs[i];
@@ -1088,8 +1095,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
                 }
                 intermediateView.Flush();
 
-                const auto token = view.GetToken("DUSD");
-
                 // burn the dex in amount
                 if (dexfeeInAmount.nValue > 0) {
                     res = view.AddBalance(consensus.burnAddress, dexfeeInAmount);
@@ -1111,8 +1116,12 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
                 totalTokenA.swaps += (reserveAmount - initReserveAmount);
                 totalTokenA.commissions += (blockCommission - initBlockCommission);
 
-                if (lastSwap && obj.to == consensus.burnAddress) {
-                    totalTokenB.feeburn += swapAmountResult.nValue;
+                if (lastSwap) {
+                    if (obj.to == consensus.burnAddress) {
+                        totalTokenB.feeburn += swapAmountResult.nValue;
+                    }
+
+                    finalSwapAmount = {swapAmountResult.nValue, currentID.v};
                 }
 
                 return res;
@@ -1146,6 +1155,13 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     }
     // Assign to result for loop testing best pool swap result
     result = swapAmountResult.nValue;
+
+    // Send final swap amount Rust side for indexer
+    if (txInfo) {
+        const auto &[txType, txHash] = *txInfo;
+        CrossBoundaryResult ffiResult;
+        ocean_try_set_tx_result(ffiResult, static_cast<uint8_t>(txType), txHash.GetByteArray(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
+    }
 
     return Res::Ok();
 }

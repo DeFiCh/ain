@@ -1,5 +1,11 @@
-use crate::ffi::{BlockV2Info as BlockV2InfoFFI, CrossBoundaryResult};
-use ain_ocean::BlockV2Info;
+use ain_macros::ffi_fallible;
+use ain_ocean::{BlockV2Info, Result};
+
+use crate::{
+    ffi,
+    ffi::BlockV2Info as BlockV2InfoFFI,
+    prelude::{cross_boundary_error_return, cross_boundary_success_return},
+};
 
 // manually convert since BlockV2InfoFFI is belongs to CPP which can't impl From -> Into
 pub fn convert(b: &BlockV2InfoFFI) -> BlockV2Info {
@@ -18,22 +24,17 @@ pub fn convert(b: &BlockV2InfoFFI) -> BlockV2Info {
     }
 }
 
-pub fn ocean_index_block(result: &mut CrossBoundaryResult, block: String, b: &BlockV2InfoFFI) {
-    match ain_ocean::index_block(block, &convert(b)) {
-        Ok(()) => result.ok = true,
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string()
-        }
-    }
+#[ffi_fallible]
+pub fn ocean_index_block(block: String, b: &BlockV2InfoFFI) -> Result<()> {
+    ain_ocean::index_block(block, &convert(b))
 }
 
-pub fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String, b: &BlockV2InfoFFI) {
-    match ain_ocean::invalidate_block(block, &convert(b)) {
-        Ok(()) => result.ok = true,
-        Err(e) => {
-            result.ok = false;
-            result.reason = e.to_string()
-        }
-    }
+#[ffi_fallible]
+pub fn ocean_invalidate_block(block: String, b: &BlockV2InfoFFI) -> Result<()> {
+    ain_ocean::invalidate_block(block, &convert(b))
+}
+
+#[ffi_fallible]
+fn ocean_try_set_tx_result(tx_type: u8, tx_hash: [u8; 32], result_ptr: usize) -> Result<()> {
+    ain_ocean::tx_result::index(tx_type, tx_hash, result_ptr)
 }
