@@ -989,6 +989,8 @@ class DST20(DefiTestFramework):
         )
 
     def test_update_token(self):
+        self.rollback_to(self.start_height)
+
         self.node.updatetoken("USDT", {"name": "USDT"})
         self.node.generate(1)
 
