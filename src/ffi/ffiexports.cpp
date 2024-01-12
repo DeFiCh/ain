@@ -139,7 +139,7 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
 }
 
 rust::vec<TransactionData> getPoolTransactions() {
-    std::multimap<uint64_t, TransactionData> poolTransactionsByFee;
+    std::multimap<int64_t, TransactionData> poolTransactionsByEntryTime;
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
@@ -155,12 +155,13 @@ rust::vec<TransactionData> getPoolTransactions() {
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
-            poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
-                                          TransactionData{
-                                              static_cast<uint8_t>(TransactionDataTxType::EVM),
-                                              HexStr(obj.evmTx),
-                                              static_cast<uint8_t>(TransactionDataDirection::None),
-                                          });
+            poolTransactionsByEntryTime.emplace(mi->GetTime(),
+                                                TransactionData{
+                                                    static_cast<uint8_t>(TransactionDataTxType::EVM),
+                                                    HexStr(obj.evmTx),
+                                                    static_cast<uint8_t>(TransactionDataDirection::None),
+                                                    mi->GetTime(),
+                                                });
         } else if (txType == CustomTxType::TransferDomain) {
             CCustomTxMessage txMessage{CTransferDomainMessage{}};
             const auto res =
@@ -176,26 +177,28 @@ rust::vec<TransactionData> getPoolTransactions() {
 
             if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) &&
                 obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
-                                              TransactionData{
-                                                  static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
-                                                  HexStr(obj.transfers[0].second.data),
-                                                  static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
-                                              });
+                poolTransactionsByEntryTime.emplace(mi->GetTime(),
+                                                    TransactionData{
+                                                        static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                                                        HexStr(obj.transfers[0].second.data),
+                                                        static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                                                        mi->GetTime(),
+                                                    });
             } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) &&
                        obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
-                                              TransactionData{
-                                                  static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
-                                                  HexStr(obj.transfers[0].first.data),
-                                                  static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
-                                              });
+                poolTransactionsByEntryTime.emplace(mi->GetTime(),
+                                                    TransactionData{
+                                                        static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                                                        HexStr(obj.transfers[0].first.data),
+                                                        static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
+                                                        mi->GetTime(),
+                                                    });
             }
         }
     }
 
     rust::vec<TransactionData> poolTransactions;
-    for (const auto &[key, txData] : poolTransactionsByFee) {
+    for (const auto &[key, txData] : poolTransactionsByEntryTime) {
         poolTransactions.push_back(txData);
     }
 

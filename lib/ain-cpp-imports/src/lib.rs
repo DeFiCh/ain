@@ -26,6 +26,7 @@ mod ffi {
         pub tx_type: u8,
         pub data: String,
         pub direction: u8,
+        pub entry_time: i64,
     }
 
     const UNIMPL_MSG: &str = "This cannot be used on a test path";

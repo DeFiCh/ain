@@ -88,6 +88,7 @@
 static bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
+static const bool DEFAULT_HEALTH_ENDPOINTS_ENABLE = true;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 
 // Dump addresses to banlist.dat every 15 minutes (900s)
@@ -185,6 +186,7 @@ void Interrupt()
     InterruptHTTPRPC();
     InterruptRPC();
     InterruptREST();
+    InterruptHealthEndpoints();
     InterruptTorControl();
     InterruptMapPort();
     if (g_connman)
@@ -218,6 +220,7 @@ void Shutdown(InitInterfaces& interfaces)
 
     StopHTTPRPC();
     StopREST();
+    StopHealthEndpoints();
     StopRPC();
     StopHTTPServer();
     for (const auto& client : interfaces.chain_clients) {
@@ -630,6 +633,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blockversion=<n>", "Override block version to test forking scenarios", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::BLOCK_CREATION);
 
     gArgs.AddArg("-rest", strprintf("Accept public REST requests (default: %u)", DEFAULT_REST_ENABLE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-healthendpoints", strprintf("Provide health check endpoints to check for the current status of the node.(default: %u)", DEFAULT_HEALTH_ENDPOINTS_ENABLE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowip=<ip>", "Allow JSON-RPC connections from specified source. Valid for <ip> are a single IP (e.g. 1.2.3.4), a network/netmask (e.g. 1.2.3.4/255.255.255.0) or a network/CIDR (e.g. 1.2.3.4/24). This option can be specified multiple times", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcauth=<userpw>", "Username and HMAC-SHA-256 hashed password for JSON-RPC connections. The field <userpw> comes in the format: <USERNAME>:<SALT>$<HASH>. A canonical python script is included in share/rpcauth. The client then connects normally using the rpcuser=<USERNAME>/rpcpassword=<PASSWORD> pair of arguments. This option can be specified multiple times", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcbind=<addr>[:port]", "Bind to given address to listen for JSON-RPC connections. Do not expose the RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -rpcport. Use [host]:port notation for IPv6. This option can be specified multiple times (default: 127.0.0.1 and ::1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
@@ -912,6 +916,8 @@ static bool AppInitServers()
     if (!StartHTTPRPC())
         return false;
     if (gArgs.GetBoolArg("-rest", DEFAULT_REST_ENABLE)) StartREST();
+    if (gArgs.GetBoolArg("-healthendpoints", DEFAULT_HEALTH_ENDPOINTS_ENABLE)) StartHealthEndpoints();
+
     StartHTTPServer();
     return true;
 }

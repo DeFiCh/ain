@@ -32,4 +32,16 @@ void InterruptREST();
  */
 void StopREST();
 
+/** Start HTTP Health endpoints subsystem.
+ * Precondition; HTTP and RPC has been started.
+ */
+void StartHealthEndpoints();
+/** Interrupt HTTP Health endpoints subsystem.
+ */
+void InterruptHealthEndpoints();
+/** Stop HTTP Health endpoints subsystem.
+ * Precondition; HTTP and RPC has been stopped.
+ */
+void StopHealthEndpoints();
+
 #endif

@@ -724,7 +724,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             let signed_tx: SignedTx = self
                 .handler
                 .core
-                .signed_tx_cache
+                .tx_cache
                 .try_get_or_create(raw_tx)
                 .map_err(RPCError::EvmError)?;
 
@@ -1102,13 +1102,17 @@ impl MetachainRPCServer for MetachainRPCModule {
             .into())
     }
 
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_tx_filter().into())
+    }
+
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let res = self
             .handler
             .filters
-            .get_filter_changes_from_id(filter_id, curr_block)
+            .get_changes_from_filter_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?
             .into();
         Ok(res)
@@ -1125,13 +1129,9 @@ impl MetachainRPCServer for MetachainRPCModule {
         let logs = self
             .handler
             .filters
-            .get_filter_logs_from_id(filter_id, curr_block)
+            .get_logs_from_filter_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?;
         Ok(logs.into_iter().map(|log| log.into()).collect())
-    }
-
-    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_tx_filter().into())
     }
 }
 
