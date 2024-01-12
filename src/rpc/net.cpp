@@ -214,7 +214,7 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
     return ret;
 }
 
-static UniValue getnodestatusinfo(const JSONRPCRequest& request)
+UniValue getnodestatusinfo(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getnodestatusinfo",
                 "\nReturns data about the node status information as a json array of objects.\n",

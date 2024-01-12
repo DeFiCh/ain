@@ -13,6 +13,7 @@
 #include <primitives/transaction.h>
 #include <rpc/blockchain.h>
 #include <rpc/protocol.h>
+#include <rpc/request.h>
 #include <rpc/server.h>
 #include <streams.h>
 #include <sync.h>
@@ -622,6 +623,58 @@ static bool rest_blockhash_by_height(HTTPRequest* req,
     }
 }
 
+static bool rest_blockchain_liveness(HTTPRequest* req, const std::string&) {
+    if (!CheckWarmup(req))
+        return false;
+    
+    req->WriteHeader("Content-Type", "text/plain");
+    req->WriteReply(HTTP_OK, "");
+    return true;
+}
+
+// Hack dependency on function defined in rpc/net.cpp
+UniValue getnodestatusinfo(const JSONRPCRequest& request);
+
+static bool rest_blockchain_readiness(HTTPRequest* req, const std::string&) {
+    if (!CheckWarmup(req))
+        return false;
+
+    try {
+        JSONRPCRequest jsonRequest{};
+        UniValue status = getnodestatusinfo(jsonRequest);
+
+        if (status["health_status"].get_bool()) {
+            req->WriteHeader("Content-Type", "text/plain");
+            req->WriteReply(HTTP_OK, "Health status: Ready - sync-to-tip: true, active-peers: true.");
+            return true;
+        } else {
+            std::string syncToTip = "false";
+            std::string activePeerNodes = "false";
+            if (status["sync_to_tip"].get_bool()) {
+                syncToTip = "true";
+            }
+            if (status["active_peer_nodes"].get_bool()) {
+                activePeerNodes = "true";
+            }
+            RESTERR(req, HTTP_SERVICE_UNAVAILABLE, strprintf("Health status: Not ready - sync-to-tip: %s, active-peers: %s.", syncToTip, activePeerNodes));
+            return false;
+        }
+    } catch (const UniValue& objError) {
+        HTTPStatusCode nStatus = HTTP_INTERNAL_SERVER_ERROR;
+        std::string msg = "";
+        int code = find_value(objError, "code").get_int();
+
+        if (code == RPC_CLIENT_P2P_DISABLED)
+            nStatus = HTTP_SERVICE_UNAVAILABLE;
+            msg = "Error: Peer-to-peer functionality missing or disabled";
+        RESTERR(req, nStatus, msg);
+        return false;
+    } catch (const std::exception& e) {
+        RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, e.what());
+        return false;
+    }
+}
+
 static const struct {
     const char* prefix;
     bool (*handler)(HTTPRequest* req, const std::string& strReq);
@@ -635,6 +688,14 @@ static const struct {
       {"/rest/headers/", rest_headers},
       {"/rest/getutxos", rest_getutxos},
       {"/rest/blockhashbyheight/", rest_blockhash_by_height},
+};
+
+static const struct {
+    const char* prefix;
+    bool (*handler)(HTTPRequest* req, const std::string& strReq);
+} health_uri_prefixes[] = {
+      {"/livez/", rest_blockchain_liveness},
+      {"/readyz/", rest_blockchain_readiness},
 };
 
 void StartREST()
@@ -651,4 +712,20 @@ void StopREST()
 {
     for (unsigned int i = 0; i < ARRAYLEN(uri_prefixes); i++)
         UnregisterHTTPHandler(uri_prefixes[i].prefix, false);
+}
+
+void StartHealthEndpoints()
+{
+    for (unsigned int i = 0; i < ARRAYLEN(health_uri_prefixes); i++)
+        RegisterHTTPHandler(health_uri_prefixes[i].prefix, false, health_uri_prefixes[i].handler);   
+}
+
+void InterruptHealthEndpoints()
+{
+}
+
+void StopHealthEndpoints()
+{
+    for (unsigned int i = 0; i < ARRAYLEN(health_uri_prefixes); i++)
+        UnregisterHTTPHandler(health_uri_prefixes[i].prefix, false);
 }
