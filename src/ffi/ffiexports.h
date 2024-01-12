@@ -47,6 +47,7 @@ struct TransactionData {
     uint8_t txType;
     rust::string data;
     uint8_t direction;
+    int64_t entryTime;
 };
 
 enum class TransactionDataTxType : uint8_t {

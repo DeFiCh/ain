@@ -281,11 +281,7 @@ fn evm_try_unsafe_add_balance_in_template(
     raw_tx: &str,
     native_hash: &str,
 ) -> Result<()> {
-    let signed_tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
+    let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
     let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
@@ -312,11 +308,7 @@ fn evm_try_unsafe_sub_balance_in_template(
     raw_tx: &str,
     native_hash: &str,
 ) -> Result<bool> {
-    let signed_tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
+    let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
     let native_hash = XHash::from(native_hash);
 
     let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
@@ -511,11 +503,7 @@ fn evm_try_unsafe_push_tx_in_template(
     let native_hash = native_hash.to_string();
 
     unsafe {
-        let signed_tx = SERVICES
-            .evm
-            .core
-            .signed_tx_cache
-            .try_get_or_create(raw_tx)?;
+        let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
 
         let tx_hash = signed_tx.hash();
         SERVICES.evm.push_tx_in_block_template(
@@ -671,11 +659,7 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
         .get_transaction_by_hash(&tx_hash)?
         .ok_or("Unable to get evm tx from tx hash")?;
 
-    let tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create_from_tx(&tx)?;
+    let tx = SERVICES.evm.core.tx_cache.try_get_or_create_from_tx(&tx)?;
 
     let nonce = u64::try_from(tx.nonce())?;
     let gas_limit = u64::try_from(tx.gas_limit())?;
@@ -756,11 +740,7 @@ fn evm_try_unsafe_bridge_dst20(
 ) -> Result<()> {
     let native_hash = XHash::from(native_hash);
     let contract_address = ain_contracts::dst20_address_from_token_id(token_id)?;
-    let signed_tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
+    let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
     let system_tx = ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
         signed_tx: Box::new(signed_tx),
         contract_address,
@@ -784,11 +764,7 @@ fn evm_try_unsafe_bridge_dst20(
 /// Returns the transaction's hash
 #[ffi_fallible]
 fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
-    let signed_tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
+    let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
     Ok(format!("{:?}", signed_tx.hash()))
 }
 
@@ -804,7 +780,7 @@ fn evm_try_unsafe_cache_signed_tx(raw_tx: &str, instance: usize) -> Result<()> {
     SERVICES
         .evm
         .core
-        .signed_tx_cache
+        .tx_cache
         .pre_populate(raw_tx, *signed_tx)?;
     Ok(())
 }
@@ -836,10 +812,7 @@ fn evm_try_unsafe_is_smart_contract_in_template(
 fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Result<TxMinerInfo> {
     let evm_services = &SERVICES.evm;
 
-    let signed_tx = evm_services
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
+    let signed_tx = evm_services.core.tx_cache.try_get_or_create(raw_tx)?;
 
     let block_service = &evm_services.block;
     let attrs = block_service.get_attribute_vals(Some(mnview_ptr));
@@ -864,11 +837,7 @@ fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Res
 
 #[ffi_fallible]
 fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
-    let signed_tx = SERVICES
-        .evm
-        .core
-        .signed_tx_cache
-        .try_get_or_create(raw_tx)?;
+    let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
 
     debug!(
         "[evm_try_dispatch_pending_transactions_event] {:#?}",
