@@ -88,7 +88,7 @@
 static bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
-static const bool DEFAULT_HEALTH_ENDPOINTS_ENABLE = false;
+static const bool DEFAULT_HEALTH_ENDPOINTS_ENABLE = true;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 
 // Dump addresses to banlist.dat every 15 minutes (900s)
