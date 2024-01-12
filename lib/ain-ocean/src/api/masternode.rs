@@ -7,8 +7,8 @@ use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult,
-    model::Masternode, repository::RepositoryOps, SERVICES,
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Masternode,
+    repository::RepositoryOps, Result, SERVICES,
 };
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -89,7 +89,7 @@ impl From<Masternode> for MasternodeData {
 
 async fn list_masternodes(
     Query(query): Query<PaginationQuery>,
-) -> OceanResult<Json<ApiPagedResponse<MasternodeData>>> {
+) -> Result<Json<ApiPagedResponse<MasternodeData>>> {
     let next = query
         .next
         .map(|q| {
@@ -120,7 +120,7 @@ async fn list_masternodes(
 
             Ok(mn.into())
         })
-        .collect::<OceanResult<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
 
     Ok(Json(ApiPagedResponse::of(
         masternodes,
@@ -129,9 +129,7 @@ async fn list_masternodes(
     )))
 }
 
-async fn get_masternode(
-    Path(masternode_id): Path<Txid>,
-) -> OceanResult<Json<Option<MasternodeData>>> {
+async fn get_masternode(Path(masternode_id): Path<Txid>) -> Result<Json<Option<MasternodeData>>> {
     let mn = SERVICES
         .masternode
         .by_id

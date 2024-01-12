@@ -6,17 +6,13 @@ use axum::{
 use bitcoin::BlockHash;
 
 use crate::{
-    api_paged_response::ApiPagedResponse,
-    api_query::PaginationQuery,
-    error::OceanResult,
-    SERVICES,
-    repository::RepositoryOps,
-    model::Block,
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Block,
+    repository::RepositoryOps, Result, SERVICES,
 };
 
 async fn list_blocks(
     Query(query): Query<PaginationQuery>,
-) -> OceanResult<Json<ApiPagedResponse<Block>>> {
+) -> Result<Json<ApiPagedResponse<Block>>> {
     let blocks = SERVICES
         .block
         .by_height
@@ -32,20 +28,15 @@ async fn list_blocks(
 
             Ok(b)
         })
-        .collect::<OceanResult<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok(Json(ApiPagedResponse::of(
-        blocks,
-        query.size,
-        |block| block.clone().id,
-    )))
+    Ok(Json(ApiPagedResponse::of(blocks, query.size, |block| {
+        block.clone().id
+    })))
 }
 
-async fn get_block(Path(id): Path<BlockHash>) -> OceanResult<Json<Option<Block>>> {
-    let block = SERVICES
-        .block
-        .by_id
-        .get(&id)?;
+async fn get_block(Path(id): Path<BlockHash>) -> Result<Json<Option<Block>>> {
+    let block = SERVICES.block.by_id.get(&id)?;
 
     Ok(Json(block))
 }

@@ -1,5 +1,7 @@
 use ain_db::{Column, ColumnName, TypedColumn};
 
+use crate::model;
+
 #[derive(Debug)]
 pub struct PoolSwap;
 
@@ -8,9 +10,9 @@ impl ColumnName for PoolSwap {
 }
 
 impl Column for PoolSwap {
-    type Index = String;
+    type Index = model::PoolSwapKey;
 }
 
 impl TypedColumn for PoolSwap {
-    type Type = String;
+    type Type = model::PoolSwap;
 }
