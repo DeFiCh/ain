@@ -158,6 +158,13 @@ class AccessListTest(DefiTestFramework):
         assert_equal(len(al["storageKeys"]), 3)
         assert_equal(al["address"], "0xff00000000000000000000000000000000000001")
 
+        transaction = {
+            "from": self.key_pair.address,
+            "data": transfer_data,
+        }
+        access_list = self.node.eth_createAccessList(transaction)
+        assert_equal(access_list["accessList"], [])
+
 
 if __name__ == "__main__":
     AccessListTest().main()

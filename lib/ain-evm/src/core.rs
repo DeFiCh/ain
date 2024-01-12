@@ -869,14 +869,21 @@ impl EVMCoreService {
                 .map(|x| (x.address, x.storage_keys))
                 .collect::<Vec<_>>();
 
-            executor.transact_call(
-                caller,
-                to.unwrap(),
-                value,
-                data.to_vec(),
-                gas_limit,
-                access_list,
-            );
+            match to {
+                Some(to) => {
+                    executor.transact_call(
+                        caller,
+                        to,
+                        value,
+                        data.to_vec(),
+                        gas_limit,
+                        access_list,
+                    );
+                }
+                None => {
+                    executor.transact_create(caller, value, data.to_vec(), gas_limit, access_list);
+                }
+            };
         });
 
         let al: AccessList = listener
@@ -888,16 +895,31 @@ impl EVMCoreService {
             })
             .collect();
 
-        al_executor.transact_call(
-            caller,
-            to.unwrap(),
-            value,
-            data.to_vec(),
-            gas_limit,
-            al.iter()
-                .map(|item| (item.address, item.storage_keys.clone()))
-                .collect(),
-        );
+        match to {
+            Some(to) => {
+                al_executor.transact_call(
+                    caller,
+                    to,
+                    value,
+                    data.to_vec(),
+                    gas_limit,
+                    al.iter()
+                        .map(|item| (item.address, item.storage_keys.clone()))
+                        .collect(),
+                );
+            }
+            None => {
+                al_executor.transact_create(
+                    caller,
+                    value,
+                    data.to_vec(),
+                    gas_limit,
+                    al.iter()
+                        .map(|item| (item.address, item.storage_keys.clone()))
+                        .collect(),
+                );
+            }
+        };
 
         Ok((al, al_executor.used_gas()))
     }
