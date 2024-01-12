@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, convert::Into, str::FromStr, sync::Arc};
 
 use ain_cpp_imports::get_eth_priv_key;
+use ain_evm::executor::AinExecutor;
 use ain_evm::{
     bytes::Bytes,
     core::EthCallArgs,
@@ -289,7 +290,7 @@ pub struct MetachainRPCModule {
 }
 
 impl MetachainRPCModule {
-    const CONFIG: Config = Config::shanghai();
+    const CONFIG: Config = AinExecutor::CONFIG;
 
     #[must_use]
     pub fn new(handler: Arc<EVMServices>) -> Self {

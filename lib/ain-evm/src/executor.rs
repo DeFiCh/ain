@@ -93,7 +93,7 @@ impl<'backend> AinExecutor<'backend> {
 }
 
 impl<'backend> AinExecutor<'backend> {
-    const CONFIG: Config = Config::shanghai();
+    pub const CONFIG: Config = Config::shanghai();
 
     /// Read-only call
     pub fn call(&mut self, ctx: ExecutorContext) -> TxResponse {

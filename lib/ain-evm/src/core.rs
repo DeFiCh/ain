@@ -735,7 +735,6 @@ impl EVMCoreService {
         Ok(nonce)
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn trace_transaction(
         &self,
         tx: &SignedTx,
@@ -772,7 +771,7 @@ impl EVMCoreService {
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
         backend.update_vicinity_from_tx(tx)?;
 
-        static CONFIG: Config = Config::shanghai();
+        static CONFIG: Config = AinExecutor::CONFIG;
         let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
         let state = MemoryStackState::new(metadata.clone(), &backend);
         let gas_state = MemoryStackState::new(metadata, &backend);
@@ -853,7 +852,7 @@ impl EVMCoreService {
         )
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
 
-        static CONFIG: Config = Config::shanghai();
+        static CONFIG: Config = AinExecutor::CONFIG;
         let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
         let state = MemoryStackState::new(metadata.clone(), &backend);
         let al_state = MemoryStackState::new(metadata, &backend);

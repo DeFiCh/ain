@@ -6,6 +6,7 @@ use evm::{
 };
 use log::debug;
 
+use crate::executor::AinExecutor;
 use crate::{transaction::SignedTx, Result};
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
@@ -22,7 +23,7 @@ fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
 }
 
 pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<()> {
-    const CONFIG: Config = Config::shanghai();
+    const CONFIG: Config = AinExecutor::CONFIG;
     let mut gasometer = Gasometer::new(u64::try_from(signed_tx.gas_limit())?, &CONFIG);
 
     let tx_cost = get_tx_cost(signed_tx);
