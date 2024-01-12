@@ -810,25 +810,7 @@ UniValue minttokens(const JSONRPCRequest &request) {
             }
 
             if (token->IsDAT()) {
-                auto found{false};
-                auto attributes = pcustomcsview->GetAttributes();
-
-                CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
-                if (attributes->GetValue(enableKey, false)) {
-                    CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::MemberValues};
-                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-
-                    for (const auto &member : members) {
-                        if (IsMineCached(*pwallet, member.second.ownerAddress)) {
-                            auths.insert(member.second.ownerAddress);
-                            found = true;
-                        }
-                    }
-                }
-
-                if (!found) {
-                    needFoundersAuth = true;
-                }
+                needFoundersAuth = true;
             }
             // Get token owner auth if present
             const Coin &authCoin =
@@ -943,22 +925,6 @@ UniValue burntokens(const JSONRPCRequest &request) {
     }
 
     if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
-        auto attributes = pcustomcsview->GetAttributes();
-
-        CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
-        if (attributes->GetValue(enableKey, false)) {
-            CDataStructureV0 membersKey{AttributeTypes::Consortium,
-                                        burnedTokens.amounts.balances.begin()->first.v,
-                                        ConsortiumKeys::MemberValues};
-            auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-
-            for (const auto &member : members) {
-                if (IsMineCached(*pwallet, member.second.ownerAddress)) {
-                    burnedTokens.from = member.second.ownerAddress;
-                    break;
-                }
-            }
-        }
         if (burnedTokens.from.empty()) {
             throw JSONRPCError(
                 RPC_INVALID_PARAMETER,
