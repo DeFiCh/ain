@@ -30,7 +30,7 @@ use crate::{
     log::{LogService, Notification},
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    transaction::SignedTx,
+    transaction::{cache::TransactionCache, SignedTx},
     trie::GENESIS_STATE_ROOT,
     Result,
 };
@@ -47,6 +47,7 @@ pub struct EVMServices {
     pub logs: LogService,
     pub filters: FilterService,
     pub storage: Arc<Storage>,
+    pub tx_cache: Arc<TransactionCache>,
     pub channel: NotificationChannel<Notification>,
 }
 
@@ -104,17 +105,20 @@ impl EVMServices {
                 .into());
             }
             let storage = Arc::new(Storage::new(&path)?);
+            let tx_cache = Arc::new(TransactionCache::new());
             Ok(Self {
                 core: EVMCoreService::new_from_json(
                     Arc::clone(&storage),
+                    Arc::clone(&tx_cache),
                     PathBuf::from(state_input_path),
                     path,
                 )?,
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
-                filters: FilterService::new(Arc::clone(&storage)),
+                filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
                 storage,
+                tx_cache,
                 channel: NotificationChannel {
                     sender,
                     receiver: RwLock::new(receiver),
@@ -122,13 +126,15 @@ impl EVMServices {
             })
         } else {
             let storage = Arc::new(Storage::restore(&path)?);
+            let tx_cache = Arc::new(TransactionCache::new());
             Ok(Self {
-                core: EVMCoreService::restore(Arc::clone(&storage), path),
+                core: EVMCoreService::restore(Arc::clone(&storage), Arc::clone(&tx_cache), path),
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
-                filters: FilterService::new(Arc::clone(&storage)),
+                filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
                 storage,
+                tx_cache,
                 channel: NotificationChannel {
                     sender,
                     receiver: RwLock::new(receiver),

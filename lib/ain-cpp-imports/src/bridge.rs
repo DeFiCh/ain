@@ -20,6 +20,7 @@ pub mod ffi {
         pub tx_type: u8,
         pub data: String,
         pub direction: u8,
+        pub entry_time: i64,
     }
 
     unsafe extern "C++" {
