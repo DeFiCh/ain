@@ -45,7 +45,7 @@ class AccessListTest(DefiTestFramework):
             ]
         ]
 
-    def run_test(self):
+    def setup(self):
         self.node = self.nodes[0]
         self.w0 = self.node.w3
         self.address = self.node.get_genesis_keys().ownerAuthAddress
@@ -142,28 +142,38 @@ class AccessListTest(DefiTestFramework):
             Decimal(1),
         )
 
-        transfer_data = self.usdt.encodeABI(
+        self.transfer_data = self.usdt.encodeABI(
             fn_name="transfer",
             args=[self.key_pair2.address, Web3.to_wei("0.5", "ether")],
         )
 
+    def test_rpc(self):
         transaction = {
             "from": self.key_pair.address,
             "to": self.contract_address_usdt,
-            "data": transfer_data,
+            "data": self.transfer_data,
         }
+
         access_list = self.node.eth_createAccessList(transaction)
         al = access_list["accessList"][0]
 
         assert_equal(len(al["storageKeys"]), 3)
         assert_equal(al["address"], "0xff00000000000000000000000000000000000001")
 
+    def test_rpc_create(self):
         transaction = {
             "from": self.key_pair.address,
-            "data": transfer_data,
+            "data": self.transfer_data,
         }
         access_list = self.node.eth_createAccessList(transaction)
         assert_equal(access_list["accessList"], [])
+
+    def run_test(self):
+        self.setup()
+
+        self.test_rpc()
+
+        self.test_rpc_create()
 
 
 if __name__ == "__main__":
