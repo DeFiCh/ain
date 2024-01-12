@@ -342,6 +342,13 @@ pub mod ffi {
             block: String,
             block_height: u32,
         );
+
+        fn ocean_try_set_tx_result(
+            result: &mut CrossBoundaryResult,
+            tx_type: u8,
+            tx_hash: [u8; 32],
+            result_ptr: usize,
+        );
     }
 
     // =========  Debug ==========

@@ -270,16 +270,18 @@ bool CheckOPReturnSize(const CScript &scriptPubKey, const uint32_t opreturnSize)
 
 class CPoolSwap {
     const CPoolSwapMessage &obj;
-    uint32_t height;
-    CAmount result{0};
-    DCT_ID currentID;
+    const uint32_t height;
+    const std::optional<std::pair<CustomTxType, uint256>> txInfo;
+    CAmount result{};
+    DCT_ID currentID{};
 
 public:
     std::vector<std::pair<std::string, std::string>> errors;
 
-    CPoolSwap(const CPoolSwapMessage &obj, uint32_t height)
+    CPoolSwap(const CPoolSwapMessage &obj, const uint32_t height, const std::optional<std::pair<CustomTxType, uint256>> txInfo = std::nullopt)
         : obj(obj),
-          height(height) {}
+          height(height),
+          txInfo(txInfo) {}
 
     std::vector<DCT_ID> CalculateSwaps(CCustomCSView &view, const Consensus::Params &consensus, bool testOnly = false);
     Res ExecuteSwap(CCustomCSView &view,

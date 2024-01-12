@@ -5,7 +5,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::OceanResult};
+use crate::{api_paged_response::ApiPagedResponse, api_query::PaginationQuery, Result};
 
 #[derive(Deserialize)]
 struct BlockId {
@@ -19,7 +19,7 @@ struct BlockHash {
 
 async fn list_blocks(
     Query(query): Query<PaginationQuery>,
-) -> OceanResult<Json<ApiPagedResponse<Block>>> {
+) -> Result<Json<ApiPagedResponse<Block>>> {
     // TODO(): query from lvldb.. or maybe pull from index
     let blocks = vec![
         Block { id: "0".into() },
@@ -32,7 +32,7 @@ async fn list_blocks(
     })))
 }
 
-async fn get_block(Path(BlockId { id }): Path<BlockId>) -> OceanResult<Json<Block>> {
+async fn get_block(Path(BlockId { id }): Path<BlockId>) -> Result<Json<Block>> {
     Ok(Json(Block { id }))
 }
 

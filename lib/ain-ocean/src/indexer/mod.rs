@@ -2,18 +2,17 @@ mod auction;
 mod masternode;
 mod oracle;
 mod pool;
+pub mod tx_result;
 
-use dftx_rs::Transaction;
+use dftx_rs::{deserialize, Block, DfTx, Transaction};
+use log::debug;
+
+use crate::{model::BlockContext, Result};
 
 pub(crate) trait Index {
     fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
     fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
-
-use dftx_rs::{deserialize, Block, DfTx};
-use log::debug;
-
-use crate::{model::BlockContext, Result};
 
 pub fn index_block(block: String, block_height: u32) -> Result<()> {
     debug!("[index_block] Indexing block...");
@@ -41,6 +40,7 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
 
             let raw_tx = &bytes[offset..];
             let dftx = deserialize::<DfTx>(raw_tx)?;
+            debug!("dftx : {:?}", dftx);
             match dftx {
                 DfTx::CreateMasternode(data) => data.index(&ctx, tx, idx)?,
                 DfTx::UpdateMasternode(data) => data.index(&ctx, tx, idx)?,
@@ -49,8 +49,8 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
                 // DfTx::RemoveOracle(data) => data.index(&ctx, tx, idx)?,
                 // DfTx::UpdateOracle(data) => data.index(&ctx, tx, idx)?,
                 // DfTx::SetOracleData(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
+                DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
+                DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
                 DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
                 _ => (),
             }
