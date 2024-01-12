@@ -147,6 +147,8 @@ class AccessListTest(DefiTestFramework):
             args=[self.key_pair2.address, Web3.to_wei("0.5", "ether")],
         )
 
+        self.start_height = self.nodes[0].getblockcount()
+
     def test_rpc(self):
         transaction = {
             "from": self.key_pair.address,
@@ -174,6 +176,8 @@ class AccessListTest(DefiTestFramework):
         self.test_rpc()
 
         self.test_rpc_create()
+
+        self.rollback_to(self.start_height)
 
 
 if __name__ == "__main__":
