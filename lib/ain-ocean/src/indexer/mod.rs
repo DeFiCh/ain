@@ -7,26 +7,68 @@ pub mod tx_result;
 use dftx_rs::{deserialize, Block, DfTx, Transaction};
 use log::debug;
 
-use crate::{model::BlockContext, Result};
+use crate::{
+    model::{Block as BlockMapper, BlockContext},
+    repository::RepositoryOps,
+    Result, SERVICES,
+};
 
 pub(crate) trait Index {
     fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
     fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
 
-pub fn index_block(block: String, block_height: u32) -> Result<()> {
+pub struct BlockV2Info {
+    pub height: u32,
+    pub difficulty: u32,
+    pub version: i32,
+    pub median_time: i64,
+    pub minter_block_count: u64,
+    pub size: usize,
+    pub size_stripped: usize,
+    pub weight: i64,
+    pub stake_modifier: String,
+    pub minter: String,
+    pub masternode: String,
+}
+
+pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     debug!("[index_block] Indexing block...");
 
-    let hex = hex::decode(block)?;
+    let hex = hex::decode(&encoded_block)?;
     debug!("got hex");
     let block = deserialize::<Block>(&hex)?;
     debug!("got block");
+    let block_hash = block.block_hash();
     let ctx = BlockContext {
-        height: block_height,
-        hash: block.block_hash(),
+        height: info.height,
+        hash: block_hash,
         time: 0,        // TODO
         median_time: 0, // TODO
     };
+    let block_mapper = BlockMapper {
+        id: block_hash.to_string(),
+        hash: block_hash.to_string(),
+        previous_hash: block.header.prev_blockhash.to_string(),
+        height: info.height,
+        version: info.version,
+        time: block.header.time,
+        median_time: info.median_time,
+        transaction_count: block.txdata.len(),
+        difficulty: info.difficulty,
+        masternode: info.masternode.to_owned(),
+        minter: info.minter.to_owned(),
+        minter_block_count: info.minter_block_count,
+        stake_modifier: info.stake_modifier.to_owned(),
+        merkleroot: block.header.merkle_root.to_string(),
+        size: info.size,
+        size_stripped: info.size_stripped,
+        weight: info.weight,
+    };
+
+    SERVICES.block.raw.put(&ctx.hash, &encoded_block)?;
+    SERVICES.block.by_id.put(&ctx.hash, &block_mapper)?;
+    SERVICES.block.by_height.put(&ctx.height, &block_hash)?;
 
     for (idx, tx) in block.txdata.into_iter().enumerate() {
         let bytes = tx.output[0].script_pubkey.as_bytes();
@@ -60,6 +102,6 @@ pub fn index_block(block: String, block_height: u32) -> Result<()> {
     Ok(())
 }
 
-pub fn invalidate_block(block: String, block_height: u32) -> Result<()> {
+pub fn invalidate_block(block: String, info: &BlockV2Info) -> Result<()> {
     Ok(())
 }

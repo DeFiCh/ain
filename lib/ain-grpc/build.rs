@@ -266,6 +266,7 @@ fn compile_proto_and_generate_services(
         // There's no way to compile protos using custom generator in tonic,
         // so we're left with creating a prost config and using that for codegen.
         let mut config = Config::new();
+        config.protoc_arg("--experimental_allow_proto3_optional");
         config.out_dir(out_dir);
         config.service_generator(Box::new(gen));
         config

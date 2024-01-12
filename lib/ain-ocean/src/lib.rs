@@ -7,7 +7,7 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::OceanError;
-pub use indexer::{index_block, invalidate_block, tx_result};
+pub use indexer::{index_block, invalidate_block, tx_result, BlockV2Info};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
