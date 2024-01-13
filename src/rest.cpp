@@ -665,7 +665,7 @@ static bool rest_blockchain_readiness(HTTPRequest* req, const std::string&) {
         int code = find_value(objError, "code").get_int();
         if (code == RPC_CLIENT_P2P_DISABLED) {
             nStatus = HTTP_SERVICE_UNAVAILABLE;
-            msg = "Error: Peer-to-peer functionality missing or disabled\n";
+            msg = "Health status: Not ready - peer-to-peer functionality missing or disabled.\n";
         }
         RESTERR(req, nStatus, msg);
         return false;
