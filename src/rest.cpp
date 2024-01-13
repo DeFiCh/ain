@@ -645,7 +645,7 @@ static bool rest_blockchain_readiness(HTTPRequest* req, const std::string&) {
 
         if (status["health_status"].get_bool()) {
             req->WriteHeader("Content-Type", "text/plain");
-            req->WriteReply(HTTP_OK, "Health status: Ready - sync-to-tip: true, active-peers: true.");
+            req->WriteReply(HTTP_OK, "Health status: Ready - sync-to-tip: true, active-peers: true.\n");
             return true;
         } else {
             std::string syncToTip = "false";
@@ -656,17 +656,17 @@ static bool rest_blockchain_readiness(HTTPRequest* req, const std::string&) {
             if (status["active_peer_nodes"].get_bool()) {
                 activePeerNodes = "true";
             }
-            RESTERR(req, HTTP_SERVICE_UNAVAILABLE, strprintf("Health status: Not ready - sync-to-tip: %s, active-peers: %s.", syncToTip, activePeerNodes));
+            RESTERR(req, HTTP_SERVICE_UNAVAILABLE, strprintf("Health status: Not ready - sync-to-tip: %s, active-peers: %s.\n", syncToTip, activePeerNodes));
             return false;
         }
     } catch (const UniValue& objError) {
         HTTPStatusCode nStatus = HTTP_INTERNAL_SERVER_ERROR;
         std::string msg = "";
         int code = find_value(objError, "code").get_int();
-
-        if (code == RPC_CLIENT_P2P_DISABLED)
+        if (code == RPC_CLIENT_P2P_DISABLED) {
             nStatus = HTTP_SERVICE_UNAVAILABLE;
-            msg = "Error: Peer-to-peer functionality missing or disabled";
+            msg = "Health status: Not ready - peer-to-peer functionality missing or disabled.\n";
+        }
         RESTERR(req, nStatus, msg);
         return false;
     } catch (const std::exception& e) {
