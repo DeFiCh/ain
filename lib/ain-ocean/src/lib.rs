@@ -7,10 +7,12 @@ use std::{path::PathBuf, sync::Arc};
 pub use api::ocean_router;
 use error::OceanError;
 pub use indexer::{index_block, invalidate_block, tx_result, BlockV2Info};
+use model::TransactionVin;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    PoolSwapRepository, RawBlockRepository, TransactionRepository, TxResultRepository,
+    PoolSwapRepository, RawBlockRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -48,6 +50,12 @@ pub struct AuctionService {
 
 pub struct PoolService {
     by_id: PoolSwapRepository,
+}
+
+pub struct TransactionService {
+    by_id: TransactionRepository,
+    vin_by_id: TransactionVinRepository,
+    vout_by_id: TransactionVoutRepository,
 }
 
 pub struct Services {
