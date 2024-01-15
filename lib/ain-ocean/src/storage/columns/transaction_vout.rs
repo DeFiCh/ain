@@ -1,4 +1,5 @@
 use ain_db::{Column, ColumnName, TypedColumn};
+use bitcoin::Txid;
 
 use crate::model;
 #[derive(Debug)]
@@ -9,7 +10,7 @@ impl ColumnName for TransactionVout {
 }
 
 impl Column for TransactionVout {
-    type Index = String;
+    type Index = Txid;
 }
 
 impl TypedColumn for TransactionVout {

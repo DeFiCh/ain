@@ -10,7 +10,7 @@ impl ColumnName for Transaction {
 }
 
 impl Column for Transaction {
-    type Index = String;
+    type Index = Txid;
 }
 
 impl TypedColumn for Transaction {

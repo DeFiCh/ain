@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
-use axum::{extract::Path, routing::get, Router};
-use defichain_rpc::{Client, RpcApi};
+use axum::{extract::Path, routing::get, Json, Router};
+use bitcoin::Txid;
 use serde::Deserialize;
 
 use crate::{
@@ -11,7 +9,7 @@ use crate::{
 };
 #[derive(Deserialize)]
 struct TransactionId {
-    id: String,
+    id: Txid,
 }
 
 async fn get_transaction(
