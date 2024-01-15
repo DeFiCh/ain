@@ -92,6 +92,21 @@ static RetFormat ParseDataFormat(std::string& param, const std::string& strReq)
     return rf_names[0].rf;
 }
 
+static bool ParseVerbose(const std::string& strReq)
+{
+    const std::string::size_type pos = strReq.rfind('?');
+    if (pos == std::string::npos) {
+        return false;
+    }
+
+    const std::string suff(strReq, pos + 1);
+    if (suff == "verbose") {
+        return true;
+    }
+    // No verbose suffix found, set default verbose to false.
+    return false;
+}
+
 static std::string AvailableDataFormatsString()
 {
     std::string formats;
@@ -623,10 +638,19 @@ static bool rest_blockhash_by_height(HTTPRequest* req,
     }
 }
 
-static bool rest_blockchain_liveness(HTTPRequest* req, const std::string&) {
-    if (!CheckWarmup(req))
+static bool rest_blockchain_liveness(HTTPRequest* req,
+                       const std::string& str_uri_part)
+{
+    const auto verbose = ParseVerbose(str_uri_part);
+    std::string statusmessage;
+    if (RPCIsInWarmup(&statusmessage)) {
+        std::string msg = "";
+        if (verbose) {
+            msg = "Service temporarily unavailable: " + statusmessage;
+        }
+        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
-    
+    }
     req->WriteHeader("Content-Type", "text/plain");
     req->WriteReply(HTTP_OK, "");
     return true;
@@ -635,42 +659,65 @@ static bool rest_blockchain_liveness(HTTPRequest* req, const std::string&) {
 // Hack dependency on function defined in rpc/net.cpp
 UniValue getnodestatusinfo(const JSONRPCRequest& request);
 
-static bool rest_blockchain_readiness(HTTPRequest* req, const std::string&) {
-    if (!CheckWarmup(req))
+static bool rest_blockchain_readiness(HTTPRequest* req,
+                       const std::string& str_uri_part)
+{
+    const auto verbose = ParseVerbose(str_uri_part);
+    std::string statusmessage;
+    if (RPCIsInWarmup(&statusmessage)) {
+        std::string msg = "";
+        if (verbose) {
+            msg = "Service temporarily unavailable: " + statusmessage;
+        }
+        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
+    }
 
     try {
         JSONRPCRequest jsonRequest{};
         UniValue status = getnodestatusinfo(jsonRequest);
 
+        std::string msg = "";
         if (status["health_status"].get_bool()) {
+            if (verbose) {
+                msg = "Health status: Ready - sync-to-tip: true, active-peers: true.\n";
+            }
             req->WriteHeader("Content-Type", "text/plain");
-            req->WriteReply(HTTP_OK, "Health status: Ready - sync-to-tip: true, active-peers: true.\n");
+            req->WriteReply(HTTP_OK, msg);
             return true;
         } else {
-            std::string syncToTip = "false";
-            std::string activePeerNodes = "false";
-            if (status["sync_to_tip"].get_bool()) {
-                syncToTip = "true";
+            if (verbose) {
+                std::string syncToTip = "false";
+                std::string activePeerNodes = "false";
+                if (status["sync_to_tip"].get_bool()) {
+                    syncToTip = "true";
+                }
+                if (status["active_peer_nodes"].get_bool()) {
+                    activePeerNodes = "true";
+                }
+                msg = strprintf("Health status: Not ready - sync-to-tip: %s, active-peers: %s.\n", syncToTip, activePeerNodes);
             }
-            if (status["active_peer_nodes"].get_bool()) {
-                activePeerNodes = "true";
-            }
-            RESTERR(req, HTTP_SERVICE_UNAVAILABLE, strprintf("Health status: Not ready - sync-to-tip: %s, active-peers: %s.\n", syncToTip, activePeerNodes));
+            RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
             return false;
         }
     } catch (const UniValue& objError) {
-        HTTPStatusCode nStatus = HTTP_INTERNAL_SERVER_ERROR;
         std::string msg = "";
-        int code = find_value(objError, "code").get_int();
-        if (code == RPC_CLIENT_P2P_DISABLED) {
-            nStatus = HTTP_SERVICE_UNAVAILABLE;
-            msg = "Health status: Not ready - peer-to-peer functionality missing or disabled.\n";
+        if (verbose) {
+            int code = find_value(objError, "code").get_int();
+            if (code == RPC_CLIENT_P2P_DISABLED) {
+                msg = "Health status: Not ready - peer-to-peer functionality missing or disabled.\n";
+            } else {
+                msg = "Health status: Not ready - internal server error.\n";
+            }
         }
-        RESTERR(req, nStatus, msg);
+        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
     } catch (const std::exception& e) {
-        RESTERR(req, HTTP_INTERNAL_SERVER_ERROR, e.what());
+        std::string msg = "";
+        if (verbose) {
+            msg = e.what();
+        }
+        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
     }
 }
@@ -687,15 +734,15 @@ static const struct {
       {"/rest/mempool/contents", rest_mempool_contents},
       {"/rest/headers/", rest_headers},
       {"/rest/getutxos", rest_getutxos},
-      {"/rest/blockhashbyheight/", rest_blockhash_by_height},
+      {"/rest/blockhashbyheight", rest_blockhash_by_height},
 };
 
 static const struct {
     const char* prefix;
     bool (*handler)(HTTPRequest* req, const std::string& strReq);
 } health_uri_prefixes[] = {
-      {"/livez/", rest_blockchain_liveness},
-      {"/readyz/", rest_blockchain_readiness},
+      {"/livez", rest_blockchain_liveness},
+      {"/readyz", rest_blockchain_readiness},
 };
 
 void StartREST()
