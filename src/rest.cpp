@@ -641,31 +641,35 @@ static bool rest_blockhash_by_height(HTTPRequest* req,
 static bool rest_blockchain_liveness(HTTPRequest* req,
                        const std::string& str_uri_part)
 {
-    std::string msg = "";
     const auto verbose = ParseVerbose(str_uri_part);
-
     std::string statusmessage;
-    if (RPCIsInWarmup(&statusmessage)) {
-        if (verbose) {
+    bool inStartup = RPCIsInWarmup(&statusmessage);
+
+    std::string msg = "";
+    if (verbose) {
+        if (inStartup) {
             msg += "startup failed: rpc in warm up\n";
             msg += "livez check failed\n";
+        } else {
+            msg += "startup: ok\n";
+            msg += "livez check passed\n";
         }
-        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
-        return false;
     }
-    if (verbose) {
-        msg += "startup: ok\n";
-        msg += "livez check passed\n";
-    }
+
     req->WriteHeader("Content-Type", "text/plain");
-    req->WriteReply(HTTP_OK, msg);
-    return true;
+    if (inStartup) {
+        req->WriteReply(HTTP_SERVICE_UNAVAILABLE, msg);
+        return false;
+    } else {
+        req->WriteReply(HTTP_OK, msg);
+        return true;
+    }
 }
 
 // Hack dependency on function defined in rpc/net.cpp
 UniValue getnodestatusinfo(const JSONRPCRequest& request);
 
-struct ReadyzFlags {
+struct ReadinessFlags {
     bool inStartup;
     bool p2pDisabled;
     bool syncToTip;
@@ -702,7 +706,7 @@ struct ReadyzFlags {
         return msg;
     }
 
-    bool IsReadyz() const {
+    bool GetReadiness() const {
         return (healthz && !inStartup && !p2pDisabled && syncToTip && activePeers && !internalError);
     }
 };
@@ -714,7 +718,7 @@ static bool rest_blockchain_readiness(HTTPRequest* req,
 
 
     std::string statusmessage;
-    ReadyzFlags flags{false, false, false, false, false, false};
+    ReadinessFlags flags{false, false, false, false, false, false};
     flags.inStartup = RPCIsInWarmup(&statusmessage);
 
     if (!flags.inStartup) {
@@ -737,12 +741,12 @@ static bool rest_blockchain_readiness(HTTPRequest* req,
         msg = flags.ToLogOutput();
     }
 
-    if (flags.IsReadyz()) {
-        req->WriteHeader("Content-Type", "text/plain");
+    req->WriteHeader("Content-Type", "text/plain");
+    if (flags.GetReadiness()) {
         req->WriteReply(HTTP_OK, msg);
         return true;
     } else {
-        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
+        req->WriteReply(HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
     }
 }
