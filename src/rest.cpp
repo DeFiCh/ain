@@ -754,7 +754,7 @@ static const struct {
       {"/rest/mempool/contents", rest_mempool_contents},
       {"/rest/headers/", rest_headers},
       {"/rest/getutxos", rest_getutxos},
-      {"/rest/blockhashbyheight", rest_blockhash_by_height},
+      {"/rest/blockhashbyheight/", rest_blockhash_by_height},
 };
 
 static const struct {
