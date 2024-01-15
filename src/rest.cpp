@@ -695,7 +695,7 @@ struct ReadinessFlags {
             }
         }
         if (healthz) {
-            msg = "healthz check passed\n";
+            msg += "healthz check passed\n";
         } else {
             msg += "healthz check failed\n";
         }
