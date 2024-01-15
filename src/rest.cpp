@@ -694,7 +694,7 @@ struct ReadinessFlags {
                 msg += "p2p check failed: insufficent active peers\n";
             }
         }
-        if (healthz) {
+        if (GetReadiness()) {
             msg += "healthz check passed\n";
         } else {
             msg += "healthz check failed\n";
