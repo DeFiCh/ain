@@ -641,82 +641,105 @@ static bool rest_blockhash_by_height(HTTPRequest* req,
 static bool rest_blockchain_liveness(HTTPRequest* req,
                        const std::string& str_uri_part)
 {
+    std::string msg = "";
     const auto verbose = ParseVerbose(str_uri_part);
+
     std::string statusmessage;
     if (RPCIsInWarmup(&statusmessage)) {
-        std::string msg = "";
         if (verbose) {
-            msg = "Service temporarily unavailable: " + statusmessage;
+            msg += "startup failed: rpc in warm up\n";
         }
         RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
     }
+    if (verbose) {
+        msg += "startup: ok\n";
+    }
     req->WriteHeader("Content-Type", "text/plain");
-    req->WriteReply(HTTP_OK, "");
+    req->WriteReply(HTTP_OK, msg);
     return true;
 }
 
 // Hack dependency on function defined in rpc/net.cpp
 UniValue getnodestatusinfo(const JSONRPCRequest& request);
 
+struct ReadyzFlags {
+    bool inStartup;
+    bool p2pDisabled;
+    bool syncToTip;
+    bool activePeers;
+    bool internalError;
+    bool healthz;
+
+    std::string ToLogOutput() const {
+        std::string msg{};
+        if (inStartup) {
+            msg += "startup: ok\n";
+        } else {
+            msg += "startup failed: rpc in warm up\n";
+        }
+        if (syncToTip) {
+            msg += "sync to tip: ok\n";
+        } else {
+            msg += "sync to tip failed\n";
+        }
+        if (activePeers) {
+            msg += "p2p check: ok\n";
+        } else {
+            if (p2pDisabled) {
+                msg += "p2p check failed: p2p functionality missing or disabled\n";
+            } else {
+                msg += "p2p check failed: insufficent active peers\n";
+            }
+        }
+        if (healthz) {
+            msg = "healthz check passed\n";
+        } else {
+            msg += "healthz check failed\n";
+        }
+        return msg;
+    }
+
+    bool IsReadyz() const {
+        return (healthz && !inStartup && !p2pDisabled && syncToTip && activePeers && !internalError);
+    }
+};
+
 static bool rest_blockchain_readiness(HTTPRequest* req,
                        const std::string& str_uri_part)
 {
     const auto verbose = ParseVerbose(str_uri_part);
+
+
     std::string statusmessage;
-    if (RPCIsInWarmup(&statusmessage)) {
-        std::string msg = "";
-        if (verbose) {
-            msg = "Service temporarily unavailable: " + statusmessage;
+    ReadyzFlags flags{false, false, false, false, false, false};
+    flags.inStartup = RPCIsInWarmup(&statusmessage);
+
+    if (!flags.inStartup) {
+        try {
+            JSONRPCRequest jsonRequest{};
+            UniValue status = getnodestatusinfo(jsonRequest);
+            flags.syncToTip = status["sync_to_tip"].get_bool();
+            flags.activePeers = status["active_peer_nodes"].get_bool();
+            flags.healthz = status["health_status"].get_bool();
+        } catch (const UniValue& objError) {
+            int code = find_value(objError, "code").get_int();
+            flags.p2pDisabled = (code == RPC_CLIENT_P2P_DISABLED);
+        } catch (const std::exception& e) {
+            flags.internalError = true;
         }
-        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
-        return false;
     }
 
-    try {
-        JSONRPCRequest jsonRequest{};
-        UniValue status = getnodestatusinfo(jsonRequest);
+    std::string msg{};
+    if (verbose) {
+        msg = flags.ToLogOutput();
+    }
 
-        std::string msg = "";
-        if (status["health_status"].get_bool()) {
-            if (verbose) {
-                msg = "Health status: Ready - sync-to-tip: true, active-peers: true.\n";
-            }
-            req->WriteHeader("Content-Type", "text/plain");
-            req->WriteReply(HTTP_OK, msg);
-            return true;
-        } else {
-            if (verbose) {
-                std::string syncToTip = "false";
-                std::string activePeerNodes = "false";
-                if (status["sync_to_tip"].get_bool()) {
-                    syncToTip = "true";
-                }
-                if (status["active_peer_nodes"].get_bool()) {
-                    activePeerNodes = "true";
-                }
-                msg = strprintf("Health status: Not ready - sync-to-tip: %s, active-peers: %s.\n", syncToTip, activePeerNodes);
-            }
-            RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
-            return false;
-        }
-    } catch (const UniValue& objError) {
-        std::string msg = "";
-        if (verbose) {
-            int code = find_value(objError, "code").get_int();
-            if (code == RPC_CLIENT_P2P_DISABLED) {
-                msg = "Health status: Not ready - peer-to-peer functionality missing or disabled.\n";
-            } else {
-                msg = "Health status: Not ready - internal server error.\n";
-            }
-        }
-        RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
-        return false;
-    } catch (const std::exception& e) {
-        std::string msg = "";
-        if (verbose) {
-            msg = e.what();
-        }
+    if (flags.IsReadyz()) {
+        req->WriteHeader("Content-Type", "text/plain");
+        req->WriteReply(HTTP_OK, msg);
+        return true;
+    } else {
         RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
     }
