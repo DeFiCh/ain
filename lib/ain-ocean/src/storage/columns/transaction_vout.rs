@@ -1,4 +1,6 @@
 use ain_db::{Column, ColumnName, TypedColumn};
+
+use crate::model;
 #[derive(Debug)]
 pub struct TransactionVout;
 
@@ -11,5 +13,5 @@ impl Column for TransactionVout {
 }
 
 impl TypedColumn for TransactionVout {
-    type Type = String;
+    type Type = model::TransactionVout;
 }

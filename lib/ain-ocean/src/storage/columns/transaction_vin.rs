@@ -1,5 +1,7 @@
 use ain_db::{Column, ColumnName, TypedColumn};
 
+use crate::model;
+
 #[derive(Debug)]
 pub struct TransactionVin;
 
@@ -12,5 +14,5 @@ impl Column for TransactionVin {
 }
 
 impl TypedColumn for TransactionVin {
-    type Type = String;
+    type Type = model::TransactionVin;
 }

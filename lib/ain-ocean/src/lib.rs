@@ -10,7 +10,7 @@ pub use indexer::{index_block, invalidate_block, tx_result, BlockV2Info};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    PoolSwapRepository, RawBlockRepository, TxResultRepository,
+    PoolSwapRepository, RawBlockRepository, TransactionRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -57,6 +57,10 @@ pub struct Services {
     result: TxResultRepository,
     pool: PoolService,
     client: Arc<Client>,
+}
+
+pub struct TransactionService {
+    by_id: TransactionRepository,
 }
 
 impl Services {
