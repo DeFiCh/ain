@@ -648,12 +648,14 @@ static bool rest_blockchain_liveness(HTTPRequest* req,
     if (RPCIsInWarmup(&statusmessage)) {
         if (verbose) {
             msg += "startup failed: rpc in warm up\n";
+            msg += "livez check failed\n";
         }
         RESTERR(req, HTTP_SERVICE_UNAVAILABLE, msg);
         return false;
     }
     if (verbose) {
         msg += "startup: ok\n";
+        msg += "livez check passed\n";
     }
     req->WriteHeader("Content-Type", "text/plain");
     req->WriteReply(HTTP_OK, msg);
@@ -674,9 +676,9 @@ struct ReadyzFlags {
     std::string ToLogOutput() const {
         std::string msg{};
         if (inStartup) {
-            msg += "startup: ok\n";
-        } else {
             msg += "startup failed: rpc in warm up\n";
+        } else {
+            msg += "startup: ok\n";
         }
         if (syncToTip) {
             msg += "sync to tip: ok\n";
