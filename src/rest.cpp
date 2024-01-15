@@ -666,15 +666,11 @@ static bool rest_blockchain_liveness(HTTPRequest* req,
     }
 }
 
-// Hack dependency on function defined in rpc/net.cpp
-UniValue getnodestatusinfo(const JSONRPCRequest& request);
-
 struct ReadinessFlags {
     bool inStartup;
     bool p2pDisabled;
     bool syncToTip;
     bool activePeers;
-    bool internalError;
     bool healthz;
 
     std::string ToLogOutput() const {
@@ -687,7 +683,7 @@ struct ReadinessFlags {
         if (syncToTip) {
             msg += "sync to tip: ok\n";
         } else {
-            msg += "sync to tip failed\n";
+            msg += "sync to tip failed: chain height less than header height\n";
         }
         if (activePeers) {
             msg += "p2p check: ok\n";
@@ -707,9 +703,13 @@ struct ReadinessFlags {
     }
 
     bool GetReadiness() const {
-        return (healthz && !inStartup && !p2pDisabled && syncToTip && activePeers && !internalError);
+        return (healthz && !inStartup && !p2pDisabled && syncToTip && activePeers);
     }
 };
+
+// Hack dependency on functions defined in rpc/net.cpp
+bool CheckChainSyncToTip();
+bool CheckActivePeerConnections(bool& flag);
 
 static bool rest_blockchain_readiness(HTTPRequest* req,
                        const std::string& str_uri_part)
@@ -718,22 +718,13 @@ static bool rest_blockchain_readiness(HTTPRequest* req,
 
 
     std::string statusmessage;
-    ReadinessFlags flags{false, false, false, false, false, false};
+    ReadinessFlags flags{false, false, false, false, false};
     flags.inStartup = RPCIsInWarmup(&statusmessage);
 
     if (!flags.inStartup) {
-        try {
-            JSONRPCRequest jsonRequest{};
-            UniValue status = getnodestatusinfo(jsonRequest);
-            flags.syncToTip = status["sync_to_tip"].get_bool();
-            flags.activePeers = status["active_peer_nodes"].get_bool();
-            flags.healthz = status["health_status"].get_bool();
-        } catch (const UniValue& objError) {
-            int code = find_value(objError, "code").get_int();
-            flags.p2pDisabled = (code == RPC_CLIENT_P2P_DISABLED);
-        } catch (const std::exception& e) {
-            flags.internalError = true;
-        }
+        flags.syncToTip = CheckChainSyncToTip();
+        flags.activePeers = CheckActivePeerConnections(flags.p2pDisabled);
+        flags.healthz = flags.syncToTip && flags.activePeers;
     }
 
     std::string msg{};
