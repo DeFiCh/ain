@@ -505,7 +505,7 @@ UniValue getaccount(const JSONRPCRequest &request) {
     CTxDestination dest;
     if (ExtractDestination(reqOwner, dest) && dest.index() == WitV16KeyEthHashType) {
         const auto keyID = std::get<WitnessV16EthHash>(dest);
-        auto r = XResultValue(evm_try_get_balance(result, keyID.GetHex()));
+        auto r = XResultValue(evm_try_get_balance(result, keyID.GetByteArray()));
         if (!r) {
             throw JSONRPCError(RPC_MISC_ERROR, r.msg);
         }
@@ -651,7 +651,7 @@ UniValue gettokenbalances(const JSONRPCRequest &request) {
     if (evm_dfi_lookup) {
         for (const auto keyID : pwallet->GetKeys()) {
             // TODO: Use GetHex when eth key is fixed to be stored in LE
-            auto res = XResultValue(evm_try_get_balance(result, keyID.GetHex()));
+            auto res = XResultValue(evm_try_get_balance(result, keyID.GetByteArray()));
             if (res) {
                 auto evmAmount = *res;
                 totalBalances.Add({{}, static_cast<CAmount>(evmAmount)});
@@ -2214,7 +2214,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     CrossBoundaryResult result;
     CTransferDomainMessage msg;
     std::set<CScript> auths;
-    std::vector<std::pair<std::string, uint64_t>> nonce_cache;
+    std::vector<std::pair<EvmAddressData, uint64_t>> nonce_cache;
 
     for (unsigned int i = 0; i < srcDstArray.size(); i++) {
         const UniValue &elem = srcDstArray[i].get_obj();
@@ -2234,13 +2234,14 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         const UniValue &singlekeycheckObj = elem["singlekeycheck"];
 
         CTransferDomainItem src, dst;
+        CTxDestination srcDest, dstDest;
 
         if (!srcObj["address"].isNull()) {
-            const auto dest = DecodeDestination(srcObj["address"].getValStr());
-            if (!IsValidDestination(dest)) {
+            srcDest = DecodeDestination(srcObj["address"].getValStr());
+            if (!IsValidDestination(srcDest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid src address provided");
             }
-            src.address = GetScriptForDestination(dest);
+            src.address = GetScriptForDestination(srcDest);
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, src argument \"address\" must not be null");
         }
@@ -2282,11 +2283,11 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         //     src.data.assign(srcObj["data"].getValStr().begin(), srcObj["data"].getValStr().end());
 
         if (!dstObj["address"].isNull()) {
-            const auto dest = DecodeDestination(dstObj["address"].getValStr());
-            if (!IsValidDestination(dest)) {
+            dstDest = DecodeDestination(dstObj["address"].getValStr());
+            if (!IsValidDestination(dstDest)) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dst address provided");
             }
-            dst.address = GetScriptForDestination(dest);
+            dst.address = GetScriptForDestination(dstDest);
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameters, dst argument \"address\" must not be null");
         }
@@ -2328,17 +2329,16 @@ UniValue transferdomain(const JSONRPCRequest &request) {
         std::array<uint8_t, 32> privKey{};
         std::copy(key.begin(), key.end(), privKey.begin());
 
-        std::string to = "";
+        EvmAddressData to{};
         std::string nativeAddress = "";
         if (isEVMIn) {
-            to = ScriptToString(dst.address);
+            to = CKeyID::FromOrDefaultDestination(dstDest).GetByteArray();
             nativeAddress = ScriptToString(src.address);
         } else {
             nativeAddress = ScriptToString(dst.address);
         }
         auto dest = GetDestinationForKey(srcKey, OutputType::ERC55);
-        auto script = GetScriptForDestination(dest);
-        auto from = ScriptToString(script);
+        auto from = CKeyID::FromOrDefaultDestination(dest).GetByteArray();
 
         uint64_t nonce = 0;
         bool useNonce = !nonceObj.isNull();
@@ -2412,8 +2412,7 @@ UniValue transferdomain(const JSONRPCRequest &request) {
     for (auto &nonce : nonce_cache) {
         evm_try_store_account_nonce(result, nonce.first, nonce.second);
         if (!result.ok) {
-            throw JSONRPCError(RPC_DATABASE_ERROR,
-                               strprintf("Could not cache nonce %i for %s", nonce.first, nonce.second));
+            throw JSONRPCError(RPC_DATABASE_ERROR, "Could not cache nonce");
         }
     }
 

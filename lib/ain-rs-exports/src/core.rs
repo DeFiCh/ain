@@ -20,21 +20,21 @@ pub fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult) {
     cross_boundary_success(result);
 }
 
-pub fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: &str) {
+pub fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: String) {
     match ain_grpc::init_network_json_rpc_service(addr) {
         Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
-pub fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: &str) {
+pub fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: String) {
     match ain_grpc::init_network_grpc_service(addr) {
         Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),
     }
 }
 
-pub fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: &str) {
+pub fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: String) {
     match ain_grpc::init_network_subscriptions_service(addr) {
         Ok(()) => cross_boundary_success(result),
         Err(e) => cross_boundary_error_return(result, e.to_string()),

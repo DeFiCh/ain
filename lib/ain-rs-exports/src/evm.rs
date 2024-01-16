@@ -3,7 +3,7 @@ use ain_contracts::{
     get_transferdomain_native_transfer_function, FixedContract,
 };
 use ain_evm::{
-    core::{TransferDomainTxInfo, XHash},
+    core::{TransferDomainTxInfo, XAddress, XHash},
     evm::FinalizedBlockInfo,
     executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
@@ -49,8 +49,7 @@ fn evm_try_create_and_sign_tx(ctx: ffi::CreateTransactionContext) -> Result<ffi:
     let to_action = if ctx.to.is_empty() {
         TransactionAction::Create
     } else {
-        let to_address = ctx.to.parse::<H160>().map_err(|_| "Invalid address")?;
-        TransactionAction::Call(to_address)
+        TransactionAction::Call(H160::from(ctx.to))
     };
     let nonce = U256::from(ctx.nonce);
     let gas_price = try_from_gwei(U256::from(ctx.gas_price))?;
@@ -98,14 +97,13 @@ fn evm_try_create_and_sign_transfer_domain_tx(
     let FixedContract { fixed_address, .. } = get_transfer_domain_contract();
     let action = TransactionAction::Call(fixed_address);
 
-    let sender = ctx.from.parse::<H160>().map_err(|_| "Invalid address")?;
-
+    let sender = H160::from(ctx.from);
     let (from_address, to_address) = if ctx.direction {
-        let to_address = ctx.to.parse::<H160>().map_err(|_| "Invalid address")?;
+        let to_address = H160::from(ctx.to);
         // Send EvmIn from contract address
         (fixed_address, to_address)
     } else {
-        let from_address = ctx.from.parse::<H160>().map_err(|_| "Invalid address")?;
+        let from_address = H160::from(ctx.from);
         // Send EvmOut to contract address
         (from_address, fixed_address)
     };
@@ -167,10 +165,8 @@ fn evm_try_create_and_sign_transfer_domain_tx(
 }
 
 #[ffi_fallible]
-fn evm_try_store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
-    let from_address = from_address
-        .parse::<H160>()
-        .map_err(|_| "Invalid address")?;
+fn evm_try_store_account_nonce(from_address: XAddress, nonce: u64) -> Result<()> {
+    let from_address = H160::from(from_address);
     let _ = SERVICES
         .evm
         .core
@@ -192,10 +188,9 @@ fn evm_try_store_account_nonce(from_address: &str, nonce: u64) -> Result<()> {
 ///
 /// Returns the balance of the account as a `u64` on success.
 #[ffi_fallible]
-fn evm_try_get_balance(address: &str) -> Result<u64> {
-    let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
+fn evm_try_get_balance(address: XAddress) -> Result<u64> {
+    let address = H160::from(address);
     let state_root = SERVICES.evm.block.get_latest_state_root()?;
-
     let balance = SERVICES.evm.core.get_balance(address, state_root)?;
     let amount = WeiAmount(balance).to_satoshi()?.try_into()?;
 
@@ -234,10 +229,9 @@ fn evm_try_unsafe_update_state_in_template(template: &mut BlockTemplateWrapper) 
 #[ffi_fallible]
 fn evm_try_unsafe_get_next_valid_nonce_in_template(
     template: &BlockTemplateWrapper,
-    address: &str,
+    address: XAddress,
 ) -> Result<u64> {
-    let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
-
+    let address = H160::from(address);
     unsafe {
         let next_nonce = SERVICES
             .evm
@@ -258,13 +252,14 @@ fn evm_try_unsafe_get_next_valid_nonce_in_template(
 #[ffi_fallible]
 fn evm_try_unsafe_remove_txs_above_hash_in_template(
     template: &mut BlockTemplateWrapper,
-    target_hash: String,
-) -> Result<Vec<String>> {
+    target_hash: XHash,
+) -> Result<()> {
     unsafe {
         SERVICES
             .evm
             .core
-            .remove_txs_above_hash_in_block_template(template.get_inner_mut()?, target_hash)
+            .remove_txs_above_hash_in_block_template(template.get_inner_mut()?, target_hash)?;
+        Ok(())
     }
 }
 
@@ -279,15 +274,14 @@ fn evm_try_unsafe_remove_txs_above_hash_in_template(
 fn evm_try_unsafe_add_balance_in_template(
     template: &mut BlockTemplateWrapper,
     raw_tx: &str,
-    native_hash: &str,
+    native_hash: XHash,
 ) -> Result<()> {
     let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
-    let native_hash = XHash::from(native_hash);
-
     let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmIn,
     }));
+
     unsafe {
         SERVICES
             .evm
@@ -306,11 +300,9 @@ fn evm_try_unsafe_add_balance_in_template(
 fn evm_try_unsafe_sub_balance_in_template(
     template: &mut BlockTemplateWrapper,
     raw_tx: &str,
-    native_hash: &str,
+    native_hash: XHash,
 ) -> Result<bool> {
     let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
-    let native_hash = XHash::from(native_hash);
-
     let exec_tx = ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
         signed_tx: Box::new(signed_tx),
         direction: TransferDirection::EvmOut,
@@ -498,10 +490,8 @@ fn evm_try_unsafe_remove_template(template: &mut BlockTemplateWrapper) -> Result
 fn evm_try_unsafe_push_tx_in_template(
     template: &mut BlockTemplateWrapper,
     raw_tx: &str,
-    native_hash: &str,
+    native_hash: XHash,
 ) -> Result<ffi::ValidateTxCompletion> {
-    let native_hash = native_hash.to_string();
-
     unsafe {
         let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
 
@@ -513,7 +503,7 @@ fn evm_try_unsafe_push_tx_in_template(
         )?;
 
         Ok(ffi::ValidateTxCompletion {
-            tx_hash: format!("{:?}", tx_hash),
+            tx_hash: tx_hash.to_fixed_bytes(),
         })
     }
 }
@@ -592,7 +582,7 @@ fn evm_try_get_block_hash_by_number(height: u64) -> Result<XHash> {
         .storage
         .get_block_by_number(&U256::from(height))?
         .ok_or("Invalid block number")?;
-    Ok(format!("{:?}", block.header.hash()))
+    Ok(block.header.hash().to_fixed_bytes())
 }
 
 /// Return the block number for a given blockhash.
@@ -605,9 +595,8 @@ fn evm_try_get_block_hash_by_number(height: u64) -> Result<XHash> {
 ///
 /// Returns the block number associated with the given blockhash.
 #[ffi_fallible]
-fn evm_try_get_block_number_by_hash(hash: &str) -> Result<u64> {
-    let hash = hash.parse::<H256>().map_err(|_| "Invalid hash")?;
-
+fn evm_try_get_block_number_by_hash(hash: XHash) -> Result<u64> {
+    let hash = H256::from(hash);
     let block = SERVICES
         .evm
         .storage
@@ -618,9 +607,8 @@ fn evm_try_get_block_number_by_hash(hash: &str) -> Result<u64> {
 }
 
 #[ffi_fallible]
-fn evm_try_get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
-    let hash = hash.parse::<H256>().map_err(|_| "Invalid hash")?;
-
+fn evm_try_get_block_header_by_hash(hash: XHash) -> Result<ffi::EVMBlockHeader> {
+    let hash = H256::from(hash);
     let block = SERVICES
         .evm
         .storage
@@ -633,16 +621,16 @@ fn evm_try_get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
     let base_fee = u64::try_from(WeiAmount(block.header.base_fee).to_satoshi()?)?;
 
     let out = ffi::EVMBlockHeader {
-        parent_hash: format!("{:?}", block.header.parent_hash),
-        beneficiary: format!("{:?}", block.header.beneficiary),
-        state_root: format!("{:?}", block.header.state_root),
-        receipts_root: format!("{:?}", block.header.receipts_root),
+        parent_hash: block.header.parent_hash.to_fixed_bytes(),
+        beneficiary: block.header.beneficiary.to_fixed_bytes(),
+        state_root: block.header.state_root.to_fixed_bytes(),
+        receipts_root: block.header.receipts_root.to_fixed_bytes(),
         number,
         gas_limit,
         gas_used,
         timestamp: block.header.timestamp,
         extra_data: block.header.extra_data.clone(),
-        mix_hash: format!("{:?}", block.header.mix_hash),
+        mix_hash: block.header.mix_hash.to_fixed_bytes(),
         nonce: block.header.nonce.to_low_u64_be(),
         base_fee,
     };
@@ -650,9 +638,8 @@ fn evm_try_get_block_header_by_hash(hash: &str) -> Result<ffi::EVMBlockHeader> {
 }
 
 #[ffi_fallible]
-fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
-    let tx_hash = tx_hash.parse::<H256>().map_err(|_| "Invalid hash")?;
-
+fn evm_try_get_tx_by_hash(tx_hash: XHash) -> Result<ffi::EVMTransaction> {
+    let tx_hash = H256::from(tx_hash);
     let tx = SERVICES
         .evm
         .storage
@@ -685,8 +672,8 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 
     let out = ffi::EVMTransaction {
         tx_type,
-        hash: format!("{:?}", tx.hash()),
-        sender: format!("{:?}", tx.sender),
+        hash: tx.hash().to_fixed_bytes(),
+        sender: tx.sender.to_fixed_bytes(),
         nonce,
         gas_price,
         gas_limit,
@@ -697,8 +684,8 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
             TransactionAction::Create => true,
         },
         to: match tx.to() {
-            Some(to) => format!("{to:?}"),
-            None => XHash::new(),
+            Some(to) => to.to_fixed_bytes(),
+            None => H160::zero().to_fixed_bytes(),
         },
         value,
         data: tx.data().to_vec(),
@@ -709,10 +696,9 @@ fn evm_try_get_tx_by_hash(tx_hash: &str) -> Result<ffi::EVMTransaction> {
 #[ffi_fallible]
 fn evm_try_unsafe_create_dst20(
     template: &mut BlockTemplateWrapper,
-    native_hash: &str,
+    native_hash: XHash,
     token: ffi::DST20TokenInfo,
 ) -> Result<()> {
-    let native_hash = XHash::from(native_hash);
     let address = ain_contracts::dst20_address_from_token_id(token.id)?;
     debug!("Deploying to address {:#?}", address);
 
@@ -734,11 +720,10 @@ fn evm_try_unsafe_create_dst20(
 fn evm_try_unsafe_bridge_dst20(
     template: &mut BlockTemplateWrapper,
     raw_tx: &str,
-    native_hash: &str,
+    native_hash: XHash,
     token_id: u64,
     out: bool,
 ) -> Result<()> {
-    let native_hash = XHash::from(native_hash);
     let contract_address = ain_contracts::dst20_address_from_token_id(token_id)?;
     let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
     let system_tx = ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
@@ -763,9 +748,9 @@ fn evm_try_unsafe_bridge_dst20(
 ///
 /// Returns the transaction's hash
 #[ffi_fallible]
-fn evm_try_get_tx_hash(raw_tx: &str) -> Result<String> {
+fn evm_try_get_tx_hash(raw_tx: &str) -> Result<XHash> {
     let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
-    Ok(format!("{:?}", signed_tx.hash()))
+    Ok(signed_tx.hash().to_fixed_bytes())
 }
 
 #[ffi_fallible]
@@ -796,11 +781,10 @@ fn evm_try_unsafe_cache_signed_tx(raw_tx: &str, instance: usize) -> Result<()> {
 /// Returns `true` if the address is a contract, `false` otherwise
 #[ffi_fallible]
 fn evm_try_unsafe_is_smart_contract_in_template(
-    address: &str,
+    address: XAddress,
     template: &BlockTemplateWrapper,
 ) -> Result<bool> {
-    let address = address.parse::<H160>().map_err(|_| "Invalid address")?;
-
+    let address = H160::from(address);
     unsafe {
         SERVICES
             .evm
@@ -829,7 +813,7 @@ fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Res
 
     Ok(TxMinerInfo {
         nonce,
-        address: format!("{:?}", signed_tx.sender),
+        address: signed_tx.sender.to_fixed_bytes(),
         tip_fee,
         min_rbf_tip_fee,
     })

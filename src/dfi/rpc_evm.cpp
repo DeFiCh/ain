@@ -78,7 +78,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
 
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
-    const auto from = fromEth.GetHex();
+    const auto from = fromEth.GetByteArray();
 
     CKey key;
     if (!pwallet->GetKey(keyId, key)) {
@@ -103,7 +103,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const uint64_t value = AmountFromValue(request.params[5]);  // Amount in CAmount
 
     const auto toStr = request.params[4].get_str();
-    std::string to = "";
+    EvmAddressData to{};
     if (!toStr.empty()) {
         const auto toDest = DecodeDestination(toStr);
         if (toDest.index() != WitV16KeyEthHashType) {
@@ -111,7 +111,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        to = toEth.GetHex();
+        to = toEth.GetByteArray();
     }
 
     rust::Vec<uint8_t> input{};
@@ -159,7 +159,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
     evm_try_store_account_nonce(result, from, createResult.nonce);
     if (!result.ok) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Could not cache nonce %i for %s", from, createResult.nonce));
+        throw JSONRPCError(RPC_DATABASE_ERROR, "Could not cache nonce");
     }
 
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
@@ -317,31 +317,31 @@ UniValue vmmap(const JSONRPCRequest &request) {
         if (!evmBlockHash.val.has_value()) {
             throwInvalidParam(evmBlockHash.msg);
         }
+        auto hash = uint256S(evmBlockHash);
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, *evmBlockHash.val);
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, hash.GetByteArray());
         crossBoundaryOkOrThrow(result);
         return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
     };
 
-    auto handleMapBlockNumberEVMToDVMRequest =
-        [&throwInvalidParam, &ensureEVMHashStripped, &crossBoundaryOkOrThrow](const std::string &input) {
-            uint64_t height;
-            bool success = ParseUInt64(input, &height);
-            if (!success || height < 0) {
-                throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
-            }
-            CrossBoundaryResult result;
-            auto evmHash = evm_try_get_block_hash_by_number(result, height);
-            auto evmBlockHash = ensureEVMHashStripped(std::string(evmHash.data(), evmHash.length()));
-            crossBoundaryOkOrThrow(result);
-            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-            if (!dvmBlockHash.val.has_value()) {
-                throwInvalidParam(dvmBlockHash.msg);
-            }
-            CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-            uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
-            return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
-        };
+    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+        uint64_t height;
+        bool success = ParseUInt64(input, &height);
+        if (!success || height < 0) {
+            throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
+        }
+        CrossBoundaryResult result;
+        auto hash = evm_try_get_block_hash_by_number(result, height);
+        auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
+        crossBoundaryOkOrThrow(result);
+        auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+        if (!dvmBlockHash.val.has_value()) {
+            throwInvalidParam(dvmBlockHash.msg);
+        }
+        CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
+        return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
+    };
 
     if (type == VMDomainRPCMapType::Auto) {
         auto [mapType, isResolved] = handleAutoInfer();

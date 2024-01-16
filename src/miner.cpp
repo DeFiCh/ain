@@ -109,7 +109,7 @@ void BlockAssembler::resetBlock() {
 
 ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CScript &scriptPubKeyIn,
                                                                        int64_t blockTime,
-                                                                       const EvmAddressData &evmBeneficiary) {
+                                                                       const std::string &evmBeneficiary) {
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -293,13 +293,9 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             return Res::Err("Failed to construct block");
         }
         auto blockResult = *res;
+        auto blockHash = uint256::FromByteArray(blockResult.block_hash).GetHex();
         xvm = XVM{
-            0,
-            {0,
-              std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2),
-              blockResult.total_burnt_fees,
-              blockResult.total_priority_fees,
-              evmBeneficiary}
+            0, {0, blockHash, blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}
         };
     }
 
@@ -928,7 +924,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
                         evm_try_unsafe_remove_txs_above_hash_in_template(
-                            result, evmTemplate->GetTemplate(), entryHash.ToString());
+                            result, evmTemplate->GetTemplate(), entryHash.GetByteArray());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n",
                                       __func__,
