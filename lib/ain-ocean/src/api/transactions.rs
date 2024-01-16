@@ -1,15 +1,49 @@
-use axum::{extract::Path, routing::get, Json, Router};
+use axum::{
+    extract::{Path, Query},
+    routing::get,
+    Json, Router,
+};
 use bitcoin::Txid;
 use serde::Deserialize;
 
 use crate::{
-    model::{Transaction, TransactionVin, TransactionVout},
+    api_paged_response::ApiPagedResponse,
+    api_query::PaginationQuery,
+    model::{Block, Transaction, TransactionVin, TransactionVout},
     repository::RepositoryOps,
     Result, SERVICES,
 };
+
 #[derive(Deserialize)]
 struct TransactionId {
     id: Txid,
+}
+
+async fn list_transaction_by_block_hash(
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<ApiPagedResponse<Transaction>>> {
+    let transaction_list = SERVICES
+        .transaction
+        .by_block_hash
+        .list(None)?
+        .take(query.size)
+        .map(|item| {
+            let (txid, id) = item?;
+            let b = SERVICES
+                .transaction
+                .by_id
+                .get(&txid)?
+                .ok_or("Missing block index")?;
+
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Json(ApiPagedResponse::of(
+        transaction_list,
+        query.size,
+        |transaction_list| transaction_list.id.clone(),
+    )))
 }
 
 async fn get_transaction(
@@ -39,6 +73,7 @@ async fn get_vouts(
 pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/:id", get(get_transaction))
+        .route("/:block_hash", get(list_transaction_by_block_hash))
         .route("/:id/vins", get(get_vins))
         .route("/:id/vouts", get(get_vouts))
 }

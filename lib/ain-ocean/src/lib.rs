@@ -54,6 +54,7 @@ pub struct PoolService {
 
 pub struct TransactionService {
     by_id: TransactionRepository,
+    by_block_hash: TransactionRepository,
     vin_by_id: TransactionVinRepository,
     vout_by_id: TransactionVoutRepository,
 }

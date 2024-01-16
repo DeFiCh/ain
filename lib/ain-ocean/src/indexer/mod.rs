@@ -2,6 +2,7 @@ mod auction;
 mod masternode;
 mod oracle;
 mod pool;
+pub mod transaction;
 pub mod tx_result;
 
 use defichain_rpc::RpcApi;
