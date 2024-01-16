@@ -1,56 +1,57 @@
-use crate::{ffi::CrossBoundaryResult, prelude::*};
+use crate::{ffi, prelude::*};
+use ain_macros::ffi_fallible;
+use anyhow::Result;
 
-pub fn ain_rs_preinit(result: &mut CrossBoundaryResult) {
+#[ffi_fallible]
+pub fn ain_rs_preinit() -> Result<()> {
     ain_grpc::preinit();
-    cross_boundary_success(result);
+    Ok(())
 }
 
-pub fn ain_rs_init_logging(result: &mut CrossBoundaryResult) {
+#[ffi_fallible]
+pub fn ain_rs_init_logging() -> Result<()> {
     ain_grpc::init_logging();
-    cross_boundary_success(result);
+    Ok(())
 }
 
-pub fn ain_rs_init_core_services(result: &mut CrossBoundaryResult) {
+#[ffi_fallible]
+pub fn ain_rs_init_core_services() -> Result<()> {
     ain_grpc::init_services();
-    result.ok = true;
+    Ok(())
 }
 
-pub fn ain_rs_stop_core_services(result: &mut CrossBoundaryResult) {
-    ain_grpc::stop_services();
-    cross_boundary_success(result);
+#[ffi_fallible]
+pub fn ain_rs_stop_core_services() -> Result<()> {
+    ain_grpc::stop_services()?;
+    Ok(())
 }
 
-pub fn ain_rs_init_network_json_rpc_service(result: &mut CrossBoundaryResult, addr: String) {
-    match ain_grpc::init_network_json_rpc_service(addr) {
-        Ok(()) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+#[ffi_fallible]
+pub fn ain_rs_init_network_json_rpc_service(addr: String) -> Result<()> {
+    ain_grpc::init_network_json_rpc_service(addr)?;
+    Ok(())
 }
 
-pub fn ain_rs_init_network_grpc_service(result: &mut CrossBoundaryResult, addr: String) {
-    match ain_grpc::init_network_grpc_service(addr) {
-        Ok(()) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+#[ffi_fallible]
+pub fn ain_rs_init_network_grpc_service(addr: String) -> Result<()> {
+    ain_grpc::init_network_grpc_service(addr)?;
+    Ok(())
 }
 
-pub fn ain_rs_init_network_subscriptions_service(result: &mut CrossBoundaryResult, addr: String) {
-    match ain_grpc::init_network_subscriptions_service(addr) {
-        Ok(()) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+#[ffi_fallible]
+pub fn ain_rs_init_network_subscriptions_service(addr: String) -> Result<()> {
+    ain_grpc::init_network_subscriptions_service(addr)?;
+    Ok(())
 }
 
-pub fn ain_rs_stop_network_services(result: &mut CrossBoundaryResult) {
-    match ain_grpc::stop_network_services() {
-        Ok(()) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+#[ffi_fallible]
+pub fn ain_rs_stop_network_services() -> Result<()> {
+    ain_grpc::stop_network_services()?;
+    Ok(())
 }
 
-pub fn ain_rs_wipe_evm_folder(result: &mut CrossBoundaryResult) {
-    match ain_grpc::wipe_evm_folder() {
-        Ok(()) => cross_boundary_success(result),
-        Err(e) => cross_boundary_error_return(result, e.to_string()),
-    }
+#[ffi_fallible]
+pub fn ain_rs_wipe_evm_folder() -> Result<()> {
+    ain_grpc::wipe_evm_folder()?;
+    Ok(())
 }

@@ -152,11 +152,12 @@ fn is_services_init_called() -> bool {
     IS_SERVICES_INIT_CALL.load(Ordering::SeqCst)
 }
 
-pub fn stop_services() {
+pub fn stop_services() -> Result<()> {
     if is_services_init_called() {
         info!("Shutdown rs services");
-        SERVICES.stop();
+        SERVICES.stop()?;
     }
+    Ok(())
 }
 
 pub fn wipe_evm_folder() -> Result<()> {

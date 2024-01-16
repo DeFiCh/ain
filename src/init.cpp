@@ -226,7 +226,7 @@ void Shutdown(InitInterfaces& interfaces)
     for (const auto& client : interfaces.chain_clients) {
         client->flush();
     }
-    XResultStatusLogged(ain_rs_stop_network_services(result));
+    auto res = XResultStatusLogged(ain_rs_stop_network_services(result));
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -292,7 +292,7 @@ void Shutdown(InitInterfaces& interfaces)
     // next startup faster by avoiding rescan.
 
     ShutdownDfTxGlobalTaskPool();
-    XResultStatusLogged(ain_rs_stop_core_services(result));
+    res = XResultStatusLogged(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     {
