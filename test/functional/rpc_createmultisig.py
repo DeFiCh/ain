@@ -4,6 +4,7 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test multisig RPCs"""
 
+from test_framework.descriptors import descsum_create
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_raises_rpc_error,
@@ -14,7 +15,8 @@ from test_framework.key import ECPubKey
 import binascii
 import decimal
 import itertools
-
+import json
+import os
 
 class RpcCreateMultiSigTest(DefiTestFramework):
     def set_test_params(self):
@@ -83,6 +85,18 @@ class RpcCreateMultiSigTest(DefiTestFramework):
                 legacy_addr,
                 node0.addmultisigaddress(2, keys, "", "p2sh-segwit")["address"],
             )
+
+        self.log.info('Testing sortedmulti descriptors with BIP 67 test vectors')
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/rpc_bip67.json'), encoding='utf-8') as f:
+            vectors = json.load(f)
+
+        for t in vectors:
+            key_str = ','.join(t['keys'])
+            desc = descsum_create('sh(sortedmulti(2,{}))'.format(key_str))
+            assert_equal(self.nodes[0].deriveaddresses(desc)[0], t['address'])
+            sorted_key_str = ','.join(t['sorted_keys'])
+            sorted_key_desc = descsum_create('sh(multi(2,{}))'.format(sorted_key_str))
+            assert_equal(self.nodes[0].deriveaddresses(sorted_key_desc)[0], t['address'])
 
     def check_addmultisigaddress_errors(self):
         self.log.info(

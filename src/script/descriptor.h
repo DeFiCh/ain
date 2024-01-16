@@ -5,11 +5,56 @@
 #ifndef DEFI_SCRIPT_DESCRIPTOR_H
 #define DEFI_SCRIPT_DESCRIPTOR_H
 
+#include <outputtype.h>
 #include <script/script.h>
 #include <script/sign.h>
 #include <script/signingprovider.h>
 
 #include <vector>
+
+using ExtPubKeyMap = std::unordered_map<uint32_t, CExtPubKey>;
+
+/** Cache for single descriptor's derived extended pubkeys */
+class DescriptorCache {
+private:
+    /** Map key expression index -> map of (key derivation index -> xpub) */
+    std::unordered_map<uint32_t, ExtPubKeyMap> m_derived_xpubs;
+    /** Map key expression index -> parent xpub */
+    ExtPubKeyMap m_parent_xpubs;
+
+public:
+    /** Cache a parent xpub
+     *
+     * @param[in] key_exp_pos Position of the key expression within the descriptor
+     * @param[in] xpub The CExtPubKey to cache
+     */
+    void CacheParentExtPubKey(uint32_t key_exp_pos, const CExtPubKey& xpub);
+    /** Retrieve a cached parent xpub
+     *
+     * @param[in] key_exp_pos Position of the key expression within the descriptor
+     * @param[in] xpub The CExtPubKey to get from cache
+     */
+    bool GetCachedParentExtPubKey(uint32_t key_exp_pos, CExtPubKey& xpub) const;
+    /** Cache an xpub derived at an index
+     *
+     * @param[in] key_exp_pos Position of the key expression within the descriptor
+     * @param[in] der_index Derivation index of the xpub
+     * @param[in] xpub The CExtPubKey to cache
+     */
+    void CacheDerivedExtPubKey(uint32_t key_exp_pos, uint32_t der_index, const CExtPubKey& xpub);
+    /** Retrieve a cached xpub derived at an index
+     *
+     * @param[in] key_exp_pos Position of the key expression within the descriptor
+     * @param[in] der_index Derivation index of the xpub
+     * @param[in] xpub The CExtPubKey to get from cache
+     */
+    bool GetCachedDerivedExtPubKey(uint32_t key_exp_pos, uint32_t der_index, CExtPubKey& xpub) const;
+
+    /** Retrieve all cached parent xpubs */
+    const ExtPubKeyMap GetCachedParentExtPubKeys() const;
+    /** Retrieve all cached derived xpubs */
+    const std::unordered_map<uint32_t, ExtPubKeyMap> GetCachedDerivedExtPubKeys() const;
+};
 
 // Descriptors are strings that describe a set of scriptPubKeys, together with
 // all information necessary to solve them. By combining all information into
@@ -49,18 +94,18 @@ struct Descriptor {
      * provider: the provider to query for private keys in case of hardened derivation.
      * output_scripts: the expanded scriptPubKeys will be put here.
      * out: scripts and public keys necessary for solving the expanded scriptPubKeys will be put here (may be equal to provider).
-     * cache: vector which will be overwritten with cache data necessary to evaluate the descriptor at this point without access to private keys.
+     * write_cache: vector which will be overwritten with cache data necessary to evaluate the descriptor at this point without access to private keys.
      */
-    virtual bool Expand(int pos, const SigningProvider& provider, std::vector<CScript>& output_scripts, FlatSigningProvider& out, std::vector<unsigned char>* cache = nullptr) const = 0;
+    virtual bool Expand(int pos, const SigningProvider& provider, std::vector<CScript>& output_scripts, FlatSigningProvider& out, DescriptorCache* write_cache = nullptr) const = 0;
 
     /** Expand a descriptor at a specified position using cached expansion data.
      *
      * pos: the position at which to expand the descriptor. If IsRange() is false, this is ignored.
-     * cache: vector from which cached expansion data will be read.
+     * read_cache: vector from which cached expansion data will be read.
      * output_scripts: the expanded scriptPubKeys will be put here.
      * out: scripts and public keys necessary for solving the expanded scriptPubKeys will be put here (may be equal to provider).
      */
-    virtual bool ExpandFromCache(int pos, const std::vector<unsigned char>& cache, std::vector<CScript>& output_scripts, FlatSigningProvider& out) const = 0;
+    virtual bool ExpandFromCache(int pos, const DescriptorCache& read_cache, std::vector<CScript>& output_scripts, FlatSigningProvider& out) const = 0;
 
     /** Expand the private key for a descriptor at a specified position, if possible.
      *
@@ -69,6 +114,9 @@ struct Descriptor {
      * out: any private keys available for the specified pos will be placed here.
      */
     virtual void ExpandPrivate(int pos, const SigningProvider& provider, FlatSigningProvider& out) const = 0;
+
+    /** @return The OutputType of the scriptPubKey(s) produced by this descriptor. Or nullopt if indeterminate (multiple or none) */
+    virtual std::optional<OutputType> GetOutputType() const = 0;
 };
 
 /** Parse a descriptor string. Included private keys are put in out.
