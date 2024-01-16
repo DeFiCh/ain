@@ -214,6 +214,34 @@ static UniValue getpeerinfo(const JSONRPCRequest& request)
     return ret;
 }
 
+bool CheckChainSyncToTip() {
+    // Check chain tip is at block headers tip
+    const auto chainHeight = (int)::ChainActive().Height();
+    const auto headerHeight = pindexBestHeader ? pindexBestHeader->nHeight : -1;
+    return chainHeight == headerHeight;
+}
+
+bool CheckActivePeerConnections(bool& flag) {
+    if(!g_connman) {
+        flag = true;
+        return false;
+    }
+    std::vector<CNodeStats> vstats;
+    g_connman->GetNodeStats(vstats);
+
+    // Check node if it is connected to minimum number of active peer nodes
+    int active_peers = 0;
+    int64_t currTime = GetSystemTimeInSeconds();
+    for (const CNodeStats& stats : vstats) {
+        if (currTime - stats.nLastRecv <= DEFAULT_ACTIVE_PEER_CONNECTION_TIMEOUT) {
+            active_peers++;
+            if (active_peers == DEFAULT_MINIMUM_ACTIVE_NODE_PEERS)
+                break;
+        }
+    }
+    return active_peers >= DEFAULT_MINIMUM_ACTIVE_NODE_PEERS;
+}
+
 UniValue getnodestatusinfo(const JSONRPCRequest& request)
 {
             RPCHelpMan{"getnodestatusinfo",
@@ -235,25 +263,9 @@ UniValue getnodestatusinfo(const JSONRPCRequest& request)
     if(!g_connman)
         throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
 
-    std::vector<CNodeStats> vstats;
-    g_connman->GetNodeStats(vstats);
-
-    // Check node if it is connected to minimum number of active peer nodes
-    int active_peers = 0;
-    int64_t currTime = GetSystemTimeInSeconds();
-    for (const CNodeStats& stats : vstats) {
-        if (currTime - stats.nLastRecv <= DEFAULT_ACTIVE_PEER_CONNECTION_TIMEOUT) {
-            active_peers++;
-            if (active_peers == DEFAULT_MINIMUM_ACTIVE_NODE_PEERS)
-                break;
-        }
-    }
-    bool activePeerNodes = active_peers >= DEFAULT_MINIMUM_ACTIVE_NODE_PEERS;
-
-    // Check chain tip is at block headers tip
-    const auto chainHeight = (int)::ChainActive().Height();
-    const auto headerHeight = pindexBestHeader ? pindexBestHeader->nHeight : -1;
-    bool syncToTip = chainHeight == headerHeight;
+    bool flag{};
+    bool syncToTip = CheckChainSyncToTip();
+    bool activePeerNodes = CheckActivePeerConnections(flag);
 
     UniValue obj(UniValue::VOBJ);
     obj.pushKV("health_status", syncToTip && activePeerNodes);
