@@ -686,6 +686,9 @@ void SetupServerArgs()
     RPCMetadata::SetupArgs(gArgs);
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
+
+    // Set evm datbase dirty flag
+
 }
 
 std::string LicenseInfo()
