@@ -319,7 +319,7 @@ BOOST_AUTO_TEST_CASE(serialised_address_from_block_test)
     std::vector<unsigned char> data = {0};
     data.reserve(33);
     ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, bech32Vec.begin(), bech32Vec.end());
-    auto bech32Encoded = bech32::Encode("bcrt", data);
+    auto bech32Encoded = bech32::Encode(bech32::Encoding::BECH32, "bcrt", data);
 
     // Encode Eth
     auto ethVec = ParseHex(ethHex);

@@ -145,6 +145,7 @@ BASE_SCRIPTS = [
     "feature_rpcstats.py",
     "feature_futures.py",
     "interface_zmq.py",
+    'rpc_invalid_address_message.py',
     "feature_restore_utxo.py",
     "interface_defi_cli.py",
     "mempool_resurrect.py",

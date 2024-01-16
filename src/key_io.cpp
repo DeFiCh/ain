@@ -9,6 +9,9 @@
 #include <assert.h>
 #include <string.h>
 
+/// Maximum witness length for Bech32 addresses.
+static constexpr std::size_t BECH32_WITNESS_PROG_MAX_LEN = 40;
+
 namespace {
 class DestinationEncoder
 {
@@ -37,7 +40,7 @@ public:
         std::vector<unsigned char> data = {0};
         data.reserve(33);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
-        return bech32::Encode(m_params.Bech32HRP(), data);
+        return bech32::Encode(bech32::Encoding::BECH32, m_params.Bech32HRP(), data);
     }
 
     std::string operator()(const WitnessV0ScriptHash& id) const
@@ -45,7 +48,7 @@ public:
         std::vector<unsigned char> data = {0};
         data.reserve(53);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.begin(), id.end());
-        return bech32::Encode(m_params.Bech32HRP(), data);
+        return bech32::Encode(bech32::Encoding::BECH32, m_params.Bech32HRP(), data);
     }
 
     std::string operator()(const WitnessUnknown& id) const
@@ -56,7 +59,7 @@ public:
         std::vector<unsigned char> data = {(unsigned char)id.version};
         data.reserve(1 + (id.length * 8 + 4) / 5);
         ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, id.program, id.program + id.length);
-        return bech32::Encode(m_params.Bech32HRP(), data);
+        return bech32::Encode(bech32::Encoding::BECH32M, m_params.Bech32HRP(), data);
     }
 
     std::string operator()(const WitnessV16EthHash& id) const
@@ -83,13 +86,15 @@ public:
 };
 } // namespace
 
-CTxDestination DecodeDestination(const std::string& str, const CChainParams& params)
+CTxDestination DecodeDestination(const std::string& str, const CChainParams& params, std::string& error_str)
 {
     std::vector<unsigned char> data;
     uint160 hash;
+    error_str = "";
     if (str.size() == ETH_ADDR_LENGTH_INC_PREFIX && str.substr(0, 2) == ETH_ADDR_PREFIX) {
         const auto hex = str.substr(2);
         if (!IsHex(hex)) {
+            error_str = "erc55 address must be in hex format";
             return CNoDestination();
         }
         data = ParseHex(hex);
@@ -112,15 +117,35 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return ScriptHash(hash);
         }
+
+        // Set potential error message.
+        // This message may be changed if the address can also be interpreted as a Bech32 address.
+        error_str = "Invalid prefix for Base58-encoded address";
     }
     data.clear();
-    auto bech = bech32::Decode(str);
-    if (bech.second.size() > 0 && bech.first == params.Bech32HRP()) {
+    const auto dec = bech32::Decode(str);
+    if ((dec.encoding == bech32::Encoding::BECH32 || dec.encoding == bech32::Encoding::BECH32M) && dec.data.size() > 0) {
         // Bech32 decoding
-        int version = bech.second[0]; // The first 5 bit symbol is the witness version (0-16)
+        error_str = "";
+
+        if (dec.hrp != params.Bech32HRP()) {
+            error_str = "Invalid prefix for Bech32 address";
+            return CNoDestination();
+        }
+
+        int version = dec.data[0]; // The first 5 bit symbol is the witness version (0-16)
+        if (version == 0 && dec.encoding != bech32::Encoding::BECH32) {
+            error_str = "Version 0 witness address must use Bech32 checksum";
+            return CNoDestination();
+        }
+        if (version != 0 && dec.encoding != bech32::Encoding::BECH32M) {
+            error_str = "Version 1+ witness address must use Bech32m checksum";
+            return CNoDestination();
+        }
+
         // The rest of the symbols are converted witness program bytes.
-        data.reserve(((bech.second.size() - 1) * 5) / 8);
-        if (ConvertBits<5, 8, false>([&](unsigned char c) { data.push_back(c); }, bech.second.begin() + 1, bech.second.end())) {
+        data.reserve(((dec.data.size() - 1) * 5) / 8);
+        if (ConvertBits<5, 8, false>([&](unsigned char c) { data.push_back(c); }, dec.data.begin() + 1, dec.data.end())) {
             if (version == 0) {
                 {
                     WitnessV0KeyHash keyid;
@@ -136,11 +161,21 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
                         return scriptid;
                     }
                 }
+
+                error_str = "Invalid Bech32 v0 address data size";
                 return CNoDestination();
             }
-            if (version > 16 || data.size() < 2 || data.size() > 40) {
+
+            if (version > 16) {
+                error_str = "Invalid Bech32 address witness version";
                 return CNoDestination();
             }
+
+            if (data.size() < 2 || data.size() > BECH32_WITNESS_PROG_MAX_LEN) {
+                error_str = "Invalid Bech32 address data size";
+                return CNoDestination();
+            }
+
             WitnessUnknown unk;
             unk.version = version;
             std::copy(data.begin(), data.end(), unk.program);
@@ -148,6 +183,10 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             return unk;
         }
     }
+
+    // Set error message if address can't be interpreted as Base58 or Bech32.
+    if (error_str.empty()) error_str = "Invalid address format";
+
     return CNoDestination();
 }
 
@@ -237,14 +276,27 @@ std::string EncodeDestination(const CTxDestination& dest)
     return std::visit(DestinationEncoder(Params()), dest);
 }
 
+CTxDestination DecodeDestination(const std::string& str, std::string& error_msg)
+{
+    return DecodeDestination(str, Params(), error_msg);
+}
+
 CTxDestination DecodeDestination(const std::string& str)
 {
-    return DecodeDestination(str, Params());
+    std::string error_msg;
+    return DecodeDestination(str, error_msg);
+}
+
+CTxDestination DecodeDestination(const std::string& str, const CChainParams& params)
+{
+    std::string error_msg;
+    return DecodeDestination(str, params, error_msg);
 }
 
 bool IsValidDestinationString(const std::string& str, const CChainParams& params)
 {
-    return IsValidDestination(DecodeDestination(str, params));
+    std::string error_msg;
+    return IsValidDestination(DecodeDestination(str, params, error_msg));
 }
 
 bool IsValidDestinationString(const std::string& str)

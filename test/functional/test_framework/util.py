@@ -882,4 +882,4 @@ def token_index_in_account(account, symbol):
 
 
 def get_solc_artifact_path(contract: str, file_name: str) -> str:
-    return f"{os.path.dirname(__file__)}/../../../build/lib/target/sol_artifacts/{contract}/{file_name}"
+    return f"{os.path.dirname(__file__)}/../../../lib/target/sol_artifacts/{contract}/{file_name}"
