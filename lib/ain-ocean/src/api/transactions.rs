@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -28,13 +30,13 @@ async fn list_transaction_by_block_hash(
         .list(None)?
         .take(query.size)
         .map(|item| {
-            let (txid, id) = item?;
+            let (_, trx) = item?;
+            let tx_id = Txid::from_str(&trx.txid)?;
             let b = SERVICES
                 .transaction
                 .by_id
-                .get(&txid)?
+                .get(&tx_id)?
                 .ok_or("Missing block index")?;
-
             Ok(b)
         })
         .collect::<Result<Vec<_>>>()?;
