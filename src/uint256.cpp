@@ -71,3 +71,6 @@ template class base_blob<160>;
 
 // Explicit instantiations for base_blob<256>
 template class base_blob<256>;
+
+const uint256 uint256::ZERO(0);
+const uint256 uint256::ONE(1);

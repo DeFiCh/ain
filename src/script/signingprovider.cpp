@@ -185,7 +185,7 @@ CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDes
 {
     // Only supports destinations which map to single public keys, i.e. P2PKH,
     // P2WPKH, and P2SH-P2WPKH.
-    auto id = CKeyID::FromOrDefaultDestination(dest);
+    auto id = FromOrDefaultDestination(dest);
     auto dest_type = TxDestTypeToKeyType(dest.index()) & KeyType::SigningProviderType;
     switch (dest_type) {
         case KeyType::WPKHashKeyType: {
@@ -203,7 +203,7 @@ CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDes
             if (!store.GetCScript(script_id, script) || !ExtractDestination(script, inner_dest)) {
                 return {};
             }
-            id = CKeyID::FromOrDefaultDestination(inner_dest, KeyType::WPKHashKeyType);
+            id = FromOrDefaultDestination(inner_dest, KeyType::WPKHashKeyType);
             break;
         }
         default:

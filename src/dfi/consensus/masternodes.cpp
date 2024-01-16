@@ -86,7 +86,7 @@ Res CMasternodesConsensus::operator()(const CCreateMasterNodeMessage &obj) const
         assert(!coin.IsSpent());
         CTxDestination pendingDest;
         assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-        const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
+        const CKeyID storedID = FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
         if ((!storedID.IsNull()) && (storedID == node.ownerAuthAddress || storedID == node.operatorAuthAddress)) {
             duplicate = true;
             return false;
@@ -192,7 +192,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
 
             CTxDestination dest;
             ExtractDestination(tx.vout[1].scriptPubKey, dest);
-            const auto keyID = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
+            const auto keyID = FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
             if (keyID.IsNull()) {
                 return Res::Err("Owner address must be P2PKH or P2WPKH type");
             }
@@ -217,7 +217,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
                 assert(!coin.IsSpent());
                 CTxDestination pendingDest;
                 assert(ExtractDestination(coin.out.scriptPubKey, pendingDest));
-                const CKeyID storedID = CKeyID::FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
+                const CKeyID storedID = FromOrDefaultDestination(pendingDest, KeyType::MNOwnerKeyType);
                 if (storedID == keyID) {
                     duplicate = true;
                     return false;

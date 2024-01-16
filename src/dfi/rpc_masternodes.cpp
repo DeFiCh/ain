@@ -191,7 +191,7 @@ UniValue createmasternode(const JSONRPCRequest &request) {
                            strprintf("Address (%s) is not owned by the wallet", EncodeDestination(ownerDest)));
     }
 
-    const CKeyID operatorAuthKey = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
+    const CKeyID operatorAuthKey = FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
     metadata << static_cast<unsigned char>(CustomTxType::CreateMasternode) << static_cast<char>(operatorDest.index())
              << operatorAuthKey;
@@ -468,7 +468,7 @@ UniValue updatemasternode(const JSONRPCRequest &request) {
     }
 
     if (!metaObj["operatorAddress"].isNull()) {
-        const CKeyID keyID = CKeyID::FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
+        const CKeyID keyID = FromOrDefaultDestination(operatorDest, KeyType::MNOperatorKeyType);
         msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress),
                                  std::make_pair(static_cast<char>(operatorDest.index()),
                                                 std::vector<unsigned char>(keyID.begin(), keyID.end())));
@@ -479,7 +479,7 @@ UniValue updatemasternode(const JSONRPCRequest &request) {
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress),
                                      std::pair<char, std::vector<unsigned char>>());
         } else {
-            const CKeyID keyID = CKeyID::FromOrDefaultDestination(rewardDest, KeyType::MNRewardKeyType);
+            const CKeyID keyID = FromOrDefaultDestination(rewardDest, KeyType::MNRewardKeyType);
             msg.updates.emplace_back(static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress),
                                      std::make_pair(static_cast<char>(rewardDest.index()),
                                                     std::vector<unsigned char>(keyID.begin(), keyID.end())));
@@ -648,7 +648,7 @@ UniValue getmasternode(const JSONRPCRequest &request) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }
 
-    const auto keyId = CKeyID::TryFromDestination(dest);
+    const auto keyId = TryFromDestination(dest);
     if (!keyId) {
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Masternode not found");
     }

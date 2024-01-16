@@ -1427,9 +1427,8 @@ template PrecomputedTransactionData::PrecomputedTransactionData(const CTransacti
 template PrecomputedTransactionData::PrecomputedTransactionData(const CMutableTransaction& txTo);
 
 static const CHashWriter HASHER_TAPSIGHASH = TaggedHash("TapSighash");
-static const CHashWriter HASHER_TAPLEAF = TaggedHash("TapLeaf");
-static const CHashWriter HASHER_TAPBRANCH = TaggedHash("TapBranch");
-static const CHashWriter HASHER_TAPTWEAK = TaggedHash("TapTweak");
+const CHashWriter HASHER_TAPLEAF = TaggedHash("TapLeaf");
+const CHashWriter HASHER_TAPBRANCH = TaggedHash("TapBranch");
 
 template<typename T>
 bool SignatureHashSchnorr(uint256& hash_out, const ScriptExecutionData& execdata, const T& tx_to, uint32_t in_pos, uint8_t hash_type, SigVersion sigversion, const PrecomputedTransactionData& cache)
@@ -1793,8 +1792,7 @@ static bool VerifyTaprootCommitment(const std::vector<unsigned char>& control, c
         }
         k = ss_branch.GetSHA256();
     }
-    k = (CHashWriter(HASHER_TAPTWEAK) << MakeSpan(p) << k).GetSHA256();
-    return q.CheckPayToContract(p, k, control[0] & 1);
+    return q.CheckTapTweak(p, k, control[0] & 1);
 }
 
 static bool VerifyWitnessProgram(const CScriptWitness& witness, int witversion, const std::vector<unsigned char>& program, unsigned int flags, const BaseSignatureChecker& checker, ScriptError* serror, bool is_p2sh)
