@@ -8,12 +8,15 @@ from enum import Enum
 
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 BECH32_CONST = 1
-BECH32M_CONST = 0x2bc830a3
+BECH32M_CONST = 0x2BC830A3
+
 
 class Encoding(Enum):
     """Enumeration type to list the various supported encodings."""
+
     BECH32 = 1
     BECH32M = 2
+
 
 def bech32_polymod(values):
     """Internal function that computes the Bech32 checksum."""
@@ -41,6 +44,7 @@ def bech32_verify_checksum(hrp, data):
         return Encoding.BECH32M
     else:
         return None
+
 
 def bech32_create_checksum(encoding, hrp, data):
     """Compute the checksum values given HRP and data."""
@@ -111,7 +115,9 @@ def decode(hrp, addr):
         return (None, None)
     if data[0] == 0 and len(decoded) != 20 and len(decoded) != 32:
         return (None, None)
-    if (data[0] == 0 and encoding != Encoding.BECH32) or (data[0] != 0 and encoding != Encoding.BECH32M):
+    if (data[0] == 0 and encoding != Encoding.BECH32) or (
+        data[0] != 0 and encoding != Encoding.BECH32M
+    ):
         return (None, None)
     return (data[0], decoded)
 

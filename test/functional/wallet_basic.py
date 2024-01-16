@@ -634,7 +634,12 @@ class WalletTest(DefiTestFramework):
         assert_equal(total_txs, len(self.nodes[0].listtransactions("*", 99999)))
 
         # Test getaddressinfo on external address. Note that these addresses are taken from disablewallet.py
-        assert_raises_rpc_error(-5, "Invalid prefix for Base58-encoded address", self.nodes[0].getaddressinfo, "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy")
+        assert_raises_rpc_error(
+            -5,
+            "Invalid prefix for Base58-encoded address",
+            self.nodes[0].getaddressinfo,
+            "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+        )
         address_info = self.nodes[0].getaddressinfo(
             "mneYUmWYsuk7kySiURxCi3AGxrAqZxLgPZ"
         )
