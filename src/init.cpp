@@ -94,6 +94,8 @@ static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 // Dump addresses to banlist.dat every 15 minutes (900s)
 static constexpr int DUMP_BANS_INTERVAL = 60 * 15;
 
+static bool fEvmDatabaseDirty = false;
+
 std::unique_ptr<CConnman> g_connman;
 std::unique_ptr<PeerLogicValidation> peerLogic;
 std::unique_ptr<BanMan> g_banman;
@@ -227,6 +229,9 @@ void Shutdown(InitInterfaces& interfaces)
         client->flush();
     }
     auto res = XResultStatusLogged(ain_rs_stop_network_services(result));
+    if (!res) {
+        fEvmDatabaseDirty = true;
+    }
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -293,6 +298,12 @@ void Shutdown(InitInterfaces& interfaces)
 
     ShutdownDfTxGlobalTaskPool();
     res = XResultStatusLogged(ain_rs_stop_core_services(result));
+    if (!res) {
+        fEvmDatabaseDirty = true;
+    }
+
+    // Save evm database dirty flag to disk
+
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     {
@@ -1828,7 +1839,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitDfTxGlobalTaskPool();
 
     bool fLoaded = false;
-    fReindex = gArgs.GetBoolArg("-reindex", false);
+    fReindex = gArgs.GetBoolArg("-reindex", fEvmDatabaseDirty);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
     while (!fLoaded && !ShutdownRequested()) {
         bool fReset = fReindex;
