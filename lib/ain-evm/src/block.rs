@@ -226,14 +226,14 @@ impl BlockService {
         }
 
         let mut prev_percentile = 0;
-        for percentile in priority_fee_percentile {
-            if prev_percentile > percentile {
+        for percentile in &priority_fee_percentile {
+            if prev_percentile > *percentile {
                 return Err(format_err!(
                     "List of percentile value is not monotonically increasing"
                 )
                 .into());
             }
-            prev_percentile = percentile;
+            prev_percentile = *percentile;
         }
 
         let mut blocks = Vec::new();
@@ -289,8 +289,8 @@ impl BlockService {
             } else {
                 let mut r = Vec::with_capacity(priority_fee_percentile.len());
                 let mut data = Data::new(block_tx_rewards);
-                for percent in priority_fee_percentile {
-                    r.push(U256::from(data.percentile(percent).floor() as u64));
+                for percent in &priority_fee_percentile {
+                    r.push(U256::from(data.percentile(*percent).floor() as u64));
                 }
                 r
             };
