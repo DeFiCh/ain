@@ -2057,7 +2057,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                     break;
                 }
                 CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-                auto dvmBlockHeight = pindex->GetBlockHeader().nHeight;
+                auto dvmBlockHeight = pindex->nHeight;
 
                 if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
                     strLoadError = _("Inconsistent chainstate detected between DVM block database and EVM block database. "
