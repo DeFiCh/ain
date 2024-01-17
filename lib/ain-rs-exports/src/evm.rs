@@ -656,7 +656,8 @@ fn evm_try_get_latest_block_hash() -> Result<[u8; 32]> {
     let block = SERVICES
         .evm
         .storage
-        .get_latest_block()?;
+        .get_latest_block()?
+        .ok_or(format_err!("latest block not found"))?;
     Ok(block.header.hash().to_fixed_bytes())
 }
 

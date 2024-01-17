@@ -29,7 +29,10 @@ use crate::{
     filters::FilterService,
     log::{LogService, Notification},
     receipt::ReceiptService,
-    storage::{traits::BlockStorage, Storage},
+    storage::{
+        traits::{BlockStorage, FlushableStorage},
+        Storage,
+    },
     transaction::{cache::TransactionCache, SignedTx},
     trie::GENESIS_STATE_ROOT,
     Result,
@@ -269,7 +272,7 @@ impl EVMServices {
             .sender
             .send(Notification::Block(block.header.hash()))
             .map_err(|e| format_err!(e.to_string()))?;
-        
+
         self.core.clear_account_nonce();
         self.core.flush()?;
         self.storage.flush()?;
