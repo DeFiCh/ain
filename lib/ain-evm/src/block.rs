@@ -198,7 +198,7 @@ impl BlockService {
         &self,
         block_count: U256,
         highest_block: U256,
-        priority_fee_percentile: Option<Vec<usize>>,
+        priority_fee_percentile: Vec<usize>,
         block_gas_target_factor: u64,
     ) -> Result<FeeHistoryData> {
         // Validate block_count input
@@ -217,25 +217,23 @@ impl BlockService {
             .into());
         }
         // Validate priority_fee_percentile input
-        if let Some(priority_fee_percentile) = &priority_fee_percentile {
-            if priority_fee_percentile.len() > MAX_REWARD_PERCENTILE_VEC_SIZE {
+        if priority_fee_percentile.len() > MAX_REWARD_PERCENTILE_VEC_SIZE {
+            return Err(format_err!(
+                "List of percentile value exceeds maximum allowed size {}",
+                MAX_REWARD_PERCENTILE_VEC_SIZE,
+            )
+            .into());
+        }
+
+        let mut prev_percentile = 0;
+        for percentile in priority_fee_percentile {
+            if prev_percentile > percentile {
                 return Err(format_err!(
-                    "List of percentile value exceeds maximum allowed size {}",
-                    MAX_REWARD_PERCENTILE_VEC_SIZE,
+                    "List of percentile value is not monotonically increasing"
                 )
                 .into());
             }
-
-            let mut prev_percentile = 0;
-            for percentile in priority_fee_percentile {
-                if prev_percentile > *percentile {
-                    return Err(format_err!(
-                        "List of percentile value is not monotonically increasing"
-                    )
-                    .into());
-                }
-                prev_percentile = *percentile;
-            }
+            prev_percentile = percentile;
         }
 
         let mut blocks = Vec::new();
@@ -286,20 +284,17 @@ impl BlockService {
                 block_tx_rewards.push(u64::try_from(tx_rewards)? as f64);
             }
 
-            if let Some(reward) = priority_fee_percentile.as_ref().map(|percentile| {
-                if block_tx_rewards.is_empty() {
-                    vec![U256::zero(); percentile.len()]
-                } else {
-                    let mut reward = Vec::with_capacity(percentile.len());
-                    let mut data = Data::new(block_tx_rewards);
-                    for percent in percentile {
-                        reward.push(U256::from(data.percentile(*percent).floor() as u64));
-                    }
-                    reward
+            let reward = if block_tx_rewards.is_empty() {
+                vec![U256::zero(); priority_fee_percentile.len()]
+            } else {
+                let mut r = Vec::with_capacity(priority_fee_percentile.len());
+                let mut data = Data::new(block_tx_rewards);
+                for percent in priority_fee_percentile {
+                    r.push(U256::from(data.percentile(percent).floor() as u64));
                 }
-            }) {
-                rewards.push(reward);
-            }
+                r
+            };
+            rewards.push(reward);
         }
 
         // Add next block entry

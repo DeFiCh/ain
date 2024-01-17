@@ -184,6 +184,34 @@ class EVMTest(DefiTestFramework):
         )
         assert_equal(history["reward"][0], ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
 
+    def test_fee_history_empty_percentile(self):
+        self.rollback_to(self.startHeight)
+
+        numBlocks = 10
+        self.mine_block_with_eip1559_txs(numBlocks)
+
+        current = self.nodes[0].eth_blockNumber()
+        rewardPercentiles = []
+
+        history = self.nodes[0].eth_feeHistory(
+            hex(numBlocks), "latest", rewardPercentiles
+        )
+        assert_equal(history["oldestBlock"], hex(int(current, 16) - numBlocks + 1))
+        # Include next block base fee
+        assert_equal(len(history["baseFeePerGas"]), numBlocks + 1)
+
+        startNum = int(current, 16) - numBlocks + 1
+        for baseFee in history["baseFeePerGas"]:
+            block = self.nodes[0].eth_getBlockByNumber(hex(startNum))
+            assert_equal(block["baseFeePerGas"], baseFee)
+
+        for gasUsedRatio in history["gasUsedRatio"]:
+            assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
+
+        for reward in history["reward"]:
+            assert_equal(len(reward), len(rewardPercentiles))
+            assert_equal(reward, [])
+
     def run_test(self):
         self.setup()
 
@@ -192,6 +220,8 @@ class EVMTest(DefiTestFramework):
         self.test_fee_history_eip1559_txs()
 
         self.test_fee_history_legacy_txs()
+
+        self.test_fee_history_empty_percentile()
 
 
 if __name__ == "__main__":

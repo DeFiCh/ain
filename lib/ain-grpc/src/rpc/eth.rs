@@ -228,7 +228,7 @@ pub trait MetachainRPC {
         &self,
         block_count: U256,
         newest_block: BlockNumber,
-        priority_fee_percentile: Option<Vec<usize>>,
+        priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory>;
 
     #[method(name = "maxPriorityFeePerGas")]
@@ -931,7 +931,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         &self,
         block_count: U256,
         newest_block: BlockNumber,
-        priority_fee_percentile: Option<Vec<usize>>,
+        priority_fee_percentile: Vec<usize>,
     ) -> RpcResult<RpcFeeHistory> {
         let highest_block_number = self.get_block(Some(newest_block))?.header.number;
         let attrs = ain_cpp_imports::get_attribute_values(None);
