@@ -146,7 +146,9 @@ class EVMTest(DefiTestFramework):
         current = self.nodes[0].eth_blockNumber()
         rewardPercentiles = [20, 30, 50, 70, 85, 100]
 
-        history = self.nodes[0].eth_feeHistory(hex(numBlocks), "latest", rewardPercentiles)        
+        history = self.nodes[0].eth_feeHistory(
+            hex(numBlocks), "latest", rewardPercentiles
+        )
         assert_equal(history["oldestBlock"], hex(int(current, 16) - numBlocks + 1))
         # Include next block base fee
         assert_equal(len(history["baseFeePerGas"]), numBlocks + 1)
@@ -170,14 +172,16 @@ class EVMTest(DefiTestFramework):
         current = self.nodes[0].eth_blockNumber()
         rewardPercentiles = [20, 30, 50, 70, 85, 100]
 
-        history = self.nodes[0].eth_feeHistory(hex(1), "latest", rewardPercentiles)        
+        history = self.nodes[0].eth_feeHistory(hex(1), "latest", rewardPercentiles)
         assert_equal(history["oldestBlock"], hex(int(current, 16)))
         # Include next block base fee
         assert_equal(len(history["baseFeePerGas"]), 2)
 
         block = self.nodes[0].eth_getBlockByNumber("latest")
         assert_equal(block["baseFeePerGas"], history["baseFeePerGas"][0])
-        assert_equal(Decimal(str(history["gasUsedRatio"][0])), Decimal("0.033868333333333334"))
+        assert_equal(
+            Decimal(str(history["gasUsedRatio"][0])), Decimal("0.033868333333333334")
+        )
         assert_equal(history["reward"][0], ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
 
     def run_test(self):
