@@ -657,7 +657,7 @@ fn evm_try_get_latest_block_hash() -> Result<[u8; 32]> {
         .evm
         .storage
         .get_latest_block()?
-        .ok_or(format_err!("latest block not found"))?;
+        .ok_or(format_err!("latest EVM block not found"))?;
     Ok(block.header.hash().to_fixed_bytes())
 }
 

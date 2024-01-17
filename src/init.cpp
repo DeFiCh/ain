@@ -2000,18 +2000,21 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Check that EVM db and DVM db states are consistent
                 auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
-                auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
-                auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-                if (!dvmBlockHash.val.has_value()) {
-                    strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
-                                     "This may be due to corrupted block databases between DVM and EVM, and you will need to "
-                                     "rebuild the database using -reindex.").translated;
-                }
-                CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-                uint64_t dvmBlockHeight = pindex->GetBlockHeader().deprecatedHeight;
+                if (res) {
+                    // After EVM activation
+                    auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
+                    auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+                    if (!dvmBlockHash.val.has_value()) {
+                        strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
+                                        "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                        "rebuild the database using -reindex.").translated;
+                    }
+                    CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                    uint64_t dvmBlockHeight = pindex->GetBlockHeader().deprecatedHeight;
 
-                if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
-                    LogPrintf("DVM and EVM block databases are inconsistent, rollback chain height to last consistent height.\n");
+                    if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
+                        LogPrintf("DVM and EVM block databases are inconsistent, rollback chain height to last consistent height.\n");
+                    }
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
