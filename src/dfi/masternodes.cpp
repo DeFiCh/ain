@@ -815,6 +815,18 @@ void CCustomCSView::SetDbVersion(int version) {
     Write(DbVersion::prefix(), version);
 }
 
+bool CCustomCSView::GetEvmDirtyFlag() const {
+    bool dirtyFlag;
+    if (Read(EvmDirtyFlag::prefix(), dirtyFlag)) {
+        return dirtyFlag;
+    }
+    return false;
+}
+
+void CCustomCSView::SetEvmDirtyFlag(bool flag) {
+    Write(EvmDirtyFlag::prefix(), flag);
+}
+
 CTeamView::CTeam CCustomCSView::CalcNextTeam(int height, const uint256 &stakeModifier) {
     if (stakeModifier == uint256()) {
         return Params().GetGenesisTeam();

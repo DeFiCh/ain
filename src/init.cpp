@@ -228,10 +228,7 @@ void Shutdown(InitInterfaces& interfaces)
     for (const auto& client : interfaces.chain_clients) {
         client->flush();
     }
-    auto res = XResultStatusLogged(ain_rs_stop_network_services(result));
-    if (!res) {
-        fEvmDatabaseDirty = true;
-    }
+    XResultStatusLogged(ain_rs_stop_network_services(result));
     StopMapPort();
 
     // Because these depend on each-other, we make sure that neither can be
@@ -297,12 +294,11 @@ void Shutdown(InitInterfaces& interfaces)
     // next startup faster by avoiding rescan.
 
     ShutdownDfTxGlobalTaskPool();
-    res = XResultStatusLogged(ain_rs_stop_core_services(result));
+    auto res = XResultStatusLogged(ain_rs_stop_core_services(result));
     if (!res) {
         fEvmDatabaseDirty = true;
     }
-
-    // Save evm database dirty flag to disk
+    pcustomcsview->SetEvmDirtyFlag(fEvmDatabaseDirty);
 
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
@@ -686,9 +682,6 @@ void SetupServerArgs()
     RPCMetadata::SetupArgs(gArgs);
     // Add the hidden options
     gArgs.AddHiddenArgs(hidden_args);
-
-    // Set evm datbase dirty flag
-
 }
 
 std::string LicenseInfo()
@@ -1842,10 +1835,10 @@ bool AppInitMain(InitInterfaces& interfaces)
     InitDfTxGlobalTaskPool();
 
     bool fLoaded = false;
-    fReindex = gArgs.GetBoolArg("-reindex", fEvmDatabaseDirty);
+    fReindex = gArgs.GetBoolArg("-reindex", false);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
     while (!fLoaded && !ShutdownRequested()) {
-        bool fReset = fReindex;
+        bool fReset = (fReindex || fEvmDatabaseDirty);
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index...").translated);
@@ -1934,6 +1927,13 @@ bool AppInitMain(InitInterfaces& interfaces)
 
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
+
+                // Set evm database dirty flag
+                fEvmDatabaseDirty = pcustomcsview->GetEvmDirtyFlag();
+                if (!fReset && fEvmDatabaseDirty) {
+                    LogPrintf("Evm database dirty, re-indexing chain state.\n");
+                    break;
+                }
 
                 // make account history db
                 paccountHistoryDB.reset();
@@ -2063,18 +2063,23 @@ bool AppInitMain(InitInterfaces& interfaces)
         } while(false);
 
         if (!fLoaded && !ShutdownRequested()) {
-            // first suggest a reindex
             if (!fReset) {
-                bool fRet = uiInterface.ThreadSafeQuestion(
-                    strLoadError + ".\n\n" + _("Do you want to rebuild the block database now?").translated,
-                    strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
-                    "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
-                if (fRet) {
-                    fReindex = true;
+                if (fEvmDatabaseDirty) {
+                    // Evm database dirty. Abort shutdown and run re-index pipeline.
                     AbortShutdown();
                 } else {
-                    LogPrintf("Aborted block database rebuild. Exiting.\n");
-                    return false;
+                    // first suggest a reindex
+                    bool fRet = uiInterface.ThreadSafeQuestion(
+                        strLoadError + ".\n\n" + _("Do you want to rebuild the block database now?").translated,
+                        strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
+                        "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
+                    if (fRet) {
+                        fReindex = true;
+                        AbortShutdown();
+                    } else {
+                        LogPrintf("Aborted block database rebuild. Exiting.\n");
+                        return false;
+                    }
                 }
             } else {
                 return InitError(strLoadError);

@@ -605,8 +605,10 @@ public:
         const DCT_ID &id) const override;
 
     void SetDbVersion(int version);
-
     int GetDbVersion() const;
+
+    void SetEvmDirtyFlag(bool flag);
+    bool GetEvmDirtyFlag() const;
 
     uint256 MerkleRoot();
 
@@ -623,6 +625,10 @@ public:
 
     struct DbVersion {
         static constexpr uint8_t prefix() { return 'D'; }
+    };
+
+    struct EvmDirtyFlag {
+        static constexpr uint8_t prefix() { return 'p'; }
     };
 };
 
