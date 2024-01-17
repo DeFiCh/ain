@@ -281,7 +281,8 @@ impl BlockService {
 
             let mut block_tx_rewards = Vec::new();
             for tx in block.transactions {
-                let tx_rewards = SignedTx::try_from(tx)?.effective_gas_price(base_fee)?;
+                let tx_rewards =
+                    SignedTx::try_from(tx)?.effective_priority_fee_per_gas(base_fee)?;
                 block_tx_rewards.push(u64::try_from(tx_rewards)? as f64);
             }
 

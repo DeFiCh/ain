@@ -11,6 +11,8 @@ from test_framework.util import (
     int_to_eth_u256,
 )
 
+from decimal import Decimal
+
 # pragma solidity ^0.8.2;
 # contract Multiply {
 #     function multiply(uint a, uint b) public pure returns (uint) {
@@ -91,50 +93,101 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        self.nodes[0].generate(1)
+        self.nodes[0].generate(2)
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(balance, int_to_eth_u256(50))
 
-    def create_block(self, count, priority_fees):
-        node = self.nodes[0]
-        nonce = 0
-        for x in range(count):
-            for y in priority_fees:
+        self.startHeight = self.nodes[0].getblockcount()
+        self.priorityFees = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+    def mine_block_with_eip1559_txs(self, numBlocks):
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for _ in range(numBlocks):
+            for priorityFee in self.priorityFees:
                 tx = {
                     "from": self.ethAddress,
                     "value": "0x0",
                     "data": CONTRACT_BYTECODE,
                     "gas": "0x18e70",  # 102_000
-                    "maxPriorityFeePerGas": hex(y),
+                    "maxPriorityFeePerGas": hex(priorityFee),
                     "maxFeePerGas": "0x22ecb25c00",  # 150_000_000_000
                     "type": "0x2",
                     "nonce": hex(nonce),
                 }
                 nonce += 1
-                node.eth_sendTransaction(tx)
-            node.generate(1)
+                self.nodes[0].eth_sendTransaction(tx)
+            self.nodes[0].generate(1)
 
-    def test_fee_history(self):
-        node = self.nodes[0]
+    # Assumes that block base fee is at initial block base fee = 10_000_000_000
+    def mine_block_with_legacy_txs(self):
+        nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for priorityFee in self.priorityFees:
+            txFee = 10_000_000_000 + priorityFee
+            tx = {
+                "from": self.ethAddress,
+                "value": "0x0",
+                "data": CONTRACT_BYTECODE,
+                "gas": "0x18e70",  # 102_000
+                "gasPrice": hex(txFee),
+                "type": "0x2",
+                "nonce": hex(nonce),
+            }
+            nonce += 1
+            self.nodes[0].eth_sendTransaction(tx)
+        self.nodes[0].generate(1)
 
-        self.create_block(2, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    def test_fee_history_eip1559_txs(self):
+        self.rollback_to(self.startHeight)
 
-        count = 2
-        reward_percentiles = [20, 30, 50, 70, 85, 100]
-        history = node.eth_feeHistory(hex(count), "latest", reward_percentiles)
+        numBlocks = 10
+        self.mine_block_with_eip1559_txs(numBlocks)
 
-        current = node.eth_blockNumber()
-        assert_equal(history["oldestBlock"], hex(int(current, 16) - count + 1))
-        assert_equal(len(history["baseFeePerGas"]), count + 1)
-        for x in history["reward"]:
-            assert_equal(len(x), len(reward_percentiles))
-            assert_equal(x, ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
+        current = self.nodes[0].eth_blockNumber()
+        rewardPercentiles = [20, 30, 50, 70, 85, 100]
+
+        history = self.nodes[0].eth_feeHistory(hex(numBlocks), "latest", rewardPercentiles)        
+        assert_equal(history["oldestBlock"], hex(int(current, 16) - numBlocks + 1))
+        # Include next block base fee
+        assert_equal(len(history["baseFeePerGas"]), numBlocks + 1)
+
+        startNum = int(current, 16) - numBlocks + 1
+        for baseFee in history["baseFeePerGas"]:
+            block = self.nodes[0].eth_getBlockByNumber(hex(startNum))
+            assert_equal(block["baseFeePerGas"], baseFee)
+
+        for gasUsedRatio in history["gasUsedRatio"]:
+            assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
+
+        for reward in history["reward"]:
+            assert_equal(len(reward), len(rewardPercentiles))
+            assert_equal(reward, ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
+
+    def test_fee_history_legacy_txs(self):
+        self.rollback_to(self.startHeight)
+
+        self.mine_block_with_legacy_txs()
+        current = self.nodes[0].eth_blockNumber()
+        rewardPercentiles = [20, 30, 50, 70, 85, 100]
+
+        history = self.nodes[0].eth_feeHistory(hex(1), "latest", rewardPercentiles)        
+        assert_equal(history["oldestBlock"], hex(int(current, 16)))
+        # Include next block base fee
+        assert_equal(len(history["baseFeePerGas"]), 2)
+
+        block = self.nodes[0].eth_getBlockByNumber("latest")
+        assert_equal(block["baseFeePerGas"], history["baseFeePerGas"][0])
+        assert_equal(Decimal(str(history["gasUsedRatio"][0])), Decimal("0.033868333333333334"))
+        assert_equal(history["reward"][0], ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
 
     def run_test(self):
         self.setup()
 
-        self.test_fee_history()
+        self.nodes[0].generate(1)
+
+        self.test_fee_history_eip1559_txs()
+
+        self.test_fee_history_legacy_txs()
 
 
 if __name__ == "__main__":
