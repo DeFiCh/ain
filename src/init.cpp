@@ -1997,25 +1997,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                 }
-
-                // Check that EVM db and DVM db states are consistent
-                auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
-                if (res) {
-                    // After EVM activation
-                    auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
-                    auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-                    if (!dvmBlockHash.val.has_value()) {
-                        strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
-                                        "This may be due to corrupted block databases between DVM and EVM, and you will need to "
-                                        "rebuild the database using -reindex.").translated;
-                    }
-                    CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-                    uint64_t dvmBlockHeight = pindex->GetBlockHeader().deprecatedHeight;
-
-                    if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
-                        LogPrintf("DVM and EVM block databases are inconsistent, rollback chain height to last consistent height.\n");
-                    }
-                }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
                 strLoadError = _("Error opening block database").translated;
@@ -2061,6 +2042,30 @@ bool AppInitMain(InitInterfaces& interfaces)
                 LogPrintf("%s\n", e.what());
                 strLoadError = _("Error opening block database").translated;
                 break;
+            }
+
+            // Check that EVM db and DVM db states are consistent
+            auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
+            if (res) {
+                // After EVM activation
+                auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
+                auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+                if (!dvmBlockHash.val.has_value()) {
+                    strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
+                                     "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                     "rebuild the database using -reindex.").translated;
+                    break;
+                }
+                CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                auto dvmBlockHeight = pindex->GetBlockHeader().nHeight;
+
+                if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
+                    strLoadError = _("Inconsistent chainstate detected between DVM block database and EVM block database. "
+                                     "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                     "rebuild the database using -reindex.").translated;
+                    }
+                    break;
+                }
             }
 
             fLoaded = true;
