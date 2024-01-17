@@ -14,7 +14,7 @@ use statrs::statistics::{Data, OrderStatistics};
 use crate::{
     storage::{traits::BlockStorage, Storage},
     transaction::SignedTx,
-    EVMError, Result,
+    Result,
 };
 
 pub struct BlockService {
@@ -22,7 +22,6 @@ pub struct BlockService {
     starting_block_number: U256,
 }
 
-#[derive(Default)]
 pub struct FeeHistoryData {
     pub oldest_block: U256,
     pub base_fee_per_gas: Vec<U256>,
@@ -33,8 +32,8 @@ pub struct FeeHistoryData {
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 
-pub const MIN_BLOCK_COUNT_RANGE: U256 = 1;
-pub const MAX_BLOCK_COUNT_RANGE: U256 = 1024;
+pub const MIN_BLOCK_COUNT_RANGE: U256 = U256::one();
+pub const MAX_BLOCK_COUNT_RANGE: U256 = U256([1024, 0, 0, 0]);
 pub const MAX_REWARD_PERCENTILE_VEC_SIZE: usize = 100;
 
 /// Handles getting block data, and contains internal functions for block creation and fees.
@@ -207,13 +206,15 @@ impl BlockService {
             return Err(format_err!(
                 "Block count requested smaller than minimum allowed range of {}",
                 MIN_BLOCK_COUNT_RANGE,
-            ));
+            )
+            .into());
         }
         if block_count > MAX_BLOCK_COUNT_RANGE {
             return Err(format_err!(
                 "Block count requested larger than maximum allowed range of {}",
                 MAX_BLOCK_COUNT_RANGE,
-            ));
+            )
+            .into());
         }
         // Validate priority_fee_percentile input
         if let Some(priority_fee_percentile) = &priority_fee_percentile {
@@ -221,46 +222,52 @@ impl BlockService {
                 return Err(format_err!(
                     "List of percentile value exceeds maximum allowed size {}",
                     MAX_REWARD_PERCENTILE_VEC_SIZE,
-                ));
+                )
+                .into());
             }
 
             let mut prev_percentile = 0;
             for percentile in priority_fee_percentile {
-                if prev_percentile > percentile {
-                    return Err(format_err!("List of percentile value is not monotonically increasing"));
+                if prev_percentile > *percentile {
+                    return Err(format_err!(
+                        "List of percentile value is not monotonically increasing"
+                    )
+                    .into());
                 }
-                prev_percentile = percentile;
+                prev_percentile = *percentile;
             }
         }
 
-        let mut blocks = Vec::with_capacity(block_count);
-        let mut block_num = highest_block.checked_sub(block_count).unwrap_or_default();
+        let mut blocks = Vec::new();
+        let mut block_num = highest_block
+            .checked_add(U256::one())
+            .ok_or(format_err!("Block number overflow"))?
+            .checked_sub(block_count)
+            .unwrap_or_default();
+
         while block_num <= highest_block {
             let block = self
                 .storage
-                .get_block_by_number(&block_number)?
-                .ok_or(|| format_err!("Block {} out of range", block_number))?;
+                .get_block_by_number(&block_num)?
+                .ok_or(format_err!("Block {} out of range", block_num))?;
             blocks.push(block);
 
             block_num = block_num
                 .checked_add(U256::one())
-                .ok_or(|| format_err!("block_number overflow"))?;
+                .ok_or(format_err!("block_number overflow"))?;
         }
 
-        let mut result = FeeHistoryData::default();
-
         // Set oldest block number
-        result.oldest_block = blocks
+        let oldest_block = blocks
             .first()
-            .ok_or(|| format_err!("Unable to fetch oldest block"))?
+            .ok_or(format_err!("Unable to fetch oldest block"))?
             .header
             .number;
 
-        if priority_fee_percentile.is_some() {
-            result.reward = Some(Vec::new());
-        }
-
-        for block in blocks {
+        let mut base_fee_per_gas = Vec::new();
+        let mut gas_used_ratio = Vec::new();
+        let mut rewards = Vec::new();
+        for block in blocks.clone() {
             trace!("[fee_history] Processing block {}", block.header.number);
             let base_fee = block.header.base_fee;
             let gas_ratio = if block.header.gas_limit == U256::zero() {
@@ -269,17 +276,16 @@ impl BlockService {
                 u64::try_from(block.header.gas_used)? as f64
                     / u64::try_from(block.header.gas_limit)? as f64 // safe due to check
             };
-            result.base_fee_per_gas.push(base_fee);
-            result.gas_used_ratio.push(gas_ratio);
+            base_fee_per_gas.push(base_fee);
+            gas_used_ratio.push(gas_ratio);
 
-            let block_tx_rewards = Vec::new();
+            let mut block_tx_rewards = Vec::new();
             for tx in block.transactions {
                 let tx_rewards = SignedTx::try_from(tx)?.effective_gas_price(base_fee)?;
-                block_tx_rewards.push(tx_rewards);
+                block_tx_rewards.push(u64::try_from(tx_rewards)? as f64);
             }
-            block_tx_rewards.sort_by(|a, b| a.cmp(&b));
 
-            if let Some(rewards) = priority_fee_percentile.as_ref().map(|percentile| {
+            if let Some(reward) = priority_fee_percentile.as_ref().map(|percentile| {
                 if block_tx_rewards.is_empty() {
                     vec![U256::zero(); percentile.len()]
                 } else {
@@ -291,30 +297,35 @@ impl BlockService {
                     reward
                 }
             }) {
-                if let Some(mut result_reward) = &result.reward {
-                    result_reward.push(rewards);
-                }
+                rewards.push(reward);
             }
         }
 
         // Add next block entry
-        let attrs = ain_cpp_imports::get_attribute_values(None);
-
         let next_block = highest_block
             .checked_add(U256::one())
-            .ok_or_else(|| format_err!("Next block number overflow"))?;
-
+            .ok_or(format_err!("Next block number overflow"))?;
         let next_block_base_fee = match self.storage.get_block_by_number(&next_block)? {
             Some(block) => block.header.base_fee,
             None => {
                 let highest_block_info = blocks
                     .last()
-                    .ok_or(|| format_err!("Unable to fetch highest block"))?;
-                self.calculate_base_fee(highest_block_info.header.hash(), attrs.block_gas_target_factor)?
+                    .ok_or(format_err!("Unable to fetch highest block"))?;
+                self.calculate_base_fee(highest_block_info.header.hash(), block_gas_target_factor)?
             }
         };
-        result.base_fee_per_gas.push(next_block_base_fee);
-        Ok(result)
+
+        base_fee_per_gas.push(next_block_base_fee);
+        Ok(FeeHistoryData {
+            oldest_block,
+            base_fee_per_gas,
+            gas_used_ratio,
+            reward: if rewards.is_empty() {
+                None
+            } else {
+                Some(rewards)
+            },
+        })
     }
 
     /// Returns the 60th percentile priority fee for the last 20 blocks. [Reference](https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41)

@@ -934,6 +934,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         priority_fee_percentile: Option<Vec<usize>>,
     ) -> RpcResult<RpcFeeHistory> {
         let highest_block_number = self.get_block(Some(newest_block))?.header.number;
+        let attrs = ain_cpp_imports::get_attribute_values(None);
 
         let fee_history = self
             .handler
@@ -942,6 +943,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                 block_count,
                 highest_block_number,
                 priority_fee_percentile,
+                attrs.block_gas_target_factor,
             )
             .map_err(RPCError::EvmError)?;
 
