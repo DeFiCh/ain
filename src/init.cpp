@@ -1838,7 +1838,7 @@ bool AppInitMain(InitInterfaces& interfaces)
     fReindex = gArgs.GetBoolArg("-reindex", false);
     bool fReindexChainState = gArgs.GetBoolArg("-reindex-chainstate", false);
     while (!fLoaded && !ShutdownRequested()) {
-        bool fReset = (fReindex || fEvmDatabaseDirty);
+        bool fReset = fReindex;
         std::string strLoadError;
 
         uiInterface.InitMessage(_("Loading block index...").translated);
@@ -1928,13 +1928,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // Ensure we are on latest DB version
                 pcustomcsview->SetDbVersion(CCustomCSView::DbVersion);
 
-                // Set evm database dirty flag
-                fEvmDatabaseDirty = pcustomcsview->GetEvmDirtyFlag();
-                if (!fReset && fEvmDatabaseDirty) {
-                    LogPrintf("Evm database dirty, re-indexing chain state.\n");
-                    break;
-                }
-
                 // make account history db
                 paccountHistoryDB.reset();
                 if (gArgs.GetBoolArg("-acindex", DEFAULT_ACINDEX)) {
@@ -1972,6 +1965,20 @@ bool AppInitMain(InitInterfaces& interfaces)
                 // back or forth. `ReplayBlocks, VerifyDB` etc.
                 auto res = XResultStatusLogged(ain_rs_init_core_services(result));
                 if (!res) return false;
+
+                // Set evm database dirty flag
+                fEvmDatabaseDirty = pcustomcsview->GetEvmDirtyFlag();
+                if (fEvmDatabaseDirty) {
+                    LogPrintf("Evm database dirty, rollback chain state to latest EVM block height.\n");
+                    auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
+                    auto lastEvmBlockHash = uint256::FromByteArray(*res).GetHex();
+                    auto lastDvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, lastEvmBlockHash);
+                    if (!lastDvmBlockHash.val.has_value()) {
+                        strLoadError = _("Unable to get DVM block height from latest EVM block height. You will need to rebuild the database using -reindex-chainstate.").translated;
+                    }
+                    CBlockIndex *pindex = LookupBlockIndex(uint256S(*lastDvmBlockHash.val));
+                    uint64_t lastDvmBlockNumber = pindex->GetBlockHeader().deprecatedHeight;
+                }
 
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {

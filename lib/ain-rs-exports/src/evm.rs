@@ -606,6 +606,15 @@ fn evm_try_get_block_number_by_hash(hash: XHash) -> Result<u64> {
     Ok(block_number)
 }
 
+/// Return the block header for a given blockhash.
+///
+/// # Arguments
+///
+/// * `hash` - The hash of the block we want to get the block header.
+///
+/// # Returns
+///
+/// Returns the block header associated with the given blockhash.
 #[ffi_fallible]
 fn evm_try_get_block_header_by_hash(hash: XHash) -> Result<ffi::EVMBlockHeader> {
     let hash = H256::from(hash);
@@ -635,6 +644,20 @@ fn evm_try_get_block_header_by_hash(hash: XHash) -> Result<ffi::EVMBlockHeader> 
         base_fee,
     };
     Ok(out)
+}
+
+/// Return the latest block header from storage.
+///
+/// # Returns
+///
+/// Returns the latest block header.
+#[ffi_fallible]
+fn evm_try_get_latest_block_hash() -> Result<[u8; 32]> {
+    let block = SERVICES
+        .evm
+        .storage
+        .get_latest_block()?;
+    Ok(block.header.hash().to_fixed_bytes())
 }
 
 #[ffi_fallible]
