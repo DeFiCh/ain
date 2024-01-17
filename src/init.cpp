@@ -94,8 +94,6 @@ static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 // Dump addresses to banlist.dat every 15 minutes (900s)
 static constexpr int DUMP_BANS_INTERVAL = 60 * 15;
 
-static bool fEvmDatabaseDirty = false;
-
 std::unique_ptr<CConnman> g_connman;
 std::unique_ptr<PeerLogicValidation> peerLogic;
 std::unique_ptr<BanMan> g_banman;
@@ -294,12 +292,7 @@ void Shutdown(InitInterfaces& interfaces)
     // next startup faster by avoiding rescan.
 
     ShutdownDfTxGlobalTaskPool();
-    auto res = XResultStatusLogged(ain_rs_stop_core_services(result));
-    if (!res) {
-        fEvmDatabaseDirty = true;
-    }
-    pcustomcsview->SetEvmDirtyFlag(fEvmDatabaseDirty);
-
+    XResultStatusLogged(ain_rs_stop_core_services(result));
     LogPrint(BCLog::SPV, "Releasing\n");
     spv::pspv.reset();
     {
@@ -1966,20 +1959,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                 auto res = XResultStatusLogged(ain_rs_init_core_services(result));
                 if (!res) return false;
 
-                // Set evm database dirty flag
-                fEvmDatabaseDirty = pcustomcsview->GetEvmDirtyFlag();
-                if (fEvmDatabaseDirty) {
-                    LogPrintf("Evm database dirty, rollback chain state to latest EVM block height.\n");
-                    auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
-                    auto lastEvmBlockHash = uint256::FromByteArray(*res).GetHex();
-                    auto lastDvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, lastEvmBlockHash);
-                    if (!lastDvmBlockHash.val.has_value()) {
-                        strLoadError = _("Unable to get DVM block height from latest EVM block height. You will need to rebuild the database using -reindex-chainstate.").translated;
-                    }
-                    CBlockIndex *pindex = LookupBlockIndex(uint256S(*lastDvmBlockHash.val));
-                    uint64_t lastDvmBlockNumber = pindex->GetBlockHeader().deprecatedHeight;
-                }
-
                 // ReplayBlocks is a no-op if we cleared the coinsviewdb with -reindex or -reindex-chainstate
                 if (!ReplayBlocks(chainparams, &::ChainstateActive().CoinsDB(), pcustomcsview.get())) {
                     strLoadError = _("Unable to replay blocks. You will need to rebuild the database using -reindex-chainstate.").translated;
@@ -2017,6 +1996,22 @@ bool AppInitMain(InitInterfaces& interfaces)
                         strLoadError = _("Live dex needs reindex").translated;
                         break;
                     }
+                }
+
+                // Check that EVM db and DVM db states are consistent
+                auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
+                auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
+                auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+                if (!dvmBlockHash.val.has_value()) {
+                    strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
+                                     "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                     "rebuild the database using -reindex.").translated;
+                }
+                CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                uint64_t dvmBlockHeight = pindex->GetBlockHeader().deprecatedHeight;
+
+                if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
+                    LogPrintf("DVM and EVM block databases are inconsistent, rollback chain height to last consistent height.\n");
                 }
             } catch (const std::exception& e) {
                 LogPrintf("%s\n", e.what());
@@ -2070,23 +2065,18 @@ bool AppInitMain(InitInterfaces& interfaces)
         } while(false);
 
         if (!fLoaded && !ShutdownRequested()) {
+            // first suggest a reindex
             if (!fReset) {
-                if (fEvmDatabaseDirty) {
-                    // Evm database dirty. Abort shutdown and run re-index pipeline.
+                bool fRet = uiInterface.ThreadSafeQuestion(
+                    strLoadError + ".\n\n" + _("Do you want to rebuild the block database now?").translated,
+                    strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
+                    "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
+                if (fRet) {
+                    fReindex = true;
                     AbortShutdown();
                 } else {
-                    // first suggest a reindex
-                    bool fRet = uiInterface.ThreadSafeQuestion(
-                        strLoadError + ".\n\n" + _("Do you want to rebuild the block database now?").translated,
-                        strLoadError + ".\nPlease restart with -reindex or -reindex-chainstate to recover.",
-                        "", CClientUIInterface::MSG_ERROR | CClientUIInterface::BTN_ABORT);
-                    if (fRet) {
-                        fReindex = true;
-                        AbortShutdown();
-                    } else {
-                        LogPrintf("Aborted block database rebuild. Exiting.\n");
-                        return false;
-                    }
+                    LogPrintf("Aborted block database rebuild. Exiting.\n");
+                    return false;
                 }
             } else {
                 return InitError(strLoadError);
