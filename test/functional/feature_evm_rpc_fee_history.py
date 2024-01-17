@@ -161,6 +161,7 @@ class EVMTest(DefiTestFramework):
         for gasUsedRatio in history["gasUsedRatio"]:
             assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
 
+        assert_equal(len(history["reward"]), numBlocks)
         for reward in history["reward"]:
             assert_equal(len(reward), len(rewardPercentiles))
             assert_equal(reward, ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
@@ -182,6 +183,7 @@ class EVMTest(DefiTestFramework):
         assert_equal(
             Decimal(str(history["gasUsedRatio"][0])), Decimal("0.033868333333333334")
         )
+        assert_equal(len(history["reward"]), 1)
         assert_equal(history["reward"][0], ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
 
     def test_fee_history_empty_percentile(self):
@@ -208,6 +210,7 @@ class EVMTest(DefiTestFramework):
         for gasUsedRatio in history["gasUsedRatio"]:
             assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
 
+        assert_equal(len(history["reward"]), numBlocks)
         for reward in history["reward"]:
             assert_equal(len(reward), len(rewardPercentiles))
             assert_equal(reward, [])
