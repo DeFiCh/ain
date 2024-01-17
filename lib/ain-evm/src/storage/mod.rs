@@ -227,6 +227,7 @@ impl Storage {
 impl Rollback for Storage {
     fn disconnect_latest_block(&self) -> Result<()> {
         self.cache.disconnect_latest_block()?;
-        self.blockstore.disconnect_latest_block()
+        self.blockstore.disconnect_latest_block()?;
+        self.flush()
     }
 }
