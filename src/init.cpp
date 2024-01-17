@@ -2063,7 +2063,6 @@ bool AppInitMain(InitInterfaces& interfaces)
                     strLoadError = _("Inconsistent chainstate detected between DVM block database and EVM block database. "
                                      "This may be due to corrupted block databases between DVM and EVM, and you will need to "
                                      "rebuild the database using -reindex.").translated;
-                    }
                     break;
                 }
             }
