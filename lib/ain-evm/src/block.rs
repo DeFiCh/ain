@@ -32,9 +32,9 @@ pub struct FeeHistoryData {
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 
+pub const MAX_REWARD_PERCENTAGE: usize = 100;
 pub const MIN_BLOCK_COUNT_RANGE: U256 = U256::one();
 pub const MAX_BLOCK_COUNT_RANGE: U256 = U256([1024, 0, 0, 0]);
-pub const MAX_REWARD_PERCENTILE_VEC_SIZE: usize = 100;
 
 /// Handles getting block data, and contains internal functions for block creation and fees.
 impl BlockService {
@@ -175,8 +175,9 @@ impl BlockService {
             .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
         let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
+        // safe to use normal division since we know block_gas_limit_factor is non-zero
         let parent_gas_target =
-            u64::try_from(parent_block.header.gas_limit / block_gas_target_factor)?; // safe to use normal division since we know block_gas_limit_factor is non-zero
+            u64::try_from(parent_block.header.gas_limit / block_gas_target_factor)?;
         self.get_base_fee(
             parent_gas_used,
             parent_gas_target,
@@ -192,13 +193,15 @@ impl BlockService {
     /// # Arguments
     /// * `block_count` - Number of blocks' data to return. Between 1 and 1024 blocks can be requested in a single query.
     /// * `highest_block` - Block number of highest block.
-    /// * `priority_fee_percentile` - Vector of percentiles. This will return percentile priority fee for all blocks.
+    /// * `reward_percentile` - List of percilt values with monotonic increase in value. The transactions will be ranked
+    ///                         effective tip per gas for each block in the requested range, and the corresponding effective
+    ///                         tip for the percentile will be calculated while taking gas consumption into consideration.
     /// * `block_gas_target_factor` - Determines gas target. Used when latest `block_count` blocks are queried.
     pub fn fee_history(
         &self,
         block_count: U256,
         highest_block: U256,
-        priority_fee_percentile: Vec<usize>,
+        reward_percentile: Vec<usize>,
         block_gas_target_factor: u64,
     ) -> Result<FeeHistoryData> {
         // Validate block_count input
@@ -216,20 +219,27 @@ impl BlockService {
             )
             .into());
         }
-        // Validate priority_fee_percentile input
-        if priority_fee_percentile.len() > MAX_REWARD_PERCENTILE_VEC_SIZE {
+
+        // Validate reward_percentile input
+        if reward_percentile.len() > MAX_REWARD_PERCENTAGE {
             return Err(format_err!(
-                "List of percentile value exceeds maximum allowed size {}",
-                MAX_REWARD_PERCENTILE_VEC_SIZE,
+                "List of percentile values exceeds maximum allowed size of {}",
+                MAX_REWARD_PERCENTAGE,
             )
             .into());
         }
-
         let mut prev_percentile = 0;
-        for percentile in &priority_fee_percentile {
+        for percentile in &reward_percentile {
+            if *percentile > MAX_REWARD_PERCENTAGE {
+                return Err(format_err!(
+                    "Percentile value more than inclusive range of {}",
+                    MAX_REWARD_PERCENTAGE,
+                )
+                .into());
+            }
             if prev_percentile > *percentile {
                 return Err(format_err!(
-                    "List of percentile value is not monotonically increasing"
+                    "List of percentile values are not monotonically increasing"
                 )
                 .into());
             }
@@ -285,11 +295,11 @@ impl BlockService {
             }
 
             let reward = if block_tx_rewards.is_empty() {
-                vec![U256::zero(); priority_fee_percentile.len()]
+                vec![U256::zero(); reward_percentile.len()]
             } else {
-                let mut r = Vec::with_capacity(priority_fee_percentile.len());
+                let mut r = Vec::with_capacity(reward_percentile.len());
                 let mut data = Data::new(block_tx_rewards);
-                for percent in &priority_fee_percentile {
+                for percent in &reward_percentile {
                     r.push(U256::from(data.percentile(*percent).floor() as u64));
                 }
                 r

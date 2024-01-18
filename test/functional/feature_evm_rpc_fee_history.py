@@ -8,6 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
+    assert_raises_rpc_error,
     int_to_eth_u256,
 )
 
@@ -162,6 +163,7 @@ class EVMTest(DefiTestFramework):
             assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
 
         assert_equal(len(history["reward"]), numBlocks)
+        assert_equal(history["reward"], False)
         for reward in history["reward"]:
             assert_equal(len(reward), len(rewardPercentiles))
             assert_equal(reward, ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
@@ -215,6 +217,68 @@ class EVMTest(DefiTestFramework):
             assert_equal(len(reward), len(rewardPercentiles))
             assert_equal(reward, [])
 
+    def test_invalid_fee_history_rpc(self):
+        self.rollback_to(self.startHeight)
+
+        numBlocks = 10
+        self.mine_block_with_eip1559_txs(numBlocks)
+        rewardPercentiles = []
+        aboveLimitPercentiles = [101, 20, 30, 40, 100]
+        notIncreasingPercentiles = [10, 20, 30, 50, 40, 100]
+        tooManyPercentiles = [0]
+        for i in range(100):
+            tooManyPercentiles.append(i)
+
+        # Test invalid feeHistory call, block count set as 0
+        assert_raises_rpc_error(
+            -32001,
+            "Block count requested smaller than minimum allowed range of 1",
+            self.nodes[0].eth_feeHistory,
+            hex(0),
+            "latest",
+            rewardPercentiles,
+        )
+
+        # Test invalid feeHistory call, block count set past limit
+        assert_raises_rpc_error(
+            -32001,
+            "Block count requested larger than maximum allowed range of 1024",
+            self.nodes[0].eth_feeHistory,
+            hex(1025),
+            "latest",
+            rewardPercentiles,
+        )
+
+        # Test invalid feeHistory call, percentiles list exceed max size
+        assert_raises_rpc_error(
+            -32001,
+            "List of percentile values exceeds maximum allowed size of 100",
+            self.nodes[0].eth_feeHistory,
+            hex(numBlocks),
+            "latest",
+            tooManyPercentiles,
+        )
+
+        # Test invalid feeHistory call, percentile value exceed inclusive range
+        assert_raises_rpc_error(
+            -32001,
+            "Percentile value more than inclusive range of 100",
+            self.nodes[0].eth_feeHistory,
+            hex(numBlocks),
+            "latest",
+            aboveLimitPercentiles,
+        )
+
+        # Test invalid feeHistory call, percentile values not monotonically increasing
+        assert_raises_rpc_error(
+            -32001,
+            "List of percentile values are not monotonically increasing",
+            self.nodes[0].eth_feeHistory,
+            hex(numBlocks),
+            "latest",
+            notIncreasingPercentiles,
+        )
+
     def run_test(self):
         self.setup()
 
@@ -225,6 +289,8 @@ class EVMTest(DefiTestFramework):
         self.test_fee_history_legacy_txs()
 
         self.test_fee_history_empty_percentile()
+
+        self.test_invalid_fee_history_rpc()
 
 
 if __name__ == "__main__":
