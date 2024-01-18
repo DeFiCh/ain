@@ -163,7 +163,6 @@ class EVMTest(DefiTestFramework):
             assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
 
         assert_equal(len(history["reward"]), numBlocks)
-        assert_equal(history["reward"], False)
         for reward in history["reward"]:
             assert_equal(len(reward), len(rewardPercentiles))
             assert_equal(reward, ["0x2", "0x3", "0x5", "0x7", "0x9", "0xa"])
