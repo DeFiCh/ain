@@ -44,7 +44,6 @@ pub fn index_transaction(ctx: &BlockContext, tx: TransactionIndex) -> Result<()>
         vout_count: tx.vout_count,
     };
     SERVICES.transaction.by_id.put(&tx_id, &trx)?;
-    SERVICES.transaction.by_block_hash.put(&ctx.hash, &trx)?;
 
     Ok(())
 }
@@ -52,6 +51,6 @@ pub fn index_transaction(ctx: &BlockContext, tx: TransactionIndex) -> Result<()>
 pub fn invalidate(ctx: &BlockContext, tx: Txid, idx: usize) -> Result<()> {
     debug!("[CreateMasternode] Invalidating...");
     SERVICES.transaction.by_id.delete(&tx)?;
-    SERVICES.transaction.by_block_hash.delete(&ctx.hash)?;
+
     Ok(())
 }

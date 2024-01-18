@@ -26,7 +26,7 @@ async fn list_transaction_by_block_hash(
 ) -> Result<Json<ApiPagedResponse<Transaction>>> {
     let transaction_list = SERVICES
         .transaction
-        .by_block_hash
+        .by_id
         .list(None)?
         .take(query.size)
         .map(|item| {
@@ -75,7 +75,7 @@ async fn get_vouts(
 pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/:id", get(get_transaction))
-        .route("/:block_hash", get(list_transaction_by_block_hash))
+        .route("/:tx_id", get(list_transaction_by_block_hash))
         .route("/:id/vins", get(get_vins))
         .route("/:id/vouts", get(get_vouts))
 }

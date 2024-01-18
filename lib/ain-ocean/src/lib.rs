@@ -11,8 +11,8 @@ use model::TransactionVin;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    PoolSwapRepository, RawBlockRepository, TransactionBlockHashRepository, TransactionRepository,
-    TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    PoolSwapRepository, RawBlockRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -54,7 +54,6 @@ pub struct PoolService {
 
 pub struct TransactionService {
     by_id: TransactionRepository,
-    by_block_hash: TransactionBlockHashRepository,
     vin_by_id: TransactionVinRepository,
     vout_by_id: TransactionVoutRepository,
 }
@@ -101,7 +100,6 @@ impl Services {
             },
             transaction: TransactionService {
                 by_id: TransactionRepository::new(Arc::clone(&store)),
-                by_block_hash: TransactionBlockHashRepository::new(Arc::clone(&store)),
                 vin_by_id: TransactionVinRepository::new(Arc::clone(&store)),
                 vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
             },

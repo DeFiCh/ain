@@ -25,19 +25,3 @@ impl TransactionRepository {
         }
     }
 }
-
-#[derive(Repository)]
-#[repository(K = "BlockHash", V = "Transaction")]
-pub struct TransactionBlockHashRepository {
-    pub store: Arc<OceanStore>,
-    col: LedgerColumn<columns::TransactionByBlockHash>,
-}
-
-impl TransactionBlockHashRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
