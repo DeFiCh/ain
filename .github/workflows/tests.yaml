@@ -74,11 +74,14 @@ jobs:
     - name: Cleanup cargo deps
       run: rm -rf build/lib/target/debug/deps
 
-    - name: Display RAM and swap
-      run: free -h
-      
-    - name: E2E tests
-      run: ./make.sh test
+    - name: Functional tests
+      run: ./make.sh test-py
+
+    - name: Cleanup functional tests
+      run: rm -rf test_runner
+
+    - name: Unit tests
+      run: ./build/src/test/test_defi
 
   rust-tests:
     runs-on: ubuntu-latest
