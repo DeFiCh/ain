@@ -77,8 +77,7 @@ jobs:
     - name: Cleanup deps
       run: |
         rm -rf build/lib/target/debug/deps
-        rm -rf build/depends
-        rm -rf build/lib
+        rm -rf build/lib/target/debug
 
     - name: Functional tests
       run: ./make.sh test-py
