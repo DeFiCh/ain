@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -11,7 +9,7 @@ use serde::Deserialize;
 use crate::{
     api_paged_response::ApiPagedResponse,
     api_query::PaginationQuery,
-    model::{Block, Transaction, TransactionVin, TransactionVout},
+    model::{Transaction, TransactionVin, TransactionVout},
     repository::RepositoryOps,
     Result, SERVICES,
 };
@@ -31,11 +29,10 @@ async fn list_transaction_by_block_hash(
         .take(query.size)
         .map(|item| {
             let (_, trx) = item?;
-            let tx_id = Txid::from_str(&trx.txid)?;
             let b = SERVICES
                 .transaction
                 .by_id
-                .get(&tx_id)?
+                .get(&trx.id)?
                 .ok_or("Missing block index")?;
             Ok(b)
         })
@@ -44,7 +41,7 @@ async fn list_transaction_by_block_hash(
     Ok(Json(ApiPagedResponse::of(
         transaction_list,
         query.size,
-        |transaction_list| transaction_list.id.clone(),
+        |transaction_list| transaction_list.id.to_string(),
     )))
 }
 

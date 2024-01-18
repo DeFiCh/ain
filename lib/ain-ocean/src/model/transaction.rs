@@ -3,11 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type TransactionId = String;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
-    pub id: String,
+    pub id: Txid,
     pub order: i32,
     pub block: BlockContext,
     pub txid: String,

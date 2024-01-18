@@ -10,7 +10,7 @@ use crate::{
 };
 
 pub struct TransactionIndex {
-    pub id: String,
+    pub id: Txid,
     pub order: i32,
     pub block: BlockContext,
     pub txid: String,
@@ -29,7 +29,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: TransactionIndex) -> Result<()>
     debug!("[CreateTransaction] Indexing...");
     let tx_id = Txid::from_str(&tx.txid)?;
     let trx = TrasnactionMapper {
-        id: tx_id.to_string(),
+        id: tx_id,
         order: tx.order,
         block: ctx.clone(),
         txid: tx.txid,
@@ -51,6 +51,5 @@ pub fn index_transaction(ctx: &BlockContext, tx: TransactionIndex) -> Result<()>
 pub fn invalidate(ctx: &BlockContext, tx: Txid, idx: usize) -> Result<()> {
     debug!("[CreateMasternode] Invalidating...");
     SERVICES.transaction.by_id.delete(&tx)?;
-
     Ok(())
 }
