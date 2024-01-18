@@ -70,18 +70,17 @@ jobs:
     - name: Build binaries
       run: ./make.sh build
 
+    - name: Unit tests
+      run: ./make.sh test-cpp
+
     # Temp. workaround to save space to prevent GH runners from running out
-    - name: Cleanup cargo deps
-      run: rm -rf build/lib/target/debug/deps
+    - name: Cleanup deps
+      run: |
+        rm -rf build/lib/target/debug/deps
+        rm -rf build/depends
 
     - name: Functional tests
       run: ./make.sh test-py
-
-    - name: Cleanup functional tests
-      run: rm -rf test_runner
-
-    - name: Unit tests
-      run: ./build/src/test/test_defi
 
   rust-tests:
     runs-on: ubuntu-latest
