@@ -76,8 +76,9 @@ jobs:
     # Temp. workaround to save space to prevent GH runners from running out
     - name: Cleanup deps
       run: |
-        rm -rf build/lib/target/debug/deps
         rm -rf build/lib/target/debug
+        rm -rf build/depends
+        find build/src -name "*.o" -type f -delete
 
     - name: Functional tests
       run: ./make.sh test-py
