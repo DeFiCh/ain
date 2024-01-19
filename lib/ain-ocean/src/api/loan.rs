@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, Query},
     routing::get,
     Json, Router,
 };
 use bitcoin::Txid;
+use jsonrpsee_http_client::{ClientT, HttpClient};
 use log::debug;
 
 use crate::{
@@ -105,7 +108,7 @@ async fn list_auction() -> String {
     "List of auctions".to_string()
 }
 
-pub fn router() -> Router {
+pub fn router(state: Arc<HttpClient>) -> Router {
     Router::new()
         .route("/schemes", get(list_scheme))
         .route("/schemes/:id", get(get_scheme))

@@ -23,6 +23,22 @@ uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
 }
 
+int getRPCPort() {
+    return BaseParams().RPCPort();
+}
+
+rust::string getRPCAuth() {
+    // Get credentials
+    std::string strRPCUserColonPass;
+    if (gArgs.GetArg("-rpcpassword", "") == "") {
+        // Try fall back to cookie-based authentication if no password is provided
+        GetAuthCookie(&strRPCUserColonPass);
+    } else {
+        strRPCUserColonPass = gArgs.GetArg("-rpcuser", "") + ":" + gArgs.GetArg("-rpcpassword", "");
+    }
+    return std::string("Basic ") + EncodeBase64(strRPCUserColonPass);
+}
+
 bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }

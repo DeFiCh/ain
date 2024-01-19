@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, Query},
     routing::get,
     Json, Router,
 };
+use jsonrpsee_http_client::{ClientT, HttpClient};
 use log::debug;
 use serde::{Deserialize, Serialize};
 
@@ -192,7 +195,7 @@ async fn list_dex_prices(Query(DexPrices { denomination }): Query<DexPrices>) ->
     format!("List of DEX prices with denomination {:?}", denomination)
 }
 
-pub fn router() -> Router {
+pub fn router(state: Arc<HttpClient>) -> Router {
     Router::new()
         .route("/", get(list_poolpairs))
         .route("/:id", get(get_poolpair))

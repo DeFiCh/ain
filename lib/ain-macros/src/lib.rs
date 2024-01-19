@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Attribute, DeriveInput, ItemFn, LitStr, ReturnType, Type};
+use syn::{parse_macro_input, Attribute, DeriveInput, Expr, ItemFn, LitStr, ReturnType, Type};
 
 #[proc_macro_attribute]
 pub fn ffi_fallible(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -122,4 +122,40 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+#[proc_macro_attribute]
+pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let fn_item = parse_macro_input!(item as ItemFn);
+
+    let original_block = &fn_item.block;
+    let fn_sig = &fn_item.sig;
+    let fn_attrs = &fn_item.attrs;
+
+    let error_handling_block = quote! {
+        #(#fn_attrs)*
+        #fn_sig {
+            let result = (|| async #original_block)().await;
+            match result {
+                Ok(val) => Ok(val),
+                Err(e) => {
+                    let current_time = std::time::SystemTime::now();
+                    let since_the_epoch = current_time
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .expect("Time went backwards")
+                        .as_secs();
+
+                    let (status, message) = e.into_code_and_message();
+                    Err(crate::error::ApiError {
+                        message,
+                        status: status.as_u16(),
+                        url: uri.to_string(),
+                        at: since_the_epoch,
+                    })
+                }
+            }
+        }
+    };
+
+    TokenStream::from(error_handling_block)
 }

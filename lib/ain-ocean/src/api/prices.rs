@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use axum::{extract::Path, routing::get, Router};
+use jsonrpsee_http_client::{ClientT, HttpClient};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -38,7 +41,7 @@ async fn get_oracles(Path(PriceKey { key }): Path<PriceKey>) -> String {
     format!("Oracles for price with key {}", key)
 }
 
-pub fn router() -> Router {
+pub fn router(state: Arc<HttpClient>) -> Router {
     Router::new()
         .route("/", get(list_prices))
         .route("/:key", get(get_price))
