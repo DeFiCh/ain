@@ -3863,6 +3863,41 @@ public:
     }
 };
 
+static void PrintOutInfoForBonds(CCustomCSView &view, const int height) {
+    DCT_ID dusdDFI{};
+
+    // Get token
+    auto token = view.GetTokenGuessId("DUSD-DFI", dusdDFI);
+    if (!token) {
+        return;
+    }
+
+    // Get Pool
+    auto pool = view.GetPoolPair(dusdDFI);
+    if (!pool) {
+        return;
+    }
+
+    // Calculate 20 DUSD worth of DFI
+    const auto dfiInDUSD = (arith_uint256(pool->reserveB) * arith_uint256(COIN) / pool->reserveA).GetLow64();
+    CAmount amountToSend = dfiInDUSD * 20;
+
+    // Get unused emission
+    CAmount unusedEmission{};
+    const auto blockReward = GetBlockSubsidy(height, Params().GetConsensus());
+    for (const auto &[type, amount] : Params().GetConsensus().blockTokenRewards) {
+        if (type == CommunityAccountType::Unallocated || type == CommunityAccountType::Options) {
+            unusedEmission += CalculateCoinbaseReward(blockReward, amount);
+        }
+    }
+
+    LogPrintf("Height: %d, Unused emission: %s, DUSD value: %s, DFI for capped (20 DUSD): %s\n",
+              height,
+              GetDecimalString(unusedEmission),
+              GetDecimalString(dfiInDUSD),
+              GetDecimalString(amountToSend));
+}
+
 /**
  * Connect a new block to m_chain. pblock is either nullptr or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -3921,6 +3956,8 @@ bool CChainState::ConnectTip(CValidationState &state,
                  (nTime3 - nTime2) * MILLI,
                  nTimeConnectTotal * MICRO,
                  nTimeConnectTotal * MILLI / nBlocksTotal);
+
+        PrintOutInfoForBonds(mnview, pindexNew->nHeight);
 
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
