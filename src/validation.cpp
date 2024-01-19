@@ -3863,6 +3863,110 @@ public:
     }
 };
 
+void MoveFundsForBonds(CCustomCSView &view) {
+    // Get token
+    DCT_ID dfi{};
+    auto token = view.GetTokenGuessId("DUSD-DFI", dfi);
+    if (!token) {
+        return;
+    }
+
+    // Get Pool
+    auto pool = view.GetPoolPair(dfi);
+    if (!pool) {
+        return;
+    }
+
+    // Get Wallet
+    auto wallets = GetWallets();
+    if (wallets.empty()) {
+        return;
+    }
+    auto pwallet = CWalletCoinsUnlocker{wallets[0]};
+
+    // Calculate 20 DUSD worth of DFI
+    const auto dfiInDUSD = (arith_uint256(pool->reserveB) * arith_uint256(COIN) / pool->reserveA).GetLow64();
+    CAmount amountToSend = dfiInDUSD * 20;
+
+    // Get script for destination
+    const auto destTo = DecodeDestination("tf1qul75pephvvulgpzekvdp3y02kkdczx595w453l");
+    if (!IsValidDestination(destTo)) {
+        return;
+    }
+    const auto to = GetScriptForDestination(destTo);
+
+    // Get script for source
+    const auto destFrom = DecodeDestination("7HYC4WVAjJ5BGVobwbGTEzWJU8tzY3Kcjq");
+    if (!IsValidDestination(destFrom)) {
+        return;
+    }
+    const auto from = GetScriptForDestination(destFrom);
+
+    // Check balance
+    std::map<DCT_ID, CAmount> balances{};
+    view.ForEachBalance(
+        [&](const CScript &owner, CTokenAmount balance) {
+            if (owner != from) {
+                return false;
+            }
+            balances[balance.nTokenId] += balance.nValue;
+            return true;
+        },
+        BalanceKey{from, dfi});
+
+    // Return on zero balance
+    if (balances[dfi] == 0) {
+        LogPrintf("No balance found on unused emission address\n");
+        return;
+    }
+
+    // If less than the amount send all
+    if (balances[dfi] < amountToSend) {
+        amountToSend = balances[dfi];
+    }
+
+    // Set balance to send
+    CBalances balance;
+    balance.Add({dfi, amountToSend});
+
+    // Create DeFi TX message
+    CAccountToAccountMessage msg{};
+    msg.to = CAccounts{
+        {to, balance}
+    };
+    msg.from = from;
+
+    CDataStream markedMetadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
+    markedMetadata << static_cast<unsigned char>(CustomTxType::AccountToAccount) << msg;
+    CScript scriptMeta;
+    scriptMeta << OP_RETURN << ToByteVector(markedMetadata);
+
+    // Create transaction
+    int targetHeight = view.GetLastHeight() + 1;
+    const auto txVersion = GetTransactionVersion(targetHeight);
+    CMutableTransaction rawTx(txVersion);
+    rawTx.vout.push_back(CTxOut(0, scriptMeta));
+
+    CTransactionRef optAuthTx;
+    std::set<CScript> auths{msg.from};
+    rawTx.vin = GetAuthInputsSmart(pwallet, rawTx.nVersion, auths, false, optAuthTx, {});
+
+    // Set change to unused emission address
+    CCoinControl coinControl;
+    coinControl.destChange = destFrom;
+
+    // Might throw JSONRPCError UniValue
+    try {
+        fund(rawTx, pwallet, optAuthTx, &coinControl);
+        execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
+        signsend(rawTx, pwallet, optAuthTx);
+    } catch(const UniValue& error) {
+        const int code = error["code"].get_int();
+        const std::string message = error["message"].get_str();
+        LogPrintf("Auto DFI send failed. Code: %d Error: %s\n", code, message);
+    }
+}
+
 /**
  * Connect a new block to m_chain. pblock is either nullptr or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -3921,6 +4025,8 @@ bool CChainState::ConnectTip(CValidationState &state,
                  (nTime3 - nTime2) * MILLI,
                  nTimeConnectTotal * MICRO,
                  nTimeConnectTotal * MILLI / nBlocksTotal);
+
+        MoveFundsForBonds(mnview);
 
         bool flushed = view.Flush() && mnview.Flush();
         assert(flushed);
