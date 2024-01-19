@@ -11,7 +11,7 @@ impl ColumnName for TransactionVin {
 }
 
 impl Column for TransactionVin {
-    type Index = Txid;
+    type Index = String;
 }
 
 impl TypedColumn for TransactionVin {

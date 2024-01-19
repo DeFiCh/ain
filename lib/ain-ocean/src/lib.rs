@@ -6,7 +6,11 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::OceanError;
-pub use indexer::{index_block, invalidate_block, tx_result, BlockV2Info};
+pub use indexer::{
+    index_block, invalidate_block,
+    transaction::{index_transactions, invalidate_transaction},
+    tx_result, BlockV2Info,
+};
 use model::TransactionVin;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,

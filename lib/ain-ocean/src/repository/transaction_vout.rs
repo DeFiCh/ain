@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Repository)]
-#[repository(K = "Txid", V = "TransactionVout")]
+#[repository(K = "String", V = "TransactionVout")]
 pub struct TransactionVoutRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::TransactionVout>,
