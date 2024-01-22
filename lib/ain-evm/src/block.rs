@@ -30,6 +30,7 @@ pub struct FeeHistoryData {
 
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
+const PRIORITY_FEE_ESTIMATION_BLOCK_RANGE: usize = 20;
 
 /// Handles getting block data, and contains internal functions for block creation and fees.
 impl BlockService {
@@ -159,8 +160,8 @@ impl BlockService {
             return Ok(INITIAL_BASE_FEE);
         }
 
-        // get parent gas usage,
-        // https://eips.ethereum.org/EIPS/eip-1559#:~:text=fee%20is%20correct-,if%20INITIAL_FORK_BLOCK_NUMBER%20%3D%3D%20block.number%3A,-expected_base_fee_per_gas%20%3D%20INITIAL_BASE_FEE
+        // get parent gas usage.
+        // Ref: https://eips.ethereum.org/EIPS/eip-1559#:~:text=fee%20is%20correct-,if%20INITIAL_FORK_BLOCK_NUMBER%20%3D%3D%20block.number%3A,-expected_base_fee_per_gas%20%3D%20INITIAL_BASE_FEE
         let parent_block = self
             .storage
             .get_block_by_hash(&parent_hash)?
@@ -316,57 +317,44 @@ impl BlockService {
     }
 
     /// Returns the nth percentile (default: 60) priority fee for the last 20 blocks.
-    /// Ref:(https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41)
-    pub fn suggested_priority_fee(&self) -> Result<U256> {
-        let mut blocks = Vec::with_capacity(20);
-        let block = self
-            .storage
-            .get_latest_block()?
-            .ok_or(format_err!("Unable to find latest block"))?;
+    /// Ref: https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41
+    pub fn suggested_priority_fee(&self, curr_block: U256) -> Result<U256> {
+        let percentile = ain_cpp_imports::get_suggested_priority_fee_percentile();
+        let mut blocks = Vec::with_capacity(PRIORITY_FEE_ESTIMATION_BLOCK_RANGE);
+        let mut block_num = if let Some(block_num) = highest_block.checked_sub(PRIORITY_FEE_ESTIMATION_BLOCK_RANGE) {
+            block_num
+                .checked_add(U256::one())
+                .ok_or(format_err!("Block number overflow"))?
+        } else {
+            U256::zero()
+        };
 
-        blocks.push(block.clone());
-        let mut parent_hash = block.header.parent_hash;
-
-        while blocks.len() <= blocks.capacity() {
-            match self.storage.get_block_by_hash(&parent_hash)? {
-                Some(block) => {
-                    blocks.push(block.clone());
-                    parent_hash = block.header.parent_hash;
-                }
-                None => break,
-            }
+        while block_num <= curr_block {
+            let block = self
+                .storage
+                .get_block_by_number(&block_num)?
+                .ok_or(format_err!("Block {:#?} out of range", block_num))?;
+            blocks.push(block.clone());
+            block_num = block_num
+                .checked_add(U256::one())
+                .ok_or(format_err!("Next block number overflow"))?;
         }
-
-        /*
-            TODO: assumption here is that max priority fee = priority fee paid, however
-            priority fee can be lower if gas costs hit max_fee_per_gas.
-            we will need to check the base fee paid to get the actual priority fee paid
-        */
 
         let mut priority_fees = Vec::new();
-
         for block in blocks {
+            let base_fee = block.header.base_fee;
             for tx in block.transactions {
-                match tx {
-                    TransactionAny::Legacy(_) | TransactionAny::EIP2930(_) => {
-                        continue;
-                    }
-                    TransactionAny::EIP1559(t) => {
-                        priority_fees.push(u64::try_from(t.max_priority_fee_per_gas)? as f64);
-                    }
-                }
+                let tx_rewards = SignedTx::try_from(tx)?.effective_priority_fee_per_gas(base_fee)?;
+                priority_fees.push(tx_rewards);
             }
         }
-
-        priority_fees.sort_by(|a, b| a.partial_cmp(b).expect("Invalid f64 value"));
         let mut data = Data::new(priority_fees);
-
-        Ok(U256::from(data.percentile(60).ceil() as u64))
+        Ok(U256::from(data.percentile(percentile).ceil() as u64))
     }
 
     /// Calculate suggested legacy fee from latest base fee and suggested priority fee.
-    pub fn get_legacy_fee(&self) -> Result<U256> {
-        let priority_fee = self.suggested_priority_fee()?;
+    pub fn get_legacy_fee(&self, curr_block: U256) -> Result<U256> {
+        let priority_fee = self.suggested_priority_fee(curr_block)?;
         let base_fee = self
             .storage
             .get_latest_block()?

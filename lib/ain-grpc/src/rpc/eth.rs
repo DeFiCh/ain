@@ -898,9 +898,11 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
-        let gas_price = self.handler.block.get_legacy_fee().map_err(to_custom_err)?;
-        debug!(target:"rpc", "gasPrice: {:#?}", gas_price);
-        Ok(gas_price)
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
+        self.handler
+            .block
+            .get_legacy_fee(curr_block)
+            .map_err(to_custom_err)
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
@@ -952,9 +954,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
+        let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         self.handler
             .block
-            .suggested_priority_fee()
+            .suggested_priority_fee(curr_block)
             .map_err(to_custom_err)
     }
 
