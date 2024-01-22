@@ -391,6 +391,8 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "eth_estimateGas", 1, "tag"},
     { "eth_createAccessList", 0, "tx"},
     { "eth_createAccessList", 1, "tag"},
+    { "eth_feeHistory", 1, "tag"},
+    { "eth_feeHistory", 2, "rewardPercentile"},
 
     { "eth_newFilter", 0, "filter"},
     { "eth_uninstallFilter", 0, "filterId"},
