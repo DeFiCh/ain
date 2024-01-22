@@ -1,5 +1,5 @@
 use bitcoin::{blockdata::locktime::absolute::LockTime, Txid};
-use dftx_rs::Transaction;
+use dftx_rs::{Block, Transaction};
 use log::debug;
 
 use super::BlockContext;
@@ -42,7 +42,7 @@ pub fn index_transactions(ctx: &BlockContext, tx: Transaction) -> Result<()> {
     };
     // Index transaction
     SERVICES.transaction.by_id.put(&tx_id, &trx)?;
-    // Index transaction vin
+    // Indexing transaction vin
     for (vin_idx, vin) in tx.input.iter().enumerate() {
         let trx_vin = TransactionVin {
             id: format!("{}-{}", tx_id, vin_idx),
@@ -65,10 +65,7 @@ pub fn index_transactions(ctx: &BlockContext, tx: Transaction) -> Result<()> {
             sequence: vin.sequence.to_string(),
         };
 
-        SERVICES
-            .transaction
-            .vin_by_id
-            .put(&tx_id.to_string(), &trx_vin)?;
+        SERVICES.transaction.vin_by_id.put(&tx_id, &trx_vin)?;
     }
     // Index transaction vout
     for (vout_idx, vout) in tx.output.iter().enumerate() {
@@ -83,10 +80,7 @@ pub fn index_transactions(ctx: &BlockContext, tx: Transaction) -> Result<()> {
                 r#type: "pubkey".to_string(),
             },
         };
-        SERVICES
-            .transaction
-            .vout_by_id
-            .put(&tx_id.to_string(), &trx_vout)?;
+        SERVICES.transaction.vout_by_id.put(&tx_id, &trx_vout)?;
         // .put(&format!("{}-{}", tx_id, vout_idx), &trx_vout)?; //need
     }
 
