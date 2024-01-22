@@ -485,9 +485,11 @@ void BlockAssembler::onlyUnconfirmed(CTxMemPool::setEntries &testSet) {
 bool BlockAssembler::TestPackage(uint64_t packageSize, int64_t packageSigOpsCost) const {
     // TODO: switch to weight-based accounting for packages instead of vsize-based accounting.
     if (nBlockWeight + WITNESS_SCALE_FACTOR * packageSize >= nBlockMaxWeight) {
+        LogPrintf("XXX too large\n");
         return false;
     }
     if (nBlockSigOpsCost + packageSigOpsCost >= MAX_BLOCK_SIGOPS_COST) {
+        LogPrintf("XXX too many sigops\n");
         return false;
     }
     return true;
@@ -738,6 +740,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
             iter = it->second;
             failedNonces.erase(it);
             failedNoncesLookup.erase(iter->GetTx().GetHash());
+            LogPrintf("XXX current TX failedNonces %s\n", iter->GetTx().GetHash().ToString());
         } else if (mi == mempool.mapTx.get<T>().end()) {
             // We're out of entries in mapTx; use the entry from mapModifiedTxSet
             iter = modit->iter;
@@ -781,6 +784,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
         }
 
         if (!TestPackage(packageSize, packageSigOpsCost)) {
+            LogPrintf("XXX skipping TestPackage %s\n", iter->GetTx().GetHash().ToString());
             if (fUsingModified) {
                 // Since we always look at the best entry in mapModifiedTxSet,
                 // we must erase failed entries so that we can consider the
@@ -793,7 +797,6 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
 
             if (nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES && nBlockWeight > nBlockMaxWeight - 4000) {
                 // Give up if we're close to full and haven't succeeded in a while
-                LogPrintf("XXX skipping consecutive failures %s\n", iter->GetTx().GetHash().ToString());
                 break;
             }
             continue;
@@ -840,6 +843,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
 
             // Do not double check already checked custom TX. This will be an ancestor of current TX.
             if (checkedDfTxHashSet.find(tx.GetHash()) != checkedDfTxHashSet.end()) {
+                LogPrintf("XXX skipping TX checkedDfTxHashSet %s\n", iter->GetTx().GetHash().ToString());
                 continue;
             }
 
@@ -907,6 +911,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
 
         // Failed, let's move on!
         if (!customTxPassed) {
+            LogPrintf("XXX skipping TX customTxPassed %s\n", iter->GetTx().GetHash().ToString());
             if (fUsingModified) {
                 mapModifiedTxSet.get<ancestor_score>().erase(modit);
             }
