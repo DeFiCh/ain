@@ -259,12 +259,12 @@ impl BlockService {
             let block = self
                 .storage
                 .get_block_by_number(&block_num)?
-                .ok_or(format_err!("Block {} out of range", block_num))?;
+                .ok_or(format_err!("Block {:#?} out of range", block_num))?;
             blocks.push(block);
 
             block_num = block_num
                 .checked_add(U256::one())
-                .ok_or(format_err!("block_number overflow"))?;
+                .ok_or(format_err!("Next block number overflow"))?;
         }
 
         // Set oldest block number
