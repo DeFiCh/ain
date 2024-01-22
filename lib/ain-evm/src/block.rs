@@ -248,7 +248,9 @@ impl BlockService {
 
         let mut blocks = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
         let mut block_num = if let Some(block_num) = highest_block.checked_sub(block_count) {
-            block_num.checked_add(U256::one()).ok_or(format_err!("Block number overflow"))?
+            block_num
+                .checked_add(U256::one())
+                .ok_or(format_err!("Block number overflow"))?
         } else {
             U256::zero()
         };
