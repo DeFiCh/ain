@@ -423,9 +423,7 @@ public:
         return Res::Err("Invalid block number: %s", number);
     }
 
-    static Res InvalidBlockHashString(const std::string &hash) {
-        return Res::Err("Invalid block hash: %s", hash);
-    }
+    static Res InvalidBlockHashString(const std::string &hash) { return Res::Err("Invalid block hash: %s", hash); }
 };
 
 #endif  // DEFI_DFI_ERRORS_H
