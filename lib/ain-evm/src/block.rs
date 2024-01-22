@@ -246,7 +246,7 @@ impl BlockService {
             prev_percentile = *percentile;
         }
 
-        let mut blocks = Vec::new();
+        let mut blocks = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
         let mut block_num = highest_block
             .checked_add(U256::one())
             .ok_or(format_err!("Block number overflow"))?
@@ -272,9 +272,9 @@ impl BlockService {
             .header
             .number;
 
-        let mut base_fee_per_gas = Vec::new();
-        let mut gas_used_ratio = Vec::new();
-        let mut rewards = Vec::new();
+        let mut base_fee_per_gas = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
+        let mut gas_used_ratio = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
+        let mut rewards = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
         for block in blocks.clone() {
             trace!("[fee_history] Processing block {}", block.header.number);
             let base_fee = block.header.base_fee;
@@ -287,7 +287,7 @@ impl BlockService {
             base_fee_per_gas.push(base_fee);
             gas_used_ratio.push(gas_ratio);
 
-            let mut block_tx_rewards = Vec::new();
+            let mut block_tx_rewards = Vec::with_capacity(block.transactions.len());
             for tx in block.transactions {
                 let tx_rewards =
                     SignedTx::try_from(tx)?.effective_priority_fee_per_gas(base_fee)?;
