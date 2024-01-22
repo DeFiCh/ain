@@ -51,6 +51,9 @@ mod ffi {
     pub fn getEthMaxResponseByteSize() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getSuggestedPriorityFeePercentile() -> u32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getNetwork() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -170,6 +173,11 @@ pub fn get_max_connections() -> u32 {
 /// Gets the maximum response size in bytes for Ethereum RPC calls.
 pub fn get_max_response_byte_size() -> u32 {
     ffi::getEthMaxResponseByteSize()
+}
+
+/// Gets the suggested priority fee percentile for suggested gas price Ethereum RPC calls.
+pub fn get_suggested_priority_fee_percentile() -> u32 {
+    ffi::getSuggestedPriorityFeePercentile()
 }
 
 /// Retrieves the network identifier as a string.

@@ -315,8 +315,8 @@ impl BlockService {
         })
     }
 
-    /// Returns the 60th percentile priority fee for the last 20 blocks. [Reference](https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41)
-    // TODO: these should be configurable by the user
+    /// Returns the nth percentile (default: 60) priority fee for the last 20 blocks.
+    /// Ref:(https://github.com/ethereum/go-ethereum/blob/c57b3436f4b8aae352cd69c3821879a11b5ee0fb/eth/ethconfig/config.go#L41)
     pub fn suggested_priority_fee(&self) -> Result<U256> {
         let mut blocks = Vec::with_capacity(20);
         let block = self
