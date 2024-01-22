@@ -2059,6 +2059,11 @@ bool AppInitMain(InitInterfaces& interfaces)
                         break;
                     }
                     CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                    if (!pindex) {
+                        strLoadError = _("Unable to get DVM block index from block hash, possible corrupted block database detected. "
+                                        "You will need to rebuild the database using -reindex.").translated;
+                        break;
+                    }
                     auto dvmBlockHeight = pindex->nHeight;
 
                     if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
