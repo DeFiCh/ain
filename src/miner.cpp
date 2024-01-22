@@ -723,6 +723,8 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
         if (mi != mempool.mapTx.get<T>().end() &&
             SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTxSet, failedTxSet)) {
             ++mi;
+            const CTxMemPool::txiter txIter = mempool.mapTx.project<0>(mi);
+            LogPrintf("XXX skipping TX %s\n", txIter->GetTx().GetHash().ToString());
             continue;
         }
 
@@ -740,9 +742,11 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
             // We're out of entries in mapTx; use the entry from mapModifiedTxSet
             iter = modit->iter;
             fUsingModified = true;
+            LogPrintf("XXX current TX modified %s\n", iter->GetTx().GetHash().ToString());
         } else {
             // Try to compare the mapTx entry to the mapModifiedTxSet entry
             iter = mempool.mapTx.project<0>(mi);
+            LogPrintf("XXX current TX mempool %s\n", iter->GetTx().GetHash().ToString());
             if (modit != mapModifiedTxSet.get<ancestor_score>().end() &&
                 CompareTxMemPoolEntryByAncestorFee()(*modit, CTxMemPoolModifiedEntry(iter))) {
                 // The best entry in mapModifiedTxSet has higher score
@@ -772,6 +776,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
 
         if (!IsEVMTx(iter->GetTx()) && packageFees < blockMinFeeRate.GetFee(packageSize)) {
             // Everything else we might consider has a lower fee rate
+            LogPrintf("XXX skipping low fee %s\n", iter->GetTx().GetHash().ToString());
             break;
         }
 
@@ -788,6 +793,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
 
             if (nConsecutiveFailed > MAX_CONSECUTIVE_FAILURES && nBlockWeight > nBlockMaxWeight - 4000) {
                 // Give up if we're close to full and haven't succeeded in a while
+                LogPrintf("XXX skipping consecutive failures %s\n", iter->GetTx().GetHash().ToString());
                 break;
             }
             continue;
@@ -807,6 +813,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                 mapModifiedTxSet.get<ancestor_score>().erase(modit);
                 failedTxSet.insert(iter);
             }
+            LogPrintf("XXX skipping not final %s\n", iter->GetTx().GetHash().ToString());
             continue;
         }
 
