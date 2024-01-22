@@ -431,6 +431,7 @@ static const CRPCAlternateStringValParam vRPCAlternateStringValParams[] =
     { "eth_call", 1, {"earliest", "latest", "pending"}},
     { "eth_estimateGas", 1, {"earliest", "latest", "pending"}},
     { "eth_createAccessList", 1, {"earliest", "latest", "pending"}},
+    { "eth_feeHistory", 1, {"earliest", "latest", "pending"}},
 
     { "eth_getBalance", 1, {"earliest", "latest", "pending"}},
     { "eth_getStorageAt", 2, {"earliest", "latest", "pending"}},
