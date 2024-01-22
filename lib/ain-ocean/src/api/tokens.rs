@@ -7,7 +7,7 @@ use bitcoincore_rpc::{Client, RpcApi};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::Result;
+use crate::{error::ApiError, Result};
 
 // #[derive(Serialize, Deserialize, Debug, Clone)]
 // #[serde(rename_all = "camelCase")]

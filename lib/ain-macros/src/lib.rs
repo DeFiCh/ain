@@ -2,7 +2,10 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Attribute, DeriveInput, Expr, ItemFn, LitStr, ReturnType, Type};
+use syn::{
+    parse_macro_input, parse_quote, Attribute, DeriveInput, Expr, FnArg, ItemFn, LitStr,
+    ReturnType, Type,
+};
 
 #[proc_macro_attribute]
 pub fn ffi_fallible(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -126,36 +129,54 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
 
 #[proc_macro_attribute]
 pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let fn_item = parse_macro_input!(item as ItemFn);
+    let input = parse_macro_input!(item as ItemFn);
+    let inputs = &input.sig.inputs;
 
-    let original_block = &fn_item.block;
-    let fn_sig = &fn_item.sig;
-    let fn_attrs = &fn_item.attrs;
+    let name = &input.sig.ident;
 
-    let error_handling_block = quote! {
-        #(#fn_attrs)*
-        #fn_sig {
-            let result = (|| async #original_block)().await;
-            match result {
-                Ok(val) => Ok(val),
-                Err(e) => {
-                    let current_time = std::time::SystemTime::now();
-                    let since_the_epoch = current_time
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .expect("Time went backwards")
-                        .as_secs();
-
-                    let (status, message) = e.into_code_and_message();
-                    Err(crate::error::ApiError {
-                        message,
-                        status: status.as_u16(),
-                        url: uri.to_string(),
-                        at: since_the_epoch,
-                    })
+    let output = &input.sig.output;
+    let inner_type = match output {
+        ReturnType::Type(_, type_box) => match &**type_box {
+            Type::Path(type_path) => type_path.path.segments.last().and_then(|pair| {
+                if let syn::PathArguments::AngleBracketed(angle_bracketed_args) = &pair.arguments {
+                    angle_bracketed_args.args.first()
+                } else {
+                    None
                 }
+            }),
+            _ => None,
+        },
+        _ => None,
+    };
+
+    let param_names: Vec<_> = inputs
+        .iter()
+        .filter_map(|arg| {
+            if let syn::FnArg::Typed(pat_type) = arg {
+                Some(&pat_type.pat)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let expanded = quote! {
+        pub async fn #name(axum::extract::OriginalUri(uri): axum::extract::OriginalUri, #inputs) -> std::result::Result<#inner_type, ApiError> {
+            #input
+
+            match #name(#(#param_names),*).await {
+                Err(e) => {
+                let (status, message) = e.into_code_and_message();
+                Err(ApiError::new(
+                    status,
+                    message,
+                    uri.to_string()
+                ))
+            },
+                Ok(e) => Ok(e)
             }
         }
     };
 
-    TokenStream::from(error_handling_block)
+    TokenStream::from(expanded)
 }

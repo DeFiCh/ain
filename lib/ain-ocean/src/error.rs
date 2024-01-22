@@ -9,7 +9,6 @@ use axum::{
 };
 use bitcoin::hex::HexToArrayError;
 use serde::Serialize;
-use tarpc::client::RpcError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -37,36 +36,62 @@ pub enum OceanError {
 }
 
 #[derive(Serialize)]
-enum ErrorType {
+pub enum ErrorType {
     NotFound,
     Unknown,
 }
 
 #[derive(Serialize)]
-pub struct ApiError {
-    r#type: ErrorType,
+struct ApiErrorData {
     code: u16,
-    at: u64,
+    r#type: ErrorType,
+    at: u128,
     message: String,
     url: String,
+}
+#[derive(Serialize)]
+pub struct ApiError {
+    error: ApiErrorData,
+    #[serde(skip)]
+    status: StatusCode,
+}
+
+impl ApiError {
+    pub fn new(status: StatusCode, message: String, url: String) -> Self {
+        let current_time = std::time::SystemTime::now();
+        let at = current_time
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_millis();
+
+        let r#type = match status {
+            StatusCode::NOT_FOUND => ErrorType::NotFound,
+            _ => ErrorType::Unknown,
+        };
+
+        Self {
+            error: ApiErrorData {
+                r#type,
+                code: status.as_u16(),
+                message,
+                url,
+                at,
+            },
+            status,
+        }
+    }
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        let status = self.status;
         let reason = Json(self);
-        (self.code, reason).into_response()
+        (status, reason).into_response()
     }
 }
 
 impl OceanError {
-    fn into_code_and_message(self) -> (StatusCode, String) {
-        let code: StatusCode = match self {
-            // OceanError::SomeError => StatusCode::SomeCode,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        println!("into response : {}", self);
-
+    pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match self {
             OceanError::RpcError(bitcoincore_rpc::Error::JsonRpc(jsonrpc::error::Error::Rpc(
                 e,
