@@ -27,6 +27,9 @@ public:
         memset(m_data, 0, sizeof(m_data));
     }
 
+    /* constructor for constants between 1 and 255 */
+    constexpr explicit base_blob(uint8_t v) : m_data{v} {}
+
     explicit base_blob(const std::vector<unsigned char>& vch);
 
     bool IsNull() const
@@ -99,7 +102,7 @@ public:
         return &m_data[WIDTH];
     }
 
-    unsigned int size() const
+    static constexpr unsigned int size()
     {
         return sizeof(m_data);
     }
@@ -136,7 +139,10 @@ public:
 class uint256 : public base_blob<256> {
 public:
     uint256() {}
+    constexpr explicit uint256(uint8_t v) : base_blob<256>(v) {}
     explicit uint256(const std::vector<unsigned char>& vch) : base_blob<256>(vch) {}
+    static const uint256 ZERO;
+    static const uint256 ONE;
 };
 
 /* uint256 from const char *.

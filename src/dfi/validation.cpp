@@ -2586,7 +2586,7 @@ static void ProcessMasternodeUpdates(const CBlockIndex *pindex,
             assert(!coin.IsSpent());
             CTxDestination dest;
             assert(ExtractDestination(coin.out.scriptPubKey, dest));
-            const CKeyID keyId = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
+            const CKeyID keyId = FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
             cache.UpdateMasternodeOwner(value.masternodeID, *node, dest.index(), keyId);
         }
         return true;

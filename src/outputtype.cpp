@@ -10,6 +10,7 @@
 #include <script/sign.h>
 #include <script/signingprovider.h>
 #include <script/standard.h>
+#include <util/vector.h>
 
 #include <assert.h>
 #include <string>
@@ -79,11 +80,12 @@ std::vector<CTxDestination> GetAllDestinationsForKey(const CPubKey& key)
 {
     auto [uncomp, comp] = GetBothPubkeyCompressions(key);
     PKHash keyid(comp);
+    CTxDestination p2pkh{keyid};
     WitnessV0KeyHash segwit(comp);
     ScriptHash p2sh(GetScriptForDestination(segwit));
     PKHash uncompressedLegacy(uncomp);
     WitnessV16EthHash eth(uncomp);
-    return std::vector<CTxDestination>{std::move(keyid), std::move(p2sh), std::move(segwit), std::move(eth), std::move(uncompressedLegacy)};
+    return Vector(std::move(p2pkh), std::move(p2sh), std::move(segwit), std::move(eth), std::move(uncompressedLegacy));
 }
 
 CTxDestination AddAndGetDestinationForScript(FillableSigningProvider& keystore, const CScript& script, OutputType type)

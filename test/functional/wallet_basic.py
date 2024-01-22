@@ -636,7 +636,7 @@ class WalletTest(DefiTestFramework):
         # Test getaddressinfo on external address. Note that these addresses are taken from disablewallet.py
         assert_raises_rpc_error(
             -5,
-            "Invalid address",
+            "Invalid prefix for Base58-encoded address",
             self.nodes[0].getaddressinfo,
             "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
         )

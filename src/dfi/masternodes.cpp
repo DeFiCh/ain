@@ -254,7 +254,7 @@ std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOperator() const 
     const auto operators = gArgs.GetArgs("-masternode_operator");
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
+        const CKeyID authAddress = FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 return std::make_pair(authAddress, *nodeId);
@@ -269,7 +269,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
     std::set<std::pair<CKeyID, uint256>> operatorPairs;
     for (const auto &key : operators) {
         const CTxDestination dest = DecodeDestination(key);
-        const CKeyID authAddress = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
+        const CKeyID authAddress = FromOrDefaultDestination(dest, KeyType::MNOperatorKeyType);
         if (!authAddress.IsNull()) {
             if (auto nodeId = GetMasternodeIdByOperator(authAddress)) {
                 operatorPairs.insert(std::make_pair(authAddress, *nodeId));
@@ -282,7 +282,7 @@ std::set<std::pair<CKeyID, uint256>> CMasternodesView::GetOperatorsMulti() const
 
 std::optional<std::pair<CKeyID, uint256>> CMasternodesView::AmIOwner() const {
     CTxDestination dest = DecodeDestination(gArgs.GetArg("-masternode_owner", ""));
-    const CKeyID authAddress = CKeyID::FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
+    const CKeyID authAddress = FromOrDefaultDestination(dest, KeyType::MNOwnerKeyType);
     if (!authAddress.IsNull()) {
         auto nodeId = GetMasternodeIdByOwner(authAddress);
         if (nodeId) {

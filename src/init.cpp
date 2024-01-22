@@ -2423,7 +2423,7 @@ bool AppInitMain(InitInterfaces& interfaces)
             auto& coinbaseScript = stakerParams.coinbaseScript;
 
             CTxDestination destination = DecodeDestination(op);
-            operatorId = CKeyID::FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
+            operatorId = FromOrDefaultDestination(destination, KeyType::MNOperatorKeyType);
             if (operatorId.IsNull()) {
                 LogPrintf("Error: wrong masternode_operator address (%s)\n", op);
                 continue;
