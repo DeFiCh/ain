@@ -658,8 +658,10 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext &ctx) {
     }
 
     if (txNonce < expectedNonce) {
+        LogPrintf("XXX nonce too low. tx nonce %d expected %d\n", txNonce, expectedNonce);
         return false;
     } else if (txNonce > expectedNonce) {
+        LogPrintf("XXX nonce too high. tx nonce %d expected %d\n", txNonce, expectedNonce);
         if (!failedTxSet.count(txIter)) {
             auto it = failedNonces.emplace(txNonce, txIter);
             failedNoncesLookup.emplace(txIter->GetTx().GetHash(), it);
