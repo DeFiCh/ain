@@ -653,6 +653,7 @@ bool BlockAssembler::EvmTxPreapply(EvmTxPreApplyContext &ctx) {
     const auto expectedNonce =
         evm_try_unsafe_get_next_valid_nonce_in_template(result, evmTemplate->GetTemplate(), txSender);
     if (!result.ok) {
+        LogPrintf("XXX EvmTxPreapply %s\n", result.reason);
         return false;
     }
 
@@ -878,6 +879,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     } else {
                         failedTxSet.insert(entry);
                         failedCustomTx = tx.GetHash();
+                        LogPrintf("XXX skipping TX EvmTxPreapply %s\n", iter->GetTx().GetHash().ToString());
                         customTxPassed = false;
                         break;
                     }
