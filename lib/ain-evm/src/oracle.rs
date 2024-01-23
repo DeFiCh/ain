@@ -9,6 +9,7 @@ use ethereum::BlockAny;
 use ethereum_types::U256;
 use keccak_hash::H256;
 use log::{debug, trace};
+use parking_lot::Mutex;
 
 use crate::{
     storage::{
@@ -22,7 +23,7 @@ use crate::{
 pub struct OracleService {
     storage: Arc<Storage>,
     starting_block_number: U256,
-    last_suggested_fee_tip: Option<SuggestedFeeTip>,
+    last_suggested_fee_tip: Mutex<Option<SuggestedFeeTip>>,
 }
 
 pub struct SuggestedFeeTip {
@@ -56,7 +57,7 @@ impl OracleService {
         let mut oracle_handler = Self {
             storage,
             starting_block_number: U256::zero(),
-            last_suggested_fee_tip: None,
+            last_suggested_fee_tip: Mutex::new(None),
         };
         let (_, block_number) = oracle_handler
             .get_latest_block_hash_and_number()?
@@ -226,9 +227,12 @@ impl OracleService {
         percentile = min(percentile, MAX_PERCENTAGE);
         if let Some(curr_block) = self.storage.get_latest_block()? {
             let curr_block_num = curr_block.header.number;
-            if let Some(last_suggested_fee_tip) = &self.last_suggested_fee_tip {
-                if last_suggested_fee_tip.tip == curr_block_num {
-                    return Ok(last_suggested_fee_tip.suggested_fee);
+            {
+                let last_suggested_fee_tip = self.last_suggested_fee_tip.lock();
+                if let Some(last_suggested_fee_tip) = &*last_suggested_fee_tip {
+                    if last_suggested_fee_tip.tip == curr_block_num {
+                        return Ok(last_suggested_fee_tip.suggested_fee);
+                    }
                 }
             }
 
@@ -263,7 +267,17 @@ impl OracleService {
             priority_fees.sort();
             // Safe arithmetic operations since max possible txs in a block is within i64 limits
             let percent_idx = (((priority_fees.len() - 1) as i64) * percentile / 100) as usize;
-            Ok(priority_fees[percent_idx])
+            let suggested_fee = priority_fees[percent_idx];
+
+            // Update cache
+            {
+                let mut last_suggested_fee_tip = self.last_suggested_fee_tip.lock();
+                *last_suggested_fee_tip = Some(SuggestedFeeTip {
+                    tip: curr_block_num,
+                    suggested_fee,
+                });
+            }
+            Ok(suggested_fee)
         } else {
             // Edge case no genesis block yet. Default to initial block base fees
             Ok(INITIAL_BASE_FEE)

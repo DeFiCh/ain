@@ -138,6 +138,17 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].eth_sendTransaction(tx)
         self.nodes[0].generate(1)
 
+    def test_suggest_priority_fee(self):
+        self.rollback_to(self.startHeight)
+
+        numBlocks = 10
+        self.mine_block_with_eip1559_txs(numBlocks)
+
+        # Default suggested priority fee calculation is at 60%
+        correctPriorityFeeIdx = int((len(self.priorityFees) - 1) * 0.6)
+        suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
+        assert_equal(suggestedFee, hex(self.priorityFees[correctPriorityFeeIdx]))
+
     def test_fee_history_eip1559_txs(self):
         self.rollback_to(self.startHeight)
 
@@ -290,6 +301,8 @@ class EVMTest(DefiTestFramework):
         self.setup()
 
         self.nodes[0].generate(1)
+
+        self.test_suggest_priority_fee()
 
         self.test_fee_history_eip1559_txs()
 
