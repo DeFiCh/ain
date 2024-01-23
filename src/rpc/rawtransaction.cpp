@@ -698,6 +698,7 @@ static UniValue signrawtransactionwithkey(const JSONRPCRequest& request)
                         },
                         },
                     {"sighashtype", RPCArg::Type::STR, /* default */ "ALL", "The signature hash type. Must be one of:\n"
+            "       \"DEFAULT\"\n"
             "       \"ALL\"\n"
             "       \"NONE\"\n"
             "       \"SINGLE\"\n"
@@ -1520,6 +1521,7 @@ UniValue utxoupdatepsbt(const JSONRPCRequest& request)
     }
 
     // Fill the inputs
+    const PrecomputedTransactionData txdata = PrecomputePSBTData(psbtx);
     for (unsigned int i = 0; i < psbtx.tx->vin.size(); ++i) {
         PSBTInput& input = psbtx.inputs.at(i);
 
@@ -1536,7 +1538,7 @@ UniValue utxoupdatepsbt(const JSONRPCRequest& request)
         // Update script/keypath information using descriptor data.
         // Note that SignPSBTInput does a lot more than just constructing ECDSA signatures
         // we don't actually care about those here, in fact.
-        SignPSBTInput(public_provider, psbtx, i, /* sighash_type */ 1);
+        SignPSBTInput(public_provider, psbtx, i, &txdata, /* sighash_type */ 1);
     }
 
     // Update script/keypath information using descriptor data.
