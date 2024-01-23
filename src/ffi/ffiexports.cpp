@@ -311,8 +311,8 @@ uint32_t getEthMaxResponseByteSize() {
     return max_response_size_mb * 1024 * 1024;
 }
 
-uint32_t getSuggestedPriorityFeePercentile() {
-    const auto suggested_priority_fee_percentile = gArgs.GetArg("-evmtxpriorityfeepercentile", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE);
+int64_t getSuggestedPriorityFeePercentile() {
+    return gArgs.GetArg("-evmtxpriorityfeepercentile", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE);
 }
 
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {

@@ -190,7 +190,7 @@ fn evm_try_store_account_nonce(from_address: XAddress, nonce: u64) -> Result<()>
 #[ffi_fallible]
 fn evm_try_get_balance(address: XAddress) -> Result<u64> {
     let address = H160::from(address);
-    let state_root = SERVICES.evm.block.get_latest_state_root()?;
+    let state_root = SERVICES.evm.oracle.get_latest_state_root()?;
     let balance = SERVICES.evm.core.get_balance(address, state_root)?;
     let amount = WeiAmount(balance).to_satoshi()?.try_into()?;
 
@@ -798,12 +798,12 @@ fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Res
 
     let signed_tx = evm_services.core.tx_cache.try_get_or_create(raw_tx)?;
 
-    let block_service = &evm_services.block;
-    let attrs = block_service.get_attribute_vals(Some(mnview_ptr));
+    let oracle = &evm_services.oracle;
+    let attrs = oracle.get_attribute_vals(Some(mnview_ptr));
 
     let nonce = u64::try_from(signed_tx.nonce())?;
     let initial_base_fee =
-        block_service.calculate_base_fee(H256::zero(), attrs.block_gas_target_factor)?;
+        oracle.calculate_base_fee(H256::zero(), attrs.block_gas_target_factor)?;
     let tip_fee = calculate_max_tip_gas_fee(&signed_tx, initial_base_fee)?;
     let min_rbf_tip_fee =
         calculate_min_rbf_tip_gas_fee(&signed_tx, tip_fee, attrs.rbf_fee_increment)?;

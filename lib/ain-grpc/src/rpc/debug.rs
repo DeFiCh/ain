@@ -108,7 +108,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         // Get latest block information
         let (block_hash, block_number) = self
             .handler
-            .block
+            .oracle
             .get_latest_block_hash_and_number()
             .map_err(to_custom_err)?
             .unwrap_or_default();
@@ -122,7 +122,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         // Get gas price
         let block_base_fee = self
             .handler
-            .block
+            .oracle
             .calculate_base_fee(block_hash, block_gas_target_factor)
             .map_err(to_custom_err)?;
         let gas_price = call.get_effective_gas_price(block_base_fee)?;

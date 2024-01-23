@@ -211,10 +211,7 @@ class EVMTest(DefiTestFramework):
         for gasUsedRatio in history["gasUsedRatio"]:
             assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
 
-        assert_equal(len(history["reward"]), numBlocks)
-        for reward in history["reward"]:
-            assert_equal(len(reward), len(rewardPercentiles))
-            assert_equal(reward, [])
+        assert_equal(history["reward"], None)
 
     def test_invalid_fee_history_rpc(self):
         self.rollback_to(self.startHeight)
@@ -223,6 +220,7 @@ class EVMTest(DefiTestFramework):
         self.mine_block_with_eip1559_txs(numBlocks)
         rewardPercentiles = []
         aboveLimitPercentiles = [101, 20, 30, 40, 100]
+        belowLimitPercentiles = [-1, 20, 30, 40, 100]
         notIncreasingPercentiles = [10, 20, 30, 50, 40, 100]
         tooManyPercentiles = [0]
         for i in range(100):
@@ -256,6 +254,16 @@ class EVMTest(DefiTestFramework):
             hex(numBlocks),
             "latest",
             tooManyPercentiles,
+        )
+
+        # Test invalid feeHistory call, percentile value less than inclusive range
+        assert_raises_rpc_error(
+            -32001,
+            "Percentile value less than inclusive range of 0",
+            self.nodes[0].eth_feeHistory,
+            hex(numBlocks),
+            "latest",
+            belowLimitPercentiles,
         )
 
         # Test invalid feeHistory call, percentile value exceed inclusive range
