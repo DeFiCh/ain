@@ -53,33 +53,11 @@ pub fn ocean_router() -> Result<Router> {
         return Ok(Router::new().route("/*path", get(ocean_not_activated)));
     }
 
-    // let mut headers = HeaderMap::new();
-    // headers.insert(
-    //     "Authorization",
-    //     ain_cpp_imports::get_rpc_auth().parse().unwrap(),
-    // );
-    // println!(
-    //     "ain_cpp_imports::get_rpc_port() : {:?}",
-    //     ain_cpp_imports::get_rpc_port()
-    // );
-    // let client = Arc::new(
-    //     {
-    //         HttpClientBuilder::default()
-    //             .set_headers(headers)
-    //             .build(format!(
-    //                 "http://127.0.0.1:{}",
-    //                 ain_cpp_imports::get_rpc_port()
-    //             ))
-    //     }
-    //     .unwrap(),
-    // );
-    let client = Arc::new(
-        Client::new(
-            &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
-            Auth::UserPass("test".to_string(), "test".to_string()),
-        )
-        .unwrap(),
-    );
+    let (user, pass) = ain_cpp_imports::get_rpc_auth()?;
+    let client = Arc::new(Client::new(
+        &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
+        Auth::UserPass(user, pass),
+    )?);
     println!("client : {:?}", client);
 
     Ok(Router::new()

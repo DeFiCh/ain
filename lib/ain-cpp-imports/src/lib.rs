@@ -139,8 +139,19 @@ pub fn get_rpc_port() -> i32 {
 }
 
 /// Returns the RPC authorization string.
-pub fn get_rpc_auth() -> String {
-    ffi::getRPCAuth()
+pub fn get_rpc_auth() -> Result<(String, String), Box<dyn Error>> {
+    match ffi::getRPCAuth()
+        .splitn(2, ':')
+        .map(String::from)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [user, pass] => Ok((user.clone(), pass.clone())),
+        yo => {
+            println!("yo : {:?}", yo);
+            Err("Error getting user and password".into())
+        }
+    }
 }
 
 /// Retrieves the client version string.

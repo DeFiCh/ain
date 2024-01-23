@@ -2,12 +2,18 @@ use std::{collections::HashMap, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
-use axum::{extract::Path, routing::get, Extension, Json, Router};
+use axum::{
+    extract::{Path, Query},
+    routing::get,
+    Extension, Json, Router,
+};
 use bitcoincore_rpc::{Client, RpcApi};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
-use crate::{error::ApiError, Result};
+use crate::{
+    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, error::ApiError, Result,
+};
 
 // #[derive(Serialize, Deserialize, Debug, Clone)]
 // #[serde(rename_all = "camelCase")]
@@ -67,8 +73,18 @@ pub struct TokenInfo {
 }
 
 #[ocean_endpoint]
-async fn list_tokens(Extension(client): Extension<Arc<Client>>) -> Result<Json<Vec<Value>>> {
-    Ok(Json(vec![]))
+async fn list_tokens(
+    Query(query): Query<PaginationQuery>,
+    Extension(client): Extension<Arc<Client>>,
+) -> Result<Json<ApiPagedResponse<Value>>> {
+    let tokens: HashMap<String, Value> =
+        client.call("listtokens", &[json!({"limit": query.size }), true.into()])?;
+
+    println!("tokens : {:?}", tokens);
+    let tokens = tokens.into_iter().map(|v| v.1).collect::<Vec<_>>();
+    Ok(Json(ApiPagedResponse::of(tokens, query.size, |token| {
+        token["name"].to_string()
+    })))
 }
 
 #[ocean_endpoint]

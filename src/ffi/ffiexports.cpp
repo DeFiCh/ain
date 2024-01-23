@@ -36,7 +36,7 @@ rust::string getRPCAuth() {
     } else {
         strRPCUserColonPass = gArgs.GetArg("-rpcuser", "") + ":" + gArgs.GetArg("-rpcpassword", "");
     }
-    return std::string("Basic ") + EncodeBase64(strRPCUserColonPass);
+    return strRPCUserColonPass;
 }
 
 bool isMining() {
