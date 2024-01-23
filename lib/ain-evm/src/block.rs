@@ -13,7 +13,8 @@ use statrs::statistics::{Data, OrderStatistics};
 
 use crate::{
     storage::{traits::BlockStorage, Storage},
-    EVMError, Result,
+    transaction::SignedTx,
+    Result,
 };
 
 pub struct BlockService {
@@ -31,6 +32,10 @@ pub struct FeeHistoryData {
 pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
 const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
 const PRIORITY_FEE_ESTIMATION_BLOCK_RANGE: usize = 20;
+
+pub const MAX_REWARD_PERCENTAGE: usize = 100;
+pub const MIN_BLOCK_COUNT_RANGE: U256 = U256::one();
+pub const MAX_BLOCK_COUNT_RANGE: U256 = U256([1024, 0, 0, 0]);
 
 /// Handles getting block data, and contains internal functions for block creation and fees.
 impl BlockService {
@@ -73,13 +78,15 @@ impl BlockService {
         Ok(state_root)
     }
 
-    /// Add new block to storage. This block must have passed validation before being added to storage. Once it is added to storage it becomes the latest confirmed block.
+    /// Add new block to storage. This block must have passed validation before being added to storage.
+    /// Once it is added to storage it becomes the latest confirmed block.
     pub fn connect_block(&self, block: &BlockAny) -> Result<()> {
         self.storage.put_latest_block(Some(block))?;
         self.storage.put_block(block)
     }
 
-    /// Finds base fee for block based on parent gas usage. Can be used to find base fee for next block if latest block data is passed.
+    /// Finds base fee for block based on parent gas usage. Can be used to find base fee for next block
+    /// if latest block data is passed.
     pub fn get_base_fee(
         &self,
         parent_gas_used: u64,
@@ -146,7 +153,8 @@ impl BlockService {
     ///
     /// # Arguments
     /// * `parent_hash` - Parent block hash
-    /// * `block_gas_target_factor` - Determines the gas target for the previous block using the formula `gas target = gas limit / target factor`
+    /// * `block_gas_target_factor` - Determines the gas target for the previous block using the formula:
+    ///   `gas target = gas limit / target factor`
     pub fn calculate_base_fee(
         &self,
         parent_hash: H256,
@@ -168,8 +176,9 @@ impl BlockService {
             .ok_or(format_err!("Parent block not found"))?;
         let parent_base_fee = parent_block.header.base_fee;
         let parent_gas_used = u64::try_from(parent_block.header.gas_used)?;
+        // safe to use normal division since we know block_gas_limit_factor is non-zero
         let parent_gas_target =
-            u64::try_from(parent_block.header.gas_limit / block_gas_target_factor)?; // safe to use normal division since we know block_gas_limit_factor is non-zero
+            u64::try_from(parent_block.header.gas_limit / block_gas_target_factor)?;
         self.get_base_fee(
             parent_gas_used,
             parent_gas_target,
@@ -183,136 +192,148 @@ impl BlockService {
     /// Gets base fee, gas usage ratio and priority fees for a range of blocks. Used in `eth_feeHistory`.
     ///
     /// # Arguments
-    /// * `block_count` - Number of blocks' data to return.
-    /// * `first_block` - Block number of first block.
-    /// * `priority_fee_percentile` - Vector of percentiles. This will return percentile priority fee for all blocks. e.g. [20, 50, 70] will return 20th, 50th and 70th percentile priority fee for every block.
+    /// * `block_count` - Number of blocks' data to return. Between 1 and 1024 blocks can be requested in a single query.
+    /// * `highest_block` - Block number of highest block.
+    /// * `reward_percentile` - List of percilt values with monotonic increase in value. The transactions will be ranked
+    ///                         effective tip per gas for each block in the requested range, and the corresponding effective
+    ///                         tip for the percentile will be calculated while taking gas consumption into consideration.
     /// * `block_gas_target_factor` - Determines gas target. Used when latest `block_count` blocks are queried.
     pub fn fee_history(
         &self,
-        block_count: usize,
-        first_block: U256,
-        priority_fee_percentile: Vec<usize>,
+        block_count: U256,
+        highest_block: U256,
+        reward_percentile: Vec<usize>,
         block_gas_target_factor: u64,
     ) -> Result<FeeHistoryData> {
-        let mut blocks = Vec::with_capacity(block_count);
-        let mut block_number = first_block;
-
-        for _ in 1..=block_count {
-            let block = match self.storage.get_block_by_number(&block_number)? {
-                None => Err(format_err!("Block {} out of range", block_number)),
-                Some(block) => Ok(block),
-            }?;
-
-            blocks.push(block);
-
-            block_number = block_number
-                .checked_sub(U256::one())
-                .ok_or_else(|| format_err!("block_number underflow"))?;
+        // Validate block_count input
+        if block_count < MIN_BLOCK_COUNT_RANGE {
+            return Err(format_err!(
+                "Block count requested smaller than minimum allowed range of {}",
+                MIN_BLOCK_COUNT_RANGE,
+            )
+            .into());
+        }
+        if block_count > MAX_BLOCK_COUNT_RANGE {
+            return Err(format_err!(
+                "Block count requested larger than maximum allowed range of {}",
+                MAX_BLOCK_COUNT_RANGE,
+            )
+            .into());
         }
 
-        let oldest_block = blocks.last().unwrap().header.number;
-
-        let (mut base_fee_per_gas, mut gas_used_ratio) = blocks.iter().try_fold(
-            (Vec::new(), Vec::new()),
-            |(mut base_fee_per_gas, mut gas_used_ratio), block| {
-                trace!("[fee_history] Processing block {}", block.header.number);
-                let base_fee = block.header.base_fee;
-
-                let gas_ratio = if block.header.gas_limit == U256::zero() {
-                    f64::default() // empty block
-                } else {
-                    u64::try_from(block.header.gas_used)? as f64
-                        / u64::try_from(block.header.gas_limit)? as f64 // safe due to check
-                };
-
-                base_fee_per_gas.push(base_fee);
-                gas_used_ratio.push(gas_ratio);
-
-                Ok::<_, EVMError>((base_fee_per_gas, gas_used_ratio))
-            },
-        )?;
-
-        let reward = if priority_fee_percentile.is_empty() {
-            None
-        } else {
-            let mut eip_transactions = Vec::new();
-
-            for block in blocks {
-                let mut block_eip_transaction = Vec::new();
-                for tx in block.transactions {
-                    match tx {
-                        TransactionAny::Legacy(_) | TransactionAny::EIP2930(_) => {
-                            continue;
-                        }
-                        TransactionAny::EIP1559(t) => {
-                            block_eip_transaction.push(t);
-                        }
-                    }
-                }
-                block_eip_transaction
-                    .sort_by(|a, b| a.max_priority_fee_per_gas.cmp(&b.max_priority_fee_per_gas));
-                eip_transactions.push(block_eip_transaction);
+        // Validate reward_percentile input
+        if reward_percentile.len() > MAX_REWARD_PERCENTAGE {
+            return Err(format_err!(
+                "List of percentile values exceeds maximum allowed size of {}",
+                MAX_REWARD_PERCENTAGE,
+            )
+            .into());
+        }
+        let mut prev_percentile = 0;
+        for percentile in &reward_percentile {
+            if *percentile > MAX_REWARD_PERCENTAGE {
+                return Err(format_err!(
+                    "Percentile value more than inclusive range of {}",
+                    MAX_REWARD_PERCENTAGE,
+                )
+                .into());
             }
-
-            /*
-                TODO: assumption here is that max priority fee = priority fee paid, however
-                priority fee can be lower if gas costs hit max_fee_per_gas.
-                we will need to check the base fee paid to get the actual priority fee paid
-            */
-
-            let mut reward = Vec::new();
-
-            for block_eip_tx in eip_transactions {
-                if block_eip_tx.is_empty() {
-                    reward.push(vec![U256::zero()]);
-                    continue;
-                }
-
-                let mut block_rewards = Vec::new();
-                let priority_fees = block_eip_tx
-                    .iter()
-                    .map(|tx| Ok(u64::try_from(tx.max_priority_fee_per_gas)? as f64))
-                    .collect::<Result<Vec<f64>>>()?;
-                let mut data = Data::new(priority_fees);
-
-                for pct in &priority_fee_percentile {
-                    block_rewards.push(U256::from(data.percentile(*pct).floor() as u64));
-                }
-
-                reward.push(block_rewards);
+            if prev_percentile > *percentile {
+                return Err(format_err!(
+                    "List of percentile values are not monotonically increasing"
+                )
+                .into());
             }
+            prev_percentile = *percentile;
+        }
 
-            reward.reverse();
-            Some(reward)
-        };
-
-        // add another entry for baseFeePerGas
-        let next_block_base_fee = match self.storage.get_block_by_number(
-            &(first_block
+        let mut blocks = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
+        let mut block_num = if let Some(block_num) = highest_block.checked_sub(block_count) {
+            block_num
                 .checked_add(U256::one())
-                .ok_or_else(|| format_err!("Block number overflow"))?),
-        )? {
-            None => {
-                // get one block earlier (this should exist)
-                let block = self
-                    .storage
-                    .get_block_by_number(&first_block)?
-                    .ok_or_else(|| format_err!("Block {} out of range", first_block))?;
-                self.calculate_base_fee(block.header.hash(), block_gas_target_factor)?
-            }
-            Some(block) => self.calculate_base_fee(block.header.hash(), block_gas_target_factor)?,
+                .ok_or(format_err!("Block number overflow"))?
+        } else {
+            U256::zero()
         };
 
-        base_fee_per_gas.reverse();
+        while block_num <= highest_block {
+            let block = self
+                .storage
+                .get_block_by_number(&block_num)?
+                .ok_or(format_err!("Block {:#?} out of range", block_num))?;
+            blocks.push(block);
+
+            block_num = block_num
+                .checked_add(U256::one())
+                .ok_or(format_err!("Next block number overflow"))?;
+        }
+
+        // Set oldest block number
+        let oldest_block = blocks
+            .first()
+            .ok_or(format_err!("Unable to fetch oldest block"))?
+            .header
+            .number;
+
+        let mut base_fee_per_gas = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
+        let mut gas_used_ratio = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
+        let mut rewards = Vec::with_capacity(MAX_BLOCK_COUNT_RANGE.as_usize());
+        for block in blocks.clone() {
+            trace!("[fee_history] Processing block {}", block.header.number);
+            let base_fee = block.header.base_fee;
+            let gas_ratio = if block.header.gas_limit == U256::zero() {
+                f64::default() // empty block
+            } else {
+                u64::try_from(block.header.gas_used)? as f64
+                    / u64::try_from(block.header.gas_limit)? as f64 // safe due to check
+            };
+            base_fee_per_gas.push(base_fee);
+            gas_used_ratio.push(gas_ratio);
+
+            let mut block_tx_rewards = Vec::with_capacity(block.transactions.len());
+            for tx in block.transactions {
+                let tx_rewards =
+                    SignedTx::try_from(tx)?.effective_priority_fee_per_gas(base_fee)?;
+                block_tx_rewards.push(u64::try_from(tx_rewards)? as f64);
+            }
+
+            let reward = if block_tx_rewards.is_empty() {
+                vec![U256::zero(); reward_percentile.len()]
+            } else {
+                let mut r = Vec::with_capacity(reward_percentile.len());
+                let mut data = Data::new(block_tx_rewards);
+                for percent in &reward_percentile {
+                    r.push(U256::from(data.percentile(*percent).floor() as u64));
+                }
+                r
+            };
+            rewards.push(reward);
+        }
+
+        // Add next block entry
+        let next_block = highest_block
+            .checked_add(U256::one())
+            .ok_or(format_err!("Next block number overflow"))?;
+        let next_block_base_fee = match self.storage.get_block_by_number(&next_block)? {
+            Some(block) => block.header.base_fee,
+            None => {
+                let highest_block_info = blocks
+                    .last()
+                    .ok_or(format_err!("Unable to fetch highest block"))?;
+                self.calculate_base_fee(highest_block_info.header.hash(), block_gas_target_factor)?
+            }
+        };
+
         base_fee_per_gas.push(next_block_base_fee);
-
-        gas_used_ratio.reverse();
-
         Ok(FeeHistoryData {
             oldest_block,
             base_fee_per_gas,
             gas_used_ratio,
-            reward,
+            reward: if rewards.is_empty() {
+                None
+            } else {
+                Some(rewards)
+            },
         })
     }
 

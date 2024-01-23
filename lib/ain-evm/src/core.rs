@@ -761,13 +761,15 @@ impl EVMCoreService {
                     .trie_store
                     .trie_db
                     .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                    .unwrap();
+                    .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()).into());
 
                 let tmp: &mut [u8; 32] = &mut [0; 32];
                 position.to_big_endian(tmp);
-                storage_trie
-                    .get(tmp.as_slice())
-                    .map_err(|e| BackendError::TrieError(e.to_string()).into())
+                storage_trie.and_then(|storage| {
+                    storage
+                        .get(tmp.as_slice())
+                        .map_err(|e| BackendError::TrieError(e.to_string()).into())
+                })
             })
     }
 
