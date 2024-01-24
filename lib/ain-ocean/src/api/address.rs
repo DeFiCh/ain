@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use axum::{extract::Path, routing::get, Router};
+use defichain_rpc::{Client, RpcApi};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -54,7 +57,7 @@ async fn list_transaction_unspent(Path(Address { address }): Path<Address>) -> S
     format!("List unspent transactions for address {}", address)
 }
 
-pub fn router() -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new().nest(
         "/:address",
         Router::new()

@@ -4,6 +4,7 @@ mod oracle;
 mod pool;
 pub mod tx_result;
 
+use defichain_rpc::RpcApi;
 use dftx_rs::{deserialize, Block, DfTx, Transaction};
 use log::debug;
 
@@ -69,6 +70,9 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     SERVICES.block.raw.put(&ctx.hash, &encoded_block)?;
     SERVICES.block.by_id.put(&ctx.hash, &block_mapper)?;
     SERVICES.block.by_height.put(&ctx.height, &block_hash)?;
+
+    let block_count = SERVICES.client.get_block_count()?;
+    println!("block_count : {:?}", block_count);
 
     for (idx, tx) in block.txdata.into_iter().enumerate() {
         let bytes = tx.output[0].script_pubkey.as_bytes();

@@ -32,6 +32,12 @@ mod ffi {
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getRPCPort() -> i32 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getRPCAuth() -> String {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn isMining() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -125,6 +131,27 @@ pub use ffi::Attributes;
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
     let chain_id = ffi::getChainId();
     Ok(chain_id)
+}
+
+/// Returns the RPC port.
+pub fn get_rpc_port() -> i32 {
+    ffi::getRPCPort()
+}
+
+/// Returns the RPC authorization string.
+pub fn get_rpc_auth() -> Result<(String, String), Box<dyn Error>> {
+    match ffi::getRPCAuth()
+        .splitn(2, ':')
+        .map(String::from)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        [user, pass] => Ok((user.clone(), pass.clone())),
+        yo => {
+            println!("yo : {:?}", yo);
+            Err("Error getting user and password".into())
+        }
+    }
 }
 
 /// Retrieves the client version string.

@@ -1,4 +1,3 @@
-pub mod api_paged_response;
 pub mod api_query;
 pub mod error;
 mod indexer;
@@ -17,6 +16,7 @@ pub mod api;
 mod model;
 mod repository;
 pub mod storage;
+use defichain_rpc::{Auth, Client};
 
 use crate::storage::ocean_store::OceanStore;
 
@@ -25,11 +25,7 @@ pub type Result<T> = std::result::Result<T, OceanError>;
 lazy_static::lazy_static! {
     // Global services exposed by the library
     pub static ref SERVICES: Services = {
-        let datadir = ain_cpp_imports::get_datadir();
-        let store = OceanStore::new(&PathBuf::from(datadir)).expect("Error initialization Ocean storage");
-        Services::new(
-            Arc::new(store)
-        )
+        Services::new().expect("Error initialization Ocean services")
     };
 }
 
@@ -60,11 +56,21 @@ pub struct Services {
     auction: AuctionService,
     result: TxResultRepository,
     pool: PoolService,
+    client: Arc<Client>,
 }
 
 impl Services {
-    fn new(store: Arc<OceanStore>) -> Self {
-        Self {
+    fn new() -> Result<Self> {
+        let datadir = ain_cpp_imports::get_datadir();
+        let store = Arc::new(OceanStore::new(&PathBuf::from(datadir))?);
+
+        let (user, pass) = ain_cpp_imports::get_rpc_auth()?;
+        let client = Arc::new(Client::new(
+            &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
+            Auth::UserPass(user, pass),
+        )?);
+
+        Ok(Self {
             masternode: MasternodeService {
                 by_id: MasternodeRepository::new(Arc::clone(&store)),
                 by_height: MasternodeByHeightRepository::new(Arc::clone(&store)),
@@ -83,6 +89,7 @@ impl Services {
             pool: PoolService {
                 by_id: PoolSwapRepository::new(Arc::clone(&store)),
             },
-        }
+            client,
+        })
     }
 }

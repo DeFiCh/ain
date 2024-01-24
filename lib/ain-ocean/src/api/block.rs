@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{Path, Query},
     routing::get,
     Json, Router,
 };
 use bitcoin::BlockHash;
+use defichain_rpc::{Client, RpcApi};
 
 use crate::{
     api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Block,
@@ -45,7 +48,7 @@ async fn get_transactions(Path(hash): Path<BlockHash>) -> String {
     format!("Transactions for block with hash {}", hash)
 }
 
-pub fn router() -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/", get(list_blocks))
         .route("/:id", get(get_block))
