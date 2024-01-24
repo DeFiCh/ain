@@ -30,7 +30,7 @@ pub enum OceanError {
     #[error("Ocean: serde_json error: {0:?}")]
     SerdeJSONError(#[from] serde_json::Error),
     #[error("Ocean: RPC error: {0:?}")]
-    RpcError(#[from] bitcoincore_rpc::Error),
+    RpcError(#[from] defichain_rpc::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -93,9 +93,7 @@ impl IntoResponse for ApiError {
 impl OceanError {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match self {
-            OceanError::RpcError(bitcoincore_rpc::Error::JsonRpc(jsonrpc::error::Error::Rpc(
-                e,
-            ))) => {
+            OceanError::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc::error::Error::Rpc(e))) => {
                 println!("e : {:?}", e);
 
                 (StatusCode::NOT_FOUND, format!(""))

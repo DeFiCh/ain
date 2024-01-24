@@ -1,5 +1,16 @@
 use serde::Serialize;
 
+#[derive(Debug, Serialize)]
+pub struct Response<T> {
+    data: T,
+}
+
+impl<T> Response<T> {
+    pub fn new(data: T) -> Self {
+        Self { data }
+    }
+}
+
 /// ApiPagedResponse indicates that this response of data array slice is part of a sorted list of items.
 /// Items are part of a larger sorted list and the slice indicates a window within the large sorted list.
 /// Each ApiPagedResponse holds the data array and the "token" for next part of the slice.
@@ -61,23 +72,21 @@ struct ApiPage {
 }
 
 impl<T> ApiPagedResponse<T> {
-    pub fn new(data: Vec<T>, next: Option<&str>) -> Self {
+    pub fn new(data: Vec<T>, next: Option<String>) -> Self {
         Self {
             data,
-            page: ApiPage {
-                next: next.map(Into::into),
-            },
+            page: ApiPage { next },
         } // Option<&str> -> Option<String>
     }
 
-    pub fn next(data: Vec<T>, next: Option<&str>) -> Self {
+    pub fn next(data: Vec<T>, next: Option<String>) -> Self {
         Self::new(data, next)
     }
 
     pub fn of(data: Vec<T>, limit: usize, next_provider: impl Fn(&T) -> String) -> Self {
         if data.len() == limit && data.len() > 0 && limit > 0 {
             let next = next_provider(&data[limit - 1]);
-            Self::next(data, Some(next.as_str()))
+            Self::next(data, Some(next))
         } else {
             Self::next(data, None)
         }

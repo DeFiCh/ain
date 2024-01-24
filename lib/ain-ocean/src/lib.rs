@@ -1,4 +1,3 @@
-pub mod api_paged_response;
 pub mod api_query;
 pub mod error;
 mod indexer;

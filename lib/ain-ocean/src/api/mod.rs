@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
-use bitcoincore_rpc::{Auth, Client};
+use defichain_rpc::{Auth, Client};
 
 // mod address;
 // mod block;
-// mod fee;
+mod fee;
 // mod governance;
 // mod loan;
 // mod masternode;
@@ -14,6 +14,8 @@ use bitcoincore_rpc::{Auth, Client};
 // mod prices;
 // mod rawtx;
 // mod stats;
+mod common;
+mod response;
 mod tokens;
 // mod transactions;
 use axum::routing::get;
@@ -64,7 +66,7 @@ pub fn ocean_router() -> Result<Router> {
         // .nest("/address", address::router(Arc::clone(&client)))
         // .nest("/governance", governance::router(Arc::clone(&client)))
         // .nest("/loans", loan::router(Arc::clone(&client)))
-        // .nest("/fee", fee::router(Arc::clone(&client)))
+        .nest("/fee", fee::router(Arc::clone(&client)))
         // .nest("/masternodes", masternode::router(Arc::clone(&client)))
         // .nest("/oracles", oracle::router(Arc::clone(&client)))
         // .nest("/poolpairs", poolpairs::router(Arc::clone(&client)))

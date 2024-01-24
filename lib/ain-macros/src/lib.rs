@@ -161,7 +161,7 @@ pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .collect();
 
     let expanded = quote! {
-        pub async fn #name(axum::extract::OriginalUri(uri): axum::extract::OriginalUri, #inputs) -> std::result::Result<#inner_type, ApiError> {
+        pub async fn #name(axum::extract::OriginalUri(uri): axum::extract::OriginalUri, #inputs) -> std::result::Result<axum::Json<#inner_type>, ApiError> {
             #input
 
             match #name(#(#param_names),*).await {
@@ -173,7 +173,7 @@ pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     uri.to_string()
                 ))
             },
-                Ok(e) => Ok(e)
+                Ok(v) => Ok(axum::Json(v))
             }
         }
     };
