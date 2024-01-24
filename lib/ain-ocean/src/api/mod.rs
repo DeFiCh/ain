@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
-use defichain_rpc::{Auth, Client};
 
 // mod address;
 // mod block;
@@ -21,7 +20,7 @@ mod tokens;
 use axum::routing::get;
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::{Result, SERVICES};
 
 async fn ocean_not_activated() -> impl IntoResponse {
     (StatusCode::FORBIDDEN, "Ocean is not activated")
@@ -55,26 +54,22 @@ pub fn ocean_router() -> Result<Router> {
         return Ok(Router::new().route("/*path", get(ocean_not_activated)));
     }
 
-    let (user, pass) = ain_cpp_imports::get_rpc_auth()?;
-    let client = Arc::new(Client::new(
-        &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
-        Auth::UserPass(user, pass),
-    )?);
+    let client = &SERVICES.client;
     println!("client : {:?}", client);
 
     Ok(Router::new()
-        // .nest("/address", address::router(Arc::clone(&client)))
-        // .nest("/governance", governance::router(Arc::clone(&client)))
-        // .nest("/loans", loan::router(Arc::clone(&client)))
-        .nest("/fee", fee::router(Arc::clone(&client)))
-        // .nest("/masternodes", masternode::router(Arc::clone(&client)))
-        // .nest("/oracles", oracle::router(Arc::clone(&client)))
-        // .nest("/poolpairs", poolpairs::router(Arc::clone(&client)))
-        // .nest("/prices", prices::router(Arc::clone(&client)))
-        // .nest("/rawtx", rawtx::router(Arc::clone(&client)))
-        // .nest("/stats", stats::router(Arc::clone(&client)))
-        .nest("/tokens", tokens::router(Arc::clone(&client)))
-        // .nest("/transactions", transactions::router(Arc::clone(&client)))
-        // .nest("/blocks", block::router(Arc::clone(&client)))
+        // .nest("/address", address::router(Arc::clone(client)))
+        // .nest("/governance", governance::router(Arc::clone(client)))
+        // .nest("/loans", loan::router(Arc::clone(client)))
+        .nest("/fee", fee::router(Arc::clone(client)))
+        // .nest("/masternodes", masternode::router(Arc::clone(client)))
+        // .nest("/oracles", oracle::router(Arc::clone(client)))
+        // .nest("/poolpairs", poolpairs::router(Arc::clone(client)))
+        // .nest("/prices", prices::router(Arc::clone(client)))
+        // .nest("/rawtx", rawtx::router(Arc::clone(client)))
+        // .nest("/stats", stats::router(Arc::clone(client)))
+        .nest("/tokens", tokens::router(Arc::clone(client)))
+        // .nest("/transactions", transactions::router(Arc::clone(client)))
+        // .nest("/blocks", block::router(Arc::clone(client)))
         .fallback(not_found))
 }
