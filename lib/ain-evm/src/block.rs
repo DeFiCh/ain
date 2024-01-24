@@ -297,9 +297,8 @@ impl BlockService {
         let base_fee = self
             .storage
             .get_latest_block()?
-            .expect("Unable to get latest block")
-            .header
-            .base_fee;
+            .map(|block| block.header.base_fee)
+            .unwrap_or(INITIAL_BASE_FEE);
 
         Ok(base_fee
             .checked_add(priority_fee)
