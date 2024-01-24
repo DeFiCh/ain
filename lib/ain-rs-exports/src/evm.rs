@@ -554,6 +554,7 @@ fn evm_try_unsafe_commit_block(template: &BlockTemplateWrapper) -> Result<()> {
 #[ffi_fallible]
 fn evm_try_disconnect_latest_block() -> Result<()> {
     SERVICES.evm.core.clear_account_nonce();
+    SERVICES.evm.block.clear_last_suggested_fee_tip_cache();
     SERVICES.evm.storage.disconnect_latest_block()
 }
 

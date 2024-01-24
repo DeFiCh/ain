@@ -270,7 +270,7 @@ void Shutdown(InitInterfaces& interfaces)
         fFeeEstimatesInitialized = false;
     }
 
-    // FlushStateToDisk generates a ChainStateFlushed callback, which we should avoid missing
+    //  generates a ChainStateFlushed callback, which we should avoid missing
     //
     // g_chainstate is referenced here directly (instead of ::ChainstateActive()) because it
     // may not have been initialized yet.

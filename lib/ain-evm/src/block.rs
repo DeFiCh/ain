@@ -206,6 +206,11 @@ impl BlockService {
             U256::one(),
         ))
     }
+
+    pub fn clear_last_suggested_fee_tip_cache(&self) {
+        let mut last_suggested_fee_tip = self.last_suggested_fee_tip.lock();
+        last_suggested_fee_tip = None;
+    }
 }
 
 // Methods for gas prices RPC pipelines
