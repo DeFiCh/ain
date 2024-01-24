@@ -130,10 +130,9 @@ pub fn init_network_rest_ocean(addr: String) -> Result<()> {
     let listener = runtime
         .tokio_runtime
         .block_on(tokio::net::TcpListener::bind(addr))?;
+    let ocean_router = ain_ocean::ocean_router()?;
     let server_handle = runtime.tokio_runtime.spawn(async move {
-        axum::serve(listener, ain_ocean::ocean_router())
-            .await
-            .unwrap();
+        axum::serve(listener, ocean_router).await.unwrap();
     });
     *runtime.ocean_handle.lock() = Some(server_handle);
 

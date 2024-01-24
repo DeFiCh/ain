@@ -72,6 +72,8 @@ enum class TransactionDataDirection : uint8_t {
 };
 
 uint64_t getChainId();
+int getRPCPort();
+rust::string getRPCAuth();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
