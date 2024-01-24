@@ -138,6 +138,54 @@ class EVMTest(DefiTestFramework):
             self.nodes[0].eth_sendTransaction(tx)
         self.nodes[0].generate(1)
 
+    def test_suggest_priority_fee(self):
+        self.rollback_to(self.startHeight)
+
+        numBlocks = 10
+        self.mine_block_with_eip1559_txs(numBlocks)
+
+        # Default suggested priority fee calculation is at 60%
+        correctPriorityFeeIdx = int((len(self.priorityFees) - 1) * 0.6)
+        suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
+        assert_equal(suggestedFee, hex(self.priorityFees[correctPriorityFeeIdx]))
+
+    def test_incremental_suggest_priority_fee(self):
+        self.rollback_to(self.startHeight)
+
+        numBlocks = 20
+        priorityFee = 0
+        for _ in range(numBlocks):
+            nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+            for _ in range(10):
+                tx = {
+                    "from": self.ethAddress,
+                    "value": "0x0",
+                    "data": CONTRACT_BYTECODE,
+                    "gas": "0x18e70",  # 102_000
+                    "maxPriorityFeePerGas": hex(priorityFee),
+                    "maxFeePerGas": "0x22ecb25c00",  # 150_000_000_000
+                    "type": "0x2",
+                    "nonce": hex(nonce),
+                }
+                nonce += 1
+                priorityFee += 1
+                self.nodes[0].eth_sendTransaction(tx)
+            self.nodes[0].generate(1)
+
+        # Default suggested priority fee calculation is at 60%
+        priorityFee -= 1
+        correctPriorityFee = int(priorityFee * 0.6)
+        suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
+        assert_equal(suggestedFee, hex(correctPriorityFee))
+
+    def test_suggest_priority_fee_empty_blocks(self):
+        self.rollback_to(self.startHeight)
+
+        # generate empty blocks
+        self.nodes[0].generate(20)
+        suggested_fee = self.nodes[0].eth_maxPriorityFeePerGas()
+        assert_equal("0x0", suggested_fee)
+
     def test_fee_history_eip1559_txs(self):
         self.rollback_to(self.startHeight)
 
@@ -211,10 +259,7 @@ class EVMTest(DefiTestFramework):
         for gasUsedRatio in history["gasUsedRatio"]:
             assert_equal(Decimal(str(gasUsedRatio)), Decimal("0.033868333333333334"))
 
-        assert_equal(len(history["reward"]), numBlocks)
-        for reward in history["reward"]:
-            assert_equal(len(reward), len(rewardPercentiles))
-            assert_equal(reward, [])
+        assert_equal(history["reward"], None)
 
     def test_invalid_fee_history_rpc(self):
         self.rollback_to(self.startHeight)
@@ -223,6 +268,7 @@ class EVMTest(DefiTestFramework):
         self.mine_block_with_eip1559_txs(numBlocks)
         rewardPercentiles = []
         aboveLimitPercentiles = [101, 20, 30, 40, 100]
+        belowLimitPercentiles = [-1, 20, 30, 40, 100]
         notIncreasingPercentiles = [10, 20, 30, 50, 40, 100]
         tooManyPercentiles = [0]
         for i in range(100):
@@ -258,6 +304,16 @@ class EVMTest(DefiTestFramework):
             tooManyPercentiles,
         )
 
+        # Test invalid feeHistory call, percentile value less than inclusive range
+        assert_raises_rpc_error(
+            -32001,
+            "Percentile value less than inclusive range of 0",
+            self.nodes[0].eth_feeHistory,
+            hex(numBlocks),
+            "latest",
+            belowLimitPercentiles,
+        )
+
         # Test invalid feeHistory call, percentile value exceed inclusive range
         assert_raises_rpc_error(
             -32001,
@@ -282,6 +338,13 @@ class EVMTest(DefiTestFramework):
         self.setup()
 
         self.nodes[0].generate(1)
+
+        self.test_suggest_priority_fee()
+
+        self.test_incremental_suggest_priority_fee()
+
+        # Also checks rollback pipeline to ensure cache is cleared
+        self.test_suggest_priority_fee_empty_blocks()
 
         self.test_fee_history_eip1559_txs()
 

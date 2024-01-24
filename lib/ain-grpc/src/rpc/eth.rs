@@ -228,7 +228,7 @@ pub trait MetachainRPC {
         &self,
         block_count: U256,
         newest_block: BlockNumber,
-        reward_percentile: Vec<usize>,
+        reward_percentile: Vec<i64>,
     ) -> RpcResult<RpcFeeHistory>;
 
     #[method(name = "maxPriorityFeePerGas")]
@@ -898,9 +898,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
-        let gas_price = self.handler.block.get_legacy_fee().map_err(to_custom_err)?;
-        debug!(target:"rpc", "gasPrice: {:#?}", gas_price);
-        Ok(gas_price)
+        self.handler
+            .block
+            .suggest_legacy_fee()
+            .map_err(to_custom_err)
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
@@ -931,7 +932,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         &self,
         block_count: U256,
         newest_block: BlockNumber,
-        reward_percentile: Vec<usize>,
+        reward_percentile: Vec<i64>,
     ) -> RpcResult<RpcFeeHistory> {
         let highest_block_number = self.get_block(Some(newest_block))?.header.number;
         let attrs = ain_cpp_imports::get_attribute_values(None);
@@ -953,7 +954,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
         self.handler
             .block
-            .suggested_priority_fee()
+            .suggest_priority_fee()
             .map_err(to_custom_err)
     }
 

@@ -270,7 +270,7 @@ void Shutdown(InitInterfaces& interfaces)
         fFeeEstimatesInitialized = false;
     }
 
-    // FlushStateToDisk generates a ChainStateFlushed callback, which we should avoid missing
+    //  generates a ChainStateFlushed callback, which we should avoid missing
     //
     // g_chainstate is referenced here directly (instead of ::ChainstateActive()) because it
     // may not have been initialized yet.
@@ -612,6 +612,7 @@ void SetupServerArgs()
     gArgs.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-tdsinglekeycheck", "Set the single key check flag for transferdomain RPC. If enabled, transfers between domain are only allowed if the addresses specified corresponds to the same key (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-evmtxpriorityfeepercentile", strprintf("Set the suggested priority fee for EVM transactions (default: %u)", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
     SetupChainParamsBaseOptions();
