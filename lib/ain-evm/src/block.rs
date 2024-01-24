@@ -10,6 +10,7 @@ use ethereum_types::U256;
 use keccak_hash::H256;
 use log::{debug, trace};
 use parking_lot::Mutex;
+use rocksdb::PerfContext;
 
 use crate::{
     storage::{
@@ -262,10 +263,17 @@ impl BlockService {
                         .push(SignedTx::try_from(tx)?.effective_priority_fee_per_gas(base_fee)?);
                 }
             }
-            priority_fees.sort();
-            // Safe arithmetic operations since max possible txs in a block is within i64 limits
-            let percent_idx = (((priority_fees.len() - 1) as i64) * percentile / 100) as usize;
-            let suggested_fee = priority_fees[percent_idx];
+
+            let suggested_fee = if priority_fees.is_empty() {
+                // Empty blocks, default to zero
+                U256::zero()
+            } else {
+                priority_fees.sort();
+                // Safe since max possible txs in 20 blocks is within i64 limits
+                let percent_idx =
+                    max(((priority_fees.len() as i64) - 1) * percentile / 100, 0) as usize;
+                priority_fees[percent_idx]
+            };
 
             // Update cache
             {
@@ -277,7 +285,7 @@ impl BlockService {
             }
             Ok(suggested_fee)
         } else {
-            // Edge case no genesis block yet. Default to zero.
+            // No genesis block, default to zero
             Ok(U256::zero())
         }
     }

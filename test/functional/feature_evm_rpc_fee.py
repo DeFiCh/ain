@@ -149,6 +149,14 @@ class EVMTest(DefiTestFramework):
         suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
         assert_equal(suggestedFee, hex(self.priorityFees[correctPriorityFeeIdx]))
 
+    def test_suggest_priority_fee_empty_blocks(self):
+        self.rollback_to(self.startHeight)
+
+        # generate empty blocks
+        self.nodes[0].generate(20)
+        suggested_fee = self.nodes[0].eth_maxPriorityFeePerGas()
+        assert_equal("0x0", suggested_fee)
+
     def test_fee_history_eip1559_txs(self):
         self.rollback_to(self.startHeight)
 
@@ -303,6 +311,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.test_suggest_priority_fee()
+
+        self.test_suggest_priority_fee_empty_blocks()
 
         self.test_fee_history_eip1559_txs()
 
