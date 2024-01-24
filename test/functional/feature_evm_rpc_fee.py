@@ -343,6 +343,7 @@ class EVMTest(DefiTestFramework):
 
         self.test_incremental_suggest_priority_fee()
 
+        # Also checks rollback pipeline to ensure cache is cleared
         self.test_suggest_priority_fee_empty_blocks()
 
         self.test_fee_history_eip1559_txs()
