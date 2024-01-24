@@ -121,7 +121,6 @@ substrate-bn = "0.6"
 dftx-rs = { git = "https://github.com/Jouzo/dftx-rs.git" }
 bitcoin = "0.31"
 cached = "0.46"
-tiny-jsonrpc = "0.6.0"
 
 ### Local crates
 ain-cpp-imports = { path = "./ain-cpp-imports" }
