@@ -1,13 +1,10 @@
-use std::{
-    cmp::min,
-    num::NonZeroUsize,
-    sync::{Arc, RwLock},
-};
+use std::{cmp::min, num::NonZeroUsize, sync::Arc};
 
 use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
 use log::debug;
 use lru::LruCache;
+use parking_lot::Mutex;
 
 use crate::{
     log::LogIndex,
@@ -224,7 +221,7 @@ impl FilterSystem {
 pub struct FilterService {
     storage: Arc<Storage>,
     tx_cache: Arc<TransactionCache>,
-    system: RwLock<FilterSystem>,
+    system: Mutex<FilterSystem>,
 }
 
 // Filter system methods
@@ -233,7 +230,7 @@ impl FilterService {
         Self {
             storage,
             tx_cache,
-            system: RwLock::new(FilterSystem {
+            system: Mutex::new(FilterSystem {
                 id: 0,
                 cache: LruCache::new(NonZeroUsize::new(FILTER_LRU_CACHE_DEFAULT_SIZE).unwrap()),
             }),
@@ -241,30 +238,28 @@ impl FilterService {
     }
 
     pub fn create_log_filter(&self, criteria: FilterCriteria) -> usize {
-        let mut system: std::sync::RwLockWriteGuard<'_, FilterSystem> =
-            self.system.write().unwrap();
+        let mut system = self.system.lock();
         system.create_log_filter(criteria)
     }
 
     pub fn create_block_filter(&self) -> Result<usize> {
-        let mut system = self.system.write().unwrap();
-
         let block_number = if let Some(block) = self.storage.get_latest_block()? {
             block.header.number
         } else {
             U256::zero()
         };
+        let mut system = self.system.lock();
         let id = system.create_block_filter(block_number);
         Ok(id)
     }
 
     pub fn create_tx_filter(&self) -> usize {
-        let mut system = self.system.write().unwrap();
+        let mut system = self.system.lock();
         system.create_tx_filter()
     }
 
     pub fn delete_filter(&self, filter_id: usize) -> bool {
-        let mut system = self.system.write().unwrap();
+        let mut system = self.system.lock();
         system.delete_filter(filter_id)
     }
 }
@@ -494,7 +489,7 @@ impl FilterService {
         filter_id: usize,
         curr_block: U256,
     ) -> Result<Vec<LogIndex>> {
-        let mut system = self.system.write().unwrap();
+        let mut system = self.system.lock();
         let entry = system.get_filter(filter_id)?;
         if let Filter::Logs(entry) = entry {
             self.get_logs_filter_from_entry(entry, false, curr_block)
@@ -521,7 +516,7 @@ impl FilterService {
         filter_id: usize,
         curr_block: U256,
     ) -> Result<FilterResults> {
-        let mut system = self.system.write().unwrap();
+        let mut system = self.system.lock();
         let entry = system.get_filter(filter_id)?;
         match entry {
             Filter::Logs(entry) => {
