@@ -5,7 +5,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use jsonrpsee_http_client::{ClientT, HttpClient};
+use defichain_rpc::{Client, RpcApi};
 
 async fn send_rawtx() -> String {
     "Sending raw transaction".to_string()
@@ -19,7 +19,7 @@ async fn get_rawtx(Path(txid): Path<String>) -> String {
     format!("Details of raw transaction with txid {}", txid)
 }
 
-pub fn router(state: Arc<HttpClient>) -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/send", post(send_rawtx))
         .route("/test", get(test_rawtx))

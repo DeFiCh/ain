@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{extract::Path, routing::get, Router};
-use jsonrpsee_http_client::{ClientT, HttpClient};
+use defichain_rpc::{Client, RpcApi};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -21,7 +21,7 @@ async fn get_vouts(Path(TransactionId { id }): Path<TransactionId>) -> String {
     format!("Vouts for transaction with id {}", id)
 }
 
-pub fn router(state: Arc<HttpClient>) -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/:id", get(get_transaction))
         .route("/:id/vins", get(get_vins))

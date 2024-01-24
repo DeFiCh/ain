@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{extract::Path, routing::get, Router};
-use jsonrpsee_http_client::{ClientT, HttpClient};
+use defichain_rpc::{Client, RpcApi};
 
 async fn list_gov_proposals() -> String {
     "List of governance proposals".to_string()
@@ -15,7 +15,7 @@ async fn list_gov_proposal_votes(Path(proposal_id): Path<String>) -> String {
     format!("Votes for governance proposal with id {}", proposal_id)
 }
 
-pub fn router(state: Arc<HttpClient>) -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/proposals", get(list_gov_proposals))
         .route("/proposals/:id", get(get_gov_proposal))

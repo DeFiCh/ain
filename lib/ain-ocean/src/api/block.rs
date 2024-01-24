@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use bitcoin::BlockHash;
-use jsonrpsee_http_client::{ClientT, HttpClient};
+use defichain_rpc::{Client, RpcApi};
 
 use crate::{
     api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Block,
@@ -48,7 +48,7 @@ async fn get_transactions(Path(hash): Path<BlockHash>) -> String {
     format!("Transactions for block with hash {}", hash)
 }
 
-pub fn router(state: Arc<HttpClient>) -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/", get(list_blocks))
         .route("/:id", get(get_block))

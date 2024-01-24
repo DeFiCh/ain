@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{routing::get, Router};
-use jsonrpsee_http_client::{ClientT, HttpClient};
+use defichain_rpc::{Client, RpcApi};
 
 async fn get_stats() -> String {
     "General stats".to_string()
@@ -19,7 +19,7 @@ async fn get_burn() -> String {
     "Burn stats".to_string()
 }
 
-pub fn router(state: Arc<HttpClient>) -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/", get(get_stats))
         .route("/rewards/distribution", get(get_reward_distribution))

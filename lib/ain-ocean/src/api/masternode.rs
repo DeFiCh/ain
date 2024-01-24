@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use bitcoin::Txid;
-use jsonrpsee_http_client::{ClientT, HttpClient};
+use defichain_rpc::{Client, RpcApi};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -142,7 +142,7 @@ async fn get_masternode(Path(masternode_id): Path<Txid>) -> Result<Json<Option<M
     Ok(Json(mn))
 }
 
-pub fn router(state: Arc<HttpClient>) -> Router {
+pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/", get(list_masternodes))
         .route("/:id", get(get_masternode))
