@@ -31,10 +31,7 @@ use crate::{
     gas::check_tx_intrinsic_gas,
     precompiles::MetachainPrecompiles,
     receipt::ReceiptService,
-    storage::{
-        traits::{BlockStorage, FlushableStorage},
-        Storage,
-    },
+    storage::{traits::BlockStorage, Storage},
     transaction::{
         cache::{TransactionCache, ValidateTxInfo},
         SignedTx,
@@ -146,8 +143,6 @@ impl EVMCoreService {
         );
         storage.put_latest_block(Some(&block))?;
         storage.put_block(&block)?;
-        handler.flush()?;
-        storage.flush()?;
 
         Ok(handler)
     }

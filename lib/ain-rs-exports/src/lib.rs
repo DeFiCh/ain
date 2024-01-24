@@ -341,6 +341,8 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         );
+
+        fn evm_try_flush_db(result: &mut CrossBoundaryResult);
     }
 
     // =========  Debug ==========

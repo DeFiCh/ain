@@ -858,3 +858,8 @@ fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
         .send(Notification::Transaction(signed_tx.hash()))
         .map_err(|e| format_err!(e.to_string()))?)
 }
+
+#[ffi_fallible]
+fn evm_try_flush_db() -> Result<()> {
+    unsafe { SERVICES.evm.flush_state_to_db() }
+}

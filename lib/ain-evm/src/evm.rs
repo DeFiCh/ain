@@ -272,10 +272,7 @@ impl EVMServices {
             .sender
             .send(Notification::Block(block.header.hash()))
             .map_err(|e| format_err!(e.to_string()))?;
-
         self.core.clear_account_nonce();
-        self.core.flush()?;
-        self.storage.flush()?;
         Ok(())
     }
 
@@ -466,6 +463,17 @@ impl EVMServices {
         }
         template.backend.increase_tx_count();
         Ok(())
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn flush_state_to_db(&self) -> Result<()> {
+        self.core.flush()?;
+        self.storage.flush()
     }
 }
 

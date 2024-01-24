@@ -3583,6 +3583,13 @@ bool CChainState::FlushStateToDisk(const CChainParams &chainparams,
                 if (!CoinsTip().Flush() || !pcustomcsDB->Flush()) {
                     return AbortNode(state, "Failed to write to coin or masternode db to disk");
                 }
+                // Flush the EVM chainstate
+                if (IsEVMEnabled(pcustomcsview->GetAttributes())) {
+                    auto res = XResultStatusLogged(evm_try_flush_db(result));
+                    if (!res) {
+                        return AbortNode(state, "Failed to write to EVM db to disk");
+                    }
+                }
                 if (!compactBegin.empty() && !compactEnd.empty()) {
                     auto time = GetTimeMillis();
                     pcustomcsDB->Compact(compactBegin, compactEnd);
