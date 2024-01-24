@@ -1,5 +1,6 @@
 use ain_db::{Column, ColumnName, TypedColumn};
 
+use crate::model::OraclePriceFeed as OraclePriceFeedMapper;
 #[derive(Debug)]
 pub struct OraclePriceFeed;
 
@@ -12,5 +13,5 @@ impl Column for OraclePriceFeed {
 }
 
 impl TypedColumn for OraclePriceFeed {
-    type Type = String;
+    type Type = OraclePriceFeedMapper;
 }
