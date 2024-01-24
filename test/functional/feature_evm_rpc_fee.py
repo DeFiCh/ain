@@ -149,6 +149,33 @@ class EVMTest(DefiTestFramework):
         suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
         assert_equal(suggestedFee, hex(self.priorityFees[correctPriorityFeeIdx]))
 
+    def test_incremental_suggest_priority_fee(self):
+        self.rollback_to(self.startHeight)
+
+        numBlocks = 20
+        priorityFee = 0
+        for _ in range(numBlocks):
+            nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+            for _ in range(10):
+                tx = {
+                    "from": self.ethAddress,
+                    "value": "0x0",
+                    "data": CONTRACT_BYTECODE,
+                    "gas": "0x18e70",  # 102_000
+                    "maxPriorityFeePerGas": hex(priorityFee),
+                    "maxFeePerGas": "0x22ecb25c00",  # 150_000_000_000
+                    "type": "0x2",
+                    "nonce": hex(nonce),
+                }
+                nonce += 1
+                self.nodes[0].eth_sendTransaction(tx)
+            self.nodes[0].generate(1)
+        
+        # Default suggested priority fee calculation is at 60%
+        correctPriorityFee = int(priorityFee * 0.6)
+        suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
+        assert_equal(suggestedFee, hex(correctPriorityFee))
+
     def test_suggest_priority_fee_empty_blocks(self):
         self.rollback_to(self.startHeight)
 
@@ -311,6 +338,8 @@ class EVMTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         self.test_suggest_priority_fee()
+
+        self.test_incremental_suggest_priority_fee()
 
         self.test_suggest_priority_fee_empty_blocks()
 
