@@ -174,7 +174,7 @@ class EVMTest(DefiTestFramework):
 
         # Default suggested priority fee calculation is at 60%
         priorityFee -= 1
-        correctPriorityFee = int(priorityFee * 0.6) - 1
+        correctPriorityFee = int(priorityFee * 0.6)
         suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
         assert_equal(suggestedFee, hex(correctPriorityFee))
 
