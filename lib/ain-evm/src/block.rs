@@ -209,7 +209,7 @@ impl BlockService {
 
     pub fn clear_last_suggested_fee_tip_cache(&self) {
         let mut last_suggested_fee_tip = self.last_suggested_fee_tip.lock();
-        last_suggested_fee_tip = None;
+        *last_suggested_fee_tip = None;
     }
 }
 
