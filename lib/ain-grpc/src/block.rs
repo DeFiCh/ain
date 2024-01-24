@@ -277,7 +277,7 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
 
 use std::str::FromStr;
 
-use ain_evm::oracle::FeeHistoryData;
+use ain_evm::block::FeeHistoryData;
 
 use crate::codegen::types::EthTransactionInfo;
 

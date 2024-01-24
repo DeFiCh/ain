@@ -24,11 +24,11 @@ use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
     backend::{BackendError, EVMBackend, Overlay, Vicinity},
+    block::INITIAL_BASE_FEE,
     blocktemplate::BlockTemplate,
     executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
-    oracle::INITIAL_BASE_FEE,
     precompiles::MetachainPrecompiles,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},

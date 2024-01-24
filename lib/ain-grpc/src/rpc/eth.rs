@@ -899,7 +899,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn gas_price(&self) -> RpcResult<U256> {
         self.handler
-            .oracle
+            .block
             .suggest_legacy_fee()
             .map_err(to_custom_err)
     }
@@ -939,7 +939,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let fee_history = self
             .handler
-            .oracle
+            .block
             .fee_history(
                 block_count,
                 highest_block_number,
@@ -953,7 +953,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
         self.handler
-            .oracle
+            .block
             .suggest_priority_fee()
             .map_err(to_custom_err)
     }
@@ -976,7 +976,7 @@ impl MetachainRPCServer for MetachainRPCModule {
                     .map(|block| block.header.number)
                     .ok_or(RPCError::BlockNotFound)?;
 
-                let starting_block = self.handler.oracle.get_starting_block_number();
+                let starting_block = self.handler.block.get_starting_block_number();
 
                 let highest_block = current_block + (highest_native_block - current_native_height); // safe since current height cannot be higher than seen height
                 debug!(target:"rpc", "Highest native: {highest_native_block}\nCurrent native: {current_native_height}\nCurrent ETH: {current_block}\nHighest ETH: {highest_block}");

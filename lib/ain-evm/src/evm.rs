@@ -16,6 +16,7 @@ use tokio::sync::{
 
 use crate::{
     backend::{EVMBackend, Vicinity},
+    block::BlockService,
     blocktemplate::{BlockData, BlockTemplate, ReceiptAndOptionalContractAddress, TemplateTxItem},
     contract::{
         deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
@@ -27,7 +28,6 @@ use crate::{
     executor::{AinExecutor, ExecuteTx},
     filters::FilterService,
     log::{LogService, Notification},
-    oracle::OracleService,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::{cache::TransactionCache, SignedTx},
@@ -42,7 +42,7 @@ pub struct NotificationChannel<T> {
 
 pub struct EVMServices {
     pub core: EVMCoreService,
-    pub oracle: OracleService,
+    pub block: BlockService,
     pub receipt: ReceiptService,
     pub logs: LogService,
     pub filters: FilterService,
@@ -113,7 +113,7 @@ impl EVMServices {
                     PathBuf::from(state_input_path),
                     path,
                 )?,
-                oracle: OracleService::new(Arc::clone(&storage))?,
+                block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
@@ -129,7 +129,7 @@ impl EVMServices {
             let tx_cache = Arc::new(TransactionCache::new());
             Ok(Self {
                 core: EVMCoreService::restore(Arc::clone(&storage), Arc::clone(&tx_cache), path),
-                oracle: OracleService::new(Arc::clone(&storage))?,
+                block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
@@ -262,7 +262,7 @@ impl EVMServices {
                 block.header.number, block.header.state_root
             );
 
-            self.oracle.connect_block(&block)?;
+            self.block.connect_block(&block)?;
             self.logs
                 .generate_logs_from_receipts(&receipts, block.header.number)?;
             self.receipt.put_receipts(receipts)?;
@@ -500,12 +500,12 @@ impl EVMServices {
 
         let block_difficulty = U256::from(difficulty);
         let (parent_hash, _) = self
-            .oracle
+            .block
             .get_latest_block_hash_and_number()?
             .unwrap_or_default(); // Safe since calculate_base_fee will default to INITIAL_BASE_FEE
 
         let block_base_fee_per_gas = self
-            .oracle
+            .block
             .calculate_base_fee(parent_hash, attr_block_gas_limit_factor)?;
 
         let block_gas_limit = U256::from(attr_block_gas_limit);

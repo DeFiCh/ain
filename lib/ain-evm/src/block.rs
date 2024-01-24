@@ -20,7 +20,17 @@ use crate::{
     Result,
 };
 
-pub struct OracleService {
+pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
+pub const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
+
+pub const MIN_PERCENTAGE: i64 = 0;
+pub const MAX_PERCENTAGE: i64 = 100;
+pub const MAX_REWARD_PERCENTAGE: usize = 100;
+pub const MIN_BLOCK_COUNT_RANGE: U256 = U256::one();
+pub const MAX_BLOCK_COUNT_RANGE: U256 = U256([1024, 0, 0, 0]);
+pub const DEFAULT_PRIORITY_FEE_BLOCK_RANGE: U256 = U256([20, 0, 0, 0]);
+
+pub struct BlockService {
     storage: Arc<Storage>,
     starting_block_number: U256,
     last_suggested_fee_tip: Mutex<Option<SuggestedFeeTip>>,
@@ -38,40 +48,28 @@ pub struct FeeHistoryData {
     pub reward: Option<Vec<Vec<U256>>>,
 }
 
-pub const INITIAL_BASE_FEE: U256 = U256([10_000_000_000, 0, 0, 0]); // wei
-pub const MAX_BASE_FEE: U256 = crate::weiamount::MAX_MONEY_SATS;
-
-pub const DEFAULT_PRIORITY_FEE_BLOCK_RANGE: U256 = U256([20, 0, 0, 0]);
-pub const DEFAULT_SUGGESTED_PRIORITY_FEE: U256 = INITIAL_BASE_FEE;
-
-pub const MIN_PERCENTAGE: i64 = 0;
-pub const MAX_PERCENTAGE: i64 = 100;
-pub const MAX_REWARD_PERCENTAGE: usize = 100;
-pub const MIN_BLOCK_COUNT_RANGE: U256 = U256::one();
-pub const MAX_BLOCK_COUNT_RANGE: U256 = U256([1024, 0, 0, 0]);
-
-/// Oracle backend that handles all necessary background APIs for getting chain data.
-impl OracleService {
-    /// Create new [OracleService] with given [Storage].
+/// Backend that handles all necessary APIs for chain data and fee services.
+impl BlockService {
+    /// Create new [BlockService] with given [Storage].
     pub fn new(storage: Arc<Storage>) -> Result<Self> {
-        let mut oracle_handler = Self {
+        let mut block_handler = Self {
             storage,
             starting_block_number: U256::zero(),
             last_suggested_fee_tip: Mutex::new(None),
         };
-        let (_, block_number) = oracle_handler
+        let (_, block_number) = block_handler
             .get_latest_block_hash_and_number()?
             .unwrap_or_default();
 
-        oracle_handler.starting_block_number = block_number;
+        block_handler.starting_block_number = block_number;
         debug!("Current block number is {:x?}", block_number);
 
-        Ok(oracle_handler)
+        Ok(block_handler)
     }
 }
 
-// Methods for updating and getting chain data
-impl OracleService {
+// Methods for updating and getting block data
+impl BlockService {
     /// Get latest block number when struct was created.
     /// Used in `eth_syncing`.
     pub fn get_starting_block_number(&self) -> U256 {
@@ -109,7 +107,7 @@ impl OracleService {
 }
 
 // Methods for calculating the next block's base fees
-impl OracleService {
+impl BlockService {
     /// API to calculate base fee from parent block hash and gas target factor.
     ///
     /// # Arguments
@@ -211,7 +209,7 @@ impl OracleService {
 }
 
 // Methods for gas prices RPC pipelines
-impl OracleService {
+impl BlockService {
     /// Returns a recommended suitable priority fee per gas that is suitable for newly created transactions, based
     /// on the content of recent blocks. The suggested gas price enables newly created transactions to have a very
     /// high chance to be included in the following blocks.
@@ -279,8 +277,8 @@ impl OracleService {
             }
             Ok(suggested_fee)
         } else {
-            // Edge case no genesis block yet. Default to initial block base fees
-            Ok(INITIAL_BASE_FEE)
+            // Edge case no genesis block yet. Default to zero.
+            Ok(U256::zero())
         }
     }
 
@@ -492,10 +490,10 @@ mod tests {
 
     // #[test]
     // fn test_base_fee_equal() {
-    //     let oracle = OracleService::new(Arc::new(Storage::new()?)).unwrap();
+    //     let block = BlockService::new(Arc::new(Storage::new()?)).unwrap();
     //     assert_eq!(
     //         U256::from(20_000_000_000u64),
-    //         oracle.base_fee_calculation(
+    //         block.base_fee_calculation(
     //             15_000_000,
     //             15_000_000,
     //             U256::from(20_000_000_000u64),
@@ -507,10 +505,10 @@ mod tests {
 
     // #[test]
     // fn test_base_fee_max_increase() {
-    //     let oracle = OracleService::new(Arc::new(Storage::new()?)).unwrap();
+    //     let block = BlockService::new(Arc::new(Storage::new()?)).unwrap();
     //     assert_eq!(
     //         U256::from(22_500_000_000u64), // should increase by 12.5%
-    //         oracle.base_fee_calculation(
+    //         block.base_fee_calculation(
     //             30_000_000,
     //             15_000_000,
     //             U256::from(20_000_000_000u64),
@@ -522,10 +520,10 @@ mod tests {
 
     // #[test]
     // fn test_base_fee_increase() {
-    //     let oracle = OracleService::new(Arc::new(Storage::new()?)).unwrap();
+    //     let block = BlockService::new(Arc::new(Storage::new()?)).unwrap();
     //     assert_eq!(
     //         U256::from(20_833_333_333u64), // should increase by ~4.15%
-    //         oracle.base_fee_calculation(
+    //         block.base_fee_calculation(
     //             20_000_000,
     //             15_000_000,
     //             U256::from(20_000_000_000u64),
@@ -537,10 +535,10 @@ mod tests {
 
     // #[test]
     // fn test_base_fee_max_decrease() {
-    //     let oracle = OracleService::new(Arc::new(Storage::new()?)).unwrap();
+    //     let block = BlockService::new(Arc::new(Storage::new()?)).unwrap();
     //     assert_eq!(
     //         U256::from(17_500_000_000u64), // should decrease by 12.5%
-    //         oracle.base_fee_calculation(
+    //         block.base_fee_calculation(
     //             0,
     //             15_000_000,
     //             U256::from(20_000_000_000u64),
@@ -552,10 +550,10 @@ mod tests {
 
     // #[test]
     // fn test_base_fee_decrease() {
-    //     let oracle = OracleService::new(Arc::new(Storage::new()?)).unwrap();
+    //     let block = BlockService::new(Arc::new(Storage::new()?)).unwrap();
     //     assert_eq!(
     //         U256::from(19_166_666_667u64), // should increase by ~4.15%
-    //         oracle.base_fee_calculation(
+    //         block.base_fee_calculation(
     //             10_000_000,
     //             15_000_000,
     //             U256::from(20_000_000_000u64),
