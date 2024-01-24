@@ -10,7 +10,6 @@ use ethereum_types::U256;
 use keccak_hash::H256;
 use log::{debug, trace};
 use parking_lot::Mutex;
-use rocksdb::PerfContext;
 
 use crate::{
     storage::{
