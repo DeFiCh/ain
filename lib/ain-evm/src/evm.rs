@@ -29,7 +29,10 @@ use crate::{
     filters::FilterService,
     log::{LogService, Notification},
     receipt::ReceiptService,
-    storage::{traits::BlockStorage, Storage},
+    storage::{
+        traits::{BlockStorage, FlushableStorage},
+        Storage,
+    },
     transaction::{cache::TransactionCache, SignedTx},
     trie::GENESIS_STATE_ROOT,
     Result,
@@ -252,27 +255,24 @@ impl EVMServices {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn commit_block(&self, template: &BlockTemplate) -> Result<()> {
-        {
-            let Some(BlockData { block, receipts }) = template.block_data.clone() else {
-                return Err(format_err!("no constructed EVM block exist in template id").into());
-            };
+        let Some(BlockData { block, receipts }) = template.block_data.clone() else {
+            return Err(format_err!("no constructed EVM block exist in template id").into());
+        };
 
-            debug!(
-                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
-                block.header.number, block.header.state_root
-            );
+        debug!(
+            "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+            block.header.number, block.header.state_root
+        );
 
-            self.block.connect_block(&block)?;
-            self.logs
-                .generate_logs_from_receipts(&receipts, block.header.number)?;
-            self.receipt.put_receipts(receipts)?;
-            self.channel
-                .sender
-                .send(Notification::Block(block.header.hash()))
-                .map_err(|e| format_err!(e.to_string()))?;
-        }
+        self.block.connect_block(&block)?;
+        self.logs
+            .generate_logs_from_receipts(&receipts, block.header.number)?;
+        self.receipt.put_receipts(receipts)?;
+        self.channel
+            .sender
+            .send(Notification::Block(block.header.hash()))
+            .map_err(|e| format_err!(e.to_string()))?;
         self.core.clear_account_nonce();
-
         Ok(())
     }
 
@@ -463,6 +463,17 @@ impl EVMServices {
         }
         template.backend.increase_tx_count();
         Ok(())
+    }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn flush_state_to_db(&self) -> Result<()> {
+        self.core.flush()?;
+        self.storage.flush()
     }
 }
 

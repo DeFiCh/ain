@@ -339,6 +339,9 @@ UniValue vmmap(const JSONRPCRequest &request) {
             throwInvalidParam(dvmBlockHash.msg);
         }
         CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+        if (!pindex) {
+            throwInvalidParam(DeFiErrors::InvalidBlockHashString(*dvmBlockHash.val).msg);
+        }
         uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
         return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
     };

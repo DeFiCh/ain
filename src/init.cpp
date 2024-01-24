@@ -2044,6 +2044,37 @@ bool AppInitMain(InitInterfaces& interfaces)
                 break;
             }
 
+            // State consistency check is skipped for regtest (EVM state can be initialized with state input)
+            if (Params().NetworkIDString() != CBaseChainParams::REGTEST)  {
+                // Check that EVM db and DVM db states are consistent
+                auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
+                if (res) {
+                    // After EVM activation
+                    auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
+                    auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+                    if (!dvmBlockHash.val.has_value()) {
+                        strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
+                                        "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                        "rebuild the database using -reindex.").translated;
+                        break;
+                    }
+                    CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                    if (!pindex) {
+                        strLoadError = _("Unable to get DVM block index from block hash, possible corrupted block database detected. "
+                                        "You will need to rebuild the database using -reindex.").translated;
+                        break;
+                    }
+                    auto dvmBlockHeight = pindex->nHeight;
+
+                    if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
+                        strLoadError = _("Inconsistent chainstate detected between DVM block database and EVM block database. "
+                                        "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                        "rebuild the database using -reindex.").translated;
+                        break;
+                    }
+                }
+            }
+
             fLoaded = true;
             LogPrintf(" block index %15dms\n", GetTimeMillis() - load_block_index_start_time);
         } while(false);

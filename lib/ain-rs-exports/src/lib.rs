@@ -292,6 +292,8 @@ pub mod ffi {
             hash: [u8; 32],
         ) -> EVMBlockHeader;
 
+        fn evm_try_get_latest_block_hash(result: &mut CrossBoundaryResult) -> [u8; 32];
+
         fn evm_try_get_tx_by_hash(
             result: &mut CrossBoundaryResult,
             tx_hash: [u8; 32],
@@ -339,6 +341,8 @@ pub mod ffi {
             result: &mut CrossBoundaryResult,
             raw_tx: &str,
         );
+
+        fn evm_try_flush_db(result: &mut CrossBoundaryResult);
     }
 
     // =========  Debug ==========
