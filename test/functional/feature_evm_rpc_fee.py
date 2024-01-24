@@ -170,7 +170,7 @@ class EVMTest(DefiTestFramework):
                 nonce += 1
                 self.nodes[0].eth_sendTransaction(tx)
             self.nodes[0].generate(1)
-        
+
         # Default suggested priority fee calculation is at 60%
         correctPriorityFee = int(priorityFee * 0.6)
         suggestedFee = self.nodes[0].eth_maxPriorityFeePerGas()
