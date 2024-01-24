@@ -2504,5 +2504,50 @@ bool AppInitMain(InitInterfaces& interfaces)
         });
     }
 
+    // ********************************************************* Step 16: start genesis ocean indexing
+    if(gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+        const CBlock &block = chainparams.GenesisBlock();
+
+        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+        ss << block;
+        CBlockIndex* pindex = ::ChainActive().Tip();
+
+        // Convert the serialized data to a string
+        std::string serializedData = HexStr(ss.begin(), ss.end());
+
+        CrossBoundaryResult result;
+        BlockV2Info info;
+        info.height = pindex->nHeight;
+        info.difficulty = pindex->nBits;
+        info.version = pindex->nVersion;
+        info.median_time = (int64_t)pindex->GetMedianTimePast();
+        info.minter_block_count = pindex->mintedBlocks;
+        info.size = GetSerializeSize(block, PROTOCOL_VERSION);
+        info.size_stripped = GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
+        info.weight = GetBlockWeight(block);
+        info.stake_modifier = pindex->stakeModifier.ToString();
+        info.minter = ""; // mn operator address
+        info.masternode = ""; // mn owner address
+
+        // minter info
+        CKeyID minter;
+        block.ExtractMinterKey(minter);
+
+        auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
+        if (id) {
+            info.masternode = id->ToString();
+            auto mn = pcustomcsview->GetMasternode(*id);
+            if (mn) {
+                auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
+                info.minter = EncodeDestination(dest);
+            }
+        }
+
+        ocean_index_block(result, serializedData, info);
+        // if (!result.ok) {
+        //     return Res::Err(result.reason.c_str());
+        // }
+    }
+
     return true;
 }
