@@ -27,7 +27,6 @@ async fn get_transaction(
     Ok(Json(transactions))
 }
 
-//get list of vout transaction, by passing id which contains txhash + vout_idx
 async fn get_vins(
     Query(query): Query<PaginationQuery>,
 ) -> Result<Json<ApiPagedResponse<TransactionVin>>> {
