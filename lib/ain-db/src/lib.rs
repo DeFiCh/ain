@@ -188,7 +188,7 @@ where
             .transpose()?
             .unwrap_or_default();
         let iterator_mode = from.map_or(IteratorMode::Start, |_| {
-            IteratorMode::From(&index, rocksdb::Direction::Forward)
+            IteratorMode::From(&index, rocksdb::Direction::Reverse)
         });
         Ok(self
             .backend

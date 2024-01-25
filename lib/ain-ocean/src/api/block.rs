@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -8,14 +9,14 @@ use axum::{
 use bitcoin::BlockHash;
 use defichain_rpc::{Client, RpcApi};
 
+use super::response::{ApiPagedResponse, Response};
 use crate::{
-    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Block,
-    repository::RepositoryOps, Result, SERVICES,
+    api_query::PaginationQuery, error::ApiError, model::Block, repository::RepositoryOps,
+    storage::ocean_store, Result, SERVICES,
 };
 
-async fn list_blocks(
-    Query(query): Query<PaginationQuery>,
-) -> Result<Json<ApiPagedResponse<Block>>> {
+#[ocean_endpoint]
+async fn list_blocks(Query(query): Query<PaginationQuery>) -> Result<ApiPagedResponse<Block>> {
     let blocks = SERVICES
         .block
         .by_height
@@ -33,24 +34,34 @@ async fn list_blocks(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Json(ApiPagedResponse::of(blocks, query.size, |block| {
+    Ok(ApiPagedResponse::of(blocks, query.size, |block| {
         block.clone().id
-    })))
+    }))
 }
 
-async fn get_block(Path(id): Path<BlockHash>) -> Result<Json<Option<Block>>> {
+#[ocean_endpoint]
+async fn get_block(Path(id): Path<BlockHash>) -> Result<Response<Option<Block>>> {
     let block = SERVICES.block.by_id.get(&id)?;
 
-    Ok(Json(block))
+    Ok(Response::new(block))
 }
 
 async fn get_transactions(Path(hash): Path<BlockHash>) -> String {
     format!("Transactions for block with hash {}", hash)
 }
 
+// Get highest indexed block
+#[ocean_endpoint]
+async fn get_highest() -> Result<Response<Option<Block>>> {
+    let block = SERVICES.block.by_height.get_highest()?;
+
+    Ok(Response::new(block))
+}
+
 pub fn router(state: Arc<Client>) -> Router {
     Router::new()
         .route("/", get(list_blocks))
+        .route("/highest", get(get_highest))
         .route("/:id", get(get_block))
         .route("/:hash/transactions", get(get_transactions))
 }

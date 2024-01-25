@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
 
 // mod address;
-// mod block;
+mod block;
 mod fee;
 // mod governance;
 // mod loan;
@@ -70,6 +70,6 @@ pub fn ocean_router() -> Result<Router> {
         // .nest("/stats", stats::router(Arc::clone(client)))
         .nest("/tokens", tokens::router(Arc::clone(client)))
         // .nest("/transactions", transactions::router(Arc::clone(client)))
-        // .nest("/blocks", block::router(Arc::clone(client)))
+        .nest("/blocks", block::router(Arc::clone(client)))
         .fallback(not_found))
 }
