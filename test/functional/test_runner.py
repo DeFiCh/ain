@@ -660,6 +660,8 @@ def run_tests(
     start_time = time.time()
     test_results = []
 
+    logging.debug("%s" % (os.getcwd()))
+
     max_len_name = len(max(test_list, key=len))
     test_count = len(test_list)
     for i in range(test_count):
@@ -668,7 +670,7 @@ def run_tests(
         result = subprocess.run(['df', '-h'], check=True, text=True, capture_output=True)
         logging.debug("%s" % (result.stdout))
         try:
-            result = subprocess.run(['du', '-hd2', 'build/'], check=True, text=True, capture_output=True)
+            result = subprocess.run(['du', '-hd2', '/__w/ain/ain/build/'], check=True, text=True, capture_output=True)
             logging.debug("%s" % (result.stdout))
         except subprocess.CalledProcessError as e:
             logging.debug("%s" % (e.stderr))
