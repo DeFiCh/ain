@@ -1,24 +1,85 @@
-use std::sync::Arc;
-
-use axum::{extract::Path, routing::get, Router};
-use defichain_rpc::{Client, RpcApi};
+use axum::{
+    extract::{Path, Query},
+    routing::get,
+    Json, Router,
+};
+use bitcoin::Txid;
 use serde::Deserialize;
+
+use crate::{
+    api_paged_response::ApiPagedResponse,
+    api_query::PaginationQuery,
+    model::{Transaction, TransactionVin, TransactionVout},
+    repository::RepositoryOps,
+    Result, SERVICES,
+};
 
 #[derive(Deserialize)]
 struct TransactionId {
-    id: String,
+    id: Txid,
 }
 
-async fn get_transaction(Path(TransactionId { id }): Path<TransactionId>) -> String {
-    format!("Details of transaction with id {}", id)
+async fn get_transaction(
+    Path(TransactionId { id }): Path<TransactionId>,
+) -> Result<Json<Option<Transaction>>> {
+    format!("Details of transaction with id {}", id);
+    let transactions = SERVICES.transaction.by_id.get(&id)?;
+    Ok(Json(transactions))
 }
 
-async fn get_vins(Path(TransactionId { id }): Path<TransactionId>) -> String {
-    format!("Vins for transaction with id {}", id)
+async fn get_vins(
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<ApiPagedResponse<TransactionVin>>> {
+    let transaction_list = SERVICES
+        .transaction
+        .vin_by_id
+        .list(None)?
+        .take(query.size)
+        .map(|item| {
+            let (txid, id) = item?;
+            let b = SERVICES
+                .transaction
+                .vin_by_id
+                .get(&txid)?
+                .ok_or("Missing block index")?;
+
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Json(ApiPagedResponse::of(
+        transaction_list,
+        query.size,
+        |transaction_list| transaction_list.id.clone(),
+    )))
 }
 
-async fn get_vouts(Path(TransactionId { id }): Path<TransactionId>) -> String {
-    format!("Vouts for transaction with id {}", id)
+//get list of vout transaction, by passing id which contains txhash + vout_idx
+async fn get_vouts(
+    Query(query): Query<PaginationQuery>,
+) -> Result<Json<ApiPagedResponse<TransactionVout>>> {
+    let transaction_list = SERVICES
+        .transaction
+        .vout_by_id
+        .list(None)?
+        .take(query.size)
+        .map(|item| {
+            let (txid, id) = item?;
+            let b = SERVICES
+                .transaction
+                .vout_by_id
+                .get(&txid)?
+                .ok_or("Missing block index")?;
+
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Json(ApiPagedResponse::of(
+        transaction_list,
+        query.size,
+        |transaction_list| transaction_list.id.clone(),
+    )))
 }
 
 pub fn router(state: Arc<Client>) -> Router {

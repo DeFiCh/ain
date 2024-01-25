@@ -128,7 +128,9 @@ mod tests {
     fn should_next_with_value() {
         let items: Vec<Item> = vec![Item::new("0", "a"), Item::new("1", "b")];
 
-        let next = ApiPagedResponse::next(items, Some("b")).page.next;
+        let next = ApiPagedResponse::next(items, Some("b".to_string()))
+            .page
+            .next;
         assert_eq!(next, Some("b".into()));
     }
 

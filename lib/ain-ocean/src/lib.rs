@@ -6,11 +6,17 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::OceanError;
-pub use indexer::{index_block, invalidate_block, tx_result, BlockV2Info};
+pub use indexer::{
+    index_block, invalidate_block,
+    transaction::{index_transactions, invalidate_transaction},
+    tx_result, BlockV2Info,
+};
+use model::TransactionVin;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    PoolSwapRepository, RawBlockRepository, TxResultRepository,
+    PoolSwapRepository, RawBlockRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -50,6 +56,12 @@ pub struct PoolService {
     by_id: PoolSwapRepository,
 }
 
+pub struct TransactionService {
+    by_id: TransactionRepository,
+    vin_by_id: TransactionVinRepository,
+    vout_by_id: TransactionVoutRepository,
+}
+
 pub struct Services {
     masternode: MasternodeService,
     block: BlockService,
@@ -57,6 +69,7 @@ pub struct Services {
     result: TxResultRepository,
     pool: PoolService,
     client: Arc<Client>,
+    transaction: TransactionService,
 }
 
 impl Services {
@@ -88,6 +101,11 @@ impl Services {
             result: TxResultRepository::new(Arc::clone(&store)),
             pool: PoolService {
                 by_id: PoolSwapRepository::new(Arc::clone(&store)),
+            },
+            transaction: TransactionService {
+                by_id: TransactionRepository::new(Arc::clone(&store)),
+                vin_by_id: TransactionVinRepository::new(Arc::clone(&store)),
+                vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
             },
             client,
         })
