@@ -278,9 +278,7 @@ class CPoolSwap {
 public:
     std::vector<std::pair<std::string, std::string>> errors;
 
-    CPoolSwap(const CPoolSwapMessage &obj,
-              const uint32_t height,
-              const std::optional<std::pair<CustomTxType, uint256>> txInfo = std::nullopt)
+    CPoolSwap(const CPoolSwapMessage &obj, const uint32_t height, const std::optional<std::pair<CustomTxType, uint256>> txInfo = std::nullopt)
         : obj(obj),
           height(height),
           txInfo(txInfo) {}
