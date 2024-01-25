@@ -2810,8 +2810,8 @@ Res ProcessDeFiEventFallible(const CBlock &block,
         info.size_stripped = GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
         info.weight = GetBlockWeight(block);
         info.stake_modifier = pindex->stakeModifier.ToString();
-        info.minter = ""; // mn operator address
-        info.masternode = ""; // mn owner address
+        info.minter = "";      // mn operator address
+        info.masternode = "";  // mn owner address
 
         // minter info
         CKeyID minter;
@@ -2822,7 +2822,8 @@ Res ProcessDeFiEventFallible(const CBlock &block,
             info.masternode = id->ToString();
             auto mn = mnview.GetMasternode(*id);
             if (mn) {
-                auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
+                auto dest =
+                    mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
                 info.minter = EncodeDestination(dest);
             }
         }
