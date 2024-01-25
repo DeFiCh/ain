@@ -6,7 +6,7 @@
 """Test account mining behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
 class AccountsValidatingTest(DefiTestFramework):
@@ -33,6 +33,12 @@ class AccountsValidatingTest(DefiTestFramework):
         node.generate(1)
         self.sync_blocks()
 
+        assert_raises_rpc_error(
+            -5,
+            "Invalid owner address",
+            self.nodes[0].getaccount,
+            "",
+        )
         # Check we have expected balance
         assert_equal(node1.getaccount(account)[0], "10.00000000@DFI")
 
