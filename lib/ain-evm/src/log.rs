@@ -16,29 +16,27 @@ use crate::{
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogIndex {
     // Consensus fields:
-    // Address of the contract that generated the event
-    pub address: H160,
-    // List of topics provided by the contract
-    pub topics: Vec<H256>,
-    // Supplied by the contract, usually ABI-encoded
-    pub data: Vec<u8>,
-
+    // Hash of the block in which the transaction was included
+    pub block_hash: H256,
     // Derived fields. These fields are filled in by the node
     // but not secured by consensus.
     // Block in which the transaction was included
     pub block_number: U256,
+    // List of topics provided by the contract
+    pub topics: Vec<H256>,
+    // Supplied by the contract, usually ABI-encoded
+    pub data: Vec<u8>,
+    // Index of the log in the block
+    pub log_index: U256,
+    // Address of the contract that generated the event
+    pub address: H160,
+    // The removed field is true if this log was reverted due to a chain reorganization.
+    // You must pay attention to this field if you receive logs through a filter query.
+    pub removed: bool,
     // Hash of the transaction
     pub transaction_hash: H256,
     // Index of the transaction in the block
     pub transaction_index: U256,
-    // Hash of the block in which the transaction was included
-    pub block_hash: H256,
-    // Index of the log in the block
-    pub log_index: U256,
-
-    // The removed field is true if this log was reverted due to a chain reorganization.
-    // You must pay attention to this field if you receive logs through a filter query.
-    pub removed: bool,
 }
 
 pub enum Notification {
