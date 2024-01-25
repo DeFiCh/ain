@@ -667,8 +667,12 @@ def run_tests(
         test_results.append(test_result)
         result = subprocess.run(['df', '-h'], check=True, text=True, capture_output=True)
         logging.debug("%s" % (result.stdout))
-        result = subprocess.run(['du', '-hd2', 'build/'], check=True, text=True, capture_output=True)
-        logging.debug("%s" % (result.stdout))
+        try:
+            result = subprocess.run(['du', '-hd2', 'build/'], check=True, text=True, capture_output=True)
+            logging.debug("%s" % (result.stdout))
+        except subprocess.CalledProcessError as e:
+            logging.debug("%s" % (e.stderr))
+            raise
         done_str = "{}/{} - {}{}{}".format(
             i + 1, test_count, BOLD[1], test_result.name, BOLD[0]
         )
