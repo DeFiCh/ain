@@ -660,14 +660,14 @@ def run_tests(
     start_time = time.time()
     test_results = []
 
-    logging.debug("%s" % (os.getcwd()))
-
     max_len_name = len(max(test_list, key=len))
     test_count = len(test_list)
     for i in range(test_count):
         test_result, testdir, stdout, stderr = job_queue.get_next()
         test_results.append(test_result)
         result = subprocess.run(['df', '-h'], check=True, text=True, capture_output=True)
+        logging.debug("%s" % (result.stdout))
+        result = subprocess.run(['ls', '-lah', '/__w/ain/ain/build/test_runner/'], check=True, text=True, capture_output=True)
         logging.debug("%s" % (result.stdout))
         try:
             result = subprocess.run(['du', '-hd2', '/__w/ain/ain/build/test_runner/'], check=True, text=True, capture_output=True)
