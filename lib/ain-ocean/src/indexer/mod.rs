@@ -5,6 +5,8 @@ mod pool;
 pub mod transaction;
 pub mod tx_result;
 
+use std::time::Instant;
+
 use defichain_rpc::RpcApi;
 use dftx_rs::{deserialize, Block, DfTx, Transaction};
 use log::debug;
@@ -34,8 +36,14 @@ pub struct BlockV2Info {
     pub masternode: String,
 }
 
+fn log_elapsed(previous: Instant, msg: &str) {
+    let now = Instant::now();
+    println!("{} in {} ms", msg, now.duration_since(previous).as_millis());
+}
+
 pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     debug!("[index_block] Indexing block...");
+    let start = Instant::now();
 
     let hex = hex::decode(&encoded_block)?;
     debug!("got hex");
@@ -72,10 +80,8 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     SERVICES.block.by_id.put(&ctx.hash, &block_mapper)?;
     SERVICES.block.by_height.put(&ctx.height, &block_hash)?;
 
-    let block_count = SERVICES.client.get_block_count()?;
-    println!("block_count : {:?}", block_count);
-
     for (idx, tx) in block.txdata.into_iter().enumerate() {
+        let start = Instant::now();
         let bytes = tx.output[0].script_pubkey.as_bytes();
         if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
             let offset = 1 + match bytes[1] {
@@ -88,7 +94,7 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
             let raw_tx = &bytes[offset..];
             let dftx = deserialize::<DfTx>(raw_tx)?;
             debug!("dftx : {:?}", dftx);
-            match dftx {
+            match &dftx {
                 DfTx::CreateMasternode(data) => data.index(&ctx, tx, idx)?,
                 DfTx::UpdateMasternode(data) => data.index(&ctx, tx, idx)?,
                 DfTx::ResignMasternode(data) => data.index(&ctx, tx, idx)?,
@@ -101,8 +107,11 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
                 DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
                 _ => (),
             }
+            log_elapsed(start, &format!("Indexed tx {:?}", dftx));
         }
     }
+
+    log_elapsed(start, "Indexed block");
 
     Ok(())
 }
