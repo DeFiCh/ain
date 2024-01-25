@@ -665,12 +665,20 @@ def run_tests(
     for i in range(test_count):
         test_result, testdir, stdout, stderr = job_queue.get_next()
         test_results.append(test_result)
+        test_runner_path = '/__w/ain/ain/build/test_runner'
         result = subprocess.run(['df', '-h'], check=True, text=True, capture_output=True)
+        logging.debug("Printing Disk Usage")
         logging.debug("%s" % (result.stdout))
-        result = subprocess.run(['ls', '-lah', '/__w/ain/ain/build/test_runner/'], check=True, text=True, capture_output=True)
-        logging.debug("%s" % (result.stdout))
+        test_runner_contents = os.listdir(test_runner_path)
+        for item in test_runner_contents:
+            item_path = os.path.join(test_runner_path, item)
+            if os.path.isdir(item_path):
+                result = subprocess.run(['ls', '-lah', item_path], check=True, text=True, capture_output=True)
+                logging.debug("Listing Contents of %s" % (item_path))
+                logging.debug("%s" % (result.stdout))
         try:
-            result = subprocess.run(['du', '-hd2', '/__w/ain/ain/build/test_runner/'], check=True, text=True, capture_output=True)
+            result = subprocess.run(['du', '-hd2', test_runner_path], check=True, text=True, capture_output=True)
+            logging.debug("Disk Usage in Folder %s" % (test_runner_path))
             logging.debug("%s" % (result.stdout))
         except subprocess.CalledProcessError as e:
             logging.debug("%s" % (e.stderr))
