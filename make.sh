@@ -570,10 +570,6 @@ test_py() {
     local extra_args=""
     local first_arg="${1:-}"
 
-    if [[ -n "${GITHUB_ACTIONS-}" ]]; then
-      make_jobs=1
-    fi
-
     # If an argument is given as an existing file, we switch that
     # out to the last arg
     if [[ -f "${first_arg}" ]]; then

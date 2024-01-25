@@ -665,6 +665,10 @@ def run_tests(
     for i in range(test_count):
         test_result, testdir, stdout, stderr = job_queue.get_next()
         test_results.append(test_result)
+        result = subprocess.run(['df', '-h'], check=True, text=True, capture_output=True)
+        logging.debug("%s" % (result.stdout))
+        result = subprocess.run(['du', '-hd2', 'build/'], check=True, text=True, capture_output=True)
+        logging.debug("%s" % (result.stdout))
         done_str = "{}/{} - {}{}{}".format(
             i + 1, test_count, BOLD[1], test_result.name, BOLD[0]
         )
