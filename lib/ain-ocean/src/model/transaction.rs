@@ -1,3 +1,4 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -5,7 +6,7 @@ use super::BlockContext;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
-    pub id: String,
+    pub id: Txid,
     pub order: i32,
     pub block: BlockContext,
     pub txid: String,
