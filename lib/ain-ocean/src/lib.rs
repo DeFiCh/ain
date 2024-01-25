@@ -8,7 +8,7 @@ pub use api::ocean_router;
 use error::OceanError;
 pub use indexer::{
     index_block, invalidate_block,
-    transaction::{index_transactions, invalidate_transaction},
+    transaction::{index_transaction, invalidate_transaction},
     tx_result, BlockV2Info,
 };
 use model::TransactionVin;
