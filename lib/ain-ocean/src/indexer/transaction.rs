@@ -1,44 +1,41 @@
 use bitcoin::{blockdata::locktime::absolute::LockTime, Txid};
-use dftx_rs::{Block, Transaction};
+use dftx_rs::Transaction;
 use log::debug;
 
 use super::BlockContext;
 use crate::{
     indexer::Result,
     model::{
-        Transaction as TrasnactionMapper, TransactionVin, TransactionVinScript, TransactionVinVout,
+        Transaction as TransactionMapper, TransactionVin, TransactionVinScript, TransactionVinVout,
         TransactionVinVoutScript, TransactionVout, TransactionVoutScript,
     },
     repository::RepositoryOps,
     SERVICES,
 };
 
-pub fn index_transactions(ctx: &BlockContext, tx: Transaction) -> Result<()> {
-    debug!("[CreateTransaction] Indexing...");
+pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    debug!("[index_transaction] Indexing...");
     let tx_id = tx.txid();
 
-    let lock_time_as_i32 = match tx.lock_time {
+    let lock_time = match tx.lock_time {
         LockTime::Blocks(value) => value.to_consensus_u32(),
         LockTime::Seconds(value) => value.to_consensus_u32(),
     };
-    let total_vout_value: u64 = tx.output.iter().map(|output| output.value.to_sat()).sum();
-    let weight = tx.weight();
-    let weight_i32 = weight.to_vbytes_ceil() as i32;
+    let total_vout_value = tx.output.iter().map(|output| output.value.to_sat()).sum();
 
-    let trx = TrasnactionMapper {
+    let trx = TransactionMapper {
         id: tx_id,
-        order: 0,
+        order: idx,
         block: ctx.clone(),
-        txid: tx_id.to_string(),
-        hash: ctx.hash.to_string(),
+        hash: ctx.hash,
         version: tx.version.0,
-        size: tx.total_size() as i32,
-        v_size: tx.vsize() as i32,
-        weight: weight_i32,
-        total_vout_value: total_vout_value.to_string(),
-        lock_time: lock_time_as_i32 as i32,
-        vin_count: tx.input.len() as i32,
-        vout_count: tx.output.len() as i32,
+        size: tx.total_size(),
+        v_size: tx.vsize(),
+        weight: tx.weight().to_wu(),
+        total_vout_value,
+        lock_time: lock_time,
+        vin_count: tx.input.len(),
+        vout_count: tx.output.len(),
     };
     // Index transaction
     SERVICES.transaction.by_id.put(&tx_id, &trx)?;
@@ -88,7 +85,7 @@ pub fn index_transactions(ctx: &BlockContext, tx: Transaction) -> Result<()> {
 }
 
 pub fn invalidate_transaction(ctx: &BlockContext, tx: Txid, idx: usize) -> Result<()> {
-    debug!("[CreateMasternode] Invalidating...");
+    debug!("[invalidate_transaction] Invalidating...");
     SERVICES.transaction.by_id.delete(&tx)?;
     Ok(())
 }
