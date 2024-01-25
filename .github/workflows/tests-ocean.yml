@@ -85,10 +85,7 @@ jobs:
       - name: Populate environment
         run: cd defichain && ./make.sh ci-export-vars
 
-      - name: Build docker
-        run: "cd defichain && docker build -t test-build-container -f ./contrib/dockerfiles/x86_64-pc-linux-gnu.dockerfile ."
-
       - name: Run tests
         run: |
           npm ci
-          DEFICHAIN_DOCKER_IMAGE=test-build-container DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api
+          DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api
