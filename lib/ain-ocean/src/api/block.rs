@@ -4,16 +4,38 @@ use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
     routing::get,
-    Json, Router,
+    Router,
 };
 use bitcoin::BlockHash;
-use defichain_rpc::{Client, RpcApi};
+use defichain_rpc::Client;
+use serde::{Deserialize, Deserializer};
 
 use super::response::{ApiPagedResponse, Response};
 use crate::{
-    api_query::PaginationQuery, error::ApiError, model::Block, repository::RepositoryOps,
-    storage::ocean_store, Result, SERVICES,
+    api_query::PaginationQuery, error::ApiError, model::Block, repository::RepositoryOps, Result,
+    SERVICES,
 };
+
+enum HashOrHeight {
+    Height(u32),
+    Id(BlockHash),
+}
+
+impl<'de> Deserialize<'de> for HashOrHeight {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if let Ok(height) = s.parse::<u32>() {
+            Ok(HashOrHeight::Height(height))
+        } else if let Ok(id) = s.parse::<BlockHash>() {
+            Ok(HashOrHeight::Id(id))
+        } else {
+            Err(serde::de::Error::custom("Error parsing HashOrHeight"))
+        }
+    }
+}
 
 #[ocean_endpoint]
 async fn list_blocks(Query(query): Query<PaginationQuery>) -> Result<ApiPagedResponse<Block>> {
@@ -40,8 +62,15 @@ async fn list_blocks(Query(query): Query<PaginationQuery>) -> Result<ApiPagedRes
 }
 
 #[ocean_endpoint]
-async fn get_block(Path(id): Path<BlockHash>) -> Result<Response<Option<Block>>> {
-    let block = SERVICES.block.by_id.get(&id)?;
+async fn get_block(Path(id): Path<HashOrHeight>) -> Result<Response<Option<Block>>> {
+    let block = if let Some(id) = match id {
+        HashOrHeight::Height(n) => SERVICES.block.by_height.get(&n)?,
+        HashOrHeight::Id(id) => Some(id),
+    } {
+        SERVICES.block.by_id.get(&id)?
+    } else {
+        None
+    };
 
     Ok(Response::new(block))
 }
