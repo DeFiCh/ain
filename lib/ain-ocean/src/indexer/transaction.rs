@@ -43,11 +43,11 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     for (vin_idx, vin) in tx.input.iter().enumerate() {
         let trx_vin = TransactionVin {
             id: format!("{}-{}", tx_id, vin_idx),
-            txid: tx_id.to_string(),
+            txid: tx_id,
             coinbase: vin.script_sig.to_string(),
             vout: TransactionVinVout {
                 id: format!("{}-{}-vout", tx_id, vin_idx),
-                txid: tx_id.to_string(),
+                txid: tx_id,
                 n: vin.previous_output.vout as i32,
                 value: "0".to_string(),
                 token_id: 0,
