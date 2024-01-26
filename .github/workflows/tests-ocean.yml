@@ -62,7 +62,7 @@ jobs:
         with:
           repository: birthdayresearch/jellyfishsdk
           # ref: 'main'
-          ref: 'canonbrother/defid-ocean' # TODO(): remove before merge to master
+          ref: 'canonbrother/whale-defid' # TODO(): remove before merge to master
 
       - name: Download binaries
         uses: actions/download-artifact@v3
@@ -88,4 +88,4 @@ jobs:
       - name: Run tests
         run: |
           npm ci
-          DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api
+          DEFID="$(pwd)/defid" npm t apps/whale-api/src/defid-e2e/module.api
