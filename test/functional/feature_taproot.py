@@ -2665,8 +2665,19 @@ class TaprootTest(DefiTestFramework):
         self.setup_clean_chain = True
         # Node 0 has Taproot inactive, Node 1 active.
         self.extra_args = [
-            ["-whitelist=127.0.0.1", "-par=1", "-debugexclude=connectblock", "-debugexclude=signtx"],
-            ["-whitelist=127.0.0.1", "-par=1", "-df23height=1", "-debugexclude=connectblock", "-debugexclude=signtx"],
+            [
+                "-whitelist=127.0.0.1",
+                "-par=1",
+                "-debugexclude=connectblock",
+                "-debugexclude=signtx",
+            ],
+            [
+                "-whitelist=127.0.0.1",
+                "-par=1",
+                "-df23height=1",
+                "-debugexclude=connectblock",
+                "-debugexclude=signtx",
+            ],
         ]
 
     def block_submit(
