@@ -4016,7 +4016,7 @@ bool CChainState::ConnectTip(CValidationState &state,
              nTimeTotal * MICRO,
              nTimeTotal * MILLI / nBlocksTotal);
 
-    if (LogAcceptCategory(BCLog::CONNECT)) {
+    if (LogAcceptCategory(BCLog::CONNECTBLOCK)) {
         LogPrintf("ConnectTip: %s\n", blockToJSON(*pthisBlock, pindexNew, pindexNew, true, 4).write(2));
     }
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));
