@@ -10,7 +10,7 @@ impl ColumnName for TransactionVout {
 }
 
 impl Column for TransactionVout {
-    type Index = Txid;
+    type Index = String;
 }
 
 impl TypedColumn for TransactionVout {

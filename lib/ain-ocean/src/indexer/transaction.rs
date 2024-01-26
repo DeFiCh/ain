@@ -41,8 +41,14 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     SERVICES.transaction.by_id.put(&tx_id, &trx)?;
     // Indexing transaction vin
     for (vin_idx, vin) in tx.input.iter().enumerate() {
+        let vout_bytes = vin.previous_output.vout.to_be_bytes();
         let trx_vin = TransactionVin {
-            id: format!("{}-{}", tx_id, vin_idx),
+            id: format!(
+                "{}-{}-{}",
+                tx_id,
+                vin.previous_output.txid,
+                hex::encode(vout_bytes)
+            ),
             txid: tx_id,
             coinbase: vin.script_sig.to_string(),
             vout: TransactionVinVout {
@@ -66,6 +72,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     }
     // Index transaction vout
     for (vout_idx, vout) in tx.output.iter().enumerate() {
+        let vout_index = vout_idx.to_be_bytes();
         let trx_vout = TransactionVout {
             id: format!("{}-{}", tx_id, vout_idx),
             txid: tx_id.to_string(),
@@ -77,15 +84,31 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
                 r#type: "pubkey".to_string(),
             },
         };
-        SERVICES.transaction.vout_by_id.put(&tx_id, &trx_vout)?;
-        // .put(&format!("{}-{}", tx_id, vout_idx), &trx_vout)?; //need
+        SERVICES
+            .transaction
+            .vout_by_id
+            .put(&format!("{}-{}", tx_id, hex::encode(vout_index)), &trx_vout)?;
     }
 
     Ok(())
 }
 
-pub fn invalidate_transaction(ctx: &BlockContext, tx: Txid, idx: usize) -> Result<()> {
+pub fn invalidate_transaction(tx_id: Txid) -> Result<()> {
     debug!("[invalidate_transaction] Invalidating...");
-    SERVICES.transaction.by_id.delete(&tx)?;
+    SERVICES.transaction.by_id.delete(&tx_id)?;
+    Ok(())
+}
+
+//txid: txid + vout.txid + (vin.previous_output.vout 4 bytes encoded hex)
+pub fn invalidate_transaction_vin(tx_id: String) -> Result<()> {
+    debug!("[invalidate_transaction] Invalidating...");
+    SERVICES.transaction.vout_by_id.delete(&tx_id)?;
+    Ok(())
+}
+
+//txid which is string type (txid + encoded (vout_idx)
+pub fn invalidate_transaction_vout(tx_id: String) -> Result<()> {
+    debug!("[invalidate_transaction] Invalidating...");
+    SERVICES.transaction.vout_by_id.delete(&tx_id)?;
     Ok(())
 }

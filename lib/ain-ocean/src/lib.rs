@@ -8,10 +8,12 @@ pub use api::ocean_router;
 use error::OceanError;
 pub use indexer::{
     index_block, invalidate_block,
-    transaction::{index_transaction, invalidate_transaction},
+    transaction::{
+        index_transaction, invalidate_transaction, invalidate_transaction_vin,
+        invalidate_transaction_vout,
+    },
     tx_result, BlockV2Info,
 };
-use model::TransactionVin;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
