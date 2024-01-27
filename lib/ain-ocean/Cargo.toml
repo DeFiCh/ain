@@ -41,3 +41,4 @@ lazy_static.workspace = true
 bincode.workspace = true
 defichain-rpc = { version = "0.18.0", git = "https://github.com/Jouzo/rust-defichain-rpc.git" }
 jsonrpc = "0.14.1"
+serde_urlencoded = { version = "0.7" }

@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{
-    extract::{Path, Query},
-    routing::get,
-    Extension, Json, Router,
-};
+use axum::{extract::Path, routing::get, Extension, Router};
 use defichain_rpc::{
     json::token::{TokenInfo, TokenResult},
     Client, RpcApi,
@@ -17,7 +13,11 @@ use super::{
     common::parse_display_symbol,
     response::{ApiPagedResponse, Response},
 };
-use crate::{api_query::PaginationQuery, error::ApiError, Result};
+use crate::{
+    api_query::{PaginationQuery, Query},
+    error::ApiError,
+    Result,
+};
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct TxHeight {
@@ -109,9 +109,7 @@ async fn list_tokens(
         .into_iter()
         .map(|(k, v)| TokenData::from_with_id(k, v))
         .collect::<Vec<_>>();
-    Ok(ApiPagedResponse::of(res, query.size, |token| {
-        token.id.to_string()
-    }))
+    Ok(ApiPagedResponse::of(res, query.size, |token| token.id))
 }
 
 #[ocean_endpoint]
