@@ -9,7 +9,7 @@ use super::response::Response;
 use crate::{api_query::Query, error::ApiError, Result};
 
 #[derive(Deserialize, Default)]
-struct EstimateQuery {
+pub struct EstimateQuery {
     confirmation_target: i32,
 }
 

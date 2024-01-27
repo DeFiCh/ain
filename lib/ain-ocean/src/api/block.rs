@@ -15,7 +15,7 @@ use crate::{
     Result, SERVICES,
 };
 
-enum HashOrHeight {
+pub enum HashOrHeight {
     Height(u32),
     Id(BlockHash),
 }

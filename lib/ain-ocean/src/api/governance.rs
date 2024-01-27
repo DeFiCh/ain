@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Deserialize, Default)]
-struct GovernanceQuery {
+pub struct GovernanceQuery {
     #[serde(flatten)]
     pub pagination: PaginationQuery,
     pub status: Option<ListProposalsStatus>,
