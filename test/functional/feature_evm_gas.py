@@ -436,13 +436,13 @@ class EVMGasTest(DefiTestFramework):
     def run_test(self):
         self.setup()
 
-        # self.test_estimate_gas_balance_transfer()
+        self.test_estimate_gas_balance_transfer()
 
-        # self.test_estimate_gas_contract()
+        self.test_estimate_gas_contract()
 
-        # self.test_estimate_gas_contract_exact_gas()
+        self.test_estimate_gas_contract_exact_gas()
 
-        # self.test_estimate_gas_revert()
+        self.test_estimate_gas_revert()
 
         self.test_estimate_gas_state_override()
 
