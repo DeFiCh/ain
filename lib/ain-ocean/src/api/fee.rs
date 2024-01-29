@@ -19,13 +19,13 @@ async fn estimate_fee(
         confirmation_target,
     }): Query<EstimateQuery>,
     Extension(client): Extension<Arc<Client>>,
-) -> Result<Response<f64>> {
+) -> Result<f64> {
     let estimation: SmartFeeEstimation = client.call(
         "estimatesmartfee",
         &[confirmation_target.into(), "CONSERVATIVE".into()],
     )?;
 
-    Ok(Response::new(estimation.feerate.unwrap_or(0.00005000)))
+    Ok(estimation.feerate.unwrap_or(0.00005000))
 }
 
 pub fn router(state: Arc<Client>) -> Router {
