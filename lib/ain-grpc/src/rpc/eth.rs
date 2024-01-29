@@ -1035,9 +1035,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
         let topics = input.topics.map(|topics| match topics {
             LogRequestTopics::VecOfHashes(inputs) => {
-                inputs.into_iter().map(|input| vec![input]).collect()
+                inputs.iter().flatten().map(|input| vec![*input]).collect()
             }
-            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs
+                .iter()
+                .map(|hashes| hashes.iter().flatten().copied().collect())
+                .collect(),
         });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
@@ -1081,9 +1084,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
         let topics = input.topics.map(|topics| match topics {
             LogRequestTopics::VecOfHashes(inputs) => {
-                inputs.into_iter().map(|input| vec![input]).collect()
+                inputs.iter().flatten().map(|input| vec![*input]).collect()
             }
-            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs
+                .iter()
+                .map(|hashes| hashes.iter().flatten().copied().collect())
+                .collect(),
         });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
