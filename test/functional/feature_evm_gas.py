@@ -114,7 +114,9 @@ class EVMGasTest(DefiTestFramework):
             "gas": "0x7a120",
             "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
-        dict_txs["valid_balance_transfer_tx_with_gas"] = valid_balance_transfer_tx_with_gas
+        dict_txs[
+            "valid_balance_transfer_tx_with_gas"
+        ] = valid_balance_transfer_tx_with_gas
 
         # Eth call for balance transfer with exact gas specified
         valid_balance_transfer_tx_with_exact_gas = {
@@ -124,7 +126,9 @@ class EVMGasTest(DefiTestFramework):
             "gas": "0x5208",
             "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
-        dict_txs["valid_balance_transfer_tx_with_exact_gas"] = valid_balance_transfer_tx_with_exact_gas
+        dict_txs[
+            "valid_balance_transfer_tx_with_exact_gas"
+        ] = valid_balance_transfer_tx_with_exact_gas
 
         # Valid eth call for balance transfer without gas specified
         valid_balance_transfer_tx_without_gas = {
@@ -133,7 +137,9 @@ class EVMGasTest(DefiTestFramework):
             "value": "0xDE0B6B3A7640000",  # 1 DFI
             "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
-        dict_txs["valid_balance_transfer_tx_without_gas"] = valid_balance_transfer_tx_without_gas
+        dict_txs[
+            "valid_balance_transfer_tx_without_gas"
+        ] = valid_balance_transfer_tx_without_gas
 
         # Invalid eth call for balance transfer with both gasPrice and maxFeePerGas specified
         invalid_balance_transfer_tx_specified_gas_1 = {
@@ -143,7 +149,9 @@ class EVMGasTest(DefiTestFramework):
             "gasPrice": "0x37E11D600",  # 15_000_000_000
             "maxFeePerGas": "0x37E11D600",  # 15_000_000_000
         }
-        dict_txs["invalid_balance_transfer_tx_specified_gas_1"] = invalid_balance_transfer_tx_specified_gas_1
+        dict_txs[
+            "invalid_balance_transfer_tx_specified_gas_1"
+        ] = invalid_balance_transfer_tx_specified_gas_1
 
         # Invalid eth call for balance transfer with both gasPrice and priorityFeePerGas specified
         invalid_balance_transfer_tx_specified_gas_2 = {
@@ -153,7 +161,9 @@ class EVMGasTest(DefiTestFramework):
             "gasPrice": "0x37E11D600",  # 15_000_000_000
             "maxPriorityFeePerGas": "0x37E11D600",  # 15_000_000_000
         }
-        dict_txs["invalid_balance_transfer_tx_specified_gas_2"] = invalid_balance_transfer_tx_specified_gas_2
+        dict_txs[
+            "invalid_balance_transfer_tx_specified_gas_2"
+        ] = invalid_balance_transfer_tx_specified_gas_2
 
         # Invalid eth call for balance transfer with both data and input fields specified
         invalid_balance_transfer_tx_specified_data_and_input = {
@@ -164,7 +174,9 @@ class EVMGasTest(DefiTestFramework):
             "data": "0xffffffffffffffff",
             "input": "0xffffffffffffffff",
         }
-        dict_txs["invalid_balance_transfer_tx_specified_data_and_input"] = invalid_balance_transfer_tx_specified_data_and_input
+        dict_txs[
+            "invalid_balance_transfer_tx_specified_data_and_input"
+        ] = invalid_balance_transfer_tx_specified_data_and_input
 
         # Invalid eth call from insufficient balance for balance transfer
         invalid_balance_transfer_tx_insufficient_funds = {
@@ -173,7 +185,9 @@ class EVMGasTest(DefiTestFramework):
             "value": "0x152D02C7E14AF6800000",  # 100_000 DFI
             "gasPrice": "0x37E11D600",  # 15_000_000_000
         }
-        dict_txs["invalid_balance_transfer_tx_insufficient_funds"] = invalid_balance_transfer_tx_insufficient_funds
+        dict_txs[
+            "invalid_balance_transfer_tx_insufficient_funds"
+        ] = invalid_balance_transfer_tx_insufficient_funds
         return dict_txs
 
     def test_estimate_gas_balance_transfer(self):
@@ -181,7 +195,9 @@ class EVMGasTest(DefiTestFramework):
         dict_txs = self.generate_test_txs(self.ethAddress)
 
         # Test valid estimateGas call for transfer tx with gas specified
-        gas = self.nodes[0].eth_estimateGas(dict_txs["valid_balance_transfer_tx_with_gas"])
+        gas = self.nodes[0].eth_estimateGas(
+            dict_txs["valid_balance_transfer_tx_with_gas"]
+        )
         assert_equal(gas, "0x5208")
 
         # Test valid estimateGas call for transfer tx with exact gas specified
@@ -191,7 +207,9 @@ class EVMGasTest(DefiTestFramework):
         assert_equal(gas, "0x5208")
 
         # Test valid estimateGas call for transfer tx without gas specified
-        gas = self.nodes[0].eth_estimateGas(dict_txs["valid_balance_transfer_tx_without_gas"])
+        gas = self.nodes[0].eth_estimateGas(
+            dict_txs["valid_balance_transfer_tx_without_gas"]
+        )
         assert_equal(gas, "0x5208")
 
         # Test invalid estimateGas call, both gasPrice and maxFeePerGas specified
@@ -365,7 +383,7 @@ class EVMGasTest(DefiTestFramework):
             "Custom error: transaction execution failed",
             contract.functions.value_check(0).estimate_gas,
         )
-    
+
     def test_estimate_gas_state_override(self):
         self.rollback_to(self.start_height)
 
@@ -378,7 +396,9 @@ class EVMGasTest(DefiTestFramework):
         state_override = {emptyAddress: {"balance": "0x8AC7230489E80000"}}  # 10 DFI
 
         # Test valid estimateGas call for transfer tx with gas specified and state override
-        gas = self.nodes[0].eth_estimateGas(dict_txs["valid_balance_transfer_tx_with_gas"], "latest", state_override)
+        gas = self.nodes[0].eth_estimateGas(
+            dict_txs["valid_balance_transfer_tx_with_gas"], "latest", state_override
+        )
         assert_equal(gas, "0x5208")
 
         # Test valid estimateGas call for transfer tx with exact gas specified and state override
@@ -390,7 +410,9 @@ class EVMGasTest(DefiTestFramework):
         assert_equal(gas, "0x5208")
 
         # Test valid estimateGas call for transfer tx without gas specified and state override
-        gas = self.nodes[0].eth_estimateGas(dict_txs["valid_balance_transfer_tx_without_gas"], "latest", state_override)
+        gas = self.nodes[0].eth_estimateGas(
+            dict_txs["valid_balance_transfer_tx_without_gas"], "latest", state_override
+        )
         assert_equal(gas, "0x5208")
 
         # Test invalid estimateGas call, both gasPrice and maxFeePerGas specified and state override
