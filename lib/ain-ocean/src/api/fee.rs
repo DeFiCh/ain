@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{extract::Query, routing::get, Extension, Json, Router};
+use axum::{routing::get, Extension, Router};
 use defichain_rpc::{json::mining::SmartFeeEstimation, Client, RpcApi};
 use serde::Deserialize;
 
 use super::response::Response;
-use crate::{error::ApiError, Result};
+use crate::{api_query::Query, error::ApiError, Result};
 
-#[derive(Deserialize)]
-struct EstimateQuery {
+#[derive(Deserialize, Default)]
+pub struct EstimateQuery {
     confirmation_target: i32,
 }
 
@@ -24,7 +24,6 @@ async fn estimate_fee(
         "estimatesmartfee",
         &[confirmation_target.into(), "CONSERVATIVE".into()],
     )?;
-    println!("estimation : {:?}", estimation);
 
     Ok(Response::new(estimation.feerate.unwrap_or(0.00005000)))
 }

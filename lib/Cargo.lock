@@ -250,6 +250,7 @@ dependencies = [
  "rocksdb",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "structopt",
  "tarpc",
  "tempdir",
@@ -1349,7 +1350,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc"
 version = "0.18.0"
-source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#793a46b73c098f44a9038a332659381b43205119"
+source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#fc9a999c32d9b7c081830221099cc9a65dc86080"
 dependencies = [
  "defichain-rpc-json",
  "jsonrpc",
@@ -1361,11 +1362,12 @@ dependencies = [
 [[package]]
 name = "defichain-rpc-json"
 version = "0.18.0"
-source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#793a46b73c098f44a9038a332659381b43205119"
+source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#fc9a999c32d9b7c081830221099cc9a65dc86080"
 dependencies = [
  "bitcoin",
  "serde",
  "serde_json",
+ "serde_with",
 ]
 
 [[package]]

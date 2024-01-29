@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use ain_db::LedgerColumn;
 use ain_macros::Repository;
-use bitcoin::{BlockHash, Txid};
+use bitcoin::Txid;
 
 use super::RepositoryOps;
 use crate::{

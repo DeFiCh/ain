@@ -12,6 +12,12 @@ use serde::Serialize;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+pub enum NotFoundKind {
+    #[error("proposal")]
+    Proposal,
+}
+
+#[derive(Error, Debug)]
 pub enum OceanError {
     #[error("Ocean: HexToArrayError error: {0:?}")]
     HexToArrayError(#[from] HexToArrayError),
@@ -31,20 +37,23 @@ pub enum OceanError {
     SerdeJSONError(#[from] serde_json::Error),
     #[error("Ocean: RPC error: {0:?}")]
     RpcError(#[from] defichain_rpc::Error),
+    #[error("Unable to find {0:}")]
+    NotFound(NotFoundKind),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
 
 #[derive(Serialize)]
-pub enum ErrorType {
+pub enum ErrorKind {
     NotFound,
+    BadRequest,
     Unknown,
 }
 
 #[derive(Serialize)]
 struct ApiErrorData {
     code: u16,
-    r#type: ErrorType,
+    r#type: ErrorKind,
     at: u128,
     message: String,
     url: String,
@@ -65,8 +74,9 @@ impl ApiError {
             .as_millis();
 
         let r#type = match status {
-            StatusCode::NOT_FOUND => ErrorType::NotFound,
-            _ => ErrorType::Unknown,
+            StatusCode::NOT_FOUND => ErrorKind::NotFound,
+            StatusCode::BAD_REQUEST => ErrorKind::BadRequest,
+            _ => ErrorKind::Unknown,
         };
 
         Self {
@@ -96,11 +106,11 @@ impl OceanError {
             OceanError::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc::error::Error::Rpc(e))) => {
                 println!("e : {:?}", e);
 
-                (StatusCode::NOT_FOUND, format!(""))
+                (StatusCode::NOT_FOUND, format!("{}", e.message))
             }
+            OceanError::NotFound(reason) => (StatusCode::NOT_FOUND, format!("{reason}")),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
-        println!("reason : {:?}", reason);
         (code, reason)
     }
 }

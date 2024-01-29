@@ -2404,6 +2404,7 @@ bool AppInitMain(InitInterfaces& interfaces)
         }
 
         // bind ocean REST addresses
+        if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
         // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
             // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
             auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, "127.0.0.1:3002"))
@@ -2412,6 +2413,7 @@ bool AppInitMain(InitInterfaces& interfaces)
                 return false;
             }
         // }
+        }
     }
     uiInterface.InitMessage(_("Done loading").translated);
 
