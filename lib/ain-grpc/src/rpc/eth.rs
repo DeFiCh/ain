@@ -282,7 +282,6 @@ pub struct MetachainRPCModule {
 
 impl MetachainRPCModule {
     const CONFIG: Config = Config::shanghai();
-    const ESTIMATE_GAS_ERROR_RATIO: u64 = 15u64;
 
     #[must_use]
     pub fn new(handler: Arc<EVMServices>) -> Self {
@@ -778,6 +777,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     /// Estimate returns the lowest possible gas limit that allows the transaction to
     /// run successfully with the provided context options. It returns an error if the
     /// transaction would always revert, or if there are unexpected failures.
+    ///
+    /// To configure the custom gas estimation error ratio, set -evmestimategaserrorratio=n on startup.
+    /// Otherwise, the default parameter is set at 15% error ratio.
+    ///
     /// Ref: https://github.com/ethereum/go-ethereum/blob/e2778cd59f04f7587c9aa5983282074026ff6684/eth/gasestimator/gasestimator.go
     fn estimate_gas(
         &self,
@@ -933,7 +936,7 @@ impl MetachainRPCServer for MetachainRPCModule {
         while lo + 1 < hi {
             // Safe, since highest gas limit possible is set at BLOCK_GAS_LIMIT
             let diff_percentage = ((hi.saturating_sub(lo) as f64) / (hi as f64) * 100f64) as u64;
-            if diff_percentage < Self::ESTIMATE_GAS_ERROR_RATIO {
+            if diff_percentage < ain_cpp_imports::get_estimate_gas_error_ratio() {
                 break;
             }
 
