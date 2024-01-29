@@ -7,7 +7,6 @@ pub mod tx_result;
 
 use std::time::Instant;
 
-use defichain_rpc::RpcApi;
 use dftx_rs::{deserialize, Block, DfTx, Transaction};
 use log::debug;
 

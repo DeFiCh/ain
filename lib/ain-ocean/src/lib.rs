@@ -11,7 +11,6 @@ pub use indexer::{
     transaction::{index_transaction, invalidate_transaction},
     tx_result, BlockV2Info,
 };
-use model::TransactionVin;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,

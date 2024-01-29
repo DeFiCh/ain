@@ -83,9 +83,9 @@ impl<T> ApiPagedResponse<T> {
         Self::new(data, next)
     }
 
-    pub fn of(data: Vec<T>, limit: usize, next_provider: impl Fn(&T) -> String) -> Self {
+    pub fn of<U: ToString>(data: Vec<T>, limit: usize, next_provider: impl Fn(&T) -> U) -> Self {
         if data.len() == limit && data.len() > 0 && limit > 0 {
-            let next = next_provider(&data[limit - 1]);
+            let next = next_provider(&data[limit - 1]).to_string();
             Self::next(data, Some(next))
         } else {
             Self::next(data, None)
