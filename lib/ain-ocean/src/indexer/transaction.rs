@@ -50,7 +50,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
                 hex::encode(vout_bytes)
             ),
             txid: tx_id,
-            coinbase: vin.script_sig.to_string(),
+            coinbase: vin.previous_output.to_string(),
             vout: TransactionVinVout {
                 id: format!("{}-{}-vout", tx_id, vin_idx),
                 txid: tx_id,
@@ -58,14 +58,14 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
                 value: "0".to_string(),
                 token_id: 0,
                 script: TransactionVinVoutScript {
-                    hex: vin.script_sig.to_string(),
+                    hex: vin.script_sig.clone(),
                 },
             },
             script: TransactionVinScript {
-                hex: vin.script_sig.to_string(),
+                hex: vin.script_sig.clone(),
             },
             tx_in_witness: vec![],
-            sequence: vin.sequence.to_string(),
+            sequence: vin.sequence,
         };
 
         SERVICES.transaction.vin_by_id.put(&tx_id, &trx_vin)?;
@@ -75,12 +75,12 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
         let vout_index = vout_idx.to_be_bytes();
         let trx_vout = TransactionVout {
             id: format!("{}-{}", tx_id, vout_idx),
-            txid: tx_id.to_string(),
+            txid: tx_id,
             n: vout_idx as i32,
             value: vout.value.to_string(),
             token_id: 0,
             script: TransactionVoutScript {
-                hex: vout.script_pubkey.to_string(),
+                hex: vout.script_pubkey.clone(),
                 r#type: "pubkey".to_string(),
             },
         };
@@ -99,14 +99,14 @@ pub fn invalidate_transaction(tx_id: Txid) -> Result<()> {
     Ok(())
 }
 
-//txid: txid + vout.txid + (vin.previous_output.vout 4 bytes encoded hex)
+//key: txid + vout.txid + (vin.previous_output.vout 4 bytes encoded hex)
 pub fn invalidate_transaction_vin(tx_id: String) -> Result<()> {
     debug!("[invalidate_transaction] Invalidating...");
     SERVICES.transaction.vout_by_id.delete(&tx_id)?;
     Ok(())
 }
 
-//txid which is string type (txid + encoded (vout_idx)
+//key: which is string type (txid + encoded (vout_idx)
 pub fn invalidate_transaction_vout(tx_id: String) -> Result<()> {
     debug!("[invalidate_transaction] Invalidating...");
     SERVICES.transaction.vout_by_id.delete(&tx_id)?;

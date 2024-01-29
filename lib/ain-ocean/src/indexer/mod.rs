@@ -12,6 +12,7 @@ use dftx_rs::{deserialize, Block, DfTx, Transaction};
 use log::debug;
 
 use crate::{
+    index_transaction,
     model::{Block as BlockMapper, BlockContext},
     repository::RepositoryOps,
     Result, SERVICES,
@@ -105,11 +106,16 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
                 DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
                 DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
                 DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
+
                 _ => (),
             }
             log_elapsed(start, &format!("Indexed tx {:?}", dftx));
         }
     }
+
+    // for (idx, tx) in block.txdata.into_iter().enumerate() {
+    //     index_transaction(&ctx, tx, idx)?;
+    // }
 
     log_elapsed(start, "Indexed block");
 

@@ -1,5 +1,6 @@
-use bitcoin::Txid;
+use bitcoin::{ScriptBuf, Sequence, Txid};
 use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVin {
     pub id: String,
@@ -8,7 +9,7 @@ pub struct TransactionVin {
     pub vout: TransactionVinVout,
     pub script: TransactionVinScript,
     pub tx_in_witness: Vec<String>,
-    pub sequence: String,
+    pub sequence: Sequence,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,10 +24,10 @@ pub struct TransactionVinVout {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TransactionVinScript {
-    pub hex: String,
+    pub hex: ScriptBuf,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TransactionVinVoutScript {
-    pub hex: String,
+    pub hex: ScriptBuf,
 }
