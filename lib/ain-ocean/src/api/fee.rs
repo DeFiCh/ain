@@ -9,6 +9,7 @@ use super::response::Response;
 use crate::{api_query::Query, error::ApiError, Result};
 
 #[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct EstimateQuery {
     confirmation_target: i32,
 }
