@@ -71,9 +71,11 @@ class Variant(collections.namedtuple("Variant", "call data address_type rescan p
 
         elif self.call in (Call.multiaddress, Call.multiscript):
             request = {
-                "scriptPubKey": {"address": self.address["address"]}
-                if self.call == Call.multiaddress
-                else self.address["scriptPubKey"],
+                "scriptPubKey": (
+                    {"address": self.address["address"]}
+                    if self.call == Call.multiaddress
+                    else self.address["scriptPubKey"]
+                ),
                 "timestamp": timestamp
                 + TIMESTAMP_WINDOW
                 + (1 if self.rescan == Rescan.late_timestamp else 0),

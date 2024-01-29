@@ -48,9 +48,11 @@ class NotificationsTest(DefiTestFramework):
         block_count = 10
         blocks = self.nodes[1].generate(
             nblocks=block_count,
-            address=self.nodes[1].getnewaddress()
-            if self.is_wallet_compiled()
-            else ADDRESS_BCRT1_UNSPENDABLE,
+            address=(
+                self.nodes[1].getnewaddress()
+                if self.is_wallet_compiled()
+                else ADDRESS_BCRT1_UNSPENDABLE
+            ),
         )
 
         # wait at most 10 seconds for expected number of files before reading the content
