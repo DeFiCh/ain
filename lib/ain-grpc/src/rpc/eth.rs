@@ -811,11 +811,19 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         // Recap the highest gas allowance with account's balance
         if call.from.is_some() {
-            let balance = self
-                .handler
-                .core
-                .get_balance(caller, block.header.state_root)
-                .map_err(to_custom_err)?;
+            let balance = if let Some(balance) = state_overrides
+                .map(|states| states.get(&caller))
+                .flatten()
+                .map(|state| state.balance)
+                .flatten()
+            {
+                balance
+            } else {
+                self.handler
+                    .core
+                    .get_balance(caller, block.header.state_root)
+                    .map_err(to_custom_err)?
+            };
             let mut available = balance;
             if let Some(value) = call.value {
                 if balance < value {
