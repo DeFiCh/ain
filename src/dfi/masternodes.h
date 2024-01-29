@@ -613,7 +613,7 @@ public:
 
     [[nodiscard]] bool AreTokensLocked(const std::set<uint32_t> &tokenIds) override;
     [[nodiscard]] std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const override;
-    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByIDFromStore(DCT_ID const &id) const;
+    [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByIDFromStore(DCT_ID const &id) const override;
     [[nodiscard]] std::optional<CLoanSetLoanTokenImpl> GetLoanTokenByID(DCT_ID const &id) override;
     [[nodiscard]] std::optional<CLoanSetLoanTokenImplementation> GetLoanTokenFromAttributes(const DCT_ID &id) override;
     [[nodiscard]] std::optional<CLoanSetCollateralTokenImpl> GetCollateralTokenFromAttributes(

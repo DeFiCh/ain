@@ -468,8 +468,8 @@ class EVMTest(DefiTestFramework):
         self.rollback_to(self.start_height)
 
         assert_raises_rpc_error(
-            -1,
-            "Invalid address",
+            -32600,
+            'Dst address must be an ERC55 address in case of "EVM" domain',
             lambda: transfer_domain(
                 self.nodes[0], self.address, self.address, "100@DFI", 2, 3
             ),

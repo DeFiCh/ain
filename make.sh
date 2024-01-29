@@ -225,7 +225,7 @@ package() {
     local pkg_path
     if [[ "$target" == "x86_64-w64-mingw32" ]]; then
         pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
-    else        
+    else
         pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.tar.gz")"
     fi
 
@@ -242,7 +242,7 @@ package() {
 
     if [[ "$target" == "x86_64-w64-mingw32" ]]; then
         _ensure_enter_dir "${build_dir}"
-        zip -r "${pkg_path}" "${versioned_build_dir}/"
+        zip -r "${pkg_path}" "$(basename "${versioned_build_dir}")"
     else
         _ensure_enter_dir "${versioned_build_dir}"
         _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*

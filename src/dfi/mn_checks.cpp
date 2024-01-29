@@ -511,7 +511,7 @@ void PopulateVaultHistoryData(CHistoryWriters &writers,
     }
 }
 
-Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend) {
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx) {
     auto &mnview = blockCtx.GetView();
     const auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     const auto &consensus = txCtx.GetConsensus();
@@ -564,18 +564,6 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *ca
         res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
         if (res) {
-            if (canSpend && txType == CustomTxType::UpdateMasternode) {
-                auto obj = std::get<CUpdateMasterNodeMessage>(txMessage);
-                for (const auto &item : obj.updates) {
-                    if (item.first == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
-                        if (const auto node = mnview.GetMasternode(obj.mnId)) {
-                            *canSpend = node->collateralTx.IsNull() ? obj.mnId : node->collateralTx;
-                        }
-                        break;
-                    }
-                }
-            }
-
             // Track burn fee
             if (txType == CustomTxType::CreateToken || txType == CustomTxType::CreateMasternode) {
                 mnview.GetHistoryWriters().AddFeeBurn(tx.vout[0].scriptPubKey, tx.vout[0].nValue);

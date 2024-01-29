@@ -616,19 +616,8 @@ UniValue setgov(const JSONRPCRequest &request) {
                 LOCK(cs_main);
                 attributes->ForEach(
                     [](const CDataStructureV0 &attr, const CAttributeValue &) {
-                        DCT_ID tokenID{attr.typeId};
-                        if (attr.type == AttributeTypes::Consortium) {
-                            bool isDAT{};
-                            if (auto token = pcustomcsview->GetToken(tokenID)) {
-                                isDAT = token->IsDAT();
-                            }
-
-                            if (attr.typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attr.typeId})) {
-                                throw JSONRPCError(RPC_INVALID_REQUEST,
-                                                   "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
-                            }
-                        } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                                   attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
+                        if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                            attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
                             // Note: This is expected to be removed after DF23
                             throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                         }
@@ -856,19 +845,8 @@ UniValue setgovheight(const JSONRPCRequest &request) {
             LOCK(cs_main);
             attributes->ForEach(
                 [](const CDataStructureV0 &attr, const CAttributeValue &) {
-                    DCT_ID tokenID{attr.typeId};
-                    if (attr.type == AttributeTypes::Consortium) {
-                        bool isDAT{};
-                        if (auto token = pcustomcsview->GetToken(tokenID)) {
-                            isDAT = token->IsDAT();
-                        }
-
-                        if (attr.typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attr.typeId})) {
-                            throw JSONRPCError(RPC_INVALID_REQUEST,
-                                               "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
-                        }
-                    } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                               attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
+                    if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                        attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
                         throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                     }
 
@@ -1114,8 +1092,8 @@ UniValue isappliedcustomtx(const JSONRPCRequest &request) {
         return result;
     }
 
-    // post Dakota it's not allowed tx to be skipped
-    // so tx that can be found in a block is applyed
+    // Post Dakota TXs are not allowed to be skipped,
+    // so TXs found in a block are applied.
     if (blockHeight >= Params().GetConsensus().DF6DakotaHeight) {
         result.setBool(true);
     } else {

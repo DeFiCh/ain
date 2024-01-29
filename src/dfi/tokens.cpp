@@ -127,7 +127,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
             }
             evm_try_unsafe_create_dst20(result,
                                         evmTemplate->GetTemplate(),
-                                        token.creationTx.GetHex(),
+                                        token.creationTx.GetByteArray(),
                                         DST20TokenInfo{
                                             id.v,
                                             token_name,

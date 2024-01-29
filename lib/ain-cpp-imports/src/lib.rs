@@ -26,6 +26,7 @@ mod ffi {
         pub tx_type: u8,
         pub data: String,
         pub direction: u8,
+        pub entry_time: i64,
     }
 
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
@@ -50,6 +51,9 @@ mod ffi {
     pub fn getEthMaxResponseByteSize() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getSuggestedPriorityFeePercentile() -> i64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getNetwork() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -68,7 +72,7 @@ mod ffi {
     pub fn getMinRelayTxFee() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn getEthPrivKey(_key: String) -> [u8; 32] {
+    pub fn getEthPrivKey(_key: [u8; 20]) -> [u8; 32] {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn getStateInputJSON() -> String {
@@ -171,6 +175,11 @@ pub fn get_max_response_byte_size() -> u32 {
     ffi::getEthMaxResponseByteSize()
 }
 
+/// Gets the suggested priority fee percentile for suggested gas price Ethereum RPC calls.
+pub fn get_suggested_priority_fee_percentile() -> i64 {
+    ffi::getSuggestedPriorityFeePercentile()
+}
+
 /// Retrieves the network identifier as a string.
 pub fn get_network() -> String {
     ffi::getNetwork()
@@ -207,7 +216,7 @@ pub fn get_min_relay_tx_fee() -> Result<u64, Box<dyn Error>> {
 }
 
 /// Gets the private key for the given pubkey string.
-pub fn get_eth_priv_key(key: String) -> Result<[u8; 32], Box<dyn Error>> {
+pub fn get_eth_priv_key(key: [u8; 20]) -> Result<[u8; 32], Box<dyn Error>> {
     let eth_key = ffi::getEthPrivKey(key);
     Ok(eth_key)
 }

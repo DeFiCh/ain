@@ -88,6 +88,7 @@
 static bool fFeeEstimatesInitialized = false;
 static const bool DEFAULT_PROXYRANDOMIZE = true;
 static const bool DEFAULT_REST_ENABLE = false;
+static const bool DEFAULT_HEALTH_ENDPOINTS_ENABLE = true;
 static const bool DEFAULT_STOPAFTERBLOCKIMPORT = false;
 
 // Dump addresses to banlist.dat every 15 minutes (900s)
@@ -185,6 +186,7 @@ void Interrupt()
     InterruptHTTPRPC();
     InterruptRPC();
     InterruptREST();
+    InterruptHealthEndpoints();
     InterruptTorControl();
     InterruptMapPort();
     if (g_connman)
@@ -218,6 +220,7 @@ void Shutdown(InitInterfaces& interfaces)
 
     StopHTTPRPC();
     StopREST();
+    StopHealthEndpoints();
     StopRPC();
     StopHTTPServer();
     for (const auto& client : interfaces.chain_clients) {
@@ -267,7 +270,7 @@ void Shutdown(InitInterfaces& interfaces)
         fFeeEstimatesInitialized = false;
     }
 
-    // FlushStateToDisk generates a ChainStateFlushed callback, which we should avoid missing
+    //  generates a ChainStateFlushed callback, which we should avoid missing
     //
     // g_chainstate is referenced here directly (instead of ::ChainstateActive()) because it
     // may not have been initialized yet.
@@ -469,7 +472,6 @@ void SetupServerArgs()
     gArgs.AddArg("-discover", "Discover own IP addresses (default: 1 when listening and no -externalip or -proxy)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-dns", strprintf("Allow DNS lookups for -addnode, -seednode and -connect (default: %u)", DEFAULT_NAME_LOOKUP), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-dnsseed", "Query for peer addresses via DNS lookup, if low on addresses (default: 1 unless -connect used)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
-    gArgs.AddArg("-enablebip61", strprintf("Send reject messages per BIP61 (default: %u)", DEFAULT_ENABLE_BIP61), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-externalip=<ip>", "Specify your own public address", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-forcednsseed", strprintf("Always query for peer addresses via DNS lookup (default: %u)", DEFAULT_FORCEDNSSEED), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-listen", "Accept connections from outside (default: 1 if no -proxy or -connect)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -610,6 +612,7 @@ void SetupServerArgs()
     gArgs.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-tdsinglekeycheck", "Set the single key check flag for transferdomain RPC. If enabled, transfers between domain are only allowed if the addresses specified corresponds to the same key (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-evmtxpriorityfeepercentile", strprintf("Set the suggested priority fee for EVM transactions (default: %u)", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
     SetupChainParamsBaseOptions();
@@ -631,6 +634,7 @@ void SetupServerArgs()
     gArgs.AddArg("-blockversion=<n>", "Override block version to test forking scenarios", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::BLOCK_CREATION);
 
     gArgs.AddArg("-rest", strprintf("Accept public REST requests (default: %u)", DEFAULT_REST_ENABLE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-healthendpoints", strprintf("Provide health check endpoints to check for the current status of the node.(default: %u)", DEFAULT_HEALTH_ENDPOINTS_ENABLE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcallowip=<ip>", "Allow JSON-RPC connections from specified source. Valid for <ip> are a single IP (e.g. 1.2.3.4), a network/netmask (e.g. 1.2.3.4/255.255.255.0) or a network/CIDR (e.g. 1.2.3.4/24). This option can be specified multiple times", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcauth=<userpw>", "Username and HMAC-SHA-256 hashed password for JSON-RPC connections. The field <userpw> comes in the format: <USERNAME>:<SALT>$<HASH>. A canonical python script is included in share/rpcauth. The client then connects normally using the rpcuser=<USERNAME>/rpcpassword=<PASSWORD> pair of arguments. This option can be specified multiple times", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-rpcbind=<addr>[:port]", "Bind to given address to listen for JSON-RPC connections. Do not expose the RPC server to untrusted networks such as the public internet! This option is ignored unless -rpcallowip is also passed. Port is optional and overrides -rpcport. Use [host]:port notation for IPv6. This option can be specified multiple times (default: 127.0.0.1 and ::1 i.e., localhost)", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
@@ -913,6 +917,8 @@ static bool AppInitServers()
     if (!StartHTTPRPC())
         return false;
     if (gArgs.GetBoolArg("-rest", DEFAULT_REST_ENABLE)) StartREST();
+    if (gArgs.GetBoolArg("-healthendpoints", DEFAULT_HEALTH_ENDPOINTS_ENABLE)) StartHealthEndpoints();
+
     StartHTTPServer();
     return true;
 }
@@ -1447,7 +1453,7 @@ bool SetupNetwork() {
     assert(!g_connman);
     g_connman = std::unique_ptr<CConnman>(new CConnman(GetRand(std::numeric_limits<uint64_t>::max()), GetRand(std::numeric_limits<uint64_t>::max())));
 
-    peerLogic.reset(new PeerLogicValidation(g_connman.get(), g_banman.get(), scheduler, gArgs.GetBoolArg("-enablebip61", DEFAULT_ENABLE_BIP61)));
+    peerLogic.reset(new PeerLogicValidation(g_connman.get(), g_banman.get(), scheduler));
     RegisterValidationInterface(peerLogic.get());
 
     // sanitize comments per BIP-0014, format user agent and check total size
@@ -2039,6 +2045,37 @@ bool AppInitMain(InitInterfaces& interfaces)
                 break;
             }
 
+            // State consistency check is skipped for regtest (EVM state can be initialized with state input)
+            if (Params().NetworkIDString() != CBaseChainParams::REGTEST)  {
+                // Check that EVM db and DVM db states are consistent
+                auto res = XResultValueLogged(evm_try_get_latest_block_hash(result));
+                if (res) {
+                    // After EVM activation
+                    auto evmBlockHash = uint256::FromByteArray(*res).GetHex();
+                    auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+                    if (!dvmBlockHash.val.has_value()) {
+                        strLoadError = _("Unable to get DVM block hash from latest EVM block hash, inconsistent chainstate detected. "
+                                        "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                        "rebuild the database using -reindex.").translated;
+                        break;
+                    }
+                    CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+                    if (!pindex) {
+                        strLoadError = _("Unable to get DVM block index from block hash, possible corrupted block database detected. "
+                                        "You will need to rebuild the database using -reindex.").translated;
+                        break;
+                    }
+                    auto dvmBlockHeight = pindex->nHeight;
+
+                    if (dvmBlockHeight != ::ChainActive().Tip()->nHeight) {
+                        strLoadError = _("Inconsistent chainstate detected between DVM block database and EVM block database. "
+                                        "This may be due to corrupted block databases between DVM and EVM, and you will need to "
+                                        "rebuild the database using -reindex.").translated;
+                        break;
+                    }
+                }
+            }
+
             fLoaded = true;
             LogPrintf(" block index %15dms\n", GetTimeMillis() - load_block_index_start_time);
         } while(false);
@@ -2314,11 +2351,17 @@ bool AppInitMain(InitInterfaces& interfaces)
     {
         std::vector<std::string> eth_endpoints, g_endpoints, ws_endpoints;
         SetupRPCPorts(eth_endpoints, g_endpoints, ws_endpoints);
+        CrossBoundaryResult result;
 
         // Bind ETH RPC addresses
         for (auto it = eth_endpoints.begin(); it != eth_endpoints.end(); ++it) {
             LogPrint(BCLog::HTTP, "Binding ETH RPC server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, *it))
+            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+            if (!result.ok) {
+                LogPrint(BCLog::HTTP, "Invalid ETH RPC address, not UTF-8 valid\n");
+                return false;
+            }
+            auto res =  XResultStatusLogged(ain_rs_init_network_json_rpc_service(result, addr))
             if (!res) {
                 LogPrintf("Binding ETH RPC server on endpoint %s failed.\n", *it);
                 return false;
@@ -2328,7 +2371,12 @@ bool AppInitMain(InitInterfaces& interfaces)
         // Bind gRPC addresses
         for (auto it = g_endpoints.begin(); it != g_endpoints.end(); ++it) {
             LogPrint(BCLog::HTTP, "Binding gRPC server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, *it))
+            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+            if (!result.ok) {
+                LogPrint(BCLog::HTTP, "Invalid gRPC address, not UTF-8 valid\n");
+                return false;
+            }
+            auto res =  XResultStatusLogged(ain_rs_init_network_grpc_service(result, addr))
             if (!res) {
                 LogPrintf("Binding gRPC server on endpoint %s failed.\n", *it);
                 return false;
@@ -2338,7 +2386,12 @@ bool AppInitMain(InitInterfaces& interfaces)
         // bind websocket addresses
         for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
             LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, *it))
+            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+            if (!result.ok) {
+                LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid\n");
+                return false;
+            }
+            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
             if (!res) {
                 LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
                 return false;

@@ -2,6 +2,9 @@ name: Tests - DeFiCh/metachain-ts-suite
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - master
   pull_request:
     branches:
       - master
