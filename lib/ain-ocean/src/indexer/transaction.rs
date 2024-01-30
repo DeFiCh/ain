@@ -116,13 +116,10 @@ pub fn invalidate_transaction_vout(tx_id: String) -> Result<()> {
 
 fn check_if_evm_tx(txn: &Transaction) -> bool {
     txn.input.len() == 2
-        && txn.input.iter().all(|vin| {
-            vin.previous_output.txid
-                == Txid::from_str(
-                    "0000000000000000000000000000000000000000000000000000000000000000",
-                )
-                .unwrap()
-        })
+        && txn
+            .input
+            .iter()
+            .all(|vin| vin.previous_output.txid == Txid::all_zeros())
         && txn.output.len() == 1
         && txn.output[0]
             .script_pubkey
