@@ -6,9 +6,9 @@ pub type TransactionVoutKey = (Txid, usize);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVout {
     pub txid: Txid,
-    pub n: i32,
+    pub n: usize,
     pub value: Amount,
-    pub token_id: i32,
+    pub token_id: u8, // Can use u8 since it's unused and hardcoded to 0
     pub script: TransactionVoutScript,
 }
 

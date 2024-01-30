@@ -57,7 +57,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
     for (vout_idx, vout) in tx.output.iter().enumerate() {
         let trx_vout = TransactionVout {
             txid: tx_id,
-            n: vout_idx as i32,
+            n: vout_idx,
             value: vout.value,
             token_id: 0,
             script: TransactionVoutScript {
