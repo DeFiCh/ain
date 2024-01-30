@@ -28,8 +28,8 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
             continue;
         }
         let vout_bytes = vin.previous_output.vout.to_be_bytes();
+        let key = (tx_id, vin.previous_output.txid, vin.previous_output.vout);
         let trx_vin = TransactionVin {
-            id: (tx_id, vin.previous_output.txid, vout_bytes),
             txid: tx_id,
             coinbase: vin.previous_output.to_string(),
             vout: TransactionVinVout {
@@ -49,7 +49,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
             sequence: vin.sequence,
         };
 
-        SERVICES.transaction.vin_by_id.put(&tx_id, &trx_vin)?;
+        SERVICES.transaction.vin_by_id.put(&key, &trx_vin)?;
     }
 
     let mut total_vout_value = 0;
@@ -59,7 +59,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
             txid: tx_id,
             n: vout_idx,
             value: vout.value,
-            token_id: 0,
+            token_id: vout.unused_token_id,
             script: TransactionVoutScript {
                 hex: vout.script_pubkey.clone(),
                 r#type: vout.script_pubkey.to_hex_string(),

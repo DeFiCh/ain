@@ -1,11 +1,11 @@
-use bitcoin::{Amount, ScriptBuf, Sequence, Txid};
+use bitcoin::{ScriptBuf, Sequence, Txid};
 use serde::{Deserialize, Serialize};
 
-pub type TransactionVinId = (Txid, Txid, [u8; 4]);
-pub type TransactionVinVoutId = (Txid, usize);
+pub type TransactionVinKey = (Txid, Txid, u32);
+
+pub type TransactionVinVoutKey = (Txid, usize);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVin {
-    pub id: TransactionVinId,
     pub txid: Txid,
     pub coinbase: String,
     pub vout: TransactionVinVout,
@@ -16,11 +16,11 @@ pub struct TransactionVin {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVinVout {
-    pub id: TransactionVinVoutId,
+    pub id: TransactionVinVoutKey,
     pub txid: Txid,
     pub n: i32,
     pub value: u32,
-    pub token_id: i32,
+    pub token_id: u8, // Can constrain u8 since it's unused and hardcoded to 0
     pub script: TransactionVinVoutScript,
 }
 

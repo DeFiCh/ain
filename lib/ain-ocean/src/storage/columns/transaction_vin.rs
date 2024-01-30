@@ -1,5 +1,4 @@
 use ain_db::{Column, ColumnName, TypedColumn};
-use bitcoin::Txid;
 
 use crate::model;
 
@@ -11,7 +10,7 @@ impl ColumnName for TransactionVin {
 }
 
 impl Column for TransactionVin {
-    type Index = Txid;
+    type Index = model::TransactionVinKey;
 }
 
 impl TypedColumn for TransactionVin {

@@ -8,7 +8,7 @@ pub struct TransactionVout {
     pub txid: Txid,
     pub n: usize,
     pub value: Amount,
-    pub token_id: u8, // Can use u8 since it's unused and hardcoded to 0
+    pub token_id: u8, // Can constrain u8 since it's unused and hardcoded to 0
     pub script: TransactionVoutScript,
 }
 
