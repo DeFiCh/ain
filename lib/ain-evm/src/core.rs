@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeSet, HashMap},
-    num::NonZeroUsize,
     path::PathBuf,
     sync::Arc,
 };
@@ -11,10 +10,7 @@ use ain_contracts::{
     FixedContract,
 };
 use anyhow::format_err;
-use ethereum::{
-    AccessList, Account, Block, EnvelopedEncodable, Log, PartialHeader, TransactionAction,
-    TransactionV2,
-};
+use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use evm::{
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
@@ -23,7 +19,6 @@ use evm::{
 };
 use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
-use lru::LruCache;
 use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
 
@@ -37,92 +32,17 @@ use crate::{
     precompiles::MetachainPrecompiles,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    transaction::SignedTx,
+    transaction::{
+        cache::{TransactionCache, ValidateTxInfo},
+        SignedTx,
+    },
     trie::TrieDBStore,
     weiamount::{try_from_satoshi, WeiAmount},
     EVMError, Result,
 };
 
-pub type XHash = String;
-
-pub struct SignedTxCache {
-    inner: spin::Mutex<LruCache<String, SignedTx>>,
-}
-
-impl Default for SignedTxCache {
-    fn default() -> Self {
-        Self::new(ain_cpp_imports::get_ecc_lru_cache_count())
-    }
-}
-
-impl SignedTxCache {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            inner: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
-        }
-    }
-
-    pub fn try_get_or_create(&self, key: &str) -> Result<SignedTx> {
-        let mut guard = self.inner.lock();
-        debug!("[signed-tx-cache]::get: {}", key);
-        let res = guard.try_get_or_insert(key.to_string(), || {
-            debug!("[signed-tx-cache]::create {}", key);
-            SignedTx::try_from(key)
-        })?;
-        Ok(res.clone())
-    }
-
-    pub fn pre_populate(&self, key: &str, signed_tx: SignedTx) -> Result<()> {
-        let mut guard = self.inner.lock();
-        debug!("[signed-tx-cache]::pre_populate: {}", key);
-        let _ = guard.get_or_insert(key.to_string(), move || {
-            debug!("[signed-tx-cache]::pre_populate:: create {}", key);
-            signed_tx
-        });
-
-        Ok(())
-    }
-
-    pub fn try_get_or_create_from_tx(&self, tx: &TransactionV2) -> Result<SignedTx> {
-        let data = EnvelopedEncodable::encode(tx);
-        let key = hex::encode(&data);
-        let mut guard = self.inner.lock();
-        debug!("[signed-tx-cache]::get from tx: {}", &key);
-        let res = guard.try_get_or_insert(key.clone(), || {
-            debug!("[signed-tx-cache]::create from tx {}", &key);
-            SignedTx::try_from(key.as_str())
-        })?;
-        Ok(res.clone())
-    }
-}
-
-struct TxValidationCache {
-    stateless: spin::Mutex<LruCache<String, ValidateTxInfo>>,
-}
-
-impl Default for TxValidationCache {
-    fn default() -> Self {
-        Self::new(ain_cpp_imports::get_evmv_lru_cache_count())
-    }
-}
-
-impl TxValidationCache {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            stateless: spin::Mutex::new(LruCache::new(NonZeroUsize::new(capacity).unwrap())),
-        }
-    }
-
-    pub fn get_stateless(&self, key: &str) -> Option<ValidateTxInfo> {
-        self.stateless.lock().get(key).cloned()
-    }
-
-    pub fn set_stateless(&self, key: String, value: ValidateTxInfo) -> ValidateTxInfo {
-        let mut cache = self.stateless.lock();
-        cache.put(key, value.clone());
-        value
-    }
-}
+pub type XHash = [u8; 32];
+pub type XAddress = [u8; 20];
 
 #[derive(Clone, Debug)]
 pub struct ExecutionStep {
@@ -136,10 +56,9 @@ pub struct ExecutionStep {
 
 pub struct EVMCoreService {
     pub trie_store: Arc<TrieDBStore>,
-    pub signed_tx_cache: SignedTxCache,
     storage: Arc<Storage>,
+    pub tx_cache: Arc<TransactionCache>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
-    tx_validation_cache: TxValidationCache,
 }
 pub struct EthCallArgs<'a> {
     pub caller: H160,
@@ -152,15 +71,9 @@ pub struct EthCallArgs<'a> {
     pub block_number: U256,
 }
 
-#[derive(Clone, Debug)]
-pub struct ValidateTxInfo {
-    pub signed_tx: SignedTx,
-    pub max_prepay_fee: U256,
-}
-
 pub struct TransferDomainTxInfo {
-    pub from: String,
-    pub to: String,
+    pub from: XAddress,
+    pub to: XAddress,
     pub native_address: String,
     pub direction: bool,
     pub value: u64,
@@ -175,20 +88,20 @@ fn init_vsdb(path: PathBuf) {
 }
 
 impl EVMCoreService {
-    pub fn restore(storage: Arc<Storage>, path: PathBuf) -> Self {
+    pub fn restore(storage: Arc<Storage>, tx_cache: Arc<TransactionCache>, path: PathBuf) -> Self {
         init_vsdb(path);
 
         Self {
             trie_store: Arc::new(TrieDBStore::restore()),
-            signed_tx_cache: SignedTxCache::default(),
             storage,
+            tx_cache,
             nonce_store: Mutex::new(HashMap::new()),
-            tx_validation_cache: TxValidationCache::default(),
         }
     }
 
     pub fn new_from_json(
         storage: Arc<Storage>,
+        tx_cache: Arc<TransactionCache>,
         genesis_path: PathBuf,
         evm_datadir: PathBuf,
     ) -> Result<Self> {
@@ -197,10 +110,9 @@ impl EVMCoreService {
 
         let handler = Self {
             trie_store: Arc::new(TrieDBStore::new()),
-            signed_tx_cache: SignedTxCache::default(),
             storage: Arc::clone(&storage),
+            tx_cache: Arc::clone(&tx_cache),
             nonce_store: Mutex::new(HashMap::new()),
-            tx_validation_cache: TxValidationCache::default(),
         };
         let (state_root, genesis) = TrieDBStore::genesis_state_root_from_json(
             &handler.trie_store,
@@ -324,11 +236,11 @@ impl EVMCoreService {
         let ValidateTxInfo {
             signed_tx,
             max_prepay_fee,
-        } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
+        } = if let Some(validate_info) = self.tx_cache.get_stateless(tx) {
             validate_info
         } else {
             let signed_tx = self
-                .signed_tx_cache
+                .tx_cache
                 .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
             debug!("[validate_raw_tx] signed_tx : {:#?}", signed_tx);
@@ -359,7 +271,7 @@ impl EVMCoreService {
             let max_prepay_fee = calculate_max_prepay_gas_fee(&signed_tx)?;
             debug!("[validate_raw_tx] max_prepay_fee : {:x?}", max_prepay_fee);
 
-            self.tx_validation_cache.set_stateless(
+            self.tx_cache.set_stateless(
                 String::from(tx),
                 ValidateTxInfo {
                     signed_tx,
@@ -463,11 +375,11 @@ impl EVMCoreService {
         let ValidateTxInfo {
             signed_tx,
             max_prepay_fee,
-        } = if let Some(validate_info) = self.tx_validation_cache.get_stateless(tx) {
+        } = if let Some(validate_info) = self.tx_cache.get_stateless(tx) {
             validate_info
         } else {
             let signed_tx = self
-                .signed_tx_cache
+                .tx_cache
                 .try_get_or_create(tx)
                 .map_err(|_| format_err!("Error: decoding raw tx to TransactionV2"))?;
             debug!(
@@ -485,10 +397,7 @@ impl EVMCoreService {
             }
 
             // Validate tx sender with transferdomain sender
-            let sender = context
-                .from
-                .parse::<H160>()
-                .map_err(|_| "Invalid address")?;
+            let sender = H160::from(context.from);
             if signed_tx.sender != sender {
                 return Err(format_err!(
                     "[validate_raw_transferdomain_tx] invalid sender, signed_tx.sender : {:#?}, transferdomain sender : {:#?}",
@@ -538,17 +447,11 @@ impl EVMCoreService {
 
             let (from_address, to_address) = if context.direction {
                 // EvmIn
-                let to_address = context
-                    .to
-                    .parse::<H160>()
-                    .map_err(|_| "failed to parse to address")?;
+                let to_address = H160::from(context.to);
                 (fixed_address, to_address)
             } else {
                 // EvmOut
-                let from_address = context
-                    .from
-                    .parse::<H160>()
-                    .map_err(|_| "failed to parse from address")?;
+                let from_address = H160::from(context.from);
                 (from_address, fixed_address)
             };
             let value = try_from_satoshi(U256::from(context.value))?.0;
@@ -858,13 +761,15 @@ impl EVMCoreService {
                     .trie_store
                     .trie_db
                     .trie_restore(address.as_bytes(), None, account.storage_root.into())
-                    .unwrap();
+                    .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()).into());
 
                 let tmp: &mut [u8; 32] = &mut [0; 32];
                 position.to_big_endian(tmp);
-                storage_trie
-                    .get(tmp.as_slice())
-                    .map_err(|e| BackendError::TrieError(e.to_string()).into())
+                storage_trie.and_then(|storage| {
+                    storage
+                        .get(tmp.as_slice())
+                        .map_err(|e| BackendError::TrieError(e.to_string()).into())
+                })
             })
     }
 

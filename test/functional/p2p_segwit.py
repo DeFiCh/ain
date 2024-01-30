@@ -708,9 +708,9 @@ class SegWitTest(DefiTestFramework):
         tx.vin = [CTxIn(COutPoint(p2sh_tx.sha256, 0), CScript([witness_program]))]
         tx.vout = [CTxOut(p2sh_tx.vout[0].nValue - 10000, script_pubkey)]
         tx.vout.append(CTxOut(8000, script_pubkey))  # Might burn this later
-        tx.vin[
-            0
-        ].nSequence = BIP125_SEQUENCE_NUMBER  # Just to have the option to bump this tx from the mempool
+        tx.vin[0].nSequence = (
+            BIP125_SEQUENCE_NUMBER  # Just to have the option to bump this tx from the mempool
+        )
         tx.rehash()
 
         # This is always accepted, since the mempool policy is to consider segwit as always active

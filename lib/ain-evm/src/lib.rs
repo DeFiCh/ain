@@ -54,6 +54,8 @@ pub enum EVMError {
     StorageError(String),
     #[error("EVM: serde_json error")]
     JsonError(#[from] serde_json::Error),
+    #[error("EVM: serde_json error")]
+    JsonRpcError(#[from] jsonrpsee_core::Error),
     #[error("EVM: rocksdb error")]
     RocksDBError(#[from] rocksdb::Error),
     #[error("EVM: ethabi error")]

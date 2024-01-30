@@ -1073,17 +1073,16 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
                 return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD, false, "evm-sender-info");
             }
 
-            EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address.c_str()};
+            EvmAddressWithNonce evmAddrAndNonce{txResult.nonce, txResult.address};
 
             const auto entryTipFee = isEVMTx ? txResult.tip_fee : std::numeric_limits<uint64_t>::max();
             const auto minRbfFee = isEVMTx ? txResult.min_rbf_tip_fee : std::numeric_limits<uint64_t>::max();
-            const auto txResultSender = std::string(txResult.address.data(), txResult.address.length());
 
             entry.SetEVMAddrAndNonce(evmAddrAndNonce);
             entry.SetEVMRbfMinTipFee(minRbfFee);
 
             auto senderLimitFlag{false};
-            if (!pool.checkAddressNonceAndFee(entry, entryTipFee, txResultSender, senderLimitFlag)) {
+            if (!pool.checkAddressNonceAndFee(entry, entryTipFee, txResult.address, senderLimitFlag)) {
                 if (senderLimitFlag) {
                     LogPrint(BCLog::MEMPOOL,
                              "Too many replace-by-fee EVM tx from the same sender in mempool. Limit %d.\n",
@@ -1096,14 +1095,14 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
                 }
             }
 
-            const auto sender = pool.evmTxsBySender.find(txResultSender);
+            const auto sender = pool.evmTxsBySender.find(txResult.address);
             if (sender != pool.evmTxsBySender.end() && sender->second.size() >= MEMPOOL_MAX_ETH_TXS) {
                 LogPrint(BCLog::MEMPOOL,
                          "Too many EVM tx from the same sender in mempool. Limit %d.\n",
                          MEMPOOL_MAX_ETH_TXS);
                 return state.Invalid(ValidationInvalidReason::TX_MEMPOOL_POLICY, false, "too-many-evm-txs-by-sender");
             } else {
-                ethSender = txResultSender;
+                ethSender = txResult.address;
             }
 
             evm_try_dispatch_pending_transactions_event(result, rawEVMTx);
@@ -3604,6 +3603,13 @@ bool CChainState::FlushStateToDisk(const CChainParams &chainparams,
                 // Flush the chainstate (which may refer to block index entries).
                 if (!CoinsTip().Flush() || !pcustomcsDB->Flush()) {
                     return AbortNode(state, "Failed to write to coin or masternode db to disk");
+                }
+                // Flush the EVM chainstate
+                if (IsEVMEnabled(pcustomcsview->GetAttributes())) {
+                    auto res = XResultStatusLogged(evm_try_flush_db(result));
+                    if (!res) {
+                        return AbortNode(state, "Failed to write to EVM db to disk");
+                    }
                 }
                 if (!compactBegin.empty() && !compactEnd.empty()) {
                     auto time = GetTimeMillis();

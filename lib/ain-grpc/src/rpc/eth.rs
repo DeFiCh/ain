@@ -227,8 +227,8 @@ pub trait MetachainRPC {
     fn fee_history(
         &self,
         block_count: U256,
-        first_block: BlockNumber,
-        priority_fee_percentile: Vec<usize>,
+        newest_block: BlockNumber,
+        reward_percentile: Vec<i64>,
     ) -> RpcResult<RpcFeeHistory>;
 
     #[method(name = "maxPriorityFeePerGas")]
@@ -724,7 +724,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             let signed_tx: SignedTx = self
                 .handler
                 .core
-                .signed_tx_cache
+                .tx_cache
                 .try_get_or_create(raw_tx)
                 .map_err(RPCError::EvmError)?;
 
@@ -811,11 +811,17 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         // Recap the highest gas allowance with account's balance
         if call.from.is_some() {
-            let balance = self
-                .handler
-                .core
-                .get_balance(caller, block.header.state_root)
-                .map_err(to_custom_err)?;
+            let balance = if let Some(balance) = overlay
+                .as_ref()
+                .and_then(|o| o.get_account(&caller).map(|acc| acc.balance))
+            {
+                balance
+            } else {
+                self.handler
+                    .core
+                    .get_balance(caller, block.header.state_root)
+                    .map_err(to_custom_err)?
+            };
             let mut available = balance;
             if let Some(value) = call.value {
                 if balance < value {
@@ -898,9 +904,10 @@ impl MetachainRPCServer for MetachainRPCModule {
     }
 
     fn gas_price(&self) -> RpcResult<U256> {
-        let gas_price = self.handler.block.get_legacy_fee().map_err(to_custom_err)?;
-        debug!(target:"rpc", "gasPrice: {:#?}", gas_price);
-        Ok(gas_price)
+        self.handler
+            .block
+            .suggest_legacy_fee()
+            .map_err(to_custom_err)
     }
 
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>> {
@@ -930,20 +937,19 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn fee_history(
         &self,
         block_count: U256,
-        first_block: BlockNumber,
-        priority_fee_percentile: Vec<usize>,
+        newest_block: BlockNumber,
+        reward_percentile: Vec<i64>,
     ) -> RpcResult<RpcFeeHistory> {
-        let first_block_number = self.get_block(Some(first_block))?.header.number;
+        let highest_block_number = self.get_block(Some(newest_block))?.header.number;
         let attrs = ain_cpp_imports::get_attribute_values(None);
 
-        let block_count = block_count.try_into().map_err(to_custom_err)?;
         let fee_history = self
             .handler
             .block
             .fee_history(
                 block_count,
-                first_block_number,
-                priority_fee_percentile,
+                highest_block_number,
+                reward_percentile,
                 attrs.block_gas_target_factor,
             )
             .map_err(RPCError::EvmError)?;
@@ -954,7 +960,7 @@ impl MetachainRPCServer for MetachainRPCModule {
     fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
         self.handler
             .block
-            .suggested_priority_fee()
+            .suggest_priority_fee()
             .map_err(to_custom_err)
     }
 
@@ -1029,9 +1035,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
         let topics = input.topics.map(|topics| match topics {
             LogRequestTopics::VecOfHashes(inputs) => {
-                inputs.into_iter().map(|input| vec![input]).collect()
+                inputs.iter().flatten().map(|input| vec![*input]).collect()
             }
-            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs
+                .iter()
+                .map(|hashes| hashes.iter().flatten().copied().collect())
+                .collect(),
         });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
@@ -1075,9 +1084,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
         let topics = input.topics.map(|topics| match topics {
             LogRequestTopics::VecOfHashes(inputs) => {
-                inputs.into_iter().map(|input| vec![input]).collect()
+                inputs.iter().flatten().map(|input| vec![*input]).collect()
             }
-            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs
+                .iter()
+                .map(|hashes| hashes.iter().flatten().copied().collect())
+                .collect(),
         });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
@@ -1102,13 +1114,17 @@ impl MetachainRPCServer for MetachainRPCModule {
             .into())
     }
 
+    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
+        Ok(self.handler.filters.create_tx_filter().into())
+    }
+
     fn get_filter_changes(&self, filter_id: U256) -> RpcResult<GetFilterChangesResult> {
         let filter_id = usize::try_from(filter_id).map_err(to_custom_err)?;
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let res = self
             .handler
             .filters
-            .get_filter_changes_from_id(filter_id, curr_block)
+            .get_changes_from_filter_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?
             .into();
         Ok(res)
@@ -1125,20 +1141,16 @@ impl MetachainRPCServer for MetachainRPCModule {
         let logs = self
             .handler
             .filters
-            .get_filter_logs_from_id(filter_id, curr_block)
+            .get_logs_from_filter_id(filter_id, curr_block)
             .map_err(RPCError::EvmError)?;
         Ok(logs.into_iter().map(|log| log.into()).collect())
-    }
-
-    fn new_pending_transaction_filter(&self) -> RpcResult<U256> {
-        Ok(self.handler.filters.create_tx_filter().into())
     }
 }
 
 fn sign(address: H160, message: TransactionMessage) -> RpcResult<TransactionV2> {
     debug!(target: "rpc", "sign address {:#x}", address);
-    let key = format!("{address:?}");
-    let priv_key = get_eth_priv_key(key).map_err(|_| to_custom_err("Invalid private key"))?;
+    let priv_key = get_eth_priv_key(address.to_fixed_bytes())
+        .map_err(|_| to_custom_err("Invalid private key"))?;
     let secret_key = SecretKey::parse(&priv_key)
         .map_err(|e| to_custom_err(format!("Error parsing SecretKey {e}")))?;
 

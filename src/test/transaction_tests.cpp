@@ -779,8 +779,13 @@ BOOST_AUTO_TEST_CASE(test_CreateEthTx) {
     uint64_t nonce = 0;
     const uint64_t gasPrice = 449; // 449 GWei
     const uint64_t gasLimit = 21000; // 21_000
-    std::string to = "34c1ca09a2dc717d89baef2f30ff6a6b2975e17e";
     uint64_t value = 1000000;   // 0.01 DFI
+
+    std::string toStr = "0x34c1ca09a2dc717d89baef2f30ff6a6b2975e17e";
+    const auto toDest = DecodeDestination(toStr);
+    BOOST_CHECK_EQUAL(toDest.index(), WitV16KeyEthHashType);
+    const auto toEth = std::get<WitnessV16EthHash>(toDest);
+    EvmAddressData to = toEth.GetByteArray();
 
     const std::vector<uint8_t> privKeyVec{ParseHex("1a8ec29c671461a375ee1fb193ab3b64ab5449837e060362daadd4b299ae5571")};
     std::array<uint8_t, 32> privKey{};
