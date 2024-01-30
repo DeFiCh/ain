@@ -778,8 +778,8 @@ impl MetachainRPCServer for MetachainRPCModule {
     /// run successfully with the provided context options. It returns an error if the
     /// transaction would always revert, or if there are unexpected failures.
     ///
-    /// To configure the custom gas estimation error ratio, set -evmestimategaserrorratio=n on startup.
-    /// Otherwise, the default parameter is set at 15% error ratio.
+    /// To configure the gas estimation error ratio, set-evmestimategaserrorratio=n on
+    /// startup. Otherwise, the default parameter is set at 15% error ratio.
     ///
     /// Ref: https://github.com/ethereum/go-ethereum/blob/e2778cd59f04f7587c9aa5983282074026ff6684/eth/gasestimator/gasestimator.go
     fn estimate_gas(
