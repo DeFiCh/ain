@@ -48,16 +48,11 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
         }
         let vout_bytes = vin.previous_output.vout.to_be_bytes();
         let trx_vin = TransactionVin {
-            id: format!(
-                "{}-{}-{}",
-                tx_id,
-                vin.previous_output.txid,
-                hex::encode(vout_bytes)
-            ),
+            id: (tx_id, vin.previous_output.txid, vout_bytes),
             txid: tx_id,
             coinbase: vin.previous_output.to_string(),
             vout: TransactionVinVout {
-                id: format!("{}-{}-vout", tx_id, vin_idx),
+                id: (tx_id, vin_idx),
                 txid: tx_id,
                 n: vin.sequence.0 as i32,
                 value: vin.previous_output.vout,
@@ -79,7 +74,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     for (vout_idx, vout) in tx.output.iter().enumerate() {
         let vout_index = vout_idx.to_be_bytes();
         let trx_vout = TransactionVout {
-            id: format!("{}-{}", tx_id, vout_idx),
+            id: (tx_id, vout_idx),
             txid: tx_id,
             n: vout_idx as i32,
             value: vout.value,
