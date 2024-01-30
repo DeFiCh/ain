@@ -1160,7 +1160,10 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     if (txInfo) {
         const auto &[txType, txHash] = *txInfo;
         CrossBoundaryResult ffiResult;
-        ocean_try_set_tx_result(ffiResult, static_cast<uint8_t>(txType), txHash.GetByteArray(), static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
+        ocean_try_set_tx_result(ffiResult,
+                                static_cast<uint8_t>(txType),
+                                txHash.GetByteArray(),
+                                static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
     }
 
     return Res::Ok();
