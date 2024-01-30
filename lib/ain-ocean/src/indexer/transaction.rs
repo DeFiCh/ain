@@ -93,27 +93,6 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     Ok(())
 }
 
-pub fn invalidate_transaction(tx_id: [u8; 32]) -> Result<()> {
-    debug!("[invalidate_transaction] Invalidating...");
-    let transaction_id = Txid::from_byte_array(tx_id);
-    SERVICES.transaction.by_id.delete(&transaction_id)?;
-    Ok(())
-}
-
-//key: txid + vout.txid + (vin.previous_output.vout 4 bytes encoded hex)
-pub fn invalidate_transaction_vin(tx_id: String) -> Result<()> {
-    debug!("[invalidate_transaction_vin] Invalidating...");
-    SERVICES.transaction.vout_by_id.delete(&tx_id)?;
-    Ok(())
-}
-
-//key: which is string type (txid + encoded (vout_idx)
-pub fn invalidate_transaction_vout(tx_id: String) -> Result<()> {
-    debug!("[invalidate_transaction_vout] Invalidating...");
-    SERVICES.transaction.vout_by_id.delete(&tx_id)?;
-    Ok(())
-}
-
 fn check_if_evm_tx(txn: &Transaction) -> bool {
     txn.input.len() == 2
         && txn

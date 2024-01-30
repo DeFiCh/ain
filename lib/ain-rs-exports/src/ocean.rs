@@ -38,16 +38,3 @@ pub fn ocean_invalidate_block(block: String, b: &BlockV2InfoFFI) -> Result<()> {
 fn ocean_try_set_tx_result(tx_type: u8, tx_hash: [u8; 32], result_ptr: usize) -> Result<()> {
     ain_ocean::tx_result::index(tx_type, tx_hash, result_ptr)
 }
-
-#[ffi_fallible]
-pub fn ocean_invalidate_transaction(tx_hash: [u8; 32]) -> Result<()> {
-    ain_ocean::invalidate_transaction(tx_hash)
-}
-#[ffi_fallible]
-pub fn ocean_invalidate_transaction_vin(tx_hash: String) -> Result<()> {
-    ain_ocean::invalidate_transaction_vin(tx_hash)
-}
-#[ffi_fallible]
-pub fn ocean_invalidate_transaction_vout(tx_hash: String) -> Result<()> {
-    ain_ocean::invalidate_transaction_vout(tx_hash)
-}
