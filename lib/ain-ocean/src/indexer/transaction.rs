@@ -23,24 +23,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
         LockTime::Blocks(value) => value.to_consensus_u32(),
         LockTime::Seconds(value) => value.to_consensus_u32(),
     };
-    let total_vout_value = tx.output.iter().map(|output| output.value.to_sat()).sum();
 
-    let trx = TransactionMapper {
-        id: tx_id,
-        order: idx,
-        block: ctx.clone(),
-        hash: ctx.hash,
-        version: tx.version.0,
-        size: tx.total_size(),
-        v_size: tx.vsize(),
-        weight: tx.weight().to_wu(),
-        total_vout_value,
-        lock_time: lock_time,
-        vin_count: tx.input.len(),
-        vout_count: tx.output.len(),
-    };
-    // Index transaction
-    SERVICES.transaction.by_id.put(&tx_id, &trx)?;
     // Indexing transaction vin
     for (vin_idx, vin) in tx.input.iter().enumerate() {
         if is_evm {
@@ -70,6 +53,8 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
 
         SERVICES.transaction.vin_by_id.put(&tx_id, &trx_vin)?;
     }
+
+    let mut total_vout_value = 0;
     // Index transaction vout
     for (vout_idx, vout) in tx.output.iter().enumerate() {
         let vout_index = vout_idx.to_be_bytes();
@@ -88,7 +73,26 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
             .transaction
             .vout_by_id
             .put(&format!("{}-{}", tx_id, hex::encode(vout_index)), &trx_vout)?;
+
+        total_vout_value += vout.value.to_sat();
     }
+
+    let trx = TransactionMapper {
+        id: tx_id,
+        order: idx,
+        block: ctx.clone(),
+        hash: ctx.hash,
+        version: tx.version.0,
+        size: tx.total_size(),
+        v_size: tx.vsize(),
+        weight: tx.weight().to_wu(),
+        total_vout_value,
+        lock_time: lock_time,
+        vin_count: tx.input.len(),
+        vout_count: tx.output.len(),
+    };
+    // Index transaction
+    SERVICES.transaction.by_id.put(&tx_id, &trx)?;
 
     Ok(())
 }
