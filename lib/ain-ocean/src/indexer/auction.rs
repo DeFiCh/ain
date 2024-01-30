@@ -10,7 +10,7 @@ use crate::{
 };
 
 impl Index for PlaceAuctionBid {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
         debug!("[PlaceAuctionBid] Indexing...");
 
         let auction = VaultAuctionBatchHistory {

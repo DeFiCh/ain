@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl Index for PoolSwap {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
         debug!("[Poolswap] Indexing...");
         let txid = tx.txid();
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
@@ -52,7 +52,7 @@ impl Index for PoolSwap {
 }
 
 impl Index for CompositeSwap {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
         debug!("[CompositeSwap] Indexing...");
         let txid = tx.txid();
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =

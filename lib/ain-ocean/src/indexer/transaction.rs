@@ -15,7 +15,7 @@ use crate::{
     SERVICES,
 };
 
-pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
     debug!("[index_transaction] Indexing...");
     let tx_id = tx.txid();
     let is_evm = check_if_evm_tx(&tx);

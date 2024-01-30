@@ -21,7 +21,7 @@ fn get_operator_script(hash: &PubkeyHash, r#type: u8) -> Result<ScriptBuf> {
 }
 
 impl Index for CreateMasternode {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
         debug!("[CreateMasternode] Indexing...");
         let txid = tx.txid();
 
@@ -52,7 +52,7 @@ impl Index for CreateMasternode {
 }
 
 impl Index for UpdateMasternode {
-    fn index(&self, _ctx: &BlockContext, tx: Transaction, _idx: usize) -> Result<()> {
+    fn index(&self, _ctx: &BlockContext, tx: &Transaction, _idx: usize) -> Result<()> {
         debug!("[UpdateMasternode] Indexing...");
         if let Some(mut mn) = SERVICES.masternode.by_id.get(&self.node_id)? {
             mn.history.push(HistoryItem {
@@ -93,7 +93,7 @@ impl Index for UpdateMasternode {
 }
 
 impl Index for ResignMasternode {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, _idx: usize) -> Result<()> {
+    fn index(&self, ctx: &BlockContext, tx: &Transaction, _idx: usize) -> Result<()> {
         debug!("[ResignMasternode] Indexing...");
         if let Some(mn) = SERVICES.masternode.by_id.get(&self.node_id)? {
             SERVICES.masternode.by_id.put(

@@ -7,7 +7,6 @@ pub mod tx_result;
 
 use std::time::Instant;
 
-use defichain_rpc::RpcApi;
 use dftx_rs::{deserialize, Block, DfTx, Transaction};
 use log::debug;
 
@@ -19,7 +18,7 @@ use crate::{
 };
 
 pub(crate) trait Index {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
+    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()>;
     fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
 }
 
@@ -84,7 +83,6 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     for (idx, tx) in block.txdata.into_iter().enumerate() {
         let start = Instant::now();
         let bytes = tx.output[0].script_pubkey.as_bytes();
-        let transaction = tx.clone();
         if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
             let offset = 1 + match bytes[1] {
                 0x4c => 2,
@@ -97,23 +95,23 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
             let dftx = deserialize::<DfTx>(raw_tx)?;
             debug!("dftx : {:?}", dftx);
             match &dftx {
-                DfTx::CreateMasternode(data) => data.index(&ctx, tx, idx)?,
-                DfTx::UpdateMasternode(data) => data.index(&ctx, tx, idx)?,
-                DfTx::ResignMasternode(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::AppointOracle(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::RemoveOracle(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::UpdateOracle(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::SetOracleData(data) => data.index(&ctx, tx, idx)?,
-                DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
-                DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
-                DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
+                DfTx::CreateMasternode(data) => data.index(&ctx, &tx, idx)?,
+                DfTx::UpdateMasternode(data) => data.index(&ctx, &tx, idx)?,
+                DfTx::ResignMasternode(data) => data.index(&ctx, &tx, idx)?,
+                // DfTx::AppointOracle(data) => data.index(&ctx, &tx, idx)?,
+                // DfTx::RemoveOracle(data) => data.index(&ctx, &tx, idx)?,
+                // DfTx::UpdateOracle(data) => data.index(&ctx, &tx, idx)?,
+                // DfTx::SetOracleData(data) => data.index(&ctx, &tx, idx)?,
+                DfTx::PoolSwap(data) => data.index(&ctx, &tx, idx)?,
+                DfTx::CompositeSwap(data) => data.index(&ctx, &tx, idx)?,
+                DfTx::PlaceAuctionBid(data) => data.index(&ctx, &tx, idx)?,
 
                 _ => (),
             }
             log_elapsed(start, &format!("Indexed tx {:?}", dftx));
         }
 
-        index_transaction(&ctx, transaction, idx)?;
+        index_transaction(&ctx, &tx, idx)?;
     }
 
     log_elapsed(start, "Indexed block");
