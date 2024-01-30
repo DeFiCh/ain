@@ -1,4 +1,6 @@
-use bitcoin::{blockdata::locktime::absolute::LockTime, Txid};
+use std::str::FromStr;
+
+use bitcoin::{blockdata::locktime::absolute::LockTime, hashes::Hash, Amount, Txid};
 use dftx_rs::Transaction;
 use log::debug;
 
@@ -16,7 +18,7 @@ use crate::{
 pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
     debug!("[index_transaction] Indexing...");
     let tx_id = tx.txid();
-
+    let is_evm = check_if_evm_tx(&tx);
     let lock_time = match tx.lock_time {
         LockTime::Blocks(value) => value.to_consensus_u32(),
         LockTime::Seconds(value) => value.to_consensus_u32(),
@@ -41,6 +43,9 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     SERVICES.transaction.by_id.put(&tx_id, &trx)?;
     // Indexing transaction vin
     for (vin_idx, vin) in tx.input.iter().enumerate() {
+        if is_evm {
+            continue;
+        }
         let vout_bytes = vin.previous_output.vout.to_be_bytes();
         let trx_vin = TransactionVin {
             id: format!(
@@ -54,8 +59,8 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
             vout: TransactionVinVout {
                 id: format!("{}-{}-vout", tx_id, vin_idx),
                 txid: tx_id,
-                n: vin.previous_output.vout as i32,
-                value: "0".to_string(),
+                n: vin.sequence.0 as i32,
+                value: vin.previous_output.vout,
                 token_id: 0,
                 script: TransactionVinVoutScript {
                     hex: vin.script_sig.clone(),
@@ -77,11 +82,11 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
             id: format!("{}-{}", tx_id, vout_idx),
             txid: tx_id,
             n: vout_idx as i32,
-            value: vout.value.to_string(),
+            value: vout.value,
             token_id: 0,
             script: TransactionVoutScript {
                 hex: vout.script_pubkey.clone(),
-                r#type: "pubkey".to_string(),
+                r#type: vout.script_pubkey.to_hex_string(),
             },
         };
         SERVICES
@@ -93,22 +98,40 @@ pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Res
     Ok(())
 }
 
-pub fn invalidate_transaction(tx_id: Txid) -> Result<()> {
+pub fn invalidate_transaction(tx_id: [u8; 32]) -> Result<()> {
     debug!("[invalidate_transaction] Invalidating...");
-    SERVICES.transaction.by_id.delete(&tx_id)?;
+    let transaction_id = Txid::from_byte_array(tx_id);
+    SERVICES.transaction.by_id.delete(&transaction_id)?;
     Ok(())
 }
 
 //key: txid + vout.txid + (vin.previous_output.vout 4 bytes encoded hex)
 pub fn invalidate_transaction_vin(tx_id: String) -> Result<()> {
-    debug!("[invalidate_transaction] Invalidating...");
+    debug!("[invalidate_transaction_vin] Invalidating...");
     SERVICES.transaction.vout_by_id.delete(&tx_id)?;
     Ok(())
 }
 
 //key: which is string type (txid + encoded (vout_idx)
 pub fn invalidate_transaction_vout(tx_id: String) -> Result<()> {
-    debug!("[invalidate_transaction] Invalidating...");
+    debug!("[invalidate_transaction_vout] Invalidating...");
     SERVICES.transaction.vout_by_id.delete(&tx_id)?;
     Ok(())
+}
+
+fn check_if_evm_tx(txn: &Transaction) -> bool {
+    txn.input.len() == 2
+        && txn.input.iter().all(|vin| {
+            vin.previous_output.txid
+                == Txid::from_str(
+                    "0000000000000000000000000000000000000000000000000000000000000000",
+                )
+                .unwrap()
+        })
+        && txn.output.len() == 1
+        && txn.output[0]
+            .script_pubkey
+            .to_asm_string()
+            .starts_with("OP_RETURN 4466547839")
+        && txn.output[0].value == Amount::from_sat(0)
 }

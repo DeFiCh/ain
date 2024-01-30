@@ -84,6 +84,7 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     for (idx, tx) in block.txdata.into_iter().enumerate() {
         let start = Instant::now();
         let bytes = tx.output[0].script_pubkey.as_bytes();
+        let transaction = tx.clone();
         if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
             let offset = 1 + match bytes[1] {
                 0x4c => 2,
@@ -111,11 +112,9 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
             }
             log_elapsed(start, &format!("Indexed tx {:?}", dftx));
         }
-    }
 
-    // for (idx, tx) in block.txdata.into_iter().enumerate() {
-    //     index_transaction(&ctx, tx, idx)?;
-    // }
+        index_transaction(&ctx, transaction, idx)?;
+    }
 
     log_elapsed(start, "Indexed block");
 

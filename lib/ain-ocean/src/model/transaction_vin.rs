@@ -1,4 +1,4 @@
-use bitcoin::{ScriptBuf, Sequence, Txid};
+use bitcoin::{Amount, ScriptBuf, Sequence, Txid};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -17,7 +17,7 @@ pub struct TransactionVinVout {
     pub id: String,
     pub txid: Txid,
     pub n: i32,
-    pub value: String,
+    pub value: u32,
     pub token_id: i32,
     pub script: TransactionVinVoutScript,
 }
