@@ -1,10 +1,10 @@
 use bitcoin::{Amount, ScriptBuf, Txid};
 use serde::{Deserialize, Serialize};
 
-pub type TransactionVoutId = (Txid, usize);
+pub type TransactionVoutKey = (Txid, usize);
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVout {
-    pub id: TransactionVoutId,
     pub txid: Txid,
     pub n: i32,
     pub value: Amount,

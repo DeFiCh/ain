@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use bitcoin::{blockdata::locktime::absolute::LockTime, hashes::Hash, Amount, Txid};
 use dftx_rs::Transaction;
 use log::debug;
@@ -57,9 +55,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
     let mut total_vout_value = 0;
     // Index transaction vout
     for (vout_idx, vout) in tx.output.iter().enumerate() {
-        let vout_index = vout_idx.to_be_bytes();
         let trx_vout = TransactionVout {
-            id: (tx_id, vout_idx),
             txid: tx_id,
             n: vout_idx as i32,
             value: vout.value,
@@ -72,7 +68,7 @@ pub fn index_transaction(ctx: &BlockContext, tx: &Transaction, idx: usize) -> Re
         SERVICES
             .transaction
             .vout_by_id
-            .put(&format!("{}-{}", tx_id, hex::encode(vout_index)), &trx_vout)?;
+            .put(&(tx_id, vout_idx), &trx_vout)?;
 
         total_vout_value += vout.value.to_sat();
     }
