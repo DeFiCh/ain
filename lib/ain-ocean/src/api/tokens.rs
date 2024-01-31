@@ -116,7 +116,7 @@ async fn list_tokens(
 async fn get_token(
     Path(id): Path<u32>,
     Extension(client): Extension<Arc<Client>>,
-) -> Result<Response<Option<TokenData>>> {
+) -> Result<Option<TokenData>> {
     let mut v: TokenResult = client.call("gettoken", &[id.into()])?;
 
     let res = if let Some(token) = v.0.remove(&id) {
@@ -125,7 +125,7 @@ async fn get_token(
         None
     };
 
-    Ok(Response::new(res))
+    Ok(res)
 }
 
 pub fn router(state: Arc<Client>) -> Router {

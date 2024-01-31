@@ -6,7 +6,7 @@ use bitcoin::BlockHash;
 use defichain_rpc::Client;
 use serde::{Deserialize, Deserializer};
 
-use super::response::{ApiPagedResponse, Response};
+use super::response::ApiPagedResponse;
 use crate::{
     api_query::{PaginationQuery, Query},
     error::ApiError,
@@ -61,7 +61,7 @@ async fn list_blocks(Query(query): Query<PaginationQuery>) -> Result<ApiPagedRes
 }
 
 #[ocean_endpoint]
-async fn get_block(Path(id): Path<HashOrHeight>) -> Result<Response<Option<Block>>> {
+async fn get_block(Path(id): Path<HashOrHeight>) -> Result<Option<Block>> {
     let block = if let Some(id) = match id {
         HashOrHeight::Height(n) => SERVICES.block.by_height.get(&n)?,
         HashOrHeight::Id(id) => Some(id),
@@ -71,7 +71,7 @@ async fn get_block(Path(id): Path<HashOrHeight>) -> Result<Response<Option<Block
         None
     };
 
-    Ok(Response::new(block))
+    Ok(block)
 }
 
 async fn get_transactions(Path(hash): Path<BlockHash>) -> String {
@@ -80,10 +80,10 @@ async fn get_transactions(Path(hash): Path<BlockHash>) -> String {
 
 // Get highest indexed block
 #[ocean_endpoint]
-async fn get_highest() -> Result<Response<Option<Block>>> {
+async fn get_highest() -> Result<Option<Block>> {
     let block = SERVICES.block.by_height.get_highest()?;
 
-    Ok(Response::new(block))
+    Ok(block)
 }
 
 pub fn router(state: Arc<Client>) -> Router {

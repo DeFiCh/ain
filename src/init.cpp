@@ -669,6 +669,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchive", strprintf("Enable ocean archive and REST server (default: %b)", DEFAULT_OCEAN_ARCHIVE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_ARCHIVE_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -2407,7 +2408,8 @@ bool AppInitMain(InitInterfaces& interfaces)
         if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
         // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
             // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
-            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, "127.0.0.1:3002"))
+            auto port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_ARCHIVE_PORT);
+            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, strprintf("127.0.0.1:%s", port)))
             if (!res) {
                 // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
                 return false;
