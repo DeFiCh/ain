@@ -88,4 +88,4 @@ jobs:
       - name: Run tests
         run: |
           npm ci
-          DEFID="$(pwd)/defid" npm t apps/whale-api/src/module.api/defid-e2e
+          DEFID="$(pwd)/defid" npm run defid apps/whale-api/src/module.api/__defid__
