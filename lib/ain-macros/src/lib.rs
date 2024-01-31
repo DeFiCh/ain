@@ -2,10 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{
-    parse_macro_input, parse_quote, Attribute, DeriveInput, Expr, FnArg, ItemFn, LitStr,
-    ReturnType, Type,
-};
+use syn::{parse_macro_input, Attribute, DeriveInput, ItemFn, LitStr, ReturnType, Type};
 
 #[proc_macro_attribute]
 pub fn ffi_fallible(_attr: TokenStream, item: TokenStream) -> TokenStream {

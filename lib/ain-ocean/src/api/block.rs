@@ -1,22 +1,21 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{
-    extract::{Path, Query},
-    routing::get,
-    Router,
-};
+use axum::{extract::Path, routing::get, Router};
 use bitcoin::BlockHash;
 use defichain_rpc::Client;
 use serde::{Deserialize, Deserializer};
 
 use super::response::{ApiPagedResponse, Response};
 use crate::{
-    api_query::PaginationQuery, error::ApiError, model::Block, repository::RepositoryOps, Result,
-    SERVICES,
+    api_query::{PaginationQuery, Query},
+    error::ApiError,
+    model::Block,
+    repository::RepositoryOps,
+    Result, SERVICES,
 };
 
-enum HashOrHeight {
+pub enum HashOrHeight {
     Height(u32),
     Id(BlockHash),
 }

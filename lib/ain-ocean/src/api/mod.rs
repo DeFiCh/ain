@@ -5,7 +5,7 @@ use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Rou
 // mod address;
 mod block;
 mod fee;
-// mod governance;
+mod governance;
 // mod loan;
 // mod masternode;
 // mod oracle;
@@ -59,7 +59,7 @@ pub fn ocean_router() -> Result<Router> {
 
     Ok(Router::new()
         // .nest("/address", address::router(Arc::clone(client)))
-        // .nest("/governance", governance::router(Arc::clone(client)))
+        .nest("/governance", governance::router(Arc::clone(client)))
         // .nest("/loans", loan::router(Arc::clone(client)))
         .nest("/fee", fee::router(Arc::clone(client)))
         // .nest("/masternodes", masternode::router(Arc::clone(client)))
