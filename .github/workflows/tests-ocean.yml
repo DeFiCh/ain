@@ -24,7 +24,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: 'canonbrother/ocean-ci-testing'
+        ref: 'feature/ocean-archive'
     - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
@@ -80,7 +80,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: defichain
-          ref: 'canonbrother/ocean-ci-testing'
+          ref: 'feature/ocean-archive'
 
       - name: Populate environment
         run: cd defichain && ./make.sh ci-export-vars
