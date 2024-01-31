@@ -31,8 +31,8 @@ pub struct LogsSubscriptionParams {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LogsSubscriptionParamsTopics {
-    VecOfHashes(Vec<H256>),
-    VecOfHashVecs(Vec<Vec<H256>>),
+    VecOfHashes(Vec<Option<H256>>),
+    VecOfHashVecs(Vec<Vec<Option<H256>>>),
 }
 
 /// Subscription kind.

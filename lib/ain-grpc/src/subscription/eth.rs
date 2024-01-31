@@ -78,13 +78,25 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                                                     inputs,
                                                 ) => Some(
                                                     inputs
-                                                        .into_iter()
-                                                        .map(|input| vec![input])
+                                                        .iter()
+                                                        .flatten()
+                                                        .map(|input| vec![*input])
                                                         .collect(),
                                                 ),
                                                 LogsSubscriptionParamsTopics::VecOfHashVecs(
                                                     inputs,
-                                                ) => Some(inputs),
+                                                ) => Some(
+                                                    inputs
+                                                        .iter()
+                                                        .map(|hashes| {
+                                                            hashes
+                                                                .iter()
+                                                                .flatten()
+                                                                .copied()
+                                                                .collect()
+                                                        })
+                                                        .collect(),
+                                                ),
                                             }
                                         } else {
                                             None
