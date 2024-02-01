@@ -556,16 +556,21 @@ public:
     std::optional<OutputType> GetOutputType() const override { return std::nullopt; }
 };
 
-static std::optional<OutputType> OutputTypeFromDestination(const CTxDestination& dest) {
+std::optional<OutputType> OutputTypeFromDestination(const CTxDestination& dest) {
     if (std::holds_alternative<PKHash>(dest) ||
         std::holds_alternative<ScriptHash>(dest)) {
         return OutputType::LEGACY;
     }
     if (std::holds_alternative<WitnessV0KeyHash>(dest) ||
-        std::holds_alternative<WitnessV0ScriptHash>(dest) ||
-        std::holds_alternative<WitnessV1Taproot>(dest) ||
-        std::holds_alternative<WitnessUnknown>(dest)) {
+        std::holds_alternative<WitnessV0ScriptHash>(dest)) {
         return OutputType::BECH32;
+    }
+    if (std::holds_alternative<WitnessV1Taproot>(dest) ||
+        std::holds_alternative<WitnessUnknown>(dest)) {
+        return OutputType::BECH32M;
+    }
+    if (std::holds_alternative<WitnessV16EthHash>(dest)) {
+        return OutputType::ERC55;
     }
     return std::nullopt;
 }
@@ -780,7 +785,7 @@ public:
         {
             assert(m_subdescriptor_args.size() == m_depths.size());
         }
-        std::optional<OutputType> GetOutputType() const override { return OutputType::BECH32; }
+        std::optional<OutputType> GetOutputType() const override { return OutputType::BECH32M; }
     };
 
 ////////////////////////////////////////////////////////////////////////////
