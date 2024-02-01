@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Masternode,
-    repository::RepositoryOps, Result, SERVICES,
+    repository::RepositoryOps, services, Result,
 };
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -108,14 +108,14 @@ async fn list_masternodes(
         })
         .transpose()?;
 
-    let masternodes = SERVICES
+    let masternodes = services
         .masternode
         .by_height
         .list(next)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
-            let mn = SERVICES
+            let mn = services
                 .masternode
                 .by_id
                 .get(&id)?
@@ -133,7 +133,7 @@ async fn list_masternodes(
 }
 
 async fn get_masternode(Path(masternode_id): Path<Txid>) -> Result<Json<Option<MasternodeData>>> {
-    let mn = SERVICES
+    let mn = services
         .masternode
         .by_id
         .get(&masternode_id)?
@@ -142,7 +142,7 @@ async fn get_masternode(Path(masternode_id): Path<Txid>) -> Result<Json<Option<M
     Ok(Json(mn))
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(list_masternodes))
         .route("/:id", get(get_masternode))

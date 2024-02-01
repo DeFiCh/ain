@@ -54,22 +54,21 @@ pub fn ocean_router() -> Result<Router> {
         return Ok(Router::new().route("/*path", get(ocean_not_activated)));
     }
 
-    let client = &SERVICES.client;
-    println!("client : {:?}", client);
+    let services = &SERVICES;
 
     Ok(Router::new()
-        // .nest("/address", address::router(Arc::clone(client)))
-        .nest("/governance", governance::router(Arc::clone(client)))
-        // .nest("/loans", loan::router(Arc::clone(client)))
-        .nest("/fee", fee::router(Arc::clone(client)))
-        // .nest("/masternodes", masternode::router(Arc::clone(client)))
-        // .nest("/oracles", oracle::router(Arc::clone(client)))
-        // .nest("/poolpairs", poolpairs::router(Arc::clone(client)))
-        // .nest("/prices", prices::router(Arc::clone(client)))
-        // .nest("/rawtx", rawtx::router(Arc::clone(client)))
-        // .nest("/stats", stats::router(Arc::clone(client)))
-        .nest("/tokens", tokens::router(Arc::clone(client)))
-        // .nest("/transactions", transactions::router(Arc::clone(client)))
-        .nest("/blocks", block::router(Arc::clone(client)))
+        // .nest("/address", address::router(Arc::clone(services)))
+        .nest("/governance", governance::router(Arc::clone(services)))
+        // .nest("/loans", loan::router(Arc::clone(services)))
+        .nest("/fee", fee::router(Arc::clone(services)))
+        // .nest("/masternodes", masternode::router(Arc::clone(services)))
+        // .nest("/oracles", oracle::router(Arc::clone(services)))
+        // .nest("/poolpairs", poolpairs::router(Arc::clone(services)))
+        // .nest("/prices", prices::router(Arc::clone(services)))
+        // .nest("/rawtx", rawtx::router(Arc::clone(services)))
+        // .nest("/stats", stats::router(Arc::clone(services)))
+        .nest("/tokens", tokens::router(Arc::clone(services)))
+        // .nest("/transactions", transactions::router(Arc::clone(services)))
+        .nest("/blocks", block::router(Arc::clone(services)))
         .fallback(not_found))
 }

@@ -2464,7 +2464,33 @@ bool AppInitMain(InitInterfaces& interfaces)
         spv::pspv->Connect();
     }
 
-    // ********************************************************* Step 15: start minter thread
+
+    // ********************************************************* Step 15: start genesis ocean indexing
+    if(gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+        const CBlock &block = chainparams.GenesisBlock();
+
+        const CBlockIndex* pblockindex;
+        const CBlockIndex* tip;
+        {
+            LOCK(cs_main);
+
+            pblockindex = LookupBlockIndex(block.GetHash());
+            assert(pblockindex);
+
+            tip = ::ChainActive().Tip();
+        }
+
+        const UniValue b = blockToJSON(block, tip, pblockindex, true, 2);
+
+        CrossBoundaryResult result;
+        ocean_index_block(result, b.write());
+        if (!result.ok) {
+            LogPrintf("Error indexing genesis block: %s\n", result.reason);
+            return false;
+        }
+    }
+
+    // ********************************************************* Step 16: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 
@@ -2563,51 +2589,6 @@ bool AppInitMain(InitInterfaces& interfaces)
             pos::ThreadStaker threadStaker;
             threadStaker(stakersParams, chainparams);
         });
-    }
-
-    // ********************************************************* Step 16: start genesis ocean indexing
-    if(gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
-        const CBlock &block = chainparams.GenesisBlock();
-
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << block;
-        CBlockIndex* pindex = ::ChainActive().Tip();
-
-        // Convert the serialized data to a string
-        std::string serializedData = HexStr(ss.begin(), ss.end());
-
-        CrossBoundaryResult result;
-        BlockV2Info info;
-        info.height = pindex->nHeight;
-        info.difficulty = pindex->nBits;
-        info.version = pindex->nVersion;
-        info.median_time = (int64_t)pindex->GetMedianTimePast();
-        info.minter_block_count = pindex->mintedBlocks;
-        info.size = GetSerializeSize(block, PROTOCOL_VERSION);
-        info.size_stripped = GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-        info.weight = GetBlockWeight(block);
-        info.stake_modifier = pindex->stakeModifier.ToString();
-        info.minter = ""; // mn operator address
-        info.masternode = ""; // mn owner address
-
-        // minter info
-        CKeyID minter;
-        block.ExtractMinterKey(minter);
-
-        auto id = pcustomcsview->GetMasternodeIdByOperator(minter);
-        if (id) {
-            info.masternode = id->ToString();
-            auto mn = pcustomcsview->GetMasternode(*id);
-            if (mn) {
-                auto dest = mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
-                info.minter = EncodeDestination(dest);
-            }
-        }
-
-        ocean_index_block(result, serializedData, info);
-        // if (!result.ok) {
-        //     return Res::Err(result.reason.c_str());
-        // }
     }
 
     return true;

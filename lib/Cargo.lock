@@ -109,9 +109,9 @@ dependencies = [
 name = "ain-db"
 version = "0.1.0"
 dependencies = [
- "ain-cpp-imports",
  "anyhow",
  "bincode",
+ "num_cpus",
  "rocksdb",
  "serde",
 ]
@@ -273,6 +273,7 @@ dependencies = [
  "anyhow",
  "cxx",
  "cxx-gen",
+ "defichain-rpc",
  "ethabi",
  "ethereum",
  "ethereum-types",
@@ -1350,7 +1351,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc"
 version = "0.18.0"
-source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#fc9a999c32d9b7c081830221099cc9a65dc86080"
+source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#261421ae27f89953015643e25943bd558c8432e9"
 dependencies = [
  "defichain-rpc-json",
  "jsonrpc",
@@ -1362,7 +1363,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc-json"
 version = "0.18.0"
-source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#fc9a999c32d9b7c081830221099cc9a65dc86080"
+source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#261421ae27f89953015643e25943bd558c8432e9"
 dependencies = [
  "bitcoin",
  "serde",

@@ -5,83 +5,82 @@ mod pool;
 pub mod transaction;
 pub mod tx_result;
 
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
-use dftx_rs::{deserialize, Block, DfTx, Transaction};
+use defichain_rpc::json::blockchain::{Block, Transaction};
+use dftx_rs::{deserialize, DfTx};
 use log::debug;
 
 use crate::{
+    index_transaction,
     model::{Block as BlockMapper, BlockContext},
     repository::RepositoryOps,
-    Result, SERVICES,
+    Result, Services,
 };
 
 pub(crate) trait Index {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
-    fn invalidate(&self, context: &BlockContext, tx: Transaction, idx: usize) -> Result<()>;
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
+
+    fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 }
 
-pub struct BlockV2Info {
-    pub height: u32,
-    pub difficulty: u32,
-    pub version: i32,
-    pub median_time: i64,
-    pub minter_block_count: u64,
-    pub size: usize,
-    pub size_stripped: usize,
-    pub weight: i64,
-    pub stake_modifier: String,
-    pub minter: String,
-    pub masternode: String,
+pub struct Context {
+    block: BlockContext,
+    tx: Transaction,
+    tx_idx: usize,
 }
 
 fn log_elapsed(previous: Instant, msg: &str) {
     let now = Instant::now();
-    println!("{} in {} ms", msg, now.duration_since(previous).as_millis());
+    debug!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }
 
-pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
+pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
 
-    let hex = hex::decode(&encoded_block)?;
-    debug!("got hex");
-    let block = deserialize::<Block>(&hex)?;
-    debug!("got block");
-    let block_hash = block.block_hash();
-    let ctx = BlockContext {
-        height: info.height,
+    let block_hash = block.hash;
+    let block_ctx = BlockContext {
+        height: block.height,
         hash: block_hash,
-        time: 0,        // TODO
-        median_time: 0, // TODO
+        time: block.time,
+        median_time: block.mediantime,
     };
+
     let block_mapper = BlockMapper {
-        id: block_hash.to_string(),
-        hash: block_hash.to_string(),
-        previous_hash: block.header.prev_blockhash.to_string(),
-        height: info.height,
-        version: info.version,
-        time: block.header.time,
-        median_time: info.median_time,
-        transaction_count: block.txdata.len(),
-        difficulty: info.difficulty,
-        masternode: info.masternode.to_owned(),
-        minter: info.minter.to_owned(),
-        minter_block_count: info.minter_block_count,
-        stake_modifier: info.stake_modifier.to_owned(),
-        merkleroot: block.header.merkle_root.to_string(),
-        size: info.size,
-        size_stripped: info.size_stripped,
-        weight: info.weight,
+        hash: block_hash,
+        previous_hash: block.previousblockhash,
+        height: block.height,
+        version: block.version,
+        time: block.time,
+        median_time: block.mediantime,
+        transaction_count: block.tx.len(),
+        difficulty: block.difficulty,
+        masternode: block.masternode,
+        minter: block.minter,
+        minter_block_count: block.minted_blocks,
+        stake_modifier: block.stake_modifier.to_owned(),
+        merkleroot: block.merkleroot,
+        size: block.size,
+        size_stripped: block.strippedsize,
+        weight: block.weight,
     };
 
-    SERVICES.block.raw.put(&ctx.hash, &encoded_block)?;
-    SERVICES.block.by_id.put(&ctx.hash, &block_mapper)?;
-    SERVICES.block.by_height.put(&ctx.height, &block_hash)?;
+    // services.block.raw.put(&ctx.hash, &encoded_block)?; TODO
+    services.block.by_id.put(&block_ctx.hash, &block_mapper)?;
+    services
+        .block
+        .by_height
+        .put(&block_ctx.height, &block_hash)?;
 
-    for (idx, tx) in block.txdata.into_iter().enumerate() {
+    for (tx_idx, tx) in block.tx.into_iter().enumerate() {
         let start = Instant::now();
-        let bytes = tx.output[0].script_pubkey.as_bytes();
+        let ctx = Context {
+            block: block_ctx.clone(),
+            tx,
+            tx_idx,
+        };
+        let bytes = ctx.tx.vout[0].script_pub_key.hex.as_bytes();
         if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
             let offset = 1 + match bytes[1] {
                 0x4c => 2,
@@ -93,21 +92,25 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
             let raw_tx = &bytes[offset..];
             let dftx = deserialize::<DfTx>(raw_tx)?;
             debug!("dftx : {:?}", dftx);
+
             match &dftx {
-                DfTx::CreateMasternode(data) => data.index(&ctx, tx, idx)?,
-                DfTx::UpdateMasternode(data) => data.index(&ctx, tx, idx)?,
-                DfTx::ResignMasternode(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::AppointOracle(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::RemoveOracle(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::UpdateOracle(data) => data.index(&ctx, tx, idx)?,
-                // DfTx::SetOracleData(data) => data.index(&ctx, tx, idx)?,
-                DfTx::PoolSwap(data) => data.index(&ctx, tx, idx)?,
-                DfTx::CompositeSwap(data) => data.index(&ctx, tx, idx)?,
-                DfTx::PlaceAuctionBid(data) => data.index(&ctx, tx, idx)?,
+                DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
+                DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
+                DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
+                // DfTx::AppointOracle(data) => data.index(services,&ctx)?,
+                // DfTx::RemoveOracle(data) => data.index(services,&ctx)?,
+                // DfTx::UpdateOracle(data) => data.index(services,&ctx)?,
+                // DfTx::SetOracleData(data) => data.index(services,&ctx)?,
+                DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
+
                 _ => (),
             }
             log_elapsed(start, &format!("Indexed tx {:?}", dftx));
         }
+
+        index_transaction(services, ctx)?;
     }
 
     log_elapsed(start, "Indexed block");
@@ -115,6 +118,6 @@ pub fn index_block(encoded_block: String, info: &BlockV2Info) -> Result<()> {
     Ok(())
 }
 
-pub fn invalidate_block(block: String, info: &BlockV2Info) -> Result<()> {
+pub fn invalidate_block(block: Block<Transaction>) -> Result<()> {
     Ok(())
 }

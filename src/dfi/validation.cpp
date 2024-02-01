@@ -21,6 +21,7 @@
 #include <dfi/vaulthistory.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
+#include <rpc/blockchain.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>
@@ -2792,45 +2793,13 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
     // Ocean archive
     if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
-        CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
-        ss << block;
 
-        // Convert the serialized data to a string
-        std::string serializedData = HexStr(ss.begin(), ss.end());
-
+        const UniValue b = blockToJSON(block, ::ChainActive().Tip(), pindex, true, 2);
         CrossBoundaryResult result;
-        BlockV2Info info;
-        info.height = pindex->nHeight;
-        info.difficulty = pindex->nBits;
-        info.version = pindex->nVersion;
-        info.median_time = (int64_t)pindex->GetMedianTimePast();
-        info.minter_block_count = pindex->mintedBlocks;
-        info.size = GetSerializeSize(block, PROTOCOL_VERSION);
-        info.size_stripped = GetSerializeSize(block, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS);
-        info.weight = GetBlockWeight(block);
-        info.stake_modifier = pindex->stakeModifier.ToString();
-        info.minter = "";      // mn operator address
-        info.masternode = "";  // mn owner address
-
-        // minter info
-        CKeyID minter;
-        block.ExtractMinterKey(minter);
-
-        auto id = mnview.GetMasternodeIdByOperator(minter);
-        if (id) {
-            info.masternode = id->ToString();
-            auto mn = mnview.GetMasternode(*id);
-            if (mn) {
-                auto dest =
-                    mn->operatorType == 1 ? CTxDestination(PKHash(minter)) : CTxDestination(WitnessV0KeyHash(minter));
-                info.minter = EncodeDestination(dest);
-            }
+        ocean_index_block(result, b.write());
+        if (!result.ok) {
+            return Res::Err(result.reason.c_str());
         }
-
-        ocean_index_block(result, serializedData, info);
-        // if (!result.ok) {
-        //     return Res::Err(result.reason.c_str());
-        // }
     }
 
     return Res::Ok();
