@@ -37,6 +37,7 @@ class EVMGasTest(DefiTestFramework):
                 "-metachainheight=105",
                 "-df23height=105",
                 "-subsidytest=1",
+                "-evmestimategaserrorratio=0",
             ],
         ]
 
