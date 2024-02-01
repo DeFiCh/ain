@@ -5,7 +5,7 @@ use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::BlockHash;
 use serde::{Deserialize, Deserializer};
 
-use super::response::{ApiPagedResponse, Response};
+use super::response::ApiPagedResponse;
 use crate::{
     api_query::{PaginationQuery, Query},
     error::ApiError,
@@ -66,7 +66,7 @@ async fn list_blocks(
 async fn get_block(
     Path(id): Path<HashOrHeight>,
     Extension(services): Extension<Arc<Services>>,
-) -> Result<Response<Option<Block>>> {
+) -> Result<Option<Block>> {
     let block = if let Some(id) = match id {
         HashOrHeight::Height(n) => services.block.by_height.get(&n)?,
         HashOrHeight::Id(id) => Some(id),
@@ -76,7 +76,7 @@ async fn get_block(
         None
     };
 
-    Ok(Response::new(block))
+    Ok(block)
 }
 
 async fn get_transactions(
@@ -88,12 +88,10 @@ async fn get_transactions(
 
 // Get highest indexed block
 #[ocean_endpoint]
-async fn get_highest(
-    Extension(services): Extension<Arc<Services>>,
-) -> Result<Response<Option<Block>>> {
+async fn get_highest(Extension(services): Extension<Arc<Services>>) -> Result<Option<Block>> {
     let block = services.block.by_height.get_highest()?;
 
-    Ok(Response::new(block))
+    Ok(block)
 }
 
 pub fn router(services: Arc<Services>) -> Router {
