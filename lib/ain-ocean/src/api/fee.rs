@@ -6,7 +6,7 @@ use defichain_rpc::{json::mining::SmartFeeEstimation, Client, RpcApi};
 use serde::Deserialize;
 
 use super::response::Response;
-use crate::{api_query::Query, error::ApiError, Result};
+use crate::{api_query::Query, error::ApiError, Result, Services};
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -19,9 +19,9 @@ async fn estimate_fee(
     Query(EstimateQuery {
         confirmation_target,
     }): Query<EstimateQuery>,
-    Extension(client): Extension<Arc<Client>>,
+    Extension(services): Extension<Arc<Services>>,
 ) -> Result<f64> {
-    let estimation: SmartFeeEstimation = client.call(
+    let estimation: SmartFeeEstimation = services.client.call(
         "estimatesmartfee",
         &[confirmation_target.into(), "CONSERVATIVE".into()],
     )?;
@@ -29,8 +29,8 @@ async fn estimate_fee(
     Ok(estimation.feerate.unwrap_or(0.00005000))
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/estimate", get(estimate_fee))
-        .layer(Extension(state))
+        .layer(Extension(services))
 }

@@ -11,7 +11,7 @@ use log::debug;
 
 use crate::{
     api_paged_response::ApiPagedResponse, api_query::PaginationQuery,
-    model::VaultAuctionBatchHistory, repository::RepositoryOps, Result, SERVICES,
+    model::VaultAuctionBatchHistory, repository::RepositoryOps, services, Result,
 };
 
 async fn list_scheme() -> String {
@@ -50,7 +50,6 @@ async fn list_vault_auction_history(
     Path((vault_id, height, batch_index)): Path<(Txid, u32, u32)>,
     Query(query): Query<PaginationQuery>,
 ) -> Result<Json<ApiPagedResponse<VaultAuctionBatchHistory>>> {
-    println!("listvault auction history");
     debug!(
         "Auction history for vault id {}, height {}, batch index {}",
         vault_id, height, batch_index
@@ -75,7 +74,7 @@ async fn list_vault_auction_history(
 
     let size = if query.size > 0 { query.size } else { 20 };
 
-    let auctions = SERVICES
+    let auctions = services
         .auction
         .by_height
         .list(Some((vault_id, batch_index, next.0, next.1)))?
@@ -87,7 +86,7 @@ async fn list_vault_auction_history(
         .map(|item| {
             let (_, id) = item?;
 
-            let auction = SERVICES
+            let auction = services
                 .auction
                 .by_id
                 .get(&id)?
@@ -108,7 +107,7 @@ async fn list_auction() -> String {
     "List of auctions".to_string()
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/schemes", get(list_scheme))
         .route("/schemes/:id", get(get_scheme))

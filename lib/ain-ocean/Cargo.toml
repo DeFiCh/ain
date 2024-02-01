@@ -39,6 +39,6 @@ chrono = "0.4.31"
 cached.workspace = true
 lazy_static.workspace = true
 bincode.workspace = true
-defichain-rpc = { version = "0.18.0", git = "https://github.com/Jouzo/rust-defichain-rpc.git" }
+defichain-rpc.workspace = true
 jsonrpc = "0.14.1"
 serde_urlencoded = { version = "0.7" }

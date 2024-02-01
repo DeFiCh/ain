@@ -1,91 +1,91 @@
-use bitcoin::{blockdata::locktime::absolute::LockTime, Txid};
-use dftx_rs::Transaction;
+use std::sync::Arc;
+
+use bitcoin::{hashes::Hash, Txid};
+use defichain_rpc::json::blockchain::{Transaction, Vin};
 use log::debug;
 
-use super::BlockContext;
+use super::Context;
 use crate::{
     indexer::Result,
     model::{
-        Transaction as TransactionMapper, TransactionVin, TransactionVinScript, TransactionVinVout,
-        TransactionVinVoutScript, TransactionVout, TransactionVoutScript,
+        Transaction as TransactionMapper, TransactionVin, TransactionVout, TransactionVoutScript,
     },
     repository::RepositoryOps,
-    SERVICES,
+    Services,
 };
 
-pub fn index_transaction(ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     debug!("[index_transaction] Indexing...");
-    let tx_id = tx.txid();
+    let idx = ctx.tx_idx;
+    let is_evm = check_if_evm_tx(&ctx.tx);
 
-    let lock_time = match tx.lock_time {
-        LockTime::Blocks(value) => value.to_consensus_u32(),
-        LockTime::Seconds(value) => value.to_consensus_u32(),
-    };
-    let total_vout_value = tx.output.iter().map(|output| output.value.to_sat()).sum();
+    let txid = ctx.tx.txid;
+    let vin_count = ctx.tx.vin.len();
+    let vout_count = ctx.tx.vout.len();
 
-    let trx = TransactionMapper {
-        id: tx_id,
-        order: idx,
-        block: ctx.clone(),
-        hash: ctx.hash,
-        version: tx.version.0,
-        size: tx.total_size(),
-        v_size: tx.vsize(),
-        weight: tx.weight().to_wu(),
-        total_vout_value,
-        lock_time: lock_time,
-        vin_count: tx.input.len(),
-        vout_count: tx.output.len(),
-    };
-    // Index transaction
-    SERVICES.transaction.by_id.put(&tx_id, &trx)?;
-    // Indexing transaction vin
-    for (vin_idx, vin) in tx.input.iter().enumerate() {
-        let trx_vin = TransactionVin {
-            id: format!("{}-{}", tx_id, vin_idx),
-            txid: tx_id,
-            coinbase: vin.script_sig.to_string(),
-            vout: TransactionVinVout {
-                id: format!("{}-{}-vout", tx_id, vin_idx),
-                txid: tx_id,
-                n: vin.previous_output.vout as i32,
-                value: "0".to_string(),
-                token_id: 0,
-                script: TransactionVinVoutScript {
-                    hex: vin.script_sig.to_string(),
-                },
-            },
-            script: TransactionVinScript {
-                hex: vin.script_sig.to_string(),
-            },
-            tx_in_witness: vec![],
-            sequence: vin.sequence.to_string(),
-        };
-
-        SERVICES.transaction.vin_by_id.put(&tx_id, &trx_vin)?;
-    }
+    let mut total_vout_value = 0f64;
+    let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
-    for (vout_idx, vout) in tx.output.iter().enumerate() {
-        let trx_vout = TransactionVout {
-            id: format!("{}-{}", tx_id, vout_idx),
-            txid: tx_id.to_string(),
-            n: vout_idx as i32,
-            value: vout.value.to_string(),
+    for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
+        let tx_vout = TransactionVout {
+            txid: txid,
+            n: vout_idx,
+            value: vout.value,
             token_id: 0,
             script: TransactionVoutScript {
-                hex: vout.script_pubkey.to_string(),
-                r#type: "pubkey".to_string(),
+                hex: vout.script_pub_key.hex,
+                r#type: vout.script_pub_key.r#type,
             },
         };
-        SERVICES.transaction.vout_by_id.put(&tx_id, &trx_vout)?;
-        // .put(&format!("{}-{}", tx_id, vout_idx), &trx_vout)?; //need
+        services
+            .transaction
+            .vout_by_id
+            .put(&(txid, vout_idx), &tx_vout)?;
+
+        total_vout_value += vout.value;
+        vouts.push(tx_vout);
     }
+
+    // Indexing transaction vin
+    for vin in ctx.tx.vin.into_iter() {
+        if is_evm {
+            continue;
+        }
+
+        let vin = TransactionVin::from_vin_and_txid(vin, txid, &vouts);
+        services.transaction.vin_by_id.put(&vin.id, &vin)?;
+    }
+
+    let tx = TransactionMapper {
+        id: txid,
+        order: idx,
+        hash: ctx.tx.hash.clone(),
+        block: ctx.block.clone(),
+        version: ctx.tx.version,
+        size: ctx.tx.size,
+        v_size: ctx.tx.vsize,
+        weight: ctx.tx.weight,
+        total_vout_value,
+        lock_time: ctx.tx.locktime,
+        vin_count,
+        vout_count,
+    };
+    // Index transaction
+    services.transaction.by_id.put(&txid, &tx)?;
 
     Ok(())
 }
 
-pub fn invalidate_transaction(ctx: &BlockContext, tx: Txid, idx: usize) -> Result<()> {
-    debug!("[invalidate_transaction] Invalidating...");
-    SERVICES.transaction.by_id.delete(&tx)?;
-    Ok(())
+fn check_if_evm_tx(txn: &Transaction) -> bool {
+    txn.vin.len() == 2
+        && txn.vin.iter().all(|vin| match vin {
+            Vin::Coinbase(_) => true,
+            Vin::Standard(tx) => tx.txid == Txid::all_zeros(),
+        })
+        && txn.vout.len() == 1
+        && txn.vout[0]
+            .script_pub_key
+            .asm
+            .starts_with("OP_RETURN 4466547839")
+        && txn.vout[0].value == 0f64
 }

@@ -14,7 +14,7 @@ use crate::{
     api_query::PaginationQuery,
     model::{BlockContext, PoolSwap},
     repository::RepositoryOps,
-    Result, SERVICES,
+    services, Result,
 };
 
 #[derive(Deserialize)]
@@ -134,7 +134,7 @@ async fn list_pool_swaps(
         20
     };
 
-    let swaps = SERVICES
+    let swaps = services
         .pool
         .by_id
         .list(Some((id, next.0, next.1)))?
@@ -195,7 +195,7 @@ async fn list_dex_prices(Query(DexPrices { denomination }): Query<DexPrices>) ->
     format!("List of DEX prices with denomination {:?}", denomination)
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(list_poolpairs))
         .route("/:id", get(get_poolpair))

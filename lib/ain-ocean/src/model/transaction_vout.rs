@@ -1,11 +1,14 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
-#[derive(Debug, Default, Serialize, Deserialize)]
+
+pub type TransactionVoutKey = (Txid, usize);
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVout {
-    pub id: String,
-    pub txid: String,
-    pub n: i32,
-    pub value: String,
-    pub token_id: i32,
+    pub txid: Txid,
+    pub n: usize,
+    pub value: f64,
+    pub token_id: u8,
     pub script: TransactionVoutScript,
 }
 

@@ -19,7 +19,7 @@ async fn get_burn() -> String {
     "Burn stats".to_string()
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(get_stats))
         .route("/rewards/distribution", get(get_reward_distribution))

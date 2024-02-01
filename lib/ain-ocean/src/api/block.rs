@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{extract::Path, routing::get, Router};
+use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::BlockHash;
-use defichain_rpc::Client;
 use serde::{Deserialize, Deserializer};
 
 use super::response::ApiPagedResponse;
@@ -12,7 +11,7 @@ use crate::{
     error::ApiError,
     model::Block,
     repository::RepositoryOps,
-    Result, SERVICES,
+    Result, Services,
 };
 
 pub enum HashOrHeight {
@@ -37,15 +36,18 @@ impl<'de> Deserialize<'de> for HashOrHeight {
 }
 
 #[ocean_endpoint]
-async fn list_blocks(Query(query): Query<PaginationQuery>) -> Result<ApiPagedResponse<Block>> {
-    let blocks = SERVICES
+async fn list_blocks(
+    Query(query): Query<PaginationQuery>,
+    Extension(services): Extension<Arc<Services>>,
+) -> Result<ApiPagedResponse<Block>> {
+    let blocks = services
         .block
         .by_height
         .list(None)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
-            let b = SERVICES
+            let b = services
                 .block
                 .by_id
                 .get(&id)?
@@ -56,17 +58,20 @@ async fn list_blocks(Query(query): Query<PaginationQuery>) -> Result<ApiPagedRes
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(blocks, query.size, |block| {
-        block.clone().id
+        block.clone().hash
     }))
 }
 
 #[ocean_endpoint]
-async fn get_block(Path(id): Path<HashOrHeight>) -> Result<Option<Block>> {
+async fn get_block(
+    Path(id): Path<HashOrHeight>,
+    Extension(services): Extension<Arc<Services>>,
+) -> Result<Option<Block>> {
     let block = if let Some(id) = match id {
-        HashOrHeight::Height(n) => SERVICES.block.by_height.get(&n)?,
+        HashOrHeight::Height(n) => services.block.by_height.get(&n)?,
         HashOrHeight::Id(id) => Some(id),
     } {
-        SERVICES.block.by_id.get(&id)?
+        services.block.by_id.get(&id)?
     } else {
         None
     };
@@ -74,22 +79,26 @@ async fn get_block(Path(id): Path<HashOrHeight>) -> Result<Option<Block>> {
     Ok(block)
 }
 
-async fn get_transactions(Path(hash): Path<BlockHash>) -> String {
+async fn get_transactions(
+    Path(hash): Path<BlockHash>,
+    Extension(services): Extension<Arc<Services>>,
+) -> String {
     format!("Transactions for block with hash {}", hash)
 }
 
 // Get highest indexed block
 #[ocean_endpoint]
-async fn get_highest() -> Result<Option<Block>> {
-    let block = SERVICES.block.by_height.get_highest()?;
+async fn get_highest(Extension(services): Extension<Arc<Services>>) -> Result<Option<Block>> {
+    let block = services.block.by_height.get_highest()?;
 
     Ok(block)
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(list_blocks))
         .route("/highest", get(get_highest))
         .route("/:id", get(get_block))
         .route("/:hash/transactions", get(get_transactions))
+        .layer(Extension(services))
 }

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use ain_db::LedgerColumn;
 use ain_macros::Repository;
-use bitcoin::Txid;
 
 use super::RepositoryOps;
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
 };
 
 #[derive(Repository)]
-#[repository(K = "Txid", V = "TransactionVin")]
+#[repository(K = "String", V = "TransactionVin")]
 pub struct TransactionVinRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::TransactionVin>,

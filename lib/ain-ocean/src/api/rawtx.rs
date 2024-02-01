@@ -19,7 +19,7 @@ async fn get_rawtx(Path(txid): Path<String>) -> String {
     format!("Details of raw transaction with txid {}", txid)
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/send", post(send_rawtx))
         .route("/test", get(test_rawtx))

@@ -57,7 +57,7 @@ async fn list_transaction_unspent(Path(Address { address }): Path<Address>) -> S
     format!("List unspent transactions for address {}", address)
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new().nest(
         "/:address",
         Router::new()

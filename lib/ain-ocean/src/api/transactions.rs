@@ -11,7 +11,7 @@ use crate::{
     api_query::PaginationQuery,
     model::{Transaction, TransactionVin, TransactionVout},
     repository::RepositoryOps,
-    Result, SERVICES,
+    services, Result,
 };
 
 #[derive(Deserialize)]
@@ -23,21 +23,21 @@ async fn get_transaction(
     Path(TransactionId { id }): Path<TransactionId>,
 ) -> Result<Json<Option<Transaction>>> {
     format!("Details of transaction with id {}", id);
-    let transactions = SERVICES.transaction.by_id.get(&id)?;
+    let transactions = services.transaction.by_id.get(&id)?;
     Ok(Json(transactions))
 }
 
 async fn get_vins(
     Query(query): Query<PaginationQuery>,
 ) -> Result<Json<ApiPagedResponse<TransactionVin>>> {
-    let transaction_list = SERVICES
+    let transaction_list = services
         .transaction
         .vin_by_id
         .list(None)?
         .take(query.size)
         .map(|item| {
             let (txid, id) = item?;
-            let b = SERVICES
+            let b = services
                 .transaction
                 .vin_by_id
                 .get(&txid)?
@@ -58,14 +58,14 @@ async fn get_vins(
 async fn get_vouts(
     Query(query): Query<PaginationQuery>,
 ) -> Result<Json<ApiPagedResponse<TransactionVout>>> {
-    let transaction_list = SERVICES
+    let transaction_list = services
         .transaction
         .vout_by_id
         .list(None)?
         .take(query.size)
         .map(|item| {
             let (txid, id) = item?;
-            let b = SERVICES
+            let b = services
                 .transaction
                 .vout_by_id
                 .get(&txid)?
@@ -82,7 +82,7 @@ async fn get_vouts(
     )))
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/:id", get(get_transaction))
         .route("/:id/vins", get(get_vins))

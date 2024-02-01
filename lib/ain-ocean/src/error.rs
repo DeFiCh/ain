@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use bitcoin::hex::HexToArrayError;
+use log::debug;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -104,7 +105,7 @@ impl OceanError {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match self {
             OceanError::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc::error::Error::Rpc(e))) => {
-                println!("e : {:?}", e);
+                debug!("e : {:?}", e);
 
                 (StatusCode::NOT_FOUND, format!("{}", e.message))
             }

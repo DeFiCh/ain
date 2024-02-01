@@ -15,7 +15,7 @@ async fn get_oracle_by_address(Path(address): Path<String>) -> String {
     format!("Oracle details for address {}", address)
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(list_oracles))
         .route("/:oracleId/:key/feed", get(get_price_feed))
