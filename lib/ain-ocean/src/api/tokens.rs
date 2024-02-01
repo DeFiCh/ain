@@ -4,7 +4,7 @@ use ain_macros::ocean_endpoint;
 use axum::{extract::Path, routing::get, Extension, Router};
 use defichain_rpc::{
     json::token::{TokenInfo, TokenResult},
-    Client, RpcApi,
+    RpcApi,
 };
 use serde::Serialize;
 use serde_json::json;

@@ -12,7 +12,7 @@ use crate::{
 };
 
 impl Index for PoolSwap {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[Poolswap] Indexing...");
         let txid = ctx.tx.txid;
         let idx = ctx.tx_idx;
@@ -45,7 +45,7 @@ impl Index for PoolSwap {
             .put(&(pool_id, ctx.block.height, idx), &swap)
     }
 
-    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let txid = ctx.tx.txid;
         let Some(TxResult::PoolSwap(PoolSwapResult { pool_id, .. })) =
             services.result.get(&txid)?
@@ -57,12 +57,12 @@ impl Index for PoolSwap {
             .pool
             .by_id
             .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
-        tx_result::invalidate(services.clone(), &txid)
+        tx_result::invalidate(services, &txid)
     }
 }
 
 impl Index for CompositeSwap {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
@@ -98,7 +98,7 @@ impl Index for CompositeSwap {
         Ok(())
     }
 
-    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         for pool in self.pools.as_ref() {
             let pool_id = pool.id.0 as u32;
             services
@@ -106,6 +106,6 @@ impl Index for CompositeSwap {
                 .by_id
                 .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
         }
-        tx_result::invalidate(services.clone(), &ctx.tx.txid)
+        tx_result::invalidate(services, &ctx.tx.txid)
     }
 }

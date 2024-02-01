@@ -19,9 +19,9 @@ use crate::{
 };
 
 pub(crate) trait Index {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()>;
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
-    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()>;
+    fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 }
 
 pub struct Context {
@@ -35,7 +35,7 @@ fn log_elapsed(previous: Instant, msg: &str) {
     debug!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }
 
-pub fn index_block(services: Arc<Services>, block: Block<Transaction>) -> Result<()> {
+pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
 
@@ -94,23 +94,23 @@ pub fn index_block(services: Arc<Services>, block: Block<Transaction>) -> Result
             debug!("dftx : {:?}", dftx);
 
             match &dftx {
-                DfTx::CreateMasternode(data) => data.index(services.clone(), &ctx)?,
-                DfTx::UpdateMasternode(data) => data.index(services.clone(), &ctx)?,
-                DfTx::ResignMasternode(data) => data.index(services.clone(), &ctx)?,
-                // DfTx::AppointOracle(data) => data.index(services.clone(),&ctx)?,
-                // DfTx::RemoveOracle(data) => data.index(services.clone(),&ctx)?,
-                // DfTx::UpdateOracle(data) => data.index(services.clone(),&ctx)?,
-                // DfTx::SetOracleData(data) => data.index(services.clone(),&ctx)?,
-                DfTx::PoolSwap(data) => data.index(services.clone(), &ctx)?,
-                DfTx::CompositeSwap(data) => data.index(services.clone(), &ctx)?,
-                DfTx::PlaceAuctionBid(data) => data.index(services.clone(), &ctx)?,
+                DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
+                DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
+                DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
+                // DfTx::AppointOracle(data) => data.index(services,&ctx)?,
+                // DfTx::RemoveOracle(data) => data.index(services,&ctx)?,
+                // DfTx::UpdateOracle(data) => data.index(services,&ctx)?,
+                // DfTx::SetOracleData(data) => data.index(services,&ctx)?,
+                DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
 
                 _ => (),
             }
             log_elapsed(start, &format!("Indexed tx {:?}", dftx));
         }
 
-        index_transaction(services.clone(), ctx)?;
+        index_transaction(services, ctx)?;
     }
 
     log_elapsed(start, "Indexed block");

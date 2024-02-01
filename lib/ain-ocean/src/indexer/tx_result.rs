@@ -5,7 +5,7 @@ use bitcoin::{hashes::Hash, Txid};
 use crate::{model::TxResult, repository::RepositoryOps, Result, Services};
 
 pub fn index(
-    services: Arc<Services>,
+    services: &Arc<Services>,
     tx_type: u8,
     tx_hash: [u8; 32],
     result_ptr: usize,
@@ -15,6 +15,6 @@ pub fn index(
     services.result.put(&txid, &result)
 }
 
-pub fn invalidate(services: Arc<Services>, txid: &Txid) -> Result<()> {
+pub fn invalidate(services: &Arc<Services>, txid: &Txid) -> Result<()> {
     services.result.delete(txid)
 }

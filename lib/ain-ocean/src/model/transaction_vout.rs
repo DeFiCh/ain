@@ -1,4 +1,4 @@
-use bitcoin::{Amount, ScriptBuf, Txid};
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 pub type TransactionVoutKey = (Txid, usize);

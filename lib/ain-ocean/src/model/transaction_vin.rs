@@ -1,15 +1,9 @@
-use bitcoin::{ScriptBuf, Txid};
-use defichain_rpc::{
-    defichain_rpc_json::blockchain::Vout,
-    json::blockchain::{Transaction, Vin},
-};
+use bitcoin::Txid;
+use defichain_rpc::json::blockchain::Vin;
 use serde::{Deserialize, Serialize};
 
 use super::TransactionVout;
 
-pub type TransactionVinKey = (Txid, Txid, u32);
-
-pub type TransactionVinVoutKey = (Txid, usize);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVin {
     pub id: String,

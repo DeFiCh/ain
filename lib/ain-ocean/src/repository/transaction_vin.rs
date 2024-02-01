@@ -5,7 +5,7 @@ use ain_macros::Repository;
 
 use super::RepositoryOps;
 use crate::{
-    model::{TransactionVin, TransactionVinKey},
+    model::TransactionVin,
     storage::{columns, ocean_store::OceanStore},
     Result,
 };

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use bitcoin::{hashes::Hash, PubkeyHash, ScriptBuf, WPubkeyHash};
-use defichain_rpc::json::blockchain::VinStandard;
 use dftx_rs::masternode::*;
 use log::debug;
 
@@ -24,7 +23,7 @@ fn get_operator_script(hash: &PubkeyHash, r#type: u8) -> Result<ScriptBuf> {
 }
 
 impl Index for CreateMasternode {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CreateMasternode] Indexing...");
         let txid = ctx.tx.txid;
         let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses else {
@@ -54,7 +53,7 @@ impl Index for CreateMasternode {
             .put(&(ctx.block.height, ctx.tx_idx), &txid)
     }
 
-    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CreateMasternode] Invalidating...");
         services.masternode.by_id.delete(&ctx.tx.txid)?;
         services
@@ -65,7 +64,7 @@ impl Index for CreateMasternode {
 }
 
 impl Index for UpdateMasternode {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[UpdateMasternode] Indexing...");
         if let Some(mut mn) = services.masternode.by_id.get(&self.node_id)? {
             mn.history.push(HistoryItem {
@@ -96,7 +95,7 @@ impl Index for UpdateMasternode {
         Ok(())
     }
 
-    fn invalidate(&self, services: Arc<Services>, _ctx: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         debug!("[UpdateMasternode] Invalidating...");
         if let Some(mut mn) = services.masternode.by_id.get(&self.node_id)? {
             if let Some(history_item) = mn.history.pop() {
@@ -111,7 +110,7 @@ impl Index for UpdateMasternode {
 }
 
 impl Index for ResignMasternode {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[ResignMasternode] Indexing...");
         if let Some(mn) = services.masternode.by_id.get(&self.node_id)? {
             services.masternode.by_id.put(
@@ -126,7 +125,7 @@ impl Index for ResignMasternode {
         Ok(())
     }
 
-    fn invalidate(&self, services: Arc<Services>, _ctx: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         debug!("[ResignMasternode] Invalidating...");
         if let Some(mn) = services.masternode.by_id.get(&self.node_id)? {
             services.masternode.by_id.put(

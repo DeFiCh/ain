@@ -12,7 +12,7 @@ use crate::{
 };
 
 impl Index for PlaceAuctionBid {
-    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[PlaceAuctionBid] Indexing...");
 
         let auction = VaultAuctionBatchHistory {
@@ -36,7 +36,7 @@ impl Index for PlaceAuctionBid {
         )
     }
 
-    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+    fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[PlaceAuctionBid] Invalidating...");
         services
             .auction

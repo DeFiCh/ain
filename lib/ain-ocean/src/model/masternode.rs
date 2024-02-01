@@ -1,4 +1,4 @@
-use bitcoin::{ScriptBuf, Txid};
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;

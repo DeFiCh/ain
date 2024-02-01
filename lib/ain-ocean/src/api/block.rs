@@ -3,7 +3,6 @@ use std::sync::Arc;
 use ain_macros::ocean_endpoint;
 use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::BlockHash;
-use defichain_rpc::Client;
 use serde::{Deserialize, Deserializer};
 
 use super::response::{ApiPagedResponse, Response};

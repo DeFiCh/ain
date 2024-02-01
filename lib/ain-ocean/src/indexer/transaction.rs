@@ -14,7 +14,7 @@ use crate::{
     Services,
 };
 
-pub fn index_transaction(services: Arc<Services>, ctx: Context) -> Result<()> {
+pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     debug!("[index_transaction] Indexing...");
     let idx = ctx.tx_idx;
     let is_evm = check_if_evm_tx(&ctx.tx);
