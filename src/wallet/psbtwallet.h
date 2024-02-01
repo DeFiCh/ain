@@ -26,6 +26,7 @@
  */
 NODISCARD TransactionError FillPSBT(const CWallet* pwallet,
               PartiallySignedTransaction& psbtx,
+              const PrecomputedTransactionData& txdata,
               bool& complete,
               int sighash_type = 1 /* SIGHASH_ALL */,
               bool sign = true,
