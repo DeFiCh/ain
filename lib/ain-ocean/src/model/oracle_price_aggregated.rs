@@ -2,11 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
+pub type OraclePriceAggregatedId = (String, String, u32);
+pub type OraclePriceAggregatedKey = (String, String);
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregated {
-    pub id: String,
-    pub key: String,
+    pub id: OraclePriceAggregatedId,
+    pub key: OraclePriceAggregatedKey,
     pub sort: String,
     pub token: String,
     pub currency: String,

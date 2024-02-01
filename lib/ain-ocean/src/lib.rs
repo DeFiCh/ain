@@ -14,11 +14,11 @@ pub use indexer::{
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    PoolSwapRepository, RawBlockRepository, TransactionRepository, TransactionVinRepository,
-    TransactionVoutRepository, TxResultRepository,
     OraclePriceActiveRepository, OraclePriceAggregatedIntervalRepository,
-    OraclePriceAggregatedRepository, OraclePriceFeedRepository, OracleTokenCurrencyRepository,
- 
+    OraclePriceAggregatedRepository, OraclePriceAggregatedRepositorykey,
+    OraclePriceFeedKeyRepository, OraclePriceFeedRepository, OracleTokenCurrencyKeyRepository,
+    OracleTokenCurrencyRepository, PoolSwapRepository, RawBlockRepository, TransactionRepository,
+    TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -78,7 +78,7 @@ pub struct TransactionService {
 }
 
 pub struct OraclePriceFeedService {
-    by_key: OraclePriceFeedRepository,
+    by_key: OraclePriceFeedKeyRepository,
     by_id: OraclePriceFeedRepository,
 }
 pub struct OraclePriceActiveService {
@@ -90,12 +90,12 @@ pub struct OraclePriceAggregatedIntervalService {
     by_id: OraclePriceAggregatedIntervalRepository,
 }
 pub struct OraclePriceAggregatedService {
-    by_key: OraclePriceAggregatedRepository,
+    by_key: OraclePriceAggregatedRepositorykey,
     by_id: OraclePriceAggregatedRepository,
 }
 
 pub struct OracleTokenCurrencyService {
-    by_key: OracleTokenCurrencyRepository,
+    by_key: OracleTokenCurrencyKeyRepository,
     by_id: OracleTokenCurrencyRepository,
 }
 pub struct Services {
@@ -140,7 +140,7 @@ impl Services {
                 vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
             },
             oracle_price_feed: OraclePriceFeedService {
-                by_key: OraclePriceFeedRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceFeedKeyRepository::new(Arc::clone(&store)),
                 by_id: OraclePriceFeedRepository::new(Arc::clone(&store)),
             },
             oracle_price_active: OraclePriceActiveService {
@@ -152,11 +152,11 @@ impl Services {
                 by_id: OraclePriceAggregatedIntervalRepository::new(Arc::clone(&store)),
             },
             oracle_price_aggregated: OraclePriceAggregatedService {
-                by_key: OraclePriceAggregatedRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceAggregatedRepositorykey::new(Arc::clone(&store)),
                 by_id: OraclePriceAggregatedRepository::new(Arc::clone(&store)),
             },
             oracle_token_currency: OracleTokenCurrencyService {
-                by_key: OracleTokenCurrencyRepository::new(Arc::clone(&store)),
+                by_key: OracleTokenCurrencyKeyRepository::new(Arc::clone(&store)),
                 by_id: OracleTokenCurrencyRepository::new(Arc::clone(&store)),
             },
             client,
