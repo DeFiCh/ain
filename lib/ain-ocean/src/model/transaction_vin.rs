@@ -1,35 +1,65 @@
-use bitcoin::{ScriptBuf, Sequence, Txid};
+use bitcoin::{ScriptBuf, Txid};
+use defichain_rpc::{
+    defichain_rpc_json::blockchain::Vout,
+    json::blockchain::{Transaction, Vin},
+};
 use serde::{Deserialize, Serialize};
+
+use super::TransactionVout;
 
 pub type TransactionVinKey = (Txid, Txid, u32);
 
 pub type TransactionVinVoutKey = (Txid, usize);
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVin {
+    pub id: String,
     pub txid: Txid,
-    pub coinbase: String,
-    pub vout: TransactionVinVout,
-    pub script: TransactionVinScript,
-    pub tx_in_witness: Vec<String>,
-    pub sequence: Sequence,
+    pub coinbase: Option<String>,
+    pub vout: Option<TransactionVinVout>,
+    pub script: Option<String>,
+    pub tx_in_witness: Option<Vec<String>>,
+    pub sequence: i64,
+}
+
+impl TransactionVin {
+    pub fn from_vin_and_txid(vin: Vin, txid: Txid, vouts: &Vec<TransactionVout>) -> Self {
+        match vin {
+            Vin::Coinbase(v) => Self {
+                id: format!("{}00", txid),
+                txid: txid,
+                coinbase: Some(v.coinbase),
+                sequence: v.sequence,
+                vout: None,
+                script: None,
+                tx_in_witness: None,
+            },
+            Vin::Standard(v) => {
+                let vout = vouts.get(v.vout as usize).map(|vout| TransactionVinVout {
+                    txid: vout.txid,
+                    value: vout.value,
+                    n: vout.n,
+                    token_id: vout.token_id,
+                    script: vout.script.hex.to_owned(),
+                });
+                Self {
+                    id: format!("{}{}{:x}", txid, v.txid, v.vout),
+                    txid: txid,
+                    sequence: v.sequence,
+                    vout,
+                    script: v.script_sig.hex,
+                    tx_in_witness: v.txinwitness,
+                    coinbase: None,
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionVinVout {
-    pub id: TransactionVinVoutKey,
     pub txid: Txid,
-    pub n: i32,
-    pub value: u32,
-    pub token_id: u8, // Can constrain u8 since it's unused and hardcoded to 0
-    pub script: TransactionVinVoutScript,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct TransactionVinScript {
-    pub hex: ScriptBuf,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct TransactionVinVoutScript {
-    pub hex: ScriptBuf,
+    pub n: usize,
+    pub value: f64,
+    pub token_id: u8,
+    pub script: String,
 }

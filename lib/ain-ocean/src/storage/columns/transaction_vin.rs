@@ -10,7 +10,7 @@ impl ColumnName for TransactionVin {
 }
 
 impl Column for TransactionVin {
-    type Index = model::TransactionVinKey;
+    type Index = String;
 }
 
 impl TypedColumn for TransactionVin {

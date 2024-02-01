@@ -6,9 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::OceanError;
-pub use indexer::{
-    index_block, invalidate_block, transaction::index_transaction, tx_result, BlockV2Info,
-};
+pub use indexer::{index_block, invalidate_block, transaction::index_transaction, tx_result};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
@@ -27,21 +25,34 @@ pub type Result<T> = std::result::Result<T, OceanError>;
 
 lazy_static::lazy_static! {
     // Global services exposed by the library
-    pub static ref SERVICES: Services = {
-        Services::new().expect("Error initialization Ocean services")
+    pub static ref SERVICES: Arc<Services> = {
+        let services = || {
+            let datadir = ain_cpp_imports::get_datadir();
+            let store = Arc::new(OceanStore::new(&PathBuf::from(datadir))?);
+
+            let (user, pass) = ain_cpp_imports::get_rpc_auth()?;
+            let client = Arc::new(Client::new(
+                &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
+                Auth::UserPass(user, pass),
+            )?);
+
+            Services::new(client, store)
+        };
+
+        Arc::new(services().expect("Error initialization Ocean services"))
     };
 }
 
 pub struct MasternodeService {
-    by_id: MasternodeRepository,
-    by_height: MasternodeByHeightRepository,
-    stats: MasternodeStatsRepository,
+    pub by_id: MasternodeRepository,
+    pub by_height: MasternodeByHeightRepository,
+    pub stats: MasternodeStatsRepository,
 }
 
 pub struct BlockService {
-    raw: RawBlockRepository,
-    by_id: BlockRepository,
-    by_height: BlockByHeightRepository,
+    pub raw: RawBlockRepository,
+    pub by_id: BlockRepository,
+    pub by_height: BlockByHeightRepository,
 }
 
 pub struct AuctionService {
@@ -60,26 +71,17 @@ pub struct TransactionService {
 }
 
 pub struct Services {
-    masternode: MasternodeService,
-    block: BlockService,
-    auction: AuctionService,
-    result: TxResultRepository,
-    pool: PoolService,
-    client: Arc<Client>,
-    transaction: TransactionService,
+    pub masternode: MasternodeService,
+    pub block: BlockService,
+    pub auction: AuctionService,
+    pub result: TxResultRepository,
+    pub pool: PoolService,
+    pub client: Arc<Client>,
+    pub transaction: TransactionService,
 }
 
 impl Services {
-    fn new() -> Result<Self> {
-        let datadir = ain_cpp_imports::get_datadir();
-        let store = Arc::new(OceanStore::new(&PathBuf::from(datadir))?);
-
-        let (user, pass) = ain_cpp_imports::get_rpc_auth()?;
-        let client = Arc::new(Client::new(
-            &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
-            Auth::UserPass(user, pass),
-        )?);
-
+    pub fn new(client: Arc<Client>, store: Arc<OceanStore>) -> Result<Self> {
         Ok(Self {
             masternode: MasternodeService {
                 by_id: MasternodeRepository::new(Arc::clone(&store)),

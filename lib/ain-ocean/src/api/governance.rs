@@ -3,14 +3,14 @@ use std::sync::Arc;
 use ain_macros::ocean_endpoint;
 use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::Txid;
-use defichain_rpc::{json::governance::*, Client, GovernanceRPC};
+use defichain_rpc::{json::governance::*, GovernanceRPC};
 use serde::Deserialize;
 
 use super::response::{ApiPagedResponse, Response};
 use crate::{
     api_query::{PaginationQuery, Query},
     error::{ApiError, NotFoundKind, OceanError},
-    Result,
+    Result, Services,
 };
 
 #[derive(Deserialize, Default)]
@@ -27,7 +27,7 @@ pub struct GovernanceQuery {
 #[ocean_endpoint]
 async fn list_gov_proposals(
     Query(query): Query<GovernanceQuery>,
-    Extension(client): Extension<Arc<Client>>,
+    Extension(services): Extension<Arc<Services>>,
 ) -> Result<ApiPagedResponse<ProposalInfo>> {
     let size = match query.all {
         Some(true) => 0,
@@ -43,7 +43,7 @@ async fn list_gov_proposals(
         r#type: query.r#type,
         cycle: query.cycle,
     };
-    let proposals = client.list_gov_proposals(Some(opts))?;
+    let proposals = services.client.list_gov_proposals(Some(opts))?;
 
     Ok(ApiPagedResponse::of(proposals, size, |proposal| {
         proposal.proposal_id.to_string()
@@ -53,13 +53,13 @@ async fn list_gov_proposals(
 #[ocean_endpoint]
 async fn get_gov_proposal(
     Path(proposal_id): Path<String>,
-    Extension(client): Extension<Arc<Client>>,
+    Extension(services): Extension<Arc<Services>>,
 ) -> Result<Response<ProposalInfo>> {
     let txid: Txid = proposal_id
         .parse()
         .map_err(|_| OceanError::NotFound(NotFoundKind::Proposal))?;
 
-    let proposal = client.get_gov_proposal(txid)?;
+    let proposal = services.client.get_gov_proposal(txid)?;
     Ok(Response::new(proposal))
 }
 
@@ -67,7 +67,7 @@ async fn get_gov_proposal(
 async fn list_gov_proposal_votes(
     Path(proposal_id): Path<String>,
     Query(query): Query<GovernanceQuery>,
-    Extension(client): Extension<Arc<Client>>,
+    Extension(services): Extension<Arc<Services>>,
 ) -> Result<ApiPagedResponse<ListVotesResult>> {
     let proposal_id: Txid = proposal_id
         .parse()
@@ -96,7 +96,7 @@ async fn list_gov_proposal_votes(
         aggregate: None,
         valid: None,
     };
-    let votes = client.list_gov_proposal_votes(Some(opts))?;
+    let votes = services.client.list_gov_proposal_votes(Some(opts))?;
     let len = votes.len();
     Ok(ApiPagedResponse::of(votes, size, |_| {
         if let Some(next) = start {
@@ -107,10 +107,10 @@ async fn list_gov_proposal_votes(
     }))
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/proposals", get(list_gov_proposals))
         .route("/proposals/:id", get(get_gov_proposal))
         .route("/proposals/:id/votes", get(list_gov_proposal_votes))
-        .layer(Extension(state))
+        .layer(Extension(services))
 }

@@ -41,7 +41,7 @@ async fn get_oracles(Path(PriceKey { key }): Path<PriceKey>) -> String {
     format!("Oracles for price with key {}", key)
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(list_prices))
         .route("/:key", get(get_price))

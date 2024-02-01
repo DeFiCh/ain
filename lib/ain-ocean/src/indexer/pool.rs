@@ -1,27 +1,31 @@
-use dftx_rs::{pool::*, Transaction};
+use std::sync::Arc;
+
+use dftx_rs::pool::*;
 use log::debug;
 
+use super::Context;
 use crate::{
     indexer::{tx_result, Index, Result},
-    model::{self, BlockContext, PoolSwapResult, TxResult},
+    model::{self, PoolSwapResult, TxResult},
     repository::RepositoryOps,
-    SERVICES,
+    Services,
 };
 
 impl Index for PoolSwap {
-    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
+    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[Poolswap] Indexing...");
-        let txid = tx.txid();
+        let txid = ctx.tx.txid;
+        let idx = ctx.tx_idx;
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
-            SERVICES.result.get(&txid)?
+            services.result.get(&txid)?
         else {
-            println!("Missing swap result for {}", tx.txid().to_string());
+            debug!("Missing swap result for {}", ctx.tx.txid.to_string());
             return Err("Missing swap result".into());
         };
 
         let swap = model::PoolSwap {
             id: format!("{}-{}", pool_id, txid),
-            sort: format!("{}-{}", ctx.height, idx),
+            sort: format!("{}-{}", ctx.block.height, idx),
             txid: txid,
             txno: idx,
             from_amount: self.from_amount,
@@ -31,34 +35,40 @@ impl Index for PoolSwap {
             pool_id,
             from: self.from_script.clone(),
             to: self.to_script.clone(),
-            block: ctx.clone(),
+            block: ctx.block.clone(),
         };
         debug!("swap : {:?}", swap);
 
-        SERVICES.pool.by_id.put(&(pool_id, ctx.height, idx), &swap)
+        services
+            .pool
+            .by_id
+            .put(&(pool_id, ctx.block.height, idx), &swap)
     }
 
-    fn invalidate(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
-        let txid = tx.txid();
+    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
+        let txid = ctx.tx.txid;
         let Some(TxResult::PoolSwap(PoolSwapResult { pool_id, .. })) =
-            SERVICES.result.get(&txid)?
+            services.result.get(&txid)?
         else {
             return Err("Missing swap result".into());
         };
 
-        SERVICES.pool.by_id.delete(&(pool_id, ctx.height, idx))?;
-        tx_result::invalidate(&txid)
+        services
+            .pool
+            .by_id
+            .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
+        tx_result::invalidate(services.clone(), &txid)
     }
 }
 
 impl Index for CompositeSwap {
-    fn index(&self, ctx: &BlockContext, tx: &Transaction, idx: usize) -> Result<()> {
+    fn index(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CompositeSwap] Indexing...");
-        let txid = tx.txid();
+        let txid = ctx.tx.txid;
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
-            SERVICES.result.get(&txid)?
+            services.result.get(&txid)?
         else {
-            println!("Missing swap result for {}", txid.to_string());
+            debug!("Missing swap result for {}", txid.to_string());
             return Err("Missing swap result".into());
         };
 
@@ -66,9 +76,9 @@ impl Index for CompositeSwap {
             let pool_id = pool.id.0 as u32;
             let swap = model::PoolSwap {
                 id: format!("{}-{}", pool_id, txid),
-                sort: format!("{}-{}", ctx.height, idx),
+                sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
                 txid: txid,
-                txno: idx,
+                txno: ctx.tx_idx,
                 from_amount: self.pool_swap.from_amount,
                 from_token_id: self.pool_swap.from_token_id.0,
                 to_token_id: self.pool_swap.to_token_id.0,
@@ -76,23 +86,26 @@ impl Index for CompositeSwap {
                 pool_id,
                 from: self.pool_swap.from_script.clone(),
                 to: self.pool_swap.to_script.clone(),
-                block: ctx.clone(),
+                block: ctx.block.clone(),
             };
             debug!("swap : {:?}", swap);
-            SERVICES
+            services
                 .pool
                 .by_id
-                .put(&(pool_id, ctx.height, idx), &swap)?;
+                .put(&(pool_id, ctx.block.height, ctx.tx_idx), &swap)?;
         }
 
         Ok(())
     }
 
-    fn invalidate(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
+    fn invalidate(&self, services: Arc<Services>, ctx: &Context) -> Result<()> {
         for pool in self.pools.as_ref() {
             let pool_id = pool.id.0 as u32;
-            SERVICES.pool.by_id.delete(&(pool_id, ctx.height, idx))?;
+            services
+                .pool
+                .by_id
+                .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
         }
-        tx_result::invalidate(&tx.txid())
+        tx_result::invalidate(services.clone(), &ctx.tx.txid)
     }
 }

@@ -21,8 +21,8 @@ fn get_db_options() -> Options {
     options.create_if_missing(true);
     options.create_missing_column_families(true);
 
-    let n = ain_cpp_imports::get_num_cores();
-    options.increase_parallelism(n);
+    let n = num_cpus::get();
+    options.increase_parallelism(n as i32);
 
     let mut env = rocksdb::Env::new().unwrap();
 
@@ -237,5 +237,11 @@ impl From<RocksDBError> for DBError {
 impl From<BincodeError> for DBError {
     fn from(e: BincodeError) -> Self {
         DBError::Bincode(e)
+    }
+}
+
+impl From<anyhow::Error> for DBError {
+    fn from(e: anyhow::Error) -> Self {
+        DBError::Custom(e)
     }
 }

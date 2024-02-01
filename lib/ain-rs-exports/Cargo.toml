@@ -25,6 +25,7 @@ hex.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 ethabi.workspace = true
+defichain-rpc.workspace = true
 
 # Build
 cxx.workspace = true

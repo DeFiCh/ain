@@ -16,7 +16,7 @@ use super::{
 use crate::{
     api_query::{PaginationQuery, Query},
     error::ApiError,
-    Result,
+    Result, Services,
 };
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -90,9 +90,9 @@ impl TokenData {
 #[ocean_endpoint]
 async fn list_tokens(
     Query(query): Query<PaginationQuery>,
-    Extension(client): Extension<Arc<Client>>,
+    Extension(services): Extension<Arc<Services>>,
 ) -> Result<ApiPagedResponse<TokenData>> {
-    let tokens: TokenResult = client.call(
+    let tokens: TokenResult = services.client.call(
         "listtokens",
         &[
             json!({
@@ -115,9 +115,9 @@ async fn list_tokens(
 #[ocean_endpoint]
 async fn get_token(
     Path(id): Path<u32>,
-    Extension(client): Extension<Arc<Client>>,
+    Extension(services): Extension<Arc<Services>>,
 ) -> Result<Response<Option<TokenData>>> {
-    let mut v: TokenResult = client.call("gettoken", &[id.into()])?;
+    let mut v: TokenResult = services.client.call("gettoken", &[id.into()])?;
 
     let res = if let Some(token) = v.0.remove(&id) {
         Some(TokenData::from_with_id(id, token))
@@ -128,9 +128,9 @@ async fn get_token(
     Ok(Response::new(res))
 }
 
-pub fn router(state: Arc<Client>) -> Router {
+pub fn router(services: Arc<Services>) -> Router {
     Router::new()
         .route("/", get(list_tokens))
         .route("/:id", get(get_token))
-        .layer(Extension(state))
+        .layer(Extension(services))
 }
