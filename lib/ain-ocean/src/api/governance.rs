@@ -54,13 +54,13 @@ async fn list_gov_proposals(
 async fn get_gov_proposal(
     Path(proposal_id): Path<String>,
     Extension(services): Extension<Arc<Services>>,
-) -> Result<ProposalInfo> {
+) -> Result<Response<ProposalInfo>> {
     let txid: Txid = proposal_id
         .parse()
         .map_err(|_| OceanError::NotFound(NotFoundKind::Proposal))?;
 
     let proposal = services.client.get_gov_proposal(txid)?;
-    Ok(proposal)
+    Ok(Response::new(proposal))
 }
 
 #[ocean_endpoint]

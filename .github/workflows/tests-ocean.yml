@@ -77,14 +77,6 @@ jobs:
         with:
           node-version: '18'
 
-      - uses: actions/checkout@v4
-        with:
-          path: defichain
-          ref: 'feature/ocean-archive'
-
-      - name: Populate environment
-        run: cd defichain && ./make.sh ci-export-vars
-
       - name: Run tests
         run: |
           npm ci
