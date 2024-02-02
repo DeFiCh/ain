@@ -1,12 +1,11 @@
 pub mod eth;
 pub mod params;
-pub mod sync_status;
 
-use ethereum_types::H256;
+use ethereum_types::{H256, U256};
 use jsonrpsee::core::traits::IdProvider;
 use serde::{Serialize, Serializer};
 
-use crate::{block::RpcBlockHeader, logs::LogResult, subscription::sync_status::PubSubSyncStatus};
+use crate::{block::RpcBlockHeader, logs::LogResult};
 
 /// Subscription result.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -18,7 +17,7 @@ pub enum PubSubResult {
     /// Transaction hash
     TransactionHash(H256),
     /// SyncStatus
-    SyncState(PubSubSyncStatus),
+    SyncState(SyncStatus),
 }
 
 impl Serialize for PubSubResult {
@@ -33,6 +32,15 @@ impl Serialize for PubSubResult {
             PubSubResult::SyncState(ref sync) => sync.serialize(serializer),
         }
     }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    pub syncing: bool,
+    pub starting_block: U256,
+    pub current_block: U256,
+    pub highest_block: U256,
 }
 
 #[derive(Debug, Default)]

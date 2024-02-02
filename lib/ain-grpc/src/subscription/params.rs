@@ -1,6 +1,5 @@
 use ethereum_types::{H160, H256};
-use serde::{de::Error, Deserialize, Deserializer};
-use serde_json::{from_value, Value};
+use serde::Deserialize;
 use serde_with::{serde_as, OneOrMany};
 
 /// Subscription kind.
@@ -22,42 +21,15 @@ pub enum Subscription {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct LogsSubscriptionParams {
+pub struct SubscriptionParams {
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub address: Option<Vec<H160>>,
-    pub topics: Option<LogsSubscriptionParamsTopics>,
+    pub topics: Option<SubscriptionParamsTopics>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
 #[serde(untagged)]
-pub enum LogsSubscriptionParamsTopics {
+pub enum SubscriptionParamsTopics {
     VecOfHashes(Vec<Option<H256>>),
     VecOfHashVecs(Vec<Vec<Option<H256>>>),
-}
-
-/// Subscription kind.
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Default)]
-pub enum SubscriptionParams {
-    /// No parameters passed.
-    #[default]
-    None,
-    // Log parameters.
-    Logs(LogsSubscriptionParams),
-}
-
-impl<'a> Deserialize<'a> for SubscriptionParams {
-    fn deserialize<D>(deserializer: D) -> Result<SubscriptionParams, D::Error>
-    where
-        D: Deserializer<'a>,
-    {
-        let v: Value = Deserialize::deserialize(deserializer)?;
-
-        if v.is_null() {
-            return Ok(SubscriptionParams::None);
-        }
-
-        from_value(v)
-            .map(SubscriptionParams::Logs)
-            .map_err(|e| Error::custom(format!("Invalid logs parameters: {}", e)))
-    }
 }

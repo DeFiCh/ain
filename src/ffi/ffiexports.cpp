@@ -371,6 +371,10 @@ size_t getEvmValidationLruCacheCount() {
     return gArgs.GetArg("-evmvlrucache", DEFAULT_EVMV_LRU_CACHE_COUNT);
 }
 
+size_t getEvmNotificationChannelBufferSize() {
+    return gArgs.GetArg("-evmnotificationchannel", DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE);
+}
+
 bool isEthDebugRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebug", DEFAULT_ETH_DEBUG_ENABLED);
 }

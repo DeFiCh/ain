@@ -20,6 +20,7 @@ static constexpr int64_t DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE = 60;
 
 static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_COUNT = 10000;
 static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
+static constexpr uint32_t DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE = 10000;
 
 static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
@@ -90,6 +91,7 @@ rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
 size_t getEccLruCacheCount();
 size_t getEvmValidationLruCacheCount();
+size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
 

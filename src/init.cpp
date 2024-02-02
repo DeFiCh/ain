@@ -430,6 +430,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ecclrucache=<n>", strprintf("Maximum ECC LRU cache size <n> items (default: %d).", DEFAULT_ECC_LRU_CACHE_COUNT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-evmvlrucache=<n>", strprintf("Maximum EVM TX Validator LRU cache size <n> items (default: %d).", DEFAULT_EVMV_LRU_CACHE_COUNT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-eccprecache=<n>", strprintf("ECC pre-cache concurrency control (default: %d, (-1: auto, 0: disable, <n>: workers).", DEFAULT_ECC_PRECACHE_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-evmnotificationchannel=<n>", strprintf("Maximum EVM notification channel's buffer size (default: %d).", DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-includeconf=<file>", "Specify additional configuration file, relative to the -datadir path (only useable from configuration file, not command line)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
