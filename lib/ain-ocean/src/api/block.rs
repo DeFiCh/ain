@@ -88,7 +88,9 @@ async fn get_transactions(
 
 // Get highest indexed block
 #[ocean_endpoint]
-async fn get_highest(Extension(services): Extension<Arc<Services>>) -> Result<Response<Option<Block>>> {
+async fn get_highest(
+    Extension(services): Extension<Arc<Services>>,
+) -> Result<Response<Option<Block>>> {
     let block = services.block.by_height.get_highest()?;
 
     Ok(Response::new(block))
