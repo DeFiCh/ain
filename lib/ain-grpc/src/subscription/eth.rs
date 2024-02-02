@@ -7,12 +7,11 @@ use ain_evm::{
 use anyhow::format_err;
 use ethereum_types::U256;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
-use log::{debug, info};
+use log::debug;
 use tokio::runtime::Handle as AsyncHandle;
 
 use crate::subscription::{
-    params::{Subscription, SubscriptionParams, SubscriptionParamsTopics},
-    PubSubResult, SyncStatus,
+    PubSubResult, Subscription, SubscriptionParams, SubscriptionParamsTopics, SyncStatus,
 };
 
 /// Metachain WebSockets interface.
@@ -75,7 +74,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             }
                         }
                     }
-                    info!("Ws connection ended, thread closing");
+                    debug!("Ws connection ended, thread closing");
                     Ok::<(), anyhow::Error>(())
                 };
                 self.tokio_runtime.spawn(fut);
@@ -131,7 +130,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             }
                         }
                     }
-                    info!("Ws connection ended, thread closing");
+                    debug!("Ws connection ended, thread closing");
                     Ok::<(), anyhow::Error>(())
                 };
                 self.tokio_runtime.spawn(fut);
@@ -145,7 +144,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             }
                         }
                     }
-                    info!("Ws connection ended, thread closing");
+                    debug!("Ws connection ended, thread closing");
                     Ok::<(), anyhow::Error>(())
                 };
                 self.tokio_runtime.spawn(fut);
@@ -197,7 +196,7 @@ impl MetachainPubSubServer for MetachainPubSubModule {
                             last_sync_status = sync_status;
                         }
                     }
-                    info!("Ws connection ended, thread closing");
+                    debug!("Ws connection ended, thread closing");
                     Ok::<(), anyhow::Error>(())
                 };
                 self.tokio_runtime.spawn(fut);

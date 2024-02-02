@@ -1,11 +1,52 @@
 pub mod eth;
-pub mod params;
 
-use ethereum_types::{H256, U256};
+use ethereum_types::{H160, H256, U256};
 use jsonrpsee::core::traits::IdProvider;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
+use serde_with::{serde_as, OneOrMany};
 
 use crate::{block::RpcBlockHeader, logs::LogResult};
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    pub syncing: bool,
+    pub starting_block: U256,
+    pub current_block: U256,
+    pub highest_block: U256,
+}
+
+/// Subscription kind.
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum Subscription {
+    /// New block headers subscription.
+    NewHeads,
+    /// Logs subscription.
+    Logs,
+    /// New Pending Transactions subscription.
+    NewPendingTransactions,
+    /// Node syncing status subscription.
+    Syncing,
+}
+
+#[serde_as]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionParams {
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub address: Option<Vec<H160>>,
+    pub topics: Option<SubscriptionParamsTopics>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Deserialize)]
+#[serde(untagged)]
+pub enum SubscriptionParamsTopics {
+    VecOfHashes(Vec<Option<H256>>),
+    VecOfHashVecs(Vec<Vec<Option<H256>>>),
+}
 
 /// Subscription result.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -32,15 +73,6 @@ impl Serialize for PubSubResult {
             PubSubResult::SyncState(ref sync) => sync.serialize(serializer),
         }
     }
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SyncStatus {
-    pub syncing: bool,
-    pub starting_block: U256,
-    pub current_block: U256,
-    pub highest_block: U256,
 }
 
 #[derive(Debug, Default)]
