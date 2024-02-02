@@ -15,8 +15,11 @@ static constexpr CAmount DEFAULT_EVM_RBF_FEE_INCREMENT = COIN / 10;
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
 static constexpr uint32_t DEFAULT_ETH_MAX_RESPONSE_SIZE_MB = 25;  // 25 megabytes
 
-// Defaults for attributes relating to gasprice oracle settings
+// Default for attributes relating to gasprice setting
 static constexpr int64_t DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE = 60;
+
+// Default for attributes relating to gasprice setting
+static constexpr uint64_t DEFAULT_ESTIMATE_GAS_ERROR_RATIO = 15;
 
 static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_COUNT = 10000;
 static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
@@ -76,6 +79,7 @@ uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
 uint32_t getEthMaxConnections();
 uint32_t getEthMaxResponseByteSize();
 int64_t getSuggestedPriorityFeePercentile();
+uint64_t getEstimateGasErrorRatio();
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<TransactionData> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);

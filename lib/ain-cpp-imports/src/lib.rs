@@ -54,6 +54,9 @@ mod ffi {
     pub fn getSuggestedPriorityFeePercentile() -> i64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEstimateGasErrorRatio() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getNetwork() -> String {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -181,6 +184,11 @@ pub fn get_max_response_byte_size() -> u32 {
 /// Gets the suggested priority fee percentile for suggested gas price Ethereum RPC calls.
 pub fn get_suggested_priority_fee_percentile() -> i64 {
     ffi::getSuggestedPriorityFeePercentile()
+}
+
+/// Gets the gas estimation error ratio for Ethereum RPC calls.
+pub fn get_estimate_gas_error_ratio() -> u64 {
+    ffi::getEstimateGasErrorRatio()
 }
 
 /// Retrieves the network identifier as a string.

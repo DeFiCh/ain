@@ -38,6 +38,7 @@ pub mod ffi {
         fn getEthMaxConnections() -> u32;
         fn getEthMaxResponseByteSize() -> u32;
         fn getSuggestedPriorityFeePercentile() -> i64;
+        fn getEstimateGasErrorRatio() -> u64;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
         fn getPoolTransactions() -> Vec<TransactionData>;
