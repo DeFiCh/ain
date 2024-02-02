@@ -667,6 +667,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethmaxresponsesize=<size>", strprintf("Set the maximum response size in MB by the ETH-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -2384,18 +2385,20 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
         }
 
-        // bind websocket addresses
-        for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
-            LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
-            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
-            if (!result.ok) {
-                LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid\n");
-                return false;
-            }
-            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
-            if (!res) {
-                LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
-                return false;
+        if (gArgs.GetBoolArg("-ethsubscription", DEFAULT_ETH_SUBSCRIPTION_ENABLED)) {
+            // bind websocket addresses
+            for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
+                LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
+                const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+                if (!result.ok) {
+                    LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid\n");
+                    return false;
+                }
+                auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
+                if (!res) {
+                    LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
+                    return false;
+                }
             }
         }
     }

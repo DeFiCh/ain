@@ -24,6 +24,7 @@ static constexpr uint32_t DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE = 10000;
 
 static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
+static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = false;
 
 struct Attributes {
     uint64_t blockGasTargetFactor;
@@ -94,5 +95,6 @@ size_t getEvmValidationLruCacheCount();
 size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
+bool isEthSubscriptionEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H
