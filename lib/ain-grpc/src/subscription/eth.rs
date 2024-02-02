@@ -54,7 +54,6 @@ impl MetachainPubSubServer for MetachainPubSubModule {
 
         let mut rx = self.handler.subscriptions.tx.subscribe();
         let handler = self.handler.clone();
-
         match subscription {
             Subscription::NewHeads => {
                 let fut = async move {
