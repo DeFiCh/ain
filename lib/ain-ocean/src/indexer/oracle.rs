@@ -1,17 +1,16 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
-use dftx_rs::{common::CompactVec, oracles::*, Transaction};
-use hyper::service::Service;
+use dftx_rs::oracles::*;
 
 use super::BlockContext;
 use crate::{
-    indexer::{Index, Result},
+    indexer::{Context, Index, Result},
     model::{
         OraclePriceAggregated, OraclePriceAggregatedAggregated,
-        OraclePriceAggregatedAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
+        OraclePriceAggregatedAggregatedOracles, OraclePriceFeed,
     },
     repository::RepositoryOps,
-    SERVICES,
+    Services,
 };
 
 impl Index for AppointOracle {
@@ -45,16 +44,16 @@ impl Index for UpdateOracle {
 }
 
 impl Index for SetOracleData {
-    fn index(&self, ctx: &BlockContext, tx: Transaction, idx: usize) -> Result<()> {
-        let feeds = map_price_feeds(vec![self], ctx, vec![tx])?;
+    fn index(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        let feeds = map_price_feeds(vec![self], vec![context])?;
         let mut pairs: HashSet<(String, String)> = HashSet::new();
         for feed in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
-            SERVICES.oracle_price_feed.by_id.put(&feed.id, &feed)?;
+            services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
 
         for (token, currency) in pairs.iter() {
-            let aggregated_value = map_price_aggregated(ctx.clone(), token, currency);
+            let aggregated_value = map_price_aggregated(services, context, token, currency);
 
             if let Some(value) = aggregated_value {
                 let aggreated_id = (
@@ -63,11 +62,11 @@ impl Index for SetOracleData {
                     value.block.height.clone(),
                 );
                 let aggreated_key = (value.token.clone(), value.currency.clone());
-                SERVICES
+                services
                     .oracle_price_aggregated
                     .by_id
                     .put(&aggreated_id, &value)?;
-                SERVICES
+                services
                     .oracle_price_aggregated
                     .by_key
                     .put(&aggreated_key, &aggreated_id)?;
@@ -82,12 +81,13 @@ impl Index for SetOracleData {
 }
 
 fn map_price_aggregated(
-    ctx: BlockContext,
+    services: &Arc<Services>,
+    ctx: &Context,
     token: &str,
     currency: &str,
 ) -> Option<OraclePriceAggregated> {
     // Convert Result to Option
-    let oracle_id = SERVICES
+    let oracle_id = services
         .oracle_token_currency
         .by_key
         .list(Some((token.to_string(), currency.to_string())))
@@ -98,7 +98,7 @@ fn map_price_aggregated(
         loop {
             match oracle_iter.next() {
                 Some(Ok((_, value))) => {
-                    let oracle = SERVICES.oracle_token_currency.by_id.get(&value);
+                    let oracle = services.oracle_token_currency.by_id.get(&value);
                     if let Ok(Some(oracle)) = oracle {
                         oracle_token_currencies.push(oracle);
                     }
@@ -130,13 +130,13 @@ fn map_price_aggregated(
         }
 
         let key = (token.to_string(), currency.to_string(), oracle.oracle_id);
-        let feed_id = SERVICES.oracle_price_feed.by_key.get(&key);
+        let feed_id = services.oracle_price_feed.by_key.get(&key);
 
         let feeds = match feed_id {
             Ok(feed_ids) => feed_ids.map_or_else(
                 || Ok(None),
                 |id| {
-                    SERVICES
+                    services
                         .oracle_price_feed
                         .by_id
                         .get(&id)
@@ -156,7 +156,7 @@ fn map_price_aggregated(
         }
 
         if let Some(oracle_price_feed) = oracle_price_feed {
-            if (oracle_price_feed.time - ctx.time) < 3600 {
+            if (oracle_price_feed.time - ctx.block.time as u64) < 3600 {
                 aggregated.oracles.active += 1;
                 aggregated.weightage += oracle.weightage;
 
@@ -178,28 +178,27 @@ fn map_price_aggregated(
     }
 
     Some(OraclePriceAggregated {
-        id: (token.to_string(), currency.to_string(), ctx.height),
+        id: (token.to_string(), currency.to_string(), ctx.block.height),
         key: (token.to_string(), currency.to_string()),
         sort: format!(
             "{}{}",
-            hex::encode(ctx.median_time.to_be_bytes()),
-            hex::encode(ctx.height.to_be_bytes())
+            hex::encode(ctx.block.median_time.to_be_bytes()),
+            hex::encode(ctx.block.height.to_be_bytes())
         ),
         token: token.to_string(),
         currency: currency.to_string(),
         aggregated,
-        block: ctx,
+        block: ctx.block.clone(),
     })
 }
 
 pub fn map_price_feeds(
     set_oracle_data: Vec<&SetOracleData>,
-    ctx: &BlockContext,
-    txns: Vec<Transaction>,
+    context: Vec<&Context>,
 ) -> Result<Vec<OraclePriceFeed>> {
     let mut result: Vec<OraclePriceFeed> = Vec::new();
 
-    for (idx, tx) in txns.into_iter().enumerate() {
+    for (idx, ctx) in context.into_iter().enumerate() {
         // Use indexing to access elements in set_oracle_data
         let set_data = &set_oracle_data[idx];
 
@@ -214,7 +213,7 @@ pub fn map_price_feeds(
                         token_price.token.clone(),
                         token_amount.currency.clone(),
                         set_data.oracle_id.to_string(),
-                        tx.txid(),
+                        ctx.tx.txid,
                     ),
 
                     key: (
@@ -222,19 +221,19 @@ pub fn map_price_feeds(
                         token_amount.currency.clone(),
                         set_data.oracle_id.to_string(),
                     ),
-                    sort: hex::encode(ctx.height.to_string() + &tx.txid().to_string()),
+                    sort: hex::encode(ctx.block.height.to_string() + &ctx.tx.txid.to_string()),
                     amount: token_amount.amount,
                     currency: token_amount.currency.clone(),
                     block: BlockContext {
-                        hash: ctx.hash.clone(),
-                        height: ctx.height,
-                        median_time: ctx.median_time,
-                        time: ctx.time,
+                        hash: ctx.block.hash.clone(),
+                        height: ctx.block.height,
+                        median_time: ctx.block.median_time,
+                        time: ctx.block.time,
                     },
                     oracle_id: set_data.oracle_id.to_string(),
                     time: set_data.timestamp as u64,
                     token: token_price.token.clone(),
-                    txid: tx.txid(),
+                    txid: ctx.tx.txid,
                 };
 
                 result.push(oracle_price_feed);
