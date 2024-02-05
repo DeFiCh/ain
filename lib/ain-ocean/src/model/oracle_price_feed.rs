@@ -14,7 +14,7 @@ pub struct OraclePriceFeed {
     pub sort: String,
     pub token: String,
     pub currency: String,
-    pub oracle_id: String,
+    pub oracle_id: Txid,
     pub txid: Txid,
     pub time: u64,
     pub amount: i64,

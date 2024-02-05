@@ -4,6 +4,7 @@ use dftx_rs::oracles::*;
 
 use super::BlockContext;
 use crate::{
+    error::OceanError,
     indexer::{Context, Index, Result},
     model::{
         OraclePriceAggregated, OraclePriceAggregatedAggregated,
@@ -55,7 +56,7 @@ impl Index for SetOracleData {
         for (token, currency) in pairs.iter() {
             let aggregated_value = map_price_aggregated(services, context, token, currency);
 
-            if let Some(value) = aggregated_value {
+            if let Ok(Some(value)) = aggregated_value {
                 let aggreated_id = (
                     value.token.clone(),
                     value.currency.clone(),
@@ -85,7 +86,7 @@ fn map_price_aggregated(
     ctx: &Context,
     token: &str,
     currency: &str,
-) -> Option<OraclePriceAggregated> {
+) -> Result<Option<OraclePriceAggregated>> {
     // Convert Result to Option
     let oracle_id = services
         .oracle_token_currency
@@ -174,10 +175,10 @@ fn map_price_aggregated(
     }
 
     if aggregated.oracles.active == 0 {
-        return None;
-    }
+        return Ok(None); // Replace with an appropriate error variant
+    };
 
-    Some(OraclePriceAggregated {
+    Ok(Some(OraclePriceAggregated {
         id: (token.to_string(), currency.to_string(), ctx.block.height),
         key: (token.to_string(), currency.to_string()),
         sort: format!(
@@ -189,7 +190,7 @@ fn map_price_aggregated(
         currency: currency.to_string(),
         aggregated,
         block: ctx.block.clone(),
-    })
+    }))
 }
 
 pub fn map_price_feeds(
@@ -224,13 +225,8 @@ pub fn map_price_feeds(
                     sort: hex::encode(ctx.block.height.to_string() + &ctx.tx.txid.to_string()),
                     amount: token_amount.amount,
                     currency: token_amount.currency.clone(),
-                    block: BlockContext {
-                        hash: ctx.block.hash.clone(),
-                        height: ctx.block.height,
-                        median_time: ctx.block.median_time,
-                        time: ctx.block.time,
-                    },
-                    oracle_id: set_data.oracle_id.to_string(),
+                    block: ctx.block.clone(),
+                    oracle_id: set_data.oracle_id,
                     time: set_data.timestamp as u64,
                     token: token_price.token.clone(),
                     txid: ctx.tx.txid,
