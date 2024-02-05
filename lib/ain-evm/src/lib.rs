@@ -20,6 +20,7 @@ mod precompiles;
 pub mod receipt;
 pub mod services;
 pub mod storage;
+pub mod subscription;
 pub mod transaction;
 mod trie;
 pub mod weiamount;

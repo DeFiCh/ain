@@ -115,6 +115,9 @@ mod ffi {
     pub fn getEvmValidationLruCacheCount() -> usize {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEvmNotificationChannelBufferSize() -> usize {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn isEthDebugRPCEnabled() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -285,6 +288,11 @@ pub fn get_ecc_lru_cache_count() -> usize {
 /// Gets the EVM LRU cache size.
 pub fn get_evmv_lru_cache_count() -> usize {
     ffi::getEvmValidationLruCacheCount()
+}
+
+/// Gets the EVM notification channel buffer size.
+pub fn get_evm_notification_channel_buffer_size() -> usize {
+    ffi::getEvmNotificationChannelBufferSize()
 }
 
 /// Whether ETH-RPC debug is enabled

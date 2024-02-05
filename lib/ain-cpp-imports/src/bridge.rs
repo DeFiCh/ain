@@ -57,6 +57,7 @@ pub mod ffi {
         fn getNumConnections() -> i32;
         fn getEccLruCacheCount() -> usize;
         fn getEvmValidationLruCacheCount() -> usize;
+        fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
     }

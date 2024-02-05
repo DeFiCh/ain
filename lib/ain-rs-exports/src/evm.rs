@@ -7,9 +7,9 @@ use ain_evm::{
     evm::FinalizedBlockInfo,
     executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
-    log::Notification,
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
+    subscription::Notification,
     transaction::{
         self,
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
@@ -846,17 +846,11 @@ fn evm_try_get_tx_miner_info_from_raw_tx(raw_tx: &str, mnview_ptr: usize) -> Res
 #[ffi_fallible]
 fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
     let signed_tx = SERVICES.evm.core.tx_cache.try_get_or_create(raw_tx)?;
-
-    debug!(
-        "[evm_try_dispatch_pending_transactions_event] {:#?}",
-        signed_tx.hash()
-    );
-    Ok(SERVICES
+    SERVICES
         .evm
-        .channel
-        .sender
-        .send(Notification::Transaction(signed_tx.hash()))
-        .map_err(|e| format_err!(e.to_string()))?)
+        .subscriptions
+        .send(Notification::Transaction(signed_tx.hash()))?;
+    Ok(())
 }
 
 #[ffi_fallible]
