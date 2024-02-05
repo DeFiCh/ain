@@ -201,7 +201,7 @@ pub fn map_price_feeds(
 
     for (idx, ctx) in context.into_iter().enumerate() {
         // Use indexing to access elements in set_oracle_data
-        let set_data = &set_oracle_data[idx];
+        let set_data = set_oracle_data[idx];
 
         // Use as_ref() to get a reference to the inner vector
         let token_prices = set_data.token_prices.as_ref();

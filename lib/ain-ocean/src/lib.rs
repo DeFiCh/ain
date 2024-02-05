@@ -12,10 +12,12 @@ use repository::{
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
     OraclePriceActiveRepository, OraclePriceAggregatedIntervalRepository,
     OraclePriceAggregatedRepository, OraclePriceAggregatedRepositorykey,
-    OraclePriceFeedKeyRepository, OraclePriceFeedRepository, OracleTokenCurrencyKeyRepository,
-    OracleTokenCurrencyRepository, PoolSwapRepository, RawBlockRepository, TransactionRepository,
-    TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    OraclePriceFeedKeyRepository, OraclePriceFeedRepository, OracleRepository,
+    OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository, PoolSwapRepository,
+    RawBlockRepository, TransactionRepository, TransactionVinRepository, TransactionVoutRepository,
+    TxResultRepository,
 };
+
 pub mod api;
 mod model;
 mod repository;
@@ -73,6 +75,9 @@ pub struct TransactionService {
     vout_by_id: TransactionVoutRepository,
 }
 
+pub struct OracleService {
+    by_id: OracleRepository,
+}
 pub struct OraclePriceFeedService {
     by_key: OraclePriceFeedKeyRepository,
     by_id: OraclePriceFeedRepository,
@@ -102,6 +107,7 @@ pub struct Services {
     pool: PoolService,
     client: Arc<Client>,
     transaction: TransactionService,
+    oracle: OracleService,
     oracle_price_feed: OraclePriceFeedService,
     oracle_price_active: OraclePriceActiveService,
     oracle_price_aggregated_interval: OraclePriceAggregatedIntervalService,
@@ -134,6 +140,9 @@ impl Services {
                 by_id: TransactionRepository::new(Arc::clone(&store)),
                 vin_by_id: TransactionVinRepository::new(Arc::clone(&store)),
                 vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
+            },
+            oracle: OracleService {
+                by_id: OracleRepository::new(Arc::clone(&store)),
             },
             oracle_price_feed: OraclePriceFeedService {
                 by_key: OraclePriceFeedKeyRepository::new(Arc::clone(&store)),
