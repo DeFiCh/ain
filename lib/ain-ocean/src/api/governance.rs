@@ -15,8 +15,6 @@ use crate::{
 
 #[derive(Deserialize, Default)]
 pub struct GovernanceQuery {
-    #[serde(flatten)]
-    pub pagination: PaginationQuery,
     pub status: Option<ListProposalsStatus>,
     pub r#type: Option<ListProposalsType>,
     pub cycle: Option<u64>,
@@ -26,12 +24,13 @@ pub struct GovernanceQuery {
 
 #[ocean_endpoint]
 async fn list_gov_proposals(
+    Query(pagination): Query<PaginationQuery>,
     Query(query): Query<GovernanceQuery>,
     Extension(services): Extension<Arc<Services>>,
 ) -> Result<ApiPagedResponse<ProposalInfo>> {
     let size = match query.all {
         Some(true) => 0,
-        _ => query.pagination.size,
+        _ => pagination.size,
     };
 
     let opts = ListProposalsOptions {
@@ -67,6 +66,7 @@ async fn get_gov_proposal(
 async fn list_gov_proposal_votes(
     Path(proposal_id): Path<String>,
     Query(query): Query<GovernanceQuery>,
+    Query(pagination): Query<PaginationQuery>,
     Extension(services): Extension<Arc<Services>>,
 ) -> Result<ApiPagedResponse<ListVotesResult>> {
     let proposal_id: Txid = proposal_id
@@ -75,14 +75,10 @@ async fn list_gov_proposal_votes(
 
     let size = match query.all {
         Some(true) => 0,
-        _ => query.pagination.size,
+        _ => pagination.size,
     };
 
-    let start = query
-        .pagination
-        .next
-        .map(|v| v.parse::<usize>())
-        .transpose()?;
+    let start = pagination.next.map(|v| v.parse::<usize>()).transpose()?;
 
     let opts = ListGovProposalVotesOptions {
         proposal_id: Some(proposal_id),
