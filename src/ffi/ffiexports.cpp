@@ -24,7 +24,7 @@ uint64_t getChainId() {
 }
 
 int getRPCPort() {
-    return BaseParams().RPCPort();
+    return gArgs.GetArg("-rpcport", BaseParams().RPCPort());
 }
 
 rust::string getRPCAuth() {
