@@ -4,6 +4,7 @@ use axum::{
     http::{request::Parts, StatusCode},
 };
 use serde::{de::DeserializeOwned, Deserialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 use crate::error::ApiError;
 
@@ -11,8 +12,10 @@ pub fn default_pagination_size() -> usize {
     30
 }
 
+#[serde_as]
 #[derive(Deserialize, Default, Debug)]
 pub struct PaginationQuery {
+    #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "default_pagination_size")]
     pub size: usize,
     pub next: Option<String>,

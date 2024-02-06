@@ -17,6 +17,7 @@ hyper.workspace = true
 keccak-hash.workspace = true
 log.workspace = true
 serde.workspace = true
+serde_with.workspace = true
 thiserror.workspace = true
 hex.workspace = true
 dftx-rs.workspace = true
