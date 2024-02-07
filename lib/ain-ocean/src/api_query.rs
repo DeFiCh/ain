@@ -3,7 +3,10 @@ use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::{
+    de::{DeserializeOwned, Deserializer},
+    Deserialize,
+};
 use serde_with::{serde_as, DisplayFromStr};
 
 use crate::error::ApiError;
@@ -18,7 +21,23 @@ pub struct PaginationQuery {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "default_pagination_size")]
     pub size: usize,
+    #[serde(deserialize_with = "undefined_to_none")]
     pub next: Option<String>,
+}
+
+fn undefined_to_none<'de, D>(d: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let v: Option<String> = Deserialize::deserialize(d)?;
+    match v {
+        Some(v) => if v.as_str() == "undefined" {
+            Ok(None)
+        } else {
+            Ok(Some(v))
+        },
+        None => Ok(None)
+    }
 }
 
 pub struct Query<T>(pub T);
