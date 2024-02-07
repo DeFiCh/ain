@@ -12,6 +12,7 @@ use serde_json::json;
 use super::{
     common::parse_display_symbol,
     response::{ApiPagedResponse, Response},
+    AppContext,
 };
 use crate::{
     api_query::{PaginationQuery, Query},
@@ -90,9 +91,9 @@ impl TokenData {
 #[ocean_endpoint]
 async fn list_tokens(
     Query(query): Query<PaginationQuery>,
-    Extension(services): Extension<Arc<Services>>,
+    Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TokenData>> {
-    let tokens: TokenResult = services.client.call(
+    let tokens: TokenResult = ctx.client.call(
         "listtokens",
         &[
             json!({
@@ -102,7 +103,7 @@ async fn list_tokens(
                 }),
             true.into(),
         ],
-    )?;
+    ).await?;
 
     let res = tokens
         .0
@@ -115,9 +116,9 @@ async fn list_tokens(
 #[ocean_endpoint]
 async fn get_token(
     Path(id): Path<u32>,
-    Extension(services): Extension<Arc<Services>>,
+    Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<TokenData>>> {
-    let mut v: TokenResult = services.client.call("gettoken", &[id.into()])?;
+    let mut v: TokenResult = ctx.client.call("gettoken", &[id.into()]).await?;
 
     let res = if let Some(token) = v.0.remove(&id) {
         Some(TokenData::from_with_id(id, token))
@@ -128,9 +129,9 @@ async fn get_token(
     Ok(Response::new(res))
 }
 
-pub fn router(services: Arc<Services>) -> Router {
+pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_tokens))
         .route("/:id", get(get_token))
-        .layer(Extension(services))
+        .layer(Extension(ctx))
 }

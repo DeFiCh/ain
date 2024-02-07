@@ -195,7 +195,7 @@ async fn list_dex_prices(Query(DexPrices { denomination }): Query<DexPrices>) ->
     format!("List of DEX prices with denomination {:?}", denomination)
 }
 
-pub fn router(services: Arc<Services>) -> Router {
+pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_poolpairs))
         .route("/:id", get(get_poolpair))

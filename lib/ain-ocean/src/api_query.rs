@@ -31,12 +31,8 @@ where
 {
     let v: Option<String> = Deserialize::deserialize(d)?;
     match v {
-        Some(v) => if v.as_str() == "undefined" {
-            Ok(None)
-        } else {
-            Ok(Some(v))
-        },
-        None => Ok(None)
+        Some(v) if v.as_str() != "undefined" => Ok(Some(v)),
+        _ => Ok(None),
     }
 }
 
