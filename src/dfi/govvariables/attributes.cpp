@@ -61,33 +61,35 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayVersions() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
-        {"locks",          AttributeTypes::Locks     },
-        {"oracles",        AttributeTypes::Oracles   },
-        {"params",         AttributeTypes::Param     },
-        {"poolpairs",      AttributeTypes::Poolpairs },
-        {"token",          AttributeTypes::Token     },
-        {"gov",            AttributeTypes::Governance},
-        {"transferdomain", AttributeTypes::Transfer  },
-        {"evm",            AttributeTypes::EVMType   },
-        {"vaults",         AttributeTypes::Vaults    },
-        {"rules",          AttributeTypes::Rules     },
+        {"locks",             AttributeTypes::Locks           },
+        {"oracles",           AttributeTypes::Oracles         },
+        {"params",            AttributeTypes::Param           },
+        {"poolpairs",         AttributeTypes::Poolpairs       },
+        {"token",             AttributeTypes::Token           },
+        {"gov",               AttributeTypes::Governance      },
+        {"transferdomain",    AttributeTypes::Transfer        },
+        {"evm",               AttributeTypes::EVMType         },
+        {"vaults",            AttributeTypes::Vaults          },
+        {"rules",             AttributeTypes::Rules           },
+        {"negative_interest", AttributeTypes::NegativeInterst },
     };
     return types;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
-        {AttributeTypes::Live,       "live"          },
-        {AttributeTypes::Locks,      "locks"         },
-        {AttributeTypes::Oracles,    "oracles"       },
-        {AttributeTypes::Param,      "params"        },
-        {AttributeTypes::Poolpairs,  "poolpairs"     },
-        {AttributeTypes::Token,      "token"         },
-        {AttributeTypes::Governance, "gov"           },
-        {AttributeTypes::Transfer,   "transferdomain"},
-        {AttributeTypes::EVMType,    "evm"           },
-        {AttributeTypes::Vaults,     "vaults"        },
-        {AttributeTypes::Rules,      "rules"         },
+        {AttributeTypes::Live,            "live"              },
+        {AttributeTypes::Locks,           "locks"             },
+        {AttributeTypes::Oracles,         "oracles"           },
+        {AttributeTypes::Param,           "params"            },
+        {AttributeTypes::Poolpairs,       "poolpairs"         },
+        {AttributeTypes::Token,           "token"             },
+        {AttributeTypes::Governance,      "gov"               },
+        {AttributeTypes::Transfer,        "transferdomain"    },
+        {AttributeTypes::EVMType,         "evm"               },
+        {AttributeTypes::Vaults,          "vaults"            },
+        {AttributeTypes::Rules,           "rules"             },
+        {AttributeTypes::NegativeInterst, "negative_interest" },
     };
     return types;
 }
@@ -226,6 +228,20 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayRulesIDs() {
     return params;
 }
 
+const std::map<std::string, uint8_t> &ATTRIBUTES::allowedNegativeInterestIDs() {
+    static const std::map<std::string, uint8_t> params{
+        {"automatic", NegativeInterestIDs::Automatic},
+    };
+    return params;
+}
+
+const std::map<uint8_t, std::string> &ATTRIBUTES::displayNegativeInterestIDs() {
+    static const std::map<uint8_t, std::string> params{
+        {NegativeInterestIDs::Automatic, "automatic"},
+    };
+    return params;
+}
+
 const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys() {
     static const std::map<uint8_t, std::map<std::string, uint8_t>> keys{
         {AttributeTypes::Token,
@@ -274,6 +290,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
              {"transferdomain", DFIPKeys::TransferDomain},
+             {"auto-negative-interest", DFIPKeys::AutoNegativeInterest},
          }},
         {AttributeTypes::EVMType,
          {
@@ -316,6 +333,11 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"core_op_return_max_size_bytes", RulesKeys::CoreOPReturn},
              {"dvm_op_return_max_size_bytes", RulesKeys::DVMOPReturn},
              {"evm_op_return_max_size_bytes", RulesKeys::EVMOPReturn},
+         }},
+         {AttributeTypes::NegativeInterst,
+         {
+             {"block_period", NegativeInterestKeys::BlockInterval},
+             {"burn_time_period", NegativeInterestKeys::BurnTimePeriod},
          }},
     };
     return keys;
@@ -372,6 +394,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
              {DFIPKeys::TransferDomain, "transferdomain"},
+             {DFIPKeys::AutoNegativeInterest, "auto-negative-interest"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -433,6 +456,11 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {RulesKeys::CoreOPReturn, "core_op_return_max_size_bytes"},
              {RulesKeys::DVMOPReturn, "dvm_op_return_max_size_bytes"},
              {RulesKeys::EVMOPReturn, "evm_op_return_max_size_bytes"},
+         }},
+         {AttributeTypes::NegativeInterst,
+         {
+             {NegativeInterestKeys::BlockInterval, "block_period"},
+             {NegativeInterestKeys::BurnTimePeriod, "burn_time_period"},
          }},
     };
     return keys;
@@ -750,6 +778,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
                  {DFIPKeys::TransferDomain, VerifyBool},
+                 {DFIPKeys::AutoNegativeInterest, VerifyBool},
              }},
             {AttributeTypes::Locks,
              {
@@ -796,6 +825,11 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {RulesKeys::CoreOPReturn, VerifyUInt64},
                  {RulesKeys::DVMOPReturn, VerifyUInt64},
                  {RulesKeys::EVMOPReturn, VerifyUInt64},
+             }},
+             {AttributeTypes::NegativeInterst,
+             {
+                 {NegativeInterestKeys::BlockInterval, VerifyUInt64},
+                 {NegativeInterestKeys::BurnTimePeriod, VerifyUInt64},
              }},
     };
     return parsers;
@@ -914,7 +948,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
                 typeKey != DFIPKeys::MNSetOwnerAddress && typeKey != DFIPKeys::GovernanceEnabled &&
                 typeKey != DFIPKeys::CFPPayout && typeKey != DFIPKeys::EmissionUnusedFund &&
                 typeKey != DFIPKeys::MintTokens && typeKey != DFIPKeys::EVMEnabled && typeKey != DFIPKeys::ICXEnabled &&
-                typeKey != DFIPKeys::TransferDomain) {
+                typeKey != DFIPKeys::TransferDomain && typeKey != DFIPKeys::AutoNegativeInterest) {
                 return DeFiErrors::GovVarVariableUnsupportedFeatureType(typeKey);
             }
         } else if (typeId == ParamIDs::Foundation) {
@@ -975,6 +1009,14 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
         if (typeId == RulesIDs::TXRules) {
             if (typeKey != RulesKeys::CoreOPReturn && typeKey != RulesKeys::DVMOPReturn &&
                 typeKey != RulesKeys::EVMOPReturn) {
+                return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
+            }
+        } else {
+            return DeFiErrors::GovVarVariableUnsupportedGovType();
+        }
+    } else if (type == AttributeTypes::NegativeInterst) {
+        if (typeId == NegativeInterestIDs::Automatic) {
+            if (typeKey != NegativeInterestKeys::BlockInterval && typeKey != NegativeInterestKeys::BurnTimePeriod) {
                 return DeFiErrors::GovVarVariableUnsupportedRulesType(typeKey);
             }
         } else {
@@ -1065,6 +1107,12 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
         auto id = allowedRulesIDs().find(keys[2]);
         if (id == allowedRulesIDs().end()) {
             return DeFiErrors::GovVarVariableInvalidKey("rules", allowedRulesIDs());
+        }
+        typeId = id->second;
+    } else if (type == AttributeTypes::NegativeInterst) {
+        auto id = allowedNegativeInterestIDs().find(keys[2]);
+        if (id == allowedNegativeInterestIDs().end()) {
+            return DeFiErrors::GovVarVariableInvalidKey("negative_interest", allowedNegativeInterestIDs());
         }
         typeId = id->second;
     } else {
@@ -1472,6 +1520,10 @@ Res ATTRIBUTES::CheckKeys() const {
             if (!displayRulesIDs().count(attrV0->typeId)) {
                 return DeFiErrors::GovVarVariableInvalidKey("rules", displayRulesIDs());
             }
+        } else if (attrV0->type == AttributeTypes::NegativeInterst) {
+            if (!displayNegativeInterestIDs().count(attrV0->typeId)) {
+                return DeFiErrors::GovVarVariableInvalidKey("negative_interest", displayNegativeInterestIDs());
+            }
         }
 
         // Check key - Locks and Oracles have height int keys so skip.
@@ -1518,6 +1570,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 id = displayVaultIDs().at(attrV0->typeId);
             } else if (attrV0->type == AttributeTypes::Rules) {
                 id = displayRulesIDs().at(attrV0->typeId);
+            } else if (attrV0->type == AttributeTypes::NegativeInterst) {
+                id = displayNegativeInterestIDs().at(attrV0->typeId);
             } else {
                 id = KeyBuilder(attrV0->typeId);
             }
@@ -1893,6 +1947,10 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                             return Res::Err("Cannot be set before MetachainHeight");
                         }
+                    } else if (attrV0->key == DFIPKeys::AutoNegativeInterest) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
+                            return Res::Err("Cannot be set before DF23Height");
+                        }
                     }
                 } else if (attrV0->typeId == ParamIDs::Foundation) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
@@ -1971,6 +2029,12 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Rules:
                 if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
                     return Res::Err("Cannot be set before Metachain");
+                }
+                break;
+
+            case AttributeTypes::NegativeInterst:
+                if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
+                    return Res::Err("Cannot be set before DF23Height");
                 }
                 break;
 

@@ -1,7 +1,9 @@
 #include <dfi/accountshistory.h>
 #include <dfi/auctionhistory.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/vaulthistory.h>
+#include <dfi/validation.h>
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
 extern std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol);
@@ -2197,26 +2199,80 @@ UniValue getloantokens(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+
+UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "estimatenegativeinterest",
+        "Estimate what the negative interest rate should be, not what is currently set.\n",
+        {
+
+        },
+        RPCResult{
+            "n    (numeric) The calculated negative interest rate\n"
+        },
+        RPCExamples{HelpExampleCli("estimatenegativeinterest", "")
+        + HelpExampleRpc("estimatenegativeinterest", "")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+
+    LOCK(cs_main);
+
+    auto attributes = pcustomcsview->GetAttributes();
+
+    const CDataStructureV0 burnTimeSampleKey{AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BurnTimePeriod};
+    const auto burnTimeSample = attributes->GetValue(burnTimeSampleKey, NEGATIVE_INT_BURN_TIME_SAMPLE);
+
+    const auto dusdBurned = GetDexBurnedDUSD(*pcustomcsview, *pburnHistoryDB, burnTimeSample);
+    const auto dusdLoaned = GetVaultLoanDUSD(*pcustomcsview);
+
+    if (!dusdBurned) {
+        throw JSONRPCError(RPC_MISC_ERROR, "No DUSD burned. Cannot calculate negative interest.");
+    }
+
+    if (!dusdLoaned) {
+        throw JSONRPCError(RPC_MISC_ERROR, "No DUSD loaned. Cannot calculate negative interest.");
+    }
+
+    const CAmount multiplyBy{1216000000};
+
+    auto result = DivideAmounts(dusdBurned, 2 * COIN);
+    result = MultiplyAmounts(result, multiplyBy);
+    result = DivideAmounts(result, dusdLoaned);
+
+    UniValue res(UniValue::VOBJ);
+    res.pushKV("dusdBurned", ValueFromAmount(dusdBurned));
+    res.pushKV("dusdLoaned", ValueFromAmount(dusdLoaned));
+    res.pushKV("negativeInterest", ValueFromAmount(-(result * 100)));
+
+    return GetRPCResultCache().Set(request, res);
+}
+
+
 static const CRPCCommand commands[] = {
   //  category        name                         actor (function)        params
   //  --------------- ----------------------       ---------------------   ----------
-    {"vault",  "createvault",        &createvault,        {"ownerAddress", "schemeId", "inputs"}     },
-    {"vault",  "closevault",         &closevault,         {"id", "returnAddress", "inputs"}          },
-    {"vault",  "listvaults",         &listvaults,         {"options", "pagination"}                  },
-    {"vault",  "getvault",           &getvault,           {"id", "verbose"}                          },
-    {"vault",  "listvaulthistory",   &listvaulthistory,   {"id", "options"}                          },
-    {"vault",  "updatevault",        &updatevault,        {"id", "parameters", "inputs"}             },
-    {"vault",  "deposittovault",     &deposittovault,     {"id", "from", "amount", "inputs"}         },
-    {"vault",  "withdrawfromvault",  &withdrawfromvault,  {"id", "to", "amount", "inputs"}           },
-    {"vault",  "placeauctionbid",    &placeauctionbid,    {"id", "index", "from", "amount", "inputs"}},
-    {"vault",  "listauctions",       &listauctions,       {"pagination"}                             },
-    {"vault",  "listauctionhistory", &listauctionhistory, {"owner", "pagination"}                    },
-    {"vault",  "estimateloan",       &estimateloan,       {"vaultId", "tokens", "targetRatio"}       },
-    {"vault",  "estimatecollateral", &estimatecollateral, {"loanAmounts", "targetRatio", "tokens"}   },
-    {"vault",  "estimatevault",      &estimatevault,      {"collateralAmounts", "loanAmounts"}       },
-    {"hidden", "getstoredinterest",  &getstoredinterest,  {"vaultId", "token"}                       },
-    {"hidden", "logstoredinterests", &logstoredinterests, {}                                         },
-    {"hidden", "getloantokens",      &getloantokens,      {"vaultId"}                                },
+    {"vault",  "createvault",              &createvault,              {"ownerAddress", "schemeId", "inputs"}     },
+    {"vault",  "closevault",               &closevault,               {"id", "returnAddress", "inputs"}          },
+    {"vault",  "listvaults",               &listvaults,               {"options", "pagination"}                  },
+    {"vault",  "getvault",                 &getvault,                 {"id", "verbose"}                          },
+    {"vault",  "listvaulthistory",         &listvaulthistory,         {"id", "options"}                          },
+    {"vault",  "updatevault",              &updatevault,              {"id", "parameters", "inputs"}             },
+    {"vault",  "deposittovault",           &deposittovault,           {"id", "from", "amount", "inputs"}         },
+    {"vault",  "withdrawfromvault",        &withdrawfromvault,        {"id", "to", "amount", "inputs"}           },
+    {"vault",  "placeauctionbid",          &placeauctionbid,          {"id", "index", "from", "amount", "inputs"}},
+    {"vault",  "listauctions",             &listauctions,             {"pagination"}                             },
+    {"vault",  "listauctionhistory",       &listauctionhistory,       {"owner", "pagination"}                    },
+    {"vault",  "estimateloan",             &estimateloan,             {"vaultId", "tokens", "targetRatio"}       },
+    {"vault",  "estimatecollateral",       &estimatecollateral,       {"loanAmounts", "targetRatio", "tokens"}   },
+    {"vault",  "estimatevault",            &estimatevault,            {"collateralAmounts", "loanAmounts"}       },
+    {"hidden", "getstoredinterest",        &getstoredinterest,        {"vaultId", "token"}                       },
+    {"hidden", "logstoredinterests",       &logstoredinterests,       {}                                         },
+    {"hidden", "getloantokens",            &getloantokens,            {"vaultId"}                                },
+    {"hidden", "estimatenegativeinterest", &estimatenegativeinterest, {""}                                       },
 };
 
 void RegisterVaultRPCCommands(CRPCTable &tableRPC) {

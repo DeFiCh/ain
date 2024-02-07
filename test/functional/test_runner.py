@@ -347,6 +347,7 @@ BASE_SCRIPTS = [
     "feature_update_mn.py",
     "feature_block_reward.py",
     "feature_negative_interest.py",
+    "feature_auto_negative_interest.py",
     "rpc_getstoredinterest.py",
     "feature_dusd_loans.py",
     # Don't append tests at the end to avoid merge conflicts

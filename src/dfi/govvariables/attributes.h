@@ -31,6 +31,7 @@ enum AttributeTypes : uint8_t {
     EVMType = 'e',
     Vaults = 'v',
     Rules = 'r',
+    NegativeInterst = 'n',
 };
 
 enum ParamIDs : uint8_t {
@@ -78,6 +79,10 @@ enum RulesIDs : uint8_t {
     TXRules = 'a',
 };
 
+enum NegativeInterestIDs : uint8_t {
+    Automatic = 'a',
+};
+
 enum EconomyKeys : uint8_t {
     PaybackDFITokens = 'a',
     PaybackTokens = 'b',
@@ -120,6 +125,7 @@ enum DFIPKeys : uint8_t {
     EVMEnabled = 'u',
     ICXEnabled = 'v',
     TransferDomain = 'w',
+    AutoNegativeInterest = 'x',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -181,6 +187,11 @@ enum RulesKeys : uint8_t {
     CoreOPReturn = 'a',
     DVMOPReturn = 'b',
     EVMOPReturn = 'c',
+};
+
+enum NegativeInterestKeys : uint8_t {
+    BlockInterval = 'a',
+    BurnTimePeriod = 'b',
 };
 
 struct CDataStructureV0 {
@@ -504,6 +515,7 @@ public:
     static const std::map<uint8_t, std::string> &displayEVMIDs();
     static const std::map<uint8_t, std::string> &displayVaultIDs();
     static const std::map<uint8_t, std::string> &displayRulesIDs();
+    static const std::map<uint8_t, std::string> &displayNegativeInterestIDs();
     static const std::map<uint8_t, std::map<uint8_t, std::string>> &displayKeys();
 
     Res RefundFuturesContracts(CCustomCSView &mnview,
@@ -530,6 +542,7 @@ private:
     static const std::map<std::string, uint8_t> &allowedEVMIDs();
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
     static const std::map<std::string, uint8_t> &allowedRulesIDs();
+    static const std::map<std::string, uint8_t> &allowedNegativeInterestIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
     static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
         &parseValue();

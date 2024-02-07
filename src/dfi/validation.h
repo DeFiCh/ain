@@ -7,6 +7,9 @@
 
 #include <amount.h>
 
+const uint64_t NEGATIVE_INT_BURN_TIME_SAMPLE = 30 * 24 * 60 * 60;
+const uint64_t NEGATIVE_INT_BLOCK_PREIOD = 2880;
+
 struct CAuctionBatch;
 class CBlock;
 class CBlockIndex;
@@ -35,5 +38,8 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets,
                                                  const TAmounts &collBalances,
                                                  const TAmounts &loanBalances);
+
+CAmount GetDexBurnedDUSD(const CCustomCSView &view, CBurnHistoryStorage &burnView, const uint64_t burnTimeSample);
+CAmount GetVaultLoanDUSD(CCustomCSView &view);
 
 #endif  // DEFI_DFI_VALIDATION_H

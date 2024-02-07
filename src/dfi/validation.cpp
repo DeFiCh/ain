@@ -2637,6 +2637,66 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
     return Res::Ok();
 }
 
+static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
+                                      CCustomCSView &cache,
+                                      const CChainParams &chainparams) {
+    if (pindex->nHeight < chainparams.GetConsensus().DF23Height) {
+        return;
+    }
+
+    const auto dusdToken = cache.GetToken("DUSD");
+    if (!dusdToken) {
+        return;
+    }
+
+    auto burnView = cache.GetHistoryWriters().GetBurnView();
+    if (!burnView) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+
+    CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::AutoNegativeInterest};
+    if (!attributes->GetValue(enabledKey, false)) {
+        return;
+    }
+
+    const CDataStructureV0 blockPeriodKey{AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BlockInterval};
+    const auto blockPeriod = attributes->GetValue(blockPeriodKey, NEGATIVE_INT_BLOCK_PREIOD);
+    if (pindex->nHeight % blockPeriod != 0) {
+        return;
+    }
+
+    const CDataStructureV0 burnTimeSampleKey{AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BurnTimePeriod};
+    const auto burnTimeSample = attributes->GetValue(burnTimeSampleKey, NEGATIVE_INT_BURN_TIME_SAMPLE);
+
+    const auto dusdBurned = GetDexBurnedDUSD(cache, *burnView, burnTimeSample);
+    const auto dusdLoaned = GetVaultLoanDUSD(cache);
+
+    if (!dusdBurned || !dusdLoaned) {
+        return;
+    }
+
+    const CAmount multiplyBy{1216000000};
+    auto result = DivideAmounts(dusdBurned, 2 * COIN);
+    result = MultiplyAmounts(result, multiplyBy);
+    result = -(DivideAmounts(result, dusdLoaned) * 100);
+
+    const auto &dusdID = dusdToken->first.v;
+    CDataStructureV0 interestKey{AttributeTypes::Token, dusdID, TokenKeys::LoanMintingInterest};
+    attributes->SetValue(interestKey, result);
+
+    if (auto res = attributes->Validate(cache); !res) {
+        return;
+    }
+
+    if (auto res = attributes->Apply(cache, pindex->nHeight); !res) {
+        return;
+    }
+
+    cache.SetVariable(*attributes);
+}
+
 static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
@@ -2769,6 +2829,104 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
     }
 }
 
+CAmount GetDexBurnedDUSD(const CCustomCSView &view, CBurnHistoryStorage &burnView, const uint64_t burnTimeSample) {
+    LOCK(cs_main);
+
+    auto blockIndex = ::ChainActive().Tip();
+    const auto currentHeight = blockIndex->nHeight;
+    const auto earliestTime = blockIndex->GetBlockTime() - burnTimeSample;
+
+    uint64_t initialHeight{};
+    for (; blockIndex && blockIndex->pprev && blockIndex->GetBlockTime() > earliestTime; blockIndex = blockIndex->pprev) {
+        initialHeight = blockIndex->nHeight;
+    }
+
+    const auto dusdToken = view.GetToken("DUSD");
+    if (!dusdToken) {
+        return {};
+    }
+    const auto &dusdID = dusdToken->first;
+
+    auto nWorkers = DfTxTaskPool->GetAvailableThreads();
+    if (static_cast<size_t>(currentHeight) < nWorkers) {
+        nWorkers = currentHeight;
+    }
+
+    const auto chunkSize = (currentHeight - initialHeight) / nWorkers;
+
+    TaskGroup g;
+    std::atomic<uint64_t> dusdBurnTotal{};
+
+    auto &pool = DfTxTaskPool->pool;
+
+    for (size_t i{}; i < nWorkers; ++i) {
+        const auto startHeight = (i + 1) != nWorkers ? initialHeight + (chunkSize * (i + 1)) : currentHeight;
+        const auto stopHeight = initialHeight + (chunkSize * i);
+
+        g.AddTask();
+        boost::asio::post(pool, [startHeight, stopHeight, dusdID, &burnView, &g, &dusdBurnTotal = dusdBurnTotal] {
+            burnView.ForEachAccountHistory(
+                [&dusdBurnTotal = dusdBurnTotal, stopHeight, dusdID](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+                    if (key.blockHeight <= stopHeight) {
+                        return false;
+                    }
+
+                    if (value.category == uint8_t(CustomTxType::PoolSwap) ||
+                        value.category == uint8_t(CustomTxType::PoolSwapV2)) {
+                        for (const auto &[id, amount] : value.diff) {
+                            if (id == dusdID) {
+                                dusdBurnTotal.fetch_add(amount, std::memory_order_relaxed);
+                            }
+                        }
+                    }
+
+                    return true;
+                },
+                {},
+                startHeight);
+
+            g.RemoveTask();
+        });
+    }
+
+    g.WaitForCompletion();
+
+    return dusdBurnTotal.load();
+}
+
+CAmount GetVaultLoanDUSD(CCustomCSView &view) {
+    const auto dusdToken = view.GetToken("DUSD");
+    if (!dusdToken) {
+        return {};
+    }
+
+    const auto &dusdID = dusdToken->first;
+
+    TaskGroup g;
+    std::atomic<uint64_t> dusdTotal{};
+
+    auto &pool = DfTxTaskPool->pool;
+
+    view.ForEachVault([&, &dusdTotal = dusdTotal](const CVaultId &vaultId, const CVaultData &) {
+        g.AddTask();
+        boost::asio::post(pool, [&, &dusdTotal = dusdTotal, vaultId = vaultId] {
+            if (const auto loanTokens = view.GetLoanTokens(vaultId); loanTokens) {
+                for (const auto &[id, amount] : loanTokens->balances) {
+                    if (id == dusdID) {
+                        dusdTotal.fetch_add(amount, std::memory_order_relaxed);
+                    }
+                }
+            }
+            g.RemoveTask();
+        });
+        return true;
+    });
+
+    g.WaitForCompletion();
+
+    return dusdTotal.load();
+}
+
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
                              CCustomCSView &mnview,
@@ -2851,6 +3009,9 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // Migrate foundation members to attributes
     ProcessGrandCentralEvents(pindex, cache, chainparams);
+
+    // Set negative interest automatically
+    ProcessAutoNegativeInterest(pindex, cache, chainparams);
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
