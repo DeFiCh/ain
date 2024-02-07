@@ -2638,8 +2638,8 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
 }
 
 static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
-                                      CCustomCSView &cache,
-                                      const CChainParams &chainparams) {
+                                        CCustomCSView &cache,
+                                        const CChainParams &chainparams) {
     if (pindex->nHeight < chainparams.GetConsensus().DF23Height) {
         return;
     }
@@ -2661,13 +2661,15 @@ static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
         return;
     }
 
-    const CDataStructureV0 blockPeriodKey{AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BlockInterval};
+    const CDataStructureV0 blockPeriodKey{
+        AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BlockInterval};
     const auto blockPeriod = attributes->GetValue(blockPeriodKey, NEGATIVE_INT_BLOCK_PREIOD);
     if (pindex->nHeight % blockPeriod != 0) {
         return;
     }
 
-    const CDataStructureV0 burnTimeSampleKey{AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BurnTimePeriod};
+    const CDataStructureV0 burnTimeSampleKey{
+        AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BurnTimePeriod};
     const auto burnTimeSample = attributes->GetValue(burnTimeSampleKey, NEGATIVE_INT_BURN_TIME_SAMPLE);
 
     const auto dusdBurned = GetDexBurnedDUSD(cache, *burnView, burnTimeSample);
@@ -2837,7 +2839,8 @@ CAmount GetDexBurnedDUSD(const CCustomCSView &view, CBurnHistoryStorage &burnVie
     const auto earliestTime = blockIndex->GetBlockTime() - burnTimeSample;
 
     uint64_t initialHeight{};
-    for (; blockIndex && blockIndex->pprev && blockIndex->GetBlockTime() > earliestTime; blockIndex = blockIndex->pprev) {
+    for (; blockIndex && blockIndex->pprev && blockIndex->GetBlockTime() > earliestTime;
+         blockIndex = blockIndex->pprev) {
         initialHeight = blockIndex->nHeight;
     }
 
@@ -2866,7 +2869,8 @@ CAmount GetDexBurnedDUSD(const CCustomCSView &view, CBurnHistoryStorage &burnVie
         g.AddTask();
         boost::asio::post(pool, [startHeight, stopHeight, dusdID, &burnView, &g, &dusdBurnTotal = dusdBurnTotal] {
             burnView.ForEachAccountHistory(
-                [&dusdBurnTotal = dusdBurnTotal, stopHeight, dusdID](const AccountHistoryKey &key, const AccountHistoryValue &value) {
+                [&dusdBurnTotal = dusdBurnTotal, stopHeight, dusdID](const AccountHistoryKey &key,
+                                                                     const AccountHistoryValue &value) {
                     if (key.blockHeight <= stopHeight) {
                         return false;
                     }

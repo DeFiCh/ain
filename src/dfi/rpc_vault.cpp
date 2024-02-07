@@ -2,8 +2,8 @@
 #include <dfi/auctionhistory.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
-#include <dfi/vaulthistory.h>
 #include <dfi/validation.h>
+#include <dfi/vaulthistory.h>
 
 extern UniValue AmountsToJSON(const TAmounts &diffs, AmountFormat format = AmountFormat::Symbol);
 extern std::string tokenAmountString(const CTokenAmount &amount, AmountFormat format = AmountFormat::Symbol);
@@ -2199,7 +2199,6 @@ UniValue getloantokens(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
-
 UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
     RPCHelpMan{
         "estimatenegativeinterest",
@@ -2207,11 +2206,8 @@ UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
         {
 
         },
-        RPCResult{
-            "n    (numeric) The calculated negative interest rate\n"
-        },
-        RPCExamples{HelpExampleCli("estimatenegativeinterest", "")
-        + HelpExampleRpc("estimatenegativeinterest", "")},
+        RPCResult{"n    (numeric) The calculated negative interest rate\n"},
+        RPCExamples{HelpExampleCli("estimatenegativeinterest", "") + HelpExampleRpc("estimatenegativeinterest", "")},
     }
         .Check(request);
 
@@ -2223,7 +2219,8 @@ UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
 
     auto attributes = pcustomcsview->GetAttributes();
 
-    const CDataStructureV0 burnTimeSampleKey{AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BurnTimePeriod};
+    const CDataStructureV0 burnTimeSampleKey{
+        AttributeTypes::NegativeInterst, NegativeInterestIDs::Automatic, NegativeInterestKeys::BurnTimePeriod};
     const auto burnTimeSample = attributes->GetValue(burnTimeSampleKey, NEGATIVE_INT_BURN_TIME_SAMPLE);
 
     const auto dusdBurned = GetDexBurnedDUSD(*pcustomcsview, *pburnHistoryDB, burnTimeSample);
@@ -2250,7 +2247,6 @@ UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
 
     return GetRPCResultCache().Set(request, res);
 }
-
 
 static const CRPCCommand commands[] = {
   //  category        name                         actor (function)        params

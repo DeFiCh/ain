@@ -61,35 +61,35 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayVersions() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedTypes() {
     static const std::map<std::string, uint8_t> types{
-        {"locks",             AttributeTypes::Locks           },
-        {"oracles",           AttributeTypes::Oracles         },
-        {"params",            AttributeTypes::Param           },
-        {"poolpairs",         AttributeTypes::Poolpairs       },
-        {"token",             AttributeTypes::Token           },
-        {"gov",               AttributeTypes::Governance      },
-        {"transferdomain",    AttributeTypes::Transfer        },
-        {"evm",               AttributeTypes::EVMType         },
-        {"vaults",            AttributeTypes::Vaults          },
-        {"rules",             AttributeTypes::Rules           },
-        {"negative_interest", AttributeTypes::NegativeInterst },
+        {"locks",             AttributeTypes::Locks          },
+        {"oracles",           AttributeTypes::Oracles        },
+        {"params",            AttributeTypes::Param          },
+        {"poolpairs",         AttributeTypes::Poolpairs      },
+        {"token",             AttributeTypes::Token          },
+        {"gov",               AttributeTypes::Governance     },
+        {"transferdomain",    AttributeTypes::Transfer       },
+        {"evm",               AttributeTypes::EVMType        },
+        {"vaults",            AttributeTypes::Vaults         },
+        {"rules",             AttributeTypes::Rules          },
+        {"negative_interest", AttributeTypes::NegativeInterst},
     };
     return types;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayTypes() {
     static const std::map<uint8_t, std::string> types{
-        {AttributeTypes::Live,            "live"              },
-        {AttributeTypes::Locks,           "locks"             },
-        {AttributeTypes::Oracles,         "oracles"           },
-        {AttributeTypes::Param,           "params"            },
-        {AttributeTypes::Poolpairs,       "poolpairs"         },
-        {AttributeTypes::Token,           "token"             },
-        {AttributeTypes::Governance,      "gov"               },
-        {AttributeTypes::Transfer,        "transferdomain"    },
-        {AttributeTypes::EVMType,         "evm"               },
-        {AttributeTypes::Vaults,          "vaults"            },
-        {AttributeTypes::Rules,           "rules"             },
-        {AttributeTypes::NegativeInterst, "negative_interest" },
+        {AttributeTypes::Live,            "live"             },
+        {AttributeTypes::Locks,           "locks"            },
+        {AttributeTypes::Oracles,         "oracles"          },
+        {AttributeTypes::Param,           "params"           },
+        {AttributeTypes::Poolpairs,       "poolpairs"        },
+        {AttributeTypes::Token,           "token"            },
+        {AttributeTypes::Governance,      "gov"              },
+        {AttributeTypes::Transfer,        "transferdomain"   },
+        {AttributeTypes::EVMType,         "evm"              },
+        {AttributeTypes::Vaults,          "vaults"           },
+        {AttributeTypes::Rules,           "rules"            },
+        {AttributeTypes::NegativeInterst, "negative_interest"},
     };
     return types;
 }
@@ -334,7 +334,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"dvm_op_return_max_size_bytes", RulesKeys::DVMOPReturn},
              {"evm_op_return_max_size_bytes", RulesKeys::EVMOPReturn},
          }},
-         {AttributeTypes::NegativeInterst,
+        {AttributeTypes::NegativeInterst,
          {
              {"block_period", NegativeInterestKeys::BlockInterval},
              {"burn_time_period", NegativeInterestKeys::BurnTimePeriod},
@@ -457,7 +457,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {RulesKeys::DVMOPReturn, "dvm_op_return_max_size_bytes"},
              {RulesKeys::EVMOPReturn, "evm_op_return_max_size_bytes"},
          }},
-         {AttributeTypes::NegativeInterst,
+        {AttributeTypes::NegativeInterst,
          {
              {NegativeInterestKeys::BlockInterval, "block_period"},
              {NegativeInterestKeys::BurnTimePeriod, "burn_time_period"},
@@ -826,7 +826,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {RulesKeys::DVMOPReturn, VerifyUInt64},
                  {RulesKeys::EVMOPReturn, VerifyUInt64},
              }},
-             {AttributeTypes::NegativeInterst,
+            {AttributeTypes::NegativeInterst,
              {
                  {NegativeInterestKeys::BlockInterval, VerifyUInt64},
                  {NegativeInterestKeys::BurnTimePeriod, VerifyUInt64},
