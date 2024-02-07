@@ -1,15 +1,17 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
+pub type OracleHistoryId = (Txid, u32, Txid);
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OracleHistory {
-    pub id: String,
-    pub oracle_id: String,
+    pub id: OracleHistoryId,
+    pub oracle_id: Txid,
     pub sort: String,
     pub owner_address: String,
-    pub weightage: i32,
+    pub weightage: u8,
     pub price_feeds: Vec<PriceFeedsItem>,
     pub block: BlockContext,
 }

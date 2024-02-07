@@ -1,20 +1,43 @@
+use bitcoin::{impl_consensus_encoding, io, Txid};
+use dftx_rs::{common::CompactVec, price::TokenPrice, ConsensusEncoding};
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-#[derive(Serialize, Deserialize, Debug)]
+pub type OraclePriceAggregatedIntervalId = (String, String, OracleIntervalSeconds, u32); //token-currency-interval-height
+pub type OraclePriceAggregatedIntervalKey = (String, String, OracleIntervalSeconds); //token-currency-interval
+
+pub const FIFTEEN_MINUTES: isize = 15 * 60;
+pub const ONE_HOUR: isize = 60 * 60;
+pub const ONE_DAY: isize = 24 * 60 * 60;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum OracleIntervalSeconds {
+    FifteenMinutes = FIFTEEN_MINUTES,
+    OneHour = ONE_HOUR,
+    OneDay = ONE_DAY,
+}
+
+#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+pub struct SetOracleInterval {
+    pub oracle_id: Txid,
+    pub timestamp: i64,
+    pub token_prices: CompactVec<TokenPrice>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedInterval {
-    pub id: String,
-    pub key: String,
-    pub sort: String,
+    pub id: OraclePriceAggregatedIntervalId,
+    pub key: OraclePriceAggregatedIntervalKey,
+    pub sort: String, //medianTime-height
     pub token: String,
     pub currency: String,
     pub aggregated: OraclePriceAggregatedIntervalAggregated,
     pub block: BlockContext,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
@@ -23,7 +46,7 @@ pub struct OraclePriceAggregatedIntervalAggregated {
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregatedOracles {
     pub active: i32,

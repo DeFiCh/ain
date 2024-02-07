@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::BlockContext;
 
 pub type OracleId = (String, String, String, Txid);
-pub type OracleKey = (String, String, String);
+pub type OracleKey = (String, String, Txid);
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

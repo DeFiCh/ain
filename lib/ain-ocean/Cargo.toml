@@ -42,3 +42,5 @@ bincode.workspace = true
 defichain-rpc.workspace = true
 jsonrpc = "0.14.1"
 serde_urlencoded = { version = "0.7" }
+num-bigint = "0.4.4"
+num-traits = "0.2.17"

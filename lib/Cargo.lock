@@ -246,6 +246,8 @@ dependencies = [
  "keccak-hash",
  "lazy_static",
  "log",
+ "num-bigint",
+ "num-traits",
  "rocksdb",
  "serde",
  "serde_json",
