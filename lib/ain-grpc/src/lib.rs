@@ -29,6 +29,7 @@ use std::{
 };
 
 use ain_evm::services::{IS_SERVICES_INIT_CALL, SERVICES};
+use ain_ocean::SERVICES as OCEAN_SERVICES;
 use anyhow::{format_err, Result};
 use hyper::{header::HeaderValue, Method};
 use jsonrpsee::core::server::rpc_module::Methods;
@@ -112,6 +113,27 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
     Ok(())
 }
 
+pub async fn init_ocean_server(addr: String) -> Result<()> {
+    let addr = addr.parse::<SocketAddr>()?;
+    let runtime = &SERVICES;
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let ocean_router = ain_ocean::ocean_router(&*OCEAN_SERVICES).await?;
+
+    let server_handle = runtime.tokio_runtime.spawn(async move {
+        if let Err(e) = axum::serve(listener, ocean_router).await {
+            log::error!("Server encountered an error: {}", e);
+        }
+    });
+    *runtime.ocean_handle.lock() = Some(server_handle);
+    Ok(())
+}
+
+pub fn init_network_rest_ocean(addr: String) -> Result<()> {
+    info!("Starting REST Ocean server at {}", addr);
+    SERVICES.tokio_runtime.block_on(init_ocean_server(addr))
+}
+
 pub fn init_network_grpc_service(_addr: String) -> Result<()> {
     // log::info!("Starting gRPC server at {}", addr);
     // Commented out for now as nothing to serve
@@ -119,23 +141,6 @@ pub fn init_network_grpc_service(_addr: String) -> Result<()> {
     // runtime
     //     .rt_handle
     // .spawn(Server::builder().serve(addr.parse()?));
-    Ok(())
-}
-
-pub fn init_network_rest_ocean(addr: String) -> Result<()> {
-    info!("Starting REST Ocean server at {}", addr);
-    let addr = addr.as_str().parse::<SocketAddr>()?;
-    let runtime = &SERVICES;
-
-    let listener = runtime
-        .tokio_runtime
-        .block_on(tokio::net::TcpListener::bind(addr))?;
-    let ocean_router = ain_ocean::ocean_router()?;
-    let server_handle = runtime.tokio_runtime.spawn(async move {
-        axum::serve(listener, ocean_router).await.unwrap();
-    });
-    *runtime.ocean_handle.lock() = Some(server_handle);
-
     Ok(())
 }
 

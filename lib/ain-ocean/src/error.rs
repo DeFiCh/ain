@@ -104,7 +104,9 @@ impl IntoResponse for ApiError {
 impl OceanError {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match self {
-            OceanError::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc::error::Error::Rpc(e))) => {
+            OceanError::RpcError(defichain_rpc::Error::JsonRpc(
+                jsonrpc_async::error::Error::Rpc(e),
+            )) => {
                 debug!("e : {:?}", e);
 
                 (StatusCode::NOT_FOUND, format!("{}", e.message))

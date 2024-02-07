@@ -107,7 +107,7 @@ async fn list_auction() -> String {
     "List of auctions".to_string()
 }
 
-pub fn router(services: Arc<Services>) -> Router {
+pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/schemes", get(list_scheme))
         .route("/schemes/:id", get(get_scheme))
