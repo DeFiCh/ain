@@ -1,4 +1,5 @@
 use bitcoin::Txid;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -14,7 +15,7 @@ pub struct Masternode {
     pub resign_tx: Option<Txid>,
     pub minted_blocks: i32,
     pub timelock: u16,
-    pub collateral: f64,
+    pub collateral: Decimal,
     pub block: BlockContext,
     pub history: Vec<HistoryItem>,
 }

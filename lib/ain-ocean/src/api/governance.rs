@@ -12,7 +12,7 @@ use super::{
 };
 use crate::{
     api_query::{PaginationQuery, Query},
-    error::{ApiError, NotFoundKind, OceanError},
+    error::{ApiError, Error, NotFoundKind},
     Result, Services,
 };
 
@@ -60,7 +60,7 @@ async fn get_gov_proposal(
 ) -> Result<Response<ProposalInfo>> {
     let txid: Txid = proposal_id
         .parse()
-        .map_err(|_| OceanError::NotFound(NotFoundKind::Proposal))?;
+        .map_err(|_| Error::NotFound(NotFoundKind::Proposal))?;
 
     let proposal = ctx.client.get_gov_proposal(txid).await?;
     Ok(Response::new(proposal))
@@ -74,7 +74,7 @@ async fn list_gov_proposal_votes(
 ) -> Result<ApiPagedResponse<ListVotesResult>> {
     let proposal_id: Txid = proposal_id
         .parse()
-        .map_err(|_| OceanError::NotFound(NotFoundKind::Proposal))?;
+        .map_err(|_| Error::NotFound(NotFoundKind::Proposal))?;
 
     let size = match query.all {
         Some(true) => 0,

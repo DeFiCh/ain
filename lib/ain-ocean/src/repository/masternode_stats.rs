@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[derive(Repository)]
-#[repository(K = "Txid", V = "MasternodeStats")]
+#[repository(K = "u32", V = "MasternodeStats")]
 pub struct MasternodeStatsRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::MasternodeStats>,
@@ -23,6 +23,16 @@ impl MasternodeStatsRepository {
         Self {
             col: store.column(),
             store,
+        }
+    }
+}
+
+impl MasternodeStatsRepository {
+    pub fn get_latest(&self) -> Result<Option<MasternodeStats>> {
+        match self.col.iter(None)?.next() {
+            None => Ok(None),
+            Some(Ok((_, id))) => Ok(Some(id)),
+            Some(Err(e)) => Err(e.into()),
         }
     }
 }

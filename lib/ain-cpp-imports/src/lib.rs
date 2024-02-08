@@ -157,10 +157,7 @@ pub fn get_rpc_auth() -> Result<(String, String), Box<dyn Error>> {
         .as_slice()
     {
         [user, pass] => Ok((user.clone(), pass.clone())),
-        yo => {
-            println!("yo : {:?}", yo);
-            Err("Error getting user and password".into())
-        }
+        _ => Err("Error getting user and password".into()),
     }
 }
 

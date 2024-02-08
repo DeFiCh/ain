@@ -19,6 +19,8 @@ mod utils;
 
 mod subscription;
 
+use defichain_rpc::{Auth, Client};
+
 #[cfg(test)]
 mod tests;
 
@@ -118,7 +120,17 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
     let runtime = &SERVICES;
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    let ocean_router = ain_ocean::ocean_router(&*OCEAN_SERVICES).await?;
+
+    let (user, pass) = ain_cpp_imports::get_rpc_auth().map_err(|e| format_err!("{e}"))?;
+    let client = Arc::new(
+        Client::new(
+            &format!("localhost:{}", ain_cpp_imports::get_rpc_port()),
+            Auth::UserPass(user, pass),
+        )
+        .await?,
+    );
+
+    let ocean_router = ain_ocean::ocean_router(&*OCEAN_SERVICES, client).await?;
 
     let server_handle = runtime.tokio_runtime.spawn(async move {
         if let Err(e) = axum::serve(listener, ocean_router).await {

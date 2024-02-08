@@ -22,18 +22,15 @@ thiserror.workspace = true
 hex.workspace = true
 dftx-rs.workspace = true
 bitcoin = { workspace = true, features = ["serde"] }
-tarpc = { version = "0.33", features = ["tokio1", "serde1", "serde-transport","tcp"] }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1.0"
 json = "0.12.4"
-tokio-serde = {version="0.8.0"}
+tokio-serde = { version="0.8.0"}
 futures = "0.3.29"
-jsonrpsee = { workspace = true, features = ["server", "macros", "http-client", "jsonrpsee-server"] }
+jsonrpsee.workspace = true
 rocksdb = "0.21.0"
-ctrlc = "3.1.9"
 tempdir = "0.3.7"
 bitcoin_hashes = "0.12.0"
-structopt = { version = "0.3", default-features = false }
 tempfile = "3.8.1"
 anyhow.workspace = true
 chrono = "0.4.31"
@@ -43,3 +40,5 @@ bincode.workspace = true
 defichain-rpc.workspace = true
 jsonrpc-async = "2.0.2"
 serde_urlencoded = "0.7"
+rust_decimal = { version = "1.34", features = ["serde-float"] }
+rust_decimal_macros = "1.34"
