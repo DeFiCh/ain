@@ -39,6 +39,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
                                                  const TAmounts &collBalances,
                                                  const TAmounts &loanBalances);
 
+CAmount CalculateNegativeInterest(const CAmount dusdBurned, const CAmount dusdLoaned);
 CAmount GetDexBurnedDUSD(const CCustomCSView &view, CBurnHistoryStorage &burnView, const uint64_t burnTimeSample);
 CAmount GetVaultLoanDUSD(CCustomCSView &view);
 

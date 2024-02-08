@@ -36,6 +36,7 @@ class AutoNegativeInterestTest(DefiTestFramework):
     def run_test(self):
         self.setup()
         self.auto_negative_interest()
+        self.negative_interest_zero_burn_or_loan()
 
     def setup(self):
         # Generate chain
@@ -161,15 +162,17 @@ class AutoNegativeInterestTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Create vault
-        vault = self.nodes[0].createvault(self.address, "LOAN1")
+        self.vault = self.nodes[0].createvault(self.address, "LOAN1")
         self.nodes[0].generate(1)
 
         # Deposit to vault
-        self.nodes[0].deposittovault(vault, self.address, f"450@{self.symbolDFI}")
+        self.nodes[0].deposittovault(self.vault, self.address, f"450@{self.symbolDFI}")
         self.nodes[0].generate(1)
 
         # Take DUSD loan
-        self.nodes[0].takeloan({"vaultId": vault, "amounts": f"300@{self.symbolDUSD}"})
+        self.nodes[0].takeloan(
+            {"vaultId": self.vault, "amounts": f"300@{self.symbolDUSD}"}
+        )
         self.nodes[0].generate(1)
 
     def auto_negative_interest(self):
@@ -237,6 +240,63 @@ class AutoNegativeInterestTest(DefiTestFramework):
         assert_equal(
             attributes[f"v0/token/{self.idDUSD}/loan_minting_interest"], "-20.266666"
         )
+
+    def negative_interest_zero_burn_or_loan(self):
+        # Set burn sample to low amount
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/negative_interest/automatic/burn_time_period": "10",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check estimated negative interest
+        result = self.nodes[0].estimatenegativeinterest()
+        assert_equal(result["dusdBurned"], Decimal("0E-8"))
+        assert_equal(result["dusdLoaned"], Decimal("300.00000000"))
+        assert_equal(result["negativeInterest"], Decimal("0E-8"))
+
+        # Move to automatic setting of negative interest
+        self.nodes[0].generate(10)
+
+        # Check negative interest has been calculated
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes[f"v0/token/{self.idDUSD}/loan_minting_interest"], "0")
+
+        # Restore sample to original amount
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/negative_interest/automatic/burn_time_period": "86400",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Payback DUSD loan
+        self.nodes[0].paybackloan(
+            {
+                "vaultId": self.vault,
+                "from": self.address,
+                "amounts": [f"300@{self.symbolDUSD}"],
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check estimated negative interest
+        result = self.nodes[0].estimatenegativeinterest()
+        assert_equal(result["dusdBurned"], Decimal("10.00000000"))
+        assert_equal(result["dusdLoaned"], Decimal("0E-8"))
+        assert_equal(result["negativeInterest"], Decimal("0E-8"))
+
+        # Move to automatic setting of negative interest
+        self.nodes[0].generate(10)
+
+        # Check negative interest still zero
+        attributes = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        assert_equal(attributes[f"v0/token/{self.idDUSD}/loan_minting_interest"], "0")
 
 
 if __name__ == "__main__":

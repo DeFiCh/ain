@@ -2225,25 +2225,12 @@ UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
 
     const auto dusdBurned = GetDexBurnedDUSD(*pcustomcsview, *pburnHistoryDB, burnTimeSample);
     const auto dusdLoaned = GetVaultLoanDUSD(*pcustomcsview);
-
-    if (!dusdBurned) {
-        throw JSONRPCError(RPC_MISC_ERROR, "No DUSD burned. Cannot calculate negative interest.");
-    }
-
-    if (!dusdLoaned) {
-        throw JSONRPCError(RPC_MISC_ERROR, "No DUSD loaned. Cannot calculate negative interest.");
-    }
-
-    const CAmount multiplyBy{1216000000};
-
-    auto result = DivideAmounts(dusdBurned, 2 * COIN);
-    result = MultiplyAmounts(result, multiplyBy);
-    result = DivideAmounts(result, dusdLoaned);
+    const auto result = !dusdBurned || !dusdLoaned ? 0 : CalculateNegativeInterest(dusdBurned, dusdLoaned);
 
     UniValue res(UniValue::VOBJ);
     res.pushKV("dusdBurned", ValueFromAmount(dusdBurned));
     res.pushKV("dusdLoaned", ValueFromAmount(dusdLoaned));
-    res.pushKV("negativeInterest", ValueFromAmount(-(result * 100)));
+    res.pushKV("negativeInterest", ValueFromAmount(result));
 
     return GetRPCResultCache().Set(request, res);
 }

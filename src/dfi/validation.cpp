@@ -2637,6 +2637,13 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
     return Res::Ok();
 }
 
+CAmount CalculateNegativeInterest(const CAmount dusdBurned, const CAmount dusdLoaned) {
+    const CAmount multiplyBy{1216000000};
+    auto result = DivideAmounts(dusdBurned, 2 * COIN);
+    result = MultiplyAmounts(result, multiplyBy);
+    return -(DivideAmounts(result, dusdLoaned) * 100);
+}
+
 static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
                                         CCustomCSView &cache,
                                         const CChainParams &chainparams) {
@@ -2674,18 +2681,16 @@ static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
 
     const auto dusdBurned = GetDexBurnedDUSD(cache, *burnView, burnTimeSample);
     const auto dusdLoaned = GetVaultLoanDUSD(cache);
-
-    if (!dusdBurned || !dusdLoaned) {
-        return;
-    }
-
-    const CAmount multiplyBy{1216000000};
-    auto result = DivideAmounts(dusdBurned, 2 * COIN);
-    result = MultiplyAmounts(result, multiplyBy);
-    result = -(DivideAmounts(result, dusdLoaned) * 100);
+    const auto result = !dusdBurned || !dusdLoaned ? 0 : CalculateNegativeInterest(dusdBurned, dusdLoaned);
 
     const auto &dusdID = dusdToken->first.v;
     CDataStructureV0 interestKey{AttributeTypes::Token, dusdID, TokenKeys::LoanMintingInterest};
+    const auto currentInterest = attributes->GetValue(interestKey, CAmount{});
+
+    if (currentInterest == result) {
+        return;
+    }
+
     attributes->SetValue(interestKey, result);
 
     if (auto res = attributes->Validate(cache); !res) {
