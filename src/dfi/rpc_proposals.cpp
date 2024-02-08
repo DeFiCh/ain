@@ -3,7 +3,7 @@
 
 #include <functional>
 
-const bool DEFAULT_RPC_GOV_NEUTRAL = false;
+const bool DEFAULT_RPC_GOV_NEUTRAL = true;
 const int SLEEP_TIME_MILLIS = 500;
 
 struct VotingInfo {
