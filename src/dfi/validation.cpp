@@ -2638,6 +2638,10 @@ static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompleti
 }
 
 CAmount CalculateNegativeInterest(const CAmount dusdBurned, const CAmount dusdLoaned) {
+    if (!dusdBurned || !dusdLoaned) {
+        return 0;
+    }
+
     const CAmount multiplyBy{1216000000};
     auto result = DivideAmounts(dusdBurned, 2 * COIN);
     result = MultiplyAmounts(result, multiplyBy);
@@ -2681,7 +2685,7 @@ static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
 
     const auto dusdBurned = GetDexBurnedDUSD(cache, *burnView, burnTimeSample);
     const auto dusdLoaned = GetVaultLoanDUSD(cache);
-    const auto result = !dusdBurned || !dusdLoaned ? 0 : CalculateNegativeInterest(dusdBurned, dusdLoaned);
+    const auto result = CalculateNegativeInterest(dusdBurned, dusdLoaned);
 
     const auto &dusdID = dusdToken->first.v;
     CDataStructureV0 interestKey{AttributeTypes::Token, dusdID, TokenKeys::LoanMintingInterest};

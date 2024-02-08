@@ -2225,7 +2225,7 @@ UniValue estimatenegativeinterest(const JSONRPCRequest &request) {
 
     const auto dusdBurned = GetDexBurnedDUSD(*pcustomcsview, *pburnHistoryDB, burnTimeSample);
     const auto dusdLoaned = GetVaultLoanDUSD(*pcustomcsview);
-    const auto result = !dusdBurned || !dusdLoaned ? 0 : CalculateNegativeInterest(dusdBurned, dusdLoaned);
+    const auto result = CalculateNegativeInterest(dusdBurned, dusdLoaned);
 
     UniValue res(UniValue::VOBJ);
     res.pushKV("dusdBurned", ValueFromAmount(dusdBurned));
