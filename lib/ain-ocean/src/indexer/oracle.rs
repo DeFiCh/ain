@@ -2,14 +2,16 @@ use std::{collections::HashSet, sync::Arc};
 
 use dftx_rs::{common::CompactVec, oracles::*};
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
 
 use crate::{
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
-        OraclePriceAggregatedInterval, OraclePriceFeed, OracleTokenCurrency, SetOracleInterval,
+        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
+        OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
+        SetOracleInterval,
     },
     repository::RepositoryOps,
     Services,
@@ -311,7 +313,7 @@ impl Index for SetOracleInterval {
             }
         }
 
-        todo!()
+        Ok(())
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
@@ -572,7 +574,7 @@ pub fn index_interval_mapper(
 
 fn process_inner_values(
     services: &Arc<Services>,
-    inner_values: Option<OraclePriceAggregatedInterval>,
+    previous_data: Option<OraclePriceAggregatedInterval>,
     block: BlockContext,
     token: &str,
     currency: &str,
@@ -580,8 +582,8 @@ fn process_inner_values(
     interval: OracleIntervalSeconds,
 ) {
     let cloned_interval = interval.clone();
-    if inner_values.clone().is_some()
-        || (block.median_time - inner_values.clone().unwrap().block.median_time.clone())
+    if previous_data.clone().is_some()
+        || (block.median_time - previous_data.clone().unwrap().block.median_time.clone())
             > cloned_interval as i64
     {
         let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
@@ -595,7 +597,7 @@ fn process_inner_values(
             sort: aggregated.sort.to_owned(),
             token: token.to_owned(),
             currency: currency.to_owned(),
-            aggregated: inner_values.as_ref().unwrap().aggregated.clone(),
+            aggregated: previous_data.as_ref().unwrap().aggregated.clone(),
             block: block,
         };
         services.oracle_price_aggregated_interval.by_id.put(
@@ -608,9 +610,63 @@ fn process_inner_values(
         );
     } else {
         // Add logic for the case when the condition is false
+        let lastprice = previous_data.as_ref().unwrap().aggregated.clone();
+        let count = lastprice.count + 1;
+        let aggregatedInterval = OraclePriceAggregatedInterval {
+            id: previous_data.as_ref().unwrap().id.clone(),
+            key: previous_data.as_ref().unwrap().key.clone(),
+            sort: previous_data.as_ref().unwrap().sort.clone(),
+            token: previous_data.as_ref().unwrap().token.clone(),
+            currency: previous_data.as_ref().unwrap().currency.clone(),
+            aggregated: OraclePriceAggregatedIntervalAggregated {
+                amount: forward_aggregate_value(
+                    lastprice.amount.as_str(),
+                    &aggregated.aggregated.amount.to_string(),
+                    count as u32,
+                )
+                .to_string(),
+                weightage: forward_aggregate_number(
+                    lastprice.weightage,
+                    aggregated.aggregated.weightage,
+                    count,
+                ),
+                count: count,
+                oracles: OraclePriceAggregatedIntervalAggregatedOracles {
+                    active: forward_aggregate_number(
+                        lastprice.oracles.active,
+                        aggregated.aggregated.oracles.active,
+                        lastprice.count,
+                    ) as i32,
+                    total: forward_aggregate_number(
+                        lastprice.oracles.total,
+                        aggregated.aggregated.oracles.total,
+                        lastprice.count,
+                    ),
+                },
+            },
+            block: previous_data.as_ref().unwrap().block.clone(),
+        };
     }
 }
-fn forward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> BigUint {
+
+fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 {
+    let count_bigint: BigUint = BigUint::from(count as u32);
+    let last_value_bigint: BigUint = BigUint::from(last_value as u32);
+    let new_value_bigint: BigUint = BigUint::from(new_value as u32);
+    let result = (last_value_bigint * &count_bigint + new_value_bigint)
+        / (count_bigint + BigUint::from(1u32));
+
+    // Attempt to convert the result to u32 and then to i32. Handle overflow appropriately.
+    result
+        .to_i32()
+        .and_then(|v| BigUint::from_i32(v))
+        .and_then(|v| v.to_i32())
+        .unwrap_or_else(|| {
+            eprintln!("Overflow occurred. Returning i32::MAX");
+            i32::MAX
+        })
+}
+pub fn forward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> BigUint {
     let last_value = last_value
         .parse::<BigUint>()
         .unwrap_or_else(|_| BigUint::zero());
