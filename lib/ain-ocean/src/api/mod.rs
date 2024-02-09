@@ -7,7 +7,7 @@ mod block;
 mod fee;
 mod governance;
 // mod loan;
-// mod masternode;
+mod masternode;
 // mod oracle;
 // mod poolpairs;
 // mod prices;
@@ -66,7 +66,7 @@ pub async fn ocean_router(services: &Arc<Services>, client: Arc<Client>) -> Resu
         .nest("/governance", governance::router(Arc::clone(&context)))
         // .nest("/loans", loan::router(Arc::clone(&context)))
         .nest("/fee", fee::router(Arc::clone(&context)))
-        // .nest("/masternodes", masternode::router(Arc::clone(&context)))
+        .nest("/masternodes", masternode::router(Arc::clone(&context)))
         // .nest("/oracles", oracle::router(Arc::clone(&context)))
         // .nest("/poolpairs", poolpairs::router(Arc::clone(&context)))
         // .nest("/prices", prices::router(Arc::clone(&context)))

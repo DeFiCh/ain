@@ -1,4 +1,5 @@
 use serde::Serialize;
+use serde_with::skip_serializing_none;
 
 #[derive(Debug, Serialize)]
 pub struct Response<T> {
@@ -60,22 +61,23 @@ impl<T> Response<T> {
 /// Answer: Blocks sorted by height in descending order, that's your sorted list and your slice window.
 ///       : <- Latest | [100] [99] [98] [97] [...] | Oldest ->
 ///
+#[skip_serializing_none]
 #[derive(Debug, Serialize, PartialEq)]
 pub struct ApiPagedResponse<T> {
     data: Vec<T>,
-    page: ApiPage,
+    page: Option<ApiPage>,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
 struct ApiPage {
-    next: Option<String>,
+    next: String,
 }
 
 impl<T> ApiPagedResponse<T> {
     pub fn new(data: Vec<T>, next: Option<String>) -> Self {
         Self {
             data,
-            page: ApiPage { next },
+            page: next.map(|next| ApiPage { next }),
         } // Option<&str> -> Option<String>
     }
 
@@ -90,10 +92,6 @@ impl<T> ApiPagedResponse<T> {
         } else {
             Self::next(data, None)
         }
-    }
-
-    pub fn empty() -> Self {
-        Self::new(Vec::new(), None)
     }
 }
 

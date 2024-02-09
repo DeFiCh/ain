@@ -55,5 +55,5 @@ pub struct TransactionVinVout {
     pub n: usize,
     pub value: f64,
     pub token_id: u8,
-    pub script: String,
+    pub script: Vec<u8>,
 }

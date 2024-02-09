@@ -25,7 +25,6 @@ bitcoin = { workspace = true, features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1.0"
 json = "0.12.4"
-tokio-serde = { version="0.8.0"}
 futures = "0.3.29"
 jsonrpsee.workspace = true
 rocksdb = "0.21.0"
@@ -40,5 +39,5 @@ bincode.workspace = true
 defichain-rpc.workspace = true
 jsonrpc-async = "2.0.2"
 serde_urlencoded = "0.7"
-rust_decimal = { version = "1.34", features = ["serde-float"] }
+rust_decimal = { version = "1.34", features = ["serde", "serde-str"] }
 rust_decimal_macros = "1.34"

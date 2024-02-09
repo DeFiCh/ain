@@ -258,7 +258,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "tokio-serde",
 ]
 
 [[package]]
@@ -667,7 +666,7 @@ checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 [[package]]
 name = "bitcoin"
 version = "0.31.0"
-source = "git+https://github.com/Jouzo/rust-bitcoin.git#b0d721708df119a87193ff23910ab5579ce370b7"
+source = "git+https://github.com/Jouzo/rust-bitcoin.git#af64fe422669e2d4fc24fca93561566e22cce1df"
 dependencies = [
  "bech32",
  "bitcoin-internals",
@@ -691,7 +690,7 @@ dependencies = [
 [[package]]
 name = "bitcoin-io"
 version = "0.1.0"
-source = "git+https://github.com/Jouzo/rust-bitcoin.git#b0d721708df119a87193ff23910ab5579ce370b7"
+source = "git+https://github.com/Jouzo/rust-bitcoin.git#af64fe422669e2d4fc24fca93561566e22cce1df"
 
 [[package]]
 name = "bitcoin-private"
@@ -917,9 +916,9 @@ dependencies = [
 
 [[package]]
 name = "bytemuck"
-version = "1.14.2"
+version = "1.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea31d69bda4949c1c1562c1e6f042a1caefac98cdc8a298260a2ff41c1e2d42b"
+checksum = "a2ef034f05691a48569bd920a96c81b9d91bbad1ab5ac7c4616c1f6ef36cb79f"
 
 [[package]]
 name = "byteorder"
@@ -1396,7 +1395,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc"
 version = "0.18.0"
-source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#179363a23efe48170196016b41f823c3f7644337"
+source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#d27915e2b95fda5606bdf2379f0dd3d54c38ab00"
 dependencies = [
  "async-trait",
  "defichain-rpc-json",
@@ -1409,7 +1408,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc-json"
 version = "0.18.0"
-source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#179363a23efe48170196016b41f823c3f7644337"
+source = "git+https://github.com/Jouzo/rust-defichain-rpc.git#d27915e2b95fda5606bdf2379f0dd3d54c38ab00"
 dependencies = [
  "bitcoin",
  "serde",
@@ -1457,7 +1456,7 @@ checksum = "3ae2a35373c5c74340b79ae6780b498b2b183915ec5dacf263aac5a099bf485a"
 [[package]]
 name = "dftx-macro"
 version = "0.1.0"
-source = "git+https://github.com/Jouzo/dftx-rs.git#e10dea303487f3c0bf5f851669c939a027b8e034"
+source = "git+https://github.com/Jouzo/dftx-rs.git#c6ff7772f6bfe8a6d0804c40b2f53f3de69e295e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1467,7 +1466,7 @@ dependencies = [
 [[package]]
 name = "dftx-rs"
 version = "0.1.0"
-source = "git+https://github.com/Jouzo/dftx-rs.git#e10dea303487f3c0bf5f851669c939a027b8e034"
+source = "git+https://github.com/Jouzo/dftx-rs.git#c6ff7772f6bfe8a6d0804c40b2f53f3de69e295e"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -2712,12 +2711,12 @@ dependencies = [
 
 [[package]]
 name = "is-terminal"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bad00257d07be169d870ab665980b06cdb366d792ad690bf2e76876dc503455"
+checksum = "fe8f25ce1159c7740ff0b9b2f5cdf4a8428742ba7c112b9f20f22cd5219c7dab"
 dependencies = [
  "hermit-abi 0.3.5",
- "rustix 0.38.31",
+ "libc",
  "windows-sys 0.52.0",
 ]
 
@@ -2747,9 +2746,9 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 
 [[package]]
 name = "jobserver"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c37f63953c4c63420ed5fd3d6d398c719489b9f872b9fa683262f8edd363c7d"
+checksum = "ab46a6e9526ddef3ae7f787c06f0f2600639ba80ea3eade3d8e670a2230f51d6"
 dependencies = [
  "libc",
 ]
@@ -3480,19 +3479,18 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
 dependencies = [
- "autocfg",
  "num-traits",
 ]
 
 [[package]]
 name = "num-iter"
-version = "0.1.43"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d03e6c028c5dc5cac6e2dec0efda81fc887605bb3d884578bb6d6bf7514e252"
+checksum = "d869c01cc0c455284163fd0092f1f93835385ccab5a98a0dcc497b2f8bf055a9"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -3513,9 +3511,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.17"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
+checksum = "da0df0e5185db44f69b44f26786fe401b6c293d1907744beaa7fa62b2e5a517a"
 dependencies = [
  "autocfg",
  "libm",
@@ -4887,9 +4885,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.6.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b0ed1662c5a68664f45b76d18deb0e234aff37207086803165c961eb695e981"
+checksum = "15d167997bd841ec232f5b2b8e0e26606df2e7caa4c31b95ea9ca52b200bd270"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -4897,6 +4895,7 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.2.2",
  "serde",
+ "serde_derive",
  "serde_json",
  "serde_with_macros",
  "time",
@@ -4904,9 +4903,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.6.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "568577ff0ef47b879f736cd66740e022f3672788cdf002a05a4e609ea5a6fb15"
+checksum = "865f9743393e638991566a8b7a479043c2c8da94a33e0a31f18214c9cae0a64d"
 dependencies = [
  "darling 0.20.5",
  "proc-macro2",
@@ -5835,18 +5834,6 @@ checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
 dependencies = [
  "rustls",
  "tokio",
-]
-
-[[package]]
-name = "tokio-serde"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "911a61637386b789af998ee23f50aa30d5fd7edcec8d6d3dedae5e5815205466"
-dependencies = [
- "bytes",
- "futures-core",
- "futures-sink",
- "pin-project",
 ]
 
 [[package]]
