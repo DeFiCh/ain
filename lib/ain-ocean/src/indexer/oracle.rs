@@ -572,6 +572,97 @@ pub fn index_interval_mapper(
     }
 }
 
+fn invalidate_interval_mapper(
+    services: &Arc<Services>,
+    block: &BlockContext,
+    token: &str,
+    currency: &str,
+    aggregated: &OraclePriceAggregated,
+    interval: OracleIntervalSeconds,
+) {
+    if let Some(previous_iter) = services
+        .oracle_price_aggregated_interval
+        .by_key
+        .list(Some((
+            token.to_owned(),
+            currency.to_owned(),
+            interval.clone(),
+        )))
+        .ok()
+    {
+        for result in previous_iter {
+            match result {
+                Ok((_, oracle_id)) => {
+                    if let Some(inner_values) = services
+                        .oracle_price_aggregated_interval
+                        .by_id
+                        .list(Some(oracle_id))
+                        .ok()
+                    {
+                        // Process inner_values when it is Some
+                        for result in inner_values {
+                            match result {
+                                Ok(((_, _, _, _), oracle_price_aggreated)) => {
+                                    if oracle_price_aggreated.aggregated.count != 1 {
+                                        let err = services
+                                            .oracle_price_aggregated_interval
+                                            .by_id
+                                            .delete(&oracle_price_aggreated.id);
+                                    } else {
+                                        let lastprice = oracle_price_aggreated.aggregated.clone();
+                                        let count = lastprice.count - 1;
+                                        let aggregatedInterval = OraclePriceAggregatedInterval {
+                                            id: oracle_price_aggreated.id.clone(),
+                                            key: oracle_price_aggreated.key.clone(),
+                                            sort: oracle_price_aggreated.sort.clone(),
+                                            token: oracle_price_aggreated.token.clone(),
+                                            currency: oracle_price_aggreated.currency.clone(),
+                                            aggregated: OraclePriceAggregatedIntervalAggregated {
+                                                amount: backward_aggregate_value(
+                                                    lastprice.amount.as_str(),
+                                                    &aggregated.aggregated.amount.to_string(),
+                                                    count as u32,
+                                                )
+                                                .to_string(),
+                                                weightage: backward_aggregate_number(
+                                                    lastprice.weightage,
+                                                    aggregated.aggregated.weightage,
+                                                    count as u32,
+                                                ),
+                                                count: count,
+                                                oracles:
+                                                    OraclePriceAggregatedIntervalAggregatedOracles {
+                                                        active: backward_aggregate_number(
+                                                            lastprice.oracles.active,
+                                                            aggregated.aggregated.oracles.active,
+                                                            lastprice.count as u32,
+                                                        )
+                                                            as i32,
+                                                        total: backward_aggregate_number(
+                                                            lastprice.oracles.total,
+                                                            aggregated.aggregated.oracles.total,
+                                                            lastprice.count as u32,
+                                                        ),
+                                                    },
+                                            },
+                                            block: oracle_price_aggreated.block.clone(),
+                                        };
+                                    }
+                                }
+                                Err(db_error) => {}
+                            }
+                        }
+                    }
+                }
+                Err(db_error) => {
+                    // Handle the error if needed
+                    println!("Error in outer iterator: {:?}", db_error);
+                }
+            }
+        }
+    }
+}
+
 fn process_inner_values(
     services: &Arc<Services>,
     previous_data: Option<OraclePriceAggregatedInterval>,
@@ -600,11 +691,11 @@ fn process_inner_values(
             aggregated: previous_data.as_ref().unwrap().aggregated.clone(),
             block: block,
         };
-        services.oracle_price_aggregated_interval.by_id.put(
+        let err = services.oracle_price_aggregated_interval.by_id.put(
             &oracle_price_aggregated_interval.id,
             &oracle_price_aggregated_interval,
         );
-        services.oracle_price_aggregated_interval.by_key.put(
+        let err = services.oracle_price_aggregated_interval.by_key.put(
             &oracle_price_aggregated_interval.key,
             &oracle_price_aggregated_interval.id,
         );
@@ -688,4 +779,18 @@ fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Bi
     let count = BigUint::from(count);
 
     (last_value * count.clone() - new_value) / (count - BigUint::one())
+}
+
+fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32 {
+    let last_value = BigUint::from_i32(last_value);
+    let new_value = BigUint::from_i32(new_value);
+    let count = BigUint::from(count);
+
+    let result =
+        (last_value.unwrap() * &count.clone() - &new_value.unwrap()) / (count - BigUint::one());
+
+    result.to_i32().unwrap_or_else(|| {
+        eprintln!("Result is too large to fit into i32, returning 0");
+        0
+    })
 }
