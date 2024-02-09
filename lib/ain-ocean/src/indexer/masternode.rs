@@ -3,11 +3,13 @@ use std::sync::Arc;
 use bitcoin::{hashes::Hash, PubkeyHash, ScriptBuf, WPubkeyHash};
 use dftx_rs::masternode::*;
 use log::debug;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 
 use super::Context;
 use crate::{
+    error::Error,
     indexer::{Index, Result},
-    model::{HistoryItem, Masternode},
+    model::{HistoryItem, Masternode, MasternodeStats, MasternodeStatsData, TimelockStats},
     repository::RepositoryOps,
     Services,
 };
@@ -29,6 +31,7 @@ impl Index for CreateMasternode {
         let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses else {
             return Err("Missing owner address".into());
         };
+        let collateral = Decimal::from_f64(ctx.tx.vout[1].value).ok_or(Error::DecimalError)?;
 
         let masternode = Masternode {
             id: txid,
@@ -42,7 +45,7 @@ impl Index for CreateMasternode {
             minted_blocks: 0,
             timelock: self.timelock.0.unwrap_or_default(),
             block: ctx.block.clone(),
-            collateral: ctx.tx.vout[1].value,
+            collateral,
             history: Vec::new(),
         };
 
@@ -50,7 +53,9 @@ impl Index for CreateMasternode {
         services
             .masternode
             .by_height
-            .put(&(ctx.block.height, ctx.tx_idx), &txid)
+            .put(&(ctx.block.height, ctx.tx_idx), &txid)?;
+
+        index_stats(&self, services, ctx, collateral)
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
@@ -61,6 +66,42 @@ impl Index for CreateMasternode {
             .by_height
             .delete(&(ctx.block.height, ctx.tx_idx))
     }
+}
+
+fn index_stats(
+    data: &CreateMasternode,
+    services: &Arc<Services>,
+    ctx: &Context,
+    collateral: Decimal,
+) -> Result<()> {
+    let mut stats = services
+        .masternode
+        .stats
+        .get_latest()?
+        .map_or(MasternodeStatsData::default(), |mn| mn.stats);
+
+    let count = stats.count + 1;
+    let tvl = stats.tvl + collateral;
+    let locked = stats
+        .locked
+        .entry(data.timelock.0.unwrap_or_default())
+        .or_insert_with(TimelockStats::default);
+
+    locked.count += 1;
+    locked.tvl += collateral;
+
+    services.masternode.stats.put(
+        &ctx.block.height,
+        &MasternodeStats {
+            stats: MasternodeStatsData {
+                count,
+                tvl,
+                locked: stats.locked,
+            },
+            block: ctx.block.clone(),
+        },
+    )?;
+    Ok(())
 }
 
 impl Index for UpdateMasternode {

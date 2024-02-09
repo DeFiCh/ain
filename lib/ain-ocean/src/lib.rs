@@ -5,7 +5,7 @@ mod indexer;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
-use error::OceanError;
+use error::Error;
 pub use indexer::{index_block, invalidate_block, transaction::index_transaction, tx_result};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
@@ -20,7 +20,7 @@ pub mod storage;
 
 use crate::storage::ocean_store::OceanStore;
 
-pub type Result<T> = std::result::Result<T, OceanError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 lazy_static::lazy_static! {
     // Global services exposed by the library

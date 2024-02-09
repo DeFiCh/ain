@@ -37,6 +37,7 @@ tower.workspace = true
 hyper.workspace = true
 rand.workspace = true
 axum.workspace = true
+defichain-rpc.workspace = true
 
 [build-dependencies]
 heck.workspace = true

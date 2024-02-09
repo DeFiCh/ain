@@ -19,7 +19,7 @@ pub enum NotFoundKind {
 }
 
 #[derive(Error, Debug)]
-pub enum OceanError {
+pub enum Error {
     #[error("Ocean: HexToArrayError error: {0:?}")]
     HexToArrayError(#[from] HexToArrayError),
     #[error("Ocean: ParseIntError error: {0:?}")]
@@ -40,6 +40,8 @@ pub enum OceanError {
     RpcError(#[from] defichain_rpc::Error),
     #[error("Unable to find {0:}")]
     NotFound(NotFoundKind),
+    #[error("Decimal conversion error")]
+    DecimalError,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -101,31 +103,29 @@ impl IntoResponse for ApiError {
     }
 }
 
-impl OceanError {
+impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match self {
-            OceanError::RpcError(defichain_rpc::Error::JsonRpc(
-                jsonrpc_async::error::Error::Rpc(e),
-            )) => {
+            Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
                 debug!("e : {:?}", e);
 
                 (StatusCode::NOT_FOUND, format!("{}", e.message))
             }
-            OceanError::NotFound(reason) => (StatusCode::NOT_FOUND, format!("{reason}")),
+            Error::NotFound(reason) => (StatusCode::NOT_FOUND, format!("{reason}")),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)
     }
 }
 
-impl From<Box<dyn std::error::Error>> for OceanError {
-    fn from(err: Box<dyn std::error::Error>) -> OceanError {
-        OceanError::Other(format_err!("{err}"))
+impl From<Box<dyn std::error::Error>> for Error {
+    fn from(err: Box<dyn std::error::Error>) -> Error {
+        Error::Other(format_err!("{err}"))
     }
 }
 
-impl From<&str> for OceanError {
+impl From<&str> for Error {
     fn from(s: &str) -> Self {
-        OceanError::Other(format_err!("{s}"))
+        Error::Other(format_err!("{s}"))
     }
 }
