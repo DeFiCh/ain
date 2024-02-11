@@ -1,17 +1,25 @@
 use std::sync::Arc;
 
+use ain_macros::ocean_endpoint;
+use anyhow::format_err;
 use axum::{
     extract::{Path, Query},
     routing::get,
-    Json, Router,
+    Extension, Router,
 };
 use bitcoin::Txid;
-use defichain_rpc::{Client, RpcApi};
 use serde::{Deserialize, Serialize};
 
+use super::{
+    response::{ApiPagedResponse, Response},
+    AppContext,
+};
 use crate::{
-    api_paged_response::ApiPagedResponse, api_query::PaginationQuery, model::Masternode,
-    repository::RepositoryOps, services, Result,
+    api_query::PaginationQuery,
+    error::{ApiError, Error, NotFoundKind},
+    model::Masternode,
+    repository::RepositoryOps,
+    Result,
 };
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -66,14 +74,14 @@ impl From<Masternode> for MasternodeData {
     fn from(v: Masternode) -> Self {
         MasternodeData {
             id: v.id.to_string(),
-            sort: v.sort,
+            sort: format!("{:08x}{}", v.block.height, v.id),
             state: MasternodeState::default(), // TODO Handle mn state
             minted_blocks: v.minted_blocks,
             owner: MasternodeOwner {
-                address: v.owner_address.to_hex_string(),
+                address: v.owner_address,
             },
             operator: MasternodeOperator {
-                address: v.operator_address.to_hex_string(),
+                address: v.operator_address,
             },
             creation: MasternodeCreation {
                 height: v.creation_height,
@@ -90,32 +98,35 @@ impl From<Masternode> for MasternodeData {
     }
 }
 
+#[ocean_endpoint]
 async fn list_masternodes(
     Query(query): Query<PaginationQuery>,
-) -> Result<Json<ApiPagedResponse<MasternodeData>>> {
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<MasternodeData>> {
     let next = query
         .next
         .map(|q| {
-            let parts = q.split('-').collect::<Vec<_>>();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
+            let height = q[0..8]
+                .parse::<u32>()
+                .map_err(|_| format_err!("Invalid height"))?;
+            let txid = q[8..]
+                .parse::<Txid>()
+                .map_err(|_| format_err!("Invalid txid"))?;
 
-            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
-
-            Ok((height, txno))
+            Ok::<(u32, bitcoin::Txid), Error>((height, txid))
         })
         .transpose()?;
 
-    let masternodes = services
+    let masternodes = ctx
+        .services
         .masternode
         .by_height
         .list(next)?
         .take(query.size)
         .map(|item| {
-            let (_, id) = item?;
-            let mn = services
+            let ((_, id), _) = item?;
+            let mn = ctx
+                .services
                 .masternode
                 .by_id
                 .get(&id)?
@@ -125,25 +136,32 @@ async fn list_masternodes(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Json(ApiPagedResponse::of(
+    Ok(ApiPagedResponse::of(
         masternodes,
         query.size,
-        |masternode| masternode.clone().sort,
-    )))
+        |masternode| masternode.sort.to_string(),
+    ))
 }
 
-async fn get_masternode(Path(masternode_id): Path<Txid>) -> Result<Json<Option<MasternodeData>>> {
-    let mn = services
+#[ocean_endpoint]
+async fn get_masternode(
+    Path(masternode_id): Path<Txid>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<MasternodeData>> {
+    let mn = ctx
+        .services
         .masternode
         .by_id
         .get(&masternode_id)?
-        .map(Into::into);
+        .map(Into::into)
+        .ok_or(Error::NotFound(NotFoundKind::Masternode))?;
 
-    Ok(Json(mn))
+    Ok(Response::new(mn))
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_masternodes))
         .route("/:id", get(get_masternode))
+        .layer(Extension(ctx))
 }

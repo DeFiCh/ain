@@ -27,9 +27,9 @@ impl ColumnName for MasternodeByHeight {
 }
 
 impl Column for MasternodeByHeight {
-    type Index = (u32, usize);
+    type Index = (u32, Txid);
 }
 
 impl TypedColumn for MasternodeByHeight {
-    type Type = Txid;
+    type Type = u8;
 }

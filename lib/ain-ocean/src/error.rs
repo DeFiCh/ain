@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use bitcoin::hex::HexToArrayError;
+use hyper::client;
 use log::debug;
 use serde::Serialize;
 use thiserror::Error;
@@ -16,6 +17,8 @@ use thiserror::Error;
 pub enum NotFoundKind {
     #[error("proposal")]
     Proposal,
+    #[error("masternode")]
+    Masternode,
 }
 
 #[derive(Error, Debug)]
@@ -105,13 +108,13 @@ impl IntoResponse for ApiError {
 
 impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
-        let (code, reason) = match self {
+        let (code, reason) = match &self {
             Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
                 debug!("e : {:?}", e);
 
                 (StatusCode::NOT_FOUND, format!("{}", e.message))
             }
-            Error::NotFound(reason) => (StatusCode::NOT_FOUND, format!("{reason}")),
+            Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{}", self)),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)

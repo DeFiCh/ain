@@ -35,7 +35,6 @@ impl Index for CreateMasternode {
 
         let masternode = Masternode {
             id: txid,
-            sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
             owner_address: addresses[0].clone(),
             operator_address: get_operator_script(&self.operator_pub_key_hash, self.operator_type)?
                 .to_hex_string(),
@@ -53,7 +52,7 @@ impl Index for CreateMasternode {
         services
             .masternode
             .by_height
-            .put(&(ctx.block.height, ctx.tx_idx), &txid)?;
+            .put(&(ctx.block.height, txid), &0)?;
 
         index_stats(&self, services, ctx, collateral)
     }
@@ -64,7 +63,7 @@ impl Index for CreateMasternode {
         services
             .masternode
             .by_height
-            .delete(&(ctx.block.height, ctx.tx_idx))
+            .delete(&(ctx.block.height, ctx.tx.txid))
     }
 }
 
@@ -96,12 +95,11 @@ fn index_stats(
             stats: MasternodeStatsData {
                 count,
                 tvl,
-                locked: stats.locked,
+                locked: stats.clone().locked,
             },
             block: ctx.block.clone(),
         },
-    )?;
-    Ok(())
+    )
 }
 
 impl Index for UpdateMasternode {

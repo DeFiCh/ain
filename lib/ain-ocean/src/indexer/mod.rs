@@ -80,7 +80,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
             tx,
             tx_idx,
         };
-        let bytes = ctx.tx.vout[0].script_pub_key.hex.as_bytes();
+
+        let bytes = &ctx.tx.vout[0].script_pub_key.hex;
         if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
             let offset = 1 + match bytes[1] {
                 0x4c => 2,

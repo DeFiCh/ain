@@ -1,4 +1,5 @@
 use serde::Serialize;
+use serde_with::skip_serializing_none;
 
 #[derive(Debug, Serialize)]
 pub struct Response<T> {
@@ -60,22 +61,23 @@ impl<T> Response<T> {
 /// Answer: Blocks sorted by height in descending order, that's your sorted list and your slice window.
 ///       : <- Latest | [100] [99] [98] [97] [...] | Oldest ->
 ///
+#[skip_serializing_none]
 #[derive(Debug, Serialize, PartialEq)]
 pub struct ApiPagedResponse<T> {
     data: Vec<T>,
-    page: ApiPage,
+    page: Option<ApiPage>,
 }
 
 #[derive(Debug, Serialize, PartialEq)]
 struct ApiPage {
-    next: Option<String>,
+    next: String,
 }
 
 impl<T> ApiPagedResponse<T> {
     pub fn new(data: Vec<T>, next: Option<String>) -> Self {
         Self {
             data,
-            page: ApiPage { next },
+            page: next.map(|next| ApiPage { next }),
         } // Option<&str> -> Option<String>
     }
 
@@ -90,10 +92,6 @@ impl<T> ApiPagedResponse<T> {
         } else {
             Self::next(data, None)
         }
-    }
-
-    pub fn empty() -> Self {
-        Self::new(Vec::new(), None)
     }
 }
 
@@ -120,8 +118,8 @@ mod tests {
     fn should_next_with_none() {
         let items: Vec<Item> = vec![Item::new("0", "a"), Item::new("1", "b")];
 
-        let next = ApiPagedResponse::next(items, None).page.next;
-        assert_eq!(next, None);
+        let page = ApiPagedResponse::next(items, None).page;
+        assert_eq!(page, None);
     }
 
     #[test]
@@ -130,8 +128,9 @@ mod tests {
 
         let next = ApiPagedResponse::next(items, Some("b".to_string()))
             .page
+            .unwrap()
             .next;
-        assert_eq!(next, Some("b".into()));
+        assert_eq!(next, "b".to_string());
     }
 
     #[test]
@@ -144,8 +143,9 @@ mod tests {
 
         let next = ApiPagedResponse::of(items, 3, |item| item.clone().sort)
             .page
+            .unwrap()
             .next;
-        assert_eq!(next, Some("c".into()))
+        assert_eq!(next, "c".to_string())
     }
 
     #[test]
@@ -153,6 +153,6 @@ mod tests {
         let items: Vec<Item> = vec![Item::new("0", "a"), Item::new("1", "b")];
 
         let page = ApiPagedResponse::of(items, 3, |item| item.clone().sort).page;
-        assert_eq!(page, ApiPage { next: None })
+        assert_eq!(page, None)
     }
 }

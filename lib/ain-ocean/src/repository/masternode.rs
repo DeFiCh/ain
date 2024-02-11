@@ -27,10 +27,10 @@ impl MasternodeRepository {
     }
 }
 
-type MasternodeByHeightKey = (u32, usize);
+type MasternodeByHeightKey = (u32, Txid);
 
 #[derive(Repository)]
-#[repository(K = "MasternodeByHeightKey", V = "Txid")]
+#[repository(K = "MasternodeByHeightKey", V = "u8")]
 pub struct MasternodeByHeightRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::MasternodeByHeight>,

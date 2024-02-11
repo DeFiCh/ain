@@ -14,6 +14,6 @@ pub struct TransactionVout {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct TransactionVoutScript {
-    pub hex: String,
+    pub hex: Vec<u8>,
     pub r#type: String,
 }
