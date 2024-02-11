@@ -1,5 +1,6 @@
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     if token_info.is_lps {

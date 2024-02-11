@@ -143,18 +143,18 @@ pub fn get_emission(height: u32) -> Result<Emission> {
         Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height)).ok_or(Error::DecimalError)?;
     let distribution = get_block_reward_distribution(subsidy);
 
-    let masternode = distribution.masternode.trunc_with_scale(8);
-    let dex = distribution.liquidity.trunc_with_scale(8);
-    let community = distribution.community.trunc_with_scale(8);
-    let anchor = distribution.anchor.trunc_with_scale(8);
+    let masternode = distribution.masternode;
+    let dex = distribution.liquidity;
+    let community = distribution.community;
+    let anchor = distribution.anchor;
     let total = subsidy / COIN;
     let burned = total - (masternode + dex + community + anchor);
 
     Ok(Emission {
-        masternode,
-        dex,
-        community,
-        anchor,
+        masternode: masternode.trunc_with_scale(8),
+        dex: dex.trunc_with_scale(8),
+        community: community.trunc_with_scale(8),
+        anchor: anchor.trunc_with_scale(8),
         burned,
         total,
     })

@@ -14,6 +14,7 @@ pub struct Masternode {
     pub resign_tx: Option<Txid>,
     pub minted_blocks: i32,
     pub timelock: u16,
+    #[serde(with = "rust_decimal::serde::str")]
     pub collateral: Decimal,
     pub block: BlockContext,
     pub history: Vec<HistoryItem>,

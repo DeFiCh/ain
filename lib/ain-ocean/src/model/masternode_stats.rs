@@ -15,6 +15,7 @@ pub struct MasternodeStats {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TimelockStats {
+    #[serde(with = "rust_decimal::serde::str")]
     pub tvl: Decimal,
     pub count: u32,
 }
@@ -23,6 +24,7 @@ pub struct TimelockStats {
 #[serde(rename_all = "camelCase")]
 pub struct MasternodeStatsData {
     pub count: u32,
+    #[serde(with = "rust_decimal::serde::str")]
     pub tvl: Decimal,
     pub locked: HashMap<u16, TimelockStats>,
 }
