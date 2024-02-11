@@ -118,8 +118,8 @@ mod tests {
     fn should_next_with_none() {
         let items: Vec<Item> = vec![Item::new("0", "a"), Item::new("1", "b")];
 
-        let next = ApiPagedResponse::next(items, None).page.next;
-        assert_eq!(next, None);
+        let page = ApiPagedResponse::next(items, None).page;
+        assert_eq!(page, None);
     }
 
     #[test]
@@ -128,8 +128,9 @@ mod tests {
 
         let next = ApiPagedResponse::next(items, Some("b".to_string()))
             .page
+            .unwrap()
             .next;
-        assert_eq!(next, Some("b".into()));
+        assert_eq!(next, "b".to_string());
     }
 
     #[test]
@@ -142,8 +143,9 @@ mod tests {
 
         let next = ApiPagedResponse::of(items, 3, |item| item.clone().sort)
             .page
+            .unwrap()
             .next;
-        assert_eq!(next, Some("c".into()))
+        assert_eq!(next, "c".to_string())
     }
 
     #[test]
@@ -151,6 +153,6 @@ mod tests {
         let items: Vec<Item> = vec![Item::new("0", "a"), Item::new("1", "b")];
 
         let page = ApiPagedResponse::of(items, 3, |item| item.clone().sort).page;
-        assert_eq!(page, ApiPage { next: None })
+        assert_eq!(page, None)
     }
 }
