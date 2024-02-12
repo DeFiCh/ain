@@ -151,7 +151,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
 Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
     const auto checkFinalised = ctx.checkFinalised;
     const auto tokenSplitUpdate = ctx.tokenSplitUpdate;
-    const bool checkSymbol = ctx.checkSymbol;
+    const auto checkSymbol = ctx.checkSymbol;
     auto &blockCtx = ctx.blockCtx;
     const auto &newToken = ctx.newToken;
 
