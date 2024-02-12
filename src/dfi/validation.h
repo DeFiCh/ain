@@ -15,7 +15,6 @@ class CChainParams;
 class CCoinsViewCache;
 class CCustomCSView;
 class CVaultAssets;
-class CScopedTemplate;
 
 using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
 
