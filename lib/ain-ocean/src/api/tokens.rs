@@ -11,14 +11,11 @@ use serde_json::json;
 
 use super::{
     common::parse_display_symbol,
+    query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{
-    api_query::{PaginationQuery, Query},
-    error::ApiError,
-    Result, Services,
-};
+use crate::{error::ApiError, Result, Services};
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct TxHeight {

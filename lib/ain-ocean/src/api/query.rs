@@ -11,18 +11,29 @@ use serde_with::{serde_as, DisplayFromStr};
 
 use crate::error::ApiError;
 
+const DEFAUT_PAGINATION_SIZE: usize = 30;
+
 pub fn default_pagination_size() -> usize {
-    30
+    DEFAUT_PAGINATION_SIZE
 }
 
 #[serde_as]
-#[derive(Deserialize, Default, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct PaginationQuery {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "default_pagination_size")]
     pub size: usize,
     #[serde(deserialize_with = "undefined_to_none")]
     pub next: Option<String>,
+}
+
+impl Default for PaginationQuery {
+    fn default() -> Self {
+        Self {
+            size: DEFAUT_PAGINATION_SIZE,
+            next: None,
+        }
+    }
 }
 
 fn undefined_to_none<'de, D>(d: D) -> Result<Option<String>, D::Error>
@@ -48,7 +59,9 @@ where
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let query = parts.uri.query().unwrap_or_default();
-
+        if query.is_empty() {
+            return Ok(Self(T::default()));
+        }
         match serde_urlencoded::from_str(query) {
             Ok(v) => Ok(Query(v)),
             Err(e) => Err(ApiError::new(

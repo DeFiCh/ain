@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use defichain_rpc::{json::mining::SmartFeeEstimation, Client, RpcApi};
+use defichain_rpc::{json::mining::SmartFeeEstimation, RpcApi};
 use serde::Deserialize;
 
-use super::{response::Response, AppContext};
-use crate::{api_query::Query, error::ApiError, Result, Services};
+use super::{query::Query, response::Response, AppContext};
+use crate::{error::ApiError, Result};
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
