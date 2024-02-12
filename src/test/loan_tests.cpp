@@ -1,7 +1,7 @@
 #include <chainparams.h>
 #include <dfi/loan.h>
 #include <dfi/masternodes.h>
-#include <validation.h>
+#include <dfi/mn_checks.h>
 
 #include <test/setup_common.h>
 #include <boost/test/unit_test.hpp>
@@ -26,7 +26,8 @@ DCT_ID CreateToken(CCustomCSView &mnview, const std::string& symbol, const std::
     token.symbol = symbol;
     token.name = name;
 
-    auto res = mnview.CreateToken(token, false);
+    BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
+    auto res = mnview.CreateToken(token, dummyContext);
     BOOST_REQUIRE(res.ok);
     return *res.val;
 }

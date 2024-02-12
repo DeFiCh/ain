@@ -47,17 +47,16 @@ static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_
     }
 }
 
-static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
+static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
     // Hard coded LP_DAILY_DFI_REWARD change
-    if (pindex->nHeight >= chainparams.GetConsensus().DF8EunosHeight) {
-        const auto &incentivePair =
-            chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::IncentiveFunding);
+    if (pindex->nHeight >= consensus.DF8EunosHeight) {
+        const auto &incentivePair = consensus.blockTokenRewards.find(CommunityAccountType::IncentiveFunding);
         UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
     // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
-    if (pindex->nHeight >= chainparams.GetConsensus().DF11FortCanningHeight) {
-        const auto &incentivePair = chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::Loan);
+    if (pindex->nHeight >= consensus.DF11FortCanningHeight) {
+        const auto &incentivePair = consensus.blockTokenRewards.find(CommunityAccountType::Loan);
         UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
@@ -105,7 +104,7 @@ static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache,
         }
     }
 
-    if (pindex->nHeight >= chainparams.GetConsensus().DF11FortCanningHeight) {
+    if (pindex->nHeight >= consensus.DF11FortCanningHeight) {
         res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
         if (!res.ok) {
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n",
@@ -123,12 +122,12 @@ static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache,
     }
 }
 
-static void ProcessICXEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF8EunosHeight) {
+static void ProcessICXEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF8EunosHeight) {
         return;
     }
 
-    bool isPreEunosPaya = pindex->nHeight < chainparams.GetConsensus().DF10EunosPayaHeight;
+    bool isPreEunosPaya = pindex->nHeight < consensus.DF10EunosPayaHeight;
 
     cache.ForEachICXOrderExpire(
         [&](const CICXOrderView::StatusKey &key, uint8_t status) {
@@ -307,8 +306,8 @@ Res AddNonTxToBurnIndex(const CScript &from, const CBalances &amounts) {
     return mapBurnAmounts[from].AddBalances(amounts.balances);
 }
 
-static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight != chainparams.GetConsensus().DF8EunosHeight) {
+static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight != consensus.DF8EunosHeight) {
         return;
     }
 
@@ -324,12 +323,12 @@ static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, 
 
             return true;
         },
-        BalanceKey{chainparams.GetConsensus().retiredBurnAddress, DCT_ID{}});
+        BalanceKey{consensus.retiredBurnAddress, DCT_ID{}});
 
-    AddNonTxToBurnIndex(chainparams.GetConsensus().retiredBurnAddress, burnAmounts);
+    AddNonTxToBurnIndex(consensus.retiredBurnAddress, burnAmounts);
 
     // Zero foundation balances
-    for (const auto &script : chainparams.GetConsensus().accountDestruction) {
+    for (const auto &script : consensus.accountDestruction) {
         CBalances zeroAmounts;
         cache.ForEachBalance(
             [&zeroAmounts, script](const CScript &owner, CTokenAmount balance) {
@@ -352,7 +351,7 @@ static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, 
             // If amount cannot be deducted then burn skipped.
             auto result = cache.SubBalance(item.first, {subItem.first, subItem.second});
             if (result.ok) {
-                cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
+                cache.AddBalance(consensus.burnAddress, {subItem.first, subItem.second});
 
                 // Add transfer as additional TX in block
                 cache.GetHistoryWriters().WriteAccountHistory({Params().GetConsensus().burnAddress,
@@ -377,8 +376,8 @@ static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, 
     mapBurnAmounts.clear();
 }
 
-static void ProcessOracleEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
+static void ProcessOracleEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF11FortCanningHeight) {
         return;
     }
     auto blockInterval = cache.GetIntervalBlock();
@@ -493,8 +492,8 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
     return batches;
 }
 
-static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
+static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF11FortCanningHeight) {
         return;
     }
 
@@ -541,7 +540,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+    if (pindex->nHeight % consensus.blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
         auto &pool = DfTxTaskPool->pool;
@@ -713,7 +712,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                 // All done. Ready to save the overall auction.
                 cache.StoreAuction(vaultId,
                                    CAuctionData{uint32_t(batches.size()),
-                                                pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                                                pindex->nHeight + consensus.blocksCollateralAuction(),
                                                 cache.GetLoanLiquidationPenalty()});
 
                 // Store state in vault DB
@@ -759,9 +758,9 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                                         bidTokenAmount.nTokenId,
                                         amountToBurn,
                                         tmpAddress,
-                                        chainparams.GetConsensus().burnAddress,
+                                        consensus.burnAddress,
                                         pindex->nHeight,
-                                        chainparams.GetConsensus());
+                                        consensus);
                     }
 
                     view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
@@ -784,7 +783,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                                         tmpAddress,
                                         tmpAddress,
                                         pindex->nHeight,
-                                        chainparams.GetConsensus());
+                                        consensus);
                         auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                         view.SubBalance(tmpAddress, amount);
                         view.AddVaultCollateral(vaultId, amount);
@@ -846,8 +845,8 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
     view.Flush();
 }
 
-static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF15FortCanningRoadHeight) {
+static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF15FortCanningRoadHeight) {
         return;
     }
 
@@ -1069,9 +1068,9 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
 
 static void ProcessGovEvents(const CBlockIndex *pindex,
                              CCustomCSView &cache,
-                             const CChainParams &chainparams,
+                             const Consensus::Params &consensus,
                              const std::shared_ptr<CScopedTemplate> &evmTemplate) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
+    if (pindex->nHeight < consensus.DF11FortCanningHeight) {
         return;
     }
 
@@ -1160,10 +1159,10 @@ static bool ApplyGovVars(CCustomCSView &cache,
     return false;
 }
 
-static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
+static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
     // Migrate at +1 height so that GetLastHeight() in Gov var
     // Validate() has a height equal to the GW fork.
-    if (pindex->nHeight != chainparams.GetConsensus().DF16FortCanningCrunchHeight + 1) {
+    if (pindex->nHeight != consensus.DF16FortCanningCrunchHeight + 1) {
         return;
     }
 
@@ -1393,12 +1392,15 @@ static Res PoolSplits(CCustomCSView &view,
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
 
-            auto res = view.UpdateToken(*oldPoolToken, true, true);
+            // EVM Template will be null so no DST20 will be updated or created
+            BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
+            UpdateTokenContext ctx{*oldPoolToken, dummyContext, false, true, false};
+            auto res = view.UpdateToken(ctx);
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
 
-            auto resVal = view.CreateToken(newPoolToken, false);
+            auto resVal = view.CreateToken(newPoolToken, dummyContext);
             if (!resVal) {
                 throw std::runtime_error(resVal.msg);
             }
@@ -1944,8 +1946,9 @@ static void ProcessTokenSplits(const CBlock &block,
                                const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
-                               const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
+                               BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
         return;
     }
     const auto attributes = cache.GetAttributes();
@@ -2010,14 +2013,16 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        res = view.UpdateToken(*token, false, true);
+        UpdateTokenContext ctx{*token, blockCtx, true, true, false, pindex->GetBlockHash()};
+        res = view.UpdateToken(ctx);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;
         }
 
-        // TODO: Pass this on, once we add support for EVM splits
-        auto resVal = view.CreateToken(newToken, false);
+        // TODO pass block context on fork to create new EVM token.
+        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, consensus};
+        auto resVal = view.CreateToken(newToken, dummyContext);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
@@ -2181,7 +2186,7 @@ static void ProcessTokenSplits(const CBlock &block,
         view.SetVariable(*attributes);
 
         // Migrate stored unlock
-        if (pindex->nHeight >= chainparams.GetConsensus().DF20GrandCentralHeight) {
+        if (pindex->nHeight >= consensus.DF20GrandCentralHeight) {
             bool updateStoredVar{};
             auto storedGovVars = view.GetStoredVariablesRange(pindex->nHeight, std::numeric_limits<uint32_t>::max());
             for (const auto &[varHeight, var] : storedGovVars) {
@@ -2221,8 +2226,8 @@ static void ProcessTokenSplits(const CBlock &block,
     }
 }
 
-static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF17FortCanningSpringHeight) {
+static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF17FortCanningSpringHeight) {
         return;
     }
 
@@ -2412,8 +2417,8 @@ static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &ca
     }
 }
 
-static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF20GrandCentralHeight) {
+static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF20GrandCentralHeight) {
         return;
     }
 
@@ -2425,15 +2430,15 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
     if (!attributes->GetValue(enabledKey, false)) {
         if (funds > 0) {
             cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
-            cache.AddBalance(chainparams.GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
+            cache.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, funds});
         }
 
         return;
     }
 
-    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    auto balance = cache.GetBalance(consensus.foundationShareScript, DCT_ID{0});
     if (balance.nValue > 0) {
-        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.SubBalance(consensus.foundationShareScript, balance);
         cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
     }
 
@@ -2510,7 +2515,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                                   amountPerVoter);
                     }
 
-                    if (pindex->nHeight >= chainparams.GetConsensus().DF22MetachainHeight) {
+                    if (pindex->nHeight >= consensus.DF22MetachainHeight) {
                         subView.CalculateOwnerRewards(scriptPubKey, pindex->nHeight);
                     }
 
@@ -2532,11 +2537,11 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 return true;
             }
 
-            if (pindex->nHeight < chainparams.GetConsensus().DF22MetachainHeight &&
+            if (pindex->nHeight < consensus.DF22MetachainHeight &&
                 lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
                 cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
                 return true;
-            } else if (pindex->nHeight >= chainparams.GetConsensus().DF22MetachainHeight) {
+            } else if (pindex->nHeight >= consensus.DF22MetachainHeight) {
                 auto onlyNeutral = voters.size() == voteNeutral;
                 if (onlyNeutral ||
                     lround(voteYes * 10000.f / (voters.size() - voteNeutral)) <= prop.approvalThreshold) {
@@ -2549,7 +2554,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
             } else {
                 assert(prop.nCycles > prop.cycle);
-                cache.UpdateProposalCycle(propId, prop.cycle + 1, pindex->nHeight, chainparams.GetConsensus());
+                cache.UpdateProposalCycle(propId, prop.cycle + 1, pindex->nHeight, consensus);
             }
 
             CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
@@ -2572,8 +2577,8 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
 static void ProcessMasternodeUpdates(const CBlockIndex *pindex,
                                      CCustomCSView &cache,
                                      const CCoinsViewCache &view,
-                                     const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF20GrandCentralHeight) {
+                                     const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF20GrandCentralHeight) {
         return;
     }
     // Apply any pending masternode owner changes
@@ -2607,15 +2612,15 @@ static void ProcessMasternodeUpdates(const CBlockIndex *pindex,
 
 static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
                                       CCustomCSView &cache,
-                                      const CChainParams &chainparams) {
-    if (pindex->nHeight != chainparams.GetConsensus().DF20GrandCentralHeight) {
+                                      const Consensus::Params &consensus) {
+    if (pindex->nHeight != consensus.DF20GrandCentralHeight) {
         return;
     }
 
     auto attributes = cache.GetAttributes();
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-    attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
+    attributes->SetValue(key, consensus.foundationMembers);
     cache.SetVariable(*attributes);
 }
 
@@ -2793,44 +2798,45 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
 void ProcessDeFiEvent(const CBlock &block,
                       const CBlockIndex *pindex,
-                      CCustomCSView &mnview,
                       const CCoinsViewCache &view,
-                      const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplate> &evmTemplate) {
+                      BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
+    auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
-    ProcessRewardEvents(pindex, cache, chainparams);
+    ProcessRewardEvents(pindex, cache, consensus);
 
     // close expired orders, refund all expired DFC HTLCs at this block height
-    ProcessICXEvents(pindex, cache, chainparams);
+    ProcessICXEvents(pindex, cache, consensus);
 
     // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
-    if (pindex->nHeight == chainparams.GetConsensus().DF2BayfrontHeight - 1) {  // call at block _before_ fork
+    if (pindex->nHeight == consensus.DF2BayfrontHeight - 1) {  // call at block _before_ fork
         cache.BayfrontFlagsCleanup();
     }
 
     // burn DFI on Eunos height
-    ProcessEunosEvents(pindex, cache, chainparams);
+    ProcessEunosEvents(pindex, cache, consensus);
 
     // set oracle prices
-    ProcessOracleEvents(pindex, cache, chainparams);
+    ProcessOracleEvents(pindex, cache, consensus);
 
     // loan scheme, collateral ratio, liquidations
-    ProcessLoanEvents(pindex, cache, chainparams);
+    ProcessLoanEvents(pindex, cache, consensus);
 
     // Must be before set gov by height to clear futures in case there's a disabling of loan token in v3+
-    ProcessFutures(pindex, cache, chainparams);
+    ProcessFutures(pindex, cache, consensus);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams, evmTemplate);
+    ProcessGovEvents(pindex, cache, consensus, evmTemplate);
 
     // Migrate loan and collateral tokens to Gov vars.
-    ProcessTokenToGovVar(pindex, cache, chainparams);
+    ProcessTokenToGovVar(pindex, cache, consensus);
 
     // Loan splits
-    ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
+    ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
 
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
@@ -2838,19 +2844,19 @@ void ProcessDeFiEvent(const CBlock &block,
     }
 
     // DFI-to-DUSD swaps
-    ProcessFuturesDUSD(pindex, cache, chainparams);
+    ProcessFuturesDUSD(pindex, cache, consensus);
 
     // Tally negative interest across vaults
     ProcessNegativeInterest(pindex, cache);
 
     // proposal activations
-    ProcessProposalEvents(pindex, cache, chainparams);
+    ProcessProposalEvents(pindex, cache, consensus);
 
     // Masternode updates
-    ProcessMasternodeUpdates(pindex, cache, view, chainparams);
+    ProcessMasternodeUpdates(pindex, cache, view, consensus);
 
     // Migrate foundation members to attributes
-    ProcessGrandCentralEvents(pindex, cache, chainparams);
+    ProcessGrandCentralEvents(pindex, cache, consensus);
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());

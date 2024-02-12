@@ -170,16 +170,10 @@ public:
                           const uint64_t time,
                           const Consensus::Params &consensus,
                           CCustomCSView *view = {},
-                          const std::optional<bool> enabled = {},
+                          const std::optional<bool> enabled = std::nullopt,
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
-                          const bool prevalidate = {})
-        : view(view),
-          isEvmEnabledForBlock(enabled),
-          evmTemplate(evmTemplate),
-          evmPreValidate(prevalidate),
-          height(height),
-          time(time),
-          consensus(consensus) {}
+                          const bool prevalidate = {});
+    explicit BlockContext(BlockContext &other, CCustomCSView &otherView);
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
