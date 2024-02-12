@@ -728,6 +728,7 @@ fn evm_try_unsafe_create_dst20(
     token: ffi::DST20TokenInfo,
 ) -> Result<()> {
     let address = ain_contracts::dst20_address_from_token_id(token.id)?;
+    debug!("Deploying to address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
         name: token.name,
@@ -867,7 +868,7 @@ fn evm_try_unsafe_rename_dst20(
     token: ffi::DST20TokenInfo,
 ) -> Result<()> {
     let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-    debug!("Deploying to address {:#?}", address);
+    debug!("Renaming token on address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
         name: token.name,
