@@ -199,16 +199,30 @@ Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
         const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
         if (evmEnabled && evmTemplate) {
-            const auto hash = ctx.hash;
+            const auto &hash = ctx.hash;
             CrossBoundaryResult result;
+            if (oldToken.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
+                return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
+            }
+            const auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(oldToken.name));
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
+            }
+            const auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(oldToken.symbol));
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token, token symbol not valid UTF-8\n");
+            }
             evm_try_unsafe_rename_dst20(result,
                                         evmTemplate->GetTemplate(),
                                         hash.GetByteArray(),  // Can be either TX or block hash depending on the source
                                         DST20TokenInfo{
                                             id.v,
-                                            newToken.name,
-                                            newToken.symbol,
+                                            token_name,
+                                            token_symbol,
                                         });
+            if (!result.ok) {
+                return Res::Err("Error updating DST20 token: %s", result.reason);
+            }
         }
     }
 

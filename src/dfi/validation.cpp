@@ -2013,7 +2013,7 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        // TODO pass block context on fork to create new EVM token.
+        // TODO pass block context to update old EVM token.
         BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, consensus};
         UpdateTokenContext ctx{*token, dummyContext, true, true, false, pindex->GetBlockHash()};
         res = view.UpdateToken(ctx);
@@ -2022,6 +2022,7 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
+        // TODO pass block context on fork to create new EVM token.
         auto resVal = view.CreateToken(newToken, dummyContext);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
