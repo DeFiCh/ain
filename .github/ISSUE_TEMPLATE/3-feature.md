@@ -1,7 +1,10 @@
 ---
 name: Feature request
 about: Suggest a feature for DeFiChain
-labels: feature
+title: ''
+labels: ''
+assignees: ''
+
 ---
 
 <!-- 
@@ -38,4 +41,3 @@ labels: feature
 
 
 ## Potential Implementation Timeline
-

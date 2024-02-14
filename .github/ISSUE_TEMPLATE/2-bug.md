@@ -1,7 +1,10 @@
 ---
 name: Bug report
 about: Report bugs or technical issues
+title: ''
 labels: bug
+assignees: ''
+
 ---
 
 <!-- 
@@ -32,4 +35,4 @@ labels: bug
 - Block height on bug if applicable: 
 - TX or TX type on bug if applicable:  
 - OS with version: 
-- Any other relevant environment info:  
+- Any other relevant environment info:
