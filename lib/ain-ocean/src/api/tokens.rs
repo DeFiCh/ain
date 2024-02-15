@@ -15,7 +15,7 @@ use super::{
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{error::ApiError, Result, Services};
+use crate::{error::ApiError, Result};
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct TxHeight {
@@ -26,7 +26,7 @@ pub struct TxHeight {
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenData {
-    id: u32,
+    id: String,
     symbol: String,
     symbol_key: String,
     name: String,
@@ -49,7 +49,7 @@ pub struct TokenData {
 }
 
 impl TokenData {
-    fn from_with_id(id: u32, token: TokenInfo) -> Self {
+    pub fn from_with_id(id: String, token: TokenInfo) -> Self {
         let display_symbol = parse_display_symbol(&token);
         Self {
             id,
@@ -107,15 +107,17 @@ async fn list_tokens(
         .into_iter()
         .map(|(k, v)| TokenData::from_with_id(k, v))
         .collect::<Vec<_>>();
-    Ok(ApiPagedResponse::of(res, query.size, |token| token.id))
+    Ok(ApiPagedResponse::of(res, query.size, |token| {
+        token.id.clone()
+    }))
 }
 
 #[ocean_endpoint]
 async fn get_token(
-    Path(id): Path<u32>,
+    Path(id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<TokenData>>> {
-    let mut v: TokenResult = ctx.client.call("gettoken", &[id.into()]).await?;
+    let mut v: TokenResult = ctx.client.call("gettoken", &[id.as_str().into()]).await?;
 
     let res = if let Some(token) = v.0.remove(&id) {
         Some(TokenData::from_with_id(id, token))

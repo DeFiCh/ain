@@ -12,6 +12,7 @@ mod masternode;
 // mod poolpairs;
 // mod prices;
 // mod rawtx;
+mod cache;
 mod common;
 mod query;
 mod response;

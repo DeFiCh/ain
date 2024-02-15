@@ -8,7 +8,6 @@ use axum::{
     Json,
 };
 use bitcoin::hex::HexToArrayError;
-use hyper::client;
 use log::debug;
 use serde::Serialize;
 use thiserror::Error;
@@ -19,6 +18,8 @@ pub enum NotFoundKind {
     Proposal,
     #[error("masternode")]
     Masternode,
+    #[error("scheme")]
+    Scheme,
 }
 
 #[derive(Error, Debug)]
@@ -110,11 +111,17 @@ impl Error {
     pub fn into_code_and_message(self) -> (StatusCode, String) {
         let (code, reason) = match &self {
             Error::RpcError(defichain_rpc::Error::JsonRpc(jsonrpc_async::error::Error::Rpc(e))) => {
-                debug!("e : {:?}", e);
-
-                (StatusCode::NOT_FOUND, format!("{}", e.message))
+                (
+                    StatusCode::NOT_FOUND,
+                    match e {
+                        e if e.message.contains("Cannot find existing loan scheme") => {
+                            format!("{}", Error::NotFound(NotFoundKind::Scheme))
+                        }
+                        _ => format!("{}", e.message),
+                    },
+                )
             }
-            Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{}", self)),
+            Error::NotFound(_) => (StatusCode::NOT_FOUND, format!("{self}")),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
         (code, reason)

@@ -1,55 +1,236 @@
 use std::sync::Arc;
 
-use axum::{
-    extract::{Path, Query},
-    routing::get,
-    Json, Router,
-};
+use ain_macros::ocean_endpoint;
+use anyhow::format_err;
+use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::Txid;
-use defichain_rpc::{Client, RpcApi};
+use defichain_rpc::{
+    defichain_rpc_json::{
+        loan::{CollateralTokenDetail, LoanSchemeResult, LoanTokenResult},
+        token::TokenInfo,
+    },
+    LoanRPC,
+};
+use futures::future::try_join_all;
 use log::debug;
+use serde::Serialize;
 
+use super::{
+    cache::get_token_cached,
+    common::Paginate,
+    query::{PaginationQuery, Query},
+    response::{ApiPagedResponse, Response},
+    tokens::TokenData,
+    AppContext,
+};
 use crate::{
-    api_paged_response::ApiPagedResponse, api_query::PaginationQuery,
-    model::VaultAuctionBatchHistory, repository::RepositoryOps, services, Result,
+    error::{ApiError, Error, NotFoundKind},
+    model::VaultAuctionBatchHistory,
+    repository::RepositoryOps,
+    Result,
 };
 
-async fn list_scheme() -> String {
-    "List of loan schemes".to_string()
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoanSchemeData {
+    id: String,
+    min_col_ratio: String,
+    interest_rate: String,
 }
 
-async fn get_scheme(Path(scheme_id): Path<String>) -> String {
-    format!("Details of loan scheme with id {}", scheme_id)
+impl From<LoanSchemeResult> for LoanSchemeData {
+    fn from(value: LoanSchemeResult) -> Self {
+        Self {
+            id: value.id,
+            min_col_ratio: format!("{}", value.mincolratio),
+            interest_rate: format!("{}", value.interestrate),
+        }
+    }
 }
 
-async fn list_collateral_token() -> String {
-    "List of collateral tokens".to_string()
+#[ocean_endpoint]
+async fn list_scheme(
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<LoanSchemeData>> {
+    let skip_while = |el: &LoanSchemeResult| match &query.next {
+        None => false,
+        Some(v) => v != &el.id,
+    };
+
+    let res = ctx
+        .client
+        .list_loan_schemes()
+        .await?
+        .into_iter()
+        .paginate(&query, skip_while)
+        .map(Into::into)
+        .collect();
+    Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
+        loan_scheme.id.to_owned()
+    }))
 }
 
-async fn get_collateral_token(Path(token_id): Path<String>) -> String {
-    format!("Details of collateral token with id {}", token_id)
+#[ocean_endpoint]
+async fn get_scheme(
+    Path(scheme_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<LoanSchemeData>> {
+    println!("[get_scheme]");
+    Ok(Response::new(
+        ctx.client.get_loan_scheme(scheme_id).await?.into(),
+    ))
 }
 
-async fn list_loan_token() -> String {
-    "List of loan tokens".to_string()
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollateralToken {
+    token_id: String,
+    token: TokenData,
+    factor: String,
+    activate_after_block: u32,
+    fixed_interval_price_id: String,
+    // TODO when indexing price
+    // activePrice?: ActivePrice
 }
 
-async fn get_loan_token(Path(token_id): Path<String>) -> String {
-    format!("Details of loan token with id {}", token_id)
+impl CollateralToken {
+    fn from_with_id(id: String, detail: CollateralTokenDetail, info: TokenInfo) -> Self {
+        Self {
+            token_id: detail.token_id,
+            factor: format!("{}", detail.factor),
+            activate_after_block: 0,
+            fixed_interval_price_id: detail.fixed_interval_price_id,
+            token: TokenData::from_with_id(id, info),
+        }
+    }
 }
 
-async fn list_vault() -> String {
-    "List of vaults".to_string()
+#[ocean_endpoint]
+async fn list_collateral_token(
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<CollateralToken>> {
+    let skip_while = |el: &CollateralTokenDetail| match &query.next {
+        None => false,
+        Some(v) => v != &el.token_id,
+    };
+
+    let tokens = ctx.client.list_collateral_tokens().await?;
+
+    let fut = tokens
+        .into_iter()
+        .paginate(&query, skip_while)
+        .map(|v| async {
+            let (id, info) = get_token_cached(&ctx, &v.token_id).await?;
+            Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info))
+        })
+        .collect::<Vec<_>>();
+
+    let res = try_join_all(fut).await?;
+
+    Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
+        loan_scheme.token_id.to_owned()
+    }))
 }
 
-async fn get_vault(Path(vault_id): Path<String>) -> String {
-    format!("Details of vault with id {}", vault_id)
+#[ocean_endpoint]
+async fn get_collateral_token(
+    Path(token_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<CollateralToken>> {
+    let collateral_token = ctx.client.get_collateral_token(token_id).await?;
+    let (id, info) = get_token_cached(&ctx, &collateral_token.token_id).await?;
+
+    Ok(Response::new(CollateralToken::from_with_id(
+        id,
+        collateral_token,
+        info,
+    )))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoanToken {
+    token_id: String,
+    token: TokenData,
+    interest: f64,
+    // activate_after_block: u32,
+    // fixed_interval_price_id: String,
+    // TODO when indexing price
+    // activePrice?: ActivePrice
+}
+
+#[ocean_endpoint]
+async fn list_loan_token(
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<LoanToken>> {
+    let tokens = ctx.client.list_loan_tokens().await?;
+
+    struct FlattenToken {
+        id: String,
+        data: TokenInfo,
+        interest: f64,
+    };
+
+    let fut = tokens
+        .into_iter()
+        .flat_map(|el| {
+            el.token
+                .0
+                .into_iter()
+                .next() // Should always get a Hashmap<id, data> with single entry here.
+                .map(|(id, data)| FlattenToken {
+                    id,
+                    data,
+                    interest: el.interest,
+                })
+        })
+        .paginate(&query, |token| match &query.next {
+            None => false,
+            Some(v) => v != &token.id,
+        })
+        .map(|token| async move {
+            let token = LoanToken {
+                token_id: token.id.clone(),
+                token: TokenData::from_with_id(token.id, token.data),
+                interest: token.interest,
+                // activate_after_block: todo!(),
+                // fixed_interval_price_id: todo!(),
+            };
+            Ok::<LoanToken, Error>(token)
+        })
+        .collect::<Vec<_>>();
+
+    let res = try_join_all(fut).await?;
+
+    Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
+        loan_scheme.token_id.to_owned()
+    }))
+}
+
+// #[ocean_endpoint]
+// async fn get_loan_token(Path(token_id): Path<String>) -> String {
+//     format!("Details of loan token with id {}", token_id)
+// }
+
+// #[ocean_endpoint]
+// async fn list_vault() -> String {
+//     "List of vaults".to_string()
+// }
+
+// #[ocean_endpoint]
+// async fn get_vault(Path(vault_id): Path<String>) -> String {
+//     format!("Details of vault with id {}", vault_id)
+// }
+
+#[ocean_endpoint]
 async fn list_vault_auction_history(
     Path((vault_id, height, batch_index)): Path<(Txid, u32, u32)>,
     Query(query): Query<PaginationQuery>,
-) -> Result<Json<ApiPagedResponse<VaultAuctionBatchHistory>>> {
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<VaultAuctionBatchHistory>> {
     debug!(
         "Auction history for vault id {}, height {}, batch index {}",
         vault_id, height, batch_index
@@ -74,7 +255,8 @@ async fn list_vault_auction_history(
 
     let size = if query.size > 0 { query.size } else { 20 };
 
-    let auctions = services
+    let auctions = ctx
+        .services
         .auction
         .by_height
         .list(Some((vault_id, batch_index, next.0, next.1)))?
@@ -86,7 +268,8 @@ async fn list_vault_auction_history(
         .map(|item| {
             let (_, id) = item?;
 
-            let auction = services
+            let auction = ctx
+                .services
                 .auction
                 .by_id
                 .get(&id)?
@@ -96,16 +279,14 @@ async fn list_vault_auction_history(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Json(ApiPagedResponse::of(
-        auctions,
-        query.size,
-        |auction| auction.sort.to_string(),
-    )))
+    Ok(ApiPagedResponse::of(auctions, query.size, |auction| {
+        auction.sort.to_string()
+    }))
 }
 
-async fn list_auction() -> String {
-    "List of auctions".to_string()
-}
+// async fn list_auction() -> String {
+//     "List of auctions".to_string()
+// }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
@@ -114,12 +295,13 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/collaterals", get(list_collateral_token))
         .route("/collaterals/:id", get(get_collateral_token))
         .route("/tokens", get(list_loan_token))
-        .route("/tokens/:id", get(get_loan_token))
-        .route("/vaults", get(list_vault))
-        .route("/vaults/:id", get(get_vault))
+        // .route("/tokens/:id", get(get_loan_token))
+        // .route("/vaults", get(list_vault))
+        // .route("/vaults/:id", get(get_vault))
         .route(
             "/vaults/:id/auctions/:height/batches/:batchIndex/history",
             get(list_vault_auction_history),
         )
-        .route("/auctions", get(list_auction))
+        // .route("/auctions", get(list_auction))
+        .layer(Extension(ctx))
 }
