@@ -20,7 +20,7 @@ use crate::{
         dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
-    eventlistener::{ExecutionStep, ExecListener, GasListener},
+    eventlistener::{ExecListener, ExecutionStep, GasListener},
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
