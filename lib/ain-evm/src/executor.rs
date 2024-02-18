@@ -20,7 +20,7 @@ use crate::{
         dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
-    eventlistener::{ExecutionStep, GasListener, Listener},
+    eventlistener::{ExecutionStep, ExecListener, GasListener},
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
@@ -295,7 +295,7 @@ impl<'backend> AinExecutor<'backend> {
 
         let state = MemoryStackState::new(metadata, self.backend);
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
-        let mut listener = Listener::new(gas_listener.gas, gas_listener.gas_cost);
+        let mut listener = ExecListener::new(gas_listener.gas, gas_listener.gas_cost);
         let (exec_flag, data, used_gas) = runtime_using(&mut listener, move || {
             let (exit_reason, data) = executor.transact_call(
                 ctx.caller,

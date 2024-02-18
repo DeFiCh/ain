@@ -19,18 +19,74 @@ pub struct ExecutionStep {
     pub memory: Vec<u8>,
 }
 
-pub struct Listener {
+pub struct ExecListener {
     pub trace: Vec<ExecutionStep>,
     pub gas: VecDeque<u64>,
     pub gas_cost: VecDeque<u64>,
 }
 
-impl Listener {
+impl ExecListener {
     pub fn new(gas: VecDeque<u64>, gas_cost: VecDeque<u64>) -> Self {
         Self {
             trace: vec![],
             gas,
             gas_cost,
+        }
+    }
+}
+
+impl RuntimeEventListener for ExecListener {
+    fn event(&mut self, event: RuntimeEvent<'_>) {
+        debug!("event runtime : {:#?}", event);
+        match event {
+            RuntimeEvent::Step {
+                opcode,
+                position,
+                stack,
+                memory,
+                ..
+            } => {
+                let mut gas_cost = self.gas_cost.pop_front().unwrap_or_default();
+
+                match opcode {
+                    // consume additional gas entries from call cost
+                    Opcode::DELEGATECALL | Opcode::CALLCODE | Opcode::CALL => {
+                        gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                        gas_cost += self.gas_cost.pop_front().unwrap_or_default();
+                    }
+                    _ => {}
+                }
+
+                self.trace.push(ExecutionStep {
+                    pc: *position.as_ref().unwrap(),
+                    op: opcode::opcode_to_string(opcode),
+                    gas: self.gas.pop_front().unwrap_or_default(),
+                    gas_cost,
+                    stack: stack.data().to_vec(),
+                    memory: memory.data().to_vec(),
+                });
+            }
+            RuntimeEvent::StepResult {
+                result,
+                return_value,
+            } => {
+                debug!("result : {:#?}", result);
+                debug!("return_value : {:#?}", return_value);
+            }
+            RuntimeEvent::SLoad {
+                address,
+                index,
+                value,
+            } => {
+                debug!("SLOAD, address: {address:#?}, index: {index:#?}, value: {value:#?}")
+            }
+            RuntimeEvent::SStore {
+                address,
+                index,
+                value,
+            } => {
+                debug!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
+            }
         }
     }
 }
@@ -97,62 +153,6 @@ impl GasEventListener for GasListener {
                 }
             }
             _ => {}
-        }
-    }
-}
-
-impl RuntimeEventListener for Listener {
-    fn event(&mut self, event: RuntimeEvent<'_>) {
-        debug!("event runtime : {:#?}", event);
-        match event {
-            RuntimeEvent::Step {
-                opcode,
-                position,
-                stack,
-                memory,
-                ..
-            } => {
-                let mut gas_cost = self.gas_cost.pop_front().unwrap_or_default();
-
-                match opcode {
-                    // consume additional gas entries from call cost
-                    Opcode::DELEGATECALL | Opcode::CALLCODE | Opcode::CALL => {
-                        gas_cost += self.gas_cost.pop_front().unwrap_or_default();
-                        gas_cost += self.gas_cost.pop_front().unwrap_or_default();
-                    }
-                    _ => {}
-                }
-
-                self.trace.push(ExecutionStep {
-                    pc: *position.as_ref().unwrap(),
-                    op: opcode::opcode_to_string(opcode),
-                    gas: self.gas.pop_front().unwrap_or_default(),
-                    gas_cost,
-                    stack: stack.data().to_vec(),
-                    memory: memory.data().to_vec(),
-                });
-            }
-            RuntimeEvent::StepResult {
-                result,
-                return_value,
-            } => {
-                debug!("result : {:#?}", result);
-                debug!("return_value : {:#?}", return_value);
-            }
-            RuntimeEvent::SLoad {
-                address,
-                index,
-                value,
-            } => {
-                debug!("SLOAD, address: {address:#?}, index: {index:#?}, value: {value:#?}")
-            }
-            RuntimeEvent::SStore {
-                address,
-                index,
-                value,
-            } => {
-                debug!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
-            }
         }
     }
 }
