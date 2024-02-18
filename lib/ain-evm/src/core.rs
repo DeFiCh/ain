@@ -186,7 +186,6 @@ impl EVMCoreService {
         }))
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn trace_transaction(
         &self,
         tx: &SignedTx,
