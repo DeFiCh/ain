@@ -5,8 +5,10 @@ use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
+    gasometer::tracing::using as gas_using,
     Config, CreateScheme, ExitReason,
 };
+use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
 
 use crate::{
@@ -18,13 +20,14 @@ use crate::{
         dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
+    eventlistener::{ExecutionStep, GasListener, Listener},
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
         system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
         SignedTx,
     },
-    Result,
+    EVMError, Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -244,6 +247,67 @@ impl<'backend> AinExecutor<'backend> {
             },
             receipt,
         ))
+    }
+
+    pub fn exec_trace_tx(
+        &mut self,
+        signed_tx: &SignedTx,
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        let to = signed_tx.to().ok_or(format_err!(
+            "debug_traceTransaction does not support contract creation transactions",
+        ))?;
+        self.backend.update_vicinity_from_tx(signed_tx)?;
+        trace!(
+            "[Executor] Executing trace EVM TX with vicinity : {:?}",
+            self.backend.vicinity
+        );
+        let ctx = ExecutorContext {
+            caller: signed_tx.sender,
+            to: Some(to),
+            value: signed_tx.value(),
+            data: signed_tx.data(),
+            gas_limit: u64::try_from(signed_tx.gas_limit())?, // Sets to u64 if overflows
+            access_list: signed_tx.access_list(),
+        };
+        let access_list = ctx
+            .access_list
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+        let al = access_list.clone();
+
+        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
+        let gas_state = MemoryStackState::new(metadata.clone(), self.backend);
+        let precompiles = MetachainPrecompiles;
+        let mut gas_executor =
+            StackExecutor::new_with_precompiles(gas_state, &Self::CONFIG, &precompiles);
+        let mut gas_listener = GasListener::new();
+        gas_using(&mut gas_listener, move || {
+            gas_executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                al,
+            );
+        });
+
+        let state = MemoryStackState::new(metadata, self.backend);
+        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
+        let mut listener = Listener::new(gas_listener.gas, gas_listener.gas_cost);
+        let (exec_flag, data, used_gas) = runtime_using(&mut listener, move || {
+            let (exit_reason, data) = executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            );
+            Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
+        })?;
+        Ok((listener.trace, exec_flag, data, used_gas))
     }
 
     pub fn execute_tx(&mut self, tx: ExecuteTx, base_fee: U256) -> Result<ApplyTxResult> {

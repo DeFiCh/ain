@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use crate::opcode;
+use ethereum_types::H256;
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
 use evm_runtime::{
     tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener},
@@ -7,7 +9,15 @@ use evm_runtime::{
 };
 use log::debug;
 
-use crate::{core::ExecutionStep, opcode};
+#[derive(Clone, Debug)]
+pub struct ExecutionStep {
+    pub pc: usize,
+    pub op: String,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<H256>,
+    pub memory: Vec<u8>,
+}
 
 pub struct Listener {
     pub trace: Vec<ExecutionStep>,
@@ -38,6 +48,12 @@ impl GasListener {
             gas_cost: VecDeque::new(),
             first_cost: true,
         }
+    }
+}
+
+impl Default for GasListener {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
