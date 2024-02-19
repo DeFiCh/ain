@@ -5,19 +5,19 @@ use ain_macros::Repository;
 
 use super::RepositoryOps;
 use crate::{
-    model::OraclePriceActive,
+    model::{OracleHistory, OracleHistoryId},
     storage::{columns, ocean_store::OceanStore},
     Result,
 };
 
 #[derive(Repository)]
-#[repository(K = "String", V = "String")]
-pub struct OraclePriceActiveRepository {
+#[repository(K = "OracleHistoryId", V = "OracleHistory")]
+pub struct OracleHistoryRepository {
     pub store: Arc<OceanStore>,
-    col: LedgerColumn<columns::OraclePriceActive>,
+    col: LedgerColumn<columns::OracleHistory>,
 }
 
-impl OraclePriceActiveRepository {
+impl OracleHistoryRepository {
     pub fn new(store: Arc<OceanStore>) -> Self {
         Self {
             col: store.column(),

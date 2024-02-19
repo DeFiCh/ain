@@ -1,6 +1,7 @@
 mod block;
 mod masternode;
 mod masternode_stats;
+mod oracle;
 mod oracle_history;
 mod oracle_price_active;
 mod oracle_price_aggregated;
@@ -24,6 +25,7 @@ use ain_db::ColumnName;
 pub use block::*;
 pub use masternode::*;
 pub use masternode_stats::*;
+pub use oracle::*;
 pub use oracle_history::*;
 pub use oracle_price_active::*;
 pub use oracle_price_aggregated::*;
@@ -49,6 +51,7 @@ pub const COLUMN_NAMES: [&str; 25] = [
     masternode_stats::MasternodeStats::NAME,
     masternode::Masternode::NAME,
     masternode::MasternodeByHeight::NAME,
+    oracle::Oracle::NAME,
     oracle_history::OracleHistory::NAME,
     oracle_price_active::OraclePriceActive::NAME,
     oracle_price_aggregated::OraclePriceAggregated::NAME,
