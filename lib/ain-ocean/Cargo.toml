@@ -45,3 +45,5 @@ num_cpus.workspace = true
 tempdir.workspace = true
 tempfile = "3.8.1"
 chrono = "0.4.31"
+num-bigint = "0.4.4"
+num-traits = "0.2.17"
