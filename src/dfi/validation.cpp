@@ -2793,7 +2793,6 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
     // Ocean archive
     if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
-
         const UniValue b = blockToJSON(block, ::ChainActive().Tip(), pindex, true, 2);
         CrossBoundaryResult result;
         ocean_index_block(result, b.write());
