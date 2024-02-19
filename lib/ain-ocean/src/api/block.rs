@@ -6,16 +6,11 @@ use bitcoin::BlockHash;
 use serde::{Deserialize, Deserializer};
 
 use super::{
+    query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{
-    api_query::{PaginationQuery, Query},
-    error::ApiError,
-    model::Block,
-    repository::RepositoryOps,
-    Result,
-};
+use crate::{error::ApiError, model::Block, repository::RepositoryOps, Result};
 
 pub enum HashOrHeight {
     Height(u32),

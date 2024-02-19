@@ -11,11 +11,11 @@ use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::{
+    query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    api_query::PaginationQuery,
     error::{ApiError, Error, NotFoundKind},
     model::Masternode,
     repository::RepositoryOps,

@@ -6,13 +6,15 @@ use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Rou
 mod block;
 mod fee;
 mod governance;
-// mod loan;
+mod loan;
 mod masternode;
 // mod oracle;
 // mod poolpairs;
 // mod prices;
 // mod rawtx;
+mod cache;
 mod common;
+mod query;
 mod response;
 mod stats;
 mod tokens;
@@ -22,10 +24,6 @@ use defichain_rpc::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{Result, Services};
-
-async fn ocean_not_activated() -> impl IntoResponse {
-    (StatusCode::FORBIDDEN, "Ocean is not activated")
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -64,7 +62,7 @@ pub async fn ocean_router(services: &Arc<Services>, client: Arc<Client>) -> Resu
     Ok(Router::new()
         // .nest("/address", address::router(Arc::clone(&context)))
         .nest("/governance", governance::router(Arc::clone(&context)))
-        // .nest("/loans", loan::router(Arc::clone(&context)))
+        .nest("/loans", loan::router(Arc::clone(&context)))
         .nest("/fee", fee::router(Arc::clone(&context)))
         .nest("/masternodes", masternode::router(Arc::clone(&context)))
         // .nest("/oracles", oracle::router(Arc::clone(&context)))

@@ -2,6 +2,8 @@ use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use super::query::PaginationQuery;
+
 pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     if token_info.is_lps {
         let tokens: Vec<&str> = token_info.symbol.split('-').collect();
@@ -65,4 +67,74 @@ pub fn find_token_balance(tokens: Vec<String>, symbol: &str) -> Decimal {
                 .flatten()
         })
         .unwrap_or_default()
+}
+
+/// Provides a simulated pagination mechanism for iterators where native pagination is not available.
+///
+/// This trait extends any Rust iterator to include a `paginate` method, allowing for pseudo-pagination
+/// based on custom logic. It's should only be used to query defid list* RPC that don't implement native pagination
+///
+/// # Warning
+///
+/// This method should be used cautiously, as it involves retrieving all data from the data source
+/// before applying pagination. This can lead to significant performance and resource usage issues,
+/// especially with large datasets. It is recommended to use this approach only defid does not accept
+/// any pagination parameter.
+///
+/// # Parameters
+///
+/// - `query`: A reference to `PaginationQuery`
+/// - `skip_while`: A closure that determines the starting point of data to consider, mimicking the
+///   'start' parameter in traditional pagination. Once an item fails this condition, pagination starts.
+///
+/// # Example
+///
+/// ```rust
+/// use crate::Paginate;
+///
+/// let query = {
+///     next: Some(1)
+///     limit: 3
+/// };
+///
+/// let skip_while = |el: &LoanSchemeResult| match &query.next {
+///     None => false,
+///     Some(v) => v != &el.id,
+/// };
+
+/// let res: Vec<_> = ctx
+///     .client
+///     .list_loan_schemes()
+///     .await?
+///     .into_iter()
+///     .paginate(&query, skip_while)
+///     .collect();
+///
+/// assert!(res.len() <= query.size, "The result should not contain more items than the specified limit");
+/// assert!(res[0].id > query.next.unwrap(), "The result should start after the requested start id");
+/// ```
+pub trait Paginate<'a, T>: Iterator<Item = T> + Sized {
+    fn paginate<F>(
+        self,
+        query: &PaginationQuery,
+        skip_while: F,
+    ) -> Box<dyn Iterator<Item = T> + 'a>
+    where
+        F: FnMut(&T) -> bool + 'a;
+}
+
+impl<'a, T, I> Paginate<'a, T> for I
+where
+    I: Iterator<Item = T> + 'a,
+{
+    fn paginate<F>(self, query: &PaginationQuery, skip_while: F) -> Box<dyn Iterator<Item = T> + 'a>
+    where
+        F: FnMut(&T) -> bool + 'a,
+    {
+        Box::new(
+            self.skip_while(skip_while)
+                .skip(query.next.is_some() as usize)
+                .take(query.size),
+        )
+    }
 }

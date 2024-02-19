@@ -7,11 +7,11 @@ use defichain_rpc::{json::governance::*, GovernanceRPC};
 use serde::Deserialize;
 
 use super::{
+    query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    api_query::{PaginationQuery, Query},
     error::{ApiError, Error, NotFoundKind},
     Result, Services,
 };
