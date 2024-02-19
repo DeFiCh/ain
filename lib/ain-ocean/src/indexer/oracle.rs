@@ -317,7 +317,7 @@ impl Index for SetOracleInterval {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        todo!()
+        todo!() // follow invalidate_oracle_interval method
     }
 }
 
@@ -360,7 +360,25 @@ impl Index for SetOracleData {
     }
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        todo!()
+        let set_oracle_data = SetOracleData {
+            oracle_id: self.oracle_id,
+            timestamp: self.timestamp,
+            token_prices: CompactVec::from(Vec::new()),
+        };
+        let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
+        let mut pairs: HashSet<(String, String)> = HashSet::new();
+        for feed in feeds {
+            pairs.insert((feed.token.clone(), feed.currency.clone()));
+            services.oracle_price_feed.by_id.delete(&feed.id)?;
+        }
+        for (token, currency) in pairs.iter() {
+            let aggreated_id = (token.to_owned(), currency.to_owned(), context.block.height);
+            services
+                .oracle_price_aggregated
+                .by_id
+                .delete(&aggreated_id)?;
+        }
+        Ok(())
     }
 }
 
@@ -572,7 +590,7 @@ pub fn index_interval_mapper(
     }
 }
 
-fn invalidate_interval_mapper(
+fn invalidate_oracle_interval(
     services: &Arc<Services>,
     block: &BlockContext,
     token: &str,
