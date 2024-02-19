@@ -134,86 +134,10 @@ impl EVMCoreService {
     pub fn flush(&self) -> Result<()> {
         self.trie_store.flush()
     }
+}
 
-    pub fn call(&self, arguments: EthCallArgs, overlay: Option<Overlay>) -> Result<TxResponse> {
-        let EthCallArgs {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            gas_price,
-            access_list,
-            block_number,
-        } = arguments;
-        debug!("[call] caller: {:?}", caller);
-
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .map(|block| block.header)
-            .ok_or(format_err!(
-                "[call] Block number {:x?} not found",
-                block_number
-            ))?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
-
-        let mut vicinity = Vicinity::from(block_header);
-        vicinity.gas_price = gas_price;
-        vicinity.origin = caller;
-        debug!("[call] vicinity: {:?}", vicinity);
-
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            overlay,
-        )
-        .map_err(|e| format_err!("Could not restore backend {}", e))?;
-
-        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            access_list,
-        }))
-    }
-
-    pub fn trace_transaction(
-        &self,
-        tx: &SignedTx,
-        block_number: U256,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .ok_or_else(|| format_err!("Block not found"))
-            .map(|block| block.header)?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
-
-        let vicinity = Vicinity::from(block_header);
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            None,
-        )
-        .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        AinExecutor::new(&mut backend).exec_trace_tx(tx)
-    }
-
+// EVM Tx validation methods
+impl EVMCoreService {
     /// Validates a raw tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:
@@ -808,5 +732,87 @@ impl EVMCoreService {
     pub fn clear_account_nonce(&self) {
         let mut nonce_store = self.nonce_store.lock();
         nonce_store.clear()
+    }
+}
+
+// RPC methods
+impl EVMCoreService {
+    pub fn call(&self, arguments: EthCallArgs, overlay: Option<Overlay>) -> Result<TxResponse> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            gas_price,
+            access_list,
+            block_number,
+        } = arguments;
+        debug!("[call] caller: {:?}", caller);
+
+        let block_header = self
+            .storage
+            .get_block_by_number(&block_number)?
+            .map(|block| block.header)
+            .ok_or(format_err!(
+                "[call] Block number {:x?} not found",
+                block_number
+            ))?;
+        let state_root = block_header.state_root;
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
+
+        let mut vicinity = Vicinity::from(block_header);
+        vicinity.gas_price = gas_price;
+        vicinity.origin = caller;
+        debug!("[call] vicinity: {:?}", vicinity);
+
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            overlay,
+        )
+        .map_err(|e| format_err!("Could not restore backend {}", e))?;
+
+        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        }))
+    }
+
+    pub fn trace_transaction(
+        &self,
+        tx: &SignedTx,
+        block_number: U256,
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        let block_header = self
+            .storage
+            .get_block_by_number(&block_number)?
+            .ok_or_else(|| format_err!("Block not found"))
+            .map(|block| block.header)?;
+        let state_root = block_header.state_root;
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
+
+        let vicinity = Vicinity::from(block_header);
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            None,
+        )
+        .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        AinExecutor::new(&mut backend).exec_trace_tx(tx)
     }
 }
