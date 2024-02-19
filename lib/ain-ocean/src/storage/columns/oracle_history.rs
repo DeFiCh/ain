@@ -1,5 +1,7 @@
 use ain_db::{Column, ColumnName, TypedColumn};
 
+use crate::model;
+
 #[derive(Debug)]
 pub struct OracleHistory;
 
@@ -8,9 +10,9 @@ impl ColumnName for OracleHistory {
 }
 
 impl Column for OracleHistory {
-    type Index = String;
+    type Index = model::OracleHistoryId;
 }
 
 impl TypedColumn for OracleHistory {
-    type Type = String;
+    type Type = model::OracleHistory;
 }
