@@ -12,6 +12,6 @@ pub struct OracleTokenCurrency {
     pub token: String,
     pub currency: String,
     pub oracle_id: Txid,
-    pub weightage: i32,
+    pub weightage: u8,
     pub block: BlockContext,
 }
