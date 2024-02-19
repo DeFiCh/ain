@@ -15,6 +15,6 @@ pub struct OraclePriceFeed {
     pub oracle_id: Txid,
     pub txid: Txid,
     pub time: i32,
-    pub amount: String,
+    pub amount: i64,
     pub block: BlockContext,
 }

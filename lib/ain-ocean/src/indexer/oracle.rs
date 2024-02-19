@@ -459,7 +459,7 @@ pub fn map_price_aggregated(
         }
 
         if let Some(oracle_price_feed) = oracle_price_feed {
-            if (oracle_price_feed.time - ctx.block.time as u64) < 3600 {
+            if (oracle_price_feed.time - ctx.block.time as i32) < 3600 {
                 aggregated.oracles.active += 1;
                 aggregated.weightage += oracle.weightage as i32;
 
@@ -529,7 +529,7 @@ pub fn map_price_feeds(
                     currency: token_amount.currency.clone(),
                     block: ctx.block.clone(),
                     oracle_id: set_data.oracle_id,
-                    time: set_data.timestamp as u64,
+                    time: set_data.timestamp as i32,
                     token: token_price.token.clone(),
                     txid: ctx.tx.txid,
                 };
@@ -628,7 +628,7 @@ fn invalidate_oracle_interval(
                                             .by_id
                                             .delete(&oracle_price_aggreated.id);
                                     } else {
-                                        let lastprice = oracle_price_aggreated.aggregated.clone();
+                                        let lastprice = oracle_price_aggreated.aggregated;
                                         let count = lastprice.count - 1;
                                         let aggregatedInterval = OraclePriceAggregatedInterval {
                                             id: oracle_price_aggreated.id.clone(),
@@ -690,73 +690,72 @@ fn process_inner_values(
     currency: &str,
     aggregated: &OraclePriceAggregated,
     interval: OracleIntervalSeconds,
-) {
+) -> Result<()> {
     let cloned_interval = interval.clone();
-    if previous_data.clone().is_some()
-        || (block.median_time - previous_data.clone().unwrap().block.median_time.clone())
-            > cloned_interval as i64
-    {
-        let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
-            id: ((
+
+    if let Some(previous_data) = previous_data {
+        // Clone previous data for modification
+        let mut new_data = previous_data.clone();
+
+        if (block.median_time - previous_data.block.median_time) > cloned_interval as i64 {
+            new_data.id = ((
                 token.to_owned(),
                 currency.to_owned(),
                 interval.clone(),
                 block.height,
-            )),
-            key: ((token.to_owned(), currency.to_owned(), interval)),
-            sort: aggregated.sort.to_owned(),
-            token: token.to_owned(),
-            currency: currency.to_owned(),
-            aggregated: previous_data.as_ref().unwrap().aggregated.clone(),
-            block: block,
-        };
-        let err = services.oracle_price_aggregated_interval.by_id.put(
-            &oracle_price_aggregated_interval.id,
-            &oracle_price_aggregated_interval,
-        );
-        let err = services.oracle_price_aggregated_interval.by_key.put(
-            &oracle_price_aggregated_interval.key,
-            &oracle_price_aggregated_interval.id,
-        );
-    } else {
-        // Add logic for the case when the condition is false
-        let lastprice = previous_data.as_ref().unwrap().aggregated.clone();
-        let count = lastprice.count + 1;
-        let aggregatedInterval = OraclePriceAggregatedInterval {
-            id: previous_data.as_ref().unwrap().id.clone(),
-            key: previous_data.as_ref().unwrap().key.clone(),
-            sort: previous_data.as_ref().unwrap().sort.clone(),
-            token: previous_data.as_ref().unwrap().token.clone(),
-            currency: previous_data.as_ref().unwrap().currency.clone(),
-            aggregated: OraclePriceAggregatedIntervalAggregated {
+            ));
+            new_data.key = ((token.to_owned(), currency.to_owned(), interval));
+            new_data.sort = aggregated.sort.to_owned();
+            new_data.token = token.to_owned();
+            new_data.currency = currency.to_owned();
+            new_data.aggregated = previous_data.aggregated;
+
+            // Handle errors appropriately based on your needs
+            let _ = services
+                .oracle_price_aggregated_interval
+                .by_id
+                .put(&new_data.id, &new_data);
+            let _ = services
+                .oracle_price_aggregated_interval
+                .by_key
+                .put(&new_data.key, &new_data.id);
+        } else {
+            // Add logic for the case when the condition is false
+            let last_price = previous_data.aggregated;
+            let count = last_price.count + 1;
+
+            new_data.aggregated = OraclePriceAggregatedIntervalAggregated {
                 amount: forward_aggregate_value(
-                    lastprice.amount.as_str(),
+                    last_price.amount.as_str(),
                     &aggregated.aggregated.amount.to_string(),
                     count as u32,
                 )
                 .to_string(),
                 weightage: forward_aggregate_number(
-                    lastprice.weightage,
+                    last_price.weightage,
                     aggregated.aggregated.weightage,
                     count,
                 ),
-                count: count,
+                count,
                 oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                     active: forward_aggregate_number(
-                        lastprice.oracles.active,
+                        last_price.oracles.active,
                         aggregated.aggregated.oracles.active,
-                        lastprice.count,
+                        last_price.count,
                     ) as i32,
                     total: forward_aggregate_number(
-                        lastprice.oracles.total,
+                        last_price.oracles.total,
                         aggregated.aggregated.oracles.total,
-                        lastprice.count,
+                        last_price.count,
                     ),
                 },
-            },
-            block: previous_data.as_ref().unwrap().block.clone(),
-        };
+            };
+        }
+    } else {
+        eprintln!("OraclePriceAggregatedInterval returning empty data");
     }
+
+    Ok(())
 }
 
 fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 {

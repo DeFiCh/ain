@@ -23,7 +23,7 @@ pub struct SetOracleInterval {
     pub timestamp: i64,
     pub token_prices: CompactVec<TokenPrice>,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedInterval {
     pub id: OraclePriceAggregatedIntervalId,
@@ -35,7 +35,7 @@ pub struct OraclePriceAggregatedInterval {
     pub block: BlockContext,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregated {
     pub amount: String,
@@ -44,7 +44,7 @@ pub struct OraclePriceAggregatedIntervalAggregated {
     pub oracles: OraclePriceAggregatedIntervalAggregatedOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedIntervalAggregatedOracles {
     pub active: i32,
