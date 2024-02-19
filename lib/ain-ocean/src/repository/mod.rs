@@ -3,6 +3,8 @@ use crate::{storage::SortOrder, Result};
 mod block;
 mod masternode;
 mod masternode_stats;
+mod oracle;
+mod oracle_history;
 mod oracle_price_active;
 mod oracle_price_aggregated;
 mod oracle_price_aggregated_interval;
