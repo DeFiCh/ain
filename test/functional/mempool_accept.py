@@ -204,9 +204,9 @@ class MempoolAcceptanceTest(DefiTestFramework):
             "A transaction with missing inputs, that existed once in the past"
         )
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
-        tx.vin[0].prevout.n = (
-            1  # Set vout to 1, to spend the other outpoint (49 coins) of the in-chain-tx we want to double spend
-        )
+        tx.vin[
+            0
+        ].prevout.n = 1  # Set vout to 1, to spend the other outpoint (49 coins) of the in-chain-tx we want to double spend
         raw_tx_1 = node.signrawtransactionwithwallet(tx.serialize().hex())["hex"]
         txid_1 = node.sendrawtransaction(hexstring=raw_tx_1, maxfeerate=0)
         # Now spend both to "clearly hide" the outputs, ie. remove the coins from the utxo set by spending them
@@ -445,9 +445,9 @@ class MempoolAcceptanceTest(DefiTestFramework):
 
         self.log.info("A transaction that is locked by BIP68 sequence logic")
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
-        tx.vin[0].nSequence = (
-            2  # We could include it in the second block mined from now, but not the very next one
-        )
+        tx.vin[
+            0
+        ].nSequence = 2  # We could include it in the second block mined from now, but not the very next one
         # Can skip re-signing the tx because of early rejection
         self.check_mempool_result(
             result_expected=[
