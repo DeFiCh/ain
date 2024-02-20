@@ -5,7 +5,10 @@ use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::Error;
-pub use indexer::{index_block, invalidate_block, transaction::index_transaction, tx_result};
+pub use indexer::{
+    index_block, invalidate_block, oracle::invalidate_oracle_interval,
+    transaction::index_transaction, tx_result,
+};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,

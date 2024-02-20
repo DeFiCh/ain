@@ -1,6 +1,6 @@
 mod auction;
 mod masternode;
-mod oracle;
+pub mod oracle;
 mod pool;
 pub mod transaction;
 pub mod tx_result;

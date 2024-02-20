@@ -6,6 +6,7 @@ use num_bigint::BigUint;
 use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
 
 use crate::{
+    error::NotFoundKind,
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
@@ -15,7 +16,7 @@ use crate::{
         SetOracleInterval,
     },
     repository::RepositoryOps,
-    Services,
+    Error, Services,
 };
 
 impl Index for AppointOracle {
@@ -96,15 +97,23 @@ impl Index for RemoveOracle {
                             price_feed_item.currency.to_owned(),
                             oracle_id,
                         );
-                        if let Err(err) = services.oracle_token_currency.by_id.delete(&deletion_key)
-                        {
-                            eprintln!("Error removing oracle: {:?}", err);
+                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message = format!("Error:remove oracle: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
                         }
                     }
                 }
             }
             Err(err) => {
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error:remove oracle: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
         Ok(())
@@ -147,12 +156,12 @@ impl Index for RemoveOracle {
                             .by_id
                             .put(&oracle_token_currency.id, &oracle_token_currency)?;
                     }
-                } else {
-                    eprintln!("Error saving previous oracle data",);
                 }
             }
             Err(err) => {
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error:remove oracle: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
 
@@ -183,17 +192,23 @@ impl Index for UpdateOracle {
                             price_feed_item.currency.clone(),
                             oracle_id,
                         );
-                        if let Err(err) = services.oracle_token_currency.by_id.delete(&deletion_key)
-                        {
-                            // Handle the error, if necessary
-                            eprintln!("Error deleting data: {:?}", err);
+                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message = format!("Error:update oracle: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
                         }
                     }
                 }
             }
             Err(err) => {
-                // Handle the error from the Result
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error:update oracle: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
         let prices_feeds = self.price_feeds.as_ref();
@@ -260,15 +275,24 @@ impl Index for UpdateOracle {
                             price_feed_item.currency.clone(),
                             oracle_id,
                         );
-                        if let Err(err) = services.oracle_token_currency.by_id.delete(&deletion_key)
-                        {
-                            eprintln!("Error deleting data: {:?}", err);
+                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message =
+                                    format!("Error update oracle invalidate: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
                         }
                     }
                 }
             }
             Err(err) => {
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error update oracle invalidate: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
 
@@ -569,7 +593,7 @@ pub fn index_interval_mapper(
                         .get(&oracle_id)
                         .ok()
                     {
-                        process_inner_values(
+                        let err = process_inner_values(
                             &services,
                             inner_values,
                             block.clone(),
@@ -579,19 +603,21 @@ pub fn index_interval_mapper(
                             interval.clone(),
                         );
                     } else {
-                        // Handle the case when inner_values is None or Err
+                        let error_message = format!("Error update oracle index interval mapper");
+                        eprintln!("{}", error_message);
                     }
                 }
                 Err(db_error) => {
-                    // Handle the error if needed
-                    println!("Error in outer iterator: {:?}", db_error);
+                    let error_message =
+                        format!("Error oracle index interval mapper: {:?}", db_error);
+                    eprintln!("{}", error_message);
                 }
             }
         }
     }
 }
 
-fn invalidate_oracle_interval(
+pub fn invalidate_oracle_interval(
     services: &Arc<Services>,
     block: &BlockContext,
     token: &str,
@@ -668,14 +694,21 @@ fn invalidate_oracle_interval(
                                         };
                                     }
                                 }
-                                Err(db_error) => {}
+                                Err(db_error) => {
+                                    let error_message = format!(
+                                        "Error oracle  invalidate oracle interval: {:?}",
+                                        db_error
+                                    );
+                                    eprintln!("{}", error_message);
+                                }
                             }
                         }
                     }
                 }
                 Err(db_error) => {
-                    // Handle the error if needed
-                    println!("Error in outer iterator: {:?}", db_error);
+                    let error_message =
+                        format!("Error oracle  invalidate oracle interval: {:?}", db_error);
+                    eprintln!("{}", error_message);
                 }
             }
         }
@@ -694,7 +727,6 @@ fn process_inner_values(
     let cloned_interval = interval.clone();
 
     if let Some(previous_data) = previous_data {
-        // Clone previous data for modification
         let mut new_data = previous_data.clone();
 
         if (block.median_time - previous_data.block.median_time) > cloned_interval as i64 {
@@ -710,7 +742,6 @@ fn process_inner_values(
             new_data.currency = currency.to_owned();
             new_data.aggregated = previous_data.aggregated;
 
-            // Handle errors appropriately based on your needs
             let _ = services
                 .oracle_price_aggregated_interval
                 .by_id
@@ -751,8 +782,6 @@ fn process_inner_values(
                 },
             };
         }
-    } else {
-        eprintln!("OraclePriceAggregatedInterval returning empty data");
     }
 
     Ok(())
