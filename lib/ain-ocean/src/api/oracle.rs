@@ -9,13 +9,13 @@ use axum::{
 use bitcoin::Txid;
 
 use super::{
+    query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    api_query::PaginationQuery,
     error::{ApiError, Error, NotFoundKind},
-    model::{Oracle, OraclePriceFeed, OraclePriceFeedId, OraclePriceFeedkey},
+    model::{Oracle, OraclePriceFeed, OraclePriceFeedkey},
     repository::RepositoryOps,
     Result,
 };
@@ -55,7 +55,7 @@ async fn get_price_feed(
     match price_feed {
         Ok(Some(oracle)) => Ok(Response::new(oracle)),
         Ok(None) => Err(Error::NotFound(NotFoundKind::Oracle)),
-        Err(err) => Err(err), // Propagate the error if there is any other error
+        Err(err) => Err(err),
     }
 }
 

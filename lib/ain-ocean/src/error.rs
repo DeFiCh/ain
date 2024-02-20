@@ -21,8 +21,6 @@ pub enum NotFoundKind {
     Scheme,
     #[error("oracle")]
     Oracle,
-    #[error("oraclepricefeed")]
-    OraclePriceFeed,
 }
 
 #[derive(Error, Debug)]
