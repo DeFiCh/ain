@@ -8,7 +8,7 @@ mod fee;
 mod governance;
 mod loan;
 mod masternode;
-// mod oracle;
+mod oracle;
 // mod poolpairs;
 // mod prices;
 // mod rawtx;
