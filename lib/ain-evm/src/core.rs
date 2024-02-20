@@ -788,7 +788,7 @@ impl EVMCoreService {
         }))
     }
 
-    pub fn trace_transaction(
+    pub fn call_with_tracer(
         &self,
         tx: &SignedTx,
         block_number: U256,
