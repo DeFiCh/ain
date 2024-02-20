@@ -1,6 +1,8 @@
 use ain_db::{Column, ColumnName, TypedColumn};
 
-use crate::model::{OracleId, OracleKey, OraclePriceFeed as OraclePriceFeedMapper};
+use crate::model::{
+    OraclePriceFeed as OraclePriceFeedMapper, OraclePriceFeedId, OraclePriceFeedkey,
+};
 #[derive(Debug)]
 pub struct OraclePriceFeed;
 
@@ -9,7 +11,7 @@ impl ColumnName for OraclePriceFeed {
 }
 
 impl Column for OraclePriceFeed {
-    type Index = OracleId;
+    type Index = OraclePriceFeedId;
 }
 
 impl TypedColumn for OraclePriceFeed {
@@ -23,9 +25,9 @@ impl ColumnName for OraclePriceFeedKey {
 }
 
 impl Column for OraclePriceFeedKey {
-    type Index = OracleKey;
+    type Index = OraclePriceFeedkey;
 }
 
 impl TypedColumn for OraclePriceFeedKey {
-    type Type = OracleId;
+    type Type = OraclePriceFeedId;
 }

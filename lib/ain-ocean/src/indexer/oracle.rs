@@ -515,7 +515,7 @@ pub fn map_price_feeds(
                     id: (
                         token_price.token.clone(),
                         token_amount.currency.clone(),
-                        set_data.oracle_id.to_string(),
+                        set_data.oracle_id,
                         ctx.tx.txid,
                     ),
 

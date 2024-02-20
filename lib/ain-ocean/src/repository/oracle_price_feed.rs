@@ -5,13 +5,13 @@ use ain_macros::Repository;
 
 use super::RepositoryOps;
 use crate::{
-    model::{OracleId, OracleKey, OraclePriceFeed},
+    model::{OraclePriceFeed, OraclePriceFeedId, OraclePriceFeedkey},
     storage::{columns, ocean_store::OceanStore},
     Result,
 };
 
 #[derive(Repository)]
-#[repository(K = "OracleId", V = "OraclePriceFeed")]
+#[repository(K = "OraclePriceFeedId", V = "OraclePriceFeed")]
 pub struct OraclePriceFeedRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OraclePriceFeed>,
@@ -27,7 +27,7 @@ impl OraclePriceFeedRepository {
 }
 
 #[derive(Repository)]
-#[repository(K = "OracleKey", V = "OracleId")]
+#[repository(K = "OraclePriceFeedkey", V = "OraclePriceFeedId")]
 pub struct OraclePriceFeedKeyRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OraclePriceFeedKey>,
