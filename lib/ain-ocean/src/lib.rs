@@ -12,7 +12,7 @@ pub use indexer::{
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    OracleHistoryRepository, OraclePriceActiveRepository,
+    OracleHistoryRepository, OracleHistoryRepositoryKey, OraclePriceActiveRepository,
     OraclePriceAggregatedIntervalKeyRepository, OraclePriceAggregatedIntervalRepository,
     OraclePriceAggregatedRepository, OraclePriceAggregatedRepositorykey,
     OraclePriceFeedKeyRepository, OraclePriceFeedRepository, OracleRepository,
@@ -95,6 +95,7 @@ pub struct OracleTokenCurrencyService {
 
 pub struct OracleHistoryService {
     by_id: OracleHistoryRepository,
+    by_key: OracleHistoryRepositoryKey,
 }
 
 pub struct Services {
@@ -165,6 +166,7 @@ impl Services {
             },
             oracle_history: OracleHistoryService {
                 by_id: OracleHistoryRepository::new(Arc::clone(&store)),
+                by_key: OracleHistoryRepositoryKey::new(Arc::clone(&store)),
             },
         }
     }

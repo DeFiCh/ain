@@ -16,3 +16,17 @@ impl Column for OracleHistory {
 impl TypedColumn for OracleHistory {
     type Type = model::OracleHistory;
 }
+
+pub struct OracleHistoryKey;
+
+impl ColumnName for OracleHistoryKey {
+    const NAME: &'static str = "oracle_history_key";
+}
+
+impl Column for OracleHistoryKey {
+    type Index = String;
+}
+
+impl TypedColumn for OracleHistoryKey {
+    type Type = model::OracleHistoryId;
+}
