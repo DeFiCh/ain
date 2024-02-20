@@ -48,9 +48,12 @@ impl Index for AppointOracle {
             .oracle_history
             .by_id
             .put(&oracle_history.id, &oracle_history)?;
+        services
+            .oracle_history
+            .by_key
+            .put(&oracle_history.sort, &oracle_history.id)?;
 
         let prices_feeds = self.price_feeds.as_ref();
-
         for token_currency in prices_feeds {
             let oracle_token_currency = OracleTokenCurrency {
                 id: (
@@ -69,6 +72,10 @@ impl Index for AppointOracle {
                 block: ctx.block.clone(),
             };
 
+            services
+                .oracle_token_currency
+                .by_key
+                .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
             services
                 .oracle_token_currency
                 .by_id

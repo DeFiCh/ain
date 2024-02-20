@@ -25,3 +25,18 @@ impl OracleHistoryRepository {
         }
     }
 }
+#[derive(Repository)]
+#[repository(K = "String", V = "OracleHistoryId")]
+pub struct OracleHistoryRepositoryKey {
+    pub store: Arc<OceanStore>,
+    col: LedgerColumn<columns::OracleHistoryKey>,
+}
+
+impl OracleHistoryRepositoryKey {
+    pub fn new(store: Arc<OceanStore>) -> Self {
+        Self {
+            col: store.column(),
+            store,
+        }
+    }
+}
