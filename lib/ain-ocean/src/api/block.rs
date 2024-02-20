@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
+use anyhow::format_err;
 use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::BlockHash;
 use serde::{Deserialize, Deserializer};
@@ -10,7 +11,12 @@ use super::{
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-use crate::{error::ApiError, model::Block, repository::RepositoryOps, Result};
+use crate::{
+    error::{ApiError, Error},
+    model::Block,
+    repository::RepositoryOps,
+    Result,
+};
 
 pub enum HashOrHeight {
     Height(u32),
@@ -38,11 +44,21 @@ async fn list_blocks(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<Block>> {
+    let next = query
+        .next
+        .map(|q| {
+            let height = q
+                .parse::<u32>()
+                .map_err(|_| format_err!("Invalid height"))?;
+            Ok::<u32, Error>(height)
+        })
+        .transpose()?;
+
     let blocks = ctx
         .services
         .block
         .by_height
-        .list(None)?
+        .list(next)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -58,7 +74,7 @@ async fn list_blocks(
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(blocks, query.size, |block| {
-        block.clone().hash
+        block.clone().height
     }))
 }
 
