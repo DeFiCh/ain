@@ -185,7 +185,7 @@ async fn get_burn(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Response
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(get_stats))
-        .route("/rewards/distribution", get(get_reward_distribution))
+        .route("/reward/distribution", get(get_reward_distribution))
         .route("/supply", get(get_supply))
         .route("/burn", get(get_burn))
         .layer(Extension(ctx))
