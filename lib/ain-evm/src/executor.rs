@@ -249,7 +249,7 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
-    pub fn exec_trace_tx(
+    pub fn exec_with_tracer(
         &mut self,
         signed_tx: &SignedTx,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {

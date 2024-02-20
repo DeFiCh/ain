@@ -813,6 +813,6 @@ impl EVMCoreService {
             None,
         )
         .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        AinExecutor::new(&mut backend).exec_trace_tx(tx)
+        AinExecutor::new(&mut backend).exec_with_tracer(tx)
     }
 }
