@@ -23,6 +23,7 @@ pub struct PaginationQuery {
     #[serde_as(as = "DisplayFromStr")]
     #[serde(default = "default_pagination_size")]
     pub size: usize,
+    #[serde(default)]
     #[serde(deserialize_with = "undefined_to_none")]
     pub next: Option<String>,
 }
