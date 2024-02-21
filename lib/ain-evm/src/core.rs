@@ -21,7 +21,7 @@ use crate::{
     block::INITIAL_BASE_FEE,
     blocktemplate::BlockTemplate,
     eventlistener::ExecutionStep,
-    executor::{AinExecutor, ExecutorContext, TxResponse},
+    executor::{AccessListInfo, AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
@@ -685,6 +685,42 @@ impl EVMCoreService {
         )
     }
 
+    pub fn get_backend_from_block(
+        &self,
+        block_number: U256,
+        caller: Option<H160>,
+        gas_price: Option<U256>,
+        overlay: Option<Overlay>,
+    ) -> Result<EVMBackend> {
+        let block_header = self
+            .storage
+            .get_block_by_number(&block_number)?
+            .map(|block| block.header)
+            .ok_or(format_err!("Block number {:x?} not found", block_number))?;
+        let state_root = block_header.state_root;
+        debug!(
+            "Calling EVM at block number : {:#x}, state_root : {:#x}",
+            block_number, state_root
+        );
+
+        let mut vicinity = Vicinity::from(block_header);
+        if let Some(gas_price) = gas_price {
+            vicinity.gas_price = gas_price;
+        }
+        if let Some(caller) = caller {
+            vicinity.origin = caller;
+        }
+        debug!("Vicinity: {:?}", vicinity);
+
+        EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            overlay,
+        )
+    }
+
     pub fn get_next_account_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
         let state_root_nonce = self.get_nonce(address, state_root)?;
         let mut nonce_store = self.nonce_store.lock();
@@ -748,36 +784,9 @@ impl EVMCoreService {
             access_list,
             block_number,
         } = arguments;
-        debug!("[call] caller: {:?}", caller);
-
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .map(|block| block.header)
-            .ok_or(format_err!(
-                "[call] Block number {:x?} not found",
-                block_number
-            ))?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
-
-        let mut vicinity = Vicinity::from(block_header);
-        vicinity.gas_price = gas_price;
-        vicinity.origin = caller;
-        debug!("[call] vicinity: {:?}", vicinity);
-
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            overlay,
-        )
-        .map_err(|e| format_err!("Could not restore backend {}", e))?;
-
+        let mut backend = self
+            .get_backend_from_block(block_number, Some(caller), Some(gas_price), overlay)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller,
             to,
@@ -788,31 +797,38 @@ impl EVMCoreService {
         }))
     }
 
+    pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<AccessListInfo> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            gas_price,
+            access_list,
+            block_number,
+        } = arguments;
+        let mut backend = self
+            .get_backend_from_block(block_number, Some(caller), Some(gas_price), None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        })
+    }
+
     pub fn call_with_tracer(
         &self,
         tx: &SignedTx,
         block_number: U256,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .ok_or_else(|| format_err!("Block not found"))
-            .map(|block| block.header)?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
-
-        let vicinity = Vicinity::from(block_header);
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            None,
-        )
-        .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        let mut backend = self
+            .get_backend_from_block(block_number, None, None, None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
         AinExecutor::new(&mut backend).exec_with_tracer(tx)
     }
 }

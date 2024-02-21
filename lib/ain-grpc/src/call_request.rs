@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
-use ain_evm::{backend::Overlay, bytes::Bytes};
-use ethereum::{AccessListItem, Account};
+use ain_evm::{backend::Overlay, bytes::Bytes, executor::AccessListInfo};
+use ethereum::{AccessList, AccessListItem, Account};
 use ethereum_types::{H160, H256, U256};
 use jsonrpsee::core::Error;
 use serde::Deserialize;
@@ -172,4 +172,21 @@ pub fn override_to_overlay(r#override: BTreeMap<H160, CallStateOverride>) -> Ove
     }
 
     overlay
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessListResult {
+    pub access_list: AccessList,
+    pub gas_used: U256,
+}
+
+impl From<AccessListInfo> for AccessListResult {
+    fn from(value: AccessListInfo) -> Self {
+        Self {
+            access_list: value.access_list,
+            gas_used: value.gas_used,
+        }
+    }
 }

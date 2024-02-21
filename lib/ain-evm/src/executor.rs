@@ -1,6 +1,6 @@
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
-use ethereum::{AccessList, EIP658ReceiptData, Log, ReceiptV3};
+use ethereum::{AccessList, AccessListItem, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
@@ -20,7 +20,7 @@ use crate::{
         dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
     },
     core::EVMCoreService,
-    eventlistener::{ExecListener, ExecutionStep, GasListener},
+    eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
@@ -42,6 +42,11 @@ impl From<SignedTx> for ExecuteTx {
     }
 }
 
+pub struct AccessListInfo {
+    pub access_list: AccessList,
+    pub gas_used: U256,
+}
+
 #[derive(Debug)]
 pub struct ExecutorContext<'a> {
     pub caller: H160,
@@ -56,6 +61,7 @@ pub struct AinExecutor<'backend> {
     pub backend: &'backend mut EVMBackend,
 }
 
+// State update methods
 impl<'backend> AinExecutor<'backend> {
     pub fn new(backend: &'backend mut EVMBackend) -> Self {
         Self { backend }
@@ -95,6 +101,7 @@ impl<'backend> AinExecutor<'backend> {
     }
 }
 
+// EVM executor methods
 impl<'backend> AinExecutor<'backend> {
     const CONFIG: Config = Config::shanghai();
 
@@ -249,6 +256,7 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
+    /// Execute tx with tracer
     pub fn exec_with_tracer(
         &mut self,
         signed_tx: &SignedTx,
@@ -310,6 +318,89 @@ impl<'backend> AinExecutor<'backend> {
         Ok((listener.trace, exec_flag, data, used_gas))
     }
 
+    /// Execute tx with storage access listener
+    pub fn exec_access_list(&self, ctx: ExecutorContext) -> Result<AccessListInfo> {
+        let access_list = ctx
+            .access_list
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+
+        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
+        let state = MemoryStackState::new(metadata.clone(), self.backend);
+        let al_state = MemoryStackState::new(metadata, self.backend);
+        let precompiles = MetachainPrecompiles;
+        let mut al_executor =
+            StackExecutor::new_with_precompiles(al_state, &Self::CONFIG, &precompiles);
+        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
+        let mut listener = StorageAccessListener::default();
+
+        let (exit_reason, _) = runtime_using(&mut listener, move || match ctx.to {
+            Some(to) => executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+            None => executor.transact_create(
+                ctx.caller,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+        });
+        if !exit_reason.is_succeed() {
+            return Err(format_err!("[exec_access_list] tx execution failed").into());
+        }
+
+        // Get access list from listener
+        let al: AccessList = listener
+            .access_list
+            .into_iter()
+            .map(|(address, storage_keys)| AccessListItem {
+                address,
+                storage_keys: Vec::from_iter(storage_keys),
+            })
+            .collect();
+        let access_list = al
+            .clone()
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+
+        // Get gas usage with accumulated access list
+        let (exit_reason, _) = match ctx.to {
+            Some(to) => al_executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+            None => al_executor.transact_create(
+                ctx.caller,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+        };
+        if !exit_reason.is_succeed() {
+            return Err(format_err!("[exec_access_list] tx execution failed").into());
+        }
+        Ok(AccessListInfo {
+            access_list: al,
+            gas_used: U256::from(al_executor.used_gas()),
+        })
+    }
+}
+
+impl<'backend> AinExecutor<'backend> {
+    /// System tx execution
     pub fn execute_tx(&mut self, tx: ExecuteTx, base_fee: U256) -> Result<ApplyTxResult> {
         match tx {
             ExecuteTx::SignedTx(signed_tx) => {
