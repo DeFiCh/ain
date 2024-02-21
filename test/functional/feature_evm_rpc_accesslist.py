@@ -49,7 +49,9 @@ class AccessListTest(DefiTestFramework):
     def setup(self):
         self.w0 = self.nodes[0].w3
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.erc55_address = self.nodes[0].addressmap(self.address, 1)["format"]["erc55"]
+        self.erc55_address = self.nodes[0].addressmap(self.address, 1)["format"][
+            "erc55"
+        ]
 
         # Contract addresses
         self.contract_address_transfer_domain = self.w0.to_checksum_address(
@@ -156,7 +158,9 @@ class AccessListTest(DefiTestFramework):
         access_list = self.nodes[0].eth_createAccessList(call_tx)["accessList"]
         assert_equal(len(access_list), 1)
         assert_equal(len(access_list[0]["storageKeys"]), 3)
-        assert_equal(access_list[0]["address"], "0xff00000000000000000000000000000000000001")
+        assert_equal(
+            access_list[0]["address"], "0xff00000000000000000000000000000000000001"
+        )
 
     def test_rpc_contract_creation(self):
         self.rollback_to(self.start_height)
@@ -175,7 +179,6 @@ class AccessListTest(DefiTestFramework):
         self.test_rpc_contract_call()
 
         self.test_rpc_contract_creation()
-
 
 
 if __name__ == "__main__":
