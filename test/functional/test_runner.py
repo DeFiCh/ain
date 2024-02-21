@@ -312,6 +312,7 @@ BASE_SCRIPTS = [
     "feature_evm_rollback.py",
     "feature_evm_rpc_transaction.py",
     "feature_evm_rpc.py",
+    "feature_evm_rpc_accesslist.py",
     "feature_evm_rpc_fee.py",
     "feature_evm_rpc_filters.py",
     "feature_evm_smart_contract.py",
