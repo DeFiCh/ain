@@ -72,7 +72,10 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     };
     // Index transaction
     services.transaction.by_id.put(&txid, &tx)?;
-
+    services
+        .transaction
+        .by_block_hash
+        .put(&(ctx.block.hash, idx), &txid)?;
     Ok(())
 }
 

@@ -100,7 +100,6 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
     })
 }
 
-
 // TODO Shove it into network struct when available
 lazy_static::lazy_static! {
     pub static ref  BURN_ADDRESS: HashMap<&'static str, &'static str> = HashMap::from([
@@ -133,9 +132,6 @@ pub async fn get_burned_total(client: &Client) -> Result<Decimal> {
 
     Ok(utxo + account_balance + emission + fee)
 }
-
-156843117.64243466 + 98783549.83821494 + 382621.96000000 + 62723836.52605750
-
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Emission {
@@ -311,4 +307,3 @@ pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
         ..Default::default()
     })
 }
-

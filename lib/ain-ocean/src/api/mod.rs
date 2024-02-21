@@ -18,7 +18,7 @@ mod query;
 mod response;
 mod stats;
 mod tokens;
-// mod transactions;
+mod transactions;
 
 use defichain_rpc::Client;
 use serde::{Deserialize, Serialize};
@@ -59,19 +59,22 @@ pub async fn ocean_router(services: &Arc<Services>, client: Arc<Client>) -> Resu
         services: services.clone(),
     });
 
-    Ok(Router::new()
-        // .nest("/address", address::router(Arc::clone(&context)))
-        .nest("/governance", governance::router(Arc::clone(&context)))
-        .nest("/loans", loan::router(Arc::clone(&context)))
-        .nest("/fee", fee::router(Arc::clone(&context)))
-        .nest("/masternodes", masternode::router(Arc::clone(&context)))
-        // .nest("/oracles", oracle::router(Arc::clone(&context)))
-        // .nest("/poolpairs", poolpairs::router(Arc::clone(&context)))
-        // .nest("/prices", prices::router(Arc::clone(&context)))
-        // .nest("/rawtx", rawtx::router(Arc::clone(&context)))
-        .nest("/stats", stats::router(Arc::clone(&context)))
-        .nest("/tokens", tokens::router(Arc::clone(&context)))
-        // .nest("/transactions", transactions::router(Arc::clone(&context)))
-        .nest("/blocks", block::router(Arc::clone(&context)))
-        .fallback(not_found))
+    Ok(Router::new().nest(
+        "/v0/mainnet",
+        Router::new()
+            // .nest("/address/", address::router(Arc::clone(&context)))
+            .nest("/governance", governance::router(Arc::clone(&context)))
+            .nest("/loans", loan::router(Arc::clone(&context)))
+            .nest("/fee", fee::router(Arc::clone(&context)))
+            .nest("/masternodes", masternode::router(Arc::clone(&context)))
+            // .nest("/oracles", oracle::router(Arc::clone(&context)))
+            // .nest("/poolpairs", poolpairs::router(Arc::clone(&context)))
+            // .nest("/prices", prices::router(Arc::clone(&context)))
+            // .nest("/rawtx", rawtx::router(Arc::clone(&context)))
+            .nest("/stats", stats::router(Arc::clone(&context)))
+            .nest("/tokens", tokens::router(Arc::clone(&context)))
+            .nest("/transactions", transactions::router(Arc::clone(&context)))
+            .nest("/blocks", block::router(Arc::clone(&context)))
+            .fallback(not_found),
+    ))
 }

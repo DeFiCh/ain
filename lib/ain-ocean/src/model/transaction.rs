@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
+pub type TransactionByBlockHashKey = (BlockHash, usize);
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {

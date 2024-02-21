@@ -24,9 +24,9 @@ impl ColumnName for TransactionByBlockHash {
 }
 
 impl Column for TransactionByBlockHash {
-    type Index = BlockHash;
+    type Index = model::TransactionByBlockHashKey;
 }
 
 impl TypedColumn for TransactionByBlockHash {
-    type Type = model::Transaction;
+    type Type = Txid;
 }

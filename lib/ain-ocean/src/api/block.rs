@@ -13,7 +13,7 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error},
-    model::Block,
+    model::{Block, Transaction},
     repository::RepositoryOps,
     Result,
 };
@@ -95,11 +95,47 @@ async fn get_block(
     Ok(Response::new(block))
 }
 
+#[ocean_endpoint]
 async fn get_transactions(
     Path(hash): Path<BlockHash>,
+    Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> String {
-    format!("Transactions for block with hash {}", hash)
+) -> Result<ApiPagedResponse<Transaction>> {
+    let next = query
+        .next
+        .map(|q| {
+            let height = q
+                .parse::<usize>()
+                .map_err(|_| format_err!("Invalid height"))?;
+            Ok::<(BlockHash, usize), Error>((hash, height))
+        })
+        .transpose()?;
+
+    let txs = ctx
+        .services
+        .transaction
+        .by_block_hash
+        .list(next)?
+        .take(query.size)
+        .take_while(|item| match item {
+            Ok(((h, _), _)) => h == &hash,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, id) = item?;
+            let tx = ctx
+                .services
+                .transaction
+                .by_id
+                .get(&id)?
+                .ok_or("Missing tx index")?;
+
+            Ok(tx)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    println!("txs : {:?}", txs);
+    Ok(ApiPagedResponse::of(txs, query.size, |tx| tx.order))
 }
 
 // Get highest indexed block
