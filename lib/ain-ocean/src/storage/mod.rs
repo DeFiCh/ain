@@ -1,4 +1,4 @@
-use rocksdb::IteratorMode;
+use rocksdb::Direction;
 
 pub mod columns;
 pub mod ocean_store;
@@ -9,11 +9,11 @@ pub enum SortOrder {
     Descending,
 }
 
-impl<'a> From<SortOrder> for IteratorMode<'a> {
+impl From<SortOrder> for Direction {
     fn from(sort_order: SortOrder) -> Self {
         match sort_order {
-            SortOrder::Ascending => IteratorMode::Start,
-            SortOrder::Descending => IteratorMode::End,
+            SortOrder::Ascending => Direction::Forward,
+            SortOrder::Descending => Direction::Reverse,
         }
     }
 }

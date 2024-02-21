@@ -15,6 +15,7 @@ use crate::{
     error::{ApiError, Error},
     model::{Block, Transaction},
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -58,7 +59,7 @@ async fn list_blocks(
         .services
         .block
         .by_height
-        .list(next)?
+        .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -101,21 +102,18 @@ async fn get_transactions(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<Transaction>> {
-    let next = query
-        .next
-        .map(|q| {
-            let height = q
-                .parse::<usize>()
-                .map_err(|_| format_err!("Invalid height"))?;
-            Ok::<(BlockHash, usize), Error>((hash, height))
-        })
-        .transpose()?;
+    let next = query.next.map_or(Ok((hash, 0)), |q| {
+        let height = q
+            .parse::<usize>()
+            .map_err(|_| format_err!("Invalid height"))?;
+        Ok::<(BlockHash, usize), Error>((hash, height))
+    })?;
 
     let txs = ctx
         .services
         .transaction
         .by_block_hash
-        .list(next)?
+        .list(Some(next), SortOrder::Ascending)?
         .take(query.size)
         .take_while(|item| match item {
             Ok(((h, _), _)) => h == &hash,
@@ -134,7 +132,6 @@ async fn get_transactions(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    println!("txs : {:?}", txs);
     Ok(ApiPagedResponse::of(txs, query.size, |tx| tx.order))
 }
 

@@ -237,7 +237,10 @@ impl Rollback for BlockStore {
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
             let address_codes_cf = self.column::<columns::AddressCodeMap>();
 
-            for item in block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())))? {
+            for item in block_deployed_codes_cf.iter(
+                Some((block.header.number, H160::zero())),
+                rocksdb::Direction::Reverse,
+            )? {
                 let ((block_number, address), hash) = item?;
 
                 if block_number == block.header.number {
@@ -325,7 +328,11 @@ impl BlockStore {
         let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
             .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
 
-        for item in self.column::<C>().iter(from)?.take(limit) {
+        for item in self
+            .column::<C>()
+            .iter(from, rocksdb::Direction::Reverse)?
+            .take(limit)
+        {
             let (k, v) = item?;
 
             if out.len() > response_max_size {

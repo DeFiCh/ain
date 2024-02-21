@@ -9,8 +9,8 @@ use std::{
 use anyhow::format_err;
 use bincode;
 use rocksdb::{
-    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, IteratorMode,
-    Options, DB,
+    BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, Direction,
+    IteratorMode, Options, DB,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -181,6 +181,7 @@ where
     pub fn iter(
         &self,
         from: Option<C::Index>,
+        direction: Direction,
     ) -> Result<impl Iterator<Item = Result<(C::Index, C::Type)>> + '_> {
         let skip = if from.as_ref().is_some() { 1 } else { 0 };
         let index = from
@@ -188,9 +189,15 @@ where
             .map(|i| C::key(i))
             .transpose()?
             .unwrap_or_default();
-        let iterator_mode = from.map_or(IteratorMode::End, |_| {
-            IteratorMode::From(&index, rocksdb::Direction::Reverse)
-        });
+
+        let iterator_mode = match direction {
+            Direction::Forward => from.map_or(IteratorMode::Start, |_| {
+                IteratorMode::From(&index, Direction::Forward)
+            }),
+            Direction::Reverse => from.map_or(IteratorMode::End, |_| {
+                IteratorMode::From(&index, Direction::Reverse)
+            }),
+        };
         Ok(self
             .backend
             .iterator_cf::<C>(self.handle()?, iterator_mode)

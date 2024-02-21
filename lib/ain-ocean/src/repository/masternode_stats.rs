@@ -6,7 +6,7 @@ use ain_macros::Repository;
 use super::RepositoryOps;
 use crate::{
     model::MasternodeStats,
-    storage::{columns, ocean_store::OceanStore},
+    storage::{columns, ocean_store::OceanStore, SortOrder},
     Result,
 };
 
@@ -28,7 +28,7 @@ impl MasternodeStatsRepository {
 
 impl MasternodeStatsRepository {
     pub fn get_latest(&self) -> Result<Option<MasternodeStats>> {
-        match self.col.iter(None)?.next() {
+        match self.col.iter(None, SortOrder::Descending.into())?.next() {
             None => Ok(None),
             Some(Ok((_, id))) => Ok(Some(id)),
             Some(Err(e)) => Err(e.into()),

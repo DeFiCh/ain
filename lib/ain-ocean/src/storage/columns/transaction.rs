@@ -1,5 +1,5 @@
 use ain_db::{Column, ColumnName, TypedColumn};
-use bitcoin::{BlockHash, Txid};
+use bitcoin::Txid;
 
 use crate::model;
 #[derive(Debug)]

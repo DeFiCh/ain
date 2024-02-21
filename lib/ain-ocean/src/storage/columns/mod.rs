@@ -43,7 +43,7 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&'static str; 24] = [
+pub const COLUMN_NAMES: [&'static str; 25] = [
     block::Block::NAME,
     block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
@@ -63,6 +63,7 @@ pub const COLUMN_NAMES: [&'static str; 24] = [
     script_aggregation::ScriptAggregation::NAME,
     script_unspent::ScriptUnspent::NAME,
     transaction::Transaction::NAME,
+    transaction::TransactionByBlockHash::NAME,
     transaction_vin::TransactionVin::NAME,
     transaction_vout::TransactionVout::NAME,
     tx_result::TxResult::NAME,

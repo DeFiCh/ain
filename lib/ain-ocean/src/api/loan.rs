@@ -27,6 +27,7 @@ use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::VaultAuctionBatchHistory,
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -76,7 +77,6 @@ async fn get_scheme(
     Path(scheme_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<LoanSchemeData>> {
-    println!("[get_scheme]");
     Ok(Response::new(
         ctx.client.get_loan_scheme(scheme_id).await?.into(),
     ))
@@ -259,7 +259,10 @@ async fn list_vault_auction_history(
         .services
         .auction
         .by_height
-        .list(Some((vault_id, batch_index, next.0, next.1)))?
+        .list(
+            Some((vault_id, batch_index, next.0, next.1)),
+            SortOrder::Descending,
+        )?
         .take(size)
         .take_while(|item| match item {
             Ok((k, _)) => k.0 == vault_id && k.1 == batch_index,

@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{storage::SortOrder, Result};
 
 mod block;
 mod masternode;
@@ -51,5 +51,6 @@ pub trait RepositoryOps<K, V> {
     fn list<'a>(
         &'a self,
         from: Option<K>,
+        dir: SortOrder,
     ) -> Result<Box<dyn Iterator<Item = std::result::Result<(K, V), ain_db::DBError>> + 'a>>;
 }

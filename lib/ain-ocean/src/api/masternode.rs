@@ -19,6 +19,7 @@ use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::Masternode,
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -121,7 +122,7 @@ async fn list_masternodes(
         .services
         .masternode
         .by_height
-        .list(next)?
+        .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let ((_, id), _) = item?;

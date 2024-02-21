@@ -15,6 +15,7 @@ use crate::{
     error::ApiError,
     model::{Transaction, TransactionVin, TransactionVout},
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -42,7 +43,7 @@ async fn get_vins(
         .services
         .transaction
         .vin_by_id
-        .list(None)?
+        .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (txid, id) = item?;
@@ -74,7 +75,7 @@ async fn get_vouts(
         .services
         .transaction
         .vout_by_id
-        .list(None)?
+        .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (txid, id) = item?;

@@ -49,6 +49,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
 
     let block_mapper = BlockMapper {
         hash: block_hash,
+        id: block_hash,
         previous_hash: block.previousblockhash,
         height: block.height,
         version: block.version,
