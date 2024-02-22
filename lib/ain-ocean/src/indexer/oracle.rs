@@ -6,6 +6,7 @@ use num_bigint::BigUint;
 use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
 
 use crate::{
+    api::prices::PriceKey,
     error::NotFoundKind,
     indexer::{Context, Index, Result},
     model::{
@@ -13,7 +14,7 @@ use crate::{
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
         OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
-        SetOracleInterval,
+        PriceTicker, SetOracleInterval,
     },
     repository::RepositoryOps,
     Error, Services,
@@ -378,6 +379,8 @@ impl Index for SetOracleData {
                     value.block.height.clone(),
                 );
                 let aggreated_key = (value.token.clone(), value.currency.clone());
+
+                //indexing OraclePriceAggreated
                 services
                     .oracle_price_aggregated
                     .by_id
@@ -386,6 +389,21 @@ impl Index for SetOracleData {
                     .oracle_price_aggregated
                     .by_key
                     .put(&aggreated_key, &aggreated_id)?;
+
+                //indexing price_ticker
+                let formatted_sort = format!(
+                    "{} + {} + {:?}",
+                    value.aggregated.oracles.total, value.block.height, aggreated_key,
+                );
+                let price_ticker = PriceTicker {
+                    id: (value.token.clone(), value.currency.clone()),
+                    sort: formatted_sort,
+                    price: value,
+                };
+                services
+                    .price_ticker
+                    .by_id
+                    .put(&aggreated_key, &price_ticker)?;
             }
         }
         Ok(())
