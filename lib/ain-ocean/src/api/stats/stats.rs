@@ -118,7 +118,8 @@ lazy_static::lazy_static! {
     convert = r#"{ format!("burned_total") }"#
 )]
 pub async fn get_burned_total(client: &Client) -> Result<Decimal> {
-    let burn_address = BURN_ADDRESS.get("mainnet").unwrap();
+    let network = ain_cpp_imports::get_network();
+    let burn_address = BURN_ADDRESS.get(network.as_str()).unwrap();
     let mut tokens = client.get_account(&burn_address, None, Some(true)).await?;
     let burn_info = client.get_burn_info().await?;
 

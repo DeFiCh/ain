@@ -59,8 +59,10 @@ pub async fn ocean_router(services: &Arc<Services>, client: Arc<Client>) -> Resu
         services: services.clone(),
     });
 
+    let network = ain_cpp_imports::get_network();
+
     Ok(Router::new().nest(
-        "/v0/mainnet",
+        format!("/v0/{network}").as_str(),
         Router::new()
             // .nest("/address/", address::router(Arc::clone(&context)))
             .nest("/governance", governance::router(Arc::clone(&context)))
