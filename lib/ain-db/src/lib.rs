@@ -183,7 +183,6 @@ where
         from: Option<C::Index>,
         direction: Direction,
     ) -> Result<impl Iterator<Item = Result<(C::Index, C::Type)>> + '_> {
-        let skip = if from.as_ref().is_some() { 1 } else { 0 };
         let index = from
             .as_ref()
             .map(|i| C::key(i))
@@ -206,8 +205,7 @@ where
                 let value = bincode::deserialize(&value)?;
                 let key = C::get_key(key)?;
                 Ok((key, value))
-            })
-            .skip(skip))
+            }))
     }
 }
 
