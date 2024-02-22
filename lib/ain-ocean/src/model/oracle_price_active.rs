@@ -2,14 +2,14 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type OraclePriceActiveId = (String,String,u32); //token-currency-height
-pub type OraclePriceActiveKey = (String,String); //token-currency
+pub type OraclePriceActiveId = (String, String, u32); //token-currency-height
+pub type OraclePriceActiveKey = (String, String); //token-currency
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActive {
     pub id: OraclePriceActiveId,
     pub key: OraclePriceActiveKey,
-    pub sort: String,    //height
+    pub sort: String, //height
     pub active: OraclePriceActiveActive,
     pub next: OraclePriceActiveNext,
     pub is_live: bool,

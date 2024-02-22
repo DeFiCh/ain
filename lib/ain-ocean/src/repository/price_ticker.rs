@@ -6,12 +6,11 @@ use bitcoin::Txid;
 
 use super::RepositoryOps;
 use crate::{
-    model::PriceTicker,model::PriceTickerId,
+    api::prices::PriceKey,
+    model::{PriceTicker, PriceTickerId},
     storage::{columns, ocean_store::OceanStore},
     Result,
-    api::prices::PriceKey
 };
-
 
 #[derive(Repository)]
 #[repository(K = "PriceTickerId", V = "PriceTicker")]

@@ -12,13 +12,13 @@ pub use indexer::{
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
-    OracleHistoryRepository, OracleHistoryRepositoryKey, OraclePriceActiveRepository,
-    OraclePriceAggregatedIntervalKeyRepository, OraclePriceAggregatedIntervalRepository,
-    OraclePriceAggregatedRepository, OraclePriceAggregatedRepositorykey,
-    OraclePriceFeedKeyRepository, OraclePriceFeedRepository, OracleRepository,
-    OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository, PoolSwapRepository,
-    RawBlockRepository, TransactionRepository, TransactionVinRepository, TransactionVoutRepository,
-    TxResultRepository,TransactionByBlockHashRepository,OraclePriceActiveKeyRepository,PriceTickerRepository,PriceTickerRepositoryKey
+    OracleHistoryRepository, OracleHistoryRepositoryKey, OraclePriceActiveKeyRepository,
+    OraclePriceActiveRepository, OraclePriceAggregatedIntervalKeyRepository,
+    OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
+    OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
+    OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
+    PoolSwapRepository, PriceTickerRepository, PriceTickerRepositoryKey, RawBlockRepository,
+    TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
