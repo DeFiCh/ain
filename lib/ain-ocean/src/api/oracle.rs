@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind},
-    model::{Oracle, OraclePriceFeed, OraclePriceFeedkey},
+    model::{Oracle, OraclePriceFeed},
     repository::RepositoryOps,
     Result,
 };
@@ -45,18 +45,45 @@ async fn list_oracles(
 }
 #[ocean_endpoint]
 async fn get_price_feed(
-    Path(oracle_id): Path<Txid>,
-    Path(key): Path<OraclePriceFeedkey>,
+    Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<OraclePriceFeed>> {
-    let key_tuple = (key.0.clone(), key.1.clone(), key.2.clone(), oracle_id);
-    let price_feed = ctx.services.oracle_price_feed.by_id.get(&key_tuple);
+) -> Result<ApiPagedResponse<OraclePriceFeed>> {
+    let next = query
+        .next
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 3 {
+                return Err("Invalid query format");
+            }
+            let oracle_id = parts[0].parse::<Txid>().map_err(|_| "Invalid oracle_id")?;
+            let token = parts[1].parse::<String>().map_err(|_| "Invalid token")?;
+            let currency = parts[2].parse::<String>().map_err(|_| "Invalid currency")?;
+            Ok((token, currency, oracle_id))
+        })
+        .transpose()?;
+    let oracle_price_feed = ctx
+        .services
+        .oracle_price_feed
+        .by_key
+        .list(next)?
+        .take(query.size)
+        .map(|item| {
+            let (_, id) = item?;
+            let b = ctx
+                .services
+                .oracle_price_feed
+                .by_id
+                .get(&id)?
+                .ok_or("Missing block index")?;
 
-    match price_feed {
-        Ok(Some(oracle)) => Ok(Response::new(oracle)),
-        Ok(None) => Err(Error::NotFound(NotFoundKind::Oracle)),
-        Err(err) => Err(err),
-    }
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(ApiPagedResponse::of(
+        oracle_price_feed,
+        query.size,
+        |price_feed| price_feed.sort.clone(),
+    ))
 }
 
 #[ocean_endpoint]

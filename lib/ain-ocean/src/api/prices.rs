@@ -6,7 +6,6 @@ use axum::{
     routing::get,
     Extension, Router,
 };
-use serde::{Deserialize, Serialize};
 
 use super::{
     query::PaginationQuery,
@@ -18,22 +17,12 @@ use crate::{
     model::{
         OracleIntervalSeconds, OraclePriceActive, OraclePriceAggregated,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
-        OracleTokenCurrency, OracleTokenCurrencyKey, PriceTicker,
+        OracleTokenCurrency, PriceTicker,
     },
     repository::RepositoryOps,
     Result,
 };
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct PriceKey {
-    key: String,
-}
-
-#[derive(Deserialize)]
-struct FeedWithInterval {
-    key: String,
-    interval: i64,
-}
 #[ocean_endpoint]
 async fn list_prices(
     Query(query): Query<PaginationQuery>,
@@ -78,17 +67,28 @@ async fn get_price(
 #[ocean_endpoint]
 async fn get_feed(
     Query(query): Query<PaginationQuery>,
-    Path(price_key): Path<PriceKey>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
+    let next = query
+        .next
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 2 {
+                return Err("Invalid query format");
+            }
+            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
+            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
+            Ok((token, currency))
+        })
+        .transpose()?;
     let aggregated = ctx
         .services
         .oracle_price_aggregated
         .by_key
-        .list(None)?
+        .list(next)?
         .take(query.size)
         .map(|item| {
-            let (key, id) = item?;
+            let (_, id) = item?;
             let b = ctx
                 .services
                 .oracle_price_aggregated
@@ -107,15 +107,25 @@ async fn get_feed(
 #[ocean_endpoint]
 async fn get_feed_active(
     Query(query): Query<PaginationQuery>,
-    Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
-    format!("Active feed for price with key {}", key);
+    let next = query
+        .next
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 2 {
+                return Err("Invalid query format");
+            }
+            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
+            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
+            Ok((token, currency))
+        })
+        .transpose()?;
     let price_active = ctx
         .services
         .oracle_price_active
         .by_key
-        .list(None)?
+        .list(next)?
         .take(query.size)
         .map(|item| {
             let (key, id) = item?;
@@ -124,7 +134,7 @@ async fn get_feed_active(
                 .oracle_price_active
                 .by_id
                 .get(&id)?
-                .ok_or("Missing price_aggregated index")?;
+                .ok_or("Missing price active index")?;
             Ok(b)
         })
         .collect::<Result<Vec<_>>>()?;
@@ -138,18 +148,31 @@ async fn get_feed_active(
 #[ocean_endpoint]
 async fn get_feed_with_interval(
     Query(query): Query<PaginationQuery>,
-    Path(token): Path<String>,
-    Path(currency): Path<String>,
-    Path(interval): Path<OracleIntervalSeconds>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
-    let interval_time = interval.clone();
-    let interval_key = Some((token, currency, interval_time));
+    let next = query
+        .next
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 3 {
+                return Err("Invalid query format");
+            }
+            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
+            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
+            let interval = match parts[2] {
+                "900" => OracleIntervalSeconds::FifteenMinutes,
+                "3600" => OracleIntervalSeconds::OneHour,
+                "86400" => OracleIntervalSeconds::OneDay,
+                _ => return Err("Invalid interval"),
+            };
+            Ok((token, currency, interval))
+        })
+        .transpose()?;
     let items = ctx
         .services
         .oracle_price_aggregated_interval
         .by_key
-        .list(interval_key)?
+        .list(next.clone())?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -166,7 +189,8 @@ async fn get_feed_with_interval(
     let mapped: Vec<OraclePriceAggregatedInterval> = items
         .into_iter()
         .map(|item| {
-            let start = item.block.median_time - (item.block.median_time % interval.clone() as i64);
+            let start =
+                item.block.median_time - (item.block.median_time % next.clone().unwrap().2 as i64);
             OraclePriceAggregatedInterval {
                 id: item.id,
                 key: item.key,
@@ -192,14 +216,25 @@ async fn get_feed_with_interval(
 #[ocean_endpoint]
 async fn get_oracles(
     Query(query): Query<PaginationQuery>,
-    Path(key): Path<OracleTokenCurrencyKey>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OracleTokenCurrency>> {
+    let next = query
+        .next
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 2 {
+                return Err("Invalid query format");
+            }
+            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
+            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
+            Ok((token, currency))
+        })
+        .transpose()?;
     let items = ctx
         .services
         .oracle_token_currency
         .by_key
-        .list(Some(key))?
+        .list(next)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
