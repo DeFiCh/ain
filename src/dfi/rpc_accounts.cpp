@@ -460,18 +460,21 @@ UniValue getaccount(const JSONRPCRequest &request) {
     const auto userAddress = request.params[0].get_str();
 
     // decode owner
-    auto owner = DecodeDestination(userAddress);
-    if (!IsValidDestination(owner)) {
-        if (IsHex(userAddress)) {
-            const auto hexVec = ParseHex(userAddress);
-            if (!ExtractDestination({hexVec.begin(), hexVec.end()}, owner) || !IsValidDestination(owner)) {
-                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
-            }
-        } else {
+    CScript reqOwner;
+    if (IsHex(userAddress)) { // ScriptPubKey
+        const auto hexVec = ParseHex(userAddress);
+        reqOwner = CScript(hexVec.begin(), hexVec.end());
+        CTxDestination owner;
+        if (!ExtractDestination(reqOwner, owner) || !IsValidDestination(owner)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
         }
+    } else { // Address
+        const auto owner = DecodeDestination(userAddress);
+        if (!IsValidDestination(owner)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
+        }
+        reqOwner = GetScriptForDestination(owner);
     }
-    const auto reqOwner = GetScriptForDestination(owner);
 
     // parse pagination
     size_t limit = 100;
