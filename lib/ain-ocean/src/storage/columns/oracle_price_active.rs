@@ -31,4 +31,3 @@ impl Column for OraclePriceActiveKey {
 impl TypedColumn for OraclePriceActiveKey {
     type Type = model::OraclePriceActiveId;
 }
-

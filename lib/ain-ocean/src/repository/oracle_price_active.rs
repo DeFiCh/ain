@@ -5,11 +5,10 @@ use ain_macros::Repository;
 
 use super::RepositoryOps;
 use crate::{
-    model::{OraclePriceActive,OraclePriceActiveId,OraclePriceActiveKey},
+    model::{OraclePriceActive, OraclePriceActiveId, OraclePriceActiveKey},
     storage::{columns, ocean_store::OceanStore},
     Result,
 };
-
 
 #[derive(Repository)]
 #[repository(K = "OraclePriceActiveId", V = "OraclePriceActive")]
@@ -42,4 +41,3 @@ impl OraclePriceActiveKeyRepository {
         }
     }
 }
-

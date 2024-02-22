@@ -1,21 +1,26 @@
 use std::sync::Arc;
+
 use ain_macros::ocean_endpoint;
 use axum::{
     extract::{Path, Query},
     routing::get,
     Extension, Router,
 };
-use serde::{Serialize,Deserialize};
+use serde::{Deserialize, Serialize};
+
 use super::{
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind}, model::{OraclePriceActive, OracleTokenCurrency,PriceTicker,OraclePriceAggregated}, repository::RepositoryOps, Result
+    error::{ApiError, Error, NotFoundKind},
+    model::{OraclePriceActive, OraclePriceAggregated, OracleTokenCurrency, PriceTicker},
+    repository::RepositoryOps,
+    Result,
 };
 
-#[derive(Debug,Deserialize,Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PriceKey {
     key: String,
 }
@@ -43,10 +48,13 @@ async fn list_prices(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let prices: Vec<PriceTicker> = prices.into_iter().map(|(_, price_ticker)| price_ticker).collect();
-  
+    let prices: Vec<PriceTicker> = prices
+        .into_iter()
+        .map(|(_, price_ticker)| price_ticker)
+        .collect();
+
     Ok(ApiPagedResponse::of(prices, query.size, |price| {
-      price.sort.to_string()
+        price.sort.to_string()
     }))
 }
 #[ocean_endpoint]
@@ -66,20 +74,21 @@ async fn get_key(
 }
 
 #[ocean_endpoint]
-async fn get_feed (
+async fn get_feed(
     Query(query): Query<PaginationQuery>,
     Path(price_key): Path<PriceKey>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
-   
-    let aggregated = ctx.services
+    let aggregated = ctx
+        .services
         .oracle_price_aggregated
         .by_key
         .list(None)?
         .take(query.size)
         .map(|item| {
             let (key, id) = item?;
-            let b = ctx.services
+            let b = ctx
+                .services
                 .oracle_price_aggregated
                 .by_id
                 .get(&id)?
@@ -89,37 +98,40 @@ async fn get_feed (
         })
         .collect::<Result<Vec<_>>>()?;
 
-        Ok(ApiPagedResponse::of(aggregated, query.size, |aggre| {
-           aggre.sort.to_string()
-        }))
-
+    Ok(ApiPagedResponse::of(aggregated, query.size, |aggre| {
+        aggre.sort.to_string()
+    }))
 }
 #[ocean_endpoint]
 async fn get_feed_active(
     Query(query): Query<PaginationQuery>,
     Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-)-> Result<ApiPagedResponse<OraclePriceActive>> {
+) -> Result<ApiPagedResponse<OraclePriceActive>> {
     format!("Active feed for price with key {}", key);
-    let price_active = ctx.services
-    .oracle_price_active
-    .by_key
-    .list(None)?
-    .take(query.size)
-    .map(|item| {
-        let (key, id) = item?;
-        let b = ctx.services
-            .oracle_price_active
-            .by_id
-            .get(&id)?
-            .ok_or("Missing price_aggregated index")?;
-        Ok(b)
-    })
-    .collect::<Result<Vec<_>>>()?;
+    let price_active = ctx
+        .services
+        .oracle_price_active
+        .by_key
+        .list(None)?
+        .take(query.size)
+        .map(|item| {
+            let (key, id) = item?;
+            let b = ctx
+                .services
+                .oracle_price_active
+                .by_id
+                .get(&id)?
+                .ok_or("Missing price_aggregated index")?;
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok(ApiPagedResponse::of(price_active, query.size, |price_active| {
-       price_active.sort.to_string()
-    }))
+    Ok(ApiPagedResponse::of(
+        price_active,
+        query.size,
+        |price_active| price_active.sort.to_string(),
+    ))
 }
 // #[ocean_endpoint]
 // async fn get_feed_with_interval(
@@ -132,27 +144,31 @@ async fn get_oracles(
     Query(query): Query<PaginationQuery>,
     Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
-)-> Result<ApiPagedResponse<OracleTokenCurrency>> {
+) -> Result<ApiPagedResponse<OracleTokenCurrency>> {
     format!("Oracles for price with key {}", key);
-    let token_currency = ctx.services
-    .oracle_token_currency
-    .by_key
-    .list(None)?
-    .take(query.size)
-    .map(|item| {
-        let (key, id) = item?;
-        let b = ctx.services
-            .oracle_token_currency
-            .by_id
-            .get(&id)?
-            .ok_or("Missing token-currency index")?;
-        Ok(b)
-    })
-    .collect::<Result<Vec<_>>>()?;
+    let token_currency = ctx
+        .services
+        .oracle_token_currency
+        .by_key
+        .list(None)?
+        .take(query.size)
+        .map(|item| {
+            let (key, id) = item?;
+            let b = ctx
+                .services
+                .oracle_token_currency
+                .by_id
+                .get(&id)?
+                .ok_or("Missing token-currency index")?;
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
-    Ok(ApiPagedResponse::of(token_currency, query.size, |currecy| {
-        currecy.oracle_id.to_string()
-    }))
+    Ok(ApiPagedResponse::of(
+        token_currency,
+        query.size,
+        |currecy| currecy.oracle_id.to_string(),
+    ))
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {

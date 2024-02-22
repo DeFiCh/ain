@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::BlockContext;
 pub type OraclePriceAggregatedId = (String, String, u32); //token-currency-height
 pub type OraclePriceAggregatedKey = (String, String); //token-currency
-#[derive(Serialize, Deserialize, Debug, Clone,PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregated {
     pub id: OraclePriceAggregatedId,
