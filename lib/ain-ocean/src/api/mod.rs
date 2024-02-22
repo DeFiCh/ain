@@ -10,7 +10,7 @@ mod loan;
 mod masternode;
 mod oracle;
 // mod poolpairs;
-mod prices;
+pub mod prices;
 // mod rawtx;
 mod cache;
 mod common;

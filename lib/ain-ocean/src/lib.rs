@@ -18,8 +18,7 @@ use repository::{
     OraclePriceFeedKeyRepository, OraclePriceFeedRepository, OracleRepository,
     OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository, PoolSwapRepository,
     RawBlockRepository, TransactionRepository, TransactionVinRepository, TransactionVoutRepository,
-    TxResultRepository,TransactionByBlockHashRepository
-
+    TxResultRepository,TransactionByBlockHashRepository,OraclePriceActiveKeyRepository,PriceTickerRepository,PriceTickerRepositoryKey
 };
 pub mod api;
 mod model;
@@ -76,7 +75,7 @@ pub struct OraclePriceFeedService {
     by_id: OraclePriceFeedRepository,
 }
 pub struct OraclePriceActiveService {
-    by_key: OraclePriceActiveRepository,
+    by_key: OraclePriceActiveKeyRepository,
     by_id: OraclePriceActiveRepository,
 }
 pub struct OraclePriceAggregatedIntervalService {
@@ -98,6 +97,11 @@ pub struct OracleHistoryService {
     by_key: OracleHistoryRepositoryKey,
 }
 
+pub struct PriceTickerService {
+    by_id: PriceTickerRepository,
+    by_key: PriceTickerRepositoryKey,
+}
+
 pub struct Services {
     pub masternode: MasternodeService,
     pub block: BlockService,
@@ -112,6 +116,7 @@ pub struct Services {
     oracle_price_aggregated: OraclePriceAggregatedService,
     oracle_token_currency: OracleTokenCurrencyService,
     oracle_history: OracleHistoryService,
+    price_ticker: PriceTickerService,
 }
 
 impl Services {
@@ -149,7 +154,7 @@ impl Services {
                 by_id: OraclePriceFeedRepository::new(Arc::clone(&store)),
             },
             oracle_price_active: OraclePriceActiveService {
-                by_key: OraclePriceActiveRepository::new(Arc::clone(&store)),
+                by_key: OraclePriceActiveKeyRepository::new(Arc::clone(&store)),
                 by_id: OraclePriceActiveRepository::new(Arc::clone(&store)),
             },
             oracle_price_aggregated_interval: OraclePriceAggregatedIntervalService {
@@ -167,6 +172,10 @@ impl Services {
             oracle_history: OracleHistoryService {
                 by_id: OracleHistoryRepository::new(Arc::clone(&store)),
                 by_key: OracleHistoryRepositoryKey::new(Arc::clone(&store)),
+            },
+            price_ticker: PriceTickerService {
+                by_id: PriceTickerRepository::new(Arc::clone(&store)),
+                by_key: PriceTickerRepositoryKey::new(Arc::clone(&store)),
             },
         }
     }
