@@ -12,6 +12,7 @@ use super::{
     AppContext,
 };
 use crate::{
+    api::common::Paginate,
     error::{ApiError, Error},
     model::{Block, Transaction},
     repository::RepositoryOps,
@@ -47,6 +48,7 @@ async fn list_blocks(
 ) -> Result<ApiPagedResponse<Block>> {
     let next = query
         .next
+        .as_ref()
         .map(|q| {
             let height = q
                 .parse::<u32>()
@@ -60,7 +62,7 @@ async fn list_blocks(
         .block
         .by_height
         .list(next, SortOrder::Descending)?
-        .take(query.size)
+        .paginate(&query)
         .map(|item| {
             let (_, id) = item?;
             let b = ctx
@@ -102,7 +104,7 @@ async fn get_transactions(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<Transaction>> {
-    let next = query.next.map_or(Ok((hash, 0)), |q| {
+    let next = query.next.as_ref().map_or(Ok((hash, 0)), |q| {
         let height = q
             .parse::<usize>()
             .map_err(|_| format_err!("Invalid height"))?;
@@ -114,7 +116,7 @@ async fn get_transactions(
         .transaction
         .by_block_hash
         .list(Some(next), SortOrder::Ascending)?
-        .take(query.size)
+        .paginate(&query)
         .take_while(|item| match item {
             Ok(((h, _), _)) => h == &hash,
             _ => true,

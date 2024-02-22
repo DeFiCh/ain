@@ -64,7 +64,7 @@ async fn list_scheme(
         .list_loan_schemes()
         .await?
         .into_iter()
-        .paginate(&query, skip_while)
+        .fake_paginate(&query, skip_while)
         .map(Into::into)
         .collect();
     Ok(ApiPagedResponse::of(res, query.size, |loan_scheme| {
@@ -120,7 +120,7 @@ async fn list_collateral_token(
 
     let fut = tokens
         .into_iter()
-        .paginate(&query, skip_while)
+        .fake_paginate(&query, skip_while)
         .map(|v| async {
             let (id, info) = get_token_cached(&ctx, &v.token_id).await?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info))
@@ -187,7 +187,7 @@ async fn list_loan_token(
                     interest: el.interest,
                 })
         })
-        .paginate(&query, |token| match &query.next {
+        .fake_paginate(&query, |token| match &query.next {
             None => false,
             Some(v) => v != &token.id,
         })

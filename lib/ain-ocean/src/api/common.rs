@@ -107,27 +107,32 @@ pub fn find_token_balance(tokens: Vec<String>, symbol: &str) -> Decimal {
 ///     .list_loan_schemes()
 ///     .await?
 ///     .into_iter()
-///     .paginate(&query, skip_while)
+///     .fake_paginate(&query, skip_while)
 ///     .collect();
 ///
 /// assert!(res.len() <= query.size, "The result should not contain more items than the specified limit");
 /// assert!(res[0].id > query.next.unwrap(), "The result should start after the requested start id");
 /// ```
 pub trait Paginate<'a, T>: Iterator<Item = T> + Sized {
-    fn paginate<F>(
+    fn fake_paginate<F>(
         self,
         query: &PaginationQuery,
         skip_while: F,
     ) -> Box<dyn Iterator<Item = T> + 'a>
     where
         F: FnMut(&T) -> bool + 'a;
+    fn paginate(self, query: &PaginationQuery) -> Box<dyn Iterator<Item = T> + 'a>;
 }
 
 impl<'a, T, I> Paginate<'a, T> for I
 where
     I: Iterator<Item = T> + 'a,
 {
-    fn paginate<F>(self, query: &PaginationQuery, skip_while: F) -> Box<dyn Iterator<Item = T> + 'a>
+    fn fake_paginate<F>(
+        self,
+        query: &PaginationQuery,
+        skip_while: F,
+    ) -> Box<dyn Iterator<Item = T> + 'a>
     where
         F: FnMut(&T) -> bool + 'a,
     {
@@ -136,5 +141,8 @@ where
                 .skip(query.next.is_some() as usize)
                 .take(query.size),
         )
+    }
+    fn paginate(self, query: &PaginationQuery) -> Box<dyn Iterator<Item = T> + 'a> {
+        Box::new(self.skip(query.next.is_some() as usize).take(query.size))
     }
 }
