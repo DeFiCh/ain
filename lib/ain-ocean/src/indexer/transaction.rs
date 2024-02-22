@@ -56,7 +56,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         services.transaction.vin_by_id.put(&vin.id, &vin)?;
     }
 
-    let order = idx + 1;
+    let order = idx;
 
     let tx = TransactionMapper {
         id: txid,
