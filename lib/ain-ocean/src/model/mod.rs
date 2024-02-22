@@ -20,7 +20,7 @@ mod transaction_vin;
 mod transaction_vout;
 mod tx_result;
 mod vault_auction_batch_history;
-
+mod prices;
 pub use block::*;
 pub use masternode::*;
 pub use masternode_stats::*;
@@ -43,3 +43,4 @@ pub use transaction_vin::*;
 pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_batch_history::*;
+pub use prices::*;
