@@ -6,7 +6,6 @@ use num_bigint::BigUint;
 use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
 
 use crate::{
-    api::prices::PriceKey,
     error::NotFoundKind,
     indexer::{Context, Index, Result},
     model::{

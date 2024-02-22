@@ -17,8 +17,8 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolSwapRepository, PriceTickerRepository, PriceTickerRepositoryKey, RawBlockRepository,
-    TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    PoolSwapRepository, PriceTickerRepository, RawBlockRepository, TransactionRepository,
+    TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -99,7 +99,6 @@ pub struct OracleHistoryService {
 
 pub struct PriceTickerService {
     by_id: PriceTickerRepository,
-    by_key: PriceTickerRepositoryKey,
 }
 
 pub struct Services {
@@ -175,7 +174,6 @@ impl Services {
             },
             price_ticker: PriceTickerService {
                 by_id: PriceTickerRepository::new(Arc::clone(&store)),
-                by_key: PriceTickerRepositoryKey::new(Arc::clone(&store)),
             },
         }
     }
