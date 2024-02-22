@@ -16,9 +16,11 @@ use super::{
     AppContext,
 };
 use crate::{
+    api::common::Paginate,
     error::{ApiError, Error, NotFoundKind},
     model::Masternode,
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -105,6 +107,7 @@ async fn list_masternodes(
 ) -> Result<ApiPagedResponse<MasternodeData>> {
     let next = query
         .next
+        .as_ref()
         .map(|q| {
             let height = q[0..8]
                 .parse::<u32>()
@@ -121,8 +124,8 @@ async fn list_masternodes(
         .services
         .masternode
         .by_height
-        .list(next)?
-        .take(query.size)
+        .list(next, SortOrder::Descending)?
+        .paginate(&query)
         .map(|item| {
             let ((_, id), _) = item?;
             let mn = ctx

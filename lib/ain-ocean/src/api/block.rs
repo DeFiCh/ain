@@ -12,9 +12,11 @@ use super::{
     AppContext,
 };
 use crate::{
+    api::common::Paginate,
     error::{ApiError, Error},
-    model::Block,
+    model::{Block, Transaction},
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -46,6 +48,7 @@ async fn list_blocks(
 ) -> Result<ApiPagedResponse<Block>> {
     let next = query
         .next
+        .as_ref()
         .map(|q| {
             let height = q
                 .parse::<u32>()
@@ -58,8 +61,8 @@ async fn list_blocks(
         .services
         .block
         .by_height
-        .list(next)?
-        .take(query.size)
+        .list(next, SortOrder::Descending)?
+        .paginate(&query)
         .map(|item| {
             let (_, id) = item?;
             let b = ctx
@@ -95,11 +98,43 @@ async fn get_block(
     Ok(Response::new(block))
 }
 
+#[ocean_endpoint]
 async fn get_transactions(
     Path(hash): Path<BlockHash>,
+    Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> String {
-    format!("Transactions for block with hash {}", hash)
+) -> Result<ApiPagedResponse<Transaction>> {
+    let next = query.next.as_ref().map_or(Ok((hash, 0)), |q| {
+        let height = q
+            .parse::<usize>()
+            .map_err(|_| format_err!("Invalid height"))?;
+        Ok::<(BlockHash, usize), Error>((hash, height))
+    })?;
+
+    let txs = ctx
+        .services
+        .transaction
+        .by_block_hash
+        .list(Some(next), SortOrder::Ascending)?
+        .paginate(&query)
+        .take_while(|item| match item {
+            Ok(((h, _), _)) => h == &hash,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, id) = item?;
+            let tx = ctx
+                .services
+                .transaction
+                .by_id
+                .get(&id)?
+                .ok_or("Missing tx index")?;
+
+            Ok(tx)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(ApiPagedResponse::of(txs, query.size, |tx| tx.order))
 }
 
 // Get highest indexed block

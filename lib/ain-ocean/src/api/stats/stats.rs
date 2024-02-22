@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use cached::proc_macro::cached;
 use defichain_rpc::{
@@ -100,6 +100,17 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
     })
 }
 
+// TODO Shove it into network struct when available
+lazy_static::lazy_static! {
+    pub static ref  BURN_ADDRESS: HashMap<&'static str, &'static str> = HashMap::from([
+        ("mainnet", "8defichainBurnAddressXXXXXXXdRQkSm"),
+        ("testnet", "7DefichainBurnAddressXXXXXXXdMUE5n"),
+        ("devnet", "7DefichainBurnAddressXXXXXXXdMUE5n"),
+        ("changi", "7DefichainBurnAddressXXXXXXXdMUE5n"),
+        ("regtest", "mfburnZSAM7Gs1hpDeNaMotJXSGA7edosG"),
+    ]);
+}
+
 #[cached(
     result = true,
     time = 1800,
@@ -107,8 +118,9 @@ pub async fn get_count(ctx: &Arc<AppContext>) -> Result<Count> {
     convert = r#"{ format!("burned_total") }"#
 )]
 pub async fn get_burned_total(client: &Client) -> Result<Decimal> {
-    static ADDRESS: &'static str = "76a914f7874e8821097615ec345f74c7e5bcf61b12e2ee88ac";
-    let mut tokens = client.get_account(ADDRESS, None, Some(true)).await?;
+    let network = ain_cpp_imports::get_network();
+    let burn_address = BURN_ADDRESS.get(network.as_str()).unwrap();
+    let mut tokens = client.get_account(&burn_address, None, Some(true)).await?;
     let burn_info = client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalError)?;

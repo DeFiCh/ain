@@ -56,9 +56,11 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         services.transaction.vin_by_id.put(&vin.id, &vin)?;
     }
 
+    let order = idx;
+
     let tx = TransactionMapper {
         id: txid,
-        order: idx,
+        order,
         hash: ctx.tx.hash.clone(),
         block: ctx.block.clone(),
         version: ctx.tx.version,
@@ -72,6 +74,10 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     };
     // Index transaction
     services.transaction.by_id.put(&txid, &tx)?;
+    services
+        .transaction
+        .by_block_hash
+        .put(&(ctx.block.hash, order), &txid)?;
 
     Ok(())
 }

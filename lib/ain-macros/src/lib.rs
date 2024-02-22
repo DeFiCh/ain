@@ -113,9 +113,9 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
                 Ok(self.col.delete(id)?)
             }
 
-            fn list<'a>(&'a self, from: Option<#key_type_ident>) -> Result<Box<dyn Iterator<Item = std::result::Result<(#key_type_ident, #value_type_ident), ain_db::DBError>> + 'a>>
+            fn list<'a>(&'a self, from: Option<#key_type_ident>, dir: crate::storage::SortOrder) -> Result<Box<dyn Iterator<Item = std::result::Result<(#key_type_ident, #value_type_ident), ain_db::DBError>> + 'a>>
             {
-                let it = self.col.iter(from)?;
+                let it = self.col.iter(from, dir.into())?;
                 Ok(Box::new(it))
             }
         }

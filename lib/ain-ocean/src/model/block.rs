@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub hash: BlockHash,
+    pub id: BlockHash,
     pub previous_hash: Option<BlockHash>,
     pub height: u32,
     pub version: i32,

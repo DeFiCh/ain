@@ -7,7 +7,7 @@ use bitcoin::BlockHash;
 use super::RepositoryOps;
 use crate::{
     model::Block,
-    storage::{columns, ocean_store::OceanStore},
+    storage::{columns, ocean_store::OceanStore, SortOrder},
     Result,
 };
 
@@ -45,7 +45,7 @@ impl BlockByHeightRepository {
 
 impl BlockByHeightRepository {
     pub fn get_highest(&self) -> Result<Option<Block>> {
-        match self.col.iter(None)?.next() {
+        match self.col.iter(None, SortOrder::Descending.into())?.next() {
             None => Ok(None),
             Some(Ok((_, id))) => {
                 let col = self.store.column::<columns::Block>();
