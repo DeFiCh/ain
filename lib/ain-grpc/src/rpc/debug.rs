@@ -84,7 +84,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let (logs, succeeded, return_data, gas_used) = self
             .handler
             .core
-            .trace_transaction(&signed_tx, receipt.block_number)
+            .call_with_tracer(&signed_tx, receipt.block_number)
             .map_err(RPCError::EvmError)?;
         let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
