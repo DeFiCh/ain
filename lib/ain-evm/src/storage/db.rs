@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ain_db::{Column, ColumnName, DBError, Result, TypedColumn};
+use ain_db::{Column, ColumnName, Result, TypedColumn};
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 

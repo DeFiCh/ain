@@ -74,7 +74,7 @@ async fn get_vouts(
         .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
-            let (txid, id) = item?;
+            let (txid, _) = item?;
             let b = ctx
                 .services
                 .transaction

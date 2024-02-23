@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
 use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::Txid;
 use defichain_rpc::{
     defichain_rpc_json::{
-        loan::{CollateralTokenDetail, LoanSchemeResult, LoanTokenResult},
+        loan::{CollateralTokenDetail, LoanSchemeResult},
         token::TokenInfo,
     },
     LoanRPC,
@@ -24,7 +23,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error, NotFoundKind},
+    error::{ApiError, Error},
     model::VaultAuctionBatchHistory,
     repository::RepositoryOps,
     storage::SortOrder,
@@ -172,7 +171,7 @@ async fn list_loan_token(
         id: String,
         data: TokenInfo,
         interest: f64,
-    };
+    }
 
     let fut = tokens
         .into_iter()

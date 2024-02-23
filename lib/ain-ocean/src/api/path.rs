@@ -3,7 +3,7 @@ use axum::{
     extract::{path::ErrorKind, rejection::PathRejection, FromRequestParts},
     http::{request::Parts, StatusCode},
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::de::DeserializeOwned;
 
 use crate::error::ApiError;
 

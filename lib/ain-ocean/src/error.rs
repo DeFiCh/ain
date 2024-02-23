@@ -8,7 +8,6 @@ use axum::{
     Json,
 };
 use bitcoin::hex::HexToArrayError;
-use log::debug;
 use serde::Serialize;
 use thiserror::Error;
 

@@ -1,6 +1,5 @@
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 
 use super::query::PaginationQuery;
 

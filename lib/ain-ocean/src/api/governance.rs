@@ -13,7 +13,7 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind},
-    Result, Services,
+    Result,
 };
 
 #[derive(Deserialize, Default)]
