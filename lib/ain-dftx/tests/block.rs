@@ -2,12 +2,11 @@ use ain_dftx::{deserialize, Block, DfTx};
 
 #[test]
 fn test_block() {
-    let path = format!("./tests/data/block.txt");
-    let s = std::fs::read_to_string(&path).unwrap();
+    let s = std::fs::read_to_string("./tests/data/block.txt").unwrap();
 
     for line in s.lines() {
         let l = line.split(' ').next().unwrap();
-        let hex = &hex::decode(l).unwrap();
+        let hex = hex::decode(l).unwrap();
         let block = deserialize::<Block>(&hex).unwrap();
 
         for tx in block.txdata {

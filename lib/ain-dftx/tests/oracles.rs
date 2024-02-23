@@ -24,7 +24,7 @@ fn test_set_oracle_data() {
                   prices: vec![
                     TokenAmount {
                       currency: String::from("USD"),
-                      amount: 1 * COIN
+                      amount: COIN
                     }
                   ].into()
                 }
