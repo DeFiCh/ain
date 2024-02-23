@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dftx_rs::pool::*;
+use ain_dftx::pool::*;
 use log::debug;
 
 use super::Context;
