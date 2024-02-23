@@ -13,7 +13,7 @@ pub struct Oracle {
     pub block: BlockContext,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceFeedsItem {
     pub token: String,
