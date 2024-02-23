@@ -17,6 +17,7 @@ use crate::{
     error::{ApiError, Error, NotFoundKind},
     model::{Oracle, OraclePriceFeed},
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -29,7 +30,7 @@ async fn list_oracles(
         .services
         .oracle
         .by_id
-        .list(None)?
+        .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (id, oracle) = item?;
@@ -65,7 +66,7 @@ async fn get_price_feed(
         .services
         .oracle_price_feed
         .by_key
-        .list(next)?
+        .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -96,7 +97,7 @@ async fn get_oracle_by_address(
         .services
         .oracle
         .by_id
-        .list(None)?
+        .list(None, SortOrder::Descending)?
         .filter_map(|item| {
             let (id, oracle) = item.ok()?;
             if oracle.owner_address == address {
