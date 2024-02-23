@@ -8,7 +8,7 @@ pub mod tx_result;
 use std::{sync::Arc, time::Instant};
 
 use defichain_rpc::json::blockchain::{Block, Transaction};
-use dftx_rs::{deserialize, DfTx};
+use dftx_rs::{deserialize, DfTx, Stack};
 use log::debug;
 
 use crate::{
@@ -24,6 +24,7 @@ pub(crate) trait Index {
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 }
 
+#[derive(Debug)]
 pub struct Context {
     block: BlockContext,
     tx: Transaction,
@@ -40,12 +41,60 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     let start = Instant::now();
 
     let block_hash = block.hash;
+    let transaction_count = block.tx.len();
     let block_ctx = BlockContext {
         height: block.height,
         hash: block_hash,
         time: block.time,
         median_time: block.mediantime,
     };
+
+    for (tx_idx, tx) in block.tx.into_iter().enumerate() {
+        let start = Instant::now();
+        let ctx = Context {
+            block: block_ctx.clone(),
+            tx,
+            tx_idx,
+        };
+
+        let bytes = &ctx.tx.vout[0].script_pub_key.hex;
+        if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
+            let offset = 1 + match bytes[1] {
+                0x4c => 2,
+                0x4d => 3,
+                0x4e => 4,
+                _ => 1,
+            };
+
+            let raw_tx = &bytes[offset..];
+            match deserialize::<Stack>(raw_tx) {
+                Err(bitcoin::consensus::encode::Error::ParseFailed("Invalid marker")) => {
+                    println!("Discarding invalid marker");
+                }
+                Err(e) => return Err(e.into()),
+                Ok(Stack { dftx, .. }) => {
+                    match &dftx {
+                        DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
+                        DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
+                        DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
+                        // DfTx::AppointOracle(data) => data.index(services,&ctx)?,
+                        // DfTx::RemoveOracle(data) => data.index(services,&ctx)?,
+                        // DfTx::UpdateOracle(data) => data.index(services,&ctx)?,
+                        // DfTx::SetOracleData(data) => data.index(services,&ctx)?,
+                        DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                        DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
+                        _ => (),
+                    }
+                    log_elapsed(start, &format!("Indexed dftx"));
+                }
+            }
+        }
+
+        index_transaction(services, ctx)?;
+    }
+
+    log_elapsed(start, "Indexed block");
 
     let block_mapper = BlockMapper {
         hash: block_hash,
@@ -55,7 +104,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         version: block.version,
         time: block.time,
         median_time: block.mediantime,
-        transaction_count: block.tx.len(),
+        transaction_count,
         difficulty: block.difficulty,
         masternode: block.masternode,
         minter: block.minter,
@@ -73,49 +122,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         .block
         .by_height
         .put(&block_ctx.height, &block_hash)?;
-
-    for (tx_idx, tx) in block.tx.into_iter().enumerate() {
-        let start = Instant::now();
-        let ctx = Context {
-            block: block_ctx.clone(),
-            tx,
-            tx_idx,
-        };
-
-        let bytes = &ctx.tx.vout[0].script_pub_key.hex;
-        if bytes.len() > 2 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
-            let offset = 1 + match bytes[1] {
-                0x4c => 2,
-                0x4d => 3,
-                0x4e => 4,
-                _ => 1,
-            };
-
-            let raw_tx = &bytes[offset..];
-            let dftx = deserialize::<DfTx>(raw_tx)?;
-            debug!("dftx : {:?}", dftx);
-
-            match &dftx {
-                DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
-                DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
-                DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
-                // DfTx::AppointOracle(data) => data.index(services,&ctx)?,
-                // DfTx::RemoveOracle(data) => data.index(services,&ctx)?,
-                // DfTx::UpdateOracle(data) => data.index(services,&ctx)?,
-                // DfTx::SetOracleData(data) => data.index(services,&ctx)?,
-                DfTx::PoolSwap(data) => data.index(services, &ctx)?,
-                DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
-                DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
-
-                _ => (),
-            }
-            log_elapsed(start, &format!("Indexed tx {:?}", dftx));
-        }
-
-        index_transaction(services, ctx)?;
-    }
-
-    log_elapsed(start, "Indexed block");
 
     Ok(())
 }
