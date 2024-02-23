@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{
-    extract::Query,
-    routing::get,
-    Extension, Router,
-};
+use axum::{extract::Query, routing::get, Extension, Router};
 use bitcoin::Txid;
 use serde::Deserialize;
 
