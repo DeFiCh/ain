@@ -32,6 +32,17 @@ struct NullPoolSwapData {
     CTokenAmount amount;
 };
 
+/*
+ * Due to a bug in pool swap if a user failed to set a to address, the swap amount
+ * was sent to an empty CScript address. The collection below is the list of such
+ * transactions. For reference the transaction ID and height is provided along with
+ * the address and amount. The address is the source of each pool swap and the amount
+ * is the resulting amount of the original swap. These amounts reside on the empty
+ * CScript address and will be restored to the original source address.
+ *
+ * This bug was fixed in the following PR.
+ * https://github.com/DeFiCh/ain/pull/1534
+ */
 static std::vector<NullPoolSwapData> nullPoolSwapAmounts = {
     {uint256S("87606c8d4d4079b2aeeda669b5a17a15c16ddd1eebf11036913a8735b8ecf4ce"),
      582119,  "dX9bZ7XmWSwdArNjswpZLFe12rMcaFK5tC",
