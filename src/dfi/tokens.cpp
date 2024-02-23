@@ -201,14 +201,14 @@ Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
         if (evmEnabled && evmTemplate) {
             const auto &hash = ctx.hash;
             CrossBoundaryResult result;
-            if (oldToken.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
+            if (newToken.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
                 return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
             }
-            const auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(oldToken.name));
+            const auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(newToken.name));
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
             }
-            const auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(oldToken.symbol));
+            const auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(newToken.symbol));
             if (!result.ok) {
                 return Res::Err("Error creating DST20 token, token symbol not valid UTF-8\n");
             }
