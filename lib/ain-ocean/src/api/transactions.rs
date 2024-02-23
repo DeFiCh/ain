@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Deserialize)]
-struct TransactionId {
+pub struct TransactionId {
     id: Txid,
 }
 
