@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
 use axum::{
-    extract::{Path, Query},
+    extract::Query,
     routing::get,
-    Extension, Json, Router,
+    Extension, Router,
 };
 use bitcoin::Txid;
 use serde::Deserialize;
 
-use super::{query::PaginationQuery, response::ApiPagedResponse, AppContext};
+use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppContext};
 use crate::{
     api::response::Response,
     error::ApiError,

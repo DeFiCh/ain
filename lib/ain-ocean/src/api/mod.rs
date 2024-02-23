@@ -14,6 +14,7 @@ mod masternode;
 // mod rawtx;
 mod cache;
 mod common;
+mod path;
 mod query;
 mod response;
 mod stats;
