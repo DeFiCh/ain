@@ -1,4 +1,5 @@
 use ain_db::{Column, ColumnName, TypedColumn};
+use bitcoin::Txid;
 
 use crate::model;
 
@@ -24,7 +25,7 @@ impl ColumnName for OracleHistoryKey {
 }
 
 impl Column for OracleHistoryKey {
-    type Index = String;
+    type Index = Txid;
 }
 
 impl TypedColumn for OracleHistoryKey {

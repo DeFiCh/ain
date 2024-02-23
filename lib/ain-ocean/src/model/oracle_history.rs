@@ -6,7 +6,7 @@ use crate::model::oracle::PriceFeedsItem;
 
 pub type OracleHistoryId = (Txid, u32, Txid); //oracleId-height-txid
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OracleHistory {
     pub id: OracleHistoryId,
