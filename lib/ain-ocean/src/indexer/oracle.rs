@@ -9,11 +9,11 @@ use crate::{
     error::NotFoundKind,
     indexer::{Context, Index, Result},
     model::{
-        BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
-        OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
-        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
-        OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
-        PriceTicker, SetOracleInterval,
+        oracle::PriceFeedsItem, BlockContext, Oracle, OracleHistory, OracleIntervalSeconds,
+        OraclePriceAggregated, OraclePriceAggregatedAggregated,
+        OraclePriceAggregatedAggregatedOracles, OraclePriceAggregatedInterval,
+        OraclePriceAggregatedIntervalAggregated, OraclePriceAggregatedIntervalAggregatedOracles,
+        OraclePriceFeed, OracleTokenCurrency, PriceTicker, SetOracleInterval,
     },
     repository::RepositoryOps,
     Error, Services,
@@ -22,13 +22,25 @@ use crate::{
 impl Index for AppointOracle {
     fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
+        //convert compactVec to vec<pricefeed>
+        let converted_price_feeds: Vec<PriceFeedsItem> = self
+            .price_feeds
+            .as_ref()
+            .iter()
+            .map(|currency_pair| PriceFeedsItem {
+                token: currency_pair.token.clone(),
+                currency: currency_pair.currency.clone(),
+            })
+            .collect();
+
         let oracle = Oracle {
             id: oracle_id,
             owner_address: self.script.to_hex_string(),
             weightage: self.weightage,
-            price_feeds: vec![],
+            price_feeds: converted_price_feeds.clone(),
             block: ctx.block.clone(),
         };
+
         services.oracle.by_id.put(&oracle.id, &oracle)?;
         let oracle_history = OracleHistory {
             id: (ctx.tx.txid, ctx.block.height, oracle_id),
@@ -40,7 +52,7 @@ impl Index for AppointOracle {
             ),
             owner_address: self.script.to_hex_string(),
             weightage: self.weightage,
-            price_feeds: vec![],
+            price_feeds: converted_price_feeds,
             block: ctx.block.clone(),
         };
 
@@ -51,22 +63,15 @@ impl Index for AppointOracle {
         services
             .oracle_history
             .by_key
-            .put(&oracle_history.sort, &oracle_history.id)?;
+            .put(&oracle_history.oracle_id.to_string(), &oracle_history.id)?;
 
         let prices_feeds = self.price_feeds.as_ref();
-        for token_currency in prices_feeds {
+        for pairs in prices_feeds {
             let oracle_token_currency = OracleTokenCurrency {
-                id: (
-                    token_currency.token.to_owned(),
-                    token_currency.currency.to_owned(),
-                    oracle_id,
-                ),
-                key: (
-                    token_currency.token.to_owned(),
-                    token_currency.currency.to_owned(),
-                ),
-                token: token_currency.token.to_owned(),
-                currency: token_currency.currency.to_owned(),
+                id: (pairs.token.to_owned(), pairs.currency.to_owned(), oracle_id),
+                key: (pairs.token.to_owned(), pairs.currency.to_owned()),
+                token: pairs.token.to_owned(),
+                currency: pairs.currency.to_owned(),
                 oracle_id: oracle_id,
                 weightage: self.weightage,
                 block: ctx.block.clone(),
@@ -85,8 +90,34 @@ impl Index for AppointOracle {
         Ok(())
     }
 
-    fn invalidate(&self, _services: &Arc<Services>, _context: &Context) -> Result<()> {
-        todo!()
+    fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        let oracle_id = context.tx.txid;
+        services.oracle.by_id.delete(&oracle_id)?;
+        services.oracle_history.by_id.delete(&(
+            oracle_id,
+            context.block.height,
+            context.tx.txid,
+        ))?;
+        for currency_pair in self.price_feeds.as_ref().iter() {
+            let token_currency_id = (
+                currency_pair.token.to_owned(),
+                currency_pair.currency.to_owned(),
+                oracle_id,
+            );
+            let token_currency_key = (
+                currency_pair.token.to_owned(),
+                currency_pair.currency.to_owned(),
+            );
+            services
+                .oracle_token_currency
+                .by_id
+                .delete(&token_currency_id)?;
+            services
+                .oracle_token_currency
+                .by_key
+                .delete(&token_currency_key)?;
+        }
+        Ok(())
     }
 }
 

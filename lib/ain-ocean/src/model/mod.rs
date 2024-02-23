@@ -1,7 +1,7 @@
 mod block;
 mod masternode;
 mod masternode_stats;
-mod oracle;
+pub mod oracle;
 mod oracle_history;
 mod oracle_price_active;
 mod oracle_price_aggregated;
