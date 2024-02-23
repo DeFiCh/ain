@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use ain_db::LedgerColumn;
 use ain_macros::Repository;
+use bitcoin::Txid;
 
 use super::RepositoryOps;
 use crate::{
@@ -26,7 +27,7 @@ impl OracleHistoryRepository {
     }
 }
 #[derive(Repository)]
-#[repository(K = "String", V = "OracleHistoryId")]
+#[repository(K = "Txid", V = "OracleHistoryId")]
 pub struct OracleHistoryRepositoryKey {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OracleHistoryKey>,
