@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dftx_rs::vault::PlaceAuctionBid;
+use ain_dftx::vault::PlaceAuctionBid;
 use log::debug;
 
 use super::Context;

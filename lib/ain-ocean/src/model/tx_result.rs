@@ -1,4 +1,4 @@
-use dftx_rs::custom_tx::CustomTxType;
+use ain_dftx::custom_tx::CustomTxType;
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]

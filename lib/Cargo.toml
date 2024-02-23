@@ -119,7 +119,6 @@ sp-io = "24.0"
 substrate-bn = "0.6"
 
 #### Ocean dependencies
-dftx-rs = { git = "https://github.com/Jouzo/dftx-rs.git" }
 bitcoin = "0.31"
 cached = { version = "0.48", features = ["async"] }
 defichain-rpc = { version = "0.18.0", git = "https://github.com/Jouzo/rust-defichain-rpc.git" }
@@ -128,3 +127,4 @@ defichain-rpc = { version = "0.18.0", git = "https://github.com/Jouzo/rust-defic
 ain-cpp-imports = { path = "./ain-cpp-imports" }
 ain-db = { path = "./ain-db" }
 ain-macros = { path = "./ain-macros" }
+ain-dftx = { path = "./ain-dftx" }

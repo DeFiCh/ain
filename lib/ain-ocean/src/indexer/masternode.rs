@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use ain_dftx::masternode::*;
 use bitcoin::{hashes::Hash, PubkeyHash, ScriptBuf, WPubkeyHash};
-use dftx_rs::masternode::*;
 use log::debug;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 

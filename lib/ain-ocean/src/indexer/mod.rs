@@ -7,8 +7,8 @@ pub mod tx_result;
 
 use std::{sync::Arc, time::Instant};
 
+use ain_dftx::{deserialize, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
-use dftx_rs::{deserialize, DfTx, Stack};
 use log::debug;
 
 use crate::{

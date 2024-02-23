@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dftx_rs::oracles::*;
+use ain_dftx::oracles::*;
 
 use super::Context;
 use crate::{
