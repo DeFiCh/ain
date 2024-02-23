@@ -1,9 +1,11 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::oracles::*;
 use dftx_rs::{common::CompactVec, oracles::*};
-use num_bigint::BigUint;
-use num_traits::{FromPrimitive, One, ToPrimitive, Zero};
+use rust_decimal::{
+    prelude::{ToPrimitive, Zero},
+    Decimal,
+};
 
 use crate::{
     indexer::{Context, Index, Result},
@@ -15,7 +17,8 @@ use crate::{
         SetOracleInterval,
     },
     repository::RepositoryOps,
-    Services,
+    storage::SortOrder,
+    Error, Services,
 };
 
 impl Index for AppointOracle {
@@ -393,9 +396,14 @@ pub fn map_price_aggregated(
     let oracle_id = services
         .oracle_token_currency
         .by_key
-        .list(Some((token.to_string(), currency.to_string())))
-        .ok();
-    let mut oracle_token_currencies = Vec::new();
+        .list(Some(key), SortOrder::Descending)?
+        .map(|item| {
+            let (_, id) = item?;
+            let b = services
+                .oracle_token_currency
+                .by_id
+                .get(&id)?
+                .ok_or("Missing block index")?;
 
     if let Some(mut oracle_iter) = oracle_id {
         loop {
@@ -553,11 +561,10 @@ pub fn index_interval_mapper(
     if let Some(previous_iter) = services
         .oracle_price_aggregated_interval
         .by_key
-        .list(Some((
-            token.to_owned(),
-            currency.to_owned(),
-            interval.clone(),
-        )))
+        .list(
+            Some((token.to_owned(), currency.to_owned(), interval.clone())),
+            SortOrder::Descending,
+        )
         .ok()
     {
         for result in previous_iter {
@@ -591,7 +598,27 @@ pub fn index_interval_mapper(
     }
 }
 
-fn invalidate_oracle_interval(
+pub fn get_previous_history(oracle_id: Txid, services: &Services) -> Result<OracleHistory> {
+    let previous_history_result = services
+        .oracle_history
+        .by_key
+        .list(Some(oracle_id), SortOrder::Descending)?
+        .map(|item| {
+            let (_, id) = item?;
+            let b = services
+                .oracle_history
+                .by_id
+                .get(&id)?
+                .ok_or("Missing block index")?;
+
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(previous_history_result[0].clone())
+}
+
+pub fn invalidate_oracle_interval(
     services: &Arc<Services>,
     block: &BlockContext,
     token: &str,
@@ -602,11 +629,10 @@ fn invalidate_oracle_interval(
     if let Some(previous_iter) = services
         .oracle_price_aggregated_interval
         .by_key
-        .list(Some((
-            token.to_owned(),
-            currency.to_owned(),
-            interval.clone(),
-        )))
+        .list(
+            Some((token.to_owned(), currency.to_owned(), interval.clone())),
+            SortOrder::Descending,
+        )
         .ok()
     {
         for result in previous_iter {
@@ -615,7 +641,7 @@ fn invalidate_oracle_interval(
                     if let Some(inner_values) = services
                         .oracle_price_aggregated_interval
                         .by_id
-                        .list(Some(oracle_id))
+                        .list(Some(oracle_id), SortOrder::Descending)
                         .ok()
                     {
                         // Process inner_values when it is Some
@@ -730,9 +756,9 @@ fn process_inner_values(
             currency: previous_data.as_ref().unwrap().currency.clone(),
             aggregated: OraclePriceAggregatedIntervalAggregated {
                 amount: forward_aggregate_value(
-                    lastprice.amount.as_str(),
-                    &aggregated.aggregated.amount.to_string(),
-                    count as u32,
+                    last_price.amount.as_str(),
+                    aggregated.aggregated.amount.as_str(),
+                    count,
                 )
                 .to_string(),
                 weightage: forward_aggregate_number(
@@ -760,53 +786,46 @@ fn process_inner_values(
 }
 
 fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 {
-    let count_bigint: BigUint = BigUint::from(count as u32);
-    let last_value_bigint: BigUint = BigUint::from(last_value as u32);
-    let new_value_bigint: BigUint = BigUint::from(new_value as u32);
-    let result = (last_value_bigint * &count_bigint + new_value_bigint)
-        / (count_bigint + BigUint::from(1u32));
+    let count_decimal = Decimal::from(count);
+    let last_value_decimal = Decimal::from(last_value);
+    let new_value_decimal = Decimal::from(new_value);
 
-    // Attempt to convert the result to u32 and then to i32. Handle overflow appropriately.
-    result
-        .to_i32()
-        .and_then(|v| BigUint::from_i32(v))
-        .and_then(|v| v.to_i32())
-        .unwrap_or_else(|| {
-            eprintln!("Overflow occurred. Returning i32::MAX");
-            i32::MAX
-        })
-}
-pub fn forward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> BigUint {
-    let last_value = last_value
-        .parse::<BigUint>()
-        .unwrap_or_else(|_| BigUint::zero());
-    let new_value = new_value
-        .parse::<BigUint>()
-        .unwrap_or_else(|_| BigUint::zero());
-    let count = BigUint::from(count);
+    let result = (last_value_decimal * count_decimal + new_value_decimal)
+        / (count_decimal + Decimal::from(1));
 
-    (last_value * count.clone() + new_value) / (count + BigUint::one())
+    result.to_i32().unwrap_or_else(|| {
+        eprintln!("Result is too large to fit into i32, returning 0");
+        i32::MAX
+    })
 }
 
-fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> BigUint {
-    let last_value = last_value
-        .parse::<BigUint>()
-        .unwrap_or_else(|_| BigUint::zero());
-    let new_value = new_value
-        .parse::<BigUint>()
-        .unwrap_or_else(|_| BigUint::zero());
-    let count = BigUint::from(count);
+fn forward_aggregate_value(last_value: &str, new_value: &str, count: i32) -> Decimal {
+    let last_decimal = Decimal::from_str(last_value).unwrap();
+    let new_decimal = Decimal::from_str(new_value).unwrap();
+    let count_decimal = Decimal::from(count);
 
-    (last_value * count.clone() - new_value) / (count - BigUint::one())
+    let result = last_decimal * count_decimal + new_decimal;
+    result / (count_decimal + Decimal::from(1))
+}
+
+fn backward_aggregate_value(last_value: &str, new_value: &str, count: u32) -> Decimal {
+    let last_value_decimal = Decimal::from_str(last_value).unwrap_or_else(|_| Decimal::zero());
+    let new_value_decimal = Decimal::from_str(new_value).unwrap_or_else(|_| Decimal::zero());
+    let count_decimal = Decimal::from(count);
+
+    (last_value_decimal * count_decimal.clone() - new_value_decimal)
+        / (count_decimal - Decimal::from(1))
 }
 
 fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32 {
-    let last_value = BigUint::from_i32(last_value);
-    let new_value = BigUint::from_i32(new_value);
-    let count = BigUint::from(count);
+    let last_value_decimal =
+        Decimal::from_str(&last_value.to_string()).unwrap_or_else(|_| Decimal::zero());
+    let new_value_decimal =
+        Decimal::from_str(&new_value.to_string()).unwrap_or_else(|_| Decimal::zero());
+    let count_decimal = Decimal::from(count);
 
-    let result =
-        (last_value.unwrap() * &count.clone() - &new_value.unwrap()) / (count - BigUint::one());
+    let result = (last_value_decimal * count_decimal.clone() - new_value_decimal)
+        / (count_decimal - Decimal::from(1));
 
     result.to_i32().unwrap_or_else(|| {
         eprintln!("Result is too large to fit into i32, returning 0");

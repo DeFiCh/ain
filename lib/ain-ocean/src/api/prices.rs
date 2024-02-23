@@ -20,6 +20,7 @@ use crate::{
         OracleTokenCurrency, PriceTicker,
     },
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -33,7 +34,7 @@ async fn list_prices(
         .services
         .price_ticker
         .by_id
-        .list(None)?
+        .list(None, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (id, priceticker) = item?;
@@ -85,7 +86,7 @@ async fn get_feed(
         .services
         .oracle_price_aggregated
         .by_key
-        .list(next)?
+        .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -125,7 +126,7 @@ async fn get_feed_active(
         .services
         .oracle_price_active
         .by_key
-        .list(next)?
+        .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (key, id) = item?;
@@ -172,7 +173,7 @@ async fn get_feed_with_interval(
         .services
         .oracle_price_aggregated_interval
         .by_key
-        .list(next.clone())?
+        .list(next.clone(), SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -234,7 +235,7 @@ async fn get_oracles(
         .services
         .oracle_token_currency
         .by_key
-        .list(next)?
+        .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;

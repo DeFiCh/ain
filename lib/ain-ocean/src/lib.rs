@@ -17,8 +17,9 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolSwapRepository, PriceTickerRepository, RawBlockRepository, TransactionRepository,
-    TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    PoolSwapRepository, PriceTickerRepository, RawBlockRepository,
+    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
