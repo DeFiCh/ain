@@ -258,23 +258,22 @@ impl<'backend> AinExecutor<'backend> {
 
     /// Execute tx with tracer
     pub fn exec_with_tracer(
-        &mut self,
+        &self,
         signed_tx: &SignedTx,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        let to = signed_tx.to().ok_or(format_err!(
-            "debug_traceTransaction does not support contract creation transactions",
-        ))?;
-        self.backend.update_vicinity_from_tx(signed_tx)?;
         trace!(
             "[Executor] Executing trace EVM TX with vicinity : {:?}",
             self.backend.vicinity
         );
+        let to = signed_tx.to().ok_or(format_err!(
+            "debug_traceTransaction does not support contract creation transactions",
+        ))?;
         let ctx = ExecutorContext {
             caller: signed_tx.sender,
             to: Some(to),
             value: signed_tx.value(),
             data: signed_tx.data(),
-            gas_limit: u64::try_from(signed_tx.gas_limit())?, // Sets to u64 if overflows
+            gas_limit: u64::try_from(signed_tx.gas_limit())?,
             access_list: signed_tx.access_list(),
         };
         let access_list = ctx
