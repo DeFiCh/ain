@@ -2,8 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use cached::proc_macro::cached;
 use defichain_rpc::{
-    defichain_rpc_json::{poolpair::PoolPairPagination, token::TokenPagination},
-    AccountRPC, Client, LoanRPC, PoolPairRPC, TokenRPC,
+    defichain_rpc_json::token::TokenPagination, AccountRPC, Client, LoanRPC, TokenRPC,
 };
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
@@ -120,7 +119,7 @@ lazy_static::lazy_static! {
 pub async fn get_burned_total(client: &Client) -> Result<Decimal> {
     let network = ain_cpp_imports::get_network();
     let burn_address = BURN_ADDRESS.get(network.as_str()).unwrap();
-    let mut tokens = client.get_account(&burn_address, None, Some(true)).await?;
+    let mut tokens = client.get_account(burn_address, None, Some(true)).await?;
     let burn_info = client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalError)?;
@@ -271,18 +270,18 @@ pub struct Tvl {
     convert = r#"{ format!("tvl") }"#
 )]
 pub async fn get_tvl(ctx: &Arc<AppContext>) -> Result<Tvl> {
-    let mut dex = 0f64;
-    let pairs = ctx
-        .client
-        .list_pool_pairs(
-            Some(PoolPairPagination {
-                including_start: true,
-                start: 0,
-                limit: 1000,
-            }),
-            Some(true),
-        )
-        .await;
+    // let mut dex = 0f64;
+    // let pairs = ctx
+    //     .client
+    //     .list_pool_pairs(
+
+    //             including_start: true,
+    //             start: 0,
+    //             limit: 1000,
+    //         }),
+    //         Some(true),
+    //     )
+    //     .await;
 
     let loan = get_loan(&ctx.client).await?;
 

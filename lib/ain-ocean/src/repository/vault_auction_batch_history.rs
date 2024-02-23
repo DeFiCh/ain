@@ -6,7 +6,7 @@ use ain_macros::Repository;
 use super::RepositoryOps;
 use crate::{
     model::{AuctionHistoryByHeightKey, AuctionHistoryKey, VaultAuctionBatchHistory},
-    storage::{columns, ocean_store::OceanStore, SortOrder},
+    storage::{columns, ocean_store::OceanStore},
     Result,
 };
 
@@ -43,14 +43,14 @@ impl AuctionHistoryByHeightRepository {
 }
 
 impl AuctionHistoryByHeightRepository {
-    pub fn get_latest(&self) -> Result<Option<VaultAuctionBatchHistory>> {
-        match self.list(None, SortOrder::Descending)?.next() {
-            None => Ok(None),
-            Some(Ok((_, id))) => {
-                let col = self.store.column::<columns::VaultAuctionHistory>();
-                Ok(col.get(&id)?)
-            }
-            Some(Err(e)) => Err(e.into()),
-        }
-    }
+    // pub fn get_latest(&self) -> Result<Option<VaultAuctionBatchHistory>> {
+    //     match self.list(None::Descending)?.next() {
+    //         None => Ok(None),
+    //         Some(Ok((_, id))) => {
+    //             let col = self.store.column::<columns::VaultAuctionHistory>();
+    //             Ok(col.get(&id)?)
+    //         }
+    //         Some(Err(e)) => Err(e.into()),
+    //     }
+    // }
 }

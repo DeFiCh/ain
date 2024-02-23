@@ -85,7 +85,7 @@ impl ColumnName for columns::BlockDeployedCodeHashes {
     const NAME: &'static str = BLOCK_DEPLOYED_CODES_CF;
 }
 
-pub const COLUMN_NAMES: [&'static str; 8] = [
+pub const COLUMN_NAMES: [&str; 8] = [
     columns::Blocks::NAME,
     columns::Transactions::NAME,
     columns::Receipts::NAME,

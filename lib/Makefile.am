@@ -71,6 +71,10 @@ check:
 test:
 	$(CARGO) test $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS)
 
+.PHONY: clippy
+clippy:
+	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS) -- -Dwarnings
+
 .PHONY: doc
 doc:
 	$(CARGO) doc $(CARGO_MANIFEST_ARG)

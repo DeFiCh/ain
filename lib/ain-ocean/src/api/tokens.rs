@@ -119,11 +119,9 @@ async fn get_token(
 ) -> Result<Response<Option<TokenData>>> {
     let mut v: TokenResult = ctx.client.call("gettoken", &[id.as_str().into()]).await?;
 
-    let res = if let Some(token) = v.0.remove(&id) {
-        Some(TokenData::from_with_id(id, token))
-    } else {
-        None
-    };
+    let res =
+        v.0.remove(&id)
+            .map(|token| TokenData::from_with_id(id, token));
 
     Ok(Response::new(res))
 }

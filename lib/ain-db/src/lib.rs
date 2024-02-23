@@ -7,7 +7,6 @@ use std::{
 };
 
 use anyhow::format_err;
-use bincode;
 use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamily, ColumnFamilyDescriptor, DBIterator, Direction,
     IteratorMode, Options, DB,
@@ -51,7 +50,7 @@ pub struct Rocks(DB);
 impl Rocks {
     pub fn open(path: &PathBuf, cf_names: &[&'static str]) -> Result<Self> {
         let cf_descriptors = cf_names
-            .into_iter()
+            .iter()
             .map(|cf_name| ColumnFamilyDescriptor::new(*cf_name, Options::default()));
 
         let db_opts = get_db_options();

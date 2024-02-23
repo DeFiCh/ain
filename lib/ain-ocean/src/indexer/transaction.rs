@@ -28,7 +28,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     // Index transaction vout
     for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
         let tx_vout = TransactionVout {
-            txid: txid,
+            txid,
             n: vout_idx,
             value: vout.value,
             token_id: 0,

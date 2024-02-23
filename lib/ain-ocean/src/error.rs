@@ -116,7 +116,7 @@ impl Error {
                         e if e.message.contains("Cannot find existing loan scheme") => {
                             format!("{}", Error::NotFound(NotFoundKind::Scheme))
                         }
-                        _ => format!("{}", e.message),
+                        _ => e.message.to_string(),
                     },
                 )
             }

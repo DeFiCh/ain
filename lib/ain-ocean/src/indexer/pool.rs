@@ -26,7 +26,7 @@ impl Index for PoolSwap {
         let swap = model::PoolSwap {
             id: format!("{}-{}", pool_id, txid),
             sort: format!("{}-{}", ctx.block.height, idx),
-            txid: txid,
+            txid,
             txno: idx,
             from_amount: self.from_amount,
             from_token_id: self.from_token_id.0,
@@ -77,7 +77,7 @@ impl Index for CompositeSwap {
             let swap = model::PoolSwap {
                 id: format!("{}-{}", pool_id, txid),
                 sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
-                txid: txid,
+                txid,
                 txno: ctx.tx_idx,
                 from_amount: self.pool_swap.from_amount,
                 from_token_id: self.pool_swap.from_token_id.0,

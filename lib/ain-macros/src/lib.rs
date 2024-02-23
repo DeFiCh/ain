@@ -115,7 +115,7 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
                 Ok(self.col.delete(id)?)
             }
 
-            fn list<'a>(&'a self, from: Option<#key_type_ident>, dir: crate::storage::SortOrder) -> Result<Box<dyn Iterator<Item = std::result::Result<(#key_type_ident, #value_type_ident), ain_db::DBError>> + 'a>>
+            fn list<'a>(&'a self, from: Option<#key_type_ident>, dir: crate::storage::SortOrder) -> crate::repository::ListResult<#key_type_ident, #value_type_ident>
             {
                 let it = self.col.iter(from, dir.into())?;
                 Ok(Box::new(it))
@@ -184,7 +184,7 @@ pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn test_dftx_serialization(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
     let fn_name = &input_fn.sig.ident;
-    let test_name = fn_name.to_string().replace("_", "");
+    let test_name = fn_name.to_string().replace('_', "");
 
     let path = format!("./tests/data/{}.txt", &test_name[4..].to_lowercase());
 

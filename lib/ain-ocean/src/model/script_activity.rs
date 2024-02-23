@@ -7,28 +7,10 @@ pub enum ScriptActivityType {
     Vout,
 }
 
-impl ScriptActivityType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ScriptActivityType::Vin => "vin",
-            ScriptActivityType::Vout => "vout",
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScriptActivityTypeHex {
     Vin,
     Vout,
-}
-
-impl ScriptActivityTypeHex {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ScriptActivityTypeHex::Vin => "00",
-            ScriptActivityTypeHex::Vout => "01",
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

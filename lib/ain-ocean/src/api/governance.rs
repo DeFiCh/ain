@@ -103,7 +103,7 @@ async fn list_gov_proposal_votes(
     let len = votes.len();
     Ok(ApiPagedResponse::of(votes, size, |_| {
         if let Some(next) = start {
-            return next + len;
+            next + len
         } else {
             len - 1
         }

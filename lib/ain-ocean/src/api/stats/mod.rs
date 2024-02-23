@@ -1,5 +1,5 @@
+mod cache;
 mod distribution;
-mod stats;
 mod subsidy;
 
 use std::sync::Arc;
@@ -15,15 +15,15 @@ use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
 use self::{
-    distribution::get_block_reward_distribution,
-    stats::{
+    cache::{
         get_burned, get_count, get_emission, get_loan, get_masternodes, get_tvl, Burned, Count,
         Emission, Loan, Masternodes, Tvl,
     },
+    distribution::get_block_reward_distribution,
 };
 use super::{response::Response, AppContext};
 use crate::{
-    api::stats::{stats::get_burned_total, subsidy::BLOCK_SUBSIDY},
+    api::stats::{cache::get_burned_total, subsidy::BLOCK_SUBSIDY},
     error::{ApiError, Error},
     Result,
 };

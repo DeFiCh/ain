@@ -86,7 +86,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                         DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
                     }
-                    log_elapsed(start, &format!("Indexed dftx"));
+                    log_elapsed(start, "Indexed dftx");
                 }
             }
         }
@@ -126,6 +126,6 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
     Ok(())
 }
 
-pub fn invalidate_block(block: Block<Transaction>) -> Result<()> {
+pub fn invalidate_block(_block: Block<Transaction>) -> Result<()> {
     Ok(())
 }

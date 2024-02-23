@@ -16,11 +16,11 @@ pub struct TransactionVin {
 }
 
 impl TransactionVin {
-    pub fn from_vin_and_txid(vin: Vin, txid: Txid, vouts: &Vec<TransactionVout>) -> Self {
+    pub fn from_vin_and_txid(vin: Vin, txid: Txid, vouts: &[TransactionVout]) -> Self {
         match vin {
             Vin::Coinbase(v) => Self {
                 id: format!("{}00", txid),
-                txid: txid,
+                txid,
                 coinbase: Some(v.coinbase),
                 sequence: v.sequence,
                 vout: None,
@@ -37,7 +37,7 @@ impl TransactionVin {
                 });
                 Self {
                     id: format!("{}{}{:x}", txid, v.txid, v.vout),
-                    txid: txid,
+                    txid,
                     sequence: v.sequence,
                     vout,
                     script: v.script_sig.hex,

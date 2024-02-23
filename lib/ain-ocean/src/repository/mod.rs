@@ -44,13 +44,12 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_batch_history::*;
 
+pub type ListResult<'a, K, V> =
+    Result<Box<dyn Iterator<Item = std::result::Result<(K, V), ain_db::DBError>> + 'a>>;
+
 pub trait RepositoryOps<K, V> {
     fn get(&self, key: &K) -> Result<Option<V>>;
     fn put(&self, key: &K, masternode: &V) -> Result<()>;
     fn delete(&self, key: &K) -> Result<()>;
-    fn list<'a>(
-        &'a self,
-        from: Option<K>,
-        dir: SortOrder,
-    ) -> Result<Box<dyn Iterator<Item = std::result::Result<(K, V), ain_db::DBError>> + 'a>>;
+    fn list(&self, from: Option<K>, dir: SortOrder) -> ListResult<K, V>;
 }

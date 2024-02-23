@@ -27,7 +27,7 @@ where
                 let error = match rejection {
                     PathRejection::FailedToDeserializePathParams(inner) => {
                         let kind = inner.into_kind();
-                        let error = match &kind {
+                        match &kind {
                             ErrorKind::WrongNumberOfParameters { .. } => ApiError::new(
                                 StatusCode::BAD_REQUEST,
                                 kind.to_string(),
@@ -79,9 +79,7 @@ where
                                 format!("Unhandled deserialization error: {kind}"),
                                 parts.uri.to_string(),
                             ),
-                        };
-
-                        error
+                        }
                     }
                     PathRejection::MissingPathParams(error) => ApiError::new(
                         StatusCode::INTERNAL_SERVER_ERROR,

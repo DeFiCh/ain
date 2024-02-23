@@ -17,6 +17,7 @@ pub struct CoinbaseSubsidyOptions {
     emission_reduction_interval: u64,
 }
 
+#[allow(dead_code)]
 pub static MAIN_NET_COINBASE_SUBSIDY_OPTIONS: CoinbaseSubsidyOptions = CoinbaseSubsidyOptions {
     eunos_height: 894000,
     genesis_block_subsidy: 59100003000000000,

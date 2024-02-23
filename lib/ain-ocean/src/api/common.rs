@@ -62,7 +62,7 @@ pub fn find_token_balance(tokens: Vec<String>, symbol: &str) -> Decimal {
         .iter()
         .find_map(|t| {
             t.ends_with(symbol)
-                .then(|| t.split("@").next().and_then(|v| v.parse::<Decimal>().ok()))
+                .then(|| t.split('@').next().and_then(|v| v.parse::<Decimal>().ok()))
                 .flatten()
         })
         .unwrap_or_default()

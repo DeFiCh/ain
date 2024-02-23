@@ -54,7 +54,7 @@ impl Index for CreateMasternode {
             .by_height
             .put(&(ctx.block.height, txid), &0)?;
 
-        index_stats(&self, services, ctx, collateral)
+        index_stats(self, services, ctx, collateral)
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
