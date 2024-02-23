@@ -53,7 +53,7 @@ class AccountsValidatingTest(DefiTestFramework):
         assert_equal(node1.getaccount(account)[0], "10.00000000@DFI")
 
         # Check we can get the account from the scriptPubKey
-        script_pubkey = self.nodes[0].getaddressinfo(account)['scriptPubKey']
+        script_pubkey = self.nodes[0].getaddressinfo(account)["scriptPubKey"]
         assert_equal(node1.getaccount(script_pubkey)[0], "10.00000000@DFI")
 
         node.accounttoaccount(account, {destination: "1@DFI"})
