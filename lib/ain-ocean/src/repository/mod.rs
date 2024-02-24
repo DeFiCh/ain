@@ -49,7 +49,7 @@ pub type ListResult<'a, K, V> =
 
 pub trait RepositoryOps<K, V> {
     fn get(&self, key: &K) -> Result<Option<V>>;
-    fn put(&self, key: &K, masternode: &V) -> Result<()>;
+    fn put(&self, key: &K, value: &V) -> Result<()>;
     fn delete(&self, key: &K) -> Result<()>;
     fn list(&self, from: Option<K>, dir: SortOrder) -> ListResult<K, V>;
 }
