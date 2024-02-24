@@ -97,8 +97,9 @@ impl<T> ApiPagedResponse<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ApiPage, ApiPagedResponse};
+    use super::ApiPagedResponse;
 
+    #[allow(dead_code)]
     #[derive(Clone, Debug)]
     struct Item {
         id: String,
