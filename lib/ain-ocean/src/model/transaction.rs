@@ -1,4 +1,5 @@
 use bitcoin::{BlockHash, Txid};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -16,7 +17,8 @@ pub struct Transaction {
     pub size: u64,
     pub v_size: u64,
     pub weight: u64,
-    pub total_vout_value: f64,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub total_vout_value: Decimal,
     pub lock_time: u64,
     pub vin_count: usize,
     pub vout_count: usize,

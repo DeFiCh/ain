@@ -4,8 +4,9 @@ use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{extract::Path, routing::get, Extension, Router};
 use bitcoin::{BlockHash, Txid};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::serde_as;
 
 use super::{
     query::{PaginationQuery, Query},
@@ -55,8 +56,8 @@ pub struct TransactionResponse {
     pub size: u64,
     pub v_size: u64,
     pub weight: u64,
-    #[serde_as(as = "DisplayFromStr")]
-    pub total_vout_value: f64,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub total_vout_value: Decimal,
     pub lock_time: u64,
     pub vin_count: usize,
     pub vout_count: usize,

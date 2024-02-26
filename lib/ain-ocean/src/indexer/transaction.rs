@@ -3,9 +3,14 @@ use std::sync::Arc;
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::json::blockchain::{Transaction, Vin};
 use log::debug;
+use rust_decimal::{
+    prelude::{FromPrimitive, Zero},
+    Decimal,
+};
 
 use super::Context;
 use crate::{
+    error::Error,
     indexer::Result,
     model::{
         Transaction as TransactionMapper, TransactionVin, TransactionVout, TransactionVoutScript,
@@ -23,7 +28,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     let vin_count = ctx.tx.vin.len();
     let vout_count = ctx.tx.vout.len();
 
-    let mut total_vout_value = 0f64;
+    let mut total_vout_value = Decimal::zero();
     let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
     for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
@@ -42,7 +47,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
             .vout_by_id
             .put(&(txid, vout_idx), &tx_vout)?;
 
-        total_vout_value += vout.value;
+        total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalError)?;
         vouts.push(tx_vout);
     }
 
