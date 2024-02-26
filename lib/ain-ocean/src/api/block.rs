@@ -3,8 +3,10 @@ use std::sync::Arc;
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{extract::Path, routing::get, Extension, Router};
-use bitcoin::BlockHash;
-use serde::{Deserialize, Deserializer};
+use bitcoin::{BlockHash, Txid};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::serde_as;
 
 use super::{
     query::{PaginationQuery, Query},
@@ -14,7 +16,7 @@ use super::{
 use crate::{
     api::common::Paginate,
     error::{ApiError, Error},
-    model::{Block, Transaction},
+    model::{Block, BlockContext, Transaction},
     repository::RepositoryOps,
     storage::SortOrder,
     Result,
@@ -37,6 +39,46 @@ impl<'de> Deserialize<'de> for HashOrHeight {
             Ok(HashOrHeight::Id(id))
         } else {
             Err(serde::de::Error::custom("Error parsing HashOrHeight"))
+        }
+    }
+}
+
+#[serde_as]
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionResponse {
+    pub id: Txid,
+    pub txid: Txid,
+    pub order: usize, // tx order
+    pub block: BlockContext,
+    pub hash: String,
+    pub version: u32,
+    pub size: u64,
+    pub v_size: u64,
+    pub weight: u64,
+    #[serde(with = "rust_decimal::serde::str")]
+    pub total_vout_value: Decimal,
+    pub lock_time: u64,
+    pub vin_count: usize,
+    pub vout_count: usize,
+}
+
+impl From<Transaction> for TransactionResponse {
+    fn from(v: Transaction) -> Self {
+        TransactionResponse {
+            id: v.id,
+            txid: v.id,
+            order: v.order,
+            block: v.block,
+            hash: v.hash,
+            version: v.version,
+            size: v.size,
+            v_size: v.v_size,
+            weight: v.weight,
+            total_vout_value: v.total_vout_value,
+            lock_time: v.lock_time,
+            vin_count: v.vin_count,
+            vout_count: v.vout_count,
         }
     }
 }
@@ -103,7 +145,7 @@ async fn get_transactions(
     Path(hash): Path<BlockHash>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<Transaction>> {
+) -> Result<ApiPagedResponse<TransactionResponse>> {
     let next = query.next.as_ref().map_or(Ok((hash, 0)), |q| {
         let height = q
             .parse::<usize>()
@@ -130,7 +172,7 @@ async fn get_transactions(
                 .get(&id)?
                 .ok_or("Missing tx index")?;
 
-            Ok(tx)
+            Ok(tx.into())
         })
         .collect::<Result<Vec<_>>>()?;
 
