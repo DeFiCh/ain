@@ -68,33 +68,36 @@ async fn get_vins(
 //get list of vout transaction, by passing id which contains txhash + vout_idx
 #[ocean_endpoint]
 async fn get_vouts(
+    Path(TransactionId { id }): Path<TransactionId>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TransactionVout>> {
-    let transaction_list = ctx
+    let list = ctx
         .services
         .transaction
         .vout_by_id
         .list(None, SortOrder::Descending)?
-        .take(query.size)
+        .paginate(&query)
+        .take_while(|item| match item {
+            Ok((_, vout)) => vout.txid == id,
+            _ => true,
+        })
         .map(|item| {
-            let (txid, _) = item?;
-            let b = ctx
+            let (id, _) = item?;
+            let v = ctx
                 .services
                 .transaction
                 .vout_by_id
-                .get(&txid)?
-                .ok_or("Missing block index")?;
+                .get(&id)?
+                .ok_or("Missing vout index")?;
 
-            Ok(b)
+            Ok(v)
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(ApiPagedResponse::of(
-        transaction_list,
-        query.size,
-        |transaction_list| transaction_list.txid.to_string(),
-    ))
+    Ok(ApiPagedResponse::of(list, query.size, |each| {
+        each.n.to_string()
+    }))
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
