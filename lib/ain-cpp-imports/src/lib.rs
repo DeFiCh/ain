@@ -1,7 +1,7 @@
 use std::error::Error;
 
 #[cfg(not(test))]
-mod bridge;
+pub mod bridge;
 
 #[cfg(not(test))]
 use bridge::ffi;
@@ -27,6 +27,11 @@ mod ffi {
         pub data: String,
         pub direction: u8,
         pub entry_time: i64,
+    }
+
+    pub struct TokenAmount {
+        pub id: u32,
+        pub amount: u64,
     }
 
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
@@ -122,6 +127,12 @@ mod ffi {
         unimplemented!("{}", UNIMPL_MSG)
     }
     pub fn isEthDebugTraceRPCEnabled() -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn getDF23Height() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn splitTokensFromEVM(_old_amount: TokenAmount, _new_amount: &mut TokenAmount) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
 }
@@ -303,6 +314,19 @@ pub fn is_eth_debug_rpc_enabled() -> bool {
 /// Whether debug_traceTransaction RPC is enabled
 pub fn is_eth_debug_trace_rpc_enabled() -> bool {
     ffi::isEthDebugTraceRPCEnabled()
+}
+
+/// Gets the DF23 height
+pub fn get_df23_height() -> u64 {
+    ffi::getDF23Height()
+}
+
+/// Send tokens to DVM to split
+pub fn split_tokens_from_evm(
+    old_amount: ffi::TokenAmount,
+    new_amount: &mut ffi::TokenAmount,
+) -> bool {
+    ffi::splitTokensFromEVM(old_amount, new_amount)
 }
 
 #[cfg(test)]

@@ -18,6 +18,7 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <validation.h>
 
@@ -1908,10 +1909,7 @@ static void MigrateV1Remnants(const CCustomCSView &cache,
     attributes.SetValue(attrKey, balances);
 }
 
-static Res GetTokenSuffix(const CCustomCSView &view,
-                          const ATTRIBUTES &attributes,
-                          const uint32_t id,
-                          std::string &newSuffix) {
+Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix) {
     CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
     if (attributes.CheckKey(ascendantKey)) {
         const auto &[previousID, str] =
@@ -2013,17 +2011,14 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        // TODO pass block context to update old EVM token.
-        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, consensus};
-        UpdateTokenContext ctx{*token, dummyContext, true, true, false, pindex->GetBlockHash()};
+        UpdateTokenContext ctx{*token, blockCtx, true, true, false, pindex->GetBlockHash()};
         res = view.UpdateToken(ctx);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;
         }
 
-        // TODO pass block context on fork to create new EVM token.
-        auto resVal = view.CreateToken(newToken, dummyContext);
+        auto resVal = view.CreateToken(newToken, blockCtx);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
@@ -2220,6 +2215,10 @@ static void ProcessTokenSplits(const CBlock &block,
                     view.SetStoredVariables({var}, varHeight);
                 }
             }
+        }
+
+        if (pindex->nHeight >= consensus.DF23Height) {
+            view.SetTokenSplitMultiplier(id, newTokenId.v, multiplier);
         }
 
         view.Flush();
@@ -2647,7 +2646,8 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
                            const CChainParams &chainparams,
-                           const std::shared_ptr<CScopedTemplate> &evmTemplate) {
+                           BlockContext &blockCtx) {
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -2777,15 +2777,22 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
-                             CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplate> &evmTemplate,
-                             const bool isEvmEnabledForBlock) {
+                             const CreationTxs &creationTxs,
+                             BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
+
+    if (pindex->nHeight >= consensus.DF23Height) {
+        // Loan splits
+        ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
+    }
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
-        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplate);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, blockCtx);
         if (!res) {
             return res;
         }
@@ -2836,8 +2843,12 @@ void ProcessDeFiEvent(const CBlock &block,
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, consensus);
 
-    // Loan splits
-    ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
+    // Moved to ProcessDeFiEventFallible after fork to
+    // execute before EVM queue processing
+    if (pindex->nHeight < consensus.DF23Height) {
+        // Loan splits
+        ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
+    }
 
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
@@ -2861,4 +2872,30 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
+}
+
+bool ExecuteTokenSplitFromEVM(const TokenAmount oldAmount, TokenAmount &newAmount) {
+    auto &mnview = *pcustomcsview;
+    CCustomCSView cache(mnview);
+
+    if (oldAmount.amount == 0) {
+        return false;
+    }
+
+    const auto token = cache.GetToken(DCT_ID{oldAmount.id});
+    if (!token) {
+        return false;
+    }
+
+    const auto idMultiplierPair = cache.GetTokenSplitMultiplier(oldAmount.id);
+    if (!idMultiplierPair) {
+        return false;
+    }
+
+    auto &[id, multiplier] = *idMultiplierPair;
+
+    newAmount.id = id;
+    newAmount.amount = CalculateNewAmount(multiplier, oldAmount.amount);
+
+    return true;
 }

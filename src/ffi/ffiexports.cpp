@@ -1,6 +1,7 @@
 #include <clientversion.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/validation.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <httprpc.h>
@@ -8,6 +9,8 @@
 #include <logging.h>
 #include <net.h>
 #include <util/system.h>
+
+#include <algorithm>
 #include <array>
 #include <cstdint>
 
@@ -385,4 +388,15 @@ bool isEthDebugRPCEnabled() {
 
 bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
+}
+
+uint64_t getDF23Height() {
+    return Params().GetConsensus().DF23Height;
+}
+
+bool splitTokensFromEVM(TokenAmount old_amount, TokenAmount &new_amount) {
+    if (!ExecuteTokenSplitFromEVM(old_amount, new_amount)) {
+        return false;
+    }
+    return true;
 }

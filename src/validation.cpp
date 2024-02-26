@@ -3350,8 +3350,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // account changes are validated
     accountsView.Flush();
 
+    // Set to ConnectBlock CCustomCSView
+    blockCtx.SetView(mnview);
+
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplate, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, chainparams, creationTxs, blockCtx);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), res.dbgMsg);
     }
@@ -3368,9 +3371,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
     assert(pindex->phashBlock);
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
-
-    // Set to ConnectBlock CCustomCSView
-    blockCtx.SetView(mnview);
 
     ProcessDeFiEvent(block, pindex, view, creationTxs, blockCtx);
 

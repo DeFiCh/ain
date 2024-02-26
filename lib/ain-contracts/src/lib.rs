@@ -155,6 +155,23 @@ lazy_static::lazy_static! {
         }
     };
 
+    pub static ref DFI_INTRINSICS_V2_CONTRACT: FixedContract = {
+        let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics_v2", "deployed_bytecode.json");
+        let input = solc_artifact_bytecode_str!(
+            "dfi_intrinsics_v2",
+            "bytecode.json"
+        );
+
+        FixedContract {
+            contract: Contract {
+                codehash: Blake2Hasher::hash(&bytecode),
+                runtime_bytecode: bytecode,
+                init_bytecode: input,
+            },
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x5)),
+        }
+    };
+
     pub static ref TRANSFERDOMAIN_CONTRACT : FixedContract = {
         let bytecode = solc_artifact_bytecode_str!("transfer_domain", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
@@ -300,6 +317,10 @@ pub fn get_dfi_instrinics_registry_contract() -> FixedContract {
 
 pub fn get_dfi_intrinsics_v1_contract() -> FixedContract {
     DFI_INTRINSICS_V1_CONTRACT.clone()
+}
+
+pub fn get_dfi_intrinsics_v2_contract() -> FixedContract {
+    DFI_INTRINSICS_V2_CONTRACT.clone()
 }
 
 pub fn get_transfer_domain_contract() -> FixedContract {

@@ -2,6 +2,7 @@ mod blake2;
 mod bn128;
 mod modexp;
 mod simple;
+mod token_split;
 
 #[cfg(test)]
 mod test_vector_support;
@@ -16,6 +17,8 @@ pub use evm::{
 };
 use modexp::Modexp;
 use simple::{ECRecover, Identity, Ripemd160, Sha256};
+
+use self::token_split::TokenSplit;
 
 type PrecompileResult = Result<PrecompileOutput, PrecompileFailure>;
 
@@ -83,7 +86,7 @@ pub struct MetachainPrecompiles;
 // Ethereum precompiles available as of shangai fork :
 // Ref: Ethereum Yellow Paper (https://ethereum.github.io/yellowpaper/paper.pdf) Page 12
 impl MetachainPrecompiles {
-    pub fn used_addresses() -> [H160; 9] {
+    pub fn used_addresses() -> [H160; 10] {
         [
             hash(1),
             hash(2),
@@ -94,6 +97,7 @@ impl MetachainPrecompiles {
             hash(7),
             hash(8),
             hash(9),
+            hash(10),
         ]
     }
 }
@@ -110,6 +114,7 @@ impl PrecompileSet for MetachainPrecompiles {
             a if a == hash(7) => Some(Bn128Mul::execute(handle)),
             a if a == hash(8) => Some(Bn128Pairing::execute(handle)),
             a if a == hash(9) => Some(Blake2F::execute(handle)),
+            a if a == hash(10) => Some(TokenSplit::execute(handle)),
             _ => None,
         }
     }

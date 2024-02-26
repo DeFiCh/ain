@@ -202,6 +202,8 @@ public:
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(const uint256 &txid) const;
     [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const = 0;
+    void SetTokenSplitMultiplier(const uint32_t oldId, const uint32_t newId, const int32_t multiplier);
+    [[nodiscard]] std::optional<std::pair<uint32_t, int32_t>> GetTokenSplitMultiplier(const uint32_t id) const;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback,
                       DCT_ID const &start = DCT_ID{0});
@@ -227,10 +229,14 @@ public:
     struct LastDctId {
         static constexpr uint8_t prefix() { return 'L'; }
     };
+    struct TokenSplitMultiplier {
+        static constexpr uint8_t prefix() { return 'n'; }
+    };
+
+    DCT_ID IncrementLastDctId();
 
 private:
     // have to incapsulate "last token id" related methods here
-    DCT_ID IncrementLastDctId();
     std::optional<DCT_ID> ReadLastDctId() const;
 };
 

@@ -107,6 +107,76 @@ void BlockAssembler::resetBlock() {
     nFees = 0;
 }
 
+static void AddTokenSplitTxs(BlockContext &blockCtx, const std::map<uint32_t, std::pair<int32_t, uint256>> &splitMap) {
+    const auto evmEnabled = blockCtx.GetEVMEnabledForBlock();
+    const auto &evmTemplate = blockCtx.GetEVMTemplate();
+
+    if (!evmEnabled || !evmTemplate) {
+        return;
+    }
+
+    auto &mnview = blockCtx.GetView();
+    const auto attributes = mnview.GetAttributes();
+
+    for (const auto &[id, splitData] : splitMap) {
+        const auto &[multiplier, creationTx] = splitData;
+
+        auto oldToken = mnview.GetToken(DCT_ID{id});
+        if (!oldToken) {
+            continue;
+        }
+
+        DCT_ID newId{};
+        mnview.ForEachToken(
+            [&](DCT_ID const &currentId, CLazySerialize<CTokenImplementation>) {
+                if (currentId < CTokensView::DCT_ID_START) {
+                    newId.v = currentId.v + 1;
+                }
+                return currentId < CTokensView::DCT_ID_START;
+            },
+            newId);
+
+        if (newId == CTokensView::DCT_ID_START) {
+            newId = mnview.IncrementLastDctId();
+        }
+
+        std::string newTokenSuffix = "/v";
+        auto res = GetTokenSuffix(mnview, *attributes, id, newTokenSuffix);
+        if (!res) {
+            continue;
+        }
+
+        const auto tokenSymbol = oldToken->symbol;
+        oldToken->symbol += newTokenSuffix;
+
+        uint256 hash{};
+        CrossBoundaryResult result;
+        evm_try_unsafe_rename_dst20(result,
+                                    evmTemplate->GetTemplate(),
+                                    hash.GetByteArray(),  // Can be either TX or block hash depending on the source
+                                    DST20TokenInfo{
+                                        id,
+                                        oldToken->name,
+                                        oldToken->symbol,
+                                    });
+        if (!result.ok) {
+            continue;
+        }
+
+        evm_try_unsafe_create_dst20(result,
+                                    evmTemplate->GetTemplate(),
+                                    creationTx.GetByteArray(),
+                                    DST20TokenInfo{
+                                        newId.v,
+                                        oldToken->name,
+                                        tokenSymbol,
+                                    });
+        if (!result.ok) {
+            continue;
+        }
+    }
+}
+
 ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CScript &scriptPubKeyIn,
                                                                        int64_t blockTime,
                                                                        const std::string &evmBeneficiary) {
@@ -285,6 +355,57 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, txFees, blockCtx);
     }
 
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
+    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+
+    std::map<uint32_t, std::pair<int32_t, uint256>> splitMap;
+
+    // TXs for the creationTx field in new tokens created via token split
+    if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
+        for (const auto &[id, multiplier] : splits) {
+            uint32_t entries{1};
+            mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
+                if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                    const auto tokenA = mnview.GetToken(pool.idTokenA);
+                    const auto tokenB = mnview.GetToken(pool.idTokenB);
+                    assert(tokenA);
+                    assert(tokenB);
+                    if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                        (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                        ++entries;
+                    }
+                }
+                return true;
+            });
+
+            for (uint32_t i{0}; i < entries; ++i) {
+                CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+                metadata << i << id << multiplier;
+
+                CMutableTransaction mTx(txVersion);
+                mTx.vin.resize(1);
+                mTx.vin[0].prevout.SetNull();
+                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
+                mTx.vout.resize(1);
+                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+                mTx.vout[0].nValue = 0;
+                const auto tx = MakeTransactionRef(std::move(mTx));
+                if (!i) {
+                    splitMap[id] = std::make_pair(multiplier, tx->GetHash());
+                }
+                pblock->vtx.push_back(tx);
+                pblocktemplate->vTxFees.push_back(0);
+                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
+                                                        GetLegacySigOpCount(*pblock->vtx.back()));
+            }
+        }
+    }
+
+    if (nHeight >= chainparams.GetConsensus().DF23Height) {
+        // Add token split TXs
+        AddTokenSplitTxs(blockCtx, splitMap);
+    }
+
     XVM xvm{};
     if (isEvmEnabledForBlock) {
         auto res =
@@ -297,48 +418,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         xvm = XVM{
             0, {0, blockHash, blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}
         };
-    }
-
-    // TXs for the creationTx field in new tokens created via token split
-    if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
-        if (attributes) {
-            CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-            const auto splits = attributes->GetValue(splitKey, OracleSplits{});
-
-            for (const auto &[id, multiplier] : splits) {
-                uint32_t entries{1};
-                mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
-                    if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                        const auto tokenA = mnview.GetToken(pool.idTokenA);
-                        const auto tokenB = mnview.GetToken(pool.idTokenB);
-                        assert(tokenA);
-                        assert(tokenB);
-                        if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
-                            (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
-                            ++entries;
-                        }
-                    }
-                    return true;
-                });
-
-                for (uint32_t i{0}; i < entries; ++i) {
-                    CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-                    metadata << i << id << multiplier;
-
-                    CMutableTransaction mTx(txVersion);
-                    mTx.vin.resize(1);
-                    mTx.vin[0].prevout.SetNull();
-                    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                    mTx.vout.resize(1);
-                    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                    mTx.vout[0].nValue = 0;
-                    pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-                    pblocktemplate->vTxFees.push_back(0);
-                    pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
-                                                            GetLegacySigOpCount(*pblock->vtx.back()));
-                }
-            }
-        }
     }
 
     int64_t nTime1 = GetTimeMicros();

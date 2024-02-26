@@ -58,6 +58,11 @@ struct TransactionData {
     int64_t entryTime;
 };
 
+struct TokenAmount {
+    uint32_t id;
+    uint64_t amount;
+};
+
 enum class TransactionDataTxType : uint8_t {
     EVM,
     TransferDomain,
@@ -100,5 +105,7 @@ size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
 bool isEthSubscriptionEnabled();
+uint64_t getDF23Height();
+bool splitTokensFromEVM(TokenAmount old_amount, TokenAmount &new_amount);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H
