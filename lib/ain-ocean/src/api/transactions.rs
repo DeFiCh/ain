@@ -37,11 +37,13 @@ async fn get_vins(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TransactionVin>> {
+    let next = query.next.clone().unwrap_or(format!("{}00", id));
+
     let list = ctx
         .services
         .transaction
         .vin_by_id
-        .list(None, SortOrder::Descending)?
+        .list(Some(next), SortOrder::Descending)?
         .paginate(&query)
         .take_while(|item| match item {
             Ok((_, vin)) => vin.txid == id,
