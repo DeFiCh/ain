@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{routing::get, Extension, Router};
 use bitcoin::{BlockHash, Txid};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::serde_as;
 
 use super::{
+    path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,

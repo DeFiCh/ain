@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::Path,
     routing::{get, post},
     Router,
 };
 use defichain_rpc::{Client, RpcApi};
+use super::path::Path;
 
 async fn send_rawtx() -> String {
     "Sending raw transaction".to_string()

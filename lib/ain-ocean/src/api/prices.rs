@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use axum::{extract::Path, routing::get, Router};
+use axum::{routing::get, Router};
 use defichain_rpc::{Client, RpcApi};
 use serde::Deserialize;
+use super::path::Path;
 
 #[derive(Deserialize)]
 struct PriceKey {

@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use axum::{extract::Path, routing::get, Router};
+use axum::{routing::get, Router};
 use defichain_rpc::{Client, RpcApi};
+use super::path::Path;
 
 async fn list_oracles() -> String {
     "List of oracles".to_string()
