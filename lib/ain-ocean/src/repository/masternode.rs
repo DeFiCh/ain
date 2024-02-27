@@ -4,11 +4,11 @@ use ain_db::LedgerColumn;
 use ain_macros::Repository;
 use bitcoin::Txid;
 
-use super::RepositoryOps;
+use super::{RepositoryOps, SecondaryIndex};
 use crate::{
     model::Masternode,
     storage::{columns, ocean_store::OceanStore},
-    Result,
+    Error, Result,
 };
 
 #[derive(Repository)]
@@ -42,5 +42,16 @@ impl MasternodeByHeightRepository {
             col: store.column(),
             store,
         }
+    }
+}
+
+impl SecondaryIndex<MasternodeByHeightKey, u8> for MasternodeByHeightRepository {
+    type Value = Masternode;
+
+    fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
+        let ((_, id), _) = el?;
+        let col = self.store.column::<columns::Masternode>();
+        let tx = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
+        Ok(tx)
     }
 }

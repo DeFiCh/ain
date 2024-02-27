@@ -7,11 +7,10 @@ use serde::Deserialize;
 
 use super::{path::Path, query::PaginationQuery, response::ApiPagedResponse, AppContext};
 use crate::{
-    api::common::Paginate,
-    api::response::Response,
+    api::{common::Paginate, response::Response},
     error::ApiError,
     model::{Transaction, TransactionVin, TransactionVout},
-    repository::RepositoryOps,
+    repository::{InitialKeyProvider, RepositoryOps, TransactionVinRepository},
     storage::SortOrder,
     Result,
 };
@@ -37,7 +36,10 @@ async fn get_vins(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TransactionVin>> {
-    let next = query.next.clone().unwrap_or(format!("{}00", id));
+    let next = query
+        .next
+        .clone()
+        .unwrap_or(TransactionVinRepository::initial_key(id));
 
     let list = ctx
         .services
@@ -50,14 +52,7 @@ async fn get_vins(
             _ => true,
         })
         .map(|item| {
-            let (id, _) = item?;
-            let v = ctx
-                .services
-                .transaction
-                .vin_by_id
-                .get(&id)?
-                .ok_or("Missing vin index")?;
-
+            let (_, v) = item?;
             Ok(v)
         })
         .collect::<Result<Vec<_>>>()?;
@@ -85,14 +80,7 @@ async fn get_vouts(
             _ => true,
         })
         .map(|item| {
-            let (id, _) = item?;
-            let v = ctx
-                .services
-                .transaction
-                .vout_by_id
-                .get(&id)?
-                .ok_or("Missing vout index")?;
-
+            let (_, v) = item?;
             Ok(v)
         })
         .collect::<Result<Vec<_>>>()?;
