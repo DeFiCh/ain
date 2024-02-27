@@ -76,8 +76,8 @@ async fn get_vouts(
 ) -> Result<ApiPagedResponse<TransactionVout>> {
     let next = query
         .next
-        .clone()
-        .unwrap_or(format!("0"))
+        .as_deref()
+        .unwrap_or("0")
         .parse::<usize>()?;
     let vout_id = format!("{id}{next:08x}");
 
