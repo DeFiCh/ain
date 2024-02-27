@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     json::token::{TokenInfo, TokenResult},
     RpcApi,
@@ -11,6 +11,7 @@ use serde_json::json;
 
 use super::{
     common::parse_display_symbol,
+    path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,

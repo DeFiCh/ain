@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{routing::get, Extension, Router};
 use bitcoin::Txid;
 use defichain_rpc::{json::governance::*, GovernanceRPC};
 use serde::Deserialize;
 
 use super::{
+    path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,

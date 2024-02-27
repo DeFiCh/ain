@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{extract::Path, routing::get, Extension, Router};
+use axum::{routing::get, Extension, Router};
 use bitcoin::Txid;
 use defichain_rpc::{
     defichain_rpc_json::{
@@ -17,6 +17,7 @@ use serde::Serialize;
 use super::{
     cache::get_token_cached,
     common::Paginate,
+    path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     tokens::TokenData,
