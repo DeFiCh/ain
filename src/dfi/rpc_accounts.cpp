@@ -461,14 +461,14 @@ UniValue getaccount(const JSONRPCRequest &request) {
 
     // decode owner
     CScript reqOwner;
-    if (IsHex(userAddress)) { // ScriptPubKey
+    if (IsHex(userAddress)) {  // ScriptPubKey
         const auto hexVec = ParseHex(userAddress);
         reqOwner = CScript(hexVec.begin(), hexVec.end());
         CTxDestination owner;
         if (!ExtractDestination(reqOwner, owner) || !IsValidDestination(owner)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
         }
-    } else { // Address
+    } else {  // Address
         const auto owner = DecodeDestination(userAddress);
         if (!IsValidDestination(owner)) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
