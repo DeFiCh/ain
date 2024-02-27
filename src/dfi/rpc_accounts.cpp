@@ -457,12 +457,24 @@ UniValue getaccount(const JSONRPCRequest &request) {
         return *res;
     }
 
+    const auto userAddress = request.params[0].get_str();
+
     // decode owner
-    const auto owner = DecodeDestination(request.params[0].get_str());
-    if (!IsValidDestination(owner)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
+    CScript reqOwner;
+    if (IsHex(userAddress)) {  // ScriptPubKey
+        const auto hexVec = ParseHex(userAddress);
+        reqOwner = CScript(hexVec.begin(), hexVec.end());
+        CTxDestination owner;
+        if (!ExtractDestination(reqOwner, owner) || !IsValidDestination(owner)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
+        }
+    } else {  // Address
+        const auto owner = DecodeDestination(userAddress);
+        if (!IsValidDestination(owner)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid owner address");
+        }
+        reqOwner = GetScriptForDestination(owner);
     }
-    const auto reqOwner = GetScriptForDestination(owner);
 
     // parse pagination
     size_t limit = 100;
