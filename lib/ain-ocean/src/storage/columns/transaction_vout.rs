@@ -9,7 +9,7 @@ impl ColumnName for TransactionVout {
 }
 
 impl Column for TransactionVout {
-    type Index = model::TransactionVoutKey;
+    type Index = String;
 }
 
 impl TypedColumn for TransactionVout {

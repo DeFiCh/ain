@@ -5,13 +5,13 @@ use ain_macros::Repository;
 
 use super::RepositoryOps;
 use crate::{
-    model::{TransactionVout, TransactionVoutKey},
+    model::TransactionVout,
     storage::{columns, ocean_store::OceanStore},
     Result,
 };
 
 #[derive(Repository)]
-#[repository(K = "TransactionVoutKey", V = "TransactionVout")]
+#[repository(K = "String", V = "TransactionVout")]
 pub struct TransactionVoutRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::TransactionVout>,

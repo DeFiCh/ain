@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::format_err;
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::json::blockchain::{Transaction, Vin};
 use log::debug;
@@ -32,7 +33,12 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     let mut vouts = Vec::with_capacity(vout_count);
     // Index transaction vout
     for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
+        if vout_idx > 4294967295 {
+            return Err(Error::Other(format_err!("max 32 bits but number larger than 4294967295")))
+        }
+        let vout_id = format!("{}{:08x}", txid, vout_idx);
         let tx_vout = TransactionVout {
+            id: vout_id.clone(),
             txid,
             n: vout_idx,
             value: vout.value,
@@ -45,7 +51,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
         services
             .transaction
             .vout_by_id
-            .put(&(txid, vout_idx), &tx_vout)?;
+            .put(&vout_id, &tx_vout)?;
 
         total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalError)?;
         vouts.push(tx_vout);
