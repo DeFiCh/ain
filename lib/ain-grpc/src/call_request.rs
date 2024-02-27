@@ -175,7 +175,6 @@ pub fn override_to_overlay(r#override: BTreeMap<H160, CallStateOverride>) -> Ove
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessListResult {
     pub access_list: AccessList,
