@@ -2899,3 +2899,27 @@ bool ExecuteTokenSplitFromEVM(const TokenAmount oldAmount, TokenAmount &newAmoun
 
     return true;
 }
+
+Res ExecuteTokenSplitFromTransferDomain(CCustomCSView &view, CTokenAmount &amount) {
+    if (amount.nValue == 0) {
+        return Res::Ok();
+    }
+
+    while (true) {
+        const auto idMultiplierPair = view.GetTokenSplitMultiplier(amount.nTokenId.v);
+        if (!idMultiplierPair) {
+            return Res::Ok();
+        }
+
+        if (const auto token = view.GetToken(amount.nTokenId); !token) {
+            return Res::Err("Token not found");
+        }
+
+        auto &[id, multiplier] = *idMultiplierPair;
+        amount = {{id}, CalculateNewAmount(multiplier, amount.nValue)};
+
+        if (const auto res = view.AddMintedTokens(amount.nTokenId, amount.nValue); !res) {
+            return res;
+        }
+    }
+}

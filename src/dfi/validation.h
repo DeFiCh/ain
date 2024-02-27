@@ -38,5 +38,6 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
 Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix);
 
 bool ExecuteTokenSplitFromEVM(const TokenAmount oldAmount, TokenAmount &newAmount);
+Res ExecuteTokenSplitFromTransferDomain(CCustomCSView &view, CTokenAmount &amount);
 
 #endif  // DEFI_DFI_VALIDATION_H
