@@ -34,7 +34,9 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     // Index transaction vout
     for (vout_idx, vout) in ctx.tx.vout.into_iter().enumerate() {
         if vout_idx > 4294967295 {
-            return Err(Error::Other(format_err!("max 32 bits but number larger than 4294967295")))
+            return Err(Error::Other(format_err!(
+                "max 32 bits but number larger than 4294967295"
+            )));
         }
         let vout_id = format!("{}{:08x}", txid, vout_idx);
         let tx_vout = TransactionVout {
@@ -48,10 +50,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
                 r#type: vout.script_pub_key.r#type,
             },
         };
-        services
-            .transaction
-            .vout_by_id
-            .put(&vout_id, &tx_vout)?;
+        services.transaction.vout_by_id.put(&vout_id, &tx_vout)?;
 
         total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalError)?;
         vouts.push(tx_vout);

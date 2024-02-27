@@ -74,8 +74,12 @@ async fn get_vouts(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TransactionVout>> {
-    let next = query.next.clone().unwrap_or(format!("0"));
-    let vout_id = format!("{}{:08x}", id, next.parse::<usize>()?);
+    let next = query
+        .next
+        .clone()
+        .unwrap_or(format!("0"))
+        .parse::<usize>()?;
+    let vout_id = format!("{id}{next:08x}");
 
     let list = ctx
         .services
