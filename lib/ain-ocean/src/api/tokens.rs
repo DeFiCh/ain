@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    cmp::{Eq, Ord, PartialEq, PartialOrd},
+    sync::Arc,
+};
 
 use ain_macros::ocean_endpoint;
 use axum::{extract::Path, routing::get, Extension, Router};
@@ -6,6 +9,7 @@ use defichain_rpc::{
     json::token::{TokenInfo, TokenResult},
     RpcApi,
 };
+use rust_decimal::Decimal;
 use serde::Serialize;
 use serde_json::json;
 
@@ -17,13 +21,13 @@ use super::{
 };
 use crate::{error::ApiError, Result};
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TxHeight {
     tx: String,
     height: i64,
 }
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenData {
     id: String,
@@ -31,7 +35,8 @@ pub struct TokenData {
     symbol_key: String,
     name: String,
     decimal: u8,
-    limit: i64,
+    #[serde(with = "rust_decimal::serde::str")]
+    limit: Decimal,
     mintable: bool,
     tradeable: bool,
     #[serde(rename = "isDAT")]
@@ -58,7 +63,7 @@ impl TokenData {
             symbol_key: token.symbol_key,
             name: token.name,
             decimal: token.decimal,
-            limit: token.limit,
+            limit: token.limit.into(),
             mintable: token.mintable,
             tradeable: token.tradeable,
             is_dat: token.is_dat,
@@ -102,11 +107,14 @@ async fn list_tokens(
         ],
     ).await?;
 
-    let res = tokens
+    let mut res = tokens
         .0
         .into_iter()
         .map(|(k, v)| TokenData::from_with_id(k, v))
         .collect::<Vec<_>>();
+
+    res.sort_by(|a, b| a.id.cmp(&b.id));
+
     Ok(ApiPagedResponse::of(res, query.size, |token| {
         token.id.clone()
     }))
