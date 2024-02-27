@@ -18,7 +18,9 @@ use crate::{
     api::common::Paginate,
     error::{ApiError, Error},
     model::{Block, BlockContext, Transaction},
-    repository::RepositoryOps,
+    repository::{
+        InitialKeyProvider, RepositoryOps, SecondaryIndex, TransactionByBlockHashRepository,
+    },
     storage::SortOrder,
     Result,
 };
@@ -100,23 +102,11 @@ async fn list_blocks(
         })
         .transpose()?;
 
-    let blocks = ctx
-        .services
-        .block
-        .by_height
+    let repository = &ctx.services.block.by_height;
+    let blocks = repository
         .list(next, SortOrder::Descending)?
         .paginate(&query)
-        .map(|item| {
-            let (_, id) = item?;
-            let b = ctx
-                .services
-                .block
-                .by_id
-                .get(&id)?
-                .ok_or("Missing block index")?;
-
-            Ok(b)
-        })
+        .map(|e| repository.retrieve_primary_value(e))
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(blocks, query.size, |block| {
@@ -147,34 +137,27 @@ async fn get_transactions(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TransactionResponse>> {
-    let next = query.next.as_ref().map_or(Ok((hash, 0)), |q| {
-        let height = q
-            .parse::<usize>()
-            .map_err(|_| format_err!("Invalid height"))?;
-        Ok::<(BlockHash, usize), Error>((hash, height))
-    })?;
+    let repository = &ctx.services.transaction.by_block_hash;
 
-    let txs = ctx
-        .services
-        .transaction
-        .by_block_hash
+    let next = query.next.as_ref().map_or(
+        Ok(TransactionByBlockHashRepository::initial_key(hash)),
+        |q| {
+            let height = q
+                .parse::<usize>()
+                .map_err(|_| format_err!("Invalid height"))?;
+            Ok::<(BlockHash, usize), Error>((hash, height))
+        },
+    )?;
+
+    let txs = repository
         .list(Some(next), SortOrder::Ascending)?
         .paginate(&query)
         .take_while(|item| match item {
             Ok(((h, _), _)) => h == &hash,
             _ => true,
         })
-        .map(|item| {
-            let (_, id) = item?;
-            let tx = ctx
-                .services
-                .transaction
-                .by_id
-                .get(&id)?
-                .ok_or("Missing tx index")?;
-
-            Ok(tx.into())
-        })
+        .map(|el| repository.retrieve_primary_value(el))
+        .map(|v| v.map(TransactionResponse::from))
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(txs, query.size, |tx| tx.order))

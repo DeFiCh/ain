@@ -44,6 +44,8 @@ pub enum Error {
     #[error("Unable to find {0:}")]
     NotFound(NotFoundKind),
     #[error("Decimal conversion error")]
+    SecondaryIndex,
+    #[error("Error fetching primary value")]
     DecimalError,
     #[error(transparent)]
     Other(#[from] anyhow::Error),

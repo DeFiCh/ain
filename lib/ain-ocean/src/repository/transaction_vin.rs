@@ -2,11 +2,15 @@ use std::sync::Arc;
 
 use ain_db::LedgerColumn;
 use ain_macros::Repository;
+use bitcoin::Txid;
 
-use super::RepositoryOps;
+use super::{InitialKeyProvider, RepositoryOps};
 use crate::{
     model::TransactionVin,
-    storage::{columns, ocean_store::OceanStore},
+    storage::{
+        columns::{self},
+        ocean_store::OceanStore,
+    },
     Result,
 };
 
@@ -23,5 +27,13 @@ impl TransactionVinRepository {
             col: store.column(),
             store,
         }
+    }
+}
+
+impl InitialKeyProvider<String, TransactionVin> for TransactionVinRepository {
+    type PartialKey = Txid;
+
+    fn initial_key(pk: Self::PartialKey) -> String {
+        format!("{}00", pk)
     }
 }

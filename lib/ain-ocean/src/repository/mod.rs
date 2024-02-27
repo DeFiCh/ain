@@ -44,12 +44,24 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_batch_history::*;
 
-pub type ListResult<'a, K, V> =
-    Result<Box<dyn Iterator<Item = std::result::Result<(K, V), ain_db::DBError>> + 'a>>;
-
 pub trait RepositoryOps<K, V> {
+    type ListItem;
     fn get(&self, key: &K) -> Result<Option<V>>;
     fn put(&self, key: &K, value: &V) -> Result<()>;
     fn delete(&self, key: &K) -> Result<()>;
-    fn list(&self, from: Option<K>, direction: SortOrder) -> ListResult<K, V>;
+    fn list<'a>(
+        &'a self,
+        from: Option<K>,
+        direction: SortOrder,
+    ) -> Result<Box<dyn Iterator<Item = Self::ListItem> + 'a>>;
+}
+
+pub trait InitialKeyProvider<K, V>: RepositoryOps<K, V> {
+    type PartialKey;
+    fn initial_key(pk: Self::PartialKey) -> K;
+}
+
+pub trait SecondaryIndex<K, V>: RepositoryOps<K, V> {
+    type Value;
+    fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value>;
 }

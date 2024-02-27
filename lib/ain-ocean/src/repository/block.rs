@@ -4,11 +4,11 @@ use ain_db::LedgerColumn;
 use ain_macros::Repository;
 use bitcoin::BlockHash;
 
-use super::RepositoryOps;
+use super::{RepositoryOps, SecondaryIndex};
 use crate::{
     model::Block,
     storage::{columns, ocean_store::OceanStore, SortOrder},
-    Result,
+    Error, Result,
 };
 
 #[derive(Repository)]
@@ -53,5 +53,18 @@ impl BlockByHeightRepository {
             }
             Some(Err(e)) => Err(e.into()),
         }
+    }
+}
+
+impl SecondaryIndex<u32, BlockHash> for BlockByHeightRepository {
+    type Value = Block;
+
+    fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
+        let (_, id) = el?;
+
+        let col = self.store.column::<columns::Block>();
+        let tx = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
+
+        Ok(tx)
     }
 }
