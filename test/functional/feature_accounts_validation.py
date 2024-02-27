@@ -33,14 +33,28 @@ class AccountsValidatingTest(DefiTestFramework):
         node.generate(1)
         self.sync_blocks()
 
+        # Check empty account generates error
         assert_raises_rpc_error(
             -5,
             "Invalid owner address",
             self.nodes[0].getaccount,
             "",
         )
+
+        # Check nonsense account generates error
+        assert_raises_rpc_error(
+            -5,
+            "Invalid owner address",
+            self.nodes[0].getaccount,
+            "AAAAAAAAAA",
+        )
+
         # Check we have expected balance
         assert_equal(node1.getaccount(account)[0], "10.00000000@DFI")
+
+        # Check we can get the account from the scriptPubKey
+        script_pubkey = self.nodes[0].getaddressinfo(account)["scriptPubKey"]
+        assert_equal(node1.getaccount(script_pubkey)[0], "10.00000000@DFI")
 
         node.accounttoaccount(account, {destination: "1@DFI"})
         node.accounttoutxos(account, {destination: "1@DFI"})
