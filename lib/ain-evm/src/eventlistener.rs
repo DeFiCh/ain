@@ -1,7 +1,7 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::opcode;
-use ethereum_types::H256;
+use ethereum_types::{H160, H256};
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
 use evm_runtime::{
     tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener},
@@ -151,6 +151,26 @@ impl GasEventListener for GasListener {
                 } else {
                     panic!("No snapshot found!");
                 }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct StorageAccessListener {
+    pub access_list: HashMap<H160, HashSet<H256>>,
+}
+
+impl RuntimeEventListener for StorageAccessListener {
+    fn event(&mut self, event: RuntimeEvent<'_>) {
+        debug!("event runtime : {:#?}", event);
+        match event {
+            RuntimeEvent::SLoad { address, index, .. } => {
+                self.access_list.entry(address).or_default().insert(index);
+            }
+            RuntimeEvent::SStore { address, index, .. } => {
+                self.access_list.entry(address).or_default().insert(index);
             }
             _ => {}
         }
