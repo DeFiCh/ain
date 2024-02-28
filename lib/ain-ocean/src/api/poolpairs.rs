@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{
-    routing::get, Extension, Json, Router
-};
+use axum::{routing::get, Extension, Json, Router};
 use bitcoin::hex::parse;
 use defichain_rpc::{
     json::poolpair::{PoolPairInfo, PoolPairsResult, StringOrF64},
@@ -14,14 +12,18 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{
-    common::{parse_dat_symbol, parse_display_symbol}, path::Path, query::{PaginationQuery, Query}, response::{ApiPagedResponse, Response}, AppContext
+    common::{parse_dat_symbol, parse_display_symbol},
+    path::Path,
+    query::{PaginationQuery, Query},
+    response::{ApiPagedResponse, Response},
+    AppContext,
 };
 
 use crate::{
     error::ApiError,
-    Result,
     model::{BlockContext, PoolSwap},
     repository::RepositoryOps,
+    Result,
 };
 
 // #[derive(Deserialize)]
@@ -196,12 +198,10 @@ impl PoolPairResponse {
                 name: "".to_string(), // todo: (await this.deFiDCache.getTokenInfo(info.idTokenA) as TokenInfo).name
                 reserve: p.reserve_a.to_string(),
                 block_commission: p.block_commission_a.to_string(),
-                fee: p.dex_fee_in_pct_token_a.map(|_| {
-                    PoolPairFeeResponse{
-                        pct: Some(p.dex_fee_pct_token_a.unwrap().to_string()),
-                        in_pct: Some(p.dex_fee_in_pct_token_a.unwrap().to_string()),
-                        out_pct: Some(p.dex_fee_out_pct_token_a.unwrap().to_string()),
-                    }
+                fee: p.dex_fee_in_pct_token_a.map(|_| PoolPairFeeResponse {
+                    pct: Some(p.dex_fee_pct_token_a.unwrap().to_string()),
+                    in_pct: Some(p.dex_fee_in_pct_token_a.unwrap().to_string()),
+                    out_pct: Some(p.dex_fee_out_pct_token_a.unwrap().to_string()),
                 }),
             },
             token_b: PoolPairTokenResponse {
@@ -211,12 +211,10 @@ impl PoolPairResponse {
                 name: "".to_string(), // todo: (await this.deFiDCache.getTokenInfo(info.idTokenB) as TokenInfo).name
                 reserve: p.reserve_b.to_string(),
                 block_commission: p.block_commission_b.to_string(),
-                fee: p.dex_fee_in_pct_token_b.map(|_| {
-                    PoolPairFeeResponse{
-                        pct: Some(p.dex_fee_pct_token_b.unwrap().to_string()),
-                        in_pct: Some(p.dex_fee_in_pct_token_b.unwrap().to_string()),
-                        out_pct: Some(p.dex_fee_out_pct_token_b.unwrap().to_string()),
-                    }
+                fee: p.dex_fee_in_pct_token_b.map(|_| PoolPairFeeResponse {
+                    pct: Some(p.dex_fee_pct_token_b.unwrap().to_string()),
+                    in_pct: Some(p.dex_fee_in_pct_token_b.unwrap().to_string()),
+                    out_pct: Some(p.dex_fee_out_pct_token_b.unwrap().to_string()),
                 }),
             },
             price_ratio: PoolPairPriceRatioResponse {
@@ -243,7 +241,7 @@ impl PoolPairResponse {
                 tx: p.creation_tx,
                 height: p.creation_height.to_string(),
             },
-            apr: None, // todo: await this.poolPairService.getAPR(id, info)
+            apr: None,    // todo: await this.poolPairService.getAPR(id, info)
             volume: None, // todo: await this.poolPairService.getUSDVolume(id)
         }
     }
