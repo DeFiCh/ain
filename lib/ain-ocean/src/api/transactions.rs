@@ -74,18 +74,13 @@ async fn get_vouts(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<TransactionVout>> {
-    let next = query
-        .next
-        .as_deref()
-        .unwrap_or("0")
-        .parse::<usize>()?;
-    let vout_id = format!("{id}{next:08x}");
+    let next = query.next.as_deref().unwrap_or("0").parse::<usize>()?;
 
     let list = ctx
         .services
         .transaction
         .vout_by_id
-        .list(Some(vout_id), SortOrder::Descending)?
+        .list(Some((id, next)), SortOrder::Descending)?
         .paginate(&query)
         .take_while(|item| match item {
             Ok((_, vout)) => vout.txid == id,
