@@ -6,7 +6,7 @@ use axum::{
 };
 use bitcoin::hex::parse;
 use defichain_rpc::{
-    json::poolpair::{PoolPairInfo, PoolPairsResult},
+    json::poolpair::{PoolPairInfo, PoolPairsResult, StringOrF64},
     RpcApi,
 };
 use log::debug;
@@ -183,8 +183,6 @@ impl PoolPairResponse {
         let a_parsed = parse_dat_symbol(a);
         let b_parsed = parse_dat_symbol(b);
 
-
-
         Self {
             id,
             symbol: p.symbol.clone(),
@@ -222,8 +220,14 @@ impl PoolPairResponse {
                 }),
             },
             price_ratio: PoolPairPriceRatioResponse {
-                ab: p.reserve_a_reserve_b.to_string(),
-                ba: p.reserve_b_reserve_a.to_string(),
+                ab: match p.reserve_a_reserve_b {
+                    StringOrF64::Str(s) => s,
+                    StringOrF64::Float(f) => f.to_string(),
+                },
+                ba: match p.reserve_b_reserve_a {
+                    StringOrF64::Str(s) => s,
+                    StringOrF64::Float(f) => f.to_string(),
+                },
             },
             commission: p.commission.to_string(),
             total_liquidity: PoolPairTotalLiquidityResponse {
