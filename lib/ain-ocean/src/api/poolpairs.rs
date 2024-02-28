@@ -172,7 +172,7 @@ pub struct PoolPairResponse {
     owner_address: String,
     reward_pct: String,
     reward_loan_pct: String,
-    custom_rewards: Option<Vec<String>>,
+    custom_rewards: Vec<String>,
     creation: PoolPairCreationResponse,
     apr: Option<PoolPairAprResponse>,
     volume: Option<PoolPairVolumeResponse>,
