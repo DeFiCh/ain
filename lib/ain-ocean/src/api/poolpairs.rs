@@ -252,7 +252,6 @@ async fn list_poolpairs(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PoolPairResponse>> {
-    "List of poolpairs".to_string();
     let poolpairs: PoolPairsResult = ctx.client.call(
         "listpoolpairs",
         &[
