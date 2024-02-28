@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::format_err;
 use bitcoin::{hashes::Hash, Txid};
 use defichain_rpc::json::blockchain::{Transaction, Vin};
 use log::debug;
