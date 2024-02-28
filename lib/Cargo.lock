@@ -245,7 +245,6 @@ dependencies = [
  "axum 0.7.4",
  "bincode",
  "bitcoin",
- "bitcoin_hashes 0.12.0",
  "cached",
  "chrono",
  "defichain-rpc",
@@ -682,7 +681,7 @@ dependencies = [
  "bech32",
  "bitcoin-internals",
  "bitcoin-io",
- "bitcoin_hashes 0.13.0",
+ "bitcoin_hashes",
  "hex-conservative",
  "hex_lit",
  "secp256k1 0.28.2",
@@ -702,21 +701,6 @@ dependencies = [
 name = "bitcoin-io"
 version = "0.1.0"
 source = "git+https://github.com/Jouzo/rust-bitcoin.git#af64fe422669e2d4fc24fca93561566e22cce1df"
-
-[[package]]
-name = "bitcoin-private"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73290177011694f38ec25e165d0387ab7ea749a4b81cd4c80dae5988229f7a57"
-
-[[package]]
-name = "bitcoin_hashes"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d7066118b13d4b20b23645932dfb3a81ce7e29f95726c2036fa33cd7b092501"
-dependencies = [
- "bitcoin-private",
-]
 
 [[package]]
 name = "bitcoin_hashes"
@@ -3085,7 +3069,6 @@ dependencies = [
  "glob",
  "libc",
  "libz-sys",
- "lz4-sys",
  "zstd-sys",
 ]
 
@@ -3192,16 +3175,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db2c024b41519440580066ba82aab04092b333e09066a5eb86c7c4890df31f22"
 dependencies = [
  "hashbrown 0.14.3",
-]
-
-[[package]]
-name = "lz4-sys"
-version = "1.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57d27b317e207b10f69f5e75494119e391a96f48861ae870d1da6edac98ca900"
-dependencies = [
- "cc",
- "libc",
 ]
 
 [[package]]
@@ -4731,7 +4704,7 @@ version = "0.28.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
 dependencies = [
- "bitcoin_hashes 0.13.0",
+ "bitcoin_hashes",
  "rand 0.8.5",
  "secp256k1-sys 0.9.2",
  "serde",
