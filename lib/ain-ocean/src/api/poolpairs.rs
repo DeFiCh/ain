@@ -104,7 +104,7 @@ use crate::{
 
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-struct FeeData {
+struct PoolPairFeeResponse {
     pct: Option<String>,
     in_pct: Option<String>,
     out_pct: Option<String>,
@@ -112,71 +112,71 @@ struct FeeData {
 
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-struct TokenData {
+struct PoolPairTokenResponse {
     id: String,
     name: String,
     symbol: String,
     display_symbol: String,
     reserve: String,
     block_commission: String,
-    fee: Option<FeeData>,
+    fee: Option<PoolPairFeeResponse>,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct PriceRatioData {
+struct PoolPairPriceRatioResponse {
     ab: String,
     ba: String,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct TotalLiquidityData {
+struct PoolPairTotalLiquidityResponse {
     token: Option<String>,
     usd: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct CreationData {
+struct PoolPairCreationResponse {
     tx: String,
     height: i64,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct AprData {
+struct PoolPairAprResponse {
     total: i64,
     reward: i64,
     commission: i64,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct VolumeData {
+struct PoolPairVolumeResponse {
     d30: i64,
     h24: i64,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct PoolPairData {
+pub struct PoolPairResponse {
     id: String,
     symbol: String,
     display_symbol: String,
     name: String,
     status: bool,
-    token_a: TokenData,
-    token_b: TokenData,
-    price_ratio: PriceRatioData,
+    token_a: PoolPairTokenResponse,
+    token_b: PoolPairTokenResponse,
+    price_ratio: PoolPairPriceRatioResponse,
     commission: String,
-    total_liquidity: TotalLiquidityData,
+    total_liquidity: PoolPairTotalLiquidityResponse,
     trade_enabled: bool,
     owner_address: String,
     reward_pct: String,
     reward_loan_pct: String,
     custom_rewards: Option<Vec<String>>,
-    creation: CreationData,
-    apr: Option<AprData>,
-    volume: Option<VolumeData>,
+    creation: PoolPairCreationResponse,
+    apr: Option<PoolPairAprResponse>,
+    volume: Option<PoolPairVolumeResponse>,
 }
 
-impl PoolPairData {
+impl PoolPairResponse {
     pub fn from_with_id(id: String, p: PoolPairInfo) -> Self {
         let parts = p.symbol.split("-").collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
@@ -191,7 +191,7 @@ impl PoolPairData {
             display_symbol: format!("{a_parsed}-{b_parsed}"),
             name: p.name,
             status: p.status,
-            token_a: TokenData {
+            token_a: PoolPairTokenResponse {
                 symbol: a.to_string(),
                 display_symbol: a_parsed,
                 id: p.id_token_a,
@@ -199,14 +199,14 @@ impl PoolPairData {
                 reserve: p.reserve_a.to_string(),
                 block_commission: p.block_commission_a.to_string(),
                 fee: p.dex_fee_in_pct_token_a.map(|_| {
-                    FeeData{
+                    PoolPairFeeResponse{
                         pct: Some(p.dex_fee_pct_token_a.unwrap().to_string()),
                         in_pct: Some(p.dex_fee_in_pct_token_a.unwrap().to_string()),
                         out_pct: Some(p.dex_fee_out_pct_token_a.unwrap().to_string()),
                     }
                 }),
             },
-            token_b: TokenData {
+            token_b: PoolPairTokenResponse {
                 symbol: b.to_string(),
                 display_symbol: b_parsed,
                 id: p.id_token_b,
@@ -214,19 +214,19 @@ impl PoolPairData {
                 reserve: p.reserve_b.to_string(),
                 block_commission: p.block_commission_b.to_string(),
                 fee: p.dex_fee_in_pct_token_b.map(|_| {
-                    FeeData{
+                    PoolPairFeeResponse{
                         pct: Some(p.dex_fee_pct_token_b.unwrap().to_string()),
                         in_pct: Some(p.dex_fee_in_pct_token_b.unwrap().to_string()),
                         out_pct: Some(p.dex_fee_out_pct_token_b.unwrap().to_string()),
                     }
                 }),
             },
-            price_ratio: PriceRatioData {
+            price_ratio: PoolPairPriceRatioResponse {
                 ab: p.reserve_a_reserve_b.to_string(),
                 ba: p.reserve_b_reserve_a.to_string(),
             },
             commission: p.commission.to_string(),
-            total_liquidity: TotalLiquidityData {
+            total_liquidity: PoolPairTotalLiquidityResponse {
                 token: Some(p.total_liquidity.to_string()),
                 usd: None, // todo: await this.poolPairService.getTotalLiquidityUsd(info)
             },
@@ -235,7 +235,7 @@ impl PoolPairData {
             reward_pct: p.reward_pct.to_string(),
             reward_loan_pct: p.reward_loan_pct.to_string(),
             custom_rewards: p.custom_rewards,
-            creation: CreationData {
+            creation: PoolPairCreationResponse {
                 tx: p.creation_tx,
                 height: p.creation_height,
             },
@@ -249,7 +249,7 @@ impl PoolPairData {
 async fn list_poolpairs(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<PoolPairData>> {
+) -> Result<ApiPagedResponse<PoolPairResponse>> {
     "List of poolpairs".to_string();
     let poolpairs: PoolPairsResult = ctx.client.call(
         "listpoolpairs",
@@ -266,7 +266,7 @@ async fn list_poolpairs(
     let res = poolpairs
         .0
         .into_iter()
-        .map(|(k, v)| PoolPairData::from_with_id(k, v))
+        .map(|(k, v)| PoolPairResponse::from_with_id(k, v))
         .collect::<Vec<_>>();
 
     Ok(ApiPagedResponse::of(res, query.size, |poolpair| {
