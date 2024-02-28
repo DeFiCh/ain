@@ -180,7 +180,7 @@ pub struct PoolPairResponse {
 
 impl PoolPairResponse {
     pub fn from_with_id(id: String, p: PoolPairInfo) -> Self {
-        let parts = p.symbol.split("-").collect::<Vec<&str>>();
+        let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
         let a_parsed = parse_dat_symbol(a);
         let b_parsed = parse_dat_symbol(b);
