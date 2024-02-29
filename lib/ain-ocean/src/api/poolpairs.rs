@@ -270,10 +270,23 @@ async fn list_poolpairs(
     }))
 }
 
-// #[ocean_endpoint]
-// async fn get_poolpair(Path(PoolPair { id }): Path<PoolPair>) -> String {
-//     format!("Details of poolpair with id {}", id)
-// }
+#[ocean_endpoint]
+async fn get_poolpair(
+    Path(id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<Option<PoolPairResponse>>> {
+    let mut poolpair: PoolPairsResult = ctx
+        .client
+        .call("getpoolpair", &[id.as_str().into()])
+        .await?;
+
+    let res = poolpair
+        .0
+        .remove(&id)
+        .map(|poolpair| PoolPairResponse::from_with_id(id, poolpair));
+
+    Ok(Response::new(res))
+}
 
 // // Use single method for now since additional verbose keys are indexed
 // // TODO: assess need for additional verbose method
@@ -376,7 +389,7 @@ async fn list_poolpairs(
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_poolpairs))
-        // .route("/:id", get(get_poolpair))
+        .route("/:id", get(get_poolpair))
         // .route("/:id/swaps", get(list_pool_swaps))
         // .route("/:id/swaps/verbose", get(list_pool_swaps))
         // .route(
