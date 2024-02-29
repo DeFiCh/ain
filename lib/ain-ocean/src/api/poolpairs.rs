@@ -144,15 +144,15 @@ struct PoolPairCreationResponse {
 
 #[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairAprResponse {
-    total: String,
-    reward: String,
-    commission: String,
+    total: f64,
+    reward: f64,
+    commission: f64,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairVolumeResponse {
-    d30: String,
-    h24: String,
+    d30: f64,
+    h24: f64,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
