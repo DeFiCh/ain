@@ -104,7 +104,7 @@ use crate::{
 //     }
 // }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct PoolPairFeeResponse {
     pct: Option<String>,
@@ -112,7 +112,7 @@ struct PoolPairFeeResponse {
     out_pct: Option<String>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 struct PoolPairTokenResponse {
     id: String,
@@ -124,38 +124,38 @@ struct PoolPairTokenResponse {
     fee: Option<PoolPairFeeResponse>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairPriceRatioResponse {
     ab: String,
     ba: String,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairTotalLiquidityResponse {
     token: Option<String>,
     usd: Option<String>,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairCreationResponse {
     tx: String,
     height: i64,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairAprResponse {
     total: String,
     reward: String,
     commission: String,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairVolumeResponse {
     d30: String,
     h24: String,
 }
 
-#[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolPairResponse {
     id: String,
@@ -258,14 +258,12 @@ async fn list_poolpairs(
         ],
     ).await?;
 
-    let mut res = poolpairs
+    let res = poolpairs
         .0
         .into_iter()
         .map(|(k, v)| PoolPairResponse::from_with_id(k, v))
         .filter(|p| !p.symbol.starts_with("BURN-"))
         .collect::<Vec<_>>();
-
-    res.sort_by(|a, b| a.id.cmp(&b.id));
 
     Ok(ApiPagedResponse::of(res, query.size, |poolpair| {
         poolpair.id.clone()
