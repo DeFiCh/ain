@@ -4,7 +4,7 @@ use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Json, Router};
 use bitcoin::hex::parse;
 use defichain_rpc::{
-    json::poolpair::{PoolPairInfo, PoolPairsResult, StringOrF64},
+    json::poolpair::{PoolPairInfo, PoolPairsResult},
     RpcApi,
 };
 use log::debug;
@@ -172,7 +172,7 @@ pub struct PoolPairResponse {
     owner_address: String,
     reward_pct: String,
     reward_loan_pct: String,
-    custom_rewards: Vec<String>,
+    custom_rewards: Option<Vec<String>>,
     creation: PoolPairCreationResponse,
     apr: Option<PoolPairAprResponse>,
     volume: Option<PoolPairVolumeResponse>,
@@ -218,14 +218,8 @@ impl PoolPairResponse {
                 }),
             },
             price_ratio: PoolPairPriceRatioResponse {
-                ab: match p.reserve_a_reserve_b {
-                    StringOrF64::Str(s) => s,
-                    StringOrF64::Float(f) => f.to_string(),
-                },
-                ba: match p.reserve_b_reserve_a {
-                    StringOrF64::Str(s) => s,
-                    StringOrF64::Float(f) => f.to_string(),
-                },
+                ab: p.reserve_a_reserve_b,
+                ba: p.reserve_b_reserve_a,
             },
             commission: p.commission.to_string(),
             total_liquidity: PoolPairTotalLiquidityResponse {
