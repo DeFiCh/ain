@@ -139,7 +139,7 @@ struct PoolPairTotalLiquidityResponse {
 #[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 struct PoolPairCreationResponse {
     tx: String,
-    height: String,
+    height: i64,
 }
 
 #[derive(Serialize, Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -233,7 +233,7 @@ impl PoolPairResponse {
             custom_rewards: p.custom_rewards,
             creation: PoolPairCreationResponse {
                 tx: p.creation_tx,
-                height: p.creation_height.to_string(),
+                height: p.creation_height,
             },
             apr: None,    // todo: await this.poolPairService.getAPR(id, info)
             volume: None, // todo: await this.poolPairService.getUSDVolume(id)
