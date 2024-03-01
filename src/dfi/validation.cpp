@@ -2876,9 +2876,10 @@ void ProcessDeFiEvent(const CBlock &block,
 
 bool ExecuteTokenSplitFromEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount) {
     auto cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
+    CCustomCSView copy(*pcustomcsview);
     if (!cache) {
         // mnview_ptr will be 0 in case of a RPC `eth_call` or a debug_traceTransaction
-        cache = pcustomcsview.get();
+        cache = &copy;
     }
 
     if (oldAmount.amount == 0) {
