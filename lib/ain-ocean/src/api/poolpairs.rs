@@ -261,8 +261,13 @@ async fn list_poolpairs(
     let res = poolpairs
         .0
         .into_iter()
-        .map(|(k, v)| PoolPairResponse::from_with_id(k, v))
-        .filter(|p| !p.symbol.starts_with("BURN-"))
+        .filter_map(|(k, v)| {
+            if v.symbol.starts_with("BURN-") {
+                None
+            } else {
+                Some(PoolPairResponse::from_with_id(k, v))
+            }
+})
         .collect::<Vec<_>>();
 
     Ok(ApiPagedResponse::of(res, query.size, |poolpair| {
