@@ -480,6 +480,12 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(0),
         )
 
+        # Check minted balance
+        assert_equal(
+            self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
+            Decimal(1960.00000000) + (amount * self.splitMultiplier),
+        )
+
     def split_token(
         self, old_contract_address, new_contract_address, symbol_postfix="v1"
     ):
