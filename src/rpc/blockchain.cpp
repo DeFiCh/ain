@@ -355,7 +355,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview);
 
     auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);

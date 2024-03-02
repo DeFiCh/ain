@@ -14,11 +14,10 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
-    const auto attributes = mnview.GetAttributes();
 
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Active};
 
-    if (!attributes->GetValue(activeKey, false)) {
+    if (!mnview.GetValue(activeKey, false)) {
         return Res::Err("DFIP2201 smart contract is not enabled");
     }
 
@@ -47,7 +46,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     }
 
     CDataStructureV0 minSwapKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::MinSwap};
-    auto minSwap = attributes->GetValue(minSwapKey, CAmount{0});
+    auto minSwap = mnview.GetValue(minSwapKey, CAmount{0});
 
     if (amount < minSwap) {
         return DeFiErrors::ICXBTCBelowMinSwap(amount, minSwap);
@@ -80,7 +79,7 @@ Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage
     }
 
     CDataStructureV0 premiumKey{AttributeTypes::Param, ParamIDs::DFIP2201, DFIPKeys::Premium};
-    auto premium = attributes->GetValue(premiumKey, CAmount{2500000});
+    auto premium = mnview.GetValue(premiumKey, CAmount{2500000});
 
     const auto &btcPrice = MultiplyAmounts(*resVal.val, premium + COIN);
 
@@ -132,7 +131,6 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
     const auto height = txCtx.GetHeight();
     const auto txn = txCtx.GetTxn();
     auto &mnview = blockCtx.GetView();
-    const auto attributes = mnview.GetAttributes();
 
     bool dfiToDUSD = !obj.source.nTokenId.v;
     const auto paramID = dfiToDUSD ? ParamIDs::DFIP2206F : ParamIDs::DFIP2203;
@@ -141,13 +139,12 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
     CDataStructureV0 blockKey{AttributeTypes::Param, paramID, DFIPKeys::BlockPeriod};
     CDataStructureV0 rewardKey{AttributeTypes::Param, paramID, DFIPKeys::RewardPct};
 
-    if (!attributes->GetValue(activeKey, false) || !attributes->CheckKey(blockKey) ||
-        !attributes->CheckKey(rewardKey)) {
+    if (!mnview.GetValue(activeKey, false) || !mnview.CheckKey(blockKey) || !mnview.CheckKey(rewardKey)) {
         return Res::Err("%s not currently active", dfiToDUSD ? "DFIP2206F" : "DFIP2203");
     }
 
     CDataStructureV0 startKey{AttributeTypes::Param, paramID, DFIPKeys::StartBlock};
-    if (const auto startBlock = attributes->GetValue(startKey, CAmount{})) {
+    if (const auto startBlock = mnview.GetValue(startKey, CAmount{})) {
         if (height < startBlock) {
             return Res::Err("%s not active until block %d", dfiToDUSD ? "DFIP2206F" : "DFIP2203", startBlock);
         }
@@ -164,7 +161,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
 
     if (!dfiToDUSD && source->symbol == "DUSD") {
         CDataStructureV0 tokenKey{AttributeTypes::Token, obj.destination, TokenKeys::DFIP2203Enabled};
-        const auto enabled = attributes->GetValue(tokenKey, true);
+        const auto enabled = mnview.GetValue(tokenKey, true);
         if (!enabled) {
             return Res::Err("DFIP2203 currently disabled for token %d", obj.destination);
         }
@@ -188,7 +185,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
             }
 
             CDataStructureV0 tokenKey{AttributeTypes::Token, obj.source.nTokenId.v, TokenKeys::DFIP2203Enabled};
-            const auto enabled = attributes->GetValue(tokenKey, true);
+            const auto enabled = mnview.GetValue(tokenKey, true);
             if (!enabled) {
                 return Res::Err("DFIP2203 currently disabled for token %s", obj.source.nTokenId.ToString());
             }
@@ -217,7 +214,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
 
     const auto economyKey = dfiToDUSD ? EconomyKeys::DFIP2206FCurrent : EconomyKeys::DFIP2203Current;
     CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Economy, economyKey};
-    auto balances = attributes->GetValue(liveKey, CBalances{});
+    auto balances = mnview.GetValue(liveKey, CBalances{});
 
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight)) {
         CalculateOwnerRewards(obj.owner);
@@ -306,9 +303,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
         balances.Add(obj.source);
     }
 
-    attributes->SetValue(liveKey, balances);
-
-    mnview.SetVariable(*attributes);
+    mnview.SetValue(liveKey, balances);
 
     return Res::Ok();
 }

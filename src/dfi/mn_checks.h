@@ -69,9 +69,9 @@ struct OpReturnLimits {
     uint64_t evmSizeBytes{};
 
     static OpReturnLimits Default();
-    static OpReturnLimits From(const uint64_t height, const Consensus::Params &consensus, const ATTRIBUTES &attributes);
+    static OpReturnLimits From(const uint64_t height, const Consensus::Params &consensus, CCustomCSView &mnview);
 
-    void SetToAttributesIfNotExists(ATTRIBUTES &attrs) const;
+    void SetToAttributesIfNotExists(CCustomCSView &mnviews) const;
     Res Validate(const CTransaction &tx, const CustomTxType txType) const;
     uint64_t MaxSize() { return std::max({coreSizeBytes, dvmSizeBytes, evmSizeBytes}); }
 };
@@ -92,9 +92,9 @@ struct TransferDomainConfig {
     std::set<uint32_t> evmToDvmDisallowedTokens;
 
     static TransferDomainConfig Default();
-    static TransferDomainConfig From(const CCustomCSView &mnview);
+    static TransferDomainConfig From(CCustomCSView &mnview);
 
-    void SetToAttributesIfNotExists(ATTRIBUTES &attrs) const;
+    void SetToAttributesIfNotExists(CCustomCSView &mnview) const;
 };
 
 struct CCustomTxMessageNone {};

@@ -69,8 +69,8 @@ Res CTokensView::CreateDFIToken() {
 }
 
 ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
-                                        bool isPreBayfront,
-                                        BlockContext *blockCtx) {
+                                        BlockContext &blockCtx,
+                                        bool isPreBayfront) {
     if (GetTokenByCreationTx(token.creationTx)) {
         return Res::Err("token with creation tx %s already exists!", token.creationTx.ToString());
     }
@@ -102,41 +102,39 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
                       id.ToString().c_str());
         }
 
-        if (blockCtx) {
-            const auto shouldCreateDst20 = blockCtx->GetEVMEnabledForBlock();
-            const auto &evmTemplate = blockCtx->GetEVMTemplate();
-            const auto &height = blockCtx->GetHeight();
-            if (shouldCreateDst20 && evmTemplate) {
-                CrossBoundaryResult result;
-                rust::string token_name{};
-                rust::string token_symbol{};
-                if (height >= static_cast<uint32_t>(Params().GetConsensus().DF23Height)) {
-                    if (token.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
-                        return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
-                    }
-                    token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(token.name));
-                    if (!result.ok) {
-                        return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
-                    }
-                    token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(token.symbol));
-                    if (!result.ok) {
-                        return Res::Err("Error creating DST20 token, token symbol not valid UTF-8\n");
-                    }
-                } else {
-                    token_name = rust::string(token.name);
-                    token_symbol = rust::string(token.symbol);
+        const auto &evmTemplate = blockCtx.GetEVMTemplate();
+        const auto shouldCreateDst20 = blockCtx.GetEVMEnabledForBlock();
+        if (shouldCreateDst20 && evmTemplate) {
+            CrossBoundaryResult result;
+            rust::string token_name{};
+            rust::string token_symbol{};
+            const auto &height = blockCtx.GetHeight();
+            if (height >= static_cast<uint32_t>(Params().GetConsensus().DF23Height)) {
+                if (token.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
+                    return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
                 }
-                evm_try_unsafe_create_dst20(result,
-                                            evmTemplate->GetTemplate(),
-                                            token.creationTx.GetByteArray(),
-                                            DST20TokenInfo{
-                                                id.v,
-                                                token_name,
-                                                token_symbol,
-                                            });
+                token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(token.name));
                 if (!result.ok) {
-                    return Res::Err("Error creating DST20 token: %s", result.reason);
+                    return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
                 }
+                token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(token.symbol));
+                if (!result.ok) {
+                    return Res::Err("Error creating DST20 token, token symbol not valid UTF-8\n");
+                }
+            } else {
+                token_name = rust::string(token.name);
+                token_symbol = rust::string(token.symbol);
+            }
+            evm_try_unsafe_create_dst20(result,
+                                        evmTemplate->GetTemplate(),
+                                        token.creationTx.GetByteArray(),
+                                        DST20TokenInfo{
+                                            id.v,
+                                            token_name,
+                                            token_symbol,
+                                        });
+            if (!result.ok) {
+                return Res::Err("Error creating DST20 token: %s", result.reason);
             }
         }
     } else {

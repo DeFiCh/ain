@@ -55,14 +55,14 @@ std::optional<CLoanView::CLoanSetCollateralTokenImpl> CLoanView::HasLoanCollater
 std::optional<CLoanView::CLoanSetLoanTokenImpl> CLoanView::GetLoanToken(const uint256 &txid) const {
     auto id = ReadBy<LoanSetLoanTokenCreationTx, DCT_ID>(txid);
     if (id) {
-        return GetLoanTokenByID(*id);
+        return GetLoanTokenByIDFromStore(*id);
     }
     return {};
 }
 
 Res CLoanView::SetLoanToken(const CLoanSetLoanTokenImpl &loanToken, DCT_ID const &id) {
     // this should not happen, but for sure
-    if (GetLoanTokenByID(id)) {
+    if (GetLoanTokenByIDFromStore(id)) {
         return Res::Err("setLoanToken with creation tx %s already exists!", loanToken.creationTx.GetHex());
     }
 

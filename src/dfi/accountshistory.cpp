@@ -102,7 +102,12 @@ CAccountsHistoryWriter::CAccountsHistoryWriter(CCustomCSView &storage,
       txn(txn),
       txid(txid),
       type(type),
-      writers(storage.GetHistoryWriters()) {}
+      writers(storage.GetHistoryWriters()) {
+    if (storage.HasAttributes()) {
+        attributes = storage.GetAttributes();
+    }
+    persistentAttributes = true;
+}
 
 CAccountsHistoryWriter::~CAccountsHistoryWriter() {
     writers.ClearState();

@@ -163,14 +163,12 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
         return DeFiErrors::MNStateNotEnabled(obj.mnId.ToString());
     }
 
-    const auto attributes = mnview.GetAttributes();
-
     bool ownerType{}, operatorType{}, rewardType{};
     for (const auto &[type, addressPair] : obj.updates) {
         const auto &[addressType, rawAddress] = addressPair;
         if (type == static_cast<uint8_t>(UpdateMasternodeType::OwnerAddress)) {
             CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOwnerAddress};
-            if (!attributes->GetValue(key, false)) {
+            if (!mnview.GetValue(key, false)) {
                 return Res::Err("Updating masternode owner address not currently enabled in attributes.");
             }
             if (ownerType) {
@@ -232,7 +230,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             mnview.UpdateMasternodeCollateral(obj.mnId, *node, tx.GetHash(), height);
         } else if (type == static_cast<uint8_t>(UpdateMasternodeType::OperatorAddress)) {
             CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetOperatorAddress};
-            if (!attributes->GetValue(key, false)) {
+            if (!mnview.GetValue(key, false)) {
                 return Res::Err("Updating masternode operator address not currently enabled in attributes.");
             }
             if (operatorType) {
@@ -257,7 +255,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             mnview.UpdateMasternodeOperator(obj.mnId, *node, addressType, keyID, height);
         } else if (type == static_cast<uint8_t>(UpdateMasternodeType::SetRewardAddress)) {
             CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
-            if (!attributes->GetValue(key, false)) {
+            if (!mnview.GetValue(key, false)) {
                 return Res::Err("Updating masternode reward address not currently enabled in attributes.");
             }
             if (rewardType) {
@@ -296,7 +294,7 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             }
         } else if (type == static_cast<uint8_t>(UpdateMasternodeType::RemRewardAddress)) {
             CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::MNSetRewardAddress};
-            if (!attributes->GetValue(key, false)) {
+            if (!mnview.GetValue(key, false)) {
                 return Res::Err("Updating masternode reward address not currently enabled in attributes.");
             }
             if (rewardType) {

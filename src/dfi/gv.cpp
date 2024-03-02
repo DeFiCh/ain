@@ -14,7 +14,7 @@
 #include <dfi/govvariables/oracle_deviation.h>
 #include <dfi/gv.h>
 
-Res CGovView::SetVariable(const GovVariable &var) {
+Res CGovView::SetVariable(GovVariable &var) {
     auto WriteOrEraseVar = [this](const GovVariable &var) {
         if (var.IsEmpty()) {
             EraseBy<ByName>(var.GetName());
@@ -26,20 +26,24 @@ Res CGovView::SetVariable(const GovVariable &var) {
     if (var.GetName() != "ATTRIBUTES") {
         return WriteOrEraseVar(var);
     }
-    auto attributes = GetAttributes();
-    auto &current = dynamic_cast<const ATTRIBUTES &>(var);
+    auto attr = GetAttributesFromStore();
+    auto &current = dynamic_cast<ATTRIBUTES &>(var);
     if (current.changed.empty()) {
         return Res::Ok();
     }
     for (auto &key : current.changed) {
         auto it = current.attributes.find(key);
         if (it == current.attributes.end()) {
-            attributes->attributes.erase(key);
+            attr->attributes.erase(key);
         } else {
-            attributes->attributes[key] = it->second;
+            attr->attributes[key] = it->second;
         }
     }
-    return WriteOrEraseVar(*attributes);
+
+    // Wipe changed set.
+    current.changed.clear();
+
+    return WriteOrEraseVar(*attr);
 }
 
 std::shared_ptr<GovVariable> CGovView::GetVariable(const std::string &name) const {
@@ -116,10 +120,10 @@ void CGovView::EraseStoredVariables(const uint32_t height) {
     }
 }
 
-std::shared_ptr<ATTRIBUTES> CGovView::GetAttributes() const {
+std::shared_ptr<ATTRIBUTES> CGovView::GetAttributesFromStore() const {
     const auto var = GetVariable("ATTRIBUTES");
     assert(var);
-    auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(var);
-    assert(attributes);
-    return attributes;
+    auto attr = std::dynamic_pointer_cast<ATTRIBUTES>(var);
+    assert(attr);
+    return attr;
 }

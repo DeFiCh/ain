@@ -721,7 +721,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             static_cast<uint64_t>(nAcceptTime),
             consensus,
             &mnview,
-            IsEVMEnabled(mnview, consensus),
+            IsEVMEnabled(mnview),
             {},
             true,
         };
@@ -2407,13 +2407,11 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview,
                     }
                 } else {
                     if (height >= consensus.DF20GrandCentralHeight) {
-                        const auto attributes = mnview.GetAttributes();
-
                         if (kv.first == CommunityAccountType::CommunityDevFunds) {
                             CDataStructureV0 enabledKey{
                                 AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
-                            if (!attributes->GetValue(enabledKey, false)) {
+                            if (!mnview.GetValue(enabledKey, false)) {
                                 res = mnview.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
                                 LogPrint(BCLog::ACCOUNTCHANGE,
                                          "AccountChange: hash=%s fund=%s change=%s\n",
@@ -2429,7 +2427,7 @@ Res ApplyGeneralCoinbaseTx(CCustomCSView &mnview,
                             CDataStructureV0 enabledKey{
                                 AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
 
-                            if (attributes->GetValue(enabledKey, false)) {
+                            if (mnview.GetValue(enabledKey, false)) {
                                 res = mnview.AddBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
                                 if (res) {
                                     LogPrint(BCLog::ACCOUNTCHANGE,
@@ -2525,13 +2523,11 @@ void ReverseGeneralCoinbaseTx(CCustomCSView &mnview, int height, const Consensus
                     mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
                 } else {
                     if (height >= consensus.DF20GrandCentralHeight) {
-                        const auto attributes = mnview.GetAttributes();
-
                         if (kv.first == CommunityAccountType::CommunityDevFunds) {
                             CDataStructureV0 enabledKey{
                                 AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovernanceEnabled};
 
-                            if (!attributes->GetValue(enabledKey, false)) {
+                            if (!mnview.GetValue(enabledKey, false)) {
                                 mnview.SubBalance(consensus.foundationShareScript, {DCT_ID{0}, subsidy});
 
                                 continue;
@@ -2541,7 +2537,7 @@ void ReverseGeneralCoinbaseTx(CCustomCSView &mnview, int height, const Consensus
                             CDataStructureV0 enabledKey{
                                 AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EmissionUnusedFund};
 
-                            if (attributes->GetValue(enabledKey, false)) {
+                            if (mnview.GetValue(enabledKey, false)) {
                                 mnview.SubBalance(consensus.unusedEmission, {DCT_ID{0}, subsidy});
                             } else {
                                 mnview.SubCommunityBalance(CommunityAccountType::Unallocated, subsidy);
@@ -2947,15 +2943,12 @@ bool CChainState::ConnectBlock(const CBlock &block,
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
     std::vector<PrecomputedTransactionData> txdata;
 
-    const auto attributes = accountsView.GetAttributes();
-
     txdata.reserve(
         block.vtx.size());  // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
 
     const auto &consensus = chainparams.GetConsensus();
 
-    auto blockCtx =
-        BlockContext(pindex->nHeight, pindex->GetBlockTime(), consensus, &accountsView, IsEVMEnabled(attributes));
+    auto blockCtx = BlockContext(pindex->nHeight, pindex->GetBlockTime(), consensus, &accountsView);
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -3270,7 +3263,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
     // Reject block without token split coinbase TX outputs.
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+    const auto splits = accountsView.GetValue(splitKey, OracleSplits{});
 
     const auto isSplitsBlock = splits.size() > 0;
 
@@ -3377,7 +3370,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplate);
+    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, blockCtx);
 
     // Write any UTXO burns
     for (const auto &[key, value] : writeBurnEntries) {
@@ -3584,7 +3577,7 @@ bool CChainState::FlushStateToDisk(const CChainParams &chainparams,
                     return AbortNode(state, "Failed to write to coin or masternode db to disk");
                 }
                 // Flush the EVM chainstate
-                if (IsEVMEnabled(pcustomcsview->GetAttributes())) {
+                if (IsEVMEnabled(*pcustomcsview)) {
                     auto res = XResultStatusLogged(evm_try_flush_db(result));
                     if (!res) {
                         return AbortNode(state, "Failed to write to EVM db to disk");
@@ -7233,7 +7226,7 @@ CCustomCSView &BlockContext::GetView() {
 
 bool BlockContext::GetEVMEnabledForBlock() {
     if (!isEvmEnabledForBlock) {
-        isEvmEnabledForBlock = IsEVMEnabled(GetView(), Params().GetConsensus());
+        isEvmEnabledForBlock = IsEVMEnabled(GetView());
     }
     return *isEvmEnabledForBlock;
 }

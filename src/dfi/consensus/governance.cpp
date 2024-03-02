@@ -18,20 +18,16 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
     const auto time = txCtx.GetTime();
     auto &mnview = blockCtx.GetView();
 
-    for (const auto &gov : obj.govs) {
-        if (!gov.second) {
-            return Res::Err("'%s': variable does not registered", gov.first);
+    for (const auto &[name, var] : obj.govs) {
+        if (!var) {
+            return Res::Err("'%s': variable does not registered", name);
         }
 
-        auto var = gov.second;
         Res res{};
 
         if (var->GetName() == "ATTRIBUTES") {
             // Add to existing ATTRIBUTES instead of overwriting.
-            auto govVar = mnview.GetAttributes();
-
-            govVar->time = time;
-            govVar->evmTemplate = blockCtx.GetEVMTemplate();
+            mnview.SetAttributesMembers(time, blockCtx.GetEVMTemplate());
 
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(var);
             if (!newVar) {
@@ -54,7 +50,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             auto memberRemoval = newVar->GetValue(key, std::set<std::string>{});
 
             if (!memberRemoval.empty()) {
-                auto existingMembers = govVar->GetValue(key, std::set<CScript>{});
+                auto existingMembers = mnview.GetValue(key, std::set<CScript>{});
 
                 for (auto &member : memberRemoval) {
                     if (member.empty()) {
@@ -85,23 +81,21 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                     }
                 }
 
-                govVar->SetValue(key, existingMembers);
+                mnview.SetValue(key, existingMembers);
 
                 // Remove this key and apply any other changes
                 newVar->EraseKey(key);
-                if (!(res = govVar->Import(newVar->Export())) || !(res = govVar->Validate(mnview)) ||
-                    !(res = govVar->Apply(mnview, height))) {
+                if (!(res = mnview.ImportAttributes(newVar->Export())) || !(res = mnview.ValidateAttributes()) ||
+                    !(res = mnview.ApplyAttributes(height))) {
                     return Res::Err("%s: %s", var->GetName(), res.msg);
                 }
             } else {
                 // Validate as complete set. Check for future conflicts between key pairs.
-                if (!(res = govVar->Import(var->Export())) || !(res = govVar->Validate(mnview)) ||
-                    !(res = govVar->Apply(mnview, height))) {
+                if (!(res = mnview.ImportAttributes(var->Export())) || !(res = mnview.ValidateAttributes()) ||
+                    !(res = mnview.ApplyAttributes(height))) {
                     return Res::Err("%s: %s", var->GetName(), res.msg);
                 }
             }
-
-            var = govVar;
         } else {
             // After GW, some ATTRIBUTES changes require the context of its map to validate,
             // moving this Validate() call to else statement from before this conditional.
@@ -115,7 +109,7 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
                 const auto diff = height % mnview.GetIntervalBlock();
                 if (diff != 0) {
                     // Store as pending change
-                    StoreGovVars({gov.first, var, height + mnview.GetIntervalBlock() - diff}, mnview);
+                    StoreGovVars({name, var, height + mnview.GetIntervalBlock() - diff}, mnview);
                     continue;
                 }
             }
@@ -124,11 +118,11 @@ Res CGovernanceConsensus::operator()(const CGovernanceMessage &obj) const {
             if (!res) {
                 return Res::Err("%s: %s", var->GetName(), res.msg);
             }
-        }
 
-        res = mnview.SetVariable(*var);
-        if (!res) {
-            return Res::Err("%s: %s", var->GetName(), res.msg);
+            res = mnview.SetVariable(*var);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
         }
     }
     return Res::Ok();
@@ -142,26 +136,32 @@ Res CGovernanceConsensus::operator()(const CGovernanceUnsetMessage &obj) const {
 
     const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
-    const auto attributes = mnview.GetAttributes();
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovUnset};
-    if (!attributes->GetValue(key, false)) {
+    if (!mnview.GetValue(key, false)) {
         return Res::Err("Unset Gov variables not currently enabled in attributes.");
     }
 
-    for (const auto &gov : obj.govs) {
-        auto var = mnview.GetVariable(gov.first);
+    for (const auto &[name, keys] : obj.govs) {
+        auto var = mnview.GetVariable(name);
         if (!var) {
-            return Res::Err("'%s': variable does not registered", gov.first);
+            return Res::Err("'%s': variable does not registered", name);
         }
 
-        auto res = var->Erase(mnview, height, gov.second);
-        if (!res) {
-            return Res::Err("%s: %s", var->GetName(), res.msg);
-        }
-
-        if (!(res = mnview.SetVariable(*var))) {
-            return Res::Err("%s: %s", var->GetName(), res.msg);
+        Res res = Res::Ok();
+        if (var->GetName() == "ATTRIBUTES") {
+            res = mnview.EraseAttributes(height, keys);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
+        } else {
+            res = var->Erase(mnview, height, keys);
+            if (!res) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
+            if (!(res = mnview.SetVariable(*var))) {
+                return Res::Err("%s: %s", var->GetName(), res.msg);
+            }
         }
     }
     return Res::Ok();
@@ -188,8 +188,6 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
     // Validate GovVariables before storing
     if (height >= static_cast<uint32_t>(consensus.DF16FortCanningCrunchHeight) &&
         obj.govVar->GetName() == "ATTRIBUTES") {
-        auto govVar = mnview.GetAttributes();
-
         if (height >= static_cast<uint32_t>(consensus.DF22MetachainHeight)) {
             auto newVar = std::dynamic_pointer_cast<ATTRIBUTES>(obj.govVar);
             if (!newVar) {
@@ -207,13 +205,13 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
             }
         }
 
-        auto storedGovVars = mnview.GetStoredVariablesRange(height, obj.startHeight);
-
         Res res{};
-        CCustomCSView govCache(mnview);
+        CCustomCSView discardCache(mnview);
+        auto storedGovVars = discardCache.GetStoredVariablesRange(height, obj.startHeight);
+
         for (const auto &[varHeight, var] : storedGovVars) {
             if (var->GetName() == "ATTRIBUTES") {
-                if (res = govVar->Import(var->Export()); !res) {
+                if (res = discardCache.ImportAttributes(var->Export()); !res) {
                     return Res::Err("%s: Failed to import stored vars: %s", obj.govVar->GetName(), res.msg);
                 }
             }
@@ -221,25 +219,28 @@ Res CGovernanceConsensus::operator()(const CGovernanceHeightMessage &obj) const 
 
         // After GW exclude TokenSplit if split will have already been performed by startHeight
         if (height >= static_cast<uint32_t>(consensus.DF20GrandCentralHeight)) {
-            if (const auto attrVar = std::dynamic_pointer_cast<ATTRIBUTES>(govVar); attrVar) {
-                const auto attrMap = attrVar->GetAttributesMap();
-                std::vector<CDataStructureV0> keysToErase;
-                for (const auto &[key, value] : attrMap) {
-                    if (const auto attrV0 = std::get_if<CDataStructureV0>(&key); attrV0) {
-                        if (attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits &&
-                            attrV0->key < obj.startHeight) {
-                            keysToErase.push_back(*attrV0);
-                        }
+            std::vector<CDataStructureV0> keysToErase;
+            discardCache.ForEachAttribute(
+                [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
+                    if (attr.type != AttributeTypes::Oracles) {
+                        return false;
                     }
-                }
-                for (const auto &key : keysToErase) {
-                    attrVar->EraseKey(key);
-                }
+
+                    if (attr.typeId == OracleIDs::Splits && attr.key < obj.startHeight) {
+                        keysToErase.push_back(attr);
+                    }
+
+                    return true;
+                },
+                CDataStructureV0{AttributeTypes::Oracles});
+
+            for (const auto &key : keysToErase) {
+                discardCache.EraseKey(key);
             }
         }
 
-        if (!(res = govVar->Import(obj.govVar->Export())) || !(res = govVar->Validate(govCache)) ||
-            !(res = govVar->Apply(govCache, obj.startHeight))) {
+        if (!(res = discardCache.ImportAttributes(obj.govVar->Export())) ||
+            !(res = discardCache.ValidateAttributes()) || !(res = discardCache.ApplyAttributes(obj.startHeight))) {
             return Res::Err("%s: Cumulative application of Gov vars failed: %s", obj.govVar->GetName(), res.msg);
         }
     } else {

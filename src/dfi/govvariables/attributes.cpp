@@ -815,10 +815,8 @@ static void TrackLiveBalance(CCustomCSView &mnview,
                              const CTokenAmount &amount,
                              const EconomyKeys dataKey,
                              const bool add) {
-    auto attributes = mnview.GetAttributes();
-
     CDataStructureV0 key{AttributeTypes::Live, ParamIDs::Economy, dataKey};
-    auto balances = attributes->GetValue(key, CBalances{});
+    auto balances = mnview.GetValue(key, CBalances{});
     Res res{};
     if (add) {
         res = balances.Add(amount);
@@ -826,8 +824,7 @@ static void TrackLiveBalance(CCustomCSView &mnview,
         res = balances.Sub(amount);
     }
     if (res) {
-        attributes->SetValue(key, balances);
-        mnview.SetVariable(*attributes);
+        mnview.SetValue(key, balances);
     }
 }
 
@@ -847,30 +844,17 @@ void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount) {
 }
 
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key) {
-    auto attributes = mnview.GetAttributes();
-
     const CDataStructureV0 liveKey{AttributeTypes::Live, ParamIDs::Auction, key};
-    auto storedBalances = attributes->GetValue(liveKey, CBalances{});
+    auto storedBalances = mnview.GetValue(liveKey, CBalances{});
     for (const auto &[tokenID, amount] : balances.balances) {
         storedBalances.balances[tokenID] += amount;
     }
-    attributes->SetValue(liveKey, storedBalances);
-    mnview.SetVariable(*attributes);
+    mnview.SetValue(liveKey, storedBalances);
 }
 
-bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
-    if (!attributes) {
-        return false;
-    }
-
+bool IsEVMEnabled(CCustomCSView &view) {
     const CDataStructureV0 enabledKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::EVMEnabled};
-    return attributes->GetValue(enabledKey, false);
-}
-
-bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus) {
-    auto attributes = view.GetAttributes();
-
-    return IsEVMEnabled(attributes);
+    return view.GetValue(enabledKey, false);
 }
 
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view) {
@@ -1710,7 +1694,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         [[fallthrough]];
                     case TokenKeys::PaybackDFI:
                     case TokenKeys::PaybackDFIFeePCT:
-                        if (!view.GetLoanTokenByID({attrV0->typeId})) {
+                        if (!view.GetLoanTokenByIDFromStore({attrV0->typeId}) &&
+                            !GetLoanTokenByID(view, {attrV0->typeId})) {
                             return DeFiErrors::GovVarValidateLoanToken(attrV0->typeId);
                         }
                         break;
@@ -1719,7 +1704,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().DF15FortCanningRoadHeight) {
                             return DeFiErrors::GovVarValidateFortCanningRoad();
                         }
-                        if (!view.GetLoanTokenByID({attrV0->typeId})) {
+                        if (!view.GetLoanTokenByIDFromStore({attrV0->typeId}) &&
+                            !GetLoanTokenByID(view, {attrV0->typeId})) {
                             return DeFiErrors::GovVarValidateLoanToken(attrV0->typeId);
                         }
                         if (!view.GetToken(DCT_ID{attrV0->keyId})) {
@@ -1812,7 +1798,8 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         if (view.GetLastHeight() < Params().GetConsensus().DF15FortCanningRoadHeight) {
                             return DeFiErrors::GovVarValidateFortCanningRoad();
                         }
-                        if (!view.GetLoanTokenByID({attrV0->typeId})) {
+                        if (!view.GetLoanTokenByIDFromStore({attrV0->typeId}) &&
+                            !GetLoanTokenByID(view, {attrV0->typeId})) {
                             return DeFiErrors::GovVarValidateLoanToken(attrV0->typeId);
                         }
                         break;
@@ -1835,22 +1822,23 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                         return DeFiErrors::GovVarUnsupportedValue();
                     }
 
-                    for (const auto &[tokenId, multipler] : *splitMap) {
-                        if (tokenId == 0) {
+                    for (const auto &[tokenNum, multipler] : *splitMap) {
+                        if (tokenNum == 0) {
                             return DeFiErrors::GovVarValidateSplitDFI();
                         }
-                        if (view.HasPoolPair({tokenId})) {
+                        const DCT_ID tokenId{tokenNum};
+                        if (view.HasPoolPair(tokenId)) {
                             return DeFiErrors::GovVarValidateSplitPool();
                         }
-                        const auto token = view.GetToken(DCT_ID{tokenId});
+                        const auto token = view.GetToken(tokenId);
                         if (!token) {
-                            return DeFiErrors::GovVarValidateTokenExist(tokenId);
+                            return DeFiErrors::GovVarValidateTokenExist(tokenNum);
                         }
                         if (!token->IsDAT()) {
                             return DeFiErrors::GovVarValidateSplitDAT();
                         }
-                        if (!view.GetLoanTokenByID({tokenId})) {
-                            return DeFiErrors::GovVarValidateLoanTokenID(tokenId);
+                        if (!view.GetLoanTokenByIDFromStore(tokenId) && !GetLoanTokenByID(view, tokenId)) {
+                            return DeFiErrors::GovVarValidateLoanTokenID(tokenNum);
                         }
                     }
                 } else {
@@ -1920,17 +1908,19 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
             case AttributeTypes::Live:
                 break;
 
-            case AttributeTypes::Locks:
+            case AttributeTypes::Locks: {
                 if (view.GetLastHeight() < Params().GetConsensus().DF16FortCanningCrunchHeight) {
                     return Res::Err("Cannot be set before FortCanningCrunch");
                 }
                 if (attrV0->typeId != ParamIDs::TokenID) {
                     return Res::Err("Unrecognised locks id");
                 }
-                if (!view.GetLoanTokenByID(DCT_ID{attrV0->key}).has_value()) {
-                    return Res::Err("No loan token with id (%d)", attrV0->key);
+                const DCT_ID tokenId{attrV0->key};
+                if (!view.GetLoanTokenByIDFromStore(tokenId) && !GetLoanTokenByID(view, tokenId)) {
+                    return DeFiErrors::GovVarValidateLoanTokenID(attrV0->key);
                 }
                 break;
+            }
 
             case AttributeTypes::Governance:
                 if (view.GetLastHeight() < Params().GetConsensus().DF20GrandCentralHeight) {
@@ -2251,7 +2241,7 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
     return Res::Ok();
 }
 
-Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::string> &keys) {
+Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t height, const std::vector<std::string> &keys) {
     for (const auto &key : keys) {
         auto res = ProcessVariable(key, {}, [&](const CAttributeType &attribute, const CAttributeValue &) {
             auto attrV0 = std::get_if<CDataStructureV0>(&attribute);
@@ -2290,4 +2280,29 @@ Res ATTRIBUTES::Erase(CCustomCSView &mnview, uint32_t, const std::vector<std::st
     }
 
     return Res::Ok();
+}
+
+void ATTRIBUTES::SetAttributesMembers(const int64_t setTime, const std::shared_ptr<CScopedTemplate> &setEvmTemplate) {
+    time = setTime;
+    evmTemplate = setEvmTemplate;
+}
+
+std::optional<CLoanView::CLoanSetLoanTokenImpl> ATTRIBUTES::GetLoanTokenByID(const CCustomCSView &view,
+                                                                             const DCT_ID &id) const {
+    CDataStructureV0 pairKey{AttributeTypes::Token, id.v, TokenKeys::FixedIntervalPriceId};
+    CDataStructureV0 interestKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingInterest};
+    CDataStructureV0 mintableKey{AttributeTypes::Token, id.v, TokenKeys::LoanMintingEnabled};
+
+    if (const auto token = view.GetToken(id);
+        token && CheckKey(pairKey) && CheckKey(interestKey) && CheckKey(mintableKey)) {
+        CLoanView::CLoanSetLoanTokenImpl loanToken;
+        loanToken.fixedIntervalPriceId = GetValue(pairKey, CTokenCurrencyPair{});
+        loanToken.interest = GetValue(interestKey, CAmount{});
+        loanToken.mintable = GetValue(mintableKey, false);
+        loanToken.symbol = token->symbol;
+        loanToken.name = token->name;
+        return loanToken;
+    }
+
+    return {};
 }

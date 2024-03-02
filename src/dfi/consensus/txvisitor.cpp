@@ -117,11 +117,9 @@ Res CCustomTxVisitor::HasFoundationAuth() const {
     const auto &tx = txCtx.GetTransaction();
 
     auto members = consensus.foundationMembers;
-    const auto attributes = mnview.GetAttributes();
 
-    if (attributes->GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation},
-                             false)) {
-        if (const auto databaseMembers = attributes->GetValue(
+    if (mnview.GetValue(CDataStructureV0{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::GovFoundation}, false)) {
+        if (const auto databaseMembers = mnview.GetValue(
                 CDataStructureV0{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members}, std::set<CScript>{});
             !databaseMembers.empty()) {
             members = databaseMembers;
@@ -316,9 +314,7 @@ Res CCustomTxVisitor::CollateralPctCheck(const bool hasDUSDLoans,
 
     if (isPostNext) {
         const CDataStructureV0 enabledKey{AttributeTypes::Vaults, VaultIDs::DUSDVault, VaultKeys::DUSDVaultEnabled};
-        auto attributes = mnview.GetAttributes();
-
-        auto DUSDVaultsAllowed = attributes->GetValue(enabledKey, false);
+        auto DUSDVaultsAllowed = mnview.GetValue(enabledKey, false);
         if (DUSDVaultsAllowed && hasDUSDColl && !hasOtherColl) {
             return Res::Ok();  // every loan ok when DUSD loops allowed and 100% DUSD collateral
         }

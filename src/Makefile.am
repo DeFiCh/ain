@@ -184,6 +184,7 @@ DEFI_CORE_H = \
   dfi/evm.h \
   dfi/factory.h \
   dfi/govvariables/attributes.h \
+  dfi/govvariables/attributetypes.h \
   dfi/govvariables/icx_takerfee_per_btc.h \
   dfi/govvariables/loan_daily_reward.h \
   dfi/govvariables/loan_liquidation_penalty.h \

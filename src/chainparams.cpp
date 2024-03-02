@@ -8,7 +8,8 @@
 #include <chainparams.h>
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
-#include <dfi/mn_checks.h>
+#include <consensus/tx_check.h>
+#include <dfi/customtx.h>
 #include <streams.h>
 #include <tinyformat.h>
 #include <util/system.h>

@@ -13,8 +13,6 @@
 class ATTRIBUTES;
 class CCustomCSView;
 
-using XVmAddressFormatItems = std::set<uint8_t>;
-
 template <typename T>
 class GvOptional : public std::optional<T> {
 public:
@@ -106,9 +104,12 @@ struct CGovernanceUnsetMessage {
 };
 
 class CGovView : public virtual CStorageView {
+protected:
+    [[nodiscard]] std::shared_ptr<ATTRIBUTES> GetAttributesFromStore() const;
+
 public:
-    Res SetVariable(const GovVariable &var);
-    std::shared_ptr<GovVariable> GetVariable(const std::string &govKey) const;
+    Res SetVariable(GovVariable &var);
+    [[nodiscard]] std::shared_ptr<GovVariable> GetVariable(const std::string &govKey) const;
 
     Res SetStoredVariables(const std::set<std::shared_ptr<GovVariable>> &govVars, const uint32_t height);
     std::set<std::shared_ptr<GovVariable>> GetStoredVariables(const uint32_t height);
@@ -117,9 +118,7 @@ public:
     std::map<std::string, std::map<uint64_t, std::shared_ptr<GovVariable>>> GetAllStoredVariables();
     void EraseStoredVariables(const uint32_t height);
 
-    std::shared_ptr<ATTRIBUTES> GetAttributes() const;
-
-    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) const = 0;
+    [[nodiscard]] virtual bool AreTokensLocked(const std::set<uint32_t> &tokenIds) = 0;
 
     struct ByHeightVars {
         static constexpr uint8_t prefix() { return 'G'; }
