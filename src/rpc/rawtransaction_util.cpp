@@ -305,7 +305,7 @@ UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serializ
 
 UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins, bool is_temp_keystore, const UniValue& hashType)
 {
-    if (LogAcceptCategory(BCLog::SIGN)) {
+    if (LogAcceptCategory(BCLog::SIGNTX)) {
         LogPrintf("SignTransaction::Pre: %s\n", ExtendedTxToUniv(CTransaction(mtx), true, RPCSerializationFlags(), 4, true, true).write(2));
     }
     // Add previous txouts given in the RPC call:
@@ -435,7 +435,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     }
     bool fComplete = vErrors.empty();
 
-    if (LogAcceptCategory(BCLog::SIGN)) {
+    if (LogAcceptCategory(BCLog::SIGNTX)) {
         LogPrintf("SignTransaction::Post: %s\n", ExtendedTxToUniv(CTransaction(mtx), true, RPCSerializationFlags(), 4, true, true).write(2));
     }
 

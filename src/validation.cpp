@@ -1676,17 +1676,24 @@ int GetSpendHeight(const CCoinsViewCache &inputs) {
     return pindexPrev->nHeight + 1;
 }
 
-static CuckooCache::cache<uint256, SignatureCacheHasher> scriptExecutionCache;
-static uint256 scriptExecutionCacheNonce(GetRandHash());
+static CuckooCache::cache<uint256, SignatureCacheHasher> g_scriptExecutionCache;
+static CSHA256 g_scriptExecutionCacheHasher;
 
 void InitScriptExecutionCache() {
+    // Setup the salted hasher
+    uint256 nonce = GetRandHash();
+    // We want the nonce to be 64 bytes long to force the hasher to process
+    // this chunk, which makes later hash computations more efficient. We
+    // just write our 32-byte entropy twice to fill the 64 bytes.
+    g_scriptExecutionCacheHasher.Write(nonce.begin(), 32);
+    g_scriptExecutionCacheHasher.Write(nonce.begin(), 32);
     // nMaxCacheSize is unsigned. If -maxsigcachesize is set to zero,
     // setup_bytes creates the minimum possible cache (2 elements).
     size_t nMaxCacheSize =
         std::min(std::max((int64_t)0, gArgs.GetArg("-maxsigcachesize", DEFAULT_MAX_SIG_CACHE_SIZE) / 2),
                  MAX_MAX_SIG_CACHE_SIZE) *
         ((size_t)1 << 20);
-    size_t nElems = scriptExecutionCache.setup_bytes(nMaxCacheSize);
+    size_t nElems = g_scriptExecutionCache.setup_bytes(nMaxCacheSize);
     LogPrintf("Using %zu MiB out of %zu/2 requested for script execution cache, able to store %zu elements\n",
               (nElems * sizeof(uint256)) >> 20,
               (nMaxCacheSize * 2) >> 20,
@@ -1757,25 +1764,30 @@ bool CheckInputs(const CTransaction &tx,
             // properly commits to the scriptPubKey in the inputs view of that
             // transaction).
             uint256 hashCacheEntry;
-            // We only use the first 19 bytes of nonce to avoid a second SHA
-            // round - giving us 19 + 32 + 4 = 55 bytes (+ 8 + 1 = 64)
-            static_assert(55 - sizeof(flags) - 32 >= 128 / 8,
-                          "Want at least 128 bits of nonce for script execution cache");
-            CSHA256()
-                .Write(scriptExecutionCacheNonce.begin(), 55 - sizeof(flags) - 32)
-                .Write(tx.GetWitnessHash().begin(), 32)
+            CSHA256 hasher = g_scriptExecutionCacheHasher;
+            hasher.Write(tx.GetWitnessHash().begin(), 32)
                 .Write((unsigned char *)&flags, sizeof(flags))
                 .Finalize(hashCacheEntry.begin());
             AssertLockHeld(cs_main);  // TODO: Remove this requirement by making CuckooCache not require external locks
-            if (scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
+            if (g_scriptExecutionCache.contains(hashCacheEntry, !cacheFullScriptStore)) {
                 return true;
             }
 
-            for (unsigned int i = 0; i < tx.vin.size(); i++) {
-                const COutPoint &prevout = tx.vin[i].prevout;
-                const Coin &coin = inputs.AccessCoin(prevout);
-                assert(!coin.IsSpent());
+            if (!txdata.m_spent_outputs_ready) {
+                std::vector<CTxOut> spent_outputs;
+                spent_outputs.reserve(tx.vin.size());
 
+                for (const auto &txin : tx.vin) {
+                    const COutPoint &prevout = txin.prevout;
+                    const Coin &coin = inputs.AccessCoin(prevout);
+                    assert(!coin.IsSpent());
+                    spent_outputs.emplace_back(coin.out);
+                }
+                txdata.Init(tx, std::move(spent_outputs));
+            }
+            assert(txdata.m_spent_outputs.size() == tx.vin.size());
+
+            for (unsigned int i = 0; i < tx.vin.size(); i++) {
                 // We very carefully only pass in things to CScriptCheck which
                 // are clearly committed to by tx' witness hash. This provides
                 // a sanity check that our caching is not introducing consensus
@@ -1783,7 +1795,7 @@ bool CheckInputs(const CTransaction &tx,
                 // spent being checked as a part of CScriptCheck.
 
                 // Verify signature
-                CScriptCheck check(coin.out, tx, i, flags, cacheSigStore, &txdata);
+                CScriptCheck check(txdata.m_spent_outputs[i], tx, i, flags, cacheSigStore, &txdata);
                 if (pvChecks) {
                     pvChecks->push_back(CScriptCheck());
                     check.swap(pvChecks->back());
@@ -1797,8 +1809,12 @@ bool CheckInputs(const CTransaction &tx,
                         // splitting the network between upgraded and
                         // non-upgraded nodes by banning CONSENSUS-failing
                         // data providers.
-                        CScriptCheck check2(
-                            coin.out, tx, i, flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheSigStore, &txdata);
+                        CScriptCheck check2(txdata.m_spent_outputs[i],
+                                            tx,
+                                            i,
+                                            flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS,
+                                            cacheSigStore,
+                                            &txdata);
                         if (check2()) {
                             return state.Invalid(ValidationInvalidReason::TX_NOT_STANDARD,
                                                  false,
@@ -1825,7 +1841,7 @@ bool CheckInputs(const CTransaction &tx,
             if (cacheFullScriptStore && !pvChecks) {
                 // We executed all of the provided scripts, and were told to
                 // cache the result. Do so now.
-                scriptExecutionCache.insert(hashCacheEntry);
+                g_scriptExecutionCache.insert(hashCacheEntry);
             }
         }
     }
@@ -2327,6 +2343,11 @@ static unsigned int GetBlockScriptFlags(const CBlockIndex *pindex, const Consens
     // Start enforcing BIP112 (CHECKSEQUENCEVERIFY)
     if (pindex->nHeight >= consensusparams.CSVHeight) {
         flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
+    }
+
+    // Start enforcing Taproot.
+    if (pindex->nHeight >= consensusparams.DF23Height) {
+        flags |= SCRIPT_VERIFY_TAPROOT;
     }
 
     // Start enforcing BIP147 NULLDUMMY (activated simultaneously with segwit)
@@ -2934,7 +2955,13 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
     CBlockUndo blockundo;
 
+    // Precomputed transaction data pointers must not be invalidated
+    // until after `control` has run the script checks (potentially
+    // in multiple threads). Preallocate the vector size so a new allocation
+    // doesn't invalidate pointers into the vector, and keep txsdata in scope
+    // for as long as `control`.
     CCheckQueueControl<CScriptCheck> control(fScriptChecks && g_parallel_script_checks ? &scriptcheckqueue : nullptr);
+    std::vector<PrecomputedTransactionData> txsdata(block.vtx.size());
 
     std::vector<std::pair<AccountHistoryKey, AccountHistoryValue>> writeBurnEntries;
     std::vector<int> prevheights;
@@ -2945,13 +2972,8 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // to calculate their merkle root in isolation
     CCustomCSView accountsView(mnview);
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
-    std::vector<PrecomputedTransactionData> txdata;
 
     const auto attributes = accountsView.GetAttributes();
-
-    txdata.reserve(
-        block.vtx.size());  // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
-
     const auto &consensus = chainparams.GetConsensus();
 
     auto blockCtx =
@@ -3096,7 +3118,6 @@ bool CChainState::ConnectBlock(const CBlock &block,
                 ValidationInvalidReason::CONSENSUS, error("%s: too many sigops", __func__), "bad-blk-sigops");
         }
 
-        txdata.emplace_back(tx);
         if (!tx.IsCoinBase()) {
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult
@@ -3108,7 +3129,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
                              flags,
                              fCacheResults,
                              fCacheResults,
-                             txdata[i],
+                             txsdata[i],
                              g_parallel_script_checks ? &vChecks : nullptr)) {
                 if (state.GetReason() == ValidationInvalidReason::TX_NOT_STANDARD) {
                     // CheckInputs may return NOT_STANDARD for extra flags we passed,
@@ -4001,7 +4022,7 @@ bool CChainState::ConnectTip(CValidationState &state,
              nTimeTotal * MICRO,
              nTimeTotal * MILLI / nBlocksTotal);
 
-    if (LogAcceptCategory(BCLog::CONNECT)) {
+    if (LogAcceptCategory(BCLog::CONNECTBLOCK)) {
         LogPrintf("ConnectTip: %s\n", blockToJSON(*pthisBlock, pindexNew, pindexNew, true, 4).write(2));
     }
     connectTrace.BlockConnected(pindexNew, std::move(pthisBlock));

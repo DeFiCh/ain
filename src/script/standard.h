@@ -71,6 +71,7 @@ enum txnouttype {
     TX_NULL_DATA, //!< unspendable OP_RETURN script that carries data
     TX_WITNESS_V0_SCRIPTHASH,
     TX_WITNESS_V0_KEYHASH,
+    TX_WITNESS_V1_TAPROOT,
     TX_WITNESS_V16_ETHHASH,
     TX_WITNESS_UNKNOWN, //!< Only for Witness versions not already defined above
 };
@@ -147,7 +148,8 @@ struct WitnessUnknown {
  *  * ScriptHash: TX_SCRIPTHASH destination (P2SH)
  *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
  *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
- *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
+ *  * WitnessUnknown: TxoutType::WITNESS_UNKNOWN/WITNESS_V1_TAPROOT destination (P2W???)
+ *    (taproot outputs do not require their own type as long as no wallet support exists)
  *  * WitnessV16EthHash: ERC55 address type. Not a valid destination, here for address support anly.
  *  A CTxDestination is the internal data type encoded in a DFI address
  */

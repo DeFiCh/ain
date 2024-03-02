@@ -1297,9 +1297,9 @@ class FullBlockTest(DefiTestFramework):
         b76 = self.next_block(76)
         size = MAX_BLOCK_SIGOPS - 1 + MAX_SCRIPT_ELEMENT_SIZE + 1 + 5
         a = bytearray([OP_CHECKSIG] * size)
-        a[MAX_BLOCK_SIGOPS - 1] = (
-            0x4E  # PUSHDATA4, but leave the following bytes as just checksigs
-        )
+        a[
+            MAX_BLOCK_SIGOPS - 1
+        ] = 0x4E  # PUSHDATA4, but leave the following bytes as just checksigs
         tx = self.create_and_sign_transaction(out[23], 1, CScript(a))
         b76 = self.update_block(76, [tx])
         self.send_blocks([b76], True)

@@ -986,6 +986,7 @@ static std::string RecurseImportData(const CScript& script, ImportData& import_d
         return "unspendable script";
     case TX_NONSTANDARD:
     case TX_WITNESS_UNKNOWN:
+    case TX_WITNESS_V1_TAPROOT:
     default:
         return "unrecognized script";
     }
