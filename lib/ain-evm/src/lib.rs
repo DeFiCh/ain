@@ -7,7 +7,7 @@ pub mod bytes;
 mod contract;
 pub mod core;
 mod ecrecover;
-mod eventlistener;
+pub mod eventlistener;
 pub mod evm;
 pub mod executor;
 pub mod fee;
