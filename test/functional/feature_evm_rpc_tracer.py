@@ -176,7 +176,12 @@ class EvmTracerTest(DefiTestFramework):
             else:
                 assert_equal(
                     self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
+                    {
+                        "gas": "0x5208",
+                        "failed": False,
+                        "returnValue": "",
+                        "structLogs": [],
+                    },
                 )
 
     def test_tracer_on_contract_call_tx(self):
