@@ -714,6 +714,7 @@ impl EVMCoreService {
             debug!("Vicinity: {:?}", vicinity);
             (state_root, vicinity)
         } else {
+            // Handle edge case of no genesis block
             let block_gas_limit =
                 U256::from(ain_cpp_imports::get_attribute_values(None).block_gas_limit);
             let vicinity: Vicinity = Vicinity {
@@ -836,10 +837,12 @@ impl EVMCoreService {
     pub fn call_with_tracer(
         &self,
         tx: &SignedTx,
-        block_number: Option<U256>,
+        block_number: U256,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        // Backend state to start the tx replay should be at the end of the previous block
+        let start_block_number = block_number.checked_sub(U256::one());
         let mut backend = self
-            .get_backend_from_block(block_number, None, None, None)
+            .get_backend_from_block(start_block_number, None, None, None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
         backend.update_vicinity_from_tx(tx)?;
         AinExecutor::new(&mut backend).exec_with_tracer(tx)
