@@ -195,6 +195,7 @@ BASE_SCRIPTS = [
     "feature_poolswap.py",
     "feature_split_migrate_lock.py",
     "feature_poolswap_composite.py",
+    "feature_future_swap_limitation.py",
     "feature_poolswap_mechanism.py",
     "feature_poolswap_mainnet.py",
     "feature_prevent_bad_tx_propagation.py",

@@ -9,6 +9,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <dfi/validation.h>
 
 Res CSmartContractsConsensus::HandleDFIP2201Contract(const CSmartContractMessage &obj) const {
     const auto &consensus = txCtx.GetConsensus();
@@ -288,6 +289,46 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
             return res;
         }
     } else {
+        if (height >= static_cast<uint32_t>(consensus.DF23Height) && source->symbol != "DUSD") {
+            CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
+            const auto dfip11fEnabled = attributes->GetValue(activeKey, false);
+            const auto averageLiquidity = mnview.GetLoanTokenAverageLiquidity(obj.source.nTokenId.v);
+
+            if (dfip11fEnabled && averageLiquidity) {
+                CDataStructureV0 averageKey{
+                    AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::AverageLiquidityPercentage};
+                const auto averageLiquidityPercentage =
+                    attributes->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
+
+                const auto maxSwapAmount = MultiplyAmounts(*averageLiquidity, averageLiquidityPercentage);
+
+                arith_uint256 totalSwapAmount{};
+
+                mnview.ForEachFuturesUserValues(
+                    [&](const CFuturesUserKey &key, const CFuturesUserValue &futuresValues) {
+                        if (futuresValues.source.nTokenId == obj.source.nTokenId &&
+                            futuresValues.destination == obj.destination) {
+                            totalSwapAmount += futuresValues.source.nValue;
+                        }
+                        return true;
+                    },
+                    {height, {}, std::numeric_limits<uint32_t>::max()});
+
+                if (obj.source.nValue + totalSwapAmount > maxSwapAmount) {
+                    auto percentageString = GetDecimalString(averageLiquidityPercentage * 100);
+                    rtrim(percentageString, '0');
+                    if (percentageString.back() == '.') {
+                        percentageString.pop_back();
+                    }
+                    return Res::Err(
+                        "Swap amount exceeds %d%% of average pool liquidity limit. Available amount to swap: %s@%s",
+                        percentageString,
+                        GetDecimalString((maxSwapAmount - totalSwapAmount).GetLow64()),
+                        source->symbol);
+                }
+            }
+        }
+
         if (auto res = TransferTokenBalance(obj.source.nTokenId, obj.source.nValue, obj.owner, *contractAddressValue);
             !res) {
             return res;
