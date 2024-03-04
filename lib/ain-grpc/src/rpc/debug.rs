@@ -73,6 +73,8 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .map_err(to_custom_err)?
             .ok_or(RPCError::ReceiptNotFound(tx_hash))?;
 
+        // Backend state to start the tx replay should be at the end of the previous block
+        let block_number = receipt.block_number.checked_sub(U256::one());
         let tx = self
             .handler
             .storage
@@ -84,7 +86,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let (logs, succeeded, return_data, gas_used) = self
             .handler
             .core
-            .call_with_tracer(&signed_tx, receipt.block_number)
+            .call_with_tracer(&signed_tx, block_number)
             .map_err(RPCError::EvmError)?;
         let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
