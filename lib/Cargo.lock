@@ -198,37 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ain-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.38",
-]
-
-[[package]]
-name = "ain-rs-exports"
-version = "0.1.0"
-dependencies = [
- "ain-contracts",
- "ain-cpp-imports",
- "ain-evm",
- "ain-grpc",
- "ain-macros",
- "anyhow",
- "cxx",
- "cxx-gen",
- "ethabi",
- "ethereum",
- "ethereum-types",
- "hex",
- "log",
- "proc-macro2",
- "rlp",
- "serde_json",
-]
-
-[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1015,18 +984,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scratch",
- "syn 2.0.38",
-]
-
-[[package]]
-name = "cxx-gen"
-version = "0.7.110"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3e0fc77e9f8d61724be90deb42a7e50ba3bf37c7c16dc91cdba821f69a5e0e9"
-dependencies = [
- "codespan-reporting",
- "proc-macro2",
- "quote",
  "syn 2.0.38",
 ]
 
@@ -2863,9 +2820,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "0.8.9"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3dce281c5e46beae905d4de1870d8b1509a9142b62eedf18b443b011ca8343d0"
+checksum = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
