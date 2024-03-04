@@ -35,6 +35,7 @@ class EvmTracerTest(DefiTestFramework):
                 "-metachainheight=105",
                 "-df23height=105",
                 "-subsidytest=1",
+                "-ethmaxresponsesize=100",
             ],
         ]
 
@@ -94,7 +95,7 @@ class EvmTracerTest(DefiTestFramework):
         self.rollback_to(self.start_height)
         hashes = []
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        for i in range(5):
+        for i in range(3):
             hash = self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": hex(start_nonce + i),
@@ -115,6 +116,68 @@ class EvmTracerTest(DefiTestFramework):
                 self.nodes[0].debug_traceTransaction(tx["hash"]),
                 {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
             )
+
+    def test_tracer_on_transfer_tx_with_sys_txs(self):
+        self.rollback_to(self.start_height)
+        hashes = []
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(3):
+            hash = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+            hashes.append(hash)
+        # Add transfer domain inside block
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        for i in range(4, 7):
+            hash = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+            hashes.append(hash)
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+
+        # Test tracer for every tx
+        for idx, tx in enumerate(block_txs):
+            if idx == 3:
+                # TODO: Trace on transferdomain tx test is disabled for now, to add support on
+                # tracer for system txs in the near future.
+                # Test trace for transferdomain tx
+                # assert_equal(
+                #     self.nodes[0].debug_traceTransaction(tx["hash"]),
+                #     {"gas": "0x0", "failed": False, "returnValue": "", "structLogs": []},
+                # )
+                continue
+            else:
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
+                )
 
     def test_tracer_on_contract_call_tx(self):
         self.rollback_to(self.start_height)
@@ -171,9 +234,7 @@ class EvmTracerTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        # TODO: Disabled for now because state consistency of the debug_traceTransaction is
-        # incorrect.
-        # loop_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        loop_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
         # Test tracer for contract call txs
@@ -182,11 +243,9 @@ class EvmTracerTest(DefiTestFramework):
                 "gasUsed"
             ]
         )
-        # TODO: Disabled for now because state consistency of the debug_traceTransaction is
-        # incorrect.
-        # loop_gas_used = Decimal(
-        #     self.nodes[0].w3.eth.wait_for_transaction_receipt(loop_tx_hash)["gasUsed"]
-        # )
+        loop_gas_used = Decimal(
+            self.nodes[0].w3.eth.wait_for_transaction_receipt(loop_tx_hash)["gasUsed"]
+        )
         # Test tracer for state change tx
         assert_equal(
             int(
@@ -200,24 +259,24 @@ class EvmTracerTest(DefiTestFramework):
             False,
         )
         # Test tracer for loop tx
-        # TODO: Disabled for now because state consistency of the debug_traceTransaction is
-        # incorrect.
-        # assert_equal(
-        #     int(
-        #         self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["gas"],
-        #         16,
-        #     ),
-        #     loop_gas_used,
-        # )
-        # assert_equal(
-        #     self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["failed"],
-        #     False,
-        # )
+        assert_equal(
+            int(
+                self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["gas"],
+                16,
+            ),
+            loop_gas_used,
+        )
+        assert_equal(
+            self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["failed"],
+            False,
+        )
 
     def run_test(self):
         self.setup()
 
         self.test_tracer_on_transfer_tx()
+
+        self.test_tracer_on_transfer_tx_with_sys_txs()
 
         self.test_tracer_on_contract_call_tx()
 

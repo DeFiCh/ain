@@ -23,11 +23,28 @@ pub mod ffi {
         pub entry_time: i64,
     }
 
+    #[derive(Debug, Clone)]
+    pub enum SystemTxType {
+        EVMTx,
+        TransferDomainIn,
+        TransferDomainOut,
+        DST20BridgeIn,
+        DST20BridgeOut,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct SystemTxData {
+        pub tx_type: SystemTxType,
+        pub token_id: u64,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
         type DST20Token;
         type TransactionData;
+        type SystemTxType;
+        type SystemTxData;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -60,5 +77,6 @@ pub mod ffi {
         fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
+        fn getEVMSystemTxsFromBlock(block_hash: [u8; 32]) -> Vec<SystemTxData>;
     }
 }

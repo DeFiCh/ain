@@ -9,6 +9,7 @@ use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
+use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
     backend::{EVMBackend, Vicinity},
@@ -30,8 +31,9 @@ use crate::{
         Storage,
     },
     subscription::{Notification, SubscriptionService},
+    tracer::TracerService,
     transaction::{cache::TransactionCache, SignedTx},
-    trie::GENESIS_STATE_ROOT,
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
 };
 
@@ -42,6 +44,7 @@ pub struct EVMServices {
     pub logs: LogService,
     pub filters: FilterService,
     pub subscriptions: SubscriptionService,
+    pub tracer: TracerService,
     pub storage: Arc<Storage>,
     pub tx_cache: Arc<TransactionCache>,
 }
@@ -68,6 +71,13 @@ pub struct BlockContext {
     pub attrs: Attributes,
 }
 
+fn init_vsdb(path: PathBuf) {
+    debug!(target: "vsdb", "Initializating VSDB");
+    let vsdb_dir_path = path.join(".vsdb");
+    vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
+    debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
+}
+
 impl EVMServices {
     /// Constructs a new Handlers instance. Depending on whether the defid -ethstartstate flag is set,
     /// it either revives the storage from a previously saved state or initializes new storage using input from a JSON file.
@@ -90,6 +100,7 @@ impl EVMServices {
         if !path.exists() {
             std::fs::create_dir(&path)?;
         }
+        init_vsdb(path.clone());
 
         if let Some(state_input_path) = ain_cpp_imports::get_state_input_json() {
             if ain_cpp_imports::get_network() != "regtest" {
@@ -98,33 +109,46 @@ impl EVMServices {
                 )
                 .into());
             }
+
+            // Init storage
+            let trie_store = Arc::new(TrieDBStore::new());
             let storage = Arc::new(Storage::new(&path)?);
             let tx_cache = Arc::new(TransactionCache::new());
+
             Ok(Self {
                 core: EVMCoreService::new_from_json(
+                    Arc::clone(&trie_store),
                     Arc::clone(&storage),
                     Arc::clone(&tx_cache),
                     PathBuf::from(state_input_path),
-                    path,
                 )?,
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
                 subscriptions: SubscriptionService::new(),
+                tracer: TracerService::new(Arc::clone(&trie_store), Arc::clone(&storage)),
                 storage,
                 tx_cache,
             })
         } else {
+            // Init storage
+            let trie_store = Arc::new(TrieDBStore::restore());
             let storage = Arc::new(Storage::restore(&path)?);
             let tx_cache = Arc::new(TransactionCache::new());
+
             Ok(Self {
-                core: EVMCoreService::restore(Arc::clone(&storage), Arc::clone(&tx_cache), path),
+                core: EVMCoreService::restore(
+                    Arc::clone(&trie_store),
+                    Arc::clone(&storage),
+                    Arc::clone(&tx_cache),
+                ),
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
                 subscriptions: SubscriptionService::new(),
+                tracer: TracerService::new(Arc::clone(&trie_store), Arc::clone(&storage)),
                 storage,
                 tx_cache,
             })

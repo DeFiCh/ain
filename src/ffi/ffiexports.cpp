@@ -1,4 +1,5 @@
 #include <clientversion.h>
+#include <dfi/customtx.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <ffi/ffiexports.h>
@@ -385,4 +386,66 @@ bool isEthDebugRPCEnabled() {
 
 bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
+}
+
+rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBlockHash) {
+    rust::vec<SystemTxData> out;
+    auto blockHash =
+        pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256::FromByteArray(evmBlockHash).GetHex());
+    if (!blockHash.val.has_value()) {
+        return out;
+    }
+    auto hash = uint256S(*blockHash);
+    const auto consensus = Params().GetConsensus();
+    const CBlockIndex *pblockindex = LookupBlockIndex(hash);
+    if (!pblockindex) {
+        return out;
+    }
+    CBlock block;
+    if (IsBlockPruned(pblockindex)) {
+        return out;
+    }
+    if (!ReadBlockFromDisk(block, pblockindex, consensus)) {
+        // Block not found on disk. This could be because we have the block
+        // header in our index but don't have the block (for example if a
+        // non-whitelisted node sends us an unrequested long chain of valid
+        // blocks, we add the headers to our index, but don't accept the
+        // block).
+        return out;
+    }
+    for (const auto &tx : block.vtx) {
+        std::vector<unsigned char> metadata;
+        auto txType = GuessCustomTxType(*tx, metadata, true);
+        if (txType == CustomTxType::EvmTx) {
+            out.push_back(SystemTxData{SystemTxType::EVMTx, 0});
+        } else if (txType == CustomTxType::TransferDomain) {
+            auto txMessage = customTypeToMessage(CustomTxType::TransferDomain);
+            auto res = CustomMetadataParse(block.deprecatedHeight, consensus, metadata, txMessage);
+            if (!res) {
+                return out;
+            }
+            const auto obj = std::get<CTransferDomainMessage>(txMessage);
+            for (const auto &[src, dst] : obj.transfers) {
+                auto tokenId = src.amount.nTokenId;
+                if (tokenId != DCT_ID{0}) {
+                    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) &&
+                        dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                        out.push_back(SystemTxData{SystemTxType::DST20BridgeIn, tokenId.v});
+                    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                               dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                        out.push_back(SystemTxData{SystemTxType::DST20BridgeOut, tokenId.v});
+                    }
+                } else {
+                    if (src.domain == static_cast<uint8_t>(VMDomain::DVM) &&
+                        dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
+                        out.push_back(SystemTxData{SystemTxType::TransferDomainIn, 0});
+                    } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
+                               dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
+                        out.push_back(SystemTxData{SystemTxType::TransferDomainOut, 0});
+                    }
+                }
+            }
+        }
+    }
+    return out;
 }

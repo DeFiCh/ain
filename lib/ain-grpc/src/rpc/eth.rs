@@ -1011,7 +1011,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let res = self
             .handler
-            .core
+            .tracer
             .create_access_list(EthCallArgs {
                 caller,
                 to: call.to,

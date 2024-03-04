@@ -22,11 +22,24 @@ mod ffi {
         pub symbol: String,
     }
 
+    pub enum SystemTxType {
+        EVMTx,
+        TransferDomainIn,
+        TransferDomainOut,
+        DST20BridgeIn,
+        DST20BridgeOut,
+    }
+
     pub struct TransactionData {
         pub tx_type: u8,
         pub data: String,
         pub direction: u8,
         pub entry_time: i64,
+    }
+
+    pub struct SystemTxData {
+        pub tx_type: SystemTxType,
+        pub token_id: u64,
     }
 
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
@@ -124,9 +137,14 @@ mod ffi {
     pub fn isEthDebugTraceRPCEnabled() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getEVMSystemTxsFromBlock(_block_hash: [u8; 32]) -> Vec<SystemTxData> {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
+pub use ffi::SystemTxData;
+pub use ffi::SystemTxType;
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -303,6 +321,10 @@ pub fn is_eth_debug_rpc_enabled() -> bool {
 /// Whether debug_traceTransaction RPC is enabled
 pub fn is_eth_debug_trace_rpc_enabled() -> bool {
     ffi::isEthDebugTraceRPCEnabled()
+}
+
+pub fn get_evm_system_txs_from_block(block_hash: [u8; 32]) -> Vec<ffi::SystemTxData> {
+    ffi::getEVMSystemTxsFromBlock(block_hash)
 }
 
 #[cfg(test)]
