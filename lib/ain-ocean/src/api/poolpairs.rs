@@ -4,7 +4,7 @@ use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Json, Router};
 use bitcoin::hex::parse;
 use defichain_rpc::{
-    json::poolpair::{StringOrFloat, PoolPairInfo, PoolPairsResult},
+    json::poolpair::{PoolPairInfo, PoolPairsResult},
     RpcApi,
 };
 use log::debug;
@@ -218,14 +218,8 @@ impl PoolPairResponse {
                 }),
             },
             price_ratio: PoolPairPriceRatioResponse {
-                ab: match p.reserve_a_reserve_b {
-                    StringOrFloat::Float(f) => f.to_string(),
-                    StringOrFloat::Str(s) => s,
-                },
-                ba: match p.reserve_b_reserve_a {
-                    StringOrFloat::Float(f) => f.to_string(),
-                    StringOrFloat::Str(s) => s,
-                }
+                ab: p.reserve_a_reserve_b.to_string(),
+                ba: p.reserve_b_reserve_a.to_string(),
             },
             commission: p.commission.to_string(),
             total_liquidity: PoolPairTotalLiquidityResponse {
