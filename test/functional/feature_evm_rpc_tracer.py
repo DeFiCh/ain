@@ -204,13 +204,13 @@ class EvmTracerTest(DefiTestFramework):
         # incorrect.
         # assert_equal(
         #     int(
-        #         self.nodes[0].debug_traceTransaction(state_change_tx_hash.hex())["gas"],
+        #         self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["gas"],
         #         16,
         #     ),
         #     loop_gas_used,
         # )
         # assert_equal(
-        #     self.nodes[0].debug_traceTransaction(state_change_tx_hash.hex())["failed"],
+        #     self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["failed"],
         #     False,
         # )
 
