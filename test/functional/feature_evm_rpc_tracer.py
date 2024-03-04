@@ -5,7 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test eth_createAccessList RPC behaviour"""
 
-from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.evm_contract import EVMContract
 from test_framework.util import assert_equal
