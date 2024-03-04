@@ -12,7 +12,7 @@ use crate::{
 };
 
 impl Index for PlaceAuctionBid {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[PlaceAuctionBid] Indexing...");
 
         let auction = VaultAuctionBatchHistory {
@@ -21,7 +21,7 @@ impl Index for PlaceAuctionBid {
             sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),
             vault_id: self.vault_id,
             index: ctx.tx_idx,
-            from: self.from.clone(),
+            from: self.from,
             amount: self.token_amount.amount,
             token_id: self.token_amount.token.0,
             block: ctx.block.clone(),

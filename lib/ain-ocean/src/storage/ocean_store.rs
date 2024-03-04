@@ -12,7 +12,7 @@ impl OceanStore {
     pub fn new(path: &Path) -> Result<Self> {
         let path = path.join("ocean");
         fs::create_dir_all(&path)?;
-        let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES)?);
+        let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES, None)?);
 
         Ok(Self(backend))
     }

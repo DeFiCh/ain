@@ -25,7 +25,7 @@ fn get_operator_script(hash: &PubkeyHash, r#type: u8) -> Result<ScriptBuf> {
 }
 
 impl Index for CreateMasternode {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CreateMasternode] Indexing...");
         let txid = ctx.tx.txid;
         let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses else {
@@ -54,7 +54,7 @@ impl Index for CreateMasternode {
             .by_height
             .put(&(ctx.block.height, txid), &0)?;
 
-        index_stats(self, services, ctx, collateral)
+        index_stats(&self, services, ctx, collateral)
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
@@ -103,7 +103,7 @@ fn index_stats(
 }
 
 impl Index for UpdateMasternode {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[UpdateMasternode] Indexing...");
         if let Some(mut mn) = services.masternode.by_id.get(&self.node_id)? {
             mn.history.push(HistoryItem {
@@ -149,7 +149,7 @@ impl Index for UpdateMasternode {
 }
 
 impl Index for ResignMasternode {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[ResignMasternode] Indexing...");
         if let Some(mn) = services.masternode.by_id.get(&self.node_id)? {
             services.masternode.by_id.put(

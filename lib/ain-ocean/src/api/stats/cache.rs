@@ -116,11 +116,13 @@ lazy_static::lazy_static! {
     key = "String",
     convert = r#"{ format!("burned_total") }"#
 )]
-pub async fn get_burned_total(client: &Client) -> Result<Decimal> {
-    let network = ain_cpp_imports::get_network();
-    let burn_address = BURN_ADDRESS.get(network.as_str()).unwrap();
-    let mut tokens = client.get_account(burn_address, None, Some(true)).await?;
-    let burn_info = client.get_burn_info().await?;
+pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
+    let burn_address = BURN_ADDRESS.get(ctx.network.as_str()).unwrap();
+    let mut tokens = ctx
+        .client
+        .get_account(&burn_address, None, Some(true))
+        .await?;
+    let burn_info = ctx.client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalError)?;
     let emission = Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalError)?;

@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl Index for AppointOracle {
-    fn index(&self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
+    fn index(self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         todo!()
     }
 
@@ -19,7 +19,7 @@ impl Index for AppointOracle {
 }
 
 impl Index for RemoveOracle {
-    fn index(&self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
+    fn index(self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         todo!()
     }
 
@@ -29,7 +29,7 @@ impl Index for RemoveOracle {
 }
 
 impl Index for UpdateOracle {
-    fn index(&self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
+    fn index(self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         todo!()
     }
 
@@ -39,7 +39,7 @@ impl Index for UpdateOracle {
 }
 
 impl Index for SetOracleData {
-    fn index(&self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
+    fn index(self, _services: &Arc<Services>, _ctx: &Context) -> Result<()> {
         todo!()
     }
 

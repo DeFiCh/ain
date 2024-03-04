@@ -19,7 +19,7 @@ use crate::{
 };
 
 pub(crate) trait Index {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 }
@@ -73,7 +73,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                 }
                 Err(e) => return Err(e.into()),
                 Ok(Stack { dftx, .. }) => {
-                    match &dftx {
+                    match dftx {
                         DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
                         DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
                         DfTx::ResignMasternode(data) => data.index(services, &ctx)?,

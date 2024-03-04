@@ -164,7 +164,7 @@ async fn get_supply(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respon
     let total =
         Decimal::from_u64(BLOCK_SUBSIDY.get_supply(height)).ok_or(Error::DecimalError)? / COIN;
 
-    let burned = get_burned_total(&ctx.client).await?;
+    let burned = get_burned_total(&ctx).await?;
     let circulating = total - burned;
 
     let supply = SupplyData {
