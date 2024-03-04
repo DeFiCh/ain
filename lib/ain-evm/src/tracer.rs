@@ -22,7 +22,7 @@ use crate::{
     Result,
 };
 
-// TODO: Add tracer result caching
+// TODO: Add block traces cache
 #[derive(Clone, Debug, Default)]
 pub struct TracerCache {}
 
