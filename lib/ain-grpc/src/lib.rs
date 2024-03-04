@@ -12,13 +12,11 @@ pub mod logging;
 mod logs;
 mod receipt;
 pub mod rpc;
+mod subscription;
 mod sync;
 mod transaction;
 mod transaction_request;
 mod utils;
-
-mod subscription;
-
 use defichain_rpc::{Auth, Client};
 
 #[cfg(test)]
