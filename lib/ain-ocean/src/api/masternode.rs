@@ -19,7 +19,7 @@ use crate::{
     api::common::Paginate,
     error::{ApiError, Error, NotFoundKind},
     model::Masternode,
-    repository::RepositoryOps,
+    repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result,
 };
@@ -105,6 +105,7 @@ async fn list_masternodes(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<MasternodeData>> {
+    let repository = &ctx.services.masternode.by_height;
     let next = query
         .next
         .as_ref()
@@ -120,23 +121,11 @@ async fn list_masternodes(
         })
         .transpose()?;
 
-    let masternodes = ctx
-        .services
-        .masternode
-        .by_height
+    let masternodes = repository
         .list(next, SortOrder::Descending)?
         .paginate(&query)
-        .map(|item| {
-            let ((_, id), _) = item?;
-            let mn = ctx
-                .services
-                .masternode
-                .by_id
-                .get(&id)?
-                .ok_or("Missing masternode index")?;
-
-            Ok(mn.into())
-        })
+        .map(|el| repository.retrieve_primary_value(el))
+        .map(|v| v.map(MasternodeData::from))
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(

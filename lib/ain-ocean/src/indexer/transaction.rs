@@ -66,7 +66,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
     let tx = TransactionMapper {
         id: txid,
         order,
-        hash: ctx.tx.hash.clone(),
+        hash: ctx.tx.hash,
         block: ctx.block.clone(),
         version: ctx.tx.version,
         size: ctx.tx.size,

@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use ain_dftx::pool::*;
+// use anyhow::format_err;
+// use bitcoin::Address;
 use log::debug;
 
 use super::Context;
@@ -12,16 +14,22 @@ use crate::{
 };
 
 impl Index for PoolSwap {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[Poolswap] Indexing...");
         let txid = ctx.tx.txid;
         let idx = ctx.tx_idx;
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
             services.result.get(&txid)?
         else {
+            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
+            // let address = Address::from_script(&self.to_script, bitcoin::Network::Bitcoin)
+            //     .map_err(|e| format_err!("Error getting address from script: {e}"));
             debug!("Missing swap result for {}", ctx.tx.txid.to_string());
             return Err("Missing swap result".into());
         };
+
+        let from = self.from_script;
+        let to = self.to_script;
 
         let swap = model::PoolSwap {
             id: format!("{}-{}", pool_id, txid),
@@ -33,8 +41,8 @@ impl Index for PoolSwap {
             to_token_id: self.to_token_id.0,
             to_amount,
             pool_id,
-            from: self.from_script.clone(),
-            to: self.to_script.clone(),
+            from,
+            to,
             block: ctx.block.clone(),
         };
         debug!("swap : {:?}", swap);
@@ -62,16 +70,22 @@ impl Index for PoolSwap {
 }
 
 impl Index for CompositeSwap {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
             services.result.get(&txid)?
         else {
+            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
+            // let address =
+            //     Address::from_script(&self.pool_swap.to_script, bitcoin::Network::Bitcoin)
+            //         .map_err(|e| format_err!("Error getting address from script: {e}"));
             debug!("Missing swap result for {}", txid.to_string());
             return Err("Missing swap result".into());
         };
 
+        let from = self.pool_swap.from_script;
+        let to = self.pool_swap.to_script;
         for pool in self.pools.as_ref() {
             let pool_id = pool.id.0 as u32;
             let swap = model::PoolSwap {
@@ -84,11 +98,10 @@ impl Index for CompositeSwap {
                 to_token_id: self.pool_swap.to_token_id.0,
                 to_amount,
                 pool_id,
-                from: self.pool_swap.from_script.clone(),
-                to: self.pool_swap.to_script.clone(),
+                from: from.clone(),
+                to: to.clone(),
                 block: ctx.block.clone(),
             };
-            debug!("swap : {:?}", swap);
             services
                 .pool
                 .by_id

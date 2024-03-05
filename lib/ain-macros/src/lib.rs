@@ -103,6 +103,8 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
     // Generate the implementation
     let expanded = quote! {
         impl RepositoryOps<#key_type_ident, #value_type_ident> for #name {
+            type ListItem = std::result::Result<(#key_type_ident, #value_type_ident), ain_db::DBError>;
+
             fn get(&self, id: &#key_type_ident) -> Result<Option<#value_type_ident>> {
                 Ok(self.col.get(id)?)
             }
@@ -115,8 +117,7 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
                 Ok(self.col.delete(id)?)
             }
 
-            fn list<'a>(&'a self, from: Option<#key_type_ident>, dir: crate::storage::SortOrder) -> crate::repository::ListResult<#key_type_ident, #value_type_ident>
-            {
+            fn list<'a>(&'a self, from: Option<#key_type_ident>, dir: crate::storage::SortOrder) -> Result<Box<dyn Iterator<Item = Self::ListItem> + 'a>> {
                 let it = self.col.iter(from, dir.into())?;
                 Ok(Box::new(it))
             }

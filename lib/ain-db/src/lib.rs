@@ -15,7 +15,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 pub type Result<T> = result::Result<T, DBError>;
 
-fn get_db_options() -> Options {
+fn get_db_default_options() -> Options {
     let mut options = Options::default();
     options.create_if_missing(true);
     options.create_missing_column_families(true);
@@ -48,12 +48,12 @@ fn get_db_options() -> Options {
 pub struct Rocks(DB);
 
 impl Rocks {
-    pub fn open(path: &PathBuf, cf_names: &[&'static str]) -> Result<Self> {
+    pub fn open(path: &PathBuf, cf_names: &[&'static str], opts: Option<Options>) -> Result<Self> {
         let cf_descriptors = cf_names
             .iter()
             .map(|cf_name| ColumnFamilyDescriptor::new(*cf_name, Options::default()));
 
-        let db_opts = get_db_options();
+        let db_opts = opts.unwrap_or_else(get_db_default_options);
         let db = DB::open_cf_descriptors(&db_opts, path, cf_descriptors)?;
 
         Ok(Self(db))
