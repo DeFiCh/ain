@@ -120,7 +120,7 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let burn_address = BURN_ADDRESS.get(ctx.network.as_str()).unwrap();
     let mut tokens = ctx
         .client
-        .get_account(&burn_address, None, Some(true))
+        .get_account(burn_address, None, Some(true))
         .await?;
     let burn_info = ctx.client.get_burn_info().await?;
 

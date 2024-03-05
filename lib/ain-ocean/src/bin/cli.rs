@@ -3,7 +3,6 @@ use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
 use ain_ocean::{index_block, storage::ocean_store::OceanStore, Result, Services};
 use clap::Parser;
 use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client};
-use env_logger;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -106,6 +105,4 @@ async fn main() -> Result<()> {
             start_time = Instant::now();
         }
     }
-
-    Ok(())
 }
