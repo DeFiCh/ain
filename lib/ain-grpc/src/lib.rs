@@ -127,8 +127,9 @@ pub async fn init_ocean_server(addr: String) -> Result<()> {
         )
         .await?,
     );
+    let network = ain_cpp_imports::get_network();
 
-    let ocean_router = ain_ocean::ocean_router(&OCEAN_SERVICES, client).await?;
+    let ocean_router = ain_ocean::ocean_router(&*OCEAN_SERVICES, client, network).await?;
 
     let server_handle = runtime.tokio_runtime.spawn(async move {
         if let Err(e) = axum::serve(listener, ocean_router).await {

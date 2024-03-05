@@ -52,18 +52,22 @@ async fn not_found(req: Request<axum::body::Body>) -> impl IntoResponse {
 pub struct AppContext {
     services: Arc<Services>,
     client: Arc<Client>,
+    network: String, // TODO Proper handling of network
 }
 
-pub async fn ocean_router(services: &Arc<Services>, client: Arc<Client>) -> Result<Router> {
+pub async fn ocean_router(
+    services: &Arc<Services>,
+    client: Arc<Client>,
+    network: String,
+) -> Result<Router> {
     let context = Arc::new(AppContext {
         client,
         services: services.clone(),
+        network,
     });
 
-    let network = ain_cpp_imports::get_network();
-
     Ok(Router::new().nest(
-        format!("/v0/{network}").as_str(),
+        format!("/v0/{}", context.network).as_str(),
         Router::new()
             // .nest("/address/", address::router(Arc::clone(&context)))
             .nest("/governance", governance::router(Arc::clone(&context)))
