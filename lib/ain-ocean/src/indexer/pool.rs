@@ -21,8 +21,9 @@ impl Index for PoolSwap {
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
             services.result.get(&txid)?
         else {
-            let address = Address::from_script(&self.to_script, bitcoin::Network::Bitcoin)
-                .map_err(|e| format_err!("Error getting address from script: {e}"));
+            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
+            // let address = Address::from_script(&self.to_script, bitcoin::Network::Bitcoin)
+            //     .map_err(|e| format_err!("Error getting address from script: {e}"));
             debug!("Missing swap result for {}", ctx.tx.txid.to_string());
             return Err("Missing swap result".into());
         };
@@ -75,9 +76,10 @@ impl Index for CompositeSwap {
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
             services.result.get(&txid)?
         else {
-            let address =
-                Address::from_script(&self.pool_swap.to_script, bitcoin::Network::Bitcoin)
-                    .map_err(|e| format_err!("Error getting address from script: {e}"));
+            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
+            // let address =
+            //     Address::from_script(&self.pool_swap.to_script, bitcoin::Network::Bitcoin)
+            //         .map_err(|e| format_err!("Error getting address from script: {e}"));
             debug!("Missing swap result for {}", txid.to_string());
             return Err("Missing swap result".into());
         };
