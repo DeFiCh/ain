@@ -1181,7 +1181,7 @@ ci_export_vars() {
             echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.14}" >> "$GITHUB_ENV"
         fi
 
-        echo "RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-1.76}" >> "$GITHUB_ENV"
+        echo "RUST_DEFAULT_VERSION=1.76" >> "$GITHUB_ENV"
     fi
 }
 
