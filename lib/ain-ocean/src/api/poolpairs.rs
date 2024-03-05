@@ -22,7 +22,7 @@ use super::{
 use crate::{
     error::ApiError,
     model::{BlockContext, PoolSwap},
-    repository::RepositoryOps,
+    repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
     Result,
 };
@@ -314,25 +314,20 @@ async fn list_pool_swaps(
             let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
             let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
 
-            Ok((height, txno))
+            Ok((id, height, txno))
         })
         .transpose()?
-        .unwrap_or_default();
+        .unwrap_or(PoolSwapRepository::initial_key(id));
 
     debug!("next : {:?}", next);
 
-    let size = if query.size > 200 {
-        200
-    } else {
-        query.size
-    };
+    let size = if query.size > 200 { 200 } else { query.size };
 
-    let swaps =
-        ctx
+    let swaps = ctx
         .services
         .pool
         .by_id
-        .list(Some((id, next.0, next.1)), SortOrder::Descending)?
+        .list(Some(next), SortOrder::Descending)?
         .take(size)
         .take_while(|item| match item {
             Ok((k, _)) => k.0 == id,
