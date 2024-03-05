@@ -38,7 +38,6 @@ jobs:
       image: ${{ matrix.container }}
     env:
       TARGET: ${{matrix.target}}
-      MACOSX_DEPLOYMENT_TARGET: 10.14
 
     steps:
     - uses: actions/checkout@v4
