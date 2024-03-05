@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
-use axum::{routing::get, Extension, Json, Router};
+use axum::{routing::get, Extension, Router};
 use bitcoin::hex::parse;
 use defichain_rpc::{
     json::poolpair::{PoolPairInfo, PoolPairsResult},
@@ -23,6 +23,7 @@ use crate::{
     error::ApiError,
     model::{BlockContext, PoolSwap},
     repository::RepositoryOps,
+    storage::SortOrder,
     Result,
 };
 
@@ -53,56 +54,56 @@ use crate::{
 //     denomination: Option<String>,
 // }
 
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// #[serde(rename_all = "camelCase")]
-// pub struct PoolSwapFromToData {
-//     address: String,
-//     amount: String,
-//     // symbol: String,
-//     // display_symbol: String,
-// }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromToData {
+    address: String,
+    amount: String,
+    // symbol: String,
+    // display_symbol: String,
+}
 
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// #[serde(rename_all = "camelCase")]
-// pub struct PoolSwapData {
-//     id: String,
-//     sort: String,
-//     txid: String,
-//     txno: usize,
-//     pool_pair_id: String,
-//     from_amount: String,
-//     from_token_id: u64,
-//     block: BlockContext,
-//     from: PoolSwapFromToData,
-//     to: PoolSwapFromToData,
-// }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapData {
+    id: String,
+    sort: String,
+    txid: String,
+    txno: usize,
+    pool_pair_id: String,
+    from_amount: String,
+    from_token_id: u64,
+    block: BlockContext,
+    from: PoolSwapFromToData,
+    to: PoolSwapFromToData,
+}
 
-// impl From<PoolSwap> for PoolSwapData {
-//     fn from(v: PoolSwap) -> Self {
-//         Self {
-//             id: v.id,
-//             sort: v.sort,
-//             txid: v.txid.to_string(),
-//             txno: v.txno,
-//             pool_pair_id: v.pool_id.to_string(),
-//             from_amount: v.from_amount.to_string(),
-//             from_token_id: v.from_token_id,
-//             from: PoolSwapFromToData {
-//                 address: v.from.to_hex_string(),
-//                 amount: v.from_amount.to_string(),
-//                 // symbol: todo!(),
-//                 // display_symbol: todo!(),
-//             },
-//             to: PoolSwapFromToData {
-//                 address: v.to.to_hex_string(),
-//                 amount: v.to_amount.to_string(),
-//                 // symbol: todo!(),
-//                 // display_symbol: todo!(),
-//             },
-//             block: v.block,
-//         }
-//     }
-// }
+impl From<PoolSwap> for PoolSwapData {
+    fn from(v: PoolSwap) -> Self {
+        Self {
+            id: v.id,
+            sort: v.sort,
+            txid: v.txid.to_string(),
+            txno: v.txno,
+            pool_pair_id: v.pool_id.to_string(),
+            from_amount: v.from_amount.to_string(),
+            from_token_id: v.from_token_id,
+            from: PoolSwapFromToData {
+                address: v.from.to_hex_string(),
+                amount: v.from_amount.to_string(),
+                // symbol: todo!(),
+                // display_symbol: todo!(),
+            },
+            to: PoolSwapFromToData {
+                address: v.to.to_hex_string(),
+                amount: v.to_amount.to_string(),
+                // symbol: todo!(),
+                // display_symbol: todo!(),
+            },
+            block: v.block,
+        }
+    }
+}
 
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
@@ -267,7 +268,7 @@ async fn list_poolpairs(
             } else {
                 Some(PoolPairResponse::from_with_id(k, v))
             }
-})
+        })
         .collect::<Vec<_>>();
 
     Ok(ApiPagedResponse::of(res, query.size, |poolpair| {
@@ -293,57 +294,60 @@ async fn get_poolpair(
     Ok(Response::new(res))
 }
 
-// // Use single method for now since additional verbose keys are indexed
-// // TODO: assess need for additional verbose method
-// #[ocean_endpoint]
-// async fn list_pool_swaps(
-//     Path(id): Path<u32>,
-//     Query(query): Query<PaginationQuery>,
-// ) -> Result<Json<ApiPagedResponse<PoolSwapData>>> {
-//     debug!("list_pool_swaps for id {id}",);
-//     let next = query
-//         .next
-//         .map(|q| {
-//             let parts: Vec<&str> = q.split('-').collect();
-//             if parts.len() != 2 {
-//                 return Err("Invalid query format");
-//             }
+// Use single method for now since additional verbose keys are indexed
+// TODO: assess need for additional verbose method
+#[ocean_endpoint]
+async fn list_pool_swaps(
+    Path(id): Path<u32>,
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<PoolSwapData>> {
+    let next = query
+        .next
+        .as_ref()
+        .map(|q| {
+            let parts: Vec<&str> = q.split('-').collect();
+            if parts.len() != 2 {
+                return Err("Invalid query format");
+            }
 
-//             let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
-//             let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
+            let height = parts[0].parse::<u32>().map_err(|_| "Invalid height")?;
+            let txno = parts[1].parse::<usize>().map_err(|_| "Invalid txno")?;
 
-//             Ok((height, txno))
-//         })
-//         .transpose()?
-//         .unwrap_or_default();
+            Ok((height, txno))
+        })
+        .transpose()?
+        .unwrap_or_default();
 
-//     debug!("next : {:?}", next);
+    debug!("next : {:?}", next);
 
-//     let size = if query.size > 0 && query.size < 20 {
-//         query.size
-//     } else {
-//         20
-//     };
+    let size = if query.size > 200 {
+        200
+    } else {
+        query.size
+    };
 
-//     let swaps = services
-//         .pool
-//         .by_id
-//         .list(Some((id, next.0, next.1)))?
-//         .take(size)
-//         .take_while(|item| match item {
-//             Ok((k, _)) => k.0 == id,
-//             _ => true,
-//         })
-//         .map(|item| {
-//             let (_, swap) = item?;
-//             Ok(PoolSwapData::from(swap))
-//         })
-//         .collect::<Result<Vec<_>>>()?;
+    let swaps =
+        ctx
+        .services
+        .pool
+        .by_id
+        .list(Some((id, next.0, next.1)), SortOrder::Descending)?
+        .take(size)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == id,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, swap) = item?;
+            Ok(PoolSwapData::from(swap))
+        })
+        .collect::<Result<Vec<_>>>()?;
 
-//     Ok(Json(ApiPagedResponse::of(swaps, query.size, |swap| {
-//         swap.sort.to_string()
-//     })))
-// }
+    Ok(ApiPagedResponse::of(swaps, query.size, |swap| {
+        swap.sort.to_string()
+    }))
+}
 
 // #[ocean_endpoint]
 // async fn list_pool_swap_aggregates(
@@ -395,7 +399,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_poolpairs))
         .route("/:id", get(get_poolpair))
-        // .route("/:id/swaps", get(list_pool_swaps))
+        .route("/:id/swaps", get(list_pool_swaps))
         // .route("/:id/swaps/verbose", get(list_pool_swaps))
         // .route(
         //     "/:id/swaps/aggregate/:interval",
