@@ -1,6 +1,6 @@
 # Quick build notes
 
-DeFiChain is built with the same process as Bitcoin, but provides certain convenience steps to 
+DeFiChain is built with the same process as Bitcoin, but provides certain convenience steps to
 build it easily with the `./make.sh` file in the root directory.
 
 ```
@@ -89,7 +89,6 @@ an environment with correct arch and pre-requisites configured.
 (most pre-requisites can be installed with pkg-* commands).
 ```
 
-
 ## `TARGET` values
 
 ### Tier 1
@@ -145,7 +144,7 @@ but receives little to no testing.
     PYTHON_VENV_DIR=${PYTHON_VENV_DIR:-"${BUILD_DIR}/pyenv"}
 
     CLANG_DEFAULT_VERSION=${CLANG_DEFAULT_VERSION:-"15"}
-    RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.72"}
+    RUST_DEFAULT_VERSION=${RUST_DEFAULT_VERSION:-"1.76"}
 
     MAKE_DEBUG=${MAKE_DEBUG:-"1"}
     MAKE_USE_CLANG=${MAKE_USE_CLANG:-"$(get_default_use_clang)"}
@@ -177,5 +176,5 @@ but receives little to no testing.
 
 Please read the `./make.sh` file for more details on the build helpers.
 [UNIX build process](./build-unix.md) should also have more info though using
-`./make.sh` is recommended as it builds out-of-tree by default and supports 
+`./make.sh` is recommended as it builds out-of-tree by default and supports
 multiple targets.
