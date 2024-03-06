@@ -865,7 +865,7 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
     }
 
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::BlockPeriod};
-    const auto blockPeriod = attributes->GetValue(blockKey, DEFUALT_FS_LIQUIDITY_BLOCK_PERIOD);
+    const auto blockPeriod = attributes->GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
 
     const auto dusdToken = cache.GetToken("DUSD");
     if (!dusdToken) {
