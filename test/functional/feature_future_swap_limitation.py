@@ -233,7 +233,10 @@ class MigrateV1Test(DefiTestFramework):
         self.nodes[0].generate(190 - self.nodes[0].getblockcount())
 
         # Check liquidity data
-        assert_equal(self.nodes[0].listloantokenliquidity(), {'META-DUSD': '100.00000000', 'DUSD-META': '100.00000000'})
+        assert_equal(
+            self.nodes[0].listloantokenliquidity(),
+            {"META-DUSD": "100.00000000", "DUSD-META": "100.00000000"},
+        )
 
         # Try and swap above limit
         assert_raises_rpc_error(
@@ -285,7 +288,10 @@ class MigrateV1Test(DefiTestFramework):
         self.nodes[0].generate(210 - self.nodes[0].getblockcount())
 
         # Check liquidity data changed
-        assert_equal(self.nodes[0].listloantokenliquidity(), {'META-DUSD': '72.48624516', 'DUSD-META': '155.00000000'})
+        assert_equal(
+            self.nodes[0].listloantokenliquidity(),
+            {"META-DUSD": "72.48624516", "DUSD-META": "155.00000000"},
+        )
 
         # Try and swap above new limit
         assert_raises_rpc_error(
