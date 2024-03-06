@@ -898,17 +898,10 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
             return true;
         }
 
-        if (tokenA) {
-            cache.SetLoanTokenLiquidityPerBlock(
-                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
-            cache.SetLoanTokenLiquidityPerBlock(
-                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
-        } else {
-            cache.SetLoanTokenLiquidityPerBlock(
-                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
-            cache.SetLoanTokenLiquidityPerBlock(
-                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
-        }
+        cache.SetLoanTokenLiquidityPerBlock(
+            {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
+        cache.SetLoanTokenLiquidityPerBlock(
+            {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
 
         return true;
     });
