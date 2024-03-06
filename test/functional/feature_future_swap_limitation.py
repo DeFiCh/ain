@@ -11,7 +11,7 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 import time
 
 
-class MigrateV1Test(DefiTestFramework):
+class FutureSwapLimitationTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -343,4 +343,4 @@ class MigrateV1Test(DefiTestFramework):
 
 
 if __name__ == "__main__":
-    MigrateV1Test().main()
+    FutureSwapLimitationTest().main()
