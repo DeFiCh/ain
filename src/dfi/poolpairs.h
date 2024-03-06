@@ -219,16 +219,38 @@ struct PoolShareKey {
     }
 };
 
+struct LoanTokenAverageLiquidityKey {
+    uint32_t sourceID;
+    uint32_t destID;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(sourceID);
+        READWRITE(destID);
+    }
+
+    bool operator<(const LoanTokenAverageLiquidityKey &other) const {
+        if (sourceID == other.sourceID) {
+            return destID < other.destID;
+        }
+        return sourceID < other.sourceID;
+    }
+};
+
 struct LoanTokenLiquidityPerBlockKey {
     uint32_t height;
-    uint32_t tokenID;
+    uint32_t sourceID;
+    uint32_t destID;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
         READWRITE(height);
-        READWRITE(tokenID);
+        READWRITE(sourceID);
+        READWRITE(destID);
     }
 };
 
@@ -308,17 +330,18 @@ public:
         std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
         int nHeight = 0);
 
-    bool SetLoanTokenLiquidityPerBlock(const uint32_t height, const uint32_t &tokenId, const CAmount liquidityPerBlock);
+    bool SetLoanTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key, const CAmount liquidityPerBlock);
     bool EraseTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key);
     void ForEachTokenLiquidityPerBlock(
-        std::function<bool(const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock)> callback,
-        const LoanTokenLiquidityPerBlockKey &start = LoanTokenLiquidityPerBlockKey{{}, {}});
+        std::function<bool(const LoanTokenLiquidityPerBlockKey &key, const CAmount liquidityPerBlock)> callback,
+        const LoanTokenLiquidityPerBlockKey &start = LoanTokenLiquidityPerBlockKey{});
 
-    bool SetLoanTokenAverageLiquidity(const uint32_t tokenId, const uint64_t liquidity);
-    std::optional<uint64_t> GetLoanTokenAverageLiquidity(const uint32_t tokenId);
-    bool EraseTokenAverageLiquidity(const uint32_t tokenId);
-    void ForEachTokenAverageLiquidity(std::function<bool(const uint32_t tokenId, const uint64_t liquidity)> callback,
-                                      const uint32_t start = {});
+    bool SetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity);
+    std::optional<uint64_t> GetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key);
+    bool EraseTokenAverageLiquidity(const LoanTokenAverageLiquidityKey key);
+    void ForEachTokenAverageLiquidity(
+        std::function<bool(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity)> callback,
+        const LoanTokenAverageLiquidityKey start = LoanTokenAverageLiquidityKey{});
 
     // tags
     struct ByID {

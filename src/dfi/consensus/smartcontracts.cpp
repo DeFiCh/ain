@@ -289,10 +289,15 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
             return res;
         }
     } else {
-        if (height >= static_cast<uint32_t>(consensus.DF23Height) && source->symbol != "DUSD") {
+        if (height >= static_cast<uint32_t>(consensus.DF23Height) && !dfiToDUSD) {
             CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
             const auto dfip11fEnabled = attributes->GetValue(activeKey, false);
-            const auto averageLiquidity = mnview.GetLoanTokenAverageLiquidity(obj.source.nTokenId.v);
+            const auto dusdToken = mnview.GetToken("DUSD");
+            if (!dusdToken) {
+                return Res::Err("No DUSD token defined");
+            }
+            const auto dest = !obj.destination ? dusdToken->first.v : obj.destination;
+            const auto averageLiquidity = mnview.GetLoanTokenAverageLiquidity({obj.source.nTokenId.v, dest});
 
             if (dfip11fEnabled && averageLiquidity) {
                 CDataStructureV0 averageKey{

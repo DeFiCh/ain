@@ -672,10 +672,9 @@ Res CPoolPairView::SetShare(DCT_ID const &poolId, const CScript &provider, uint3
     return Res::Ok();
 }
 
-bool CPoolPairView::SetLoanTokenLiquidityPerBlock(const uint32_t height,
-                                                  const uint32_t &tokenId,
+bool CPoolPairView::SetLoanTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key,
                                                   const CAmount liquidityPerBlock) {
-    return WriteBy<ByLoanTokenLiquidityPerBlock>(LoanTokenLiquidityPerBlockKey{height, tokenId}, liquidityPerBlock);
+    return WriteBy<ByLoanTokenLiquidityPerBlock>(key, liquidityPerBlock);
 }
 
 bool CPoolPairView::EraseTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key) {
@@ -683,7 +682,7 @@ bool CPoolPairView::EraseTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlock
 }
 
 void CPoolPairView::ForEachTokenLiquidityPerBlock(
-    std::function<bool(const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock)> callback,
+    std::function<bool(const LoanTokenLiquidityPerBlockKey &key, const CAmount liquidityPerBlock)> callback,
     const LoanTokenLiquidityPerBlockKey &start) {
     ForEach<ByLoanTokenLiquidityPerBlock, LoanTokenLiquidityPerBlockKey, CAmount>(
         [&callback](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
@@ -692,23 +691,25 @@ void CPoolPairView::ForEachTokenLiquidityPerBlock(
         start);
 }
 
-bool CPoolPairView::SetLoanTokenAverageLiquidity(const uint32_t tokenId, const uint64_t liquidity) {
-    return WriteBy<ByLoanTokenLiquidityAverage>(tokenId, liquidity);
+bool CPoolPairView::SetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
+    return WriteBy<ByLoanTokenLiquidityAverage>(key, liquidity);
 }
 
-std::optional<uint64_t> CPoolPairView::GetLoanTokenAverageLiquidity(const uint32_t tokenId) {
-    return ReadBy<ByLoanTokenLiquidityAverage, CAmount>(tokenId);
+std::optional<uint64_t> CPoolPairView::GetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key) {
+    return ReadBy<ByLoanTokenLiquidityAverage, CAmount>(key);
 }
 
-bool CPoolPairView::EraseTokenAverageLiquidity(const uint32_t tokenId) {
-    return EraseBy<ByLoanTokenLiquidityAverage>(tokenId);
+bool CPoolPairView::EraseTokenAverageLiquidity(const LoanTokenAverageLiquidityKey key) {
+    return EraseBy<ByLoanTokenLiquidityAverage>(key);
 }
 
 void CPoolPairView::ForEachTokenAverageLiquidity(
-    std::function<bool(const uint32_t tokenId, const uint64_t liquidity)> callback,
-    const uint32_t start) {
-    ForEach<ByLoanTokenLiquidityAverage, uint32_t, uint64_t>(
-        [&callback](const uint32_t &tokenId, const uint64_t &liquidity) { return callback(tokenId, liquidity); },
+    std::function<bool(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity)> callback,
+    const LoanTokenAverageLiquidityKey start) {
+    ForEach<ByLoanTokenLiquidityAverage, LoanTokenAverageLiquidityKey, uint64_t>(
+        [&callback](const LoanTokenAverageLiquidityKey &key, const uint64_t &liquidity) {
+            return callback(key, liquidity);
+        },
         start);
 }
 

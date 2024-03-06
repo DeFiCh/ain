@@ -1409,9 +1409,11 @@ UniValue listloantokenliquidity(const JSONRPCRequest &request) {
     auto view = ::GetViewSnapshot();
 
     UniValue ret(UniValue::VOBJ);
-    view->ForEachTokenAverageLiquidity([&](const uint32_t id, const uint64_t liquidity) {
-        if (const auto token = view->GetToken(DCT_ID{id}); token) {
-            ret.pushKV(token->symbol, GetDecimalString(liquidity));
+    view->ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
+        const auto sourceToken = view->GetToken(DCT_ID{key.sourceID});
+        const auto destToken = view->GetToken(DCT_ID{key.destID});
+        if (sourceToken && destToken) {
+            ret.pushKV(sourceToken->symbol + '-' + destToken->symbol, GetDecimalString(liquidity));
         }
         return true;
     });

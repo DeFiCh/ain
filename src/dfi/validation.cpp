@@ -879,6 +879,9 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         tokens.insert(id);
     }
 
+    // Filter out DUSD
+    tokens.erase(dusdID);
+
     // Store liquidity for loan tokens
     cache.ForEachPoolPair([&](const DCT_ID &, const CPoolPair &poolPair) {
         // Check for loan token
@@ -896,9 +899,15 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         }
 
         if (tokenA) {
-            cache.SetLoanTokenLiquidityPerBlock(pindex->nHeight, poolPair.idTokenA.v, poolPair.reserveA);
+            cache.SetLoanTokenLiquidityPerBlock(
+                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
+            cache.SetLoanTokenLiquidityPerBlock(
+                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
         } else {
-            cache.SetLoanTokenLiquidityPerBlock(pindex->nHeight, poolPair.idTokenB.v, poolPair.reserveB);
+            cache.SetLoanTokenLiquidityPerBlock(
+                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
+            cache.SetLoanTokenLiquidityPerBlock(
+                {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
         }
 
         return true;
@@ -926,18 +935,18 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
     }
 
     // Get liquidity per block for each token
-    std::map<uint32_t, std::vector<CAmount>> liquidityPerBlockByToken;
+    std::map<LoanTokenAverageLiquidityKey, std::vector<CAmount>> liquidityPerBlockByToken;
     cache.ForEachTokenLiquidityPerBlock(
         [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
-            liquidityPerBlockByToken[key.tokenID].push_back(liquidityPerBlock);
+            liquidityPerBlockByToken[{key.sourceID, key.destID}].push_back(liquidityPerBlock);
             return true;
         },
         {static_cast<uint32_t>(pindex->nHeight - blockPeriod)});
 
     // Calculate average liquidity for each token
-    for (const auto &[tokenId, liquidityPerBlock] : liquidityPerBlockByToken) {
+    for (const auto &[key, liquidityPerBlock] : liquidityPerBlockByToken) {
         if (liquidityPerBlock.size() < blockPeriod) {
-            cache.EraseTokenAverageLiquidity(tokenId);
+            cache.EraseTokenAverageLiquidity(key);
             continue;
         }
 
@@ -947,7 +956,7 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         }
 
         const auto tokenAverage = tokenTotal / blockPeriod;
-        cache.SetLoanTokenAverageLiquidity(tokenId, tokenAverage.GetLow64());
+        cache.SetLoanTokenAverageLiquidity(key, tokenAverage.GetLow64());
     }
 }
 

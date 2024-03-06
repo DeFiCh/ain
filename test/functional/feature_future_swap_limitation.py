@@ -233,7 +233,7 @@ class MigrateV1Test(DefiTestFramework):
         self.nodes[0].generate(190 - self.nodes[0].getblockcount())
 
         # Check liquidity data
-        assert_equal(self.nodes[0].listloantokenliquidity(), {"META": "100.00000000"})
+        assert_equal(self.nodes[0].listloantokenliquidity(), {'META-DUSD': '100.00000000', 'DUSD-META': '100.00000000'})
 
         # Try and swap above limit
         assert_raises_rpc_error(
@@ -243,13 +243,17 @@ class MigrateV1Test(DefiTestFramework):
             self.address,
             "10.00000001@META",
         )
+        assert_raises_rpc_error(
+            -32600,
+            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 10.00000000@DUSD",
+            self.nodes[0].futureswap,
+            self.address,
+            "10.00000001@DUSD",
+            "META",
+        )
 
         # Move midway in future swap period
         self.nodes[0].generate(199 - self.nodes[0].getblockcount())
-
-        # Swap the max limit
-        self.nodes[0].futureswap(self.address, "5.00000000@META")
-        self.nodes[0].futureswap(self.address, "5.00000000@META")
 
         # Execute pool swap to change liquidity
         self.nodes[0].poolswap(
@@ -261,6 +265,11 @@ class MigrateV1Test(DefiTestFramework):
                 "tokenTo": "META",
             }
         )
+        self.nodes[0].generate(1)
+
+        # Swap the max limit
+        self.nodes[0].futureswap(self.address, "5.00000000@META")
+        self.nodes[0].futureswap(self.address, "5.00000000@META")
         self.nodes[0].generate(1)
 
         # Try and swap above limit
@@ -276,7 +285,7 @@ class MigrateV1Test(DefiTestFramework):
         self.nodes[0].generate(210 - self.nodes[0].getblockcount())
 
         # Check liquidity data changed
-        assert_equal(self.nodes[0].listloantokenliquidity(), {"META": "72.48624516"})
+        assert_equal(self.nodes[0].listloantokenliquidity(), {'META-DUSD': '72.48624516', 'DUSD-META': '155.00000000'})
 
         # Try and swap above new limit
         assert_raises_rpc_error(
@@ -285,6 +294,31 @@ class MigrateV1Test(DefiTestFramework):
             self.nodes[0].futureswap,
             self.address,
             "7.24862452@META",
+        )
+
+        # Try and swap above new limit
+        assert_raises_rpc_error(
+            -32600,
+            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 15.50000000@DUSD",
+            self.nodes[0].futureswap,
+            self.address,
+            "15.50000001@DUSD",
+            "META",
+        )
+
+        # Swap the max limit
+        self.nodes[0].futureswap(self.address, "10.00000000@DUSD", "META")
+        self.nodes[0].futureswap(self.address, "5.50000000@DUSD", "META")
+        self.nodes[0].generate(1)
+
+        # Try and swap above new limit
+        assert_raises_rpc_error(
+            -32600,
+            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 0.00000000@DUSD",
+            self.nodes[0].futureswap,
+            self.address,
+            "0.00000001@DUSD",
+            "META",
         )
 
     def test_wiping_data(self):

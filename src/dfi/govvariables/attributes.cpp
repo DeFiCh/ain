@@ -2212,14 +2212,14 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                         mnview.EraseTokenLiquidityPerBlock(key);
                     }
 
-                    std::set<uint32_t> loanTokens;
-                    mnview.ForEachTokenAverageLiquidity([&](const uint32_t id, const uint64_t liquidity) {
-                        loanTokens.insert(id);
+                    std::vector<LoanTokenAverageLiquidityKey> averageKeys;
+                    mnview.ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t) {
+                        averageKeys.push_back(key);
                         return true;
                     });
 
-                    for (const auto &tokenID : loanTokens) {
-                        mnview.EraseTokenAverageLiquidity(tokenID);
+                    for (const auto &key : averageKeys) {
+                        mnview.EraseTokenAverageLiquidity(key);
                     }
                 }
             }
