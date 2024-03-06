@@ -321,6 +321,7 @@ BASE_SCRIPTS = [
     "feature_evm_vmmap_rpc.py",
     "feature_loan_low_interest.py",
     "feature_loan_estimatecollateral.py",
+    "feature_vault_creation_fee.py",
     "feature_vault_pct_check_factor.py",
     "feature_address_map.py",
     "p2p_node_network_limited.py",

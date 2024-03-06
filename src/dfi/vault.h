@@ -141,6 +141,19 @@ struct CAuctionBatch {
     }
 };
 
+struct CHeightAndFeeValue {
+    uint32_t height;
+    CAmount creationFee;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(height);
+        READWRITE(creationFee);
+    }
+};
+
 class CVaultView : public virtual CStorageView {
 public:
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
@@ -153,6 +166,10 @@ public:
     void ForEachVault(std::function<bool(const CVaultId &, const CVaultData &)> callback,
                       const CVaultId &start = {},
                       const CScript &ownerAddress = {});
+
+    bool SetVaultHeightAndFee(const CVaultId &vaultId, const uint32_t height, const CAmount creationFee);
+    std::optional<CHeightAndFeeValue> GetVaultHeightAndFee(const CVaultId &vaultId);
+    bool EraseVaultHeightAndFee(const CVaultId &vaultId);
 
     virtual Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
     virtual Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
@@ -192,6 +209,10 @@ public:
     };
     struct AuctionBidKey {
         static constexpr uint8_t prefix() { return 0x25; }
+    };
+
+    struct HeightAndFeeKey {
+        static constexpr uint8_t prefix() { return 0x26; }
     };
 };
 
