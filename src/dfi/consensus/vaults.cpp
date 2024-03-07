@@ -127,7 +127,7 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
         return res;
     }
 
-    if (!mnview.EraseVaultHeightAndFee(obj.vaultId)) {
+    if (vaultCreationFee && !mnview.EraseVaultHeightAndFee(obj.vaultId)) {
         return Res::Err("Failed to erase vault height and fee");
     }
 
