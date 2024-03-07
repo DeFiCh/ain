@@ -92,7 +92,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": txid_in_block,
                     "allowed": False,
-                    "reject-reason": "18: txn-already-known",
+                    "reject-reason": "txn-already-known",
                 }
             ],
             rawtxs=[raw_tx_in_block],
@@ -148,7 +148,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": txid_0,
                     "allowed": False,
-                    "reject-reason": "18: txn-already-in-mempool",
+                    "reject-reason": "txn-already-in-mempool",
                 }
             ],
             rawtxs=[raw_tx_0],
@@ -178,7 +178,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "18: txn-mempool-conflict",
+                    "reject-reason": "txn-mempool-conflict",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -204,9 +204,9 @@ class MempoolAcceptanceTest(DefiTestFramework):
             "A transaction with missing inputs, that existed once in the past"
         )
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_0)))
-        tx.vin[
-            0
-        ].prevout.n = 1  # Set vout to 1, to spend the other outpoint (49 coins) of the in-chain-tx we want to double spend
+        tx.vin[0].prevout.n = (
+            1  # Set vout to 1, to spend the other outpoint (49 coins) of the in-chain-tx we want to double spend
+        )
         raw_tx_1 = node.signrawtransactionwithwallet(tx.serialize().hex())["hex"]
         txid_1 = node.sendrawtransaction(hexstring=raw_tx_1, maxfeerate=0)
         # Now spend both to "clearly hide" the outputs, ie. remove the coins from the utxo set by spending them
@@ -262,7 +262,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "16: bad-txns-vout-empty",
+                    "reject-reason": "bad-txns-vout-empty",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -280,7 +280,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "16: bad-txns-oversize",
+                    "reject-reason": "bad-txns-oversize",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -294,7 +294,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "16: bad-txns-vout-negative",
+                    "reject-reason": "bad-txns-vout-negative",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -308,7 +308,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "16: bad-txns-vout-toolarge",
+                    "reject-reason": "bad-txns-vout-toolarge",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -323,7 +323,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "16: bad-txns-txouttotal-toolarge",
+                    "reject-reason": "bad-txns-txouttotal-toolarge",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -337,7 +337,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "16: bad-txns-inputs-duplicate",
+                    "reject-reason": "bad-txns-inputs-duplicate",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -351,7 +351,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_coinbase_spent)))
         self.check_mempool_result(
             result_expected=[
-                {"txid": tx.rehash(), "allowed": False, "reject-reason": "16: coinbase"}
+                {"txid": tx.rehash(), "allowed": False, "reject-reason": "coinbase"}
             ],
             rawtxs=[tx.serialize().hex()],
         )
@@ -361,7 +361,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
         tx.nVersion = 3  # A version currently non-standard
         self.check_mempool_result(
             result_expected=[
-                {"txid": tx.rehash(), "allowed": False, "reject-reason": "64: version"}
+                {"txid": tx.rehash(), "allowed": False, "reject-reason": "version"}
             ],
             rawtxs=[tx.serialize().hex()],
         )
@@ -372,7 +372,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "64: scriptpubkey",
+                    "reject-reason": "scriptpubkey",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -384,7 +384,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "64: scriptsig-not-pushonly",
+                    "reject-reason": "scriptsig-not-pushonly",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -399,7 +399,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
         tx.vout = [output_p2sh_burn] * num_scripts
         self.check_mempool_result(
             result_expected=[
-                {"txid": tx.rehash(), "allowed": False, "reject-reason": "64: tx-size"}
+                {"txid": tx.rehash(), "allowed": False, "reject-reason": "tx-size"}
             ],
             rawtxs=[tx.serialize().hex()],
         )
@@ -410,7 +410,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
         ].nValue -= 1  # Make output smaller, such that it is dust for our policy
         self.check_mempool_result(
             result_expected=[
-                {"txid": tx.rehash(), "allowed": False, "reject-reason": "64: dust"}
+                {"txid": tx.rehash(), "allowed": False, "reject-reason": "dust"}
             ],
             rawtxs=[tx.serialize().hex()],
         )
@@ -422,7 +422,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "64: multi-op-return",
+                    "reject-reason": "multi-op-return",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -437,7 +437,7 @@ class MempoolAcceptanceTest(DefiTestFramework):
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "64: non-final",
+                    "reject-reason": "non-final",
                 }
             ],
             rawtxs=[tx.serialize().hex()],
@@ -445,16 +445,16 @@ class MempoolAcceptanceTest(DefiTestFramework):
 
         self.log.info("A transaction that is locked by BIP68 sequence logic")
         tx.deserialize(BytesIO(hex_str_to_bytes(raw_tx_reference)))
-        tx.vin[
-            0
-        ].nSequence = 2  # We could include it in the second block mined from now, but not the very next one
+        tx.vin[0].nSequence = (
+            2  # We could include it in the second block mined from now, but not the very next one
+        )
         # Can skip re-signing the tx because of early rejection
         self.check_mempool_result(
             result_expected=[
                 {
                     "txid": tx.rehash(),
                     "allowed": False,
-                    "reject-reason": "64: non-BIP68-final",
+                    "reject-reason": "non-BIP68-final",
                 }
             ],
             rawtxs=[tx.serialize().hex()],

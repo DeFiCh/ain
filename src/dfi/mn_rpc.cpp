@@ -616,27 +616,17 @@ UniValue setgov(const JSONRPCRequest &request) {
                 }
 
                 LOCK(cs_main);
-                const auto attrMap = attributes->GetAttributesMap();
-                for (const auto &[key, value] : attrMap) {
-                    if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                        DCT_ID tokenID{attrV0->typeId};
-                        if (attrV0->type == AttributeTypes::Consortium) {
-                            bool isDAT{};
-                            if (auto token = pcustomcsview->GetToken(tokenID)) {
-                                isDAT = token->IsDAT();
-                            }
-
-                            if (attrV0->typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attrV0->typeId})) {
-                                throw JSONRPCError(RPC_INVALID_REQUEST,
-                                                   "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
-                            }
-                        } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                                   attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+                attributes->ForEach(
+                    [](const CDataStructureV0 &attr, const CAttributeValue &) {
+                        if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                            attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
                             // Note: This is expected to be removed after DF23
                             throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                         }
-                    }
-                }
+
+                        return true;
+                    },
+                    CDataStructureV0{});
             }
 
             varStream << name << *gv;
@@ -855,26 +845,16 @@ UniValue setgovheight(const JSONRPCRequest &request) {
             }
 
             LOCK(cs_main);
-            const auto attrMap = attributes->GetAttributesMap();
-            for (const auto &[key, value] : attrMap) {
-                if (const auto attrV0 = std::get_if<CDataStructureV0>(&key)) {
-                    DCT_ID tokenID{attrV0->typeId};
-                    if (attrV0->type == AttributeTypes::Consortium) {
-                        bool isDAT{};
-                        if (auto token = pcustomcsview->GetToken(tokenID)) {
-                            isDAT = token->IsDAT();
-                        }
-
-                        if (attrV0->typeId == 0 || !isDAT || pcustomcsview->GetLoanTokenByID({attrV0->typeId})) {
-                            throw JSONRPCError(RPC_INVALID_REQUEST,
-                                               "Cannot set consortium on DFI, loan tokens and non-DAT tokens");
-                        }
-                    } else if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                               attrV0->type == AttributeTypes::Oracles && attrV0->typeId == OracleIDs::Splits) {
+            attributes->ForEach(
+                [](const CDataStructureV0 &attr, const CAttributeValue &) {
+                    if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
+                        attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
                         throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
                     }
-                }
-            }
+
+                    return true;
+                },
+                CDataStructureV0{});
         }
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
@@ -1117,8 +1097,8 @@ UniValue isappliedcustomtx(const JSONRPCRequest &request) {
         return result;
     }
 
-    // post Dakota it's not allowed tx to be skipped
-    // so tx that can be found in a block is applyed
+    // Post Dakota TXs are not allowed to be skipped,
+    // so TXs found in a block are applied.
     if (blockHeight >= Params().GetConsensus().DF6DakotaHeight) {
         result.setBool(true);
     } else {

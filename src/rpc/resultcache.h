@@ -17,7 +17,6 @@ struct CGetBurnInfoResult {
     CAmount burntFee{};
     CAmount auctionFee{};
     CBalances burntTokens;
-    CBalances nonConsortiumTokens;
     CBalances dexfeeburn;
     CBalances paybackFee;
 };

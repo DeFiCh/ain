@@ -6,7 +6,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use anyhow::Result;
+use anyhow::{format_err, Result};
 use jsonrpsee_server::ServerHandle;
 use parking_lot::Mutex;
 use tokio::{
@@ -74,33 +74,34 @@ impl Services {
         {
             let json_rpc_handles = self.json_rpc_handles.lock();
             for server in &*json_rpc_handles {
-                server.stop().unwrap();
+                server.stop()?;
             }
         }
 
         {
             let websocket_handles = self.websocket_handles.lock();
             for server in &*websocket_handles {
-                server.stop().unwrap();
+                server.stop()?;
             }
         }
-
-        // TODO: Propogate error
         Ok(())
     }
 
-    pub fn stop(&self) {
+    pub fn stop(&self) -> Result<()> {
         let _ = self.tokio_runtime_channel_tx.blocking_send(());
 
         self.tokio_worker
             .lock()
             .take()
-            .expect("runtime terminated?")
+            .ok_or(format_err!(
+                "failed to stop tokio runtime, early termination"
+            ))?
             .join()
-            .unwrap();
+            .map_err(|_| format_err!("failed to stop tokio runtime"))?;
 
         // Persist EVM State to disk
-        self.evm.core.flush().expect("Could not flush evm state");
-        self.evm.storage.flush().expect("Could not flush storage");
+        self.evm.core.flush()?;
+        self.evm.storage.flush()?;
+        Ok(())
     }
 }

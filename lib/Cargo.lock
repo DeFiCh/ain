@@ -175,6 +175,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "num-traits",
+ "parking_lot",
  "prettyplease 0.2.15",
  "proc-macro2",
  "prost",

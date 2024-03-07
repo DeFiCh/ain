@@ -140,7 +140,7 @@ impl BlockStorage for BlockStore {
         if let Some(block) = block {
             let latest_block_cf = self.column::<columns::LatestBlockNumber>();
             let block_number = block.header.number;
-            latest_block_cf.put(&"latest_block", &block_number)?;
+            latest_block_cf.put(&"", &block_number)?;
         }
         Ok(())
     }
@@ -228,7 +228,7 @@ impl Rollback for BlockStore {
 
             if let Some(block) = self.get_block_by_hash(&block.header.parent_hash)? {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
-                latest_block_cf.put(&"latest_block", &block.header.number)?;
+                latest_block_cf.put(&"", &block.header.number)?;
             }
 
             let logs_cf = self.column::<columns::AddressLogsMap>();

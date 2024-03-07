@@ -1,36 +1,43 @@
 use std::sync::Arc;
 
-use ain_evm::{evm::EVMServices, log::Notification, storage::traits::BlockStorage};
+use ain_evm::{
+    evm::EVMServices, filters::FilterCriteria, storage::traits::BlockStorage,
+    subscription::Notification,
+};
 use anyhow::format_err;
+use ethereum_types::U256;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
 use log::debug;
+use tokio::runtime::Handle as AsyncHandle;
 
 use crate::subscription::{
-    params::{Subscription, SubscriptionParams},
-    sync_status::{PubSubSyncStatus, SyncStatusMetadata},
-    PubSubResult,
+    PubSubResult, Subscription, SubscriptionParams, SubscriptionParamsTopics, SyncStatus,
 };
 
 /// Metachain WebSockets interface.
-#[rpc(server)]
+#[rpc(server, namespace = "eth")]
 pub trait MetachainPubSub {
     /// Subscribe to Eth subscription.
     #[subscription(
-    name = "eth_subscribe" => "eth_subscription",
-    unsubscribe = "eth_unsubscribe",
-    item = Result
+    name = "subscribe" => "subscription",
+    unsubscribe = "unsubscribe",
+    item = Result,
     )]
     fn subscribe(&self, subscription: Subscription, params: Option<SubscriptionParams>);
 }
 
 pub struct MetachainPubSubModule {
     handler: Arc<EVMServices>,
+    tokio_runtime: AsyncHandle,
 }
 
 impl MetachainPubSubModule {
     #[must_use]
-    pub fn new(handler: Arc<EVMServices>) -> Self {
-        Self { handler }
+    pub fn new(handler: Arc<EVMServices>, tokio_runtime: AsyncHandle) -> Self {
+        Self {
+            handler,
+            tokio_runtime,
+        }
     }
 }
 
@@ -41,115 +48,159 @@ impl MetachainPubSubServer for MetachainPubSubModule {
         subscription: Subscription,
         params: Option<SubscriptionParams>,
     ) -> Result<(), SubscriptionEmptyError> {
+        sink.accept()?;
         debug!(target: "pubsub", "subscribing to {:#?}", subscription);
         debug!(target: "pubsub", "params {:?}", params);
-        sink.accept()?;
 
+        let mut rx = self.handler.subscriptions.tx.subscribe();
         let handler = self.handler.clone();
-
-        let fut = async move {
-            match subscription {
-                Subscription::NewHeads => {
-                    while let Some(notification) =
-                        handler.channel.receiver.write().await.recv().await
-                    {
-                        if let Notification::Block(hash) = notification {
+        match subscription {
+            Subscription::NewHeads => {
+                let fut = async move {
+                    while !sink.is_closed() {
+                        if let Notification::Block(hash) = rx.recv().await? {
                             if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
-                                let _ =
-                                    sink.send(&PubSubResult::Header(Box::new(block.header.into())));
-                                debug!(target: "pubsub", "Received block hash in newHeads: {:x?}", hash);
-                            }
-                        }
-                    }
-                }
-                Subscription::Logs => {
-                    while let Some(notification) =
-                        handler.channel.receiver.write().await.recv().await
-                    {
-                        if let Notification::Block(hash) = notification {
-                            if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
-                                let logs = match &params {
-                                    Some(SubscriptionParams::Logs(p)) => handler.logs.get_logs(
-                                        &p.address,
-                                        &p.topics,
-                                        block.header.number,
-                                    )?,
-                                    _ => {
-                                        handler.logs.get_logs(&None, &None, block.header.number)?
-                                    }
-                                };
-
-                                for log in logs {
-                                    let _ = sink.send(&PubSubResult::Log(Box::new(log.into())));
+                                if !sink
+                                    .send(&PubSubResult::Header(Box::new(block.header.into())))?
+                                {
+                                    break;
                                 }
+                            } else {
+                                return Err(format_err!(
+                                    "failed to retrieve block from storage with block hash: {:x?}",
+                                    hash
+                                ));
                             }
                         }
                     }
-                }
-                Subscription::NewPendingTransactions => {
-                    while let Some(notification) =
-                        handler.channel.receiver.write().await.recv().await
-                    {
-                        if let Notification::Transaction(hash) = notification {
-                            debug!(target: "pubsub",
-                                "Received transaction hash in newPendingTransactions: {:x?}",
-                                hash
-                            );
-                            let _ = sink.send(&PubSubResult::TransactionHash(hash));
-                        }
-                    }
-                }
-                Subscription::Syncing => {
-                    let is_syncing = || -> Result<PubSubSyncStatus, anyhow::Error> {
-                        match ain_cpp_imports::get_sync_status() {
-                            Ok((current, highest)) => {
-                                if current != highest {
-                                    // Convert to EVM block number
-                                    let current_block = handler
-                                        .storage
-                                        .get_latest_block()?
-                                        .ok_or(format_err!("Unable to find latest block"))?
-                                        .header
-                                        .number;
-                                    let starting_block = handler.block.get_starting_block_number();
-                                    let highest_block = current_block + (highest - current); // safe since current can never be more than highest
-
-                                    Ok(PubSubSyncStatus::Detailed(SyncStatusMetadata {
-                                        syncing: current != highest,
-                                        starting_block,
-                                        current_block,
-                                        highest_block: Some(highest_block),
-                                    }))
-                                } else {
-                                    Ok(PubSubSyncStatus::Simple(false))
-                                }
-                            }
-                            Err(_) => Ok(PubSubSyncStatus::Simple(false)),
-                        }
-                    };
-
-                    let mut last_syncing_status = is_syncing()?;
-                    let _ = sink.send(&PubSubResult::SyncState(last_syncing_status.clone()));
-                    while let Some(notification) =
-                        handler.channel.receiver.write().await.recv().await
-                    {
-                        let Notification::Block(_) = notification else {
-                            continue;
-                        };
-
-                        debug!(target: "pubsub", "Received message in sync");
-                        let sync_status = is_syncing()?;
-                        if sync_status != last_syncing_status {
-                            let _ = sink.send(&PubSubResult::SyncState(sync_status.clone()));
-                            last_syncing_status = sync_status;
-                        }
-                    }
-                }
+                    debug!("Ws connection ended, thread closing");
+                    Ok::<(), anyhow::Error>(())
+                };
+                self.tokio_runtime.spawn(fut);
             }
+            Subscription::Logs => {
+                let fut = async move {
+                    while !sink.is_closed() {
+                        if let Notification::Block(hash) = rx.recv().await? {
+                            if let Some(block) = handler.storage.get_block_by_hash(&hash)? {
+                                let criteria = params
+                                    .as_ref()
+                                    .map(|p| {
+                                        let topics = p.topics.as_ref().map(|topics| match topics {
+                                            SubscriptionParamsTopics::VecOfHashes(inputs) => inputs
+                                                .iter()
+                                                .flatten()
+                                                .map(|input| vec![*input])
+                                                .collect(),
+                                            SubscriptionParamsTopics::VecOfHashVecs(inputs) => {
+                                                inputs
+                                                    .iter()
+                                                    .map(|hashes| {
+                                                        hashes.iter().flatten().copied().collect()
+                                                    })
+                                                    .collect()
+                                            }
+                                        });
+                                        FilterCriteria {
+                                            addresses: p.address.clone(),
+                                            topics,
+                                            ..Default::default()
+                                        }
+                                    })
+                                    .unwrap_or_default();
+                                let logs = handler
+                                    .filters
+                                    .get_block_logs(&criteria, block.header.number)?;
+                                let mut disconnect = false;
+                                for log in logs {
+                                    if !sink.send(&PubSubResult::Log(Box::new(log.into())))? {
+                                        disconnect = true;
+                                        break;
+                                    }
+                                }
+                                if disconnect {
+                                    break;
+                                }
+                            } else {
+                                return Err(format_err!(
+                                    "failed to retrieve block from storage with block hash: {:x?}",
+                                    hash
+                                ));
+                            }
+                        }
+                    }
+                    debug!("Ws connection ended, thread closing");
+                    Ok::<(), anyhow::Error>(())
+                };
+                self.tokio_runtime.spawn(fut);
+            }
+            Subscription::NewPendingTransactions => {
+                let fut = async move {
+                    while !sink.is_closed() {
+                        if let Notification::Transaction(hash) = rx.recv().await? {
+                            if !sink.send(&PubSubResult::TransactionHash(hash))? {
+                                break;
+                            }
+                        }
+                    }
+                    debug!("Ws connection ended, thread closing");
+                    Ok::<(), anyhow::Error>(())
+                };
+                self.tokio_runtime.spawn(fut);
+            }
+            Subscription::Syncing => {
+                let fut = async move {
+                    let get_sync_status = || -> Result<SyncStatus, anyhow::Error> {
+                        let (current, highest) = ain_cpp_imports::get_sync_status()
+                            .map_err(|_| format_err!("failed to get sync status"))?;
+                        let current_block = handler
+                            .storage
+                            .get_latest_block()?
+                            .ok_or(format_err!("Unable to find latest block"))?
+                            .header
+                            .number;
+                        let diff = U256::from(highest.saturating_sub(current));
+                        let highest_block = current_block.saturating_add(diff);
+                        Ok(SyncStatus {
+                            syncing: current != highest,
+                            starting_block: handler.block.get_starting_block_number(),
+                            current_block,
+                            highest_block,
+                        })
+                    };
+                    let mut last_sync_status = get_sync_status()?;
+                    if !last_sync_status.syncing {
+                        // Node is at tip. Return false flag once and exit thread
+                        let _ = sink.send(&false)?;
+                        return Ok::<(), anyhow::Error>(());
+                    } else {
+                        sink.send(&PubSubResult::SyncState(last_sync_status.clone()))?
+                            .then_some(true)
+                            .ok_or_else(|| format_err!("send failed, sink closed"))?;
+                    }
 
-            Ok::<(), anyhow::Error>(())
-        };
-        tokio::task::spawn(fut);
+                    while !sink.is_closed() {
+                        if let Notification::Block(_) = rx.recv().await? {
+                            let sync_status = get_sync_status()?;
+                            if sync_status.current_block != last_sync_status.current_block {
+                                if !sync_status.syncing {
+                                    // Node sync-ed to tip. Return false flag once and exit thread
+                                    let _ = sink.send(&false)?;
+                                    break;
+                                }
+                                if !sink.send(&PubSubResult::SyncState(sync_status.clone()))? {
+                                    break;
+                                }
+                            }
+                            last_sync_status = sync_status;
+                        }
+                    }
+                    debug!("Ws connection ended, thread closing");
+                    Ok::<(), anyhow::Error>(())
+                };
+                self.tokio_runtime.spawn(fut);
+            }
+        }
         Ok(())
     }
 }
