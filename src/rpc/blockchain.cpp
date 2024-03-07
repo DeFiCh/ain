@@ -431,8 +431,8 @@ static UniValue getblockcount(const JSONRPCRequest& request)
                 },
             }.Check(request);
 
-    const auto view = ::GetViewSnapshot();
-    return view->GetLastHeight();
+    LOCK(cs_main);
+    return ::ChainActive().Height();
 }
 
 static UniValue getbestblockhash(const JSONRPCRequest& request)
