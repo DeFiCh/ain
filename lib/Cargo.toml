@@ -61,6 +61,7 @@ sha3 = "0.10"
 
 num = { version = "0.4", default-features = false, features = ["alloc"] }
 num-traits = "0.2"
+num_cpus = "1.0"
 
 hex = "0.4"
 hex-literal = "0.4"
@@ -113,3 +114,7 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+### Local crates
+ain-cpp-imports = { path = "./ain-cpp-imports" }
+ain-db = { path = "./ain-db" }
