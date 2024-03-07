@@ -18,6 +18,8 @@ lto = true
 vsdb = { git = "https://github.com/defich/vsdb.git" }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
+bitcoin = { git = "https://github.com/Jouzo/rust-bitcoin.git" }
+bitcoin-io = { git = "https://github.com/Jouzo/rust-bitcoin.git" }
 
 [workspace.dependencies]
 
@@ -85,6 +87,8 @@ rustc_version_runtime = "0.2.1"
 parking_lot = "0.12.1"
 spin = "0.9.8"
 
+bitcoin = "0.31"
+
 ### eth
 
 evm = { version = "0.39", default-features = false, features = ["with-serde", "tracing"] }
@@ -100,7 +104,6 @@ ethabi = "18.0.0"
 
 ### ain-evm
 
-
 #### Trie dependencies
 hash-db = "0.16"
 sp-core = "22.0"
@@ -113,3 +116,7 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+### Local crates
+ain-macros = { path = "./ain-macros" }
+ain-dftx = { path = "./ain-dftx" }
