@@ -2901,8 +2901,11 @@ bool ExecuteTokenSplitFromEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
     newAmount.id = id;
     newAmount.amount = CalculateNewAmount(multiplier, oldAmount.amount);
 
-    if (const auto res = cache->AddMintedTokens({id}, newAmount.amount); !res) {
-        return res;
+    // Only increment minted tokens if there is no additional split on new token.
+    if (const auto additionalSplit = cache->GetTokenSplitMultiplier(newAmount.id); !additionalSplit) {
+        if (const auto res = cache->AddMintedTokens({id}, newAmount.amount); !res) {
+            return res;
+        }
     }
 
     return true;
