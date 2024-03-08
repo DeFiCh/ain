@@ -1,9 +1,12 @@
 pub mod error;
 mod indexer;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use parking_lot::Mutex;
+use petgraph::graphmap::UnGraphMap;
+use serde::Serialize;
 
-pub use api::ocean_router;
+pub use api::{ocean_router, common::parse_display_symbol};
 use error::Error;
 pub use indexer::{index_block, invalidate_block, transaction::index_transaction, tx_result};
 use repository::{
@@ -59,6 +62,15 @@ pub struct TransactionService {
     vout_by_id: TransactionVoutRepository,
 }
 
+
+#[derive(Clone, Debug, Serialize)]
+pub struct TokenIdentifier {
+    pub id: String,
+    pub name: String,
+    pub symbol: String,
+    pub display_symbol: String,
+}
+
 pub struct Services {
     pub masternode: MasternodeService,
     pub block: BlockService,
@@ -66,6 +78,8 @@ pub struct Services {
     pub result: TxResultRepository,
     pub pool: PoolService,
     pub transaction: TransactionService,
+    pub token_graph: Mutex<UnGraphMap<u32, ()>>,
+    pub tokens_to_swappable_tokens: Mutex<HashMap<String, Vec<TokenIdentifier>>>,
 }
 
 impl Services {
@@ -95,6 +109,8 @@ impl Services {
                 vin_by_id: TransactionVinRepository::new(Arc::clone(&store)),
                 vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
             },
+            token_graph: Mutex::new(UnGraphMap::new()),
+            tokens_to_swappable_tokens: Mutex::new(HashMap::new()),
         }
     }
 }

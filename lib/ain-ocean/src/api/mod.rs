@@ -13,7 +13,7 @@ mod poolpairs;
 // mod prices;
 // mod rawtx;
 mod cache;
-mod common;
+pub mod common;
 mod path;
 mod query;
 mod response;
