@@ -27,7 +27,8 @@ from test_framework.script import (
     hash160,
     sha256,
 )
-from test_framework.util import hex_str_to_bytes
+from test_framework.util import assert_equal, hex_str_to_bytes
+
 
 Key = namedtuple(
     "Key",
@@ -128,3 +129,6 @@ def test_address(node, address, **kwargs):
                     key, addr_info[key], value
                 )
             )
+
+    # Test get address info from scriptPubKey
+    assert_equal(node.getaddressinfo(addr_info["scriptPubKey"]), addr_info)
