@@ -3,7 +3,7 @@ pub mod error;
 use std::{path::PathBuf, sync::Arc};
 
 use error::Error;
-pub use indexer::{index_block, invalidate_block};
+pub use indexer::{index_block, invalidate_block, transaction::index_transaction, tx_result};
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
