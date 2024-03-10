@@ -1,12 +1,13 @@
 mod core;
 mod debug;
 mod evm;
+mod ocean;
 mod prelude;
 mod util;
 
 use ain_evm::blocktemplate::BlockTemplate;
 
-use crate::{core::*, debug::*, evm::*, util::*};
+use crate::{core::*, debug::*, evm::*, ocean::*, util::*};
 
 pub struct BlockTemplateWrapper(Option<BlockTemplate>);
 
@@ -343,6 +344,10 @@ pub mod ffi {
         );
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
+
+        fn ocean_index_block(result: &mut CrossBoundaryResult, block_str: String);
+        fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String);
+
     }
 
     // =========  Debug ==========

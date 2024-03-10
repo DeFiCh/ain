@@ -4,6 +4,7 @@
 
 #include <ain_rs_exports.h>
 #include <chain.h>
+#include <consensus/validation.h>
 #include <dfi/accountshistory.h>
 #include <dfi/errors.h>
 #include <dfi/govvariables/attributes.h>
@@ -18,7 +19,9 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
+#include <rpc/blockchain.h>
 #include <validation.h>
 
 #include <boost/asio.hpp>
@@ -2787,6 +2790,17 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
     // Construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256S(std::string(64, '1')));
+
+    // Ocean archive
+    if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+
+        const UniValue b = blockToJSON(block, ::ChainActive().Tip(), pindex, true, 2);
+        CrossBoundaryResult result;
+        ocean_index_block(result, b.write());
+        if (!result.ok) {
+            return Res::Err(result.reason.c_str());
+        }
+    }
 
     return Res::Ok();
 }

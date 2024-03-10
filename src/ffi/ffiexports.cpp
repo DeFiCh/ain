@@ -23,6 +23,22 @@ uint64_t getChainId() {
     return Params().GetConsensus().evmChainId;
 }
 
+int getRPCPort() {
+    return gArgs.GetArg("-rpcport", BaseParams().RPCPort());
+}
+
+rust::string getRPCAuth() {
+    // Get credentials
+    std::string strRPCUserColonPass;
+    if (gArgs.GetArg("-rpcpassword", "") == "") {
+        // Try fall back to cookie-based authentication if no password is provided
+        GetAuthCookie(&strRPCUserColonPass);
+    } else {
+        strRPCUserColonPass = gArgs.GetArg("-rpcuser", "") + ":" + gArgs.GetArg("-rpcpassword", "");
+    }
+    return strRPCUserColonPass;
+}
+
 bool isMining() {
     return gArgs.GetBoolArg("-gen", false);
 }
@@ -385,4 +401,8 @@ bool isEthDebugRPCEnabled() {
 
 bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
+}
+
+bool isOceanEnabled() {
+    return gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED);
 }

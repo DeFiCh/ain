@@ -79,6 +79,7 @@ jsonrpsee-core = "0.16"
 jsonrpsee-server = "0.16"
 jsonrpsee-types = "0.16"
 
+axum = { version = "0.7.1", features = ["macros"] }
 tempdir = "0.3"
 
 rocksdb = { version = "0.21", default-features = false }
@@ -87,8 +88,6 @@ rustc-hex = "2.1"
 rustc_version_runtime = "0.2.1"
 parking_lot = "0.12.1"
 spin = "0.9.8"
-
-bitcoin = "0.31"
 
 ### eth
 
@@ -117,6 +116,11 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+#### Ocean dependencies
+bitcoin = "0.31"
+cached = { version = "0.48", features = ["async"] }
+defichain-rpc = { version = "0.18.0", git = "https://github.com/defich/rust-defichain-rpc.git" }
 
 ### Local crates
 ain-macros = { path = "./ain-macros" }

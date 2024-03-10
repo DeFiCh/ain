@@ -1,6 +1,7 @@
-use crate::{ffi, prelude::*};
 use ain_macros::ffi_fallible;
 use anyhow::Result;
+
+use crate::{ffi, prelude::*};
 
 #[ffi_fallible]
 pub fn ain_rs_preinit() -> Result<()> {
