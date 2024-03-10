@@ -348,6 +348,12 @@ pub mod ffi {
         fn ocean_index_block(result: &mut CrossBoundaryResult, block_str: String);
         fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String);
 
+        fn ocean_try_set_tx_result(
+            result: &mut CrossBoundaryResult,
+            tx_type: u8,
+            tx_hash: [u8; 32],
+            result_ptr: usize,
+        );
     }
 
     // =========  Debug ==========
