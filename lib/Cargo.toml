@@ -63,6 +63,7 @@ sha3 = "0.10"
 
 num = { version = "0.4", default-features = false, features = ["alloc"] }
 num-traits = "0.2"
+num_cpus = "1.0"
 
 hex = "0.4"
 hex-literal = "0.4"
@@ -120,3 +121,5 @@ substrate-bn = "0.6"
 ### Local crates
 ain-macros = { path = "./ain-macros" }
 ain-dftx = { path = "./ain-dftx" }
+ain-cpp-imports = { path = "./ain-cpp-imports" }
+ain-db = { path = "./ain-db" }
