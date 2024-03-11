@@ -31,7 +31,7 @@ use crate::{
         Storage,
     },
     subscription::{Notification, SubscriptionService},
-    tracer::TracerService,
+    trace::service::TracerService,
     transaction::{cache::TransactionCache, SignedTx},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
