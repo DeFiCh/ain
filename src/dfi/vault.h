@@ -141,19 +141,6 @@ struct CAuctionBatch {
     }
 };
 
-struct CHeightAndFeeValue {
-    uint32_t height;
-    CAmount creationFee;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(height);
-        READWRITE(creationFee);
-    }
-};
-
 class CVaultView : public virtual CStorageView {
 public:
     using COwnerTokenAmount = std::pair<CScript, CTokenAmount>;
@@ -167,9 +154,9 @@ public:
                       const CVaultId &start = {},
                       const CScript &ownerAddress = {});
 
-    bool SetVaultHeightAndFee(const CVaultId &vaultId, const uint32_t height, const CAmount creationFee);
-    std::optional<CHeightAndFeeValue> GetVaultHeightAndFee(const CVaultId &vaultId);
-    bool EraseVaultHeightAndFee(const CVaultId &vaultId);
+    bool SetVaultCreationFee(const CVaultId &vaultId, const CAmount creationFee);
+    std::optional<CAmount> GetVaultCreationFee(const CVaultId &vaultId);
+    bool EraseVaultCreationFee(const CVaultId &vaultId);
 
     virtual Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
     virtual Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);

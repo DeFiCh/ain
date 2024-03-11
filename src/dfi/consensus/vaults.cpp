@@ -48,7 +48,7 @@ Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
     auto vaultId = tx.GetHash();
 
     if (height >= consensus.DF23Height) {
-        if (!mnview.SetVaultHeightAndFee(vaultId, height, vaultCreationFee)) {
+        if (!mnview.SetVaultCreationFee(vaultId, vaultCreationFee)) {
             return Res::Err("Failed to set vault height and fee");
         }
     }
@@ -121,13 +121,13 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
     }
 
     // return half fee, the rest is burned at creation
-    const auto vaultCreationFee = mnview.GetVaultHeightAndFee(obj.vaultId);
-    auto feeBack = vaultCreationFee ? vaultCreationFee->creationFee / 2 : consensus.vaultCreationFee / 2;
+    const auto vaultCreationFee = mnview.GetVaultCreationFee(obj.vaultId);
+    auto feeBack = vaultCreationFee ? *vaultCreationFee / 2 : consensus.vaultCreationFee / 2;
     if (auto res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack}); !res) {
         return res;
     }
 
-    if (vaultCreationFee && !mnview.EraseVaultHeightAndFee(obj.vaultId)) {
+    if (vaultCreationFee && !mnview.EraseVaultCreationFee(obj.vaultId)) {
         return Res::Err("Failed to erase vault height and fee");
     }
 
