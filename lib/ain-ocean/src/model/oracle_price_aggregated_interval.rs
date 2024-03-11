@@ -1,5 +1,5 @@
+use ain_dftx::{common::CompactVec, price::TokenPrice, ConsensusEncoding};
 use bitcoin::{impl_consensus_encoding, io, Txid};
-use dftx_rs::{common::CompactVec, price::TokenPrice, ConsensusEncoding};
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
@@ -17,7 +17,7 @@ pub enum OracleIntervalSeconds {
     OneDay = ONE_DAY,
 }
 
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SetOracleInterval {
     pub oracle_id: Txid,
     pub timestamp: i64,

@@ -1,7 +1,7 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc};
 
-use ain_dftx::oracles::*;
-use dftx_rs::{common::CompactVec, oracles::*};
+use ain_dftx::{common::CompactVec, oracles::*};
+use bitcoin::Txid;
 use rust_decimal::{
     prelude::{ToPrimitive, Zero},
     Decimal,
@@ -22,7 +22,7 @@ use crate::{
 };
 
 impl Index for AppointOracle {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
         let oracle = Oracle {
             id: oracle_id,
@@ -86,7 +86,7 @@ impl Index for AppointOracle {
 }
 
 impl Index for RemoveOracle {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
         //delete for oracle
         services.oracle.by_id.delete(&oracle_id)?;
@@ -164,7 +164,7 @@ impl Index for RemoveOracle {
 }
 
 impl Index for UpdateOracle {
-    fn index(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
         let oracle = Oracle {
             id: oracle_id,
@@ -280,7 +280,7 @@ impl Index for UpdateOracle {
 }
 
 impl Index for SetOracleInterval {
-    fn index(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let set_oracle_data = SetOracleData {
             oracle_id: self.oracle_id,
             timestamp: self.timestamp,
@@ -326,7 +326,7 @@ impl Index for SetOracleInterval {
 }
 
 impl Index for SetOracleData {
-    fn index(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+    fn index(self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let set_oracle_data = SetOracleData {
             oracle_id: self.oracle_id,
             timestamp: self.timestamp,
@@ -393,7 +393,8 @@ pub fn map_price_aggregated(
     currency: &str,
 ) -> Result<Option<OraclePriceAggregated>> {
     // Convert Result to Option
-    let oracle_id = services
+    let key = (token.to_string(), currency.to_string());
+    let oracle_token_currency = services
         .oracle_token_currency
         .by_key
         .list(Some(key), SortOrder::Descending)?
@@ -405,27 +406,11 @@ pub fn map_price_aggregated(
                 .get(&id)?
                 .ok_or("Missing block index")?;
 
-    if let Some(mut oracle_iter) = oracle_id {
-        loop {
-            match oracle_iter.next() {
-                Some(Ok((_, value))) => {
-                    let oracle = services.oracle_token_currency.by_id.get(&value);
-                    if let Ok(Some(oracle)) = oracle {
-                        oracle_token_currencies.push(oracle);
-                    }
-                }
+            Ok(b)
+        })
+        .collect::<Result<Vec<_>>>()?;
 
-                Some(Err(e)) => {
-                    println!("Error: {:?}", e);
-                    break;
-                }
-
-                None => break,
-            }
-        }
-    }
-
-    let result = oracle_token_currencies;
+    let result = oracle_token_currency;
     let mut aggregated = OraclePriceAggregatedAggregated {
         amount: "0".to_string(),
         weightage: 0,
@@ -467,14 +452,11 @@ pub fn map_price_aggregated(
         }
 
         if let Some(oracle_price_feed) = oracle_price_feed {
-            if (oracle_price_feed.time - ctx.block.time as u64) < 3600 {
+            if (oracle_price_feed.time - ctx.block.time as i32) < 3600 {
                 aggregated.oracles.active += 1;
                 aggregated.weightage += oracle.weightage as i32;
-
-                let amount = oracle_price_feed.amount; // Assuming amount is already an i64
-
+                let amount = oracle_price_feed.amount;
                 let weighted_amount = amount * oracle.weightage as i64;
-
                 if let Ok(current_amount) = aggregated.amount.parse::<i64>() {
                     aggregated.amount = (current_amount + weighted_amount).to_string();
                 }
@@ -523,7 +505,7 @@ pub fn map_price_feeds(
                     id: (
                         token_price.token.clone(),
                         token_amount.currency.clone(),
-                        set_data.oracle_id.to_string(),
+                        set_data.oracle_id,
                         ctx.tx.txid,
                     ),
 
@@ -537,7 +519,7 @@ pub fn map_price_feeds(
                     currency: token_amount.currency.clone(),
                     block: ctx.block.clone(),
                     oracle_id: set_data.oracle_id,
-                    time: set_data.timestamp as u64,
+                    time: set_data.timestamp as i32,
                     token: token_price.token.clone(),
                     txid: ctx.tx.txid,
                 };
@@ -756,7 +738,7 @@ fn process_inner_values(
             currency: previous_data.as_ref().unwrap().currency.clone(),
             aggregated: OraclePriceAggregatedIntervalAggregated {
                 amount: forward_aggregate_value(
-                    last_price.amount.as_str(),
+                    lastprice.amount.as_str(),
                     aggregated.aggregated.amount.as_str(),
                     count,
                 )
