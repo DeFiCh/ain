@@ -37,9 +37,9 @@ pub struct StepEventFilter {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
-    Evm(evm::EvmEvent),
-    Gasometer(gasometer::GasometerEvent),
-    Runtime(runtime::RuntimeEvent),
+    Evm(EvmEvent),
+    Gasometer(GasometerEvent),
+    Runtime(RuntimeEvent),
     CallListNew(),
 }
 
