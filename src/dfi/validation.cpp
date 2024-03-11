@@ -2705,6 +2705,11 @@ static void ProcessAutoNegativeInterest(const CBlockIndex *pindex,
         return;
     }
 
+    LogPrint(BCLog::NEGINTEREST,
+             "Negative interest updated. Height: %d Value: %s\n",
+             pindex->nHeight,
+             GetDecimalString(result));
+
     cache.SetVariable(*attributes);
 }
 
