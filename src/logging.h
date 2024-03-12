@@ -34,38 +34,40 @@ struct CLogCategoryActive
 
 namespace BCLog {
     enum LogFlags : uint64_t {
-        NONE          = 0UL,
-        NET           = (1UL <<  0),
-        TOR           = (1UL <<  1),
-        MEMPOOL       = (1UL <<  2),
-        HTTP          = (1UL <<  3),
-        BENCH         = (1UL <<  4),
-        ZMQ           = (1UL <<  5),
-        DB            = (1UL <<  6),
-        RPC           = (1UL <<  7),
-        ESTIMATEFEE   = (1UL <<  8),
-        ADDRMAN       = (1UL <<  9),
-        SELECTCOINS   = (1UL << 10),
-        REINDEX       = (1UL << 11),
-        CMPCTBLOCK    = (1UL << 12),
-        RAND          = (1UL << 13),
-        PRUNE         = (1UL << 14),
-        PROXY         = (1UL << 15),
-        MEMPOOLREJ    = (1UL << 16),
-        LIBEVENT      = (1UL << 17),
-        COINDB        = (1UL << 18),
-        LEVELDB       = (1UL << 20),
-        STAKING       = (1UL << 21),
-        ANCHORING     = (1UL << 22),
-        SPV           = (1UL << 23),
-        ORACLE        = (1UL << 24),
-        LOAN          = (1UL << 25),
-        ACCOUNTCHANGE = (1UL << 26),
-        FUTURESWAP    = (1UL << 27),
-        TOKENSPLIT    = (1UL << 28),
-        RPCCACHE      = (1UL << 29),
-        CUSTOMTXBENCH = (1UL << 30),
-        ALL           = ~(0UL),
+        NONE          = 0ull,
+        NET           = (1ull <<  0ull),
+        TOR           = (1ull <<  1ull),
+        MEMPOOL       = (1ull <<  2ull),
+        HTTP          = (1ull <<  3ull),
+        BENCH         = (1ull <<  4ull),
+        ZMQ           = (1ull <<  5ull),
+        DB            = (1ull <<  6ull),
+        RPC           = (1ull <<  7ull),
+        ESTIMATEFEE   = (1ull <<  8ull),
+        ADDRMAN       = (1ull <<  9ull),
+        SELECTCOINS   = (1ull << 10ull),
+        REINDEX       = (1ull << 11ull),
+        CMPCTBLOCK    = (1ull << 12ull),
+        RAND          = (1ull << 13ull),
+        PRUNE         = (1ull << 14ull),
+        PROXY         = (1ull << 15ull),
+        MEMPOOLREJ    = (1ull << 16ull),
+        LIBEVENT      = (1ull << 17ull),
+        COINDB        = (1ull << 18ull),
+        LEVELDB       = (1ull << 20ull),
+        STAKING       = (1ull << 21ull),
+        ANCHORING     = (1ull << 22ull),
+        SPV           = (1ull << 23ull),
+        ORACLE        = (1ull << 24ull),
+        LOAN          = (1ull << 25ull),
+        ACCOUNTCHANGE = (1ull << 26ull),
+        FUTURESWAP    = (1ull << 27ull),
+        TOKENSPLIT    = (1ull << 28ull),
+        RPCCACHE      = (1ull << 29ull),
+        CUSTOMTXBENCH = (1ull << 30ull),
+        CONNECT       = (1ull << 31ull),
+        SIGN          = (1ull << 32ull),
+        ALL           = ~(0ull),
     };
 
     class Logger
@@ -84,7 +86,7 @@ namespace BCLog {
         std::atomic_bool m_started_new_line{true};
 
         /** Log categories bitfield. */
-        std::atomic<uint32_t> m_categories{0};
+        std::atomic<uint64_t> m_categories{0};
 
         std::string LogTimestampStr(const std::string& str);
 

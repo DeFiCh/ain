@@ -74,8 +74,8 @@ protected:
     void ImplicitlyLearnRelatedKeyScripts(const CPubKey& pubkey) EXCLUSIVE_LOCKS_REQUIRED(cs_KeyStore);
 
 public:
-    virtual bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey);
-    virtual bool AddKey(const CKey &key) { return AddKeyPubKey(key, key.GetPubKey()); }
+    virtual bool AddKeyPair(const CKey& key, const CPubKey &pubkey);
+    virtual bool AddKey(const CKey &key) { return AddKeyPair(key, key.GetPubKey()); }
     virtual bool GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const override;
     virtual bool HaveKey(const CKeyID &address) const override;
     virtual std::set<CKeyID> GetKeys() const;
@@ -88,5 +88,13 @@ public:
 
 /** Return the CKeyID of the key involved in a script (if there is a unique one). */
 CKeyID GetKeyOrDefaultFromDestination(const SigningProvider& store, const CTxDestination& dest);
+
+inline void ResolveKeyCompression(const KeyAddressType type, CPubKey &pubkey) {
+    if (!pubkey.IsCompressed() && type == KeyAddressType::COMPRESSED) {
+        pubkey.Compress();
+    } else if (pubkey.IsCompressed() && type == KeyAddressType::UNCOMPRESSED) {
+        pubkey.Decompress();
+    }
+}
 
 #endif // DEFI_SCRIPT_SIGNINGPROVIDER_H

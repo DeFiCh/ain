@@ -32,5 +32,5 @@ class P2PMempoolTests(DefiTestFramework):
         assert_equal(len(self.nodes[0].getpeerinfo()), 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     P2PMempoolTests().main()

@@ -27,27 +27,38 @@ from test_framework.script import (
     hash160,
     sha256,
 )
-from test_framework.util import hex_str_to_bytes
+from test_framework.util import assert_equal, hex_str_to_bytes
 
-Key = namedtuple('Key', ['privkey',
-                         'pubkey',
-                         'p2pkh_script',
-                         'p2pkh_addr',
-                         'p2wpkh_script',
-                         'p2wpkh_addr',
-                         'p2sh_p2wpkh_script',
-                         'p2sh_p2wpkh_redeem_script',
-                         'p2sh_p2wpkh_addr'])
 
-Multisig = namedtuple('Multisig', ['privkeys',
-                                   'pubkeys',
-                                   'p2sh_script',
-                                   'p2sh_addr',
-                                   'redeem_script',
-                                   'p2wsh_script',
-                                   'p2wsh_addr',
-                                   'p2sh_p2wsh_script',
-                                   'p2sh_p2wsh_addr'])
+Key = namedtuple(
+    "Key",
+    [
+        "privkey",
+        "pubkey",
+        "p2pkh_script",
+        "p2pkh_addr",
+        "p2wpkh_script",
+        "p2wpkh_addr",
+        "p2sh_p2wpkh_script",
+        "p2sh_p2wpkh_redeem_script",
+        "p2sh_p2wpkh_addr",
+    ],
+)
+
+Multisig = namedtuple(
+    "Multisig",
+    [
+        "privkeys",
+        "pubkeys",
+        "p2sh_script",
+        "p2sh_addr",
+        "redeem_script",
+        "p2wsh_script",
+        "p2wsh_addr",
+        "p2sh_p2wsh_script",
+        "p2sh_p2wsh_addr",
+    ],
+)
 
 
 def get_key(node):
@@ -55,17 +66,23 @@ def get_key(node):
 
     Returns a named tuple of privkey, pubkey and all address and scripts."""
     addr = node.getnewaddress()
-    pubkey = node.getaddressinfo(addr)['pubkey']
+    pubkey = node.getaddressinfo(addr)["pubkey"]
     pkh = hash160(hex_str_to_bytes(pubkey))
-    return Key(privkey=node.dumpprivkey(addr),
-               pubkey=pubkey,
-               p2pkh_script=CScript([OP_DUP, OP_HASH160, pkh, OP_EQUALVERIFY, OP_CHECKSIG]).hex(),
-               p2pkh_addr=key_to_p2pkh(pubkey),
-               p2wpkh_script=CScript([OP_0, pkh]).hex(),
-               p2wpkh_addr=key_to_p2wpkh(pubkey),
-               p2sh_p2wpkh_script=CScript([OP_HASH160, hash160(CScript([OP_0, pkh])), OP_EQUAL]).hex(),
-               p2sh_p2wpkh_redeem_script=CScript([OP_0, pkh]).hex(),
-               p2sh_p2wpkh_addr=key_to_p2sh_p2wpkh(pubkey))
+    return Key(
+        privkey=node.dumpprivkey(addr),
+        pubkey=pubkey,
+        p2pkh_script=CScript(
+            [OP_DUP, OP_HASH160, pkh, OP_EQUALVERIFY, OP_CHECKSIG]
+        ).hex(),
+        p2pkh_addr=key_to_p2pkh(pubkey),
+        p2wpkh_script=CScript([OP_0, pkh]).hex(),
+        p2wpkh_addr=key_to_p2wpkh(pubkey),
+        p2sh_p2wpkh_script=CScript(
+            [OP_HASH160, hash160(CScript([OP_0, pkh])), OP_EQUAL]
+        ).hex(),
+        p2sh_p2wpkh_redeem_script=CScript([OP_0, pkh]).hex(),
+        p2sh_p2wpkh_addr=key_to_p2sh_p2wpkh(pubkey),
+    )
 
 
 def get_multisig(node):
@@ -76,19 +93,25 @@ def get_multisig(node):
     pubkeys = []
     for _ in range(3):
         addr = node.getaddressinfo(node.getnewaddress())
-        addrs.append(addr['address'])
-        pubkeys.append(addr['pubkey'])
-    script_code = CScript([OP_2] + [hex_str_to_bytes(pubkey) for pubkey in pubkeys] + [OP_3, OP_CHECKMULTISIG])
+        addrs.append(addr["address"])
+        pubkeys.append(addr["pubkey"])
+    script_code = CScript(
+        [OP_2]
+        + [hex_str_to_bytes(pubkey) for pubkey in pubkeys]
+        + [OP_3, OP_CHECKMULTISIG]
+    )
     witness_script = CScript([OP_0, sha256(script_code)])
-    return Multisig(privkeys=[node.dumpprivkey(addr) for addr in addrs],
-                    pubkeys=pubkeys,
-                    p2sh_script=CScript([OP_HASH160, hash160(script_code), OP_EQUAL]).hex(),
-                    p2sh_addr=script_to_p2sh(script_code),
-                    redeem_script=script_code.hex(),
-                    p2wsh_script=witness_script.hex(),
-                    p2wsh_addr=script_to_p2wsh(script_code),
-                    p2sh_p2wsh_script=CScript([OP_HASH160, witness_script, OP_EQUAL]).hex(),
-                    p2sh_p2wsh_addr=script_to_p2sh_p2wsh(script_code))
+    return Multisig(
+        privkeys=[node.dumpprivkey(addr) for addr in addrs],
+        pubkeys=pubkeys,
+        p2sh_script=CScript([OP_HASH160, hash160(script_code), OP_EQUAL]).hex(),
+        p2sh_addr=script_to_p2sh(script_code),
+        redeem_script=script_code.hex(),
+        p2wsh_script=witness_script.hex(),
+        p2wsh_addr=script_to_p2wsh(script_code),
+        p2sh_p2wsh_script=CScript([OP_HASH160, witness_script, OP_EQUAL]).hex(),
+        p2sh_p2wsh_addr=script_to_p2sh_p2wsh(script_code),
+    )
 
 
 def test_address(node, address, **kwargs):
@@ -97,6 +120,15 @@ def test_address(node, address, **kwargs):
     for key, value in kwargs.items():
         if value is None:
             if key in addr_info.keys():
-                raise AssertionError("key {} unexpectedly returned in getaddressinfo.".format(key))
+                raise AssertionError(
+                    "key {} unexpectedly returned in getaddressinfo.".format(key)
+                )
         elif addr_info[key] != value:
-            raise AssertionError("key {} value {} did not match expected value {}".format(key, addr_info[key], value))
+            raise AssertionError(
+                "key {} value {} did not match expected value {}".format(
+                    key, addr_info[key], value
+                )
+            )
+
+    # Test get address info from scriptPubKey
+    assert_equal(node.getaddressinfo(addr_info["scriptPubKey"]), addr_info)

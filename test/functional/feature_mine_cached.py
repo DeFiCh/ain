@@ -20,11 +20,9 @@ class IsMineCachedTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        # We need to enlarge -datacarriersize for allowing for test big OP_RETURN scripts
-        # resulting from building AnyAccountsToAccounts msg with many accounts balances
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
         ]
 
     def run_test(self):
@@ -49,5 +47,5 @@ class IsMineCachedTest(DefiTestFramework):
         self.nodes[0].sendtokenstoaddress({}, to)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     IsMineCachedTest().main()

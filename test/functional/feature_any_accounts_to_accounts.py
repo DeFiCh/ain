@@ -25,13 +25,11 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 4
         self.setup_clean_chain = True
-        # We need to enlarge -datacarriersize for allowing for test big OP_RETURN scripts
-        # resulting from building AnyAccountsToAccounts msg with many accounts balances
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000'],
-            ['-txnotokens=0', '-amkheight=50', '-bayfrontgardensheight=50', '-datacarriersize=1000']
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontgardensheight=50"],
         ]
 
     def run_test(self):
@@ -44,29 +42,29 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
                 "symbol": "GOLD",
                 "name": "shiny gold",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 50
+                "amount": 50,
             },
             {
                 "wallet": self.nodes[0],
                 "symbol": "SILVER",
                 "name": "just silver",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 50
+                "amount": 50,
             },
             {
                 "wallet": self.nodes[0],
                 "symbol": "COPPER",
                 "name": "rusty copper",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 50
+                "amount": 50,
             },
             {
                 "wallet": self.nodes[0],
                 "symbol": "PLATINUM",
                 "name": "star platinum",
                 "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
-                "amount": 50
-            }
+                "amount": 50,
+            },
         ]
         # inside this function "tokenId" and "symbolId" will be assigned for each token obj
         CommonFixture.setup_default_tokens(self, tokens)
@@ -79,13 +77,15 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
             repeat = True
             while repeat:
                 try:
-                    self.nodes[0].sendtoaddress(self.nodes[0].get_genesis_keys().ownerAuthAddress, 1)
+                    self.nodes[0].sendtoaddress(
+                        self.nodes[0].get_genesis_keys().ownerAuthAddress, 1
+                    )
                     repeat = False
                 except JSONRPCException as e:
-                    if (e.error['message'] == "Insufficient funds"):
+                    if e.error["message"] == "Insufficient funds":
                         self.nodes[0].generate(1)
                     else:
-                        print(e.error['message'])
+                        print(e.error["message"])
                         break
 
         self.nodes[0].generate(1)
@@ -101,12 +101,20 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         addr_types = ["legacy", "p2sh-segwit", "bech32"]
         node1_wallet = []
 
-        minterAccountBalances = self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {}, True)
+        minterAccountBalances = self.nodes[0].getaccount(
+            self.nodes[0].get_genesis_keys().ownerAuthAddress, {}, True
+        )
 
         wallet1_accs_count = 12
 
         for i in range(wallet1_accs_count):
-            node1_wallet.append({"address": self.nodes[1].getnewaddress("", addr_types[i % len(addr_types)])})
+            node1_wallet.append(
+                {
+                    "address": self.nodes[1].getnewaddress(
+                        "", addr_types[i % len(addr_types)]
+                    )
+                }
+            )
             # send to new address 4 utxos
             for k in range(4):
                 self.nodes[0].sendtoaddress(node1_wallet[i]["address"], 1)
@@ -117,7 +125,9 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
                 if i == wallet1_accs_count - 1:  # last account
                     amount = minterAccountBalances[token["tokenId"]]
                 else:
-                    amount = random.randint(0, minterAccountBalances[token["tokenId"]] // 2)
+                    amount = random.randint(
+                        0, minterAccountBalances[token["tokenId"]] // 2
+                    )
 
                 if amount == 0:
                     continue
@@ -127,16 +137,23 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
                     try:
                         token["wallet"].accounttoaccount(
                             token["collateralAddress"],  # from
-                            {node1_wallet[i]["address"]: str(amount) + "@" + token["symbolId"]})  # to
+                            {
+                                node1_wallet[i]["address"]: str(amount)
+                                + "@"
+                                + token["symbolId"]
+                            },
+                        )  # to
                         repeat = False
                     except JSONRPCException as e:
-                        if ("Can't find any UTXO's for owner." in e.error["message"]):
+                        if "Can't find any UTXO's for owner." in e.error["message"]:
                             self.nodes[0].generate(1)
                         else:
                             repeat = False
                             raise e
                 node1_wallet[i][token["tokenId"]] = Decimal(amount)
-                minterAccountBalances[token["tokenId"]] = minterAccountBalances[token["tokenId"]] - amount
+                minterAccountBalances[token["tokenId"]] = (
+                    minterAccountBalances[token["tokenId"]] - amount
+                )
 
             self.nodes[0].generate(1)
 
@@ -145,7 +162,9 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         # check that RPC getaccounts is equal of
         node1_wallet_rpc = []
         for node1_acc in node1_wallet:
-            node1_wallet_rpc.append(self.nodes[0].getaccount(node1_acc["address"], {}, True))
+            node1_wallet_rpc.append(
+                self.nodes[0].getaccount(node1_acc["address"], {}, True)
+            )
 
         assert_equal(len(node1_wallet), len(node1_wallet_rpc))
 
@@ -162,20 +181,29 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         # not enough balances for transfer
         to = {}
 
-        to[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
+        to[wallet2_addr1] = [
+            "20@" + tokens[0]["symbolId"],
+            "20@" + tokens[1]["symbolId"],
+        ]
         to[wallet2_addr2] = ["51@" + tokens[3]["symbolId"]]  # we have only 50
 
         try:
             self.nodes[1].sendtokenstoaddress({}, to, "forward")
         except JSONRPCException as e:
-            errorString = e.error['message']
+            errorString = e.error["message"]
 
-        assert ("Not enough balance on wallet accounts" in errorString)
+        assert "Not enough balance on wallet accounts" in errorString
 
         # normal transfer from wallet1
         to = {}
-        to[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
-        to[wallet2_addr2] = ["20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
+        to[wallet2_addr1] = [
+            "20@" + tokens[0]["symbolId"],
+            "20@" + tokens[1]["symbolId"],
+        ]
+        to[wallet2_addr2] = [
+            "20@" + tokens[2]["symbolId"],
+            "20@" + tokens[3]["symbolId"],
+        ]
 
         self.nodes[1].sendtokenstoaddress({}, to)
 
@@ -194,8 +222,12 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         # send all remaining tokens to wallet1 change address
         wallet1_change_addr = self.nodes[1].getnewaddress("", "legacy")
         to = {}
-        to[wallet1_change_addr] = ["30@" + tokens[0]["symbolId"], "30@" + tokens[1]["symbolId"],
-                                   "30@" + tokens[2]["symbolId"], "30@" + tokens[3]["symbolId"]]
+        to[wallet1_change_addr] = [
+            "30@" + tokens[0]["symbolId"],
+            "30@" + tokens[1]["symbolId"],
+            "30@" + tokens[2]["symbolId"],
+            "30@" + tokens[3]["symbolId"],
+        ]
 
         self.nodes[1].sendtokenstoaddress({}, to)
 
@@ -203,7 +235,9 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         self.nodes[0].generate(1)
         self.sync_blocks(enabled_nodes)
 
-        wallet1_change_addr_balance = self.nodes[0].getaccount(wallet1_change_addr, {}, True)
+        wallet1_change_addr_balance = self.nodes[0].getaccount(
+            wallet1_change_addr, {}, True
+        )
 
         assert_equal(wallet1_change_addr_balance[tokens[0]["tokenId"]], Decimal(30))
         assert_equal(wallet1_change_addr_balance[tokens[1]["tokenId"]], Decimal(30))
@@ -220,11 +254,21 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
 
         # send tokens from wallet2 to wallet1 with manual "from" param
         accsFrom = {}
-        accsFrom[wallet2_addr1] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"]]
-        accsFrom[wallet2_addr2] = ["20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
+        accsFrom[wallet2_addr1] = [
+            "20@" + tokens[0]["symbolId"],
+            "20@" + tokens[1]["symbolId"],
+        ]
+        accsFrom[wallet2_addr2] = [
+            "20@" + tokens[2]["symbolId"],
+            "20@" + tokens[3]["symbolId"],
+        ]
         to = {}
-        to[wallet1_change_addr] = ["20@" + tokens[0]["symbolId"], "20@" + tokens[1]["symbolId"],
-                                   "20@" + tokens[2]["symbolId"], "20@" + tokens[3]["symbolId"]]
+        to[wallet1_change_addr] = [
+            "20@" + tokens[0]["symbolId"],
+            "20@" + tokens[1]["symbolId"],
+            "20@" + tokens[2]["symbolId"],
+            "20@" + tokens[3]["symbolId"],
+        ]
 
         self.nodes[2].sendtokenstoaddress(accsFrom, to)
 
@@ -235,11 +279,13 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         # check that wallet2 is empty
         wallet2_addr1_balance = self.nodes[0].getaccount(wallet2_addr1, {}, True)
         wallet2_addr2_balance = self.nodes[0].getaccount(wallet2_addr2, {}, True)
-        assert (not wallet2_addr1_balance)
-        assert (not wallet2_addr2_balance)
+        assert not wallet2_addr1_balance
+        assert not wallet2_addr2_balance
 
         # check that wallet1_change_addr has all tokens amount
-        wallet1_change_addr_balance = self.nodes[0].getaccount(wallet1_change_addr, {}, True)
+        wallet1_change_addr_balance = self.nodes[0].getaccount(
+            wallet1_change_addr, {}, True
+        )
         assert_equal(wallet1_change_addr_balance[tokens[0]["tokenId"]], Decimal(50))
         assert_equal(wallet1_change_addr_balance[tokens[1]["tokenId"]], Decimal(50))
         assert_equal(wallet1_change_addr_balance[tokens[2]["tokenId"]], Decimal(50))
@@ -256,17 +302,23 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
 
         # check that wallet1 and wallet 2 is empty
         for node1_acc in node1_wallet:
-            node1_acc_ballance = self.nodes[1].getaccount(node1_acc["address"], {}, True)
-            assert (not node1_acc_ballance)
+            node1_acc_ballance = self.nodes[1].getaccount(
+                node1_acc["address"], {}, True
+            )
+            assert not node1_acc_ballance
 
-        wallet1_change_addr_balance = self.nodes[1].getaccount(wallet1_change_addr, {}, True)
+        wallet1_change_addr_balance = self.nodes[1].getaccount(
+            wallet1_change_addr, {}, True
+        )
         wallet2_addr1_balance = self.nodes[2].getaccount(wallet2_addr1, {}, True)
         wallet2_addr2_balance = self.nodes[2].getaccount(wallet2_addr2, {}, True)
-        assert (not wallet1_change_addr_balance)
-        assert (not wallet2_addr1_balance)
-        assert (not wallet2_addr2_balance)
+        assert not wallet1_change_addr_balance
+        assert not wallet2_addr1_balance
+        assert not wallet2_addr2_balance
 
-        minterAccountBalances = self.nodes[0].getaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {}, True)
+        minterAccountBalances = self.nodes[0].getaccount(
+            self.nodes[0].get_genesis_keys().ownerAuthAddress, {}, True
+        )
 
         assert_equal(minterAccountBalances[tokens[0]["tokenId"]], Decimal(50))
         assert_equal(minterAccountBalances[tokens[1]["tokenId"]], Decimal(50))
@@ -274,5 +326,5 @@ class AnyAccountsToAccountsTest(DefiTestFramework):
         assert_equal(minterAccountBalances[tokens[3]["tokenId"]], Decimal(50))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AnyAccountsToAccountsTest().main()

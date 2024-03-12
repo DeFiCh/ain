@@ -36,7 +36,8 @@ if (sys.version_info.major, sys.version_info.minor) < (3, 5):
 
 port = 28554
 
-class ZMQHandler():
+
+class ZMQHandler:
     def __init__(self):
         self.loop = asyncio.get_event_loop()
         self.zmqContext = zmq.asyncio.Context()
@@ -49,25 +50,25 @@ class ZMQHandler():
         self.zmqSubSocket.setsockopt_string(zmq.SUBSCRIBE, "rawtx")
         self.zmqSubSocket.connect("tcp://127.0.0.1:%i" % port)
 
-    async def handle(self) :
+    async def handle(self):
         msg = await self.zmqSubSocket.recv_multipart()
         topic = msg[0]
         body = msg[1]
         sequence = "Unknown"
         if len(msg[-1]) == 4:
-          msgSequence = struct.unpack('<I', msg[-1])[-1]
-          sequence = str(msgSequence)
+            msgSequence = struct.unpack("<I", msg[-1])[-1]
+            sequence = str(msgSequence)
         if topic == b"hashblock":
-            print('- HASH BLOCK ('+sequence+') -')
+            print("- HASH BLOCK (" + sequence + ") -")
             print(binascii.hexlify(body))
         elif topic == b"hashtx":
-            print('- HASH TX  ('+sequence+') -')
+            print("- HASH TX  (" + sequence + ") -")
             print(binascii.hexlify(body))
         elif topic == b"rawblock":
-            print('- RAW BLOCK HEADER ('+sequence+') -')
+            print("- RAW BLOCK HEADER (" + sequence + ") -")
             print(binascii.hexlify(body[:80]))
         elif topic == b"rawtx":
-            print('- RAW TX ('+sequence+') -')
+            print("- RAW TX (" + sequence + ") -")
             print(binascii.hexlify(body))
         # schedule ourselves to receive the next message
         asyncio.ensure_future(self.handle())
@@ -80,6 +81,7 @@ class ZMQHandler():
     def stop(self):
         self.loop.stop()
         self.zmqContext.destroy()
+
 
 daemon = ZMQHandler()
 daemon.start()

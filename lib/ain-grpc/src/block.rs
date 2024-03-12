@@ -1,89 +1,108 @@
+use std::fmt;
+
 use ain_evm::bytes::Bytes;
-use ethereum::{BlockAny, TransactionV2};
-use ethereum_types::H64;
-use primitive_types::{H160, H256, U256};
+use ethereum::{BlockAny, Header, TransactionV2};
+use ethereum_types::{H160, H256, H64, U256};
 use rlp::Encodable;
 use serde::{
     de::{Error, MapAccess, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use sha3::Digest;
-use std::fmt;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RpcBlockHeader {
+    // Parity specific - https://github.com/openethereum/parity-ethereum/issues/2401
+    pub author: H160,
+    pub base_fee_per_gas: U256,
+    pub difficulty: U256,
+    pub extra_data: Bytes,
+    pub gas_limit: U256,
+    pub gas_used: U256,
+    pub hash: H256,
+    pub logs_bloom: String,
+    pub miner: H160,
+    pub mix_hash: H256,
+    pub nonce: H64,
+    pub number: U256,
+    pub parent_hash: H256,
+    pub receipts_root: H256,
+    // Parity specific - https://github.com/ethereum/EIPs/issues/95
+    pub seal_fields: Vec<Bytes>,
+    pub sha3_uncles: H256,
+    pub size: String,
+    pub state_root: H256,
+    pub timestamp: U256,
+    pub total_difficulty: U256,
+    pub transactions_root: H256,
+}
+
+impl From<Header> for RpcBlockHeader {
+    fn from(header: Header) -> Self {
+        RpcBlockHeader {
+            author: header.beneficiary,
+            base_fee_per_gas: header.base_fee,
+            difficulty: header.difficulty,
+            extra_data: Bytes::from(header.extra_data.clone()),
+            gas_limit: header.gas_limit,
+            gas_used: header.gas_used,
+            hash: header.hash(),
+            logs_bloom: format!("{:#x}", header.logs_bloom),
+            miner: header.beneficiary,
+            mix_hash: header.mix_hash,
+            nonce: header.nonce,
+            number: header.number,
+            parent_hash: header.parent_hash,
+            receipts_root: header.receipts_root,
+            seal_fields: vec![
+                Bytes::from(header.mix_hash.as_fixed_bytes().to_vec()),
+                Bytes::from(header.nonce.as_fixed_bytes().to_vec()),
+            ],
+            sha3_uncles: H256::from_slice(&sha3::Keccak256::digest(
+                &rlp::RlpStream::new_list(0).out(),
+            )),
+            size: format!("{:#x}", header.rlp_bytes().len()),
+            state_root: header.state_root,
+            total_difficulty: U256::zero(),
+            timestamp: header.timestamp.into(),
+            transactions_root: header.transactions_root,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcBlock {
-    pub hash: H256,
-    pub mix_hash: H256,
-    pub parent_hash: H256,
-    pub miner: H160,
-    pub state_root: H256,
-    pub transactions_root: H256,
-    pub receipts_root: H256,
-    pub number: U256,
-    pub gas_used: U256,
-    pub gas_limit: U256,
-    pub extra_data: Bytes,
-    pub timestamp: U256,
-    pub difficulty: U256,
-    pub total_difficulty: U256,
-    pub seal_fields: Vec<Vec<u8>>,
-    pub uncles: Vec<H256>,
+    #[serde(flatten)]
+    pub header: RpcBlockHeader,
     pub transactions: BlockTransactions,
-    pub nonce: H64,
-    pub sha3_uncles: H256,
-    pub logs_bloom: String,
-    pub size: String,
-    pub base_fee_per_gas: U256,
+    pub uncles: Vec<H256>,
 }
 
 impl RpcBlock {
     pub fn from_block_with_tx(block: BlockAny, full_transactions: bool) -> Self {
-        let header_size = block.header.rlp_bytes().len();
         RpcBlock {
-            hash: block.header.hash(),
-            mix_hash: block.header.hash(),
-            number: block.header.number,
-            parent_hash: block.header.parent_hash,
-            transactions_root: block.header.transactions_root,
-            state_root: block.header.state_root,
-            receipts_root: block.header.receipts_root,
-            miner: block.header.beneficiary,
-            difficulty: block.header.difficulty,
-            total_difficulty: U256::zero(),
-            seal_fields: vec![],
-            gas_limit: block.header.gas_limit,
-            gas_used: block.header.gas_used,
-            timestamp: block.header.timestamp.into(),
-            transactions: {
-                if full_transactions {
-                    // Discard failed to retrieved transactions with flat_map.
-                    // Should not happen as the transaction should not make it in the block in the first place.
-                    BlockTransactions::Full(
-                        block
-                            .transactions
-                            .iter()
-                            .enumerate()
-                            .flat_map(|(index, tx)| {
-                                EthTransactionInfo::try_from_tx_block_and_index(tx, &block, index)
-                            })
-                            .collect(),
-                    )
-                } else {
-                    BlockTransactions::Hashes(
-                        block.transactions.iter().map(TransactionV2::hash).collect(),
-                    )
-                }
+            header: RpcBlockHeader::from(block.header.clone()),
+            transactions: if full_transactions {
+                // Discard failed to retrieved transactions with flat_map.
+                // Should not happen as the transaction should not make it in the block in the first place.
+                BlockTransactions::Full(
+                    block
+                        .transactions
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(index, tx)| {
+                            EthTransactionInfo::try_from_tx_block_and_index(tx, &block, index)
+                        })
+                        .collect(),
+                )
+            } else {
+                BlockTransactions::Hashes(
+                    block.transactions.iter().map(TransactionV2::hash).collect(),
+                )
             },
             uncles: vec![],
-            nonce: block.header.nonce,
-            extra_data: Bytes::from(block.header.extra_data),
-            sha3_uncles: H256::from_slice(&sha3::Keccak256::digest(
-                &rlp::RlpStream::new_list(0).out(),
-            )),
-            logs_bloom: format!("{:#x}", block.header.logs_bloom),
-            size: format!("{header_size:#x}"),
-            base_fee_per_gas: block.header.base_fee,
         }
     }
 }
@@ -256,8 +275,9 @@ impl<'a> Visitor<'a> for BlockNumberVisitor {
     }
 }
 
-use ain_evm::block::FeeHistoryData;
 use std::str::FromStr;
+
+use ain_evm::block::FeeHistoryData;
 
 use crate::codegen::types::EthTransactionInfo;
 
@@ -318,6 +338,7 @@ pub enum BlockTransactions {
     Hashes(Vec<H256>),
     /// Full transactions
     Full(Vec<EthTransactionInfo>),
+    None,
 }
 
 impl Serialize for BlockTransactions {
@@ -328,6 +349,7 @@ impl Serialize for BlockTransactions {
         match *self {
             BlockTransactions::Hashes(ref hashes) => hashes.serialize(serializer),
             BlockTransactions::Full(ref ts) => ts.serialize(serializer),
+            BlockTransactions::None => Vec::<()>::new().serialize(serializer),
         }
     }
 }
@@ -335,7 +357,7 @@ impl Serialize for BlockTransactions {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RpcFeeHistory {
-    pub oldest_block: H256,
+    pub oldest_block: U256,
     pub base_fee_per_gas: Vec<U256>,
     pub gas_used_ratio: Vec<f64>,
     pub reward: Option<Vec<Vec<U256>>>,

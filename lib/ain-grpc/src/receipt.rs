@@ -1,20 +1,8 @@
-use ain_evm::receipt::Receipt;
+use ain_evm::{bytes::Bytes, receipt::Receipt};
 use ethereum::{EIP658ReceiptData, Log};
-use primitive_types::{H160, H256, U256};
+use ethereum_types::{H160, H256, U256};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct LogResult {
-    pub address: H160,
-    pub topics: Vec<H256>,
-    pub data: String,
-    pub block_number: U256,
-    pub block_hash: H256,
-    pub transaction_hash: H256,
-    pub transaction_index: String,
-    pub log_index: String,
-    pub removed: bool,
-}
+use crate::logs::LogResult;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -43,7 +31,7 @@ impl From<Receipt> for ReceiptResult {
             block_number: b.block_number,
             contract_address: b.contract_address,
             cumulative_gas_used: b.cumulative_gas,
-            effective_gas_price: Default::default(),
+            effective_gas_price: b.effective_gas_price,
             from: b.from,
             gas_used: data.used_gas,
             logs: {
@@ -61,12 +49,12 @@ impl From<Receipt> for ReceiptResult {
                         )| LogResult {
                             address,
                             topics,
-                            data: format!("0x{}", hex::encode(data)),
+                            data: Bytes::from(data),
                             block_number: b.block_number,
                             block_hash: b.block_hash,
                             transaction_hash: b.tx_hash,
-                            transaction_index: format!("{:#x}", b.tx_index),
-                            log_index: { format!("{:#x}", b.logs_index + log_index) },
+                            transaction_index: b.tx_index.into(),
+                            log_index: (b.logs_index + log_index).into(), // safe since we sub the total number of logs during receipt generation
                             removed: false,
                         },
                     )

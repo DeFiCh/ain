@@ -2,7 +2,7 @@ use crate::ffi;
 
 pub fn cross_boundary_success(result: &mut ffi::CrossBoundaryResult) {
     result.ok = true;
-    result.reason = Default::default();
+    result.reason = String::default();
 }
 
 pub fn cross_boundary_error<S: Into<String>>(result: &mut ffi::CrossBoundaryResult, message: S) {

@@ -6,7 +6,7 @@
 """Test account mining behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
 class AccountsValidatingTest(DefiTestFramework):
@@ -14,8 +14,8 @@ class AccountsValidatingTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=101'],
+            ["-txnotokens=0", "-amkheight=50", "-eunosheight=101"],
+            ["-txnotokens=0", "-amkheight=50", "-eunosheight=101"],
         ]
 
     def run_test(self):
@@ -33,8 +33,28 @@ class AccountsValidatingTest(DefiTestFramework):
         node.generate(1)
         self.sync_blocks()
 
+        # Check empty account generates error
+        assert_raises_rpc_error(
+            -5,
+            "Invalid owner address",
+            self.nodes[0].getaccount,
+            "",
+        )
+
+        # Check nonsense account generates error
+        assert_raises_rpc_error(
+            -5,
+            "Invalid owner address",
+            self.nodes[0].getaccount,
+            "AAAAAAAAAA",
+        )
+
         # Check we have expected balance
         assert_equal(node1.getaccount(account)[0], "10.00000000@DFI")
+
+        # Check we can get the account from the scriptPubKey
+        script_pubkey = self.nodes[0].getaddressinfo(account)["scriptPubKey"]
+        assert_equal(node1.getaccount(script_pubkey)[0], "10.00000000@DFI")
 
         node.accounttoaccount(account, {destination: "1@DFI"})
         node.accounttoutxos(account, {destination: "1@DFI"})
@@ -55,5 +75,5 @@ class AccountsValidatingTest(DefiTestFramework):
         assert_equal(node1.getblockcount(), blockcount + 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AccountsValidatingTest().main()

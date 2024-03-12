@@ -26,11 +26,20 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
+// While the relay options are free for interpretation to
+// each node, the accept values are enforced on validation
+
+static const uint64_t MAX_OP_RETURN_CORE_ACCEPT = 1024;
+static const uint64_t MAX_OP_RETURN_DVM_ACCEPT = 4096;
+static const uint64_t MAX_OP_RETURN_EVM_ACCEPT = 65536;
+
 /**
- * Default setting for nMaxDatacarrierBytes. 19,997 bytes of data, +1 for OP_RETURN,
- * +2 for the pushdata opcodes.
+ * This is the check used for IsStandardChecks to allow all of the 3 above
+ * However each domain is restricted to their allowed sizes
+ * Also used as default for nMaxDatacarrierBytes. 
+ * Actual data size = N - 3 // 1 for OP_RETURN, 2 for pushdata opcodes.
  */
-static const unsigned int MAX_OP_RETURN_RELAY = 20000;
+static constexpr uint64_t MAX_OP_RETURN_RELAY = std::max({MAX_OP_RETURN_CORE_ACCEPT, MAX_OP_RETURN_DVM_ACCEPT, MAX_OP_RETURN_EVM_ACCEPT});
 
 /**
  * A data carrying output is an unspendable output containing data. The script
@@ -52,8 +61,7 @@ extern unsigned nMaxDatacarrierBytes;
  */
 static const unsigned int MANDATORY_SCRIPT_VERIFY_FLAGS = SCRIPT_VERIFY_P2SH;
 
-enum txnouttype
-{
+enum txnouttype {
     TX_NONSTANDARD,
     // 'standard' transaction types:
     TX_PUBKEY,
@@ -67,46 +75,42 @@ enum txnouttype
     TX_WITNESS_UNKNOWN, //!< Only for Witness versions not already defined above
 };
 
-class CNoDestination {
+class CNoDestination
+{
 public:
-    friend bool operator==(const CNoDestination &a, const CNoDestination &b) { return true; }
-    friend bool operator<(const CNoDestination &a, const CNoDestination &b) { return true; }
+    friend bool operator==(const CNoDestination& a, const CNoDestination& b) { return true; }
+    friend bool operator<(const CNoDestination& a, const CNoDestination& b) { return true; }
 };
 
-struct PKHash : public uint160
-{
+struct PKHash : public uint160 {
     PKHash() : uint160() {}
     explicit PKHash(const uint160& hash) : uint160(hash) {}
     explicit PKHash(const CPubKey& pubkey);
     using uint160::uint160;
 };
 
-struct ScriptHash : public uint160
-{
+struct ScriptHash : public uint160 {
     ScriptHash() : uint160() {}
     explicit ScriptHash(const uint160& hash) : uint160(hash) {}
     explicit ScriptHash(const CScript& script);
     using uint160::uint160;
 };
 
-struct WitnessV0ScriptHash : public uint256
-{
+struct WitnessV0ScriptHash : public uint256 {
     WitnessV0ScriptHash() : uint256() {}
     explicit WitnessV0ScriptHash(const uint256& hash) : uint256(hash) {}
     explicit WitnessV0ScriptHash(const CScript& script);
     using uint256::uint256;
 };
 
-struct WitnessV0KeyHash : public uint160
-{
+struct WitnessV0KeyHash : public uint160 {
     WitnessV0KeyHash() : uint160() {}
     explicit WitnessV0KeyHash(const uint160& hash) : uint160(hash) {}
     explicit WitnessV0KeyHash(const CPubKey& pubkey);
     using uint160::uint160;
 };
 
-struct WitnessV16EthHash : public uint160
-{
+struct WitnessV16EthHash : public uint160 {
     WitnessV16EthHash() : uint160() {}
     explicit WitnessV16EthHash(const uint160& hash) : uint160(hash) {}
     explicit WitnessV16EthHash(const CPubKey& pubkey);
@@ -114,19 +118,20 @@ struct WitnessV16EthHash : public uint160
 };
 
 //! CTxDestination subtype to encode any future Witness version
-struct WitnessUnknown
-{
+struct WitnessUnknown {
     unsigned int version;
     unsigned int length;
     unsigned char program[40];
 
-    friend bool operator==(const WitnessUnknown& w1, const WitnessUnknown& w2) {
+    friend bool operator==(const WitnessUnknown& w1, const WitnessUnknown& w2)
+    {
         if (w1.version != w2.version) return false;
         if (w1.length != w2.length) return false;
         return std::equal(w1.program, w1.program + w1.length, w2.program);
     }
 
-    friend bool operator<(const WitnessUnknown& w1, const WitnessUnknown& w2) {
+    friend bool operator<(const WitnessUnknown& w1, const WitnessUnknown& w2)
+    {
         if (w1.version < w2.version) return true;
         if (w1.version > w2.version) return false;
         if (w1.length < w2.length) return true;
@@ -143,7 +148,7 @@ struct WitnessUnknown
  *  * WitnessV0ScriptHash: TX_WITNESS_V0_SCRIPTHASH destination (P2WSH)
  *  * WitnessV0KeyHash: TX_WITNESS_V0_KEYHASH destination (P2WPKH)
  *  * WitnessUnknown: TX_WITNESS_UNKNOWN destination (P2W???)
- *  * WitnessV16EthHash: Eth address type. Not a valid destination, here for address support anly.
+ *  * WitnessV16EthHash: ERC55 address type. Not a valid destination, here for address support anly.
  *  A CTxDestination is the internal data type encoded in a DFI address
  */
 using CTxDestination = std::variant<CNoDestination, PKHash, ScriptHash, WitnessV0ScriptHash, WitnessV0KeyHash, WitnessUnknown, WitnessV16EthHash>;
@@ -171,18 +176,19 @@ enum KeyType {
     AllKeyType = ~0,
 };
 
-inline KeyType FromOrDefaultDestinationTypeToKeyType(const size_t index) {
+inline KeyType TxDestTypeToKeyType(const size_t index)
+{
     switch (index) {
-        case PKHashType:
-            return KeyType::PKHashKeyType;
-        case ScriptHashType:
-            return KeyType::ScriptHashKeyType;
-        case WitV0KeyHashType:
-            return KeyType::WPKHashKeyType;
-        case WitV16KeyEthHashType:
-            return KeyType::EthHashKeyType;
-        default:
-            return KeyType::UnknownKeyType;
+    case PKHashType:
+        return KeyType::PKHashKeyType;
+    case ScriptHashType:
+        return KeyType::ScriptHashKeyType;
+    case WitV0KeyHashType:
+        return KeyType::WPKHashKeyType;
+    case WitV16KeyEthHashType:
+        return KeyType::EthHashKeyType;
+    default:
+        return KeyType::UnknownKeyType;
     }
 }
 
@@ -205,10 +211,10 @@ const char* GetTxnOutputType(txnouttype t);
 txnouttype Solver(const CScript& scriptPubKey, std::vector<std::vector<unsigned char>>& vSolutionsRet);
 
 /** Try to get the destination address from the keyID type. */
-std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter=KeyType::UnknownKeyType);
+std::optional<CTxDestination> TryFromKeyIDToDestination(const CKeyID& keyId, KeyType keyIdType, KeyType filter = KeyType::AllKeyType);
 
 /** Get the destination address (or default) from the keyID type. */
-CTxDestination FromOrDefaultKeyIDToDestination(const CKeyID &keyId, KeyType keyIdType, KeyType filter=KeyType::UnknownKeyType);
+CTxDestination FromOrDefaultKeyIDToDestination(const CKeyID& keyId, KeyType keyIdType, KeyType filter = KeyType::AllKeyType);
 
 /**
  * Parse a standard scriptPubKey for the destination address. Assigns result to

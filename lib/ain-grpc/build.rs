@@ -1,3 +1,14 @@
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    env, fs,
+    fs::{DirEntry, File},
+    io,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+    rc::Rc,
+};
+
 use anyhow::{format_err, Result};
 use proc_macro2::{Span, TokenStream};
 use prost_build::{Config, Service, ServiceGenerator};
@@ -5,22 +16,14 @@ use quote::{quote, ToTokens};
 use regex::Regex;
 use syn::{Attribute, Fields, GenericArgument, Ident, Item, ItemStruct, PathArguments, Type};
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fs::{DirEntry, File};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::rc::Rc;
-use std::{env, fs, io};
-
 fn main() -> Result<()> {
-    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let proto_path = manifest_path
+    let manifest_dir_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let proto_path = manifest_dir_path
         .parent()
         .ok_or(format_err!("path err: no parent"))?
         .join("proto");
 
-    let src_path = manifest_path.join("src");
+    let src_path = manifest_dir_path.join("src");
     let out_dir: PathBuf = PathBuf::from(env::var("OUT_DIR")?);
     let proto_rs_target_path = out_dir.join("proto");
     std::fs::create_dir_all(&proto_rs_target_path)?;
@@ -40,11 +43,6 @@ fn main() -> Result<()> {
         "cargo:rerun-if-changed={}",
         src_path.join("rpc.rs").to_string_lossy()
     );
-    // Using a direct path for now
-    let git_head_path = manifest_path.join("../../.git/HEAD");
-    if git_head_path.exists() {
-        println!("cargo:rerun-if-changed={}", git_head_path.to_string_lossy());
-    }
 
     Ok(())
 }

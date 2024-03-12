@@ -22,10 +22,20 @@ class TxnMallTest(DefiTestFramework):
         self.skip_if_no_wallet()
 
     def add_options(self, parser):
-        parser.add_argument("--mineblock", dest="mine_block", default=False, action="store_true",
-                            help="Test double-spend of 1-confirmed transaction")
-        parser.add_argument("--segwit", dest="segwit", default=False, action="store_true",
-                            help="Test behaviour with SegWit txn (which should fail")
+        parser.add_argument(
+            "--mineblock",
+            dest="mine_block",
+            default=False,
+            action="store_true",
+            help="Test double-spend of 1-confirmed transaction",
+        )
+        parser.add_argument(
+            "--segwit",
+            dest="segwit",
+            default=False,
+            action="store_true",
+            help="Test behaviour with SegWit txn (which should fail",
+        )
 
     def setup_network(self):
         # Start with split network:
@@ -43,9 +53,11 @@ class TxnMallTest(DefiTestFramework):
         starting_balance = 1250
         for i in range(4):
             assert_equal(self.nodes[i].getbalance(), starting_balance)
-            self.nodes[i].getnewaddress()  # bug workaround, coins generated assigned to first getnewaddress!
+            self.nodes[
+                i
+            ].getnewaddress()  # bug workaround, coins generated assigned to first getnewaddress!
 
-        self.nodes[0].settxfee(.001)
+        self.nodes[0].settxfee(0.001)
 
         node0_address1 = self.nodes[0].getnewaddress(address_type=output_type)
         node0_txid1 = self.nodes[0].sendtoaddress(node0_address1, 1219)
@@ -55,8 +67,10 @@ class TxnMallTest(DefiTestFramework):
         node0_txid2 = self.nodes[0].sendtoaddress(node0_address2, 29)
         node0_tx2 = self.nodes[0].gettransaction(node0_txid2)
 
-        assert_equal(self.nodes[0].getbalance(),
-                     starting_balance + node0_tx1["fee"] + node0_tx2["fee"])
+        assert_equal(
+            self.nodes[0].getbalance(),
+            starting_balance + node0_tx1["fee"] + node0_tx2["fee"],
+        )
 
         # Coins are sent to node1_address
         node1_address = self.nodes[1].getnewaddress()
@@ -67,27 +81,46 @@ class TxnMallTest(DefiTestFramework):
 
         # Construct a clone of tx1, to be malleated
         rawtx1 = self.nodes[0].getrawtransaction(txid1, 1)
-        clone_inputs = [{"txid": rawtx1["vin"][0]["txid"], "vout": rawtx1["vin"][0]["vout"],
-                         "sequence": rawtx1["vin"][0]["sequence"]}]
-        clone_outputs = {rawtx1["vout"][0]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][0]["value"],
-                         rawtx1["vout"][1]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][1]["value"]}
+        clone_inputs = [
+            {
+                "txid": rawtx1["vin"][0]["txid"],
+                "vout": rawtx1["vin"][0]["vout"],
+                "sequence": rawtx1["vin"][0]["sequence"],
+            }
+        ]
+        clone_outputs = {
+            rawtx1["vout"][0]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][0][
+                "value"
+            ],
+            rawtx1["vout"][1]["scriptPubKey"]["addresses"][0]: rawtx1["vout"][1][
+                "value"
+            ],
+        }
         clone_locktime = rawtx1["locktime"]
-        clone_raw = self.nodes[0].createrawtransaction(clone_inputs, clone_outputs, clone_locktime)
+        clone_raw = self.nodes[0].createrawtransaction(
+            clone_inputs, clone_outputs, clone_locktime
+        )
 
         # createrawtransaction randomizes the order of its outputs, so swap them if necessary.
         clone_tx = CTransaction()
         clone_tx.deserialize(io.BytesIO(bytes.fromhex(clone_raw)))
-        if (rawtx1["vout"][0]["value"] == 40 and clone_tx.vout[0].nValue != 40 * COIN or rawtx1["vout"][0][
-                "value"] != 40 and clone_tx.vout[0].nValue == 40 * COIN):
+        if (
+            rawtx1["vout"][0]["value"] == 40
+            and clone_tx.vout[0].nValue != 40 * COIN
+            or rawtx1["vout"][0]["value"] != 40
+            and clone_tx.vout[0].nValue == 40 * COIN
+        ):
             (clone_tx.vout[0], clone_tx.vout[1]) = (clone_tx.vout[1], clone_tx.vout[0])
 
         # Use a different signature hash type to sign.  This creates an equivalent but malleated clone.
         # Don't send the clone anywhere yet
-        tx1_clone = self.nodes[0].signrawtransactionwithwallet(clone_tx.serialize().hex(), None, "ALL|ANYONECANPAY")
+        tx1_clone = self.nodes[0].signrawtransactionwithwallet(
+            clone_tx.serialize().hex(), None, "ALL|ANYONECANPAY"
+        )
         assert_equal(tx1_clone["complete"], True)
 
         # Have node0 mine a block, if requested:
-        if (self.options.mine_block):
+        if self.options.mine_block:
             self.nodes[0].generate(1)
             self.sync_blocks(self.nodes[0:2])
 
@@ -140,10 +173,10 @@ class TxnMallTest(DefiTestFramework):
         # Check node0's total balance; should be same as before the clone, + 100 BTC for 2 matured,
         # less possible orphaned matured subsidy
         expected += 100
-        if (self.options.mine_block):
+        if self.options.mine_block:
             expected -= 50
         assert_equal(self.nodes[0].getbalance(), expected)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TxnMallTest().main()

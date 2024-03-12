@@ -22,8 +22,13 @@ class TxnMallTest(DefiTestFramework):
         self.skip_if_no_wallet()
 
     def add_options(self, parser):
-        parser.add_argument("--mineblock", dest="mine_block", default=False, action="store_true",
-                            help="Test double-spend of 1-confirmed transaction")
+        parser.add_argument(
+            "--mineblock",
+            dest="mine_block",
+            default=False,
+            action="store_true",
+            help="Test double-spend of 1-confirmed transaction",
+        )
 
     def setup_network(self):
         # Start with split network:
@@ -44,7 +49,9 @@ class TxnMallTest(DefiTestFramework):
 
         for i in range(4):
             assert_equal(self.nodes[i].getbalance(), starting_balance)
-            self.nodes[i].getnewaddress("")  # bug workaround, coins generated assigned to first getnewaddress!
+            self.nodes[i].getnewaddress(
+                ""
+            )  # bug workaround, coins generated assigned to first getnewaddress!
 
         # Assign coins to foo and bar addresses:
         node0_address_foo = self.nodes[0].getnewaddress()
@@ -55,15 +62,17 @@ class TxnMallTest(DefiTestFramework):
         fund_bar_txid = self.nodes[0].sendtoaddress(node0_address_bar, 29)
         fund_bar_tx = self.nodes[0].gettransaction(fund_bar_txid)
 
-        assert_equal(self.nodes[0].getbalance(),
-                     starting_balance + fund_foo_tx["fee"] + fund_bar_tx["fee"])
+        assert_equal(
+            self.nodes[0].getbalance(),
+            starting_balance + fund_foo_tx["fee"] + fund_bar_tx["fee"],
+        )
 
         # Coins are sent to node1_address
         node1_address = self.nodes[1].getnewaddress()
 
         # First: use raw transaction API to send 1240 BTC to node1_address,
         # but don't broadcast:
-        doublespend_fee = Decimal('-.02')
+        doublespend_fee = Decimal("-.02")
         rawtx_input_0 = {}
         rawtx_input_0["txid"] = fund_foo_txid
         rawtx_input_0["vout"] = find_output(self.nodes[0], fund_foo_txid, 1219)
@@ -84,7 +93,7 @@ class TxnMallTest(DefiTestFramework):
         txid2 = self.nodes[0].sendtoaddress(node1_address, 20)
 
         # Have node0 mine a block:
-        if (self.options.mine_block):
+        if self.options.mine_block:
             self.nodes[0].generate(1)
             self.sync_blocks(self.nodes[0:2])
 
@@ -104,7 +113,10 @@ class TxnMallTest(DefiTestFramework):
             assert_equal(tx1["confirmations"], 1)
             assert_equal(tx2["confirmations"], 1)
             # Node1's balance should be both transaction amounts:
-            assert_equal(self.nodes[1].getbalance(), starting_balance - tx1["amount"] - tx2["amount"])
+            assert_equal(
+                self.nodes[1].getbalance(),
+                starting_balance - tx1["amount"] - tx2["amount"],
+            )
         else:
             assert_equal(tx1["confirmations"], 0)
             assert_equal(tx2["confirmations"], 0)
@@ -133,12 +145,19 @@ class TxnMallTest(DefiTestFramework):
         # Node0's total balance should be starting balance, plus 100BTC for
         # two more matured blocks, minus 1240 for the double-spend, plus fees (which are
         # negative):
-        expected = starting_balance + 100 - 1240 + fund_foo_tx["fee"] + fund_bar_tx["fee"] + doublespend_fee
+        expected = (
+            starting_balance
+            + 100
+            - 1240
+            + fund_foo_tx["fee"]
+            + fund_bar_tx["fee"]
+            + doublespend_fee
+        )
         assert_equal(self.nodes[0].getbalance(), expected)
 
         # Node1's balance should be its initial balance (1250 for 25 block rewards) plus the doublespend:
         assert_equal(self.nodes[1].getbalance(), 1250 + 1240)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TxnMallTest().main()

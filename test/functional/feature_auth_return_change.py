@@ -16,34 +16,44 @@ class TokensAuthChange(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
+            [
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+            ]
+        ]
 
     # Move all coins to new address and change address to test auto auth
     def clear_auth_utxos(self):
         non_auth_address = self.nodes[0].getnewaddress("", "legacy")
         balance = self.nodes[0].getbalance()
-        self.nodes[0].sendtoaddress(non_auth_address, balance - Decimal("0.1"))  # 0.1 to cover fee
+        self.nodes[0].sendtoaddress(
+            non_auth_address, balance - Decimal("0.1")
+        )  # 0.1 to cover fee
         self.nodes[0].generate(1, 1000000, non_auth_address)
 
     # Check output/input count and addresses are expected
     def check_auto_auth_txs(self, tx, owner, outputs=2):
         # Get auto auth TXs
-        final_rawtx = self.nodes[0].getrawtransaction(tx, 1)
-        auth_tx = self.nodes[0].getrawtransaction(final_rawtx['vin'][0]['txid'], 1)
+        get_tx = self.nodes[0].gettransaction(tx)["hex"]
+        final_rawtx = self.nodes[0].decoderawtransaction(get_tx)
+        get_tx = self.nodes[0].gettransaction(final_rawtx["vin"][0]["txid"])["hex"]
+        auth_tx = self.nodes[0].decoderawtransaction(get_tx)
 
         # Auth TX outputs all belong to auth address
-        assert_equal(auth_tx['vout'][1]['scriptPubKey']['addresses'][0], owner)
-        decTx = self.nodes[0].getrawtransaction(tx)
+        assert_equal(auth_tx["vout"][1]["scriptPubKey"]["addresses"][0], owner)
+        decTx = self.nodes[0].gettransaction(tx)["hex"]
         customTx = self.nodes[0].decodecustomtx(decTx)
         vouts = 2
-        if customTx['type'] == 'ResignMasternode':
+        if customTx["type"] == "ResignMasternode":
             vouts = 3
-        assert_equal(len(auth_tx['vout']), vouts)
+        assert_equal(len(auth_tx["vout"]), vouts)
 
         # Two outputs, single input and change to auth address on final TX
-        assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0], owner)
-        assert_equal(len(final_rawtx['vout']), outputs)
-        assert_equal(len(final_rawtx['vin']), 1)
+        assert_equal(final_rawtx["vout"][1]["scriptPubKey"]["addresses"][0], owner)
+        assert_equal(len(final_rawtx["vout"]), outputs)
+        assert_equal(len(final_rawtx["vin"]), 1)
 
     def run_test(self):
         coinbase = self.nodes[0].getnewaddress("", "legacy")
@@ -54,11 +64,9 @@ class TokensAuthChange(DefiTestFramework):
         collateral_a = self.nodes[0].getnewaddress("", "legacy")
 
         # Create foundation token
-        create_tx = self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "isDAT": False,
-            "collateralAddress": collateral_a
-        })
+        create_tx = self.nodes[0].createtoken(
+            {"symbol": "GOLD", "isDAT": False, "collateralAddress": collateral_a}
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Make sure there's an extra token
@@ -67,13 +75,13 @@ class TokensAuthChange(DefiTestFramework):
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "GOLD"):
+            if token["symbol"] == "GOLD":
                 token_a = idx
 
         # Make sure token updated as expected
         result = self.nodes[0].gettoken(token_a)[token_a]
-        assert_equal(result['symbol'], "GOLD")
-        assert_equal(result['isDAT'], False)
+        assert_equal(result["symbol"], "GOLD")
+        assert_equal(result["isDAT"], False)
         assert_equal(token_a, "128")
 
         # Mint some tokens
@@ -81,7 +89,7 @@ class TokensAuthChange(DefiTestFramework):
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Make sure 300 tokens were minted
-        assert_equal(self.nodes[0].gettoken(token_a)[token_a]['minted'], 300)
+        assert_equal(self.nodes[0].gettoken(token_a)[token_a]["minted"], 300)
 
         # Check auto auth TX
         self.check_auto_auth_txs(mint_tx, collateral_a)
@@ -95,7 +103,7 @@ class TokensAuthChange(DefiTestFramework):
 
         # Make sure token updated as expected
         result = self.nodes[0].gettoken(token_a)[token_a]
-        assert_equal(result['symbol'], "SILVER")
+        assert_equal(result["symbol"], "SILVER")
 
         # Check auto auth TX
         self.check_auto_auth_txs(updatetx, collateral_a)
@@ -114,7 +122,7 @@ class TokensAuthChange(DefiTestFramework):
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Check MN in PRE_RESIGNED state
-        assert_equal(self.nodes[0].listmasternodes()[mn_tx]['state'], "PRE_RESIGNED")
+        assert_equal(self.nodes[0].listmasternodes()[mn_tx]["state"], "PRE_RESIGNED")
 
         # Check auto auth TX
         self.check_auto_auth_txs(resign_tx, collateral_mn)
@@ -126,17 +134,15 @@ class TokensAuthChange(DefiTestFramework):
         collateral_b = self.nodes[0].getnewaddress("", "legacy")
 
         # Create token
-        self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "name": "gold",
-            "collateralAddress": collateral_b
-        })
+        self.nodes[0].createtoken(
+            {"symbol": "GOLD", "name": "gold", "collateralAddress": collateral_b}
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "GOLD"):
+            if token["symbol"] == "GOLD":
                 token_b = idx
 
         # Mint some tokens for use later
@@ -148,26 +154,33 @@ class TokensAuthChange(DefiTestFramework):
 
         # Create pool pair
         pool_collateral = self.nodes[0].getnewaddress("", "legacy")
-        poolpair_tx = self.nodes[0].createpoolpair({
-            "tokenA": "SILVER#" + token_a,
-            "tokenB": "GOLD#" + token_b,
-            "commission": 0.001,
-            "status": True,
-            "ownerAddress": pool_collateral,
-            "pairSymbol": "SILVGOLD"
-        })
+        poolpair_tx = self.nodes[0].createpoolpair(
+            {
+                "tokenA": "SILVER#" + token_a,
+                "tokenB": "GOLD#" + token_b,
+                "commission": 0.001,
+                "status": True,
+                "ownerAddress": pool_collateral,
+                "pairSymbol": "SILVGOLD",
+            }
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Change to pool collateral address
-        final_rawtx = self.nodes[0].getrawtransaction(poolpair_tx, 1)
-        assert_equal(final_rawtx['vout'][1]['scriptPubKey']['addresses'][0],
-                     self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
+        get_tx = self.nodes[0].gettransaction(poolpair_tx)["hex"]
+        final_rawtx = self.nodes[0].decoderawtransaction(get_tx)
+        assert_equal(
+            final_rawtx["vout"][1]["scriptPubKey"]["addresses"][0],
+            self.nodes[0].PRIV_KEYS[0].ownerAuthAddress,
+        )
 
         # Clear auth UTXOs
         self.clear_auth_utxos()
 
         # Test account to account TX
-        accounttoaccount_tx = self.nodes[0].accounttoaccount(collateral_b, {collateral_a: "100@" + token_b})
+        accounttoaccount_tx = self.nodes[0].accounttoaccount(
+            collateral_b, {collateral_a: "100@" + token_b}
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Check auto auth TX
@@ -178,9 +191,9 @@ class TokensAuthChange(DefiTestFramework):
 
         # Test add pool liquidity TX
         pool_share = self.nodes[0].getnewaddress("", "legacy")
-        liquidity_tx = self.nodes[0].addpoolliquidity({
-            collateral_a: ['100@' + token_a, '100@' + token_b]
-        }, pool_share)
+        liquidity_tx = self.nodes[0].addpoolliquidity(
+            {collateral_a: ["100@" + token_a, "100@" + token_b]}, pool_share
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Check auto auth TX
@@ -190,14 +203,16 @@ class TokensAuthChange(DefiTestFramework):
         self.clear_auth_utxos()
 
         # Test pool swap TX
-        poolswap_tx = self.nodes[0].poolswap({
-            "from": collateral_a,
-            "tokenFrom": token_a,
-            "amountFrom": 1,
-            "to": collateral_b,
-            "tokenTo": token_b,
-            "maxPrice": 2
-        })
+        poolswap_tx = self.nodes[0].poolswap(
+            {
+                "from": collateral_a,
+                "tokenFrom": token_a,
+                "amountFrom": 1,
+                "to": collateral_b,
+                "tokenTo": token_b,
+                "maxPrice": 2,
+            }
+        )
         self.nodes[0].generate(1)
 
         # Check auto auth TX
@@ -214,19 +229,22 @@ class TokensAuthChange(DefiTestFramework):
         self.check_auto_auth_txs(remove_liquidity_tx, pool_share)
 
         # Test pool update TX
-        poolpair_update_tx = self.nodes[0].updatepoolpair({
-            "pool": poolpair_tx,
-            "commission": 0.1
-        })
+        poolpair_update_tx = self.nodes[0].updatepoolpair(
+            {"pool": poolpair_tx, "commission": 0.1}
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Check auto auth TX
-        self.check_auto_auth_txs(poolpair_update_tx, self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
+        self.check_auto_auth_txs(
+            poolpair_update_tx, self.nodes[0].PRIV_KEYS[0].ownerAuthAddress
+        )
 
         # Test account to UTXOs TX
         self.nodes[0].utxostoaccount({collateral_a: "1@0"})
         self.nodes[0].generate(1, 1000000, coinbase)
-        accountoutxos_tx = self.nodes[0].accounttoutxos(collateral_a, {collateral_b: "1@0"})
+        accountoutxos_tx = self.nodes[0].accounttoutxos(
+            collateral_a, {collateral_b: "1@0"}
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Check auto auth TX
@@ -246,7 +264,9 @@ class TokensAuthChange(DefiTestFramework):
         self.nodes[0].utxostoaccount({collateral_a: "1@0"})
         self.nodes[0].generate(1)
 
-        tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress({collateral_a: "1@0"}, {collateral_b: "1@0"})
+        tokenstoaddress_tx = self.nodes[0].sendtokenstoaddress(
+            {collateral_a: "1@0"}, {collateral_b: "1@0"}
+        )
         self.nodes[0].generate(1)
 
         # Check auto auth TX
@@ -256,11 +276,13 @@ class TokensAuthChange(DefiTestFramework):
         num_tokens = len(self.nodes[0].listtokens())
 
         # Create foundation token
-        create_tx = self.nodes[0].createtoken({
-            "symbol": "BRONZE",
-            "isDAT": True,
-            "collateralAddress": self.nodes[0].PRIV_KEYS[0].ownerAuthAddress
-        })
+        create_tx = self.nodes[0].createtoken(
+            {
+                "symbol": "BRONZE",
+                "isDAT": True,
+                "collateralAddress": self.nodes[0].PRIV_KEYS[0].ownerAuthAddress,
+            }
+        )
         self.nodes[0].generate(1, 1000000, coinbase)
 
         # Make sure there's an extra token
@@ -269,19 +291,22 @@ class TokensAuthChange(DefiTestFramework):
         # Get token ID
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "BRONZE"):
+            if token["symbol"] == "BRONZE":
                 token_c = idx
 
         # Make sure token updated as expected
         result = self.nodes[0].gettoken(token_c)[token_c]
-        assert_equal(result['symbol'], "BRONZE")
-        assert_equal(result['isDAT'], True)
+        assert_equal(result["symbol"], "BRONZE")
+        assert_equal(result["isDAT"], True)
         assert_equal(token_c, "2")
 
         # Check auto auth TX
-        final_rawtx = self.nodes[0].getrawtransaction(create_tx, 1)
-        assert_equal(final_rawtx['vout'][2]['scriptPubKey']['addresses'][0],
-                     self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
+        get_tx = self.nodes[0].gettransaction(create_tx)["hex"]
+        final_rawtx = self.nodes[0].decoderawtransaction(get_tx)
+        assert_equal(
+            final_rawtx["vout"][2]["scriptPubKey"]["addresses"][0],
+            self.nodes[0].PRIV_KEYS[0].ownerAuthAddress,
+        )
 
         # Clear auth UTXOs
         self.clear_auth_utxos()
@@ -292,11 +317,11 @@ class TokensAuthChange(DefiTestFramework):
 
         # Make sure token updated as expected
         result = self.nodes[0].gettoken(token_c)[token_c]
-        assert_equal(result['symbol'], "COPPER")
+        assert_equal(result["symbol"], "COPPER")
 
         # Check auto auth TX
         self.check_auto_auth_txs(updatetx, self.nodes[0].PRIV_KEYS[0].ownerAuthAddress)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TokensAuthChange().main()

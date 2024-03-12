@@ -1,7 +1,9 @@
-use ain_evm::transaction::{SignedTx, TransactionError};
-use ethereum::{AccessListItem, EnvelopedEncodable};
-use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H256, U256};
+use ain_evm::{
+    eventlistener::ExecutionStep,
+    transaction::{SignedTx, TransactionError},
+};
+use ethereum::{AccessListItem, BlockAny, EnvelopedEncodable, TransactionV2};
+use ethereum_types::{H256, U256};
 
 use crate::{
     codegen::types::{EthAccessList, EthTransactionInfo},
@@ -22,18 +24,18 @@ impl From<SignedTx> for EthTransactionInfo {
                 .access_list
                 .clone()
                 .into_iter()
-                .map(|list| list.into())
+                .map(std::convert::Into::into)
                 .collect(),
             TransactionV2::EIP1559(tx) => tx
                 .access_list
                 .clone()
                 .into_iter()
-                .map(|list| list.into())
+                .map(std::convert::Into::into)
                 .collect(),
         };
 
         EthTransactionInfo {
-            hash: format_h256(signed_tx.transaction.hash()),
+            hash: format_h256(signed_tx.hash()),
             from: format_address(signed_tx.sender),
             to: signed_tx.to().map(format_address),
             gas: format_u256(signed_tx.gas_limit()),
@@ -107,6 +109,11 @@ impl EthTransactionInfo {
             block_hash: Some(format_h256(block.header.hash())),
             block_number: Some(format_u256(block.header.number)),
             transaction_index: Some(format_u256(U256::from(index))),
+            gas_price: format_u256(
+                signed_tx
+                    .effective_gas_price(block.header.base_fee)
+                    .map_err(|_| TransactionError::ConstructionError)?,
+            ),
             ..EthTransactionInfo::from(signed_tx)
         })
     }
@@ -120,4 +127,37 @@ impl EthTransactionInfo {
             ..self
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceLogs {
+    pub pc: usize,
+    pub op: String,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<String>,
+    pub memory: String,
+}
+
+impl From<ExecutionStep> for TraceLogs {
+    fn from(step: ExecutionStep) -> Self {
+        TraceLogs {
+            pc: step.pc,
+            op: step.op,
+            gas: step.gas,
+            gas_cost: step.gas_cost,
+            stack: step.stack.iter().map(|&item| format_h256(item)).collect(),
+            memory: hex::encode(step.memory).to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TraceTransactionResult {
+    pub gas: U256,
+    pub failed: bool,
+    pub return_value: String,
+    pub struct_logs: Vec<TraceLogs>,
 }

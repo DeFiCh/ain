@@ -30,6 +30,7 @@ basic_p2sh = sc.CScript([sc.OP_HASH160, sc.hash160(sc.CScript([sc.OP_0])), sc.OP
 
 class BadTxTemplate:
     """Allows simple construction of a certain kind of invalid tx. Base class to be subclassed."""
+
     __metaclass__ = abc.ABCMeta
 
     # The expected error code given by defid upon submission of the tx.
@@ -48,7 +49,7 @@ class BadTxTemplate:
     def __init__(self, *, spend_tx=None, spend_block=None):
         self.spend_tx = spend_block.vtx[0] if spend_block else spend_tx
         self.spend_avail = sum(o.nValue for o in self.spend_tx.vout)
-        self.valid_txin = CTxIn(COutPoint(self.spend_tx.sha256, 0), b"", 0xffffffff)
+        self.valid_txin = CTxIn(COutPoint(self.spend_tx.sha256, 0), b"", 0xFFFFFFFF)
 
     @abc.abstractmethod
     def get_tx(self, *args, **kwargs):
@@ -106,14 +107,14 @@ class BadInputOutpointIndex(BadTxTemplate):
         bad_idx = num_indices + 100
 
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(self.spend_tx.sha256, bad_idx), b"", 0xffffffff))
+        tx.vin.append(CTxIn(COutPoint(self.spend_tx.sha256, bad_idx), b"", 0xFFFFFFFF))
         tx.vout.append(CTxOut(0, basic_p2sh))
         tx.calc_sha256()
         return tx
 
 
 class DuplicateInput(BadTxTemplate):
-    reject_reason = 'bad-txns-inputs-duplicate'
+    reject_reason = "bad-txns-inputs-duplicate"
     expect_disconnect = True
 
     def get_tx(self):
@@ -131,7 +132,7 @@ class NonexistentInput(BadTxTemplate):
 
     def get_tx(self):
         tx = CTransaction()
-        tx.vin.append(CTxIn(COutPoint(self.spend_tx.sha256 + 1, 0), b"", 0xffffffff))
+        tx.vin.append(CTxIn(COutPoint(self.spend_tx.sha256 + 1, 0), b"", 0xFFFFFFFF))
         tx.vin.append(self.valid_txin)
         tx.vout.append(CTxOut(1, basic_p2sh))
         tx.calc_sha256()
@@ -139,16 +140,17 @@ class NonexistentInput(BadTxTemplate):
 
 
 class SpendTooMuch(BadTxTemplate):
-    reject_reason = 'bad-txns-in-belowout'
+    reject_reason = "bad-txns-in-belowout"
     expect_disconnect = True
 
     def get_tx(self):
         return create_tx_with_script(
-            self.spend_tx, 0, script_pub_key=basic_p2sh, amount=(self.spend_avail + 1))
+            self.spend_tx, 0, script_pub_key=basic_p2sh, amount=(self.spend_avail + 1)
+        )
 
 
 class SpendNegative(BadTxTemplate):
-    reject_reason = 'bad-txns-vout-negative'
+    reject_reason = "bad-txns-vout-negative"
     expect_disconnect = True
 
     def get_tx(self):
@@ -162,8 +164,8 @@ class InvalidOPIFConstruction(BadTxTemplate):
 
     def get_tx(self):
         return create_tx_with_script(
-            self.spend_tx, 0, script_sig=b'\x64' * 35,
-            amount=(self.spend_avail // 2))
+            self.spend_tx, 0, script_sig=b"\x64" * 35, amount=(self.spend_avail // 2)
+        )
 
 
 class TooManySigops(BadTxTemplate):
@@ -174,9 +176,8 @@ class TooManySigops(BadTxTemplate):
     def get_tx(self):
         lotsa_checksigs = sc.CScript([sc.OP_CHECKSIG] * (MAX_BLOCK_SIGOPS))
         return create_tx_with_script(
-            self.spend_tx, 0,
-            script_pub_key=lotsa_checksigs,
-            amount=1)
+            self.spend_tx, 0, script_pub_key=lotsa_checksigs, amount=1
+        )
 
 
 def iter_all_templates():

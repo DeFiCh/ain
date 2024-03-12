@@ -1,5 +1,6 @@
-use anyhow::{format_err, Result};
 use std::path::PathBuf;
+
+use anyhow::{format_err, Result};
 
 fn main() -> Result<()> {
     let proto_include = std::env::var("PROTOC_INCLUDE_DIR")

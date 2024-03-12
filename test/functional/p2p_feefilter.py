@@ -13,14 +13,14 @@ from test_framework.test_framework import DefiTestFramework
 
 
 def hashToHex(hash):
-    return format(hash, '064x')
+    return format(hash, "064x")
 
 
 # Wait up to 60 secs to see if the testnode has received all the expected invs
 def allInvsMatch(invsExpected, testnode):
     for x in range(60):
         with mininode_lock:
-            if (sorted(invsExpected) == sorted(testnode.txinvs)):
+            if sorted(invsExpected) == sorted(testnode.txinvs):
                 return True
         time.sleep(1)
     return False
@@ -33,7 +33,7 @@ class TestP2PConn(P2PInterface):
 
     def on_inv(self, message):
         for i in message.inv:
-            if (i.type == 1):
+            if i.type == 1:
                 self.txinvs.append(hashToHex(i.hash))
 
     def clear_invs(self):
@@ -95,5 +95,5 @@ class FeeFilterTest(DefiTestFramework):
         self.nodes[0].p2p.clear_invs()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     FeeFilterTest().main()

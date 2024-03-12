@@ -1,4 +1,4 @@
-use primitive_types::U256;
+use ethereum_types::U256;
 use serde::{Serialize, Serializer};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

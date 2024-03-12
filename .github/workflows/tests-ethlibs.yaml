@@ -15,13 +15,19 @@ concurrency:
 
 env:
   NODE_URL: "http://127.0.0.1:19551/"
+  TARGET: x86_64-pc-linux-gnu
+  MAKE_DEBUG: 0
 
 jobs:
   build:
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
+    env:
+      CARGO_INCREMENTAL: 0
+
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+    - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
@@ -29,8 +35,26 @@ jobs:
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup user dependencies
+      run: ./make.sh ci-setup-user-deps
+
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
+    - name: Rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
 
     - name: Build binaries
       run: ./make.sh build
@@ -38,7 +62,7 @@ jobs:
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
-        name: defibins
+        name: defi-bins
         path: |
           build/src/defid
           build/src/defi-cli
@@ -57,7 +81,7 @@ jobs:
     - name: Download binaries
       uses: actions/download-artifact@v3
       with:
-        name: defibins
+        name: defi-bins
 
     - name: Download shell commands
       uses: actions/download-artifact@v3
@@ -76,7 +100,7 @@ jobs:
         go-version: '^1.17.0'
 
     - name: Setup go-ethlibs test suites
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: 'DeFiCh/go-ethlibs'
 

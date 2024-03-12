@@ -14,23 +14,29 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
-      
+
+env:
+  TARGET: x86_64-pc-linux-gnu
+  MAKE_DEBUG: 0
+
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
     env:
       GITHUB_PULL_REQUEST: ${{ github.event.number }}
-      TESTS_FAILFAST: 1
+      TESTS_FAILFAST: 0
       TESTS_COMBINED_LOGS: 500
+      CARGO_INCREMENTAL: 0
+
     steps:
     - name: Checkout base branch and/or merge
       if: github.event_name != 'pull_request'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Checkout pull request head commit
       if: github.event_name == 'pull_request'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
     
@@ -40,11 +46,33 @@ jobs:
     - name: Install dependencies
       run: ./make.sh ci-setup-deps
     
-    - name: Install dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup user dependencies
+      run: ./make.sh ci-setup-user-deps
 
-    - name: Build deps and configure
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
+    - name: Rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
+
+    - name: Build binaries
       run: ./make.sh build
+
+    # Temp. workaround to save space to prevent GH runners from running out
+    - name: Cleanup cargo deps
+      run: rm -rf build/lib/target/debug/deps
       
     - name: E2E tests
       run: ./make.sh test
@@ -54,16 +82,24 @@ jobs:
     container: defi/ain-builder:latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Populate environment
       run: ./make.sh ci-export-vars
 
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
+    
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
 
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Rust build cache
+      uses: Swatinem/rust-cache@v2
+      id: rust-cache-restore
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
 
     - name: Build deps and configure
       run: ./make.sh build-deps && ./make.sh build-conf

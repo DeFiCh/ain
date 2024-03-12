@@ -1,13 +1,20 @@
-use crate::evm::EVMServices;
-use crate::storage::traits::FlushableStorage;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::{self, JoinHandle},
+};
 
-use anyhow::Result;
-use jsonrpsee_http_server::HttpServerHandle;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
-use tokio::runtime::{Builder, Handle as AsyncHandle};
-use tokio::sync::mpsc::{self, Sender};
+use anyhow::{format_err, Result};
+use jsonrpsee_server::ServerHandle;
+use parking_lot::Mutex;
+use tokio::{
+    runtime::{Builder, Handle as AsyncHandle},
+    sync::mpsc::{self, Sender},
+};
+
+use crate::{evm::EVMServices, storage::traits::FlushableStorage};
 
 // TODO: SERVICES needs to go into its own core crate now,
 // and this crate be dedicated to evm
@@ -32,7 +39,8 @@ pub struct Services {
     pub tokio_runtime: AsyncHandle,
     pub tokio_runtime_channel_tx: Sender<()>,
     pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
-    pub json_rpc: Mutex<Option<HttpServerHandle>>,
+    pub json_rpc_handles: Mutex<Vec<ServerHandle>>,
+    pub websocket_handles: Mutex<Vec<ServerHandle>>,
     pub evm: Arc<EVMServices>,
 }
 
@@ -56,40 +64,44 @@ impl Services {
                     rx.recv().await;
                 });
             }))),
-            json_rpc: Mutex::new(None),
+            json_rpc_handles: Mutex::new(vec![]),
+            websocket_handles: Mutex::new(vec![]),
             evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
     }
 
     pub fn stop_network(&self) -> Result<()> {
-        let mut json_rpc_handle = self.json_rpc.lock().unwrap();
-        if (json_rpc_handle).is_none() {
-            // Server was never started
-            return Ok(());
+        {
+            let json_rpc_handles = self.json_rpc_handles.lock();
+            for server in &*json_rpc_handles {
+                server.stop()?;
+            }
         }
-        json_rpc_handle
-            .take()
-            .expect("json rpc server not running")
-            .stop()
-            .unwrap();
 
-        // TODO: Propogate error
+        {
+            let websocket_handles = self.websocket_handles.lock();
+            for server in &*websocket_handles {
+                server.stop()?;
+            }
+        }
         Ok(())
     }
 
-    pub fn stop(&self) {
+    pub fn stop(&self) -> Result<()> {
         let _ = self.tokio_runtime_channel_tx.blocking_send(());
 
         self.tokio_worker
             .lock()
-            .unwrap()
             .take()
-            .expect("runtime terminated?")
+            .ok_or(format_err!(
+                "failed to stop tokio runtime, early termination"
+            ))?
             .join()
-            .unwrap();
+            .map_err(|_| format_err!("failed to stop tokio runtime"))?;
 
         // Persist EVM State to disk
-        self.evm.core.flush().expect("Could not flush evm state");
-        self.evm.storage.flush().expect("Could not flush storage");
+        self.evm.core.flush()?;
+        self.evm.storage.flush()?;
+        Ok(())
     }
 }

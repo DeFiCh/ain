@@ -15,20 +15,29 @@ from test_framework.util import (
 # TODO: Copied from wallet_groups.py -- should perhaps move into util.py
 def assert_approx(v, vexp, vspan=0.00001):
     if v < vexp - vspan:
-        raise AssertionError("%s < [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan)))
+        raise AssertionError(
+            "%s < [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan))
+        )
     if v > vexp + vspan:
-        raise AssertionError("%s > [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan)))
+        raise AssertionError(
+            "%s > [%s..%s]" % (str(v), str(vexp - vspan), str(vexp + vspan))
+        )
 
 
 def reset_balance(node, discardaddr):
-    '''Throw away all owned coins by the node so it gets a balance of 0.'''
+    """Throw away all owned coins by the node so it gets a balance of 0."""
     balance = node.getbalance(avoid_reuse=False)
     if balance > 0.5:
-        node.sendtoaddress(address=discardaddr, amount=balance, subtractfeefromamount=True, avoid_reuse=False)
+        node.sendtoaddress(
+            address=discardaddr,
+            amount=balance,
+            subtractfeefromamount=True,
+            avoid_reuse=False,
+        )
 
 
 def count_unspent(node):
-    '''Count the unspent outputs for the given node and return various statistics'''
+    """Count the unspent outputs for the given node and return various statistics"""
     r = {
         "total": {
             "count": 0,
@@ -53,8 +62,15 @@ def count_unspent(node):
     return r
 
 
-def assert_unspent(node, total_count=None, total_sum=None, reused_supported=None, reused_count=None, reused_sum=None):
-    '''Make assertions about a node's unspent output statistics'''
+def assert_unspent(
+    node,
+    total_count=None,
+    total_sum=None,
+    reused_supported=None,
+    reused_count=None,
+    reused_sum=None,
+):
+    """Make assertions about a node's unspent output statistics"""
     stats = count_unspent(node)
     if total_count is not None:
         assert_equal(stats["total"]["count"], total_count)
@@ -69,14 +85,13 @@ def assert_unspent(node, total_count=None, total_sum=None, reused_supported=None
 
 
 def assert_balances(node, mine):
-    '''Make assertions about a node's getbalances output'''
+    """Make assertions about a node's getbalances output"""
     got = node.getbalances()["mine"]
     for k, v in mine.items():
         assert_approx(got[k], v, 0.001)
 
 
 class AvoidReuseTest(DefiTestFramework):
-
     def set_test_params(self):
         self.setup_clean_chain = False
         self.num_nodes = 2
@@ -85,7 +100,7 @@ class AvoidReuseTest(DefiTestFramework):
         self.skip_if_no_wallet()
 
     def run_test(self):
-        '''Set up initial chain and run tests defined below'''
+        """Set up initial chain and run tests defined below"""
 
         self.test_persistence()
         self.test_immutable()
@@ -100,9 +115,9 @@ class AvoidReuseTest(DefiTestFramework):
         self.test_fund_send_fund_send()
 
     def test_persistence(self):
-        '''Test that wallet files persist the avoid_reuse flag.'''
+        """Test that wallet files persist the avoid_reuse flag."""
         # Configure node 1 to use avoid_reuse
-        self.nodes[1].setwalletflag('avoid_reuse')
+        self.nodes[1].setwalletflag("avoid_reuse")
 
         # Flags should be node1.avoid_reuse=false, node2.avoid_reuse=true
         assert_equal(self.nodes[0].getwalletinfo()["avoid_reuse"], False)
@@ -118,15 +133,30 @@ class AvoidReuseTest(DefiTestFramework):
         assert_equal(self.nodes[1].getwalletinfo()["avoid_reuse"], True)
 
         # Attempting to set flag to its current state should throw
-        assert_raises_rpc_error(-8, "Wallet flag is already set to false", self.nodes[0].setwalletflag, 'avoid_reuse',
-                                False)
-        assert_raises_rpc_error(-8, "Wallet flag is already set to true", self.nodes[1].setwalletflag, 'avoid_reuse',
-                                True)
+        assert_raises_rpc_error(
+            -8,
+            "Wallet flag is already set to false",
+            self.nodes[0].setwalletflag,
+            "avoid_reuse",
+            False,
+        )
+        assert_raises_rpc_error(
+            -8,
+            "Wallet flag is already set to true",
+            self.nodes[1].setwalletflag,
+            "avoid_reuse",
+            True,
+        )
 
     def test_immutable(self):
-        '''Test immutable wallet flags'''
+        """Test immutable wallet flags"""
         # Attempt to set the disable_private_keys flag; this should not work
-        assert_raises_rpc_error(-8, "Wallet flag is immutable", self.nodes[1].setwalletflag, 'disable_private_keys')
+        assert_raises_rpc_error(
+            -8,
+            "Wallet flag is immutable",
+            self.nodes[1].setwalletflag,
+            "disable_private_keys",
+        )
 
         tempwallet = ".wallet_avoidreuse.py_test_immutable_wallet.dat"
 
@@ -135,17 +165,23 @@ class AvoidReuseTest(DefiTestFramework):
         w = self.nodes[1].get_wallet_rpc(tempwallet)
 
         # Attempt to unset the disable_private_keys flag; this should not work
-        assert_raises_rpc_error(-8, "Wallet flag is immutable", w.setwalletflag, 'disable_private_keys', False)
+        assert_raises_rpc_error(
+            -8,
+            "Wallet flag is immutable",
+            w.setwalletflag,
+            "disable_private_keys",
+            False,
+        )
 
         # Unload temp wallet
         self.nodes[1].unloadwallet(tempwallet)
 
     def test_fund_send_fund_senddirty(self):
-        '''
+        """
         Test the same as test_fund_send_fund_send, except send the 10 BTC with
         the avoid_reuse flag set to false. This means the 10 BTC send should succeed,
         where it fails in test_fund_send_fund_send.
-        '''
+        """
 
         fundaddr = self.nodes[1].getnewaddress()
         retaddr = self.nodes[0].getnewaddress()
@@ -155,18 +191,30 @@ class AvoidReuseTest(DefiTestFramework):
         self.sync_blocks()
 
         # listunspent should show 1 single, unused 10 btc output
-        assert_unspent(self.nodes[1], total_count=1, total_sum=10, reused_supported=True, reused_count=0)
+        assert_unspent(
+            self.nodes[1],
+            total_count=1,
+            total_sum=10,
+            reused_supported=True,
+            reused_count=0,
+        )
         # getbalances should show no used, 10 btc trusted
         assert_balances(self.nodes[1], mine={"used": 0, "trusted": 10})
         # node 0 should not show a used entry, as it does not enable avoid_reuse
-        assert ("used" not in self.nodes[0].getbalances()["mine"])
+        assert "used" not in self.nodes[0].getbalances()["mine"]
 
         self.nodes[1].sendtoaddress(retaddr, 5)
         self.nodes[0].generate(1)
         self.sync_all()
 
         # listunspent should show 1 single, unused 5 btc output
-        assert_unspent(self.nodes[1], total_count=1, total_sum=5, reused_supported=True, reused_count=0)
+        assert_unspent(
+            self.nodes[1],
+            total_count=1,
+            total_sum=5,
+            reused_supported=True,
+            reused_count=0,
+        )
         # getbalances should show no used, 5 btc trusted
         assert_balances(self.nodes[1], mine={"used": 0, "trusted": 5})
 
@@ -175,7 +223,9 @@ class AvoidReuseTest(DefiTestFramework):
         self.sync_blocks()
 
         # listunspent should show 2 total outputs (5, 10 btc), one unused (5), one reused (10)
-        assert_unspent(self.nodes[1], total_count=2, total_sum=15, reused_count=1, reused_sum=10)
+        assert_unspent(
+            self.nodes[1], total_count=2, total_sum=15, reused_count=1, reused_sum=10
+        )
         # getbalances should show 10 used, 5 btc trusted
         assert_balances(self.nodes[1], mine={"used": 10, "trusted": 5})
 
@@ -191,14 +241,14 @@ class AvoidReuseTest(DefiTestFramework):
         assert_approx(self.nodes[1].getbalance(avoid_reuse=False), 5, 0.001)
 
     def test_fund_send_fund_send(self):
-        '''
+        """
         Test the simple case where [1] generates a new address A, then
         [0] sends 10 BTC to A.
         [1] spends 5 BTC from A. (leaving roughly 5 BTC useable)
         [0] sends 10 BTC to A again.
         [1] tries to spend 10 BTC (fails; dirty).
         [1] tries to spend 4 BTC (succeeds; change address sufficient)
-        '''
+        """
 
         fundaddr = self.nodes[1].getnewaddress()
         retaddr = self.nodes[0].getnewaddress()
@@ -208,7 +258,13 @@ class AvoidReuseTest(DefiTestFramework):
         self.sync_blocks()
 
         # listunspent should show 1 single, unused 10 btc output
-        assert_unspent(self.nodes[1], total_count=1, total_sum=10, reused_supported=True, reused_count=0)
+        assert_unspent(
+            self.nodes[1],
+            total_count=1,
+            total_sum=10,
+            reused_supported=True,
+            reused_count=0,
+        )
         # getbalances should show no used, 10 btc trusted
         assert_balances(self.nodes[1], mine={"used": 0, "trusted": 10})
 
@@ -217,7 +273,13 @@ class AvoidReuseTest(DefiTestFramework):
         self.sync_all()
 
         # listunspent should show 1 single, unused 5 btc output
-        assert_unspent(self.nodes[1], total_count=1, total_sum=5, reused_supported=True, reused_count=0)
+        assert_unspent(
+            self.nodes[1],
+            total_count=1,
+            total_sum=5,
+            reused_supported=True,
+            reused_count=0,
+        )
         # getbalances should show no used, 5 btc trusted
         assert_balances(self.nodes[1], mine={"used": 0, "trusted": 5})
 
@@ -226,7 +288,9 @@ class AvoidReuseTest(DefiTestFramework):
         self.sync_blocks()
 
         # listunspent should show 2 total outputs (5, 10 btc), one unused (5), one reused (10)
-        assert_unspent(self.nodes[1], total_count=2, total_sum=15, reused_count=1, reused_sum=10)
+        assert_unspent(
+            self.nodes[1], total_count=2, total_sum=15, reused_count=1, reused_sum=10
+        )
         # getbalances should show 10 used, 5 btc trusted
         assert_balances(self.nodes[1], mine={"used": 10, "trusted": 5})
 
@@ -234,12 +298,16 @@ class AvoidReuseTest(DefiTestFramework):
         assert_approx(self.nodes[1].getbalance(), 5, 0.001)
         assert_approx(self.nodes[1].getbalance(avoid_reuse=False), 15, 0.001)
 
-        assert_raises_rpc_error(-6, "Insufficient funds", self.nodes[1].sendtoaddress, retaddr, 10)
+        assert_raises_rpc_error(
+            -6, "Insufficient funds", self.nodes[1].sendtoaddress, retaddr, 10
+        )
 
         self.nodes[1].sendtoaddress(retaddr, 4)
 
         # listunspent should show 2 total outputs (1, 10 btc), one unused (1), one reused (10)
-        assert_unspent(self.nodes[1], total_count=2, total_sum=11, reused_count=1, reused_sum=10)
+        assert_unspent(
+            self.nodes[1], total_count=2, total_sum=11, reused_count=1, reused_sum=10
+        )
         # getbalances should show 10 used, 1 btc trusted
         assert_balances(self.nodes[1], mine={"used": 10, "trusted": 1})
 
@@ -248,5 +316,5 @@ class AvoidReuseTest(DefiTestFramework):
         assert_approx(self.nodes[1].getbalance(avoid_reuse=False), 11, 0.001)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AvoidReuseTest().main()

@@ -16,7 +16,6 @@ import os
 
 
 class AbortNodeTest(DefiTestFramework):
-
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 2
@@ -30,7 +29,7 @@ class AbortNodeTest(DefiTestFramework):
         datadir = get_datadir_path(self.options.tmpdir, 0)
 
         # Deleting the undo file will result in reorg failure
-        os.unlink(os.path.join(datadir, 'regtest', 'blocks', 'rev00000.dat'))
+        os.unlink(os.path.join(datadir, "regtest", "blocks", "rev00000.dat"))
 
         # Connecting to a node with a more work chain will trigger a reorg
         # attempt.
@@ -46,5 +45,5 @@ class AbortNodeTest(DefiTestFramework):
         self.nodes[0].assert_start_raises_init_error()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     AbortNodeTest().main()

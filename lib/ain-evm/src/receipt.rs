@@ -1,13 +1,18 @@
-use crate::storage::{traits::ReceiptStorage, Storage};
-use crate::transaction::SignedTx;
-use ethereum::{EnvelopedEncodable, ReceiptV3};
-use primitive_types::{H160, H256, U256};
+use std::sync::Arc;
 
-use ethereum::util::ordered_trie_root;
+use anyhow::format_err;
+use ethereum::{util::ordered_trie_root, EnvelopedEncodable, ReceiptV3};
+use ethereum_types::{H160, H256, U256};
 use keccak_hash::keccak;
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use crate::{
+    blocktemplate::ReceiptAndOptionalContractAddress,
+    storage::{traits::ReceiptStorage, Storage},
+    transaction::SignedTx,
+    Result,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Receipt {
@@ -22,6 +27,7 @@ pub struct Receipt {
     pub contract_address: Option<H160>,
     pub logs_index: usize,
     pub cumulative_gas: U256,
+    pub effective_gas_price: U256,
 }
 
 pub struct ReceiptService {
@@ -41,68 +47,81 @@ impl ReceiptService {
         Self { storage }
     }
 
-    pub fn get_receipts_root(receipts: &[ReceiptV3]) -> H256 {
+    pub fn get_receipts_root(receipts: &[ReceiptAndOptionalContractAddress]) -> H256 {
         ordered_trie_root(
             receipts
                 .iter()
-                .map(|r| EnvelopedEncodable::encode(r).freeze()),
+                .map(|(r, _)| EnvelopedEncodable::encode(r).freeze()),
         )
     }
 
     pub fn generate_receipts(
         &self,
         transactions: &[Box<SignedTx>],
-        receipts: Vec<ReceiptV3>,
+        receipts_and_contract_address: Vec<ReceiptAndOptionalContractAddress>,
         block_hash: H256,
         block_number: U256,
-    ) -> Vec<Receipt> {
-        let mut logs_size = 0;
+        base_fee: U256,
+    ) -> Result<Vec<Receipt>> {
+        let mut logs_size = 0_usize;
         let mut cumulative_gas = U256::zero();
 
         transactions
             .iter()
             .enumerate()
-            .zip(receipts.into_iter())
-            .map(|((index, signed_tx), receipt)| {
+            .zip(receipts_and_contract_address)
+            .map(|((index, signed_tx), (receipt, contract_address))| {
                 let receipt_data = match &receipt {
                     ReceiptV3::Legacy(data)
                     | ReceiptV3::EIP2930(data)
                     | ReceiptV3::EIP1559(data) => data,
                 };
                 let logs_len = receipt_data.logs.len();
-                logs_size += logs_len;
-                cumulative_gas += receipt_data.used_gas;
+                logs_size = logs_size
+                    .checked_add(logs_len)
+                    .ok_or_else(|| format_err!("logs_size overflow"))?;
+                cumulative_gas = cumulative_gas
+                    .checked_add(receipt_data.used_gas)
+                    .ok_or_else(|| format_err!("cumulative_gas overflow"))?;
 
-                Receipt {
+                let receipt = Receipt {
                     receipt,
                     block_hash,
                     block_number,
-                    tx_hash: signed_tx.transaction.hash(),
+                    tx_hash: signed_tx.hash(),
                     from: signed_tx.sender,
                     to: signed_tx.to(),
                     tx_index: index,
                     tx_type: signed_tx.transaction.type_id().unwrap_or_default(),
-                    contract_address: signed_tx
-                        .to()
-                        .is_none()
-                        .then(|| get_contract_address(&signed_tx.sender, &signed_tx.nonce())),
-                    logs_index: logs_size - logs_len,
+                    contract_address: signed_tx.to().is_none().then(|| {
+                        contract_address.unwrap_or_else(|| {
+                            get_contract_address(&signed_tx.sender, &signed_tx.nonce())
+                        })
+                    }),
+                    logs_index: logs_size
+                        .checked_sub(logs_len)
+                        .ok_or_else(|| format_err!("logs_size underflow"))?,
                     cumulative_gas,
-                }
+                    effective_gas_price: signed_tx.effective_gas_price(base_fee)?,
+                };
+
+                Ok(receipt)
             })
             .collect()
     }
 
-    pub fn put_receipts(&self, receipts: Vec<Receipt>) {
+    pub fn put_receipts(&self, receipts: Vec<Receipt>) -> Result<()> {
         self.storage.put_receipts(receipts)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::receipt::get_contract_address;
-    use primitive_types::{H160, U256};
     use std::str::FromStr;
+
+    use ethereum_types::{H160, U256};
+
+    use crate::receipt::get_contract_address;
 
     #[test]
     pub fn test_contract_address() {

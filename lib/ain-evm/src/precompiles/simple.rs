@@ -17,8 +17,9 @@
 
 use core::cmp::min;
 
-use crate::precompiles::LinearCostPrecompile;
 use evm::{executor::stack::PrecompileFailure, ExitError, ExitSucceed};
+
+use crate::precompiles::LinearCostPrecompile;
 
 /// The identity precompile.
 pub struct Identity;
@@ -100,7 +101,7 @@ impl LinearCostPrecompile for Sha256 {
 }
 
 /// The ECRecoverPublicKey precompile.
-/// Similar to ECRecover, but returns the pubkey (not the corresponding Ethereum address)
+/// Similar to `ECRecover`, but returns the pubkey (not the corresponding Ethereum address)
 pub struct ECRecoverPublicKey;
 
 impl LinearCostPrecompile for ECRecoverPublicKey {

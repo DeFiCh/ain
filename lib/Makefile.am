@@ -1,15 +1,16 @@
+SHELL := /bin/bash
 CARGO := $(if $(CARGO),$(CARGO),cargo)
 
 # ENABLE_DEBUG is set from configure. We respect DEBUG too if set
 DEBUG ?= $(ENABLE_DEBUG)
 
-# RUST_TARGET and HAVE_RUST_TARGET is set from configure. 
-# Can be empty. If empty, we skip export it. Otherwise we do. 
-#  
+# RUST_TARGET and HAVE_RUST_TARGET is set from configure.
+# Can be empty. If empty, we skip export it. Otherwise we do.
+#
 # We do this to emulate cargo's default behavior (--target=<triplet>) where
 # it puts things into `target/` directly when not given or `target/<triplet>`.
 # There's no way to force cargo to a stick to one behavior at the moment.
-# 
+#
 # Note: We use HAVE checks due to automake ifeq/ifneq not working outside rules
 if HAVE_RUST_TARGET
 export CARGO_BUILD_TARGET = $(RUST_TARGET)
@@ -31,7 +32,7 @@ CARGO_BUILD_TYPE_ARG = $(if $(DEBUG),,--release)
 CARGO_EXTRA_ARGS ?= $(if $(subst $(build),,$(host)),,--all-targets)
 
 # Export toolchain flags
-export CC CXX AR NM RANLIB CFLAGS CXXFLAGS 
+export CC CXX AR NM RANLIB CFLAGS CXXFLAGS
 # Not exported as these will break nested assumptions
 # CPPFLAGS LDFLAGS ARFLAGS
 
@@ -49,12 +50,12 @@ export PKG_CONFIG_PATH PKGCONFIG_LIBDIR PYTHONPATH
 # Export other dep vars
 export PROTOC PROTOC_INCLUDE_DIR SOLC_PATH
 
-# Ensure nested autotools calls by cargo don't end up in unexpected places 
+# Ensure nested autotools calls by cargo don't end up in unexpected places
 unexport DESTDIR
 
 export RUST_BACKTRACE=1
 
-.PHONY:
+.PHONY: all
 all: build
 
 .PHONY: build
@@ -74,13 +75,20 @@ test:
 clippy:
 	$(CARGO) clippy $(CARGO_MANIFEST_ARG) $(CARGO_EXTRA_ARGS) -- -Dwarnings
 
+.PHONY: doc
+doc:
+	$(CARGO) doc $(CARGO_MANIFEST_ARG)
+
+# We ignore unstable warnings for fmt to enable the use of backward
+# compatible nightly features. Stricly backward compatible only, or will
+# cause conflicts across toolchains
 .PHONY: fmt-check
 fmt-check:
-	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all --check 2> >(grep -v -E 'group_imports|unstable_features|imports_granularity')
 
 .PHONY: fmt
 fmt:
-	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all
+	$(CARGO) fmt $(CARGO_MANIFEST_ARG) --all 2> >(grep -v -E 'group_imports|unstable_features|imports_granularity')
 
 clean-local:
 	$(CARGO) clean $(CARGO_MANIFEST_ARG) && \

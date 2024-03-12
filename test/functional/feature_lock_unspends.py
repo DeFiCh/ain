@@ -13,27 +13,36 @@ class TestLockUnspends(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txindex=1', '-txnotokens=0', '-amkheight=50', '-bayfrontheight=50', '-bayfrontgardensheight=50']]
+            [
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-bayfrontheight=50",
+                "-bayfrontgardensheight=50",
+            ]
+        ]
 
     def run_test(self):
         self.nodes[0].generate(105)
         account_address = self.nodes[0].getnewaddress("", "bech32")
         self.nodes[0].utxostoaccount({account_address: "10@0"})
         token_address = self.nodes[0].getnewaddress("", "bech32")
-        self.nodes[0].createtoken({
-            "symbol": "COL",
-            "name": "COL",
-            "isDAT": True,
-            "mintable": True,
-            "tradeable": True,
-            "collateralAddress": token_address
-        }, [])
+        self.nodes[0].createtoken(
+            {
+                "symbol": "COL",
+                "name": "COL",
+                "isDAT": True,
+                "mintable": True,
+                "tradeable": True,
+                "collateralAddress": token_address,
+            },
+            [],
+        )
         self.nodes[0].generate(1)
 
         token_a = 0
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "COL"):
+            if token["symbol"] == "COL":
                 token_a = idx
 
         for i in range(0, 20):
@@ -42,5 +51,5 @@ class TestLockUnspends(DefiTestFramework):
         self.nodes[0].generate(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TestLockUnspends().main()

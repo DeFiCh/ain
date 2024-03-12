@@ -22,7 +22,9 @@ class InvalidateTest(DefiTestFramework):
         self.setup_nodes()
 
     def run_test(self):
-        self.log.info("Make sure we repopulate setBlockIndexCandidates after InvalidateBlock:")
+        self.log.info(
+            "Make sure we repopulate setBlockIndexCandidates after InvalidateBlock:"
+        )
         self.log.info("Mine 4 blocks on Node 0")
         self.nodes[0].generate(4)
         assert_equal(self.nodes[0].getblockcount(), 4)
@@ -38,7 +40,9 @@ class InvalidateTest(DefiTestFramework):
         assert_equal(self.nodes[0].getblockcount(), 6)
         badhash = self.nodes[1].getblockhash(2)
 
-        self.log.info("Invalidate block 2 on node 0 and verify we reorg to node 0's original chain")
+        self.log.info(
+            "Invalidate block 2 on node 0 and verify we reorg to node 0's original chain"
+        )
         self.nodes[0].invalidateblock(badhash)
         assert_equal(self.nodes[0].getblockcount(), 4)
         assert_equal(self.nodes[0].getbestblockhash(), besthash_n0)
@@ -86,5 +90,5 @@ class InvalidateTest(DefiTestFramework):
         assert_equal(self.nodes[1].getbestblockhash(), blocks[-1])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     InvalidateTest().main()

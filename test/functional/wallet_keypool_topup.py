@@ -24,13 +24,15 @@ class KeypoolRestoreTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 4
-        self.extra_args = [[], ['-keypool=100'], ['-keypool=100'], ['-keypool=100']]
+        self.extra_args = [[], ["-keypool=100"], ["-keypool=100"], ["-keypool=100"]]
 
     def skip_test_if_missing_module(self):
         self.skip_if_no_wallet()
 
     def run_test(self):
-        wallet_path = os.path.join(self.nodes[1].datadir, "regtest", "wallets", "wallet.dat")
+        wallet_path = os.path.join(
+            self.nodes[1].datadir, "regtest", "wallets", "wallet.dat"
+        )
         wallet_backup_path = os.path.join(self.nodes[1].datadir, "wallet.bak")
         self.nodes[0].generate(101)
 
@@ -43,8 +45,9 @@ class KeypoolRestoreTest(DefiTestFramework):
         connect_nodes_bi(self.nodes, 0, 3)
 
         for i, output_type in enumerate(["legacy", "p2sh-segwit", "bech32"]):
-
-            self.log.info("Generate keys for wallet with address type: {}".format(output_type))
+            self.log.info(
+                "Generate keys for wallet with address type: {}".format(output_type)
+            )
             idx = i + 1
             for _ in range(90):
                 addr_oldpool = self.nodes[idx].getnewaddress(address_type=output_type)
@@ -54,7 +57,9 @@ class KeypoolRestoreTest(DefiTestFramework):
             # Make sure we're creating the outputs we expect
             address_details = self.nodes[idx].validateaddress(addr_extpool)
             if i == 0:
-                assert not address_details["isscript"] and not address_details["iswitness"]
+                assert (
+                    not address_details["isscript"] and not address_details["iswitness"]
+                )
             elif i == 1:
                 assert address_details["isscript"] and not address_details["iswitness"]
             else:
@@ -76,11 +81,18 @@ class KeypoolRestoreTest(DefiTestFramework):
 
             self.log.info("Verify keypool is restored and balance is correct")
             assert_equal(self.nodes[idx].getbalance(), 15)
-            assert_equal(self.nodes[idx].listtransactions()[1]['category'], "receive")  # cause [0] is genesis mn tx
-            assert_equal(self.nodes[idx].listtransactions()[2]['category'], "receive")
+            assert_equal(
+                self.nodes[idx].listtransactions()[1]["category"], "receive"
+            )  # cause [0] is genesis mn tx
+            assert_equal(self.nodes[idx].listtransactions()[2]["category"], "receive")
             # Check that we have marked all keys up to the used keypool key as used
-            assert_equal(self.nodes[idx].getaddressinfo(self.nodes[idx].getnewaddress())['hdkeypath'], "m/0'/0'/110'")
+            assert_equal(
+                self.nodes[idx].getaddressinfo(self.nodes[idx].getnewaddress())[
+                    "hdkeypath"
+                ],
+                "m/0'/0'/110'",
+            )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     KeypoolRestoreTest().main()

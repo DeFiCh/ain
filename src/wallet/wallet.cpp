@@ -12,8 +12,8 @@
 #include <fs.h>
 #include <interfaces/chain.h>
 #include <key.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <policy/fees.h>
 #include <policy/policy.h>
 #include <primitives/block.h>
@@ -154,23 +154,6 @@ std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocati
     AddWallet(wallet);
     wallet->postInitProcess();
     return wallet;
-}
-
-std::array<uint8_t, 32> GetKeyFromWallets(std::array<uint8_t, 20> input) {
-    CKey key;
-    CKeyID keyID;
-    std::copy(input.begin(), input.end(), keyID.begin());
-
-    for (const auto &wallet : GetWallets()) {
-        if (wallet->GetKey(keyID, key)) {
-            break;
-        }
-    }
-
-    std::array<uint8_t, 32> result{};
-    std::copy(key.begin(), key.end(), result.begin());
-
-    return result;
 }
 
 std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const std::string& name, std::string& error, std::string& warning)
@@ -418,7 +401,7 @@ bool CWallet::AddKeyPubKeyWithDB(WalletBatch& batch, const CKey& secret, const C
     return true;
 }
 
-bool CWallet::AddKeyPubKey(const CKey& secret, const CPubKey &pubkey)
+bool CWallet::AddKeyPair(const CKey& secret, const CPubKey &pubkey)
 {
     WalletBatch batch(*database);
     return CWallet::AddKeyPubKeyWithDB(batch, secret, pubkey);
@@ -1673,8 +1656,8 @@ CPubKey CWallet::DeriveNewSeed(const CKey& key)
         mapKeyMetadata[uncomp.GetID()] = metadata;
 
         // write the key&metadata to the database
-        if (!AddKeyPubKey(key, seed))
-            throw std::runtime_error(std::string(__func__) + ": AddKeyPubKey failed");
+        if (!AddKeyPair(key, seed))
+            throw std::runtime_error(std::string(__func__) + ": AddKeyPair failed");
     }
 
     return seed;
@@ -3850,7 +3833,7 @@ bool CWallet::GetNewDestination(const OutputType type, const std::string label, 
     SetAddressBook(dest, label, "receive");
 
     auto [uncomp, comp] = GetBothPubkeyCompressions(new_key);
-    SetAddressBook(GetDestinationForKey(uncomp, OutputType::ETH), label, "receive");
+    SetAddressBook(GetDestinationForKey(uncomp, OutputType::ERC55), label, "receive");
     SetAddressBook(GetDestinationForKey(uncomp, OutputType::LEGACY), label, "receive");
     SetAddressBook(GetDestinationForKey(comp, OutputType::BECH32), label, "receive");
 
@@ -4808,7 +4791,7 @@ void CWallet::LearnRelatedScripts(const CPubKey& key, OutputType type)
         // Make sure the resulting program is solvable.
         assert(IsSolvable(*this, witprog));
         AddCScript(witprog);
-    } else if (!key.IsCompressed() && type == OutputType::ETH) {
+    } else if (!key.IsCompressed() && type == OutputType::ERC55) {
         CScript script = GetScriptForDestination(WitnessV16EthHash(key));
         AddCScript(script);
     }
@@ -4978,8 +4961,7 @@ bool CWallet::GetKey(const CKeyID &address, CKey& keyOut) const
 bool CWallet::GetWatchPubKey(const CKeyID &address, CPubKey &pubkey_out) const
 {
     LOCK(cs_KeyStore);
-    WatchKeyMap::const_iterator it = mapWatchKeys.find(address);
-    if (it != mapWatchKeys.end()) {
+    if (const auto it = mapWatchKeys.find(address); it != mapWatchKeys.end()) {
         pubkey_out = it->second;
         return true;
     }
@@ -4996,10 +4978,10 @@ bool CWallet::GetPubKey(const CKeyID &address, CPubKey& vchPubKeyOut) const
         return true;
     }
 
-    CryptedKeyMap::const_iterator mi = mapCryptedKeys.find(address);
-    if (mi != mapCryptedKeys.end())
+    if (const auto mi = mapCryptedKeys.find(address); mi != mapCryptedKeys.end())
     {
         vchPubKeyOut = (*mi).second.first;
+        ResolveKeyCompression(address.type, vchPubKeyOut);
         return true;
     }
     // Check for watch-only pubkeys
@@ -5048,7 +5030,7 @@ bool CWallet::AddKeyPubKeyInner(const CKey& key, const CPubKey &pubkey)
 {
     LOCK(cs_KeyStore);
     if (!IsCrypted()) {
-        return FillableSigningProvider::AddKeyPubKey(key, pubkey);
+        return FillableSigningProvider::AddKeyPair(key, pubkey);
     }
 
     if (IsLocked()) {
@@ -5099,5 +5081,5 @@ CKey GetWalletsKey(const CKeyID & keyid)
 
 int32_t GetTransactionVersion(int height)
 {
-    return height >= Params().GetConsensus().AMKHeight ? CTransaction::TOKENS_MIN_VERSION : CTransaction::TX_VERSION_2;
+    return height >= Params().GetConsensus().DF1AMKHeight ? CTransaction::TOKENS_MIN_VERSION : CTransaction::TX_VERSION_2;
 }

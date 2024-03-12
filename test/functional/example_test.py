@@ -14,7 +14,7 @@ is testing and *how* it's being tested
 from collections import defaultdict
 
 # Avoid wildcard * imports
-from test_framework.blocktools import (create_block, create_coinbase)
+from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import CInv
 from test_framework.mininode import (
     P2PInterface,
@@ -164,7 +164,9 @@ class ExampleTest(DefiTestFramework):
 
         self.log.info("Create some blocks")
         self.tip = int(self.nodes[0].getbestblockhash(), 16)
-        self.block_time = self.nodes[0].getblock(self.nodes[0].getbestblockhash())['time'] + 1
+        self.block_time = (
+            self.nodes[0].getblock(self.nodes[0].getbestblockhash())["time"] + 1
+        )
 
         height = self.nodes[0].getblockcount()
 
@@ -205,8 +207,12 @@ class ExampleTest(DefiTestFramework):
 
         # wait_until() will loop until a predicate condition is met. Use it to test properties of the
         # P2PInterface objects.
-        wait_until(lambda: sorted(blocks) == sorted(list(self.nodes[2].p2p.block_receive_map.keys())), timeout=5,
-                   lock=mininode_lock)
+        wait_until(
+            lambda: sorted(blocks)
+            == sorted(list(self.nodes[2].p2p.block_receive_map.keys())),
+            timeout=5,
+            lock=mininode_lock,
+        )
 
         self.log.info("Check that each block was received only once")
         # The network thread uses a global lock on data access to the P2PConnection objects when sending and receiving
@@ -217,5 +223,5 @@ class ExampleTest(DefiTestFramework):
                 assert_equal(block, 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ExampleTest().main()

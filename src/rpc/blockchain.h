@@ -17,6 +17,7 @@ class CBlock;
 class CBlockIndex;
 class CTxMemPool;
 class UniValue;
+class CTransaction;
 
 static constexpr int NUM_GETBLOCKSTATS_PERCENTILES = 5;
 
@@ -31,8 +32,11 @@ double GetDifficulty(const CBlockIndex* blockindex);
 /** Callback for when block tip changed. */
 void RPCNotifyBlockChange(bool ibd, const CBlockIndex *);
 
+std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock);
+UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock);
+
 /** Block description to JSON */
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails = false) LOCKS_EXCLUDED(cs_main);
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIndex* blockindex, bool txDetails = false, int verbosity = 0) LOCKS_EXCLUDED(cs_main);
 
 /** Mempool information to JSON */
 UniValue MempoolInfoToJSON(const CTxMemPool& pool);

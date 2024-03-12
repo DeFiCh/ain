@@ -8,7 +8,13 @@ Tests that a node configured with -prune=550 signals NODE_NETWORK_LIMITED correc
 and that it responds to getdata requests for blocks correctly:
     - send a block within 288 + 2 of the tip
     - disconnect peers who request blocks older than that."""
-from test_framework.messages import CInv, msg_getdata, msg_verack, NODE_NETWORK_LIMITED, NODE_WITNESS
+from test_framework.messages import (
+    CInv,
+    msg_getdata,
+    msg_verack,
+    NODE_NETWORK_LIMITED,
+    NODE_WITNESS,
+)
 from test_framework.mininode import P2PInterface, mininode_lock
 from test_framework.test_framework import DefiTestFramework
 from test_framework.test_node import TestNode
@@ -45,7 +51,11 @@ class NodeNetworkLimitedTest(DefiTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3
-        self.extra_args = [['-prune=550', '-addrmantest', '-dummypos=1'], ['-dummypos=1'], ['-dummypos=1']]
+        self.extra_args = [
+            ["-prune=550", "-addrmantest", "-dummypos=1"],
+            ["-dummypos=1"],
+            ["-dummypos=1"],
+        ]
 
     def disconnect_all(self):
         disconnect_nodes(self.nodes[0], 1)
@@ -69,7 +79,9 @@ class NodeNetworkLimitedTest(DefiTestFramework):
         assert_equal(node.nServices, expected_services)
 
         self.log.info("Check that the localservices is as expected.")
-        assert_equal(int(self.nodes[0].getnetworkinfo()['localservices'], 16), expected_services)
+        assert_equal(
+            int(self.nodes[0].getnetworkinfo()["localservices"], 16), expected_services
+        )
 
         self.log.info("Mine enough blocks to reach the NODE_NETWORK_LIMITED range.")
         connect_nodes_bi(self.nodes, 0, 1)
@@ -105,7 +117,9 @@ class NodeNetworkLimitedTest(DefiTestFramework):
         except Exception:
             pass
         # node2 must remain at height 0
-        assert_equal(self.nodes[2].getblockheader(self.nodes[2].getbestblockhash())['height'], 0)
+        assert_equal(
+            self.nodes[2].getblockheader(self.nodes[2].getbestblockhash())["height"], 0
+        )
 
         # now connect also to node 1 (non pruned)
         connect_nodes_bi(self.nodes, 1, 2)
@@ -126,5 +140,5 @@ class NodeNetworkLimitedTest(DefiTestFramework):
         self.sync_blocks([self.nodes[0], self.nodes[1]])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     NodeNetworkLimitedTest().main()

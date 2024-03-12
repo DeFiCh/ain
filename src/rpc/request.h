@@ -8,7 +8,7 @@
 
 #include <string>
 #include <univalue.h>
-#include <masternodes/coinselect.h>
+#include <dfi/coinselect.h>
 #include <util/system.h>
 
 UniValue JSONRPCRequestObj(const std::string& strMethod, const UniValue& params, const UniValue& id);

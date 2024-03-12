@@ -10,7 +10,7 @@ the node should pretend that it does not have it to avoid fingerprinting.
 
 import time
 
-from test_framework.blocktools import (create_block, create_coinbase)
+from test_framework.blocktools import create_block, create_coinbase
 from test_framework.messages import CInv
 from test_framework.mininode import (
     P2PInterface,
@@ -66,9 +66,11 @@ class P2PFingerprintTest(DefiTestFramework):
     # Check whether last block header received from node has a given hash
     def last_header_equals(self, expected_hash, node):
         headers_msg = node.last_message.get("headers")
-        return (headers_msg and
-                headers_msg.headers and
-                headers_msg.headers[0].rehash() == expected_hash)
+        return (
+            headers_msg
+            and headers_msg.headers
+            and headers_msg.headers[0].rehash() == expected_hash
+        )
 
     # Checks that stale blocks timestamped more than a month ago are not served
     # by the node while recent stale blocks and old active chain blocks are.
@@ -146,5 +148,5 @@ class P2PFingerprintTest(DefiTestFramework):
         wait_until(test_function, timeout=3)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     P2PFingerprintTest().main()

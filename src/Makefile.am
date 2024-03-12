@@ -159,45 +159,59 @@ DEFI_CORE_H = \
   logging.h \
   ffi/ffiexports.h \
   ffi/ffihelpers.h \
-  masternodes/accounts.h \
-  masternodes/accountshistory.h \
-  masternodes/anchors.h \
-  masternodes/auctionhistory.h \
-  masternodes/balances.h \
-  masternodes/coinselect.h \
-  masternodes/communityaccounttypes.h \
-  masternodes/errors.h \
-  masternodes/evm.h \
-  masternodes/factory.h \
-  masternodes/govvariables/attributes.h \
-  masternodes/govvariables/icx_takerfee_per_btc.h \
-  masternodes/govvariables/loan_daily_reward.h \
-  masternodes/govvariables/loan_liquidation_penalty.h \
-  masternodes/govvariables/loan_splits.h \
-  masternodes/govvariables/lp_daily_dfi_reward.h \
-  masternodes/govvariables/lp_splits.h \
-  masternodes/govvariables/oracle_block_interval.h \
-  masternodes/govvariables/oracle_deviation.h \
-  masternodes/gv.h \
-  masternodes/historywriter.h \
-  masternodes/icxorder.h \
-  masternodes/incentivefunding.h \
-  masternodes/loan.h \
-  masternodes/masternodes.h \
-  masternodes/mn_checks.h \
-  masternodes/mn_rpc.h \
-  masternodes/res.h \
-  masternodes/oracles.h \
-  masternodes/poolpairs.h \
-  masternodes/proposals.h \
-  masternodes/tokens.h \
-  masternodes/threadpool.h \
-  masternodes/coinselect.h \
-  masternodes/undo.h \
-  masternodes/undos.h \
-  masternodes/validation.h \
-  masternodes/vault.h \
-  masternodes/vaulthistory.h \
+  dfi/accounts.h \
+  dfi/accountshistory.h \
+  dfi/anchors.h \
+  dfi/auctionhistory.h \
+  dfi/balances.h \
+  dfi/coinselect.h \
+  dfi/communityaccounttypes.h \
+  dfi/consensus/accounts.h \
+  dfi/consensus/governance.h \
+  dfi/consensus/icxorders.h \
+  dfi/consensus/loans.h \
+  dfi/consensus/masternodes.h \
+  dfi/consensus/oracles.h \
+  dfi/consensus/poolpairs.h \
+  dfi/consensus/proposals.h \
+  dfi/consensus/smartcontracts.h \
+  dfi/consensus/tokens.h \
+  dfi/consensus/txvisitor.h \
+  dfi/consensus/vaults.h \
+  dfi/consensus/xvm.h \
+  dfi/customtx.h \
+  dfi/errors.h \
+  dfi/evm.h \
+  dfi/factory.h \
+  dfi/govvariables/attributes.h \
+  dfi/govvariables/icx_takerfee_per_btc.h \
+  dfi/govvariables/loan_daily_reward.h \
+  dfi/govvariables/loan_liquidation_penalty.h \
+  dfi/govvariables/loan_splits.h \
+  dfi/govvariables/lp_daily_dfi_reward.h \
+  dfi/govvariables/lp_splits.h \
+  dfi/govvariables/oracle_block_interval.h \
+  dfi/govvariables/oracle_deviation.h \
+  dfi/gv.h \
+  dfi/historywriter.h \
+  dfi/icxorder.h \
+  dfi/incentivefunding.h \
+  dfi/loan.h \
+  dfi/masternodes.h \
+  dfi/mn_checks.h \
+  dfi/mn_rpc.h \
+  dfi/res.h \
+  dfi/oracles.h \
+  dfi/poolpairs.h \
+  dfi/proposals.h \
+  dfi/tokens.h \
+  dfi/threadpool.h \
+  dfi/coinselect.h \
+  dfi/undo.h \
+  dfi/undos.h \
+  dfi/validation.h \
+  dfi/vault.h \
+  dfi/vaulthistory.h \
   memusage.h \
   merkleblock.h \
   miner.h \
@@ -396,49 +410,62 @@ libdefi_server_a_SOURCES = \
   init.cpp \
   dbwrapper.cpp \
   ffi/ffiexports.cpp \
-  masternodes/accounts.cpp \
-  masternodes/accountshistory.cpp \
-  masternodes/anchors.cpp \
-  masternodes/auctionhistory.cpp \
-  masternodes/evm.cpp  \
-  masternodes/govvariables/attributes.cpp \
-  masternodes/govvariables/icx_takerfee_per_btc.cpp \
-  masternodes/govvariables/loan_daily_reward.cpp \
-  masternodes/govvariables/loan_liquidation_penalty.cpp \
-  masternodes/govvariables/loan_splits.cpp \
-  masternodes/govvariables/lp_daily_dfi_reward.cpp \
-  masternodes/govvariables/lp_splits.cpp \
-  masternodes/govvariables/oracle_block_interval.cpp \
-  masternodes/govvariables/oracle_deviation.cpp \
-  masternodes/gv.cpp \
-  masternodes/historywriter.cpp \
-  masternodes/icxorder.cpp \
-  masternodes/incentivefunding.cpp \
-  masternodes/loan.cpp \
-  masternodes/masternodes.cpp \
-  masternodes/mn_checks.cpp \
-  masternodes/mn_rpc.cpp \
-  masternodes/oracles.cpp \
-  masternodes/poolpairs.cpp \
-  masternodes/proposals.cpp \
-  masternodes/rpc_accounts.cpp \
-  masternodes/rpc_customtx.cpp \
-  masternodes/rpc_evm.cpp \
-  masternodes/rpc_masternodes.cpp \
-  masternodes/rpc_icxorderbook.cpp \
-  masternodes/rpc_loan.cpp \
-  masternodes/rpc_oracles.cpp \
-  masternodes/rpc_poolpair.cpp \
-  masternodes/rpc_proposals.cpp \
-  masternodes/rpc_tokens.cpp \
-  masternodes/rpc_vault.cpp \
-  masternodes/skipped_txs.cpp \
-  masternodes/tokens.cpp \
-  masternodes/threadpool.cpp \
-  masternodes/undos.cpp \
-  masternodes/validation.cpp \
-  masternodes/vault.cpp \
-  masternodes/vaulthistory.cpp \
+  dfi/accounts.cpp \
+  dfi/accountshistory.cpp \
+  dfi/anchors.cpp \
+  dfi/auctionhistory.cpp \
+  dfi/consensus/accounts.cpp \
+  dfi/consensus/governance.cpp \
+  dfi/consensus/icxorders.cpp \
+  dfi/consensus/loans.cpp \
+  dfi/consensus/masternodes.cpp \
+  dfi/consensus/oracles.cpp \
+  dfi/consensus/poolpairs.cpp \
+  dfi/consensus/proposals.cpp \
+  dfi/consensus/smartcontracts.cpp \
+  dfi/consensus/tokens.cpp \
+  dfi/consensus/txvisitor.cpp \
+  dfi/consensus/vaults.cpp \
+  dfi/consensus/xvm.cpp \
+  dfi/evm.cpp  \
+  dfi/govvariables/attributes.cpp \
+  dfi/govvariables/icx_takerfee_per_btc.cpp \
+  dfi/govvariables/loan_daily_reward.cpp \
+  dfi/govvariables/loan_liquidation_penalty.cpp \
+  dfi/govvariables/loan_splits.cpp \
+  dfi/govvariables/lp_daily_dfi_reward.cpp \
+  dfi/govvariables/lp_splits.cpp \
+  dfi/govvariables/oracle_block_interval.cpp \
+  dfi/govvariables/oracle_deviation.cpp \
+  dfi/gv.cpp \
+  dfi/historywriter.cpp \
+  dfi/icxorder.cpp \
+  dfi/incentivefunding.cpp \
+  dfi/loan.cpp \
+  dfi/masternodes.cpp \
+  dfi/mn_checks.cpp \
+  dfi/mn_rpc.cpp \
+  dfi/oracles.cpp \
+  dfi/poolpairs.cpp \
+  dfi/proposals.cpp \
+  dfi/rpc_accounts.cpp \
+  dfi/rpc_customtx.cpp \
+  dfi/rpc_evm.cpp \
+  dfi/rpc_masternodes.cpp \
+  dfi/rpc_icxorderbook.cpp \
+  dfi/rpc_loan.cpp \
+  dfi/rpc_oracles.cpp \
+  dfi/rpc_poolpair.cpp \
+  dfi/rpc_proposals.cpp \
+  dfi/rpc_tokens.cpp \
+  dfi/rpc_vault.cpp \
+  dfi/skipped_txs.cpp \
+  dfi/tokens.cpp \
+  dfi/threadpool.cpp \
+  dfi/undos.cpp \
+  dfi/validation.cpp \
+  dfi/vault.cpp \
+  dfi/vaulthistory.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
@@ -626,6 +653,7 @@ libdefi_common_a_SOURCES = \
   core_write.cpp \
   key.cpp \
   key_io.cpp \
+  dfi/customtx.cpp \
   merkleblock.cpp \
   netaddress.cpp \
   netbase.cpp \

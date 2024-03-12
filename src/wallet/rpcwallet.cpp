@@ -9,7 +9,7 @@
 #include <init.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/tokens.h>
+#include <dfi/tokens.h>
 #include <node/transaction.h>
 #include <outputtype.h>
 #include <policy/feerate.h>
@@ -41,7 +41,7 @@
 
 #include <functional>
 
-#include <masternodes/mn_checks.h>
+#include <dfi/mn_checks.h>
 
 static const std::string WALLET_ENDPOINT_BASE = "/wallet/";
 
@@ -421,7 +421,7 @@ static UniValue sendtoaddress(const JSONRPCRequest& request)
         throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
     }
 
-    RejectEthAddress(GetScriptForDestination(dest));
+    RejectErc55Address(GetScriptForDestination(dest));
 
     // Amount
     CTokenAmount const tokenAmount = DecodeAmount(pwallet->chain(), request.params[1], request.params[0].get_str()); // don't support multiple tokens due to "SendMoney()" compatibility
@@ -924,7 +924,7 @@ static UniValue sendmany(const JSONRPCRequest& request)
 
     for (auto const & scriptBalances : recip) {
 
-        RejectEthAddress(scriptBalances.first);
+        RejectErc55Address(scriptBalances.first);
 
         bool fSubtractFeeFromAmount = false;
         for (unsigned int idx = 0; idx < subtractFeeFromAmount.size(); idx++) {
@@ -1133,6 +1133,11 @@ UniValue ListReceived(interfaces::Chain::Lock& locked_chain, CWallet * const pwa
         const CTxDestination& address = item_it->first;
 
         // Do not display Eth addresses
+        // 
+        // This is ok since it's not allowed on mainnet due as these
+        // will be non-standard TX.
+        // TODO: flag it later to optionally display later.
+
         if (address.index() == WitV16KeyEthHashType) {
             continue;
         }
@@ -3799,11 +3804,20 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     LOCK(pwallet->cs_wallet);
 
     UniValue ret(UniValue::VOBJ);
-    CTxDestination dest = DecodeDestination(request.params[0].get_str());
 
-    // Make sure the destination is valid
-    if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    const auto userAddress = request.params[0].get_str();
+    CTxDestination dest;
+    if (IsHex(userAddress)) {  // ScriptPubKey
+        const auto hexVec = ParseHex(userAddress);
+        const auto reqOwner = CScript(hexVec.begin(), hexVec.end());
+        if (!ExtractDestination(reqOwner, dest) || !IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+        }
+    } else {  // Address
+        dest = DecodeDestination(userAddress);
+        if (!IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+        }
     }
 
     std::string currentAddress = EncodeDestination(dest);
@@ -4260,8 +4274,8 @@ UniValue addressmap(const JSONRPCRequest &request) {
         {
             {"input", RPCArg::Type::STR, RPCArg::Optional::NO, "DVM address or EVM address"},
             {"type", RPCArg::Type::NUM, RPCArg::Optional::NO, "Map types: \n\
-                            1 - Address format: DFI -> ETH \n\
-                            2 - Address format: ETH -> DFI \n"}
+                            1 - Address format: DFI -> ERC55 \n\
+                            2 - Address format: ERC55 -> DFI \n"}
         },
         RPCResult{
             "{\n"
@@ -4278,13 +4292,14 @@ UniValue addressmap(const JSONRPCRequest &request) {
     }
         .Check(request);
 
-    auto throwInvalidParam = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+    auto throwInvalidParamType = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid type parameter")); };
+    auto throwInvalidAddressFmt = []() { throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid address format")); };
 
     const std::string input = request.params[0].get_str();
 
     int typeInt = request.params[1].get_int();
     if (typeInt < 0 || typeInt >= AddressConversionTypeCount) {
-        throwInvalidParam();
+        throwInvalidParamType();
     }
 
     CTxDestination dest = DecodeDestination(input);
@@ -4310,7 +4325,7 @@ UniValue addressmap(const JSONRPCRequest &request) {
     switch (type) {
         case AddressConversionType::DVMToEVMAddress: {
             if (dest.index() != WitV0KeyHashType && dest.index() != PKHashType) {
-                throwInvalidParam();
+                throwInvalidAddressFmt();
             }
             CPubKey key = AddrToPubKey(pwallet, input);
             if (key.IsCompressed()) {
@@ -4321,17 +4336,16 @@ UniValue addressmap(const JSONRPCRequest &request) {
         }
         case AddressConversionType::EVMToDVMAddress: {
             if (dest.index() != WitV16KeyEthHashType) {
-                throwInvalidParam();
+                throwInvalidAddressFmt();
             }
             CPubKey key = AddrToPubKey(pwallet, input);
-            if (!key.IsCompressed()) {
-                key.Compress();
-            }
-            format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(key)));
+            auto [uncomp, comp] = GetBothPubkeyCompressions(key);
+            format.pushKV("bech32", EncodeDestination(WitnessV0KeyHash(comp)));
+            format.pushKV("legacy", EncodeDestination(PKHash(uncomp)));
             break;
         }
         default:
-            throwInvalidParam();
+            throwInvalidParamType();
     }
 
     ret.pushKV("format", format);

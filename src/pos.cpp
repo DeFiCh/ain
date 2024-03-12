@@ -6,8 +6,8 @@
 #include <consensus/merkle.h>
 #include <key.h>
 #include <logging.h>
-#include <masternodes/masternodes.h>
-#include <masternodes/mn_checks.h>
+#include <dfi/masternodes.h>
+#include <dfi/mn_checks.h>
 #include <sync.h>
 #include <validation.h>
 
@@ -74,17 +74,17 @@ bool ContextualCheckProofOfStake(const CBlockHeader& blockHeader, const Consensu
         }
         creationHeight = int64_t(nodePtr->creationHeight);
 
-        if (height >= params.EunosPayaHeight) {
+        if (height >= params.DF10EunosPayaHeight) {
              const auto optTimeLock = mnView->GetTimelock(masternodeID, *nodePtr, height);
              if (!optTimeLock)
                  return false;
             timelock = *optTimeLock;
         }
 
-        // Check against EunosPayaHeight here for regtest, does not hurt other networks.
+        // Check against DF10EunosPayaHeight here for regtest, does not hurt other networks.
         // Redundant checks, but intentionally kept for easier fork accounting.
-        if (height >= params.DakotaCrescentHeight || height >= params.EunosPayaHeight) {
-            const auto usedHeight = height <= params.EunosHeight ? creationHeight : height;
+        if (height >= params.DF7DakotaCrescentHeight || height >= params.DF10EunosPayaHeight) {
+            const auto usedHeight = height <= params.DF8EunosHeight ? creationHeight : height;
 
             // Get block times
             subNodesBlockTime = mnView->GetBlockTimes(nodePtr->operatorAuthAddress, usedHeight, creationHeight, timelock);
@@ -148,15 +148,15 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, int64_t blockTim
     }
 
     int nHeight{pindexLast->nHeight + 1};
-    bool newDifficultyAdjust{nHeight > params.EunosHeight};
+    bool newDifficultyAdjust{nHeight > params.DF8EunosHeight};
 
     // Restore previous difficulty adjust on testnet after FC
-    if (IsTestNetwork() && nHeight >= params.FortCanningHeight) {
+    if (IsTestNetwork() && nHeight >= params.DF11FortCanningHeight) {
         newDifficultyAdjust = false;
     }
 
     const auto interval = newDifficultyAdjust ? params.pos.DifficultyAdjustmentIntervalV2() : params.pos.DifficultyAdjustmentInterval();
-    bool skipChange = newDifficultyAdjust ? (nHeight - params.EunosHeight) % interval != 0 : nHeight % interval != 0;
+    bool skipChange = newDifficultyAdjust ? (nHeight - params.DF8EunosHeight) % interval != 0 : nHeight % interval != 0;
 
     // Only change once per difficulty adjustment interval
     if (skipChange)

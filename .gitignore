@@ -1,5 +1,6 @@
 .code
 .cache
+.ccache
 .idea
 
 # Editors.
@@ -11,6 +12,9 @@
 # Misc
 *.tar.gz
 *.tmp
+
+# For local use
+tmp/
 
 # Build
 build/

@@ -49,7 +49,9 @@ TX_EXPIRY_INTERVAL = GETDATA_TX_INTERVAL * 10
 
 # Python test constants
 NUM_INBOUND = 10
-MAX_GETDATA_INBOUND_WAIT = GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY + INBOUND_PEER_TX_DELAY
+MAX_GETDATA_INBOUND_WAIT = (
+    GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY + INBOUND_PEER_TX_DELAY
+)
 
 
 class TxDownloadTest(DefiTestFramework):
@@ -58,9 +60,11 @@ class TxDownloadTest(DefiTestFramework):
         self.num_nodes = 2
 
     def test_tx_requests(self):
-        self.log.info("Test that we request transactions from all our peers, eventually")
+        self.log.info(
+            "Test that we request transactions from all our peers, eventually"
+        )
 
-        txid = 0xdeadbeef
+        txid = 0xDEADBEEF
 
         self.log.info("Announce the txid from each incoming peer to node 0")
         msg = msg_inv([CInv(t=1, h=txid)])
@@ -73,7 +77,10 @@ class TxDownloadTest(DefiTestFramework):
         def getdata_found(peer_index):
             p = self.nodes[0].p2ps[peer_index]
             with mininode_lock:
-                return p.last_message.get("getdata") and p.last_message["getdata"].inv[-1].hash == txid
+                return (
+                    p.last_message.get("getdata")
+                    and p.last_message["getdata"].inv[-1].hash == txid
+                )
 
         node_0_mocktime = int(time.time())
         while outstanding_peer_index:
@@ -90,21 +97,28 @@ class TxDownloadTest(DefiTestFramework):
     def test_inv_block(self):
         self.log.info("Generate a transaction on node 0")
         tx = self.nodes[0].createrawtransaction(
-            inputs=[{  # coinbase
-                "txid": self.nodes[0].getblock(self.nodes[0].getblockhash(1))['tx'][0],
-                "vout": 0
-            }],
+            inputs=[
+                {  # coinbase
+                    "txid": self.nodes[0].getblock(self.nodes[0].getblockhash(1))["tx"][
+                        0
+                    ],
+                    "vout": 0,
+                }
+            ],
             outputs={ADDRESS_BCRT1_UNSPENDABLE: 50 - 0.00025},
         )
         tx = self.nodes[0].signrawtransactionwithkey(
             hexstring=tx,
             privkeys=[self.nodes[0].get_genesis_keys().ownerPrivKey],
-        )['hex']
+        )["hex"]
         ctx = FromHex(CTransaction(), tx)
         txid = int(ctx.rehash(), 16)
 
         self.log.info(
-            "Announce the transaction to all nodes from all {} incoming peers, but never send it".format(NUM_INBOUND))
+            "Announce the transaction to all nodes from all {} incoming peers, but never send it".format(
+                NUM_INBOUND
+            )
+        )
         msg = msg_inv([CInv(t=1, h=txid)])
         for p in self.peers:
             p.send_message(msg)
@@ -121,9 +135,14 @@ class TxDownloadTest(DefiTestFramework):
         #   peer, plus
         # * the first time it is re-requested from the outbound peer, plus
         # * 2 seconds to avoid races
-        timeout = 2 + (MAX_GETDATA_RANDOM_DELAY + INBOUND_PEER_TX_DELAY) + (
-                GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY)
-        self.log.info("Tx should be received at node 1 after {} seconds".format(timeout))
+        timeout = (
+            2
+            + (MAX_GETDATA_RANDOM_DELAY + INBOUND_PEER_TX_DELAY)
+            + (GETDATA_TX_INTERVAL + MAX_GETDATA_RANDOM_DELAY)
+        )
+        self.log.info(
+            "Tx should be received at node 1 after {} seconds".format(timeout)
+        )
         self.sync_mempools(timeout=timeout)
 
     def test_in_flight_max(self):
@@ -131,8 +150,11 @@ class TxDownloadTest(DefiTestFramework):
         # TODO: refactor mocktime logic
         self.nodes[0].setmocktime(0)
 
-        self.log.info("Test that we don't request more than {} transactions from any peer, every {} minutes".format(
-            MAX_GETDATA_IN_FLIGHT, TX_EXPIRY_INTERVAL / 60))
+        self.log.info(
+            "Test that we don't request more than {} transactions from any peer, every {} minutes".format(
+                MAX_GETDATA_IN_FLIGHT, TX_EXPIRY_INTERVAL / 60
+            )
+        )
         txids = [i for i in range(MAX_GETDATA_IN_FLIGHT + 2)]
 
         p = self.nodes[0].p2ps[0]
@@ -141,18 +163,30 @@ class TxDownloadTest(DefiTestFramework):
             p.tx_getdata_count = 0
 
         p.send_message(msg_inv([CInv(t=1, h=i) for i in txids]))
-        wait_until(lambda: p.tx_getdata_count >= MAX_GETDATA_IN_FLIGHT, lock=mininode_lock)
+        wait_until(
+            lambda: p.tx_getdata_count >= MAX_GETDATA_IN_FLIGHT, lock=mininode_lock
+        )
         with mininode_lock:
             assert_equal(p.tx_getdata_count, MAX_GETDATA_IN_FLIGHT)
 
-        self.log.info("Now check that if we send a NOTFOUND for a transaction, we'll get one more request")
+        self.log.info(
+            "Now check that if we send a NOTFOUND for a transaction, we'll get one more request"
+        )
         p.send_message(msg_notfound(vec=[CInv(t=1, h=txids[0])]))
-        wait_until(lambda: p.tx_getdata_count >= MAX_GETDATA_IN_FLIGHT + 1, timeout=10, lock=mininode_lock)
+        wait_until(
+            lambda: p.tx_getdata_count >= MAX_GETDATA_IN_FLIGHT + 1,
+            timeout=10,
+            lock=mininode_lock,
+        )
         with mininode_lock:
             assert_equal(p.tx_getdata_count, MAX_GETDATA_IN_FLIGHT + 1)
 
         WAIT_TIME = TX_EXPIRY_INTERVAL // 2 + TX_EXPIRY_INTERVAL
-        self.log.info("if we wait about {} minutes, we should eventually get more requests".format(WAIT_TIME / 60))
+        self.log.info(
+            "if we wait about {} minutes, we should eventually get more requests".format(
+                WAIT_TIME / 60
+            )
+        )
         self.nodes[0].setmocktime(int(time.time() + WAIT_TIME))
         wait_until(lambda: p.tx_getdata_count == MAX_GETDATA_IN_FLIGHT + 2)
         self.nodes[0].setmocktime(0)
@@ -164,7 +198,9 @@ class TxDownloadTest(DefiTestFramework):
             for i in range(NUM_INBOUND):
                 self.peers.append(node.add_p2p_connection(TestP2PConn()))
 
-        self.log.info("Nodes are setup with {} incoming connections each".format(NUM_INBOUND))
+        self.log.info(
+            "Nodes are setup with {} incoming connections each".format(NUM_INBOUND)
+        )
 
         # Test the in-flight max first, because we want no transactions in
         # flight ahead of this test.
@@ -175,5 +211,5 @@ class TxDownloadTest(DefiTestFramework):
         self.test_tx_requests()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TxDownloadTest().main()

@@ -1,14 +1,12 @@
 #![cfg(test_off)]
 
-use ethereum::{BlockV2, PartialHeader};
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
-use primitive_types::{H160, U256};
+use ain_evm::{handler::Handlers, transaction::SignedTx};
+use ethereum::{BlockV2, PartialHeader};
+use ethereum_types::{H160, U256};
 
 use crate::codegen::types::*;
-use ain_evm::handler::Handlers;
-use ain_evm::transaction::SignedTx;
 
 const ALICE: &str = "0x0000000000000000000000000000000000000000";
 const BOB: &str = "0x0000000000000000000000000000000000000001";
@@ -78,7 +76,7 @@ fn should_get_block_by_hash() {
         Vec::new(),
         Vec::new(),
     );
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let block = handler
@@ -122,11 +120,11 @@ fn should_get_transaction_by_hash() {
         Vec::new(),
     );
 
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByHashInput {
-        hash: format!("{:x}", signed_tx.transaction.hash()),
+        hash: format!("{:x}", signed_tx.hash()),
     };
 
     let res = EthService::Eth_GetTransactionByHash(handler.clone(), input.clone().into()).unwrap();
@@ -174,7 +172,7 @@ fn should_get_transaction_by_block_hash_and_index() {
         Vec::new(),
     );
 
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByBlockHashAndIndexInput {
@@ -229,7 +227,7 @@ fn should_get_transaction_by_block_number_and_index() {
         Vec::new(),
     );
 
-    handler.block.connect_block(block.clone());
+    handler.block.connect_block(&block);
     handler.storage.put_block(block.clone());
 
     let input = EthGetTransactionByBlockNumberAndIndexInput {

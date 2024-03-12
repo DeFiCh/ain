@@ -1,13 +1,12 @@
-use crate::transaction::SignedTx;
+use anyhow::format_err;
 use ethereum::TransactionAction;
 use evm::{
     gasometer::{call_transaction_cost, create_transaction_cost, Gasometer, TransactionCost},
     Config,
 };
-
-use anyhow::format_err;
 use log::debug;
-use std::error::Error;
+
+use crate::{transaction::SignedTx, Result};
 
 fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     let access_list = signed_tx
@@ -22,9 +21,9 @@ fn get_tx_cost(signed_tx: &SignedTx) -> TransactionCost {
     }
 }
 
-pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<(), Box<dyn Error>> {
+pub fn check_tx_intrinsic_gas(signed_tx: &SignedTx) -> Result<()> {
     const CONFIG: Config = Config::shanghai();
-    let mut gasometer = Gasometer::new(signed_tx.gas_limit().as_u64(), &CONFIG);
+    let mut gasometer = Gasometer::new(u64::try_from(signed_tx.gas_limit())?, &CONFIG);
 
     let tx_cost = get_tx_cost(signed_tx);
     match gasometer.record_transaction(tx_cost) {

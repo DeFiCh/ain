@@ -18,12 +18,15 @@ import time
 from decimal import Decimal
 
 
-ERR_STRING_MIN_COLLATERAL_DFI_PCT = "At least 50% of the minimum required collateral must be in DFI"
-ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = "At least 50% of the minimum required collateral must be in DFI or DUSD"
+ERR_STRING_MIN_COLLATERAL_DFI_PCT = (
+    "At least 50% of the minimum required collateral must be in DFI"
+)
+ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT = (
+    "At least 50% of the minimum required collateral must be in DFI or DUSD"
+)
 
 
 class DUSDLoanTests(DefiTestFramework):
-
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
@@ -33,40 +36,41 @@ class DUSDLoanTests(DefiTestFramework):
         self.fortcanningepilogueheight = 500
         self.grandcentralheight = 600
         self.grandcentralepilogueheight = 700
-        self.nextnetworkupgradeheight = 800
+        self.metachainheight = 800
 
         self.extra_args = [
-            ['-txnotokens=0',
-             '-amkheight=1',
-             '-bayfrontheight=1',
-             '-eunosheight=1',
-             '-fortcanningheight=1',
-             '-fortcanningmuseumheight=1',
-             '-fortcanningparkheight=1',
-             f'-fortcanninghillheight={self.fortcanninghillheight}',
-             f'-fortcanningroadheight={self.fortcanningroadheight}',
-             f'-fortcanninggreatworldheight={self.fortcanninggreatworldheight}',
-             f'-fortcanningepilogueheight={self.fortcanningepilogueheight}',
-             f'-grandcentralheight={self.grandcentralheight}',
-             f'-grandcentralepilogueheight={self.grandcentralepilogueheight}',
-             f'-nextnetworkupgradeheight={self.nextnetworkupgradeheight}',
-
-             '-jellyfish_regtest=1', '-txindex=1', '-simulatemainnet=1']
+            [
+                "-txnotokens=0",
+                "-amkheight=1",
+                "-bayfrontheight=1",
+                "-eunosheight=1",
+                "-fortcanningheight=1",
+                "-fortcanningmuseumheight=1",
+                "-fortcanningparkheight=1",
+                f"-fortcanninghillheight={self.fortcanninghillheight}",
+                f"-fortcanningroadheight={self.fortcanningroadheight}",
+                f"-fortcanninggreatworldheight={self.fortcanninggreatworldheight}",
+                f"-fortcanningepilogueheight={self.fortcanningepilogueheight}",
+                f"-grandcentralheight={self.grandcentralheight}",
+                f"-grandcentralepilogueheight={self.grandcentralepilogueheight}",
+                f"-metachainheight={self.metachainheight}",
+                f"-df23height={self.metachainheight}",
+                "-jellyfish_regtest=1",
+                "-simulatemainnet=1",
+            ]
         ]
 
-    def takeloan_withdraw(self, vaultId, amount, type='takeloan'):
+    def takeloan_withdraw(self, vaultId, amount, type="takeloan"):
         account = self.nodes[0].getaccount(self.account0)
         id = token_index_in_account(account, amount.split("@")[1])
         balance_before = Decimal(0)
         if id != -1:
             balance_before = get_decimal_amount(account[id])
 
-        if type == 'takeloan':
-            self.nodes[0].takeloan({
-                'vaultId': vaultId,
-                'amounts': amount})
+        if type == "takeloan":
+            self.nodes[0].takeloan({"vaultId": vaultId, "amounts": amount})
 
-        if type == 'withdraw':
+        if type == "withdraw":
             self.nodes[0].withdrawfromvault(vaultId, self.account0, amount)
 
         self.nodes[0].generate(1)
@@ -109,7 +113,9 @@ class DUSDLoanTests(DefiTestFramework):
         if self.fortcanninggreatworldheight > blockHeight:
             self.nodes[0].generate((self.fortcanninggreatworldheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["fortcanninggreatworld"]["active"], True)
+        assert_equal(
+            blockchainInfo["softforks"]["fortcanninggreatworld"]["active"], True
+        )
 
     def goto_fce_height(self):
         blockHeight = self.nodes[0].getblockcount()
@@ -123,14 +129,16 @@ class DUSDLoanTests(DefiTestFramework):
         if self.grandcentralepilogueheight > blockHeight:
             self.nodes[0].generate((self.grandcentralepilogueheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["grandcentralepilogue"]["active"], True)
+        assert_equal(
+            blockchainInfo["softforks"]["grandcentralepilogue"]["active"], True
+        )
 
     def goto_next_height(self):
         blockHeight = self.nodes[0].getblockcount()
-        if self.nextnetworkupgradeheight > blockHeight:
-            self.nodes[0].generate((self.nextnetworkupgradeheight - blockHeight) + 2)
+        if self.metachainheight > blockHeight:
+            self.nodes[0].generate((self.metachainheight - blockHeight) + 2)
         blockchainInfo = self.nodes[0].getblockchaininfo()
-        assert_equal(blockchainInfo["softforks"]["nextnetworkupgrade"]["active"], True)
+        assert_equal(blockchainInfo["softforks"]["metachain"]["active"], True)
 
     def create_tokens(self):
         self.symbolDFI = "DFI"
@@ -140,48 +148,54 @@ class DUSDLoanTests(DefiTestFramework):
 
         self.idDFI = list(self.nodes[0].gettoken(self.symbolDFI).keys())[0]
 
-        self.nodes[0].createtoken({
-            "symbol": self.symbolBTC,
-            "name": "Token " + self.symbolBTC,
-            "isDAT": True,
-            "collateralAddress": self.account0
-        }, [])
+        self.nodes[0].createtoken(
+            {
+                "symbol": self.symbolBTC,
+                "name": "Token " + self.symbolBTC,
+                "isDAT": True,
+                "collateralAddress": self.account0,
+            },
+            [],
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].setcollateraltoken({
-            'token': self.idDFI,
-            'factor': 1,
-            'fixedIntervalPriceId': "DFI/USD"})
+        self.nodes[0].setcollateraltoken(
+            {"token": self.idDFI, "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].setcollateraltoken({
-            'token': self.symbolBTC,
-            'factor': 1,
-            'fixedIntervalPriceId': "BTC/USD"})
+        self.nodes[0].setcollateraltoken(
+            {"token": self.symbolBTC, "factor": 1, "fixedIntervalPriceId": "BTC/USD"}
+        )
         self.nodes[0].generate(1)
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
 
-        self.nodes[0].setloantoken({
-            'symbol': self.symboldUSD,
-            'name': "DUSD stable token",
-            'fixedIntervalPriceId': "DUSD/USD",
-            'mintable': True,
-            'interest': 0})
+        self.nodes[0].setloantoken(
+            {
+                "symbol": self.symboldUSD,
+                "name": "DUSD stable token",
+                "fixedIntervalPriceId": "DUSD/USD",
+                "mintable": True,
+                "interest": 0,
+            }
+        )
         self.nodes[0].generate(1)
         self.iddUSD = list(self.nodes[0].gettoken(self.symboldUSD).keys())[0]
 
-        self.nodes[0].setcollateraltoken({
-            'token': self.iddUSD,
-            'factor': 0.99,
-            'fixedIntervalPriceId': "DUSD/USD"})
+        self.nodes[0].setcollateraltoken(
+            {"token": self.iddUSD, "factor": 0.99, "fixedIntervalPriceId": "DUSD/USD"}
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].setloantoken({
-            'symbol': self.symbolTSLA,
-            'name': "TSLA token",
-            'fixedIntervalPriceId': "TSLA/USD",
-            'mintable': True,
-            'interest': 0})
+        self.nodes[0].setloantoken(
+            {
+                "symbol": self.symbolTSLA,
+                "name": "TSLA token",
+                "fixedIntervalPriceId": "TSLA/USD",
+                "mintable": True,
+                "interest": 0,
+            }
+        )
         self.nodes[0].generate(1)
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
         self.nodes[0].minttokens("1000@TSLA")
@@ -198,24 +212,32 @@ class DUSDLoanTests(DefiTestFramework):
 
     def create_oracles(self):
         self.oracle_address1 = self.nodes[0].getnewaddress("", "legacy")
-        price_feeds = [{"currency": "USD", "token": "DFI"},
-                       {"currency": "USD", "token": "DUSD"},
-                       {"currency": "USD", "token": "BTC"},
-                       {"currency": "USD", "token": "TSLA"}]
-        self.oracle_id1 = self.nodes[0].appointoracle(self.oracle_address1, price_feeds, 10)
+        price_feeds = [
+            {"currency": "USD", "token": "DFI"},
+            {"currency": "USD", "token": "DUSD"},
+            {"currency": "USD", "token": "BTC"},
+            {"currency": "USD", "token": "TSLA"},
+        ]
+        self.oracle_id1 = self.nodes[0].appointoracle(
+            self.oracle_address1, price_feeds, 10
+        )
         self.nodes[0].generate(1)
 
         # feed oracle
-        oracle_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
-                         {"currency": "USD", "tokenAmount": "1@DUSD"},
-                         {"currency": "USD", "tokenAmount": "1@BTC"},
-                         {"currency": "USD", "tokenAmount": "10@DFI"}]
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": "10@TSLA"},
+            {"currency": "USD", "tokenAmount": "1@DUSD"},
+            {"currency": "USD", "tokenAmount": "1@BTC"},
+            {"currency": "USD", "tokenAmount": "10@DFI"},
+        ]
 
         timestamp = calendar.timegm(time.gmtime())
         self.nodes[0].setoracledata(self.oracle_id1, timestamp, oracle_prices)
 
         self.oracle_address2 = self.nodes[0].getnewaddress("", "legacy")
-        self.oracle_id2 = self.nodes[0].appointoracle(self.oracle_address2, price_feeds, 10)
+        self.oracle_id2 = self.nodes[0].appointoracle(
+            self.oracle_address2, price_feeds, 10
+        )
         self.nodes[0].generate(1)
 
         # feed oracle
@@ -224,43 +246,51 @@ class DUSDLoanTests(DefiTestFramework):
         self.nodes[0].generate(11)
 
     def update_oracle_price(self):
-        oracle_prices = [{"currency": "USD", "tokenAmount": "10@TSLA"},
-                         {"currency": "USD", "tokenAmount": "1@DUSD"},
-                         {"currency": "USD", "tokenAmount": "1@BTC"},
-                         {"currency": "USD", "tokenAmount": "10@DFI"}]
+        oracle_prices = [
+            {"currency": "USD", "tokenAmount": "10@TSLA"},
+            {"currency": "USD", "tokenAmount": "1@DUSD"},
+            {"currency": "USD", "tokenAmount": "1@BTC"},
+            {"currency": "USD", "tokenAmount": "10@DFI"},
+        ]
 
         self.nodes[0].setoracledata(self.oracle_id1, int(time.time()), oracle_prices)
         self.nodes[0].generate(10)
 
     def create_pool_pairs(self):
-        self.nodes[0].createpoolpair({
-            "tokenA": self.symbolDFI,
-            "tokenB": self.symboldUSD,
-            "commission": 0,
-            "status": True,
-            "ownerAddress": self.account0,
-            "pairSymbol": "DFI-DUSD",
-        }, [])
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": self.symbolDFI,
+                "tokenB": self.symboldUSD,
+                "commission": 0,
+                "status": True,
+                "ownerAddress": self.account0,
+                "pairSymbol": "DFI-DUSD",
+            },
+            [],
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].createpoolpair({
-            "tokenA": self.symbolTSLA,
-            "tokenB": self.symboldUSD,
-            "commission": 0,
-            "status": True,
-            "ownerAddress": self.account0,
-            "pairSymbol": "TSLA-DUSD",
-        }, [])
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": self.symbolTSLA,
+                "tokenB": self.symboldUSD,
+                "commission": 0,
+                "status": True,
+                "ownerAddress": self.account0,
+                "pairSymbol": "TSLA-DUSD",
+            },
+            [],
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].addpoolliquidity({
-            self.account0: ["100@TSLA", "1000@DUSD"]
-        }, self.account0)
+        self.nodes[0].addpoolliquidity(
+            {self.account0: ["100@TSLA", "1000@DUSD"]}, self.account0
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].addpoolliquidity({
-            self.account0: ["100@DFI", "1000@DUSD"]
-        }, self.account0)
+        self.nodes[0].addpoolliquidity(
+            {self.account0: ["100@DFI", "1000@DUSD"]}, self.account0
+        )
         self.nodes[0].generate(1)
 
     def setup(self):
@@ -270,11 +300,11 @@ class DUSDLoanTests(DefiTestFramework):
         self.create_oracles()
         self.create_tokens()
         self.create_pool_pairs()
-        self.nodes[0].createloanscheme(150, 1, 'LOAN1')
+        self.nodes[0].createloanscheme(150, 1, "LOAN1")
         self.nodes[0].generate(1)
-        self.nodes[0].createloanscheme(200, 2, 'LOAN2')
+        self.nodes[0].createloanscheme(200, 2, "LOAN2")
         self.nodes[0].generate(1)
-        self.nodes[0].createloanscheme(300, 3, 'LOAN3')
+        self.nodes[0].createloanscheme(300, 3, "LOAN3")
         self.nodes[0].generate(10)
         self.setup_height = self.nodes[0].getblockcount()
 
@@ -285,24 +315,29 @@ class DUSDLoanTests(DefiTestFramework):
             try:
                 self.nodes[0].getvault(vault)
             except JSONRPCException as e:
-                errorString = e.error['message']
-            assert (f"Vault <{vault}> not found" in errorString)
+                errorString = e.error["message"]
+            assert f"Vault <{vault}> not found" in errorString
 
     # TESTS
     def pre_FCH_DFI_minimum_check_withdraw(self):
         block_height = self.nodes[0].getblockcount()
 
-        vault_id = self.new_vault('LOAN1', ["10.00000000@DFI", "100.00000000@BTC"])
-        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
-        self.takeloan_withdraw(vault_id, "1.00000000@BTC", 'withdraw')
+        vault_id = self.new_vault("LOAN1", ["10.00000000@DFI", "100.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", "takeloan")
+        self.takeloan_withdraw(vault_id, "1.00000000@BTC", "withdraw")
 
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "1.00000000@DFI", 'withdraw')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "1.00000000@DFI",
+            "withdraw",
+        )
 
-        self.nodes[0].deposittovault(vault_id, self.account0, '100@DFI')
+        self.nodes[0].deposittovault(vault_id, self.account0, "100@DFI")
         self.nodes[0].generate(1)
-        self.takeloan_withdraw(vault_id, "100.00000000@DFI", 'withdraw')
+        self.takeloan_withdraw(vault_id, "100.00000000@DFI", "withdraw")
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id])
@@ -312,19 +347,31 @@ class DUSDLoanTests(DefiTestFramework):
 
         self.goto_fch_height()
 
-        vault_id = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC", "10.00000000@DUSD"])
-        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
-        self.takeloan_withdraw(vault_id, "2.00000000@DFI", 'withdraw')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "0.26000000@DFI", 'withdraw')
+        vault_id = self.new_vault(
+            "LOAN1", ["3.00000000@DFI", "200.00000000@BTC", "10.00000000@DUSD"]
+        )
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", "takeloan")
+        self.takeloan_withdraw(vault_id, "2.00000000@DFI", "withdraw")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "0.26000000@DFI",
+            "withdraw",
+        )
 
         # Check DUSD addition as collateral is ignored
-        self.nodes[0].deposittovault(vault_id, self.account0, '1000@DUSD')
+        self.nodes[0].deposittovault(vault_id, self.account0, "1000@DUSD")
         self.nodes[0].generate(1)
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "0.26000000@DFI", 'withdraw')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "0.26000000@DFI",
+            "withdraw",
+        )
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id])
@@ -334,35 +381,55 @@ class DUSDLoanTests(DefiTestFramework):
 
         self.goto_fcr_height()
 
-        vault_id = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC"])
-        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
-        self.takeloan_withdraw(vault_id, "2.00000000@DFI", 'withdraw')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
-                                self.takeloan_withdraw, vault_id, "0.26000000@DFI", 'withdraw')
+        vault_id = self.new_vault("LOAN1", ["3.00000000@DFI", "200.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", "takeloan")
+        self.takeloan_withdraw(vault_id, "2.00000000@DFI", "withdraw")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "0.26000000@DFI",
+            "withdraw",
+        )
 
         # Check DUSD addition as collateral is added to collateral
-        self.nodes[0].deposittovault(vault_id, self.account0, '2.7@DUSD')
+        self.nodes[0].deposittovault(vault_id, self.account0, "2.7@DUSD")
         self.nodes[0].generate(1)
-        self.takeloan_withdraw(vault_id, "0.26000000@DFI", 'withdraw')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
-                                self.takeloan_withdraw, vault_id, "0.50000000@DFI", 'withdraw')
+        self.takeloan_withdraw(vault_id, "0.26000000@DFI", "withdraw")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "0.50000000@DFI",
+            "withdraw",
+        )
 
-        vault_id_1 = self.new_vault('LOAN1', ["200.00000000@BTC", "30.00000000@DUSD"])
-        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
-        self.takeloan_withdraw(vault_id_1, "20.00000000@DUSD", 'withdraw')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
-                                self.takeloan_withdraw, vault_id_1, "2.60000000@DUSD", 'withdraw')
+        vault_id_1 = self.new_vault("LOAN1", ["200.00000000@BTC", "30.00000000@DUSD"])
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", "takeloan")
+        self.takeloan_withdraw(vault_id_1, "20.00000000@DUSD", "withdraw")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "2.60000000@DUSD",
+            "withdraw",
+        )
 
         # Check DFI addition as collateral is added to collateral
-        self.nodes[0].deposittovault(vault_id_1, self.account0, '0.27@DFI')
+        self.nodes[0].deposittovault(vault_id_1, self.account0, "0.27@DFI")
         self.nodes[0].generate(1)
-        self.takeloan_withdraw(vault_id_1, "2.60000000@DUSD", 'withdraw')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
-                                self.takeloan_withdraw, vault_id_1, "5.00000000@DUSD", 'withdraw')
+        self.takeloan_withdraw(vault_id_1, "2.60000000@DUSD", "withdraw")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "5.00000000@DUSD",
+            "withdraw",
+        )
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
@@ -373,31 +440,46 @@ class DUSDLoanTests(DefiTestFramework):
         self.goto_fce_height()
         self.update_oracle_price()
 
-        vault_id = self.new_vault('LOAN1', ["200.00000000@BTC", "37.50000000@DUSD"])
-        self.takeloan_withdraw(vault_id, "5.00000000@TSLA", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "0.10000000@DUSD", 'withdraw')
-        self.nodes[0].deposittovault(vault_id, self.account0, '0.02@DFI')
+        vault_id = self.new_vault("LOAN1", ["200.00000000@BTC", "37.50000000@DUSD"])
+        self.takeloan_withdraw(vault_id, "5.00000000@TSLA", "takeloan")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "0.10000000@DUSD",
+            "withdraw",
+        )
+        self.nodes[0].deposittovault(vault_id, self.account0, "0.02@DFI")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id, "0.10000000@DUSD", 'withdraw')
+        self.takeloan_withdraw(vault_id, "0.10000000@DUSD", "withdraw")
         # Try to take a DUSD loan without 50% DFI
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "10.00000000@DUSD", 'takeloan')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "10.00000000@DUSD",
+            "takeloan",
+        )
 
         # Deposit DFI and try again to take a DUSD loan
-        self.nodes[0].deposittovault(vault_id, self.account0, '3.9@DFI')
+        self.nodes[0].deposittovault(vault_id, self.account0, "3.9@DFI")
         self.nodes[0].generate(1)
-        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", "takeloan")
 
         # Try withdraw to break 50% DFI
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "0.10000000@DFI", 'withdraw')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "0.10000000@DFI",
+            "withdraw",
+        )
         # Try withdraw DUSD
-        self.takeloan_withdraw(vault_id, "0.10000000@DUSD", 'withdraw')
+        self.takeloan_withdraw(vault_id, "0.10000000@DUSD", "withdraw")
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id])
@@ -405,19 +487,24 @@ class DUSDLoanTests(DefiTestFramework):
     def pre_FCH_DFI_minimum_check_takeloan(self):
         block_height = self.nodes[0].getblockcount()
 
-        vault_id = self.new_vault('LOAN1', ["10.00000000@DFI", "100.00000000@BTC"])
-        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
+        vault_id = self.new_vault("LOAN1", ["10.00000000@DFI", "100.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", "takeloan")
 
-        vault_id_1 = self.new_vault('LOAN1', ["9.00000000@DFI", "100.00000000@BTC"])
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id_1, "1.00000000@TSLA", 'takeloan')
+        vault_id_1 = self.new_vault("LOAN1", ["9.00000000@DFI", "100.00000000@BTC"])
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "1.00000000@TSLA",
+            "takeloan",
+        )
 
         # Check after depositting DFI check passess
-        self.nodes[0].deposittovault(vault_id_1, self.account0, '100@DFI')
+        self.nodes[0].deposittovault(vault_id_1, self.account0, "100@DFI")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", "takeloan")
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
@@ -427,37 +514,54 @@ class DUSDLoanTests(DefiTestFramework):
 
         self.goto_fch_height()
 
-        vault_id = self.new_vault('LOAN1', ["3.74000000@DFI", "200.00000000@BTC"])
-        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "4.00000000@TSLA", 'takeloan')
+        vault_id = self.new_vault("LOAN1", ["3.74000000@DFI", "200.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", "takeloan")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "4.00000000@TSLA",
+            "takeloan",
+        )
 
         # Check after depositting DFI check passess
-        self.nodes[0].deposittovault(vault_id, self.account0, '0.011@DFI')
+        self.nodes[0].deposittovault(vault_id, self.account0, "0.011@DFI")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", "takeloan")
 
         # Check DUSD does not add to collateral
-        vault_id_1 = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC", "7.50000000@DUSD"])
-        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id_1, "4.00000000@TSLA", 'takeloan')
+        vault_id_1 = self.new_vault(
+            "LOAN1", ["3.00000000@DFI", "200.00000000@BTC", "7.50000000@DUSD"]
+        )
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", "takeloan")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "4.00000000@TSLA",
+            "takeloan",
+        )
 
         # Check after depositting DFI check passess
-        self.nodes[0].deposittovault(vault_id_1, self.account0, '5000.00000000@DUSD')
+        self.nodes[0].deposittovault(vault_id_1, self.account0, "5000.00000000@DUSD")
         self.nodes[0].generate(1)
 
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id_1, "4.00000000@TSLA", 'takeloan')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "4.00000000@TSLA",
+            "takeloan",
+        )
 
-        self.nodes[0].deposittovault(vault_id_1, self.account0, '100@DFI')
+        self.nodes[0].deposittovault(vault_id_1, self.account0, "100@DFI")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", "takeloan")
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
@@ -467,30 +571,42 @@ class DUSDLoanTests(DefiTestFramework):
 
         self.goto_fcr_height()
 
-        vault_id = self.new_vault('LOAN1', ["3.74000000@DFI", "200.00000000@BTC"])
-        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
-                                self.takeloan_withdraw, vault_id, "4.00000000@TSLA", 'takeloan')
+        vault_id = self.new_vault("LOAN1", ["3.74000000@DFI", "200.00000000@BTC"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", "takeloan")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "4.00000000@TSLA",
+            "takeloan",
+        )
 
         # Check after depositting DFI check passess
-        self.nodes[0].deposittovault(vault_id, self.account0, '0.011@DFI')
+        self.nodes[0].deposittovault(vault_id, self.account0, "0.011@DFI")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", "takeloan")
 
         # Check DUSD also adds to collateral
-        vault_id_1 = self.new_vault('LOAN1', ["3.00000000@DFI", "200.00000000@BTC", "7.50000000@DUSD"])
-        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
-                                self.takeloan_withdraw, vault_id_1, "4.00000000@TSLA", 'takeloan')
+        vault_id_1 = self.new_vault(
+            "LOAN1", ["3.00000000@DFI", "200.00000000@BTC", "7.50000000@DUSD"]
+        )
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", "takeloan")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_DUSD_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "4.00000000@TSLA",
+            "takeloan",
+        )
 
         # Check after depositting DFI check passess
-        self.nodes[0].deposittovault(vault_id_1, self.account0, '0.11@DUSD')
+        self.nodes[0].deposittovault(vault_id_1, self.account0, "0.11@DUSD")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id_1, "1.00000000@TSLA", "takeloan")
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
@@ -500,26 +616,36 @@ class DUSDLoanTests(DefiTestFramework):
 
         self.goto_fce_height()
 
-        vault_id = self.new_vault('LOAN1', ["200.00000000@BTC", "37.40000000@DUSD"])
-        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "4.00000000@TSLA", 'takeloan')
+        vault_id = self.new_vault("LOAN1", ["200.00000000@BTC", "37.40000000@DUSD"])
+        self.takeloan_withdraw(vault_id, "1.00000000@TSLA", "takeloan")
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "4.00000000@TSLA",
+            "takeloan",
+        )
 
         # Check after depositting DFI check passess
-        self.nodes[0].deposittovault(vault_id, self.account0, '0.11@DUSD')
+        self.nodes[0].deposittovault(vault_id, self.account0, "0.11@DUSD")
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", 'takeloan')
+        self.takeloan_withdraw(vault_id, "4.00000000@TSLA", "takeloan")
 
-        vault_id_1 = self.new_vault('LOAN1', ["200.00000000@BTC", "37.40000000@DUSD"])
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id_1, "1.00000000@DUSD", 'takeloan')
+        vault_id_1 = self.new_vault("LOAN1", ["200.00000000@BTC", "37.40000000@DUSD"])
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id_1,
+            "1.00000000@DUSD",
+            "takeloan",
+        )
 
-        self.nodes[0].deposittovault(vault_id_1, self.account0, '1@DFI')
+        self.nodes[0].deposittovault(vault_id_1, self.account0, "1@DFI")
         self.nodes[0].generate(1)
-        self.takeloan_withdraw(vault_id_1, "4.00000000@DUSD", 'takeloan')
+        self.takeloan_withdraw(vault_id_1, "4.00000000@DUSD", "takeloan")
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id, vault_id_1])
@@ -527,53 +653,83 @@ class DUSDLoanTests(DefiTestFramework):
     def check_looped_dusd(self):
         block_height = self.nodes[0].getblockcount()
 
-        vault_id = self.new_vault('LOAN1', ["100.00000000@DUSD"])
+        vault_id = self.new_vault("LOAN1", ["100.00000000@DUSD"])
 
         self.goto_gce_height()
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "1.00000000@DUSD",
+            "takeloan",
+        )
 
         # min coll ratio still applies
-        assert_raises_rpc_error(-32600,
-                                "Vault does not have enough collateralization ratio defined by loan scheme - 148 < 150",
-                                self.takeloan_withdraw, vault_id, "67.00000000@DUSD", 'takeloan')
+        assert_raises_rpc_error(
+            -32600,
+            "Vault does not have enough collateralization ratio defined by loan scheme - 148 < 150",
+            self.takeloan_withdraw,
+            vault_id,
+            "67.00000000@DUSD",
+            "takeloan",
+        )
 
         self.goto_next_height()
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dusd-vault/enabled': 'true'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {"v0/vaults/dusd-vault/enabled": "true"}})
         self.nodes[0].generate(1)
 
-        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'takeloan')
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", "takeloan")
         self.nodes[0].generate(1)
-        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", 'withdraw')
+        self.takeloan_withdraw(vault_id, "1.00000000@DUSD", "withdraw")
         self.nodes[0].generate(1)
 
         self.update_oracle_price()
         self.nodes[0].deposittovault(vault_id, self.account0, "100.00000000@BTC")
         self.nodes[0].generate(1)
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "1.00000000@DUSD",
+            "takeloan",
+        )
 
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "5.00000000@BTC", 'withdraw')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "5.00000000@BTC",
+            "withdraw",
+        )
 
         # full withdrawal to go back to 100% DUSD vault
-        self.takeloan_withdraw(vault_id, "100.00000000@BTC", 'withdraw')
+        self.takeloan_withdraw(vault_id, "100.00000000@BTC", "withdraw")
         self.nodes[0].generate(1)
 
-        self.nodes[0].setgov({"ATTRIBUTES": {'v0/vaults/dusd-vault/enabled': 'false'}})
+        self.nodes[0].setgov({"ATTRIBUTES": {"v0/vaults/dusd-vault/enabled": "false"}})
         self.nodes[0].generate(1)
 
         # not allowed if attribute false
 
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'takeloan')
-        assert_raises_rpc_error(-32600,
-                                ERR_STRING_MIN_COLLATERAL_DFI_PCT,
-                                self.takeloan_withdraw, vault_id, "1.00000000@DUSD", 'withdraw')
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "1.00000000@DUSD",
+            "takeloan",
+        )
+        assert_raises_rpc_error(
+            -32600,
+            ERR_STRING_MIN_COLLATERAL_DFI_PCT,
+            self.takeloan_withdraw,
+            vault_id,
+            "1.00000000@DUSD",
+            "withdraw",
+        )
 
         self.rollback_to(block_height)
         self.rollback_checks([vault_id])
@@ -607,5 +763,5 @@ class DUSDLoanTests(DefiTestFramework):
         # node.invalidateblock(blockhash)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     DUSDLoanTests().main()

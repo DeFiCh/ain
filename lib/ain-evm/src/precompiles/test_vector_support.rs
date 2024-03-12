@@ -1,9 +1,11 @@
-use crate::precompiles::Precompile;
+use std::fs;
+
 use ethereum_types::{H160, H256};
 use evm::{
     executor::stack::PrecompileHandle, Context, ExitError, ExitReason, ExitSucceed, Transfer,
 };
-use std::fs;
+
+use crate::precompiles::Precompile;
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]

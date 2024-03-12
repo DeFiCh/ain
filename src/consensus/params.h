@@ -7,7 +7,7 @@
 #define DEFI_CONSENSUS_PARAMS_H
 
 #include <amount.h>
-#include <masternodes/communityaccounttypes.h>
+#include <dfi/communityaccounttypes.h>
 #include <script/standard.h>
 #include <uint256.h>
 #include <limits>
@@ -76,32 +76,34 @@ struct Params {
      * BIP 16 exception blocks. */
     int SegwitHeight;
     /** Block height at which tokens, liquidity pools and new block rewards becomes active */
-    int AMKHeight;
+    int DF1AMKHeight;
     /** What exactly? Changes to mint DAT, new updatetokens? */
-    int BayfrontHeight;
-    int BayfrontMarinaHeight;
-    int BayfrontGardensHeight;
+    int DF2BayfrontHeight;
+    int DF3BayfrontMarinaHeight;
+    int DF4BayfrontGardensHeight;
     /** Third major fork. */
-    int ClarkeQuayHeight;
+    int DF5ClarkeQuayHeight;
     /** Fourth major fork **/
-    int DakotaHeight;
-    int DakotaCrescentHeight;
+    int DF6DakotaHeight;
+    int DF7DakotaCrescentHeight;
     /** Fifth major fork **/
-    int EunosHeight;
-    int EunosKampungHeight;
-    int EunosPayaHeight;
-    int FortCanningHeight;
-    int FortCanningMuseumHeight;
-    int FortCanningParkHeight;
-    int FortCanningHillHeight;
-    int FortCanningRoadHeight;
-    int FortCanningCrunchHeight;
-    int FortCanningSpringHeight;
-    int FortCanningGreatWorldHeight;
-    int FortCanningEpilogueHeight;
-    int GrandCentralHeight;
-    int GrandCentralEpilogueHeight;
-    int NextNetworkUpgradeHeight;
+    int DF8EunosHeight;
+    int DF9EunosKampungHeight;
+    int DF10EunosPayaHeight;
+    int DF11FortCanningHeight;
+    int DF12FortCanningMuseumHeight;
+    int DF13FortCanningParkHeight;
+    int DF14FortCanningHillHeight;
+    int DF15FortCanningRoadHeight;
+    int DF16FortCanningCrunchHeight;
+    int DF17FortCanningSpringHeight;
+    int DF18FortCanningGreatWorldHeight;
+    int DF19FortCanningEpilogueHeight;
+    int DF20GrandCentralHeight;
+    int DF21GrandCentralEpilogueHeight;
+    int DF22MetachainHeight;
+    int DF23Height;
+    int DF24Height;
 
     /** Foundation share after AMK, normalized to COIN = 100% */
     CAmount foundationShareDFIP1;
@@ -221,8 +223,8 @@ struct Params {
     };
     CProposalParams props;
 
-    std::map<CommunityAccountType, CAmount> nonUtxoBlockSubsidies;
-    std::map<CommunityAccountType, uint32_t> newNonUTXOSubsidies;
+    std::map<CommunityAccountType, CAmount> blockTokenRewardsLegacy;
+    std::map<CommunityAccountType, uint32_t> blockTokenRewards;
 
     uint64_t evmChainId;
 };

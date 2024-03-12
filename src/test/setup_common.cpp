@@ -11,8 +11,8 @@
 #include <consensus/validation.h>
 #include <crypto/sha256.h>
 #include <init.h>
-#include <masternodes/anchors.h>
-#include <masternodes/masternodes.h>
+#include <dfi/anchors.h>
+#include <dfi/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <noui.h>
@@ -29,8 +29,31 @@
 #include <util/validation.h>
 #include <validation.h>
 #include <validationinterface.h>
-
 #include <functional>
+
+#ifdef __linux__
+#include <execinfo.h>
+
+// Use addr2line for symbols. Eg: 
+// addr2line --exe=$(pwd)/build/src/test/test_defi -afCp 0x3ce23a2
+
+void print_backtrace()
+{
+    void* array[10];
+    char** strings;
+    int size, i;
+    size = backtrace(array, 10);
+    strings = backtrace_symbols(array, size);
+    if (strings != NULL) {
+        std::cout << "Obtained " << size << "stack frames.\n";
+        for (i = 0; i < size; i++) {
+            std::cout << strings[i] << "\n";
+        }
+    }
+    free(strings);
+}
+
+#endif // defined (__linux__)
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -191,13 +214,14 @@ CBlock
 TestChain100Setup::CreateAndProcessBlock(const std::vector<CMutableTransaction>& txns, const CScript& scriptPubKey, const uint256 masternodeID)
 {
     const CChainParams& chainparams = Params();
-    std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    auto res = BlockAssembler(chainparams).CreateNewBlock(scriptPubKey);
+    auto& pblocktemplate = *res;
     CBlock& block = pblocktemplate->block;
 
     uint32_t mintedBlocks(0);
     CKey minterKey;
-    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);  /// @todo no self-sufficient logic: BlockAssembler(chainparams).CreateNewBlock() checks AmIOperator():
-                                                                                                        /// so, arg "-masternode_operator" should match with masternodeID !!
+    std::map<uint256, TestMasternodeKeys>::const_iterator pos = testMasternodeKeys.find(masternodeID);
+
     if (pos == testMasternodeKeys.end())
         throw std::runtime_error(std::string(__func__) + ": masternodeID not found");
 
@@ -266,3 +290,4 @@ CBlock getBlock13b8a()
     stream >> block;
     return block;
 }
+

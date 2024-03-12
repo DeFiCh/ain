@@ -2,11 +2,11 @@ dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
 define(_CLIENT_VERSION_MAJOR, 4)
 define(_CLIENT_VERSION_MINOR, 0)
-define(_CLIENT_VERSION_REVISION, 0)
+define(_CLIENT_VERSION_REVISION, 9)
 define(_CLIENT_VERSION_BUILD, 0)
-define(_CLIENT_VERSION_RC, 7)
-define(_CLIENT_VERSION_IS_RELEASE, false)
-define(_COPYRIGHT_YEAR, 2023)
+define(_CLIENT_VERSION_RC, 0)
+define(_CLIENT_VERSION_IS_RELEASE, true)
+define(_COPYRIGHT_YEAR, 2024)
 define(_COPYRIGHT_HOLDERS,[The %s developers])
 define(_COPYRIGHT_HOLDERS_SUBSTITUTION,[[DeFi Blockchain]])
 AC_INIT([DeFi Blockchain],m4_join([.], _CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MINOR, _CLIENT_VERSION_REVISION, m4_if(_CLIENT_VERSION_BUILD, [0], [], _CLIENT_VERSION_BUILD))m4_if(_CLIENT_VERSION_RC, [0], [], [rc]_CLIENT_VERSION_RC),[https://github.com/defich/ain/issues],[defi],[https://defichain.io/])
@@ -241,6 +241,9 @@ if test "x$enable_debug" = xyes; then
 
   # Disable all optimizations
   AX_CHECK_COMPILE_FLAG([-O0], [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -O0"]],,[[$CXXFLAG_WERROR]])
+
+  # Store frame pointer
+  AX_CHECK_COMPILE_FLAG([-fno-omit-frame-pointer], [[DEBUG_CXXFLAGS="$DEBUG_CXXFLAGS -fno-omit-frame-pointer"]],,[[$CXXFLAG_WERROR]])
 
   # Prefer -g3, fall back to -g if that is unavailable.
   AX_CHECK_COMPILE_FLAG(
@@ -1058,10 +1061,12 @@ fi
 
 if test x$use_boost = xyes; then
 
-  dnl Prevent use of std::unary_function, which was removed in C++17
-  dnl and will generate warnings with newer compilers.
-  dnl See: https://github.com/boostorg/container_hash/issues/22.
-  BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_CXX98_FUNCTION_BASE"
+  dnl Prevent use of std::unary_function, which was removed in C++17,
+  dnl and will generate warnings with newer compilers for Boost
+  dnl older than 1.80.
+  dnl See: https://github.com/boostorg/config/pull/430.
+  AX_CHECK_PREPROC_FLAG([-DBOOST_NO_CXX98_FUNCTION_BASE], [BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_CXX98_FUNCTION_BASE"], [], [$CXXFLAG_WERROR],
+                        [AC_LANG_PROGRAM([[#include <boost/config.hpp>]])])
 
   BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB"
   LIBS="$BOOST_LIBS $LIBS"

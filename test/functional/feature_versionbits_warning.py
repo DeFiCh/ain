@@ -22,7 +22,9 @@ VB_TOP_BITS = 0x20000000
 VB_UNKNOWN_BIT = 27  # Choose a bit unassigned to any deployment
 VB_UNKNOWN_VERSION = VB_TOP_BITS | (1 << VB_UNKNOWN_BIT)
 
-WARN_UNKNOWN_RULES_ACTIVE = "unknown new rules activated (versionbit {})".format(VB_UNKNOWN_BIT)
+WARN_UNKNOWN_RULES_ACTIVE = "unknown new rules activated (versionbit {})".format(
+    VB_UNKNOWN_BIT
+)
 VB_PATTERN = re.compile("Warning: unknown new rules activated.*versionbit")
 
 
@@ -34,9 +36,9 @@ class VersionBitsWarningTest(DefiTestFramework):
     def setup_network(self):
         self.alert_filename = os.path.join(self.options.tmpdir, "alert.txt")
         # Open and close to create zero-length file
-        with open(self.alert_filename, 'w', encoding='utf8'):
+        with open(self.alert_filename, "w", encoding="utf8"):
             pass
-        self.extra_args = [["-alertnotify=echo %s >> \"" + self.alert_filename + "\""]]
+        self.extra_args = [['-alertnotify=echo %s >> "' + self.alert_filename + '"']]
         self.setup_nodes()
 
     def send_blocks_with_version(self, peer, numblocks, version):
@@ -58,7 +60,7 @@ class VersionBitsWarningTest(DefiTestFramework):
 
     def versionbits_in_alert_file(self):
         """Test that the versionbits warning has been written to the alert file."""
-        alert_text = open(self.alert_filename, 'r', encoding='utf8').read()
+        alert_text = open(self.alert_filename, "r", encoding="utf8").read()
         return VB_PATTERN.search(alert_text) is not None
 
     def run_test(self):
@@ -69,7 +71,8 @@ class VersionBitsWarningTest(DefiTestFramework):
         node.generate(VB_PERIOD)
 
         self.log.info(
-            "Check that there is no warning if previous VB_BLOCKS have <VB_THRESHOLD blocks with unknown versionbits version.")
+            "Check that there is no warning if previous VB_BLOCKS have <VB_THRESHOLD blocks with unknown versionbits version."
+        )
         # Build one period of blocks with < VB_THRESHOLD blocks signaling some unknown bit
         self.send_blocks_with_version(node.p2p, VB_THRESHOLD - 1, VB_UNKNOWN_VERSION)
         node.pullup_mocktime()
@@ -85,7 +88,8 @@ class VersionBitsWarningTest(DefiTestFramework):
         node.generate(VB_PERIOD - VB_THRESHOLD)
 
         self.log.info(
-            "Check that there is a warning if previous VB_BLOCKS have >=VB_THRESHOLD blocks with unknown versionbits version.")
+            "Check that there is a warning if previous VB_BLOCKS have >=VB_THRESHOLD blocks with unknown versionbits version."
+        )
         # Mine a period worth of expected blocks so the generic block-version warning
         # is cleared. This will move the versionbit state to ACTIVE.
         node.generate(VB_PERIOD)
@@ -95,7 +99,11 @@ class VersionBitsWarningTest(DefiTestFramework):
 
         # Generating one block guarantees that we'll get out of IBD
         node.generate(1)
-        wait_until(lambda: not node.getblockchaininfo()['initialblockdownload'], timeout=10, lock=mininode_lock)
+        wait_until(
+            lambda: not node.getblockchaininfo()["initialblockdownload"],
+            timeout=10,
+            lock=mininode_lock,
+        )
         # Generating one more block will be enough to generate an error.
         node.generate(1)
         # Check that get*info() shows the versionbits unknown rules warning
@@ -105,5 +113,5 @@ class VersionBitsWarningTest(DefiTestFramework):
         wait_until(lambda: self.versionbits_in_alert_file(), timeout=60)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     VersionBitsWarningTest().main()

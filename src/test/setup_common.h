@@ -15,6 +15,7 @@
 
 #include <type_traits>
 #include <vector>
+#include <boost/test/tools/output_test_stream.hpp>
 
 // Enable BOOST_CHECK_EQUAL for enum class types
 template <typename T>
@@ -130,5 +131,47 @@ CBlock getBlock13b8a();
 
 // define an implicit conversion here so that uint256 may be used directly in BOOST_CHECK_*
 std::ostream& operator<<(std::ostream& os, const uint256& num);
+
+// Scopes to help with redirecting stdout to boost test logging
+struct StdOutRedirectScope {
+    StdOutRedirectScope() {}
+    StdOutRedirectScope(std::streambuf* buf)
+        : old(std::cout.rdbuf(buf)),
+          isInit(true) {}
+
+    ~StdOutRedirectScope()
+    {
+        if (!isInit) return;
+        std::cout.rdbuf(old);
+    }
+
+    void Init(std::streambuf* buf)
+    {
+        assert(!isInit);
+        old = std::cout.rdbuf(buf);
+        isInit = true;
+    }
+
+private:
+    std::streambuf* old = nullptr;
+    bool isInit{false};
+};
+
+struct StdOutTestStreamRedirectScope : StdOutRedirectScope {
+    StdOutTestStreamRedirectScope()
+        : StdOutRedirectScope()
+    {
+        Init(output.rdbuf());
+    }
+
+private:
+    boost::test_tools::output_test_stream output{};
+};
+
+#ifdef __linux__
+
+void print_backtrace();
+
+#endif
 
 #endif

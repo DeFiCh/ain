@@ -29,7 +29,7 @@ jobs:
       PYTHON: 3.8
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Lint
       run: ./ci/lint/main.sh
@@ -38,12 +38,14 @@ jobs:
       run: ./ci/extended_lint/main.sh
 
   rust:
-    name: Rust Lints
+    name: Rust Lint
     runs-on: ubuntu-latest
     container: defi/ain-builder:latest
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
@@ -52,8 +54,15 @@ jobs:
     - name: Setup dependencies
       run: ./make.sh ci-setup-deps
 
-    - name: Setup dependencies for target
-      run: ./make.sh ci-setup-deps-target
+    - name: Setup dependencies for user
+      run: ./make.sh ci-setup-user-deps
+
+    - name: Rust lint cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: lib -> ../build/lib/target
+        save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: lint
 
     - name: Build depends and configure
       run: ./make.sh build-deps && ./make.sh build-conf

@@ -14,19 +14,23 @@ class TestRestoreUTXOs(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 2
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1'],
-                           ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1']]
+        self.extra_args = [
+            ["-txnotokens=0", "-amkheight=1", "-bayfrontheight=1"],
+            ["-txnotokens=0", "-amkheight=1", "-bayfrontheight=1"],
+        ]
 
     def run_test(self):
         self.nodes[0].generate(101)
         self.sync_blocks()
 
-        self.nodes[0].createtoken({
-            "symbol": "BTC",
-            "name": "Bitcoin",
-            "isDAT": True,
-            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
-        })
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "isDAT": True,
+                "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
+            }
+        )
         self.nodes[0].generate(1)
 
         self.nodes[0].minttokens("2@BTC")
@@ -38,7 +42,9 @@ class TestRestoreUTXOs(DefiTestFramework):
         self.nodes[0].sendtoaddress(node1_source, 1)
 
         # Fund account
-        self.nodes[0].accounttoaccount(self.nodes[0].get_genesis_keys().ownerAuthAddress, {node1_source: "1@BTC"})
+        self.nodes[0].accounttoaccount(
+            self.nodes[0].get_genesis_keys().ownerAuthAddress, {node1_source: "1@BTC"}
+        )
         self.nodes[0].generate(1)
         self.sync_blocks()
 
@@ -77,5 +83,5 @@ class TestRestoreUTXOs(DefiTestFramework):
             assert_equal(len(self.nodes[1].listunspent()), node1_utxos)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TestRestoreUTXOs().main()

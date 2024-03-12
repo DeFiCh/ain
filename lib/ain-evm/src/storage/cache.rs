@@ -1,18 +1,20 @@
-use std::{num::NonZeroUsize, sync::RwLock};
+use std::{borrow::ToOwned, num::NonZeroUsize, sync::RwLock};
 
 use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::{H256, U256};
 use lru::LruCache;
-use primitive_types::{H256, U256};
-use std::borrow::ToOwned;
+use parking_lot::Mutex;
 
 use super::traits::{BlockStorage, Rollback, TransactionStorage};
+use crate::Result;
 
 #[derive(Debug)]
 pub struct Cache {
-    transactions: RwLock<LruCache<H256, TransactionV2>>,
-    blocks: RwLock<LruCache<U256, BlockAny>>,
-    block_hashes: RwLock<LruCache<H256, U256>>,
+    transactions: Mutex<LruCache<H256, TransactionV2>>,
+    blocks: Mutex<LruCache<U256, BlockAny>>,
+    block_hashes: Mutex<LruCache<H256, U256>>,
     latest_block: RwLock<Option<BlockAny>>,
+    contract_code: Mutex<LruCache<H256, Vec<u8>>>,
 }
 
 impl Cache {
@@ -20,13 +22,16 @@ impl Cache {
 
     pub fn new(cache_size: Option<usize>) -> Self {
         Cache {
-            transactions: RwLock::new(LruCache::new(
+            transactions: Mutex::new(LruCache::new(
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
-            blocks: RwLock::new(LruCache::new(
+            blocks: Mutex::new(LruCache::new(
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
-            block_hashes: RwLock::new(LruCache::new(
+            block_hashes: Mutex::new(LruCache::new(
+                NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
+            )),
+            contract_code: Mutex::new(LruCache::new(
                 NonZeroUsize::new(cache_size.unwrap_or(Self::DEFAULT_CACHE_SIZE)).unwrap(),
             )),
             latest_block: RwLock::new(None),
@@ -35,76 +40,72 @@ impl Cache {
 }
 
 impl BlockStorage for Cache {
-    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
-        self.blocks
-            .write()
-            .unwrap()
-            .get(number)
-            .map(ToOwned::to_owned)
+    fn get_block_by_number(&self, number: &U256) -> Result<Option<BlockAny>> {
+        let block = self.blocks.lock().get(number).map(ToOwned::to_owned);
+        Ok(block)
     }
 
-    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
+    fn get_block_by_hash(&self, block_hash: &H256) -> Result<Option<BlockAny>> {
         self.block_hashes
-            .write()
-            .unwrap()
+            .lock()
             .get(block_hash)
-            .and_then(|block_number| self.get_block_by_number(block_number))
+            .map_or(Ok(None), |block_number| {
+                self.get_block_by_number(block_number)
+            })
     }
 
-    fn put_block(&self, block: &BlockAny) {
-        self.extend_transactions_from_block(block);
+    fn put_block(&self, block: &BlockAny) -> Result<()> {
+        self.extend_transactions_from_block(block)?;
 
         let block_number = block.header.number;
         let hash = block.header.hash();
-        self.blocks
-            .write()
-            .unwrap()
-            .put(block_number, block.clone());
-        self.block_hashes.write().unwrap().put(hash, block_number);
+        self.blocks.lock().put(block_number, block.clone());
+        self.block_hashes.lock().put(hash, block_number);
+        Ok(())
     }
 
-    fn get_latest_block(&self) -> Option<BlockAny> {
-        self.latest_block
+    fn get_latest_block(&self) -> Result<Option<BlockAny>> {
+        let block = self
+            .latest_block
             .read()
             .unwrap()
             .as_ref()
-            .map(ToOwned::to_owned)
+            .map(ToOwned::to_owned);
+        Ok(block)
     }
 
-    fn put_latest_block(&self, block: Option<&BlockAny>) {
+    fn put_latest_block(&self, block: Option<&BlockAny>) -> Result<()> {
         let mut cache = self.latest_block.write().unwrap();
         *cache = block.cloned();
+        Ok(())
     }
 }
 
 impl TransactionStorage for Cache {
-    fn extend_transactions_from_block(&self, block: &BlockAny) {
-        let mut cache = self.transactions.write().unwrap();
+    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
+        let mut cache = self.transactions.lock();
 
         for transaction in &block.transactions {
             let hash = transaction.hash();
             cache.put(hash, transaction.clone());
         }
+        Ok(())
     }
 
-    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
-        self.transactions
-            .write()
-            .unwrap()
-            .get(hash)
-            .map(ToOwned::to_owned)
+    fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
+        let transaction = self.transactions.lock().get(hash).map(ToOwned::to_owned);
+        Ok(transaction)
     }
 
     fn get_transaction_by_block_hash_and_index(
         &self,
         block_hash: &H256,
         index: usize,
-    ) -> Option<TransactionV2> {
+    ) -> Result<Option<TransactionV2>> {
         self.block_hashes
-            .write()
-            .unwrap()
+            .lock()
             .get(block_hash)
-            .and_then(|block_number| {
+            .map_or(Ok(None), |block_number| {
                 self.get_transaction_by_block_number_and_index(block_number, index)
             })
     }
@@ -113,36 +114,48 @@ impl TransactionStorage for Cache {
         &self,
         block_number: &U256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.blocks
-            .write()
-            .unwrap()
-            .get(block_number)?
-            .transactions
-            .get(index)
-            .map(ToOwned::to_owned)
+    ) -> Result<Option<TransactionV2>> {
+        let transaction = self
+            .blocks
+            .lock()
+            .get(block_number)
+            .and_then(|block| block.transactions.get(index).map(ToOwned::to_owned));
+        Ok(transaction)
     }
 
-    fn put_transaction(&self, transaction: &TransactionV2) {
+    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
         self.transactions
-            .write()
-            .unwrap()
+            .lock()
             .put(transaction.hash(), transaction.clone());
+        Ok(())
     }
 }
 
 impl Rollback for Cache {
-    fn disconnect_latest_block(&self) {
-        if let Some(block) = self.get_latest_block() {
-            let mut transaction_cache = self.transactions.write().unwrap();
+    fn disconnect_latest_block(&self) -> Result<()> {
+        if let Some(block) = self.get_latest_block()? {
+            let mut transaction_cache = self.transactions.lock();
             for tx in &block.transactions {
                 transaction_cache.pop(&tx.hash());
             }
 
-            self.block_hashes.write().unwrap().pop(&block.header.hash());
-            self.blocks.write().unwrap().pop(&block.header.number);
+            self.block_hashes.lock().pop(&block.header.hash());
+            self.blocks.lock().pop(&block.header.number);
 
-            self.put_latest_block(self.get_block_by_hash(&block.header.parent_hash).as_ref())
+            let previous_block = self.get_block_by_hash(&block.header.parent_hash)?;
+            self.put_latest_block(previous_block.as_ref())?;
         }
+        Ok(())
+    }
+}
+
+impl Cache {
+    pub fn get_code_by_hash(&self, hash: &H256) -> Result<Option<Vec<u8>>> {
+        Ok(self.contract_code.lock().get(hash).map(ToOwned::to_owned))
+    }
+
+    pub fn put_code(&self, hash: H256, code: &[u8]) -> Result<()> {
+        self.contract_code.lock().put(hash, code.to_vec());
+        Ok(())
     }
 }

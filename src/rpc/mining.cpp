@@ -10,7 +10,7 @@
 #include <consensus/params.h>
 #include <consensus/validation.h>
 #include <core_io.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <miner.h>
 #include <net.h>
 #include <policy/fees.h>
@@ -303,7 +303,7 @@ static UniValue getmininginfo(const JSONRPCRequest& request)
             // Get block times
             const auto subNodesBlockTime = pcustomcsview->GetBlockTimes(nodePtr->operatorAuthAddress, height, nodePtr->creationHeight, *timelock);
 
-            if (height >= Params().GetConsensus().EunosPayaHeight) {
+            if (height >= Params().GetConsensus().DF10EunosPayaHeight) {
                 const uint8_t loops = *timelock == CMasternode::TENYEAR ? 4 : *timelock == CMasternode::FIVEYEAR ? 3 : 2;
                 UniValue multipliers(UniValue::VARR);
                 for (uint8_t i{0}; i < loops; ++i) {
@@ -647,9 +647,11 @@ static UniValue getblocktemplate(const JSONRPCRequest& request)
 
         // Create new block
         CScript scriptDummy = CScript() << OP_TRUE;
-        pblocktemplate = BlockAssembler(Params()).CreateNewBlock(scriptDummy);
-        if (!pblocktemplate)
-            throw JSONRPCError(RPC_OUT_OF_MEMORY, "Out of memory");
+        auto res = BlockAssembler(Params()).CreateNewBlock(scriptDummy);
+        if (!res)
+            throw JSONRPCError(RPC_MISC_ERROR, res.msg);
+
+        pblocktemplate = std::move(*res);
 
         // Need to update only after we know CreateNewBlock succeeded
         pindexPrev = pindexPrevNew;
@@ -977,7 +979,11 @@ static UniValue estimatesmartfee(const JSONRPCRequest& request)
     FeeCalculation feeCalc;
     CFeeRate feeRate = ::feeEstimator.estimateSmartFee(conf_target, &feeCalc, conservative);
     if (feeRate != CFeeRate(0)) {
-        result.pushKV("feerate", ValueFromAmount(feeRate.GetFeePerK()));
+        auto amount = feeRate.GetFeePerK();
+        if (amount < DEFAULT_TRANSACTION_MINFEE) {
+            amount = DEFAULT_TRANSACTION_MINFEE;
+        }
+        result.pushKV("feerate", ValueFromAmount(amount));
     } else if (txOrdering == MIXED_ORDERING || txOrdering == ENTRYTIME_ORDERING) {
         result.pushKV("feerate", ValueFromAmount(DEFAULT_TRANSACTION_MINFEE));
     } else {

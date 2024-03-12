@@ -43,7 +43,7 @@
 #include <boost/multi_index/indexed_by.hpp>
 #include <boost/signals2/signal.hpp>
 
-#include <masternodes/coinselect.h>
+#include <dfi/coinselect.h>
 
 //! Explicitly unload and delete the wallet.
 //! Blocks the current thread after signaling the unload intent so that all
@@ -58,7 +58,6 @@ bool HasWallets();
 std::vector<std::shared_ptr<CWallet>> GetWallets();
 std::shared_ptr<CWallet> GetWallet(const std::string& name);
 std::shared_ptr<CWallet> LoadWallet(interfaces::Chain& chain, const WalletLocation& location, std::string& error, std::string& warning);
-std::array<uint8_t, 32> GetKeyFromWallets(std::array<uint8_t, 20> input);
 
 CKey GetWalletsKey(CKeyID const & keyid);
 
@@ -1005,7 +1004,7 @@ public:
      */
     CPubKey GenerateNewKey(WalletBatch& batch, bool internal = false) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, and saves it to disk.
-    bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool AddKeyPair(const CKey& key, const CPubKey &pubkey) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     //! Adds a key to the store, without saving it to disk (used by LoadWallet)
     bool LoadKey(const CKey& key, const CPubKey &pubkey) { return AddKeyPubKeyInner(key, pubkey); }
     //! Load metadata (used by LoadWallet)

@@ -8,7 +8,7 @@
 #include <optional>
 #include <memory>
 #include <univalue.h>
-#include <masternodes/mn_rpc.h>
+#include <dfi/mn_rpc.h>
 #include <rpc/request.h>
 
 struct CGetBurnInfoResult {
@@ -16,7 +16,6 @@ struct CGetBurnInfoResult {
     CAmount burntFee{};
     CAmount auctionFee{};
     CBalances burntTokens;
-    CBalances nonConsortiumTokens;
     CBalances dexfeeburn;
     CBalances paybackFee;
 };

@@ -6,10 +6,7 @@
 """Test account mining behaviour"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import (
-    assert_greater_than,
-    assert_equal
-)
+from test_framework.util import assert_greater_than, assert_equal
 
 
 class BlockRewardTest(DefiTestFramework):
@@ -17,8 +14,15 @@ class BlockRewardTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=50', '-eunosheight=100', '-eunosheight=100', '-fortcanningheight=110',
-             '-subsidytest=1']]
+            [
+                "-txnotokens=0",
+                "-amkheight=50",
+                "-eunosheight=100",
+                "-eunosheight=100",
+                "-fortcanningheight=110",
+                "-subsidytest=1",
+            ]
+        ]
 
     def run_test(self):
         node = self.nodes[0]
@@ -29,7 +33,7 @@ class BlockRewardTest(DefiTestFramework):
         mingBaseReward = newBaseBlockSubsidy * masternodePortion
 
         result = node.listaccounthistory("mine", {"depth": 0})
-        assert_equal(result[0]["amounts"][0], f'{mingBaseReward:.8f}@DFI')
+        assert_equal(result[0]["amounts"][0], f"{mingBaseReward:.8f}@DFI")
 
         account = node.getnewaddress()
         node.utxostoaccount({account: "1.1@0"})
@@ -40,8 +44,10 @@ class BlockRewardTest(DefiTestFramework):
         result = node.listaccounthistory("mine", {"depth": 0})
         for subResult in result:
             if subResult["type"] == "blockReward":
-                assert_greater_than(subResult["amounts"][0], f'{mingBaseReward:.8f}@DFI')
+                assert_greater_than(
+                    subResult["amounts"][0], f"{mingBaseReward:.8f}@DFI"
+                )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     BlockRewardTest().main()

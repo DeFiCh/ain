@@ -1,205 +1,232 @@
+pub mod block_store;
 mod cache;
-mod code;
-mod data_handler;
+mod db;
 pub mod traits;
 
-use crate::log::LogIndex;
-use ethereum::{BlockAny, TransactionV2};
-use primitive_types::{H160, H256, U256};
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
-use crate::receipt::Receipt;
-use crate::storage::traits::LogStorage;
+use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::{H160, H256, U256};
 
 use self::{
+    block_store::{BlockStore, DumpArg},
     cache::Cache,
-    data_handler::BlockchainDataHandler,
-    traits::{
-        BlockStorage, FlushableStorage, PersistentStateError, ReceiptStorage, Rollback,
-        TransactionStorage,
-    },
+    traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
 };
+use crate::{log::LogIndex, receipt::Receipt, storage::traits::LogStorage, Result};
 
 #[derive(Debug)]
 pub struct Storage {
     cache: Cache,
-    blockchain_data_handler: BlockchainDataHandler,
-}
-
-impl Default for Storage {
-    fn default() -> Self {
-        Self::new()
-    }
+    blockstore: BlockStore,
 }
 
 impl Storage {
-    pub fn new() -> Self {
-        Self {
+    pub fn new(path: &Path) -> Result<Self> {
+        Ok(Self {
             cache: Cache::new(None),
-            blockchain_data_handler: BlockchainDataHandler::default(),
-        }
+            blockstore: BlockStore::new(path)?,
+        })
     }
 
-    pub fn restore() -> Self {
-        Self {
+    pub fn restore(path: &Path) -> Result<Self> {
+        Ok(Self {
             cache: Cache::new(None),
-            blockchain_data_handler: BlockchainDataHandler::restore(),
-        }
+            blockstore: BlockStore::new(path)?,
+        })
     }
 }
 
 impl BlockStorage for Storage {
-    fn get_block_by_number(&self, number: &U256) -> Option<BlockAny> {
-        self.cache.get_block_by_number(number).or_else(|| {
-            let block = self.blockchain_data_handler.get_block_by_number(number);
-            if let Some(ref block) = block {
-                self.cache.put_block(block);
+    fn get_block_by_number(&self, number: &U256) -> Result<Option<BlockAny>> {
+        match self.cache.get_block_by_number(number) {
+            Ok(Some(block)) => Ok(Some(block)),
+            Ok(None) => {
+                let block = self.blockstore.get_block_by_number(number);
+                if let Ok(Some(ref block)) = block {
+                    self.cache.put_block(block)?;
+                }
+                block
             }
-            block
-        })
+            Err(e) => Err(e),
+        }
     }
 
-    fn get_block_by_hash(&self, block_hash: &H256) -> Option<BlockAny> {
-        self.cache.get_block_by_hash(block_hash).or_else(|| {
-            let block = self.blockchain_data_handler.get_block_by_hash(block_hash);
-            if let Some(ref block) = block {
-                self.cache.put_block(block);
+    fn get_block_by_hash(&self, block_hash: &H256) -> Result<Option<BlockAny>> {
+        match self.cache.get_block_by_hash(block_hash) {
+            Ok(Some(block)) => Ok(Some(block)),
+            Ok(None) => {
+                let block = self.blockstore.get_block_by_hash(block_hash);
+                if let Ok(Some(ref block)) = block {
+                    self.cache.put_block(block)?;
+                }
+                block
             }
-            block
-        })
+            Err(e) => Err(e),
+        }
     }
 
-    fn put_block(&self, block: &BlockAny) {
-        self.cache.put_block(block);
-        self.blockchain_data_handler.put_block(block);
+    fn put_block(&self, block: &BlockAny) -> Result<()> {
+        self.cache.put_block(block)?;
+        self.blockstore.put_block(block)
     }
 
-    fn get_latest_block(&self) -> Option<BlockAny> {
-        self.cache.get_latest_block().or_else(|| {
-            let latest_block = self.blockchain_data_handler.get_latest_block();
-            if let Some(ref block) = latest_block {
-                self.cache.put_latest_block(Some(block));
+    fn get_latest_block(&self) -> Result<Option<BlockAny>> {
+        match self.cache.get_latest_block() {
+            Ok(Some(block)) => Ok(Some(block)),
+            Ok(None) => {
+                let block = self.blockstore.get_latest_block();
+                if let Ok(Some(ref block)) = block {
+                    self.cache.put_latest_block(Some(block))?;
+                }
+                block
             }
-            latest_block
-        })
+            Err(e) => Err(e),
+        }
     }
 
-    fn put_latest_block(&self, block: Option<&BlockAny>) {
-        self.cache.put_latest_block(block);
-        self.blockchain_data_handler.put_latest_block(block);
+    fn put_latest_block(&self, block: Option<&BlockAny>) -> Result<()> {
+        self.cache.put_latest_block(block)?;
+        self.blockstore.put_latest_block(block)
     }
 }
 
 impl TransactionStorage for Storage {
-    fn extend_transactions_from_block(&self, block: &BlockAny) {
+    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         // Feature flag
-        self.cache.extend_transactions_from_block(block);
+        self.cache.extend_transactions_from_block(block)?;
 
-        self.blockchain_data_handler
-            .extend_transactions_from_block(block);
+        self.blockstore.extend_transactions_from_block(block)
     }
 
-    fn get_transaction_by_hash(&self, hash: &H256) -> Option<TransactionV2> {
-        self.cache.get_transaction_by_hash(hash).or_else(|| {
-            let transaction = self.blockchain_data_handler.get_transaction_by_hash(hash);
-            if let Some(ref transaction) = transaction {
-                self.cache.put_transaction(transaction);
+    fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
+        match self.cache.get_transaction_by_hash(hash) {
+            Ok(Some(transaction)) => Ok(Some(transaction)),
+            Ok(None) => {
+                let transaction = self.blockstore.get_transaction_by_hash(hash);
+                if let Ok(Some(ref transaction)) = transaction {
+                    self.cache.put_transaction(transaction)?;
+                }
+                transaction
             }
-            transaction
-        })
+            Err(e) => Err(e),
+        }
     }
 
     fn get_transaction_by_block_hash_and_index(
         &self,
         hash: &H256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.cache
+    ) -> Result<Option<TransactionV2>> {
+        match self
+            .cache
             .get_transaction_by_block_hash_and_index(hash, index)
-            .or_else(|| {
+        {
+            Ok(Some(transaction)) => Ok(Some(transaction)),
+            Ok(None) => {
                 let transaction = self
-                    .blockchain_data_handler
+                    .blockstore
                     .get_transaction_by_block_hash_and_index(hash, index);
-                if let Some(ref transaction) = transaction {
-                    self.cache.put_transaction(transaction)
+                if let Ok(Some(ref transaction)) = transaction {
+                    self.cache.put_transaction(transaction)?;
                 }
                 transaction
-            })
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn get_transaction_by_block_number_and_index(
         &self,
         number: &U256,
         index: usize,
-    ) -> Option<TransactionV2> {
-        self.cache
+    ) -> Result<Option<TransactionV2>> {
+        match self
+            .cache
             .get_transaction_by_block_number_and_index(number, index)
-            .or_else(|| {
+        {
+            Ok(Some(transaction)) => Ok(Some(transaction)),
+            Ok(None) => {
                 let transaction = self
-                    .blockchain_data_handler
+                    .blockstore
                     .get_transaction_by_block_number_and_index(number, index);
-                if let Some(ref transaction) = transaction {
-                    self.cache.put_transaction(transaction)
+                if let Ok(Some(ref transaction)) = transaction {
+                    self.cache.put_transaction(transaction)?;
                 }
                 transaction
-            })
+            }
+            Err(e) => Err(e),
+        }
     }
 
-    fn put_transaction(&self, transaction: &TransactionV2) {
-        self.cache.put_transaction(transaction);
-        self.blockchain_data_handler.put_transaction(transaction);
+    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
+        self.cache.put_transaction(transaction)?;
+        self.blockstore.put_transaction(transaction)
     }
 }
 
 impl ReceiptStorage for Storage {
-    fn get_receipt(&self, tx: &H256) -> Option<Receipt> {
-        self.blockchain_data_handler.get_receipt(tx)
+    fn get_receipt(&self, tx: &H256) -> Result<Option<Receipt>> {
+        self.blockstore.get_receipt(tx)
     }
 
-    fn put_receipts(&self, receipts: Vec<Receipt>) {
-        self.blockchain_data_handler.put_receipts(receipts)
+    fn put_receipts(&self, receipts: Vec<Receipt>) -> Result<()> {
+        self.blockstore.put_receipts(receipts)
     }
 }
 
 impl LogStorage for Storage {
-    fn get_logs(&self, block_number: &U256) -> Option<HashMap<H160, Vec<LogIndex>>> {
-        self.blockchain_data_handler.get_logs(block_number)
+    fn get_logs(&self, block_number: &U256) -> Result<Option<HashMap<H160, Vec<LogIndex>>>> {
+        self.blockstore.get_logs(block_number)
     }
 
-    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) {
-        self.blockchain_data_handler
-            .put_logs(address, logs, block_number)
+    fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) -> Result<()> {
+        self.blockstore.put_logs(address, logs, block_number)
     }
 }
 
 impl FlushableStorage for Storage {
-    fn flush(&self) -> Result<(), PersistentStateError> {
-        self.blockchain_data_handler.flush()
+    fn flush(&self) -> Result<()> {
+        self.blockstore.flush()
     }
 }
 
 impl Storage {
-    pub fn get_code_by_hash(&self, hash: H256) -> Option<Vec<u8>> {
-        self.blockchain_data_handler.get_code_by_hash(&hash)
+    pub fn get_code_by_hash(&self, address: H160, hash: H256) -> Result<Option<Vec<u8>>> {
+        match self.cache.get_code_by_hash(&hash) {
+            Ok(Some(code)) => Ok(Some(code)),
+            Ok(None) => {
+                let code = self.blockstore.get_code_by_hash(address, &hash);
+                if let Ok(Some(ref code)) = code {
+                    self.cache.put_code(hash, code)?;
+                }
+                code
+            }
+            Err(e) => Err(e),
+        }
     }
 
-    pub fn put_code(&self, hash: H256, code: Vec<u8>) {
-        self.blockchain_data_handler.put_code(&hash, &code)
+    pub fn put_code(
+        &self,
+        block_number: U256,
+        address: H160,
+        hash: H256,
+        code: Vec<u8>,
+    ) -> Result<()> {
+        self.blockstore
+            .put_code(block_number, address, &hash, &code)
     }
 }
 
 impl Storage {
-    pub fn dump_db(&self) {
-        println!(
-            "self.block_data_handler : {:#?}",
-            self.blockchain_data_handler
-        );
+    pub fn dump_db(&self, arg: DumpArg, from: Option<&str>, limit: usize) -> Result<String> {
+        self.blockstore.dump(&arg, from, limit)
     }
 }
 
 impl Rollback for Storage {
-    fn disconnect_latest_block(&self) {
-        self.cache.disconnect_latest_block();
-        self.blockchain_data_handler.disconnect_latest_block();
+    fn disconnect_latest_block(&self) -> Result<()> {
+        self.cache.disconnect_latest_block()?;
+        self.blockstore.disconnect_latest_block()
     }
 }

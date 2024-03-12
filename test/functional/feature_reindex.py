@@ -14,7 +14,6 @@ from test_framework.util import wait_until
 
 
 class ReindexTest(DefiTestFramework):
-
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 1
@@ -35,5 +34,5 @@ class ReindexTest(DefiTestFramework):
         self.reindex(True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ReindexTest().main()

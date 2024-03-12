@@ -1,5 +1,5 @@
 #include <chainparams.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <validation.h>
 
 #include <test/setup_common.h>
@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
 {
     const CScript SCRIPT_PUB{CScript(OP_TRUE)};
     const Consensus::Params & consensus = Params().GetConsensus();
-    auto height = consensus.AMKHeight;
+    auto height = consensus.DF1AMKHeight;
 
     CMutableTransaction coinbaseTx{};
 
@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip1)
         CAmount const baseSubsidy = GetBlockSubsidy(height, consensus);
         tx.vout[1].nValue = baseSubsidy * consensus.foundationShareDFIP1 / COIN;
         tx.vout[0].nValue -= tx.vout[1].nValue;
-        tx.vout[0].nValue -= baseSubsidy * consensus.nonUtxoBlockSubsidies.at(CommunityAccountType::IncentiveFunding) / COIN;
-        tx.vout[0].nValue -= baseSubsidy * consensus.nonUtxoBlockSubsidies.at(CommunityAccountType::AnchorReward) / COIN;
+        tx.vout[0].nValue -= baseSubsidy * consensus.blockTokenRewardsLegacy.at(CommunityAccountType::IncentiveFunding) / COIN;
+        tx.vout[0].nValue -= baseSubsidy * consensus.blockTokenRewardsLegacy.at(CommunityAccountType::AnchorReward) / COIN;
 
         Res res = ApplyGeneralCoinbaseTx(mnview, CTransaction(tx), height, 0, consensus);
         BOOST_CHECK(res.ok);
@@ -83,9 +83,9 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
 {
     const CScript SCRIPT_PUB{CScript(OP_TRUE)};
     Consensus::Params consensus = Params().GetConsensus();
-    consensus.EunosHeight = 10000000;
-    consensus.GrandCentralHeight = 10000001;
-    auto height = consensus.EunosHeight;
+    consensus.DF8EunosHeight = 10000000;
+    consensus.DF20GrandCentralHeight = 10000001;
+    auto height = consensus.DF8EunosHeight;
     CAmount blockReward = GetBlockSubsidy(height, consensus);
 
     CMutableTransaction coinbaseTx{};
@@ -147,11 +147,11 @@ BOOST_AUTO_TEST_CASE(blockreward_dfip8)
 BOOST_AUTO_TEST_CASE(blockreward_dfip8_reductions)
 {
     Consensus::Params consensus = Params().GetConsensus();
-    consensus.EunosHeight = 10000000;
+    consensus.DF8EunosHeight = 10000000;
 
     auto GetReductionsHeight = [consensus](const uint32_t reductions)
     {
-        return consensus.EunosHeight + (reductions * Params().GetConsensus().emissionReductionPeriod);
+        return consensus.DF8EunosHeight + (reductions * Params().GetConsensus().emissionReductionPeriod);
     };
 
     // Test coinbase rewards reduction 0

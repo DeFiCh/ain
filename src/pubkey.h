@@ -33,8 +33,8 @@ public:
 
     KeyAddressType type{KeyAddressType::DEFAULT};
 
-    static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
-        auto destType = FromOrDefaultDestinationTypeToKeyType(dest.index()) & filter;
+    static std::optional<CKeyID> TryFromDestination(const CTxDestination &dest, KeyType filter=KeyType::AllKeyType) {
+        auto destType = TxDestTypeToKeyType(dest.index()) & filter;
         switch (destType) {
             case KeyType::PKHashKeyType:
                 return CKeyID(std::get<PKHash>(dest));
@@ -49,7 +49,7 @@ public:
         }
     }
 
-    static CKeyID FromOrDefaultDestination(const CTxDestination &dest, KeyType filter=KeyType::UnknownKeyType) {
+    static CKeyID FromOrDefaultDestination(const CTxDestination &dest, KeyType filter=KeyType::AllKeyType) {
         auto key = TryFromDestination(dest, filter);
         if (key) {
             return *key;
@@ -194,7 +194,9 @@ public:
     CKeyID GetEthID() const
     {
         const size_t HEADER_OFFSET{1};
-        return CKeyID(Sha3({vch + HEADER_OFFSET, vch + size()}));
+        auto begin = vch + HEADER_OFFSET;
+        auto end = vch + size();
+        return CKeyID(EthHash160({begin, end}));
     }
 
     //! Get the 256-bit hash of this public key.

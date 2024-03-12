@@ -1,6 +1,6 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
-#include <masternodes/masternodes.h>
+#include <dfi/masternodes.h>
 #include <miner.h>
 #include <pos.h>
 #include <pos_kernel.h>
@@ -21,7 +21,8 @@ std::shared_ptr<CBlock> Block( const uint256& prev_hash, const uint64_t& height,
 {
     CScript pubKey = CScript() << OP_TRUE;
 
-    auto ptemplate = BlockAssembler(Params()).CreateNewBlock(pubKey);
+    auto res = BlockAssembler(Params()).CreateNewBlock(pubKey);
+    auto& ptemplate = *res;
     auto pblock = std::make_shared<CBlock>(ptemplate->block);
     pblock->hashPrevBlock = prev_hash;
     pblock->mintedBlocks = mintedBlocks;
@@ -58,7 +59,7 @@ BOOST_AUTO_TEST_CASE(calc_kernel)
 //    CKey key;
 //    key.MakeNewKey(true); // Need to use compressed keys in segwit or the signing will fail
 //    FillableSigningProvider keystore;
-//    BOOST_CHECK(keystore.AddKeyPubKey(key, key.GetPubKey()));
+//    BOOST_CHECK(keystore.AddKeyPair(key, key.GetPubKey()));
 //    CKeyID keyID = key.GetPubKey().GetID();
 //
 //    uint256 prevStakeModifier = uint256S("fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321");

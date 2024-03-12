@@ -17,19 +17,26 @@ class EstimateLoanTest(DefiTestFramework):
         self.num_nodes = 1
         self.setup_clean_chain = True
         self.extra_args = [
-            ['-txnotokens=0', '-amkheight=1', '-bayfrontheight=1', '-eunosheight=1', '-txindex=1',
-             '-fortcanningheight=1'],
+            [
+                "-txnotokens=0",
+                "-amkheight=1",
+                "-bayfrontheight=1",
+                "-eunosheight=1",
+                "-fortcanningheight=1",
+            ],
         ]
 
     def run_test(self):
         self.nodes[0].generate(125)
 
-        self.nodes[0].createtoken({
-            "symbol": "BTC",
-            "name": "BTC token",
-            "isDAT": True,
-            "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress
-        })
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.nodes[0].get_genesis_keys().ownerAuthAddress,
+            }
+        )
         self.nodes[0].generate(1)
 
         symbolDFI = "DFI"
@@ -67,82 +74,92 @@ class EstimateLoanTest(DefiTestFramework):
 
         self.nodes[0].generate(1)
 
-        self.nodes[0].setcollateraltoken({
-            'token': idDFI,
-            'factor': 1,
-            'fixedIntervalPriceId': "DFI/USD"})
+        self.nodes[0].setcollateraltoken(
+            {"token": idDFI, "factor": 1, "fixedIntervalPriceId": "DFI/USD"}
+        )
 
-        self.nodes[0].setcollateraltoken({
-            'token': idBTC,
-            'factor': 1,
-            'fixedIntervalPriceId': "BTC/USD"})
+        self.nodes[0].setcollateraltoken(
+            {"token": idBTC, "factor": 1, "fixedIntervalPriceId": "BTC/USD"}
+        )
 
         self.nodes[0].generate(7)
 
         loanSchemeRatio = 200
-        self.nodes[0].createloanscheme(loanSchemeRatio, 1, 'LOAN0001')
+        self.nodes[0].createloanscheme(loanSchemeRatio, 1, "LOAN0001")
         self.nodes[0].generate(1)
 
-        ownerAddress1 = self.nodes[0].getnewaddress('', 'legacy')
+        ownerAddress1 = self.nodes[0].getnewaddress("", "legacy")
         vaultId1 = self.nodes[0].createvault(ownerAddress1)  # default loan scheme
         self.nodes[0].generate(1)
 
         # Vault not found
         try:
-            self.nodes[0].estimateloan("af03dbd05492caf362d0daf623be182469bcbae7095d3bab682e40ea3d7c2cbb", {"TSLA": 1})
+            self.nodes[0].estimateloan(
+                "af03dbd05492caf362d0daf623be182469bcbae7095d3bab682e40ea3d7c2cbb",
+                {"TSLA": 1},
+            )
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Vault <af03dbd05492caf362d0daf623be182469bcbae7095d3bab682e40ea3d7c2cbb> not found." in errorString)
+            errorString = e.error["message"]
+        assert (
+            "Vault <af03dbd05492caf362d0daf623be182469bcbae7095d3bab682e40ea3d7c2cbb> not found."
+            in errorString
+        )
         # Without collaterals
         try:
             self.nodes[0].estimateloan(vaultId1, {"TSLA": 1})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Cannot estimate loan without collaterals." in errorString)
+            errorString = e.error["message"]
+        assert "Cannot estimate loan without collaterals." in errorString
 
-        self.nodes[0].setloantoken({
-            'symbol': "TSLA",
-            'name': "Tesla Token",
-            'fixedIntervalPriceId': "TSLA/USD",
-            'mintable': True,
-            'interest': 0.01})
-        self.nodes[0].setloantoken({
-            'symbol': "TWTR",
-            'name': "Twitter Token",
-            'fixedIntervalPriceId': "TWTR/USD",
-            'mintable': True,
-            'interest': 0.01})
+        self.nodes[0].setloantoken(
+            {
+                "symbol": "TSLA",
+                "name": "Tesla Token",
+                "fixedIntervalPriceId": "TSLA/USD",
+                "mintable": True,
+                "interest": 0.01,
+            }
+        )
+        self.nodes[0].setloantoken(
+            {
+                "symbol": "TWTR",
+                "name": "Twitter Token",
+                "fixedIntervalPriceId": "TWTR/USD",
+                "mintable": True,
+                "interest": 0.01,
+            }
+        )
         self.nodes[0].generate(1)
 
-        self.nodes[0].deposittovault(vaultId1, account, '1@DFI')
+        self.nodes[0].deposittovault(vaultId1, account, "1@DFI")
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId1, account, '0.01@BTC')
+        self.nodes[0].deposittovault(vaultId1, account, "0.01@BTC")
         self.nodes[0].generate(1)
 
         # Negative split value
         try:
             self.nodes[0].estimateloan(vaultId1, {"TSLA": -1})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Amount out of range" in errorString)
+            errorString = e.error["message"]
+        assert "Amount out of range" in errorString
         # Token that does not exists
         try:
             self.nodes[0].estimateloan(vaultId1, {"TSLAAA": 1})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Token TSLAAA does not exist!" in errorString)
+            errorString = e.error["message"]
+        assert "Token TSLAAA does not exist!" in errorString
         # Token not set as loan token
         try:
             self.nodes[0].estimateloan(vaultId1, {"DFI": 1})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("(DFI) is not a loan token!" in errorString)
+            errorString = e.error["message"]
+        assert "(DFI) is not a loan token!" in errorString
         # Token without live price
         try:
             self.nodes[0].estimateloan(vaultId1, {"TSLA": 1})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("No live fixed price for TSLA" in errorString)
+            errorString = e.error["message"]
+        assert "No live fixed price for TSLA" in errorString
 
         oracle1_prices = [
             {"currency": "USD", "tokenAmount": "1@DFI"},
@@ -160,8 +177,11 @@ class EstimateLoanTest(DefiTestFramework):
         try:
             self.nodes[0].estimateloan(vaultId1, {"TSLA": 0.8})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("total split between loan tokens = 0.80000000 vs expected 1.00000000" in errorString)
+            errorString = e.error["message"]
+        assert (
+            "total split between loan tokens = 0.80000000 vs expected 1.00000000"
+            in errorString
+        )
 
         estimateloan = self.nodes[0].estimateloan(vaultId1, {"TSLA": 1})
         # Cannot take more loan than estimated
@@ -170,27 +190,30 @@ class EstimateLoanTest(DefiTestFramework):
             newAmount = "@".join([str(float(amount) * 1.01), token])
             self.nodes[0].takeloan({"vaultId": vaultId1, "amounts": newAmount})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Vault does not have enough collateralization ratio" in errorString)
+            errorString = e.error["message"]
+        assert "Vault does not have enough collateralization ratio" in errorString
 
         self.nodes[0].takeloan(
-            {"vaultId": vaultId1, "amounts": estimateloan})  # should be able to take loan amount from estimateloan
+            {"vaultId": vaultId1, "amounts": estimateloan}
+        )  # should be able to take loan amount from estimateloan
         self.nodes[0].generate(1)
 
         vault1 = self.nodes[0].getvault(vaultId1)
-        assert_equal(vault1["collateralRatio"],
-                     loanSchemeRatio)  # vault collateral ratio should be equal to its loan scheme ratio.
+        assert_equal(
+            vault1["collateralRatio"], loanSchemeRatio
+        )  # vault collateral ratio should be equal to its loan scheme ratio.
 
         vaultId2 = self.nodes[0].createvault(ownerAddress1)
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId2, account, '1@DFI')
+        self.nodes[0].deposittovault(vaultId2, account, "1@DFI")
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId2, account, '0.01@BTC')
+        self.nodes[0].deposittovault(vaultId2, account, "0.01@BTC")
         self.nodes[0].generate(1)
 
         estimateloan = self.nodes[0].estimateloan(vaultId2, {"TSLA": 0.8, "TWTR": 0.2})
         self.nodes[0].takeloan(
-            {"vaultId": vaultId2, "amounts": estimateloan})  # Take multiple loan amount from estimateloan
+            {"vaultId": vaultId2, "amounts": estimateloan}
+        )  # Take multiple loan amount from estimateloan
         self.nodes[0].generate(1)
 
         vault2 = self.nodes[0].getvault(vaultId2)
@@ -198,13 +221,15 @@ class EstimateLoanTest(DefiTestFramework):
 
         vaultId3 = self.nodes[0].createvault(ownerAddress1)
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId3, account, '1@DFI')
+        self.nodes[0].deposittovault(vaultId3, account, "1@DFI")
         self.nodes[0].generate(1)
-        self.nodes[0].deposittovault(vaultId3, account, '0.01@BTC')
+        self.nodes[0].deposittovault(vaultId3, account, "0.01@BTC")
         self.nodes[0].generate(1)
 
         targetRatio = 400
-        estimateloan = self.nodes[0].estimateloan(vaultId3, {"TSLA": 0.8, "TWTR": 0.2}, targetRatio)
+        estimateloan = self.nodes[0].estimateloan(
+            vaultId3, {"TSLA": 0.8, "TWTR": 0.2}, targetRatio
+        )
         self.nodes[0].takeloan({"vaultId": vaultId3, "amounts": estimateloan})
         self.nodes[0].generate(1)
 
@@ -221,9 +246,9 @@ class EstimateLoanTest(DefiTestFramework):
         try:
             self.nodes[0].estimateloan(vaultId1, {"TSLA": 1})
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("Vault <" + vaultId1 + "> is in liquidation" in errorString)
+            errorString = e.error["message"]
+        assert "Vault <" + vaultId1 + "> is in liquidation" in errorString
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     EstimateLoanTest().main()

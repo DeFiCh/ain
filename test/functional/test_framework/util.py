@@ -15,6 +15,7 @@ import random
 import re
 from subprocess import CalledProcessError
 import time
+import web3
 
 from . import coverage
 from .authproxy import AuthServiceProxy, JSONRPCException
@@ -26,19 +27,26 @@ logger = logging.getLogger("TestFramework.utils")
 # Assert functions
 ##################
 
+
 def assert_fee_amount(fee, tx_size, fee_per_kB):
     """Assert the fee was in range"""
     target_fee = round(tx_size * fee_per_kB / 1000, 8)
     if fee < target_fee:
-        raise AssertionError("Fee of %s BTC too low! (Should be %s BTC)" % (str(fee), str(target_fee)))
+        raise AssertionError(
+            "Fee of %s BTC too low! (Should be %s BTC)" % (str(fee), str(target_fee))
+        )
     # allow the wallet's estimation to be at most 2 bytes off
     if fee > (tx_size + 2) * fee_per_kB / 1000:
-        raise AssertionError("Fee of %s BTC too high! (Should be %s BTC)" % (str(fee), str(target_fee)))
+        raise AssertionError(
+            "Fee of %s BTC too high! (Should be %s BTC)" % (str(fee), str(target_fee))
+        )
 
 
 def assert_equal(thing1, thing2, *args):
     if thing1 != thing2 or any(thing1 != arg for arg in args):
-        raise AssertionError("not(%s)" % " == ".join(str(arg) for arg in (thing1, thing2) + args))
+        raise AssertionError(
+            "not(%s)" % " == ".join(str(arg) for arg in (thing1, thing2) + args)
+        )
 
 
 def assert_greater_than(thing1, thing2):
@@ -55,14 +63,29 @@ def assert_raises(exc, fun, *args, **kwds):
     assert_raises_message(exc, None, fun, *args, **kwds)
 
 
+def assert_raises_web3_error(code, message, fun, *args, **kwargs):
+    try:
+        fun(*args, **kwargs)
+    except ValueError as e:
+        assert_equal(e.args[0]["code"], code)
+        if message not in e.args[0]["message"]:
+            raise AssertionError("Expected substring not found:" + e.args[0]["message"])
+    except web3.exceptions.ContractLogicError as e:
+        assert_equal(message, e.message)
+    except Exception as e:
+        raise AssertionError("Unexpected exception raised: " + type(e).__name__)
+    else:
+        raise AssertionError("No exception raised")
+
+
 def assert_raises_message(exc, message, fun, *args, **kwds):
     try:
         fun(*args, **kwds)
     except JSONRPCException:
         raise AssertionError("Use assert_raises_rpc_error() to test RPC failures")
     except exc as e:
-        if message is not None and message not in e.error['message']:
-            raise AssertionError("Expected substring not found:" + e.error['message'])
+        if message is not None and message not in e.error["message"]:
+            raise AssertionError("Expected substring not found:" + e.error["message"])
     except Exception as e:
         raise AssertionError("Unexpected exception raised: " + type(e).__name__)
     else:
@@ -123,9 +146,12 @@ def try_rpc(code, message, fun, *args, **kwds):
     except JSONRPCException as e:
         # JSONRPCException was thrown as expected. Check the code and message values are correct.
         if (code is not None) and (code != e.error["code"]):
-            raise AssertionError("Unexpected JSONRPC error code %i" % e.error["code"])
-        if (message is not None) and (message not in e.error['message']):
-            raise AssertionError("Expected substring (" + message + ") not found:" + e.error['message'])
+            err_str = str(e.error["code"]) + " (" + e.error["message"] + ")"
+            raise AssertionError("Unexpected JSONRPC error code: " + err_str)
+        if (message is not None) and (message not in e.error["message"]):
+            raise AssertionError(
+                "Expected substring (" + message + ") not found:" + e.error["message"]
+            )
         return True
     except Exception as e:
         raise AssertionError("Unexpected exception raised: " + type(e).__name__)
@@ -138,7 +164,8 @@ def assert_is_hex_string(string):
         int(string, 16)
     except Exception as e:
         raise AssertionError(
-            "Couldn't interpret %r as hexadecimal; raised: %s" % (string, e))
+            "Couldn't interpret %r as hexadecimal; raised: %s" % (string, e)
+        )
 
 
 def assert_is_hash_string(string, length=64):
@@ -146,20 +173,22 @@ def assert_is_hash_string(string, length=64):
         raise AssertionError("Expected a string, got type %r" % type(string))
     elif length and len(string) != length:
         raise AssertionError(
-            "String of length %d expected; got %d" % (length, len(string)))
-    elif not re.match('[abcdef0-9]+$', string):
+            "String of length %d expected; got %d" % (length, len(string))
+        )
+    elif not re.match("[abcdef0-9]+$", string):
         raise AssertionError(
-            "String %r contains invalid characters for a hash." % string)
+            "String %r contains invalid characters for a hash." % string
+        )
 
 
 def assert_array_result(object_array, to_match, expected, should_not_find=False):
     """
-        Pass in array of JSON objects, a dictionary with key/value pairs
-        to match against, and another dictionary with expected key/value
-        pairs.
-        If the should_not_find flag is true, to_match should not be found
-        in object_array
-        """
+    Pass in array of JSON objects, a dictionary with key/value pairs
+    to match against, and another dictionary with expected key/value
+    pairs.
+    If the should_not_find flag is true, to_match should not be found
+    in object_array
+    """
     if should_not_find:
         assert_equal(expected, {})
     num_matched = 0
@@ -174,7 +203,9 @@ def assert_array_result(object_array, to_match, expected, should_not_find=False)
             num_matched = num_matched + 1
         for key, value in expected.items():
             if item[key] != value:
-                raise AssertionError("%s : expected %s=%s" % (str(item), str(key), str(value)))
+                raise AssertionError(
+                    "%s : expected %s=%s" % (str(item), str(key), str(value))
+                )
             num_matched = num_matched + 1
     if num_matched == 0 and not should_not_find:
         raise AssertionError("No objects matched %s" % (str(to_match)))
@@ -184,6 +215,7 @@ def assert_array_result(object_array, to_match, expected, should_not_find=False)
 
 # Utility functions
 ###################
+
 
 def check_json_precision():
     """Make sure json library being used does not lose precision converting BTC values"""
@@ -198,7 +230,7 @@ def almost_equal(x, y, threshold=0.0001):
 
 
 def truncate(str, decimal):
-    return str if not str.find('.') + 1 else str[:str.find('.') + decimal + 1]
+    return str if not str.find(".") + 1 else str[: str.find(".") + decimal + 1]
 
 
 def count_bytes(hex_string):
@@ -206,24 +238,24 @@ def count_bytes(hex_string):
 
 
 def hex_str_to_bytes(hex_str):
-    return unhexlify(hex_str.encode('ascii'))
+    return unhexlify(hex_str.encode("ascii"))
 
 
 def str_to_b64str(string):
-    return b64encode(string.encode('utf-8')).decode('ascii')
+    return b64encode(string.encode("utf-8")).decode("ascii")
 
 
 def satoshi_round(amount):
-    return Decimal(amount).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+    return Decimal(amount).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
 
 def get_decimal_amount(amount):
-    account_tmp = amount.split('@')[0]
+    account_tmp = amount.split("@")[0]
     return Decimal(account_tmp)
 
 
-def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=None):
-    if attempts == float('inf') and timeout == float('inf'):
+def wait_until(predicate, *, attempts=float("inf"), timeout=float("inf"), lock=None):
+    if attempts == float("inf") and timeout == float("inf"):
         timeout = 60
     attempt = 0
     time_end = time.time() + timeout
@@ -243,10 +275,14 @@ def wait_until(predicate, *, attempts=float('inf'), timeout=float('inf'), lock=N
     predicate_source = "''''\n" + inspect.getsource(predicate) + "'''"
     logger.error("wait_until() failed. Predicate: {}".format(predicate_source))
     if attempt >= attempts:
-        raise AssertionError("Predicate {} not true after {} attempts".format(predicate_source, attempts))
+        raise AssertionError(
+            "Predicate {} not true after {} attempts".format(predicate_source, attempts)
+        )
     elif time.time() >= time_end:
-        raise AssertionError("Predicate {} not true after {} seconds".format(predicate_source, timeout))
-    raise RuntimeError('Unreachable')
+        raise AssertionError(
+            "Predicate {} not true after {} seconds".format(predicate_source, timeout)
+        )
+    raise RuntimeError("Unreachable")
 
 
 # Utility function to assert value of U256 output
@@ -283,6 +319,37 @@ def int_to_eth_u256(value):
     return hex(converted_value)
 
 
+def hex_to_decimal(value):
+    """
+    Convert a hexadecimal string to decimal in satoshi format.
+
+    The input value is converted to int and then divided from GWEI to sat and
+    again divided by COIN to get decimals.
+
+    Args:
+        value (str): Hexadecimal string to convert.
+
+    Returns:
+        Decimal: Decimal represantation of the value in satoshis
+
+    Raises:
+        ValueError: If the input value is equal zero.
+    """
+    WEI = 1000000000
+    GWEI = 10
+    COIN = 100000000
+
+    if value == 0:
+        raise ValueError(f"Value must be non zero")
+
+    amount = int(value, 0)
+    gwei = Decimal(amount / GWEI)
+    sat = Decimal(gwei / WEI)
+    decimal = Decimal(sat / COIN)
+
+    return decimal
+
+
 # RPC/P2P connection constants and functions
 ############################################
 
@@ -292,6 +359,8 @@ MAX_NODES = 12
 PORT_MIN = 11000
 # The number of ports to "reserve" for p2p and rpc, each
 PORT_RANGE = 5000
+# Don't assign rpc or p2p ports higher than this
+PORT_MAX = 65000
 
 
 class PortSeed:
@@ -314,40 +383,37 @@ def get_rpc_proxy(url, node_number, timeout=None, coveragedir=None):
     """
     proxy_kwargs = {}
     if timeout is not None:
-        proxy_kwargs['timeout'] = timeout
+        proxy_kwargs["timeout"] = timeout
 
     proxy = AuthServiceProxy(url, **proxy_kwargs)
     proxy.url = url  # store URL on proxy for info
 
-    coverage_logfile = coverage.get_filename(
-        coveragedir, node_number) if coveragedir else None
+    coverage_logfile = (
+        coverage.get_filename(coveragedir, node_number) if coveragedir else None
+    )
 
     return coverage.AuthServiceProxyWrapper(proxy, coverage_logfile)
 
 
 def p2p_port(n):
-    assert n <= MAX_NODES
-    return PORT_MIN + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
+    return rpc_port(n, 0)
 
 
-def rpc_port(n):
-    return PORT_MIN + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
+def rpc_port(n, i):
+    # We space out n, the node index, and i the item
+    # Additionally, use a reasonably large enough prime to tame the port seed
+    # to spread out concurrent processes.
+    return PORT_MIN + ((n * 1000) + (i * 100) + (PortSeed.n % 9973)) % (
+        PORT_MAX - PORT_MIN
+    )
 
 
-def grpc_port(n):
-    return PORT_MIN + PORT_RANGE + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
-
-
-def eth_rpc_port(n):
-    return PORT_MIN + PORT_RANGE + PORT_RANGE + PORT_RANGE + n + (MAX_NODES * PortSeed.n) % (PORT_RANGE - 1 - MAX_NODES)
-
-
-def rpc_url(datadir, i, chain, rpchost):
+def rpc_url(datadir, n, i, chain, rpchost):
     rpc_u, rpc_p = get_auth_cookie(datadir, chain)
-    host = '127.0.0.1'
-    port = rpc_port(i)
+    host = "127.0.0.1"
+    port = rpc_port(n, i)
     if rpchost:
-        parts = rpchost.split(':')
+        parts = rpchost.split(":")
         if len(parts) == 2:
             host, port = parts
         else:
@@ -355,56 +421,30 @@ def rpc_url(datadir, i, chain, rpchost):
     return "http://%s:%s@%s:%d" % (rpc_u, rpc_p, host, int(port))
 
 
-def grpc_url(datadir, i, chain, grpchost):
-    grpc_u, grpc_p = get_auth_cookie(datadir, chain)
-    host = '127.0.0.1'
-    port = grpc_port(i*2)
-    if grpchost:
-        parts = grpchost.split(':')
-        if len(parts) == 2:
-            host, port = parts
-        else:
-            host = grpchost
-
-    return "http://%s:%s@%s:%d" % (grpc_u, grpc_p, host, int(port))
-
-
-def eth_rpc_url(datadir, i, chain, ethrpchost):
-    ethrpc_u, ethrpc_p = get_auth_cookie(datadir, chain)
-    host = '127.0.0.1'
-    port = eth_rpc_port(i)
-    if ethrpchost:
-        parts = ethrpchost.split(':')
-        if len(parts) == 2:
-            host, port = parts
-        else:
-            host = ethrpchost
-
-    return "http://%s:%s@%s:%d" % (ethrpc_u, ethrpc_p, host, int(port))
-
-
 # Node functions
 ################
+
 
 def initialize_datadir(dirname, n, chain):
     datadir = get_datadir_path(dirname, n)
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
-    with open(os.path.join(datadir, "defi.conf"), 'w', encoding='utf8') as f:
+    with open(os.path.join(datadir, "defi.conf"), "w", encoding="utf8") as f:
         f.write("{}=1\n".format(chain))
         f.write("[{}]\n".format(chain))
         f.write("port=" + str(p2p_port(n)) + "\n")
-        f.write("rpcport=" + str(rpc_port(n)) + "\n")
-        f.write("grpcport=" + str(grpc_port(n * 2)) + "\n") # GRPC will use two ports
-        f.write("ethrpcport=" + str(eth_rpc_port(n)) + "\n")
+        f.write("rpcport=" + str(rpc_port(n, 1)) + "\n")
+        f.write("grpcport=" + str(rpc_port(n, 2)) + "\n")  # GRPC will use two ports
+        f.write("ethrpcport=" + str(rpc_port(n, 3)) + "\n")
+        f.write("wsport=" + str(rpc_port(n, 4)) + "\n")
         f.write("server=1\n")
         f.write("keypool=1\n")
         f.write("discover=0\n")
         f.write("listenonion=0\n")
         f.write("printtoconsole=0\n")
         f.write("upnp=0\n")
-        os.makedirs(os.path.join(datadir, 'stderr'), exist_ok=True)
-        os.makedirs(os.path.join(datadir, 'stdout'), exist_ok=True)
+        os.makedirs(os.path.join(datadir, "stderr"), exist_ok=True)
+        os.makedirs(os.path.join(datadir, "stdout"), exist_ok=True)
     return datadir
 
 
@@ -413,7 +453,7 @@ def get_datadir_path(dirname, n):
 
 
 def append_config(datadir, options):
-    with open(os.path.join(datadir, "defi.conf"), 'a', encoding='utf8') as f:
+    with open(os.path.join(datadir, "defi.conf"), "a", encoding="utf8") as f:
         for option in options:
             f.write(option + "\n")
 
@@ -422,18 +462,20 @@ def get_auth_cookie(datadir, chain):
     user = None
     password = None
     if os.path.isfile(os.path.join(datadir, "defi.conf")):
-        with open(os.path.join(datadir, "defi.conf"), 'r', encoding='utf8') as f:
+        with open(os.path.join(datadir, "defi.conf"), "r", encoding="utf8") as f:
             for line in f:
                 if line.startswith("rpcuser="):
                     assert user is None  # Ensure that there is only one rpcuser line
                     user = line.split("=")[1].strip("\n")
                 if line.startswith("rpcpassword="):
-                    assert password is None  # Ensure that there is only one rpcpassword line
+                    assert (
+                        password is None
+                    )  # Ensure that there is only one rpcpassword line
                     password = line.split("=")[1].strip("\n")
     try:
-        with open(os.path.join(datadir, chain, ".cookie"), 'r', encoding="ascii") as f:
+        with open(os.path.join(datadir, chain, ".cookie"), "r", encoding="ascii") as f:
             userpass = f.read()
-            split_userpass = userpass.split(':')
+            split_userpass = userpass.split(":")
             user = split_userpass[0]
             password = split_userpass[1]
     except OSError:
@@ -441,6 +483,12 @@ def get_auth_cookie(datadir, chain):
     if user is None or password is None:
         raise ValueError("No RPC credentials")
     return user, password
+
+
+def get_conf_data(datadir):
+    if os.path.isfile(os.path.join(datadir, "defi.conf")):
+        with open(os.path.join(datadir, "defi.conf"), "r", encoding="utf8") as f:
+            return f.read()
 
 
 def delete_cookie_file(datadir, chain):
@@ -458,19 +506,30 @@ def set_node_times(nodes, t):
 
 
 def disconnect_nodes(from_connection, node_num):
-    for peer_id in [peer['id'] for peer in from_connection.getpeerinfo() if "testnode%d" % node_num in peer['subver']]:
+    for peer_id in [
+        peer["id"]
+        for peer in from_connection.getpeerinfo()
+        if "testnode%d" % node_num in peer["subver"]
+    ]:
         try:
             from_connection.disconnectnode(nodeid=peer_id)
         except JSONRPCException as e:
             # If this node is disconnected between calculating the peer id
             # and issuing the disconnect, don't worry about it.
             # This avoids a race condition if we're mass-disconnecting peers.
-            if e.error['code'] != -29:  # RPC_CLIENT_NODE_NOT_CONNECTED
+            if e.error["code"] != -29:  # RPC_CLIENT_NODE_NOT_CONNECTED
                 raise
 
     # wait to disconnect
-    wait_until(lambda: [peer['id'] for peer in from_connection.getpeerinfo() if
-                        "testnode%d" % node_num in peer['subver']] == [], timeout=5)
+    wait_until(
+        lambda: [
+            peer["id"]
+            for peer in from_connection.getpeerinfo()
+            if "testnode%d" % node_num in peer["subver"]
+        ]
+        == [],
+        timeout=5,
+    )
 
 
 def connect_nodes(from_connection, node_num):
@@ -478,7 +537,9 @@ def connect_nodes(from_connection, node_num):
     from_connection.addnode(ip_port, "onetry")
     # poll until version handshake complete to avoid race conditions
     # with transaction relaying
-    wait_until(lambda: all(peer['version'] != 0 for peer in from_connection.getpeerinfo()))
+    wait_until(
+        lambda: all(peer["version"] != 0 for peer in from_connection.getpeerinfo())
+    )
 
 
 def connect_nodes_bi(nodes, a, b):
@@ -500,7 +561,11 @@ def sync_blocks(rpc_connections, *, wait=1, timeout=60):
         if best_hash.count(best_hash[0]) == len(rpc_connections):
             return
         time.sleep(wait)
-    raise AssertionError("Block sync timed out:{}".format("".join("\n  {!r}".format(b) for b in best_hash)))
+    raise AssertionError(
+        "Block sync timed out:{}".format(
+            "".join("\n  {!r}".format(b) for b in best_hash)
+        )
+    )
 
 
 def sync_mempools(rpc_connections, *, wait=1, timeout=60, flush_scheduler=True):
@@ -517,11 +582,14 @@ def sync_mempools(rpc_connections, *, wait=1, timeout=60, flush_scheduler=True):
                     r.syncwithvalidationinterfacequeue()
             return
         time.sleep(wait)
-    raise AssertionError("Mempool sync timed out:{}".format("".join("\n  {!r}".format(m) for m in pool)))
+    raise AssertionError(
+        "Mempool sync timed out:{}".format("".join("\n  {!r}".format(m) for m in pool))
+    )
 
 
 # Transaction/Block functions
 #############################
+
 
 def find_output(node, txid, amount, *, blockhash=None):
     """
@@ -549,7 +617,9 @@ def gather_inputs(from_node, amount_needed, confirmations_required=1):
         total_in += t["amount"]
         inputs.append({"txid": t["txid"], "vout": t["vout"], "address": t["address"]})
     if total_in < amount_needed:
-        raise RuntimeError("Insufficient funds: need %d, have %d" % (amount_needed, total_in))
+        raise RuntimeError(
+            "Insufficient funds: need %d, have %d" % (amount_needed, total_in)
+        )
     return (total_in, inputs)
 
 
@@ -564,7 +634,9 @@ def make_change(from_node, amount_in, amount_out, fee):
         # Create an extra change output to break up big inputs
         change_address = from_node.getnewaddress()
         # Split change in two, being careful of rounding:
-        outputs[change_address] = Decimal(change / 2).quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+        outputs[change_address] = Decimal(change / 2).quantize(
+            Decimal("0.00000001"), rounding=ROUND_DOWN
+        )
         change = amount_in - amount - outputs[change_address]
     if change > 0:
         outputs[from_node.getnewaddress()] = change
@@ -612,8 +684,8 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=None):
     txid = int(txid, 16)
     i = None
 
-    for i, txout in enumerate(tx1['vout']):
-        if txout['scriptPubKey']['addresses'] == [new_addr]:
+    for i, txout in enumerate(tx1["vout"]):
+        if txout["scriptPubKey"]["addresses"] == [new_addr]:
             break
     assert i is not None
 
@@ -624,7 +696,7 @@ def make_utxo(node, amount, confirmed=True, scriptPubKey=None):
 
     signed_tx = node.signrawtransactionwithwallet(ToHex(tx2))
 
-    txid = node.sendrawtransaction(signed_tx['hex'], 0)
+    txid = node.sendrawtransaction(signed_tx["hex"], 0)
 
     # If requested, ensure txouts are confirmed.
     if confirmed:
@@ -660,14 +732,14 @@ def create_confirmed_utxos(fee, node, count):
         inputs = []
         inputs.append({"txid": t["txid"], "vout": t["vout"]})
         outputs = {}
-        send_value = t['amount'] - fee
+        send_value = t["amount"] - fee
         outputs[addr1] = satoshi_round(send_value / 2)
         outputs[addr2] = satoshi_round(send_value / 2)
         raw_tx = node.createrawtransaction(inputs, outputs)
         signed_tx = node.signrawtransactionwithwallet(raw_tx)["hex"]
         node.sendrawtransaction(signed_tx)
 
-    while (node.getmempoolinfo()['size'] > 0):
+    while node.getmempoolinfo()["size"] > 0:
         node.generate(1)
 
     utxos = node.listunspent()
@@ -683,10 +755,11 @@ def gen_return_txouts():
     # Some pre-processing to create a bunch of OP_RETURN txouts to insert into transactions we create
     # So we have big transactions (and therefore can't fit very many into each block)
     # create one script_pubkey
-    script_pubkey = b'\x6a\x4d\x02\x00' + b'\x01' * 512  # OP_RETURN OP_PUSH2 512 bytes
+    script_pubkey = b"\x6a\x4d\x02\x00" + b"\x01" * 512  # OP_RETURN OP_PUSH2 512 bytes
     # concatenate 128 txouts of above script_pubkey which we'll insert before the txout for change
     txouts = []
     from .messages import CTxOut
+
     txout = CTxOut()
     txout.nValue = 0
     txout.scriptPubKey = script_pubkey
@@ -699,25 +772,25 @@ def find_spendable_utxo(node, min_value):
     """
     Get utxo with a value equal to or higher than the minimum value.
     """
-    for utxo in node.listunspent(query_options={'minimumAmount': min_value}):
-        if utxo['spendable']:
+    for utxo in node.listunspent(query_options={"minimumAmount": min_value}):
+        if utxo["spendable"]:
             return utxo
 
     raise AssertionError("Unspent output equal or higher than %s not found" % min_value)
 
-def fund_tx(node, address, amount):
+
+def create_address_utxo(node, address, amount):
     """
     Create and send new utxo of the specified amount to address.
     """
-    missing_auth_tx = node.sendtoaddress(address, amount)
-    count, missing_input_vout = 0, 0
-    for vout in node.getrawtransaction(missing_auth_tx, 1)['vout']:
-        if vout['scriptPubKey']['addresses'][0] == address:
-            missing_input_vout = count
+    tx = node.sendtoaddress(address, amount)
+    output_num = 0
+    for details in node.gettransaction(tx)["details"]:
+        if details["address"] == address:
+            output_num = details["vout"]
             break
-        count += 1
     node.generate(1)
-    return missing_auth_tx, missing_input_vout
+    return tx, output_num
 
 
 def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
@@ -728,11 +801,12 @@ def create_lots_of_big_transactions(node, txouts, utxos, num, fee):
     addr = node.getnewaddress()
     txids = []
     from .messages import CTransaction
+
     for _ in range(num):
         t = utxos.pop()
         inputs = [{"txid": t["txid"], "vout": t["vout"]}]
         outputs = {}
-        change = t['amount'] - fee
+        change = t["amount"] - fee
         outputs[addr] = satoshi_round(change)
         rawtx = node.createrawtransaction(inputs, outputs)
         tx = CTransaction()
@@ -754,6 +828,7 @@ def mine_large_block(node, utxos=None):
 
     from .messages import CTxOut
     from .script import CScript, OP_RETURN, OP_NOP
+
     big_script = CScript([OP_RETURN] + [OP_NOP] * 980000)
     big_txout = CTxOut(0, big_script)
 
@@ -781,13 +856,14 @@ def find_vout_for_address(node, txid, addr):
 # Token functions
 #############################
 
+
 def get_id_token(node, symbol):
     """
     Get the token ID
     """
     list_tokens = node.listtokens()
     for idx, token in list_tokens.items():
-        if (token["symbol"] == symbol):
+        if token["symbol"] == symbol:
             return str(idx)
 
 
@@ -799,3 +875,11 @@ def token_index_in_account(account, symbol):
         if symbol in account[id]:
             return id
     return -1
+
+
+# Web3 functions
+#############################
+
+
+def get_solc_artifact_path(contract: str, file_name: str) -> str:
+    return f"{os.path.dirname(__file__)}/../../../build/lib/target/sol_artifacts/{contract}/{file_name}"

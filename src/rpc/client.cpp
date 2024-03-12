@@ -7,6 +7,7 @@
 #include <rpc/protocol.h>
 #include <util/system.h>
 
+#include <map>
 #include <set>
 #include <stdint.h>
 
@@ -16,6 +17,14 @@ public:
     std::string methodName; //!< method whose params want conversion
     int paramIdx;           //!< 0-based idx of param to convert
     std::string paramName;  //!< parameter name
+};
+
+class CRPCAlternateStringValParam
+{
+public:
+    std::string methodName; //!< method whose params has alternative string values
+    int paramIdx;           //!< 0-based idx of param
+    std::vector<std::string> paramValues;  //!< accepted parameter string values
 };
 
 // clang-format off
@@ -361,6 +370,7 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "listgovproposalvotes", 3, "pagination" },
     { "listgovproposals", 2, "cycle" },
     { "listgovproposals", 3, "pagination" },
+    { "dumpevmdb", 0, "options" },
     { "evmtx", 1, "nonce" },
     { "evmtx", 2, "gasPrice" },
     { "evmtx", 3, "gasLimit" },
@@ -368,6 +378,68 @@ static const CRPCConvertParam vRPCConvertParams[] =
     { "vmmap", 1, "type"},
     { "logvmmaps", 0, "type"},
     { "addressmap", 1, "type"},
+
+    { "eth_getBlockByHash", 1, "type"},
+    { "eth_getBlockByNumber", 0, "tag"},
+    { "eth_getBlockByNumber", 1, "type"},
+    { "eth_getBlockTransactionCountByNumber", 0, "blockNumber"},
+    { "eth_getUncleCountByBlockNumber", 0, "blockNumber"},
+
+    { "eth_call", 0, "tx"},
+    { "eth_call", 1, "tag"},
+    { "eth_estimateGas", 0, "tx"},
+    { "eth_estimateGas", 1, "tag"},
+    { "eth_createAccessList", 0, "tx"},
+    { "eth_createAccessList", 1, "tag"},
+    { "eth_feeHistory", 1, "tag"},
+    { "eth_feeHistory", 2, "rewardPercentile"},
+
+    { "eth_newFilter", 0, "filter"},
+    { "eth_uninstallFilter", 0, "filterId"},
+    { "eth_getFilterChanges", 0, "filterId"},
+    { "eth_getFilterLogs", 0, "filterId"},
+    { "eth_getLogs", 0, "filter"},
+
+    { "eth_getBalance", 1, "tag"},
+    { "eth_getStorageAt", 1, "storagePos"},
+    { "eth_getStorageAt", 2, "tag"},
+    { "eth_getTransactionCount", 1, "tag"},
+    { "eth_getCode", 1, "tag"},
+    { "eth_getProof", 1, "storagePos"},
+    { "eth_getProof", 2, "tag"},
+
+    { "eth_signTransaction", 0, "tx"},
+    { "eth_sendTransaction", 0, "tx"},
+    { "eth_getTransactionByBlockHashAndIndex", 1, "txIndex"},
+    { "eth_getTransactionByBlockNumberAndIndex", 0, "tag"},
+    { "eth_getTransactionByBlockNumberAndIndex", 1, "txIndex"},
+    { "debug_feeEstimate", 0, "tx"},
+};
+
+/**
+ * Specify a (method, idx, string param) here if the argument can alternatively be passed as a
+ * string RPC argument alternative instead of the value specified in in vRPCConvertParams.
+ *
+ * @note Parameter indexes start from 0.
+ */
+static const CRPCAlternateStringValParam vRPCAlternateStringValParams[] =
+{
+    { "eth_getBlockByNumber", 0, {"earliest", "latest", "pending"}},
+    { "eth_getBlockTransactionCountByNumber", 0, {"earliest", "latest", "pending"}},
+    { "eth_getUncleCountByBlockNumber", 0, {"earliest", "latest", "pending"}},
+
+    { "eth_call", 1, {"earliest", "latest", "pending"}},
+    { "eth_estimateGas", 1, {"earliest", "latest", "pending"}},
+    { "eth_createAccessList", 1, {"earliest", "latest", "pending"}},
+    { "eth_feeHistory", 1, {"earliest", "latest", "pending"}},
+
+    { "eth_getBalance", 1, {"earliest", "latest", "pending"}},
+    { "eth_getStorageAt", 2, {"earliest", "latest", "pending"}},
+    { "eth_getTransactionCount", 1, {"earliest", "latest", "pending"}},
+    { "eth_getCode", 1, {"earliest", "latest", "pending"}},
+    { "eth_getProof", 2, {"earliest", "latest", "pending"}},
+
+    { "eth_getTransactionByBlockNumberAndIndex", 0, {"earliest", "latest", "pending"}},
 };
 // clang-format on
 
@@ -401,7 +473,37 @@ CRPCConvertTable::CRPCConvertTable()
     }
 }
 
+class CRPCAlternateStringValTable
+{
+private:
+    std::map<std::pair<std::string, int>, std::vector<std::string>> members;
+
+public:
+    CRPCAlternateStringValTable();
+
+    bool check(const std::string& method, int idx, const std::string& strParam) {
+        auto paramKey = std::make_pair(method, idx);
+        if (members.count(paramKey) > 0) {
+            auto strParams = members.find(paramKey)->second;
+            return std::find(strParams.begin(), strParams.end(), strParam) != strParams.end();
+        }
+        return false;
+    }
+};
+
+CRPCAlternateStringValTable::CRPCAlternateStringValTable()
+{
+    const unsigned int n_elem =
+        (sizeof(vRPCAlternateStringValParams) / sizeof(vRPCAlternateStringValParams[0]));
+
+    for (unsigned int i = 0; i < n_elem; i++) {
+        members.insert(std::make_pair(std::make_pair(vRPCAlternateStringValParams[i].methodName,
+                                      vRPCAlternateStringValParams[i].paramIdx), vRPCAlternateStringValParams[i].paramValues));
+    }
+}
+
 static CRPCConvertTable rpcCvtTable;
+static CRPCAlternateStringValTable rpcAltStrValTable;
 
 /** Non-RFC4627 JSON parser, accepts internal values (such as numbers, true, false, null)
  * as well as objects and arrays.
@@ -426,8 +528,16 @@ UniValue RPCConvertValues(const std::string &strMethod, const std::vector<std::s
             // insert string value directly
             params.push_back(strVal);
         } else {
-            // parse string as JSON, insert bool/number/object/etc. value
-            params.push_back(ParseNonRFCJSONValue(strVal));
+            // check if strVal is an accepted alternate value
+            if (rpcAltStrValTable.check(strMethod, idx, strVal)) {
+                // insert string value directly
+                params.push_back(strVal);
+            }
+            else {
+                // parse string as JSON, insert bool/number/object/etc. value
+                params.push_back(ParseNonRFCJSONValue(strVal));
+            }
+
         }
     }
 

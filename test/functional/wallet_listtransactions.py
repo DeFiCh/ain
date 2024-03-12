@@ -35,73 +35,114 @@ class ListTransactionsTest(DefiTestFramework):
         # Simple send, 0 to 1:
         txid = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 0.1)
         self.sync_mempools()
-        assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid},
-                            {"category": "send", "amount": Decimal("-0.1"), "confirmations": 0})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"txid": txid},
-                            {"category": "receive", "amount": Decimal("0.1"), "confirmations": 0})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid},
+            {"category": "send", "amount": Decimal("-0.1"), "confirmations": 0},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid},
+            {"category": "receive", "amount": Decimal("0.1"), "confirmations": 0},
+        )
         # mine a block, confirmations should change:
         self.nodes[0].generate(1)
         self.sync_blocks()
-        assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid},
-                            {"category": "send", "amount": Decimal("-0.1"), "confirmations": 1})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"txid": txid},
-                            {"category": "receive", "amount": Decimal("0.1"), "confirmations": 1})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid},
+            {"category": "send", "amount": Decimal("-0.1"), "confirmations": 1},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid},
+            {"category": "receive", "amount": Decimal("0.1"), "confirmations": 1},
+        )
 
         # send-to-self:
         txid = self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), 0.2)
-        assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid, "category": "send"},
-                            {"amount": Decimal("-0.2")})
-        assert_array_result(self.nodes[0].listtransactions(),
-                            {"txid": txid, "category": "receive"},
-                            {"amount": Decimal("0.2")})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid, "category": "send"},
+            {"amount": Decimal("-0.2")},
+        )
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid, "category": "receive"},
+            {"amount": Decimal("0.2")},
+        )
 
         # sendmany from node1: twice to self, twice to node2:
-        send_to = {self.nodes[0].getnewaddress(): 0.11,
-                   self.nodes[1].getnewaddress(): 0.22,
-                   self.nodes[0].getnewaddress(): 0.33,
-                   self.nodes[1].getnewaddress(): 0.44}
+        send_to = {
+            self.nodes[0].getnewaddress(): 0.11,
+            self.nodes[1].getnewaddress(): 0.22,
+            self.nodes[0].getnewaddress(): 0.33,
+            self.nodes[1].getnewaddress(): 0.44,
+        }
         txid = self.nodes[1].sendmany("", send_to)
         self.sync_mempools()
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.11")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[0].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.11")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.22")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.22")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.33")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[0].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.33")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "send", "amount": Decimal("-0.44")},
-                            {"txid": txid})
-        assert_array_result(self.nodes[1].listtransactions(),
-                            {"category": "receive", "amount": Decimal("0.44")},
-                            {"txid": txid})
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"category": "send", "amount": Decimal("-0.11")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"category": "receive", "amount": Decimal("0.11")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"category": "send", "amount": Decimal("-0.22")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"category": "receive", "amount": Decimal("0.22")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"category": "send", "amount": Decimal("-0.33")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"category": "receive", "amount": Decimal("0.33")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"category": "send", "amount": Decimal("-0.44")},
+            {"txid": txid},
+        )
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"category": "receive", "amount": Decimal("0.44")},
+            {"txid": txid},
+        )
 
-        pubkey = self.nodes[1].getaddressinfo(self.nodes[1].getnewaddress())['pubkey']
+        pubkey = self.nodes[1].getaddressinfo(self.nodes[1].getnewaddress())["pubkey"]
         multisig = self.nodes[1].createmultisig(1, [pubkey])
         self.nodes[0].importaddress(multisig["redeemScript"], "watchonly", False, True)
         txid = self.nodes[1].sendtoaddress(multisig["address"], 0.1)
         self.nodes[1].generate(1)
         self.sync_blocks()
-        assert len(self.nodes[0].listtransactions(label="watchonly", count=100, include_watchonly=False)) == 0
-        assert_array_result(self.nodes[0].listtransactions(label="watchonly", count=100, include_watchonly=True),
-                            {"category": "receive", "amount": Decimal("0.1")},
-                            {"txid": txid, "label": "watchonly"})
+        assert (
+            len(
+                self.nodes[0].listtransactions(
+                    label="watchonly", count=100, include_watchonly=False
+                )
+            )
+            == 0
+        )
+        assert_array_result(
+            self.nodes[0].listtransactions(
+                label="watchonly", count=100, include_watchonly=True
+            ),
+            {"category": "receive", "amount": Decimal("0.1")},
+            {"txid": txid, "label": "watchonly"},
+        )
 
         self.run_rbf_opt_in_test()
 
@@ -112,7 +153,7 @@ class ListTransactionsTest(DefiTestFramework):
         def is_opt_in(node, txid):
             rawtx = node.getrawtransaction(txid, 1)
             for x in rawtx["vin"]:
-                if x["sequence"] < 0xfffffffe:
+                if x["sequence"] < 0xFFFFFFFE:
                     return True
             return False
 
@@ -127,9 +168,17 @@ class ListTransactionsTest(DefiTestFramework):
         # 1. Chain a few transactions that don't opt-in.
         txid_1 = self.nodes[0].sendtoaddress(self.nodes[1].getnewaddress(), 1)
         assert not is_opt_in(self.nodes[0], txid_1)
-        assert_array_result(self.nodes[0].listtransactions(), {"txid": txid_1}, {"bip125-replaceable": "no"})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid_1},
+            {"bip125-replaceable": "no"},
+        )
         self.sync_mempools()
-        assert_array_result(self.nodes[1].listtransactions(), {"txid": txid_1}, {"bip125-replaceable": "no"})
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid_1},
+            {"bip125-replaceable": "no"},
+        )
 
         # Tx2 will build off txid_1, still not opting in to RBF.
         utxo_to_use = get_unconfirmed_utxo_entry(self.nodes[0], txid_1)
@@ -147,9 +196,17 @@ class ListTransactionsTest(DefiTestFramework):
 
         # ...and check the result
         assert not is_opt_in(self.nodes[1], txid_2)
-        assert_array_result(self.nodes[1].listtransactions(), {"txid": txid_2}, {"bip125-replaceable": "no"})
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid_2},
+            {"bip125-replaceable": "no"},
+        )
         self.sync_mempools()
-        assert_array_result(self.nodes[0].listtransactions(), {"txid": txid_2}, {"bip125-replaceable": "no"})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid_2},
+            {"bip125-replaceable": "no"},
+        )
 
         # Tx3 will opt-in to RBF
         utxo_to_use = get_unconfirmed_utxo_entry(self.nodes[0], txid_2)
@@ -159,13 +216,21 @@ class ListTransactionsTest(DefiTestFramework):
         tx3_modified = tx_from_hex(tx3)
         tx3_modified.vin[0].nSequence = 0
         tx3 = tx3_modified.serialize().hex()
-        tx3_signed = self.nodes[0].signrawtransactionwithwallet(tx3)['hex']
+        tx3_signed = self.nodes[0].signrawtransactionwithwallet(tx3)["hex"]
         txid_3 = self.nodes[0].sendrawtransaction(tx3_signed)
 
         assert is_opt_in(self.nodes[0], txid_3)
-        assert_array_result(self.nodes[0].listtransactions(), {"txid": txid_3}, {"bip125-replaceable": "yes"})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid_3},
+            {"bip125-replaceable": "yes"},
+        )
         self.sync_mempools()
-        assert_array_result(self.nodes[1].listtransactions(), {"txid": txid_3}, {"bip125-replaceable": "yes"})
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid_3},
+            {"bip125-replaceable": "yes"},
+        )
 
         # Tx4 will chain off tx3.  Doesn't signal itself, but depends on one
         # that does.
@@ -177,21 +242,37 @@ class ListTransactionsTest(DefiTestFramework):
         txid_4 = self.nodes[1].sendrawtransaction(tx4_signed)
 
         assert not is_opt_in(self.nodes[1], txid_4)
-        assert_array_result(self.nodes[1].listtransactions(), {"txid": txid_4}, {"bip125-replaceable": "yes"})
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid_4},
+            {"bip125-replaceable": "yes"},
+        )
         self.sync_mempools()
-        assert_array_result(self.nodes[0].listtransactions(), {"txid": txid_4}, {"bip125-replaceable": "yes"})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid_4},
+            {"bip125-replaceable": "yes"},
+        )
 
         # Replace tx3, and check that tx4 becomes unknown
         tx3_b = tx3_modified
         tx3_b.vout[0].nValue -= int(Decimal("0.004") * COIN)  # bump the fee
         tx3_b = tx3_b.serialize().hex()
-        tx3_b_signed = self.nodes[0].signrawtransactionwithwallet(tx3_b)['hex']
+        tx3_b_signed = self.nodes[0].signrawtransactionwithwallet(tx3_b)["hex"]
         txid_3b = self.nodes[0].sendrawtransaction(tx3_b_signed, 0)
         assert is_opt_in(self.nodes[0], txid_3b)
 
-        assert_array_result(self.nodes[0].listtransactions(), {"txid": txid_4}, {"bip125-replaceable": "unknown"})
+        assert_array_result(
+            self.nodes[0].listtransactions(),
+            {"txid": txid_4},
+            {"bip125-replaceable": "unknown"},
+        )
         self.sync_mempools()
-        assert_array_result(self.nodes[1].listtransactions(), {"txid": txid_4}, {"bip125-replaceable": "unknown"})
+        assert_array_result(
+            self.nodes[1].listtransactions(),
+            {"txid": txid_4},
+            {"bip125-replaceable": "unknown"},
+        )
 
         # Check gettransaction as well:
         for n in self.nodes[0:2]:
@@ -205,8 +286,10 @@ class ListTransactionsTest(DefiTestFramework):
         self.nodes[0].generate(1)
         assert txid_3b not in self.nodes[0].getrawmempool()
         assert_equal(self.nodes[0].gettransaction(txid_3b)["bip125-replaceable"], "no")
-        assert_equal(self.nodes[0].gettransaction(txid_4)["bip125-replaceable"], "unknown")
+        assert_equal(
+            self.nodes[0].gettransaction(txid_4)["bip125-replaceable"], "unknown"
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ListTransactionsTest().main()

@@ -174,9 +174,9 @@ defsha3(256)
 defsha3(384)
 defsha3(512)
 
-bool sha3(const std::vector<unsigned char> &input, std::vector<unsigned char> &output)
+bool sha3_256_safe(const std::vector<unsigned char> &input, std::vector<unsigned char> &output)
 {
-    output.resize(32);
+	output.resize(32);
 	sha3_256(output.data(), 32, input.data(), input.size());
 	return true;
 }

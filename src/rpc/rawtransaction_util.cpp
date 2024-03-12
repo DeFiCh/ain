@@ -9,7 +9,7 @@
 #include <core_io.h>
 #include <interfaces/chain.h>
 #include <key_io.h>
-#include <masternodes/tokens.h>
+#include <dfi/tokens.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
 #include <rpc/request.h>
@@ -61,13 +61,17 @@ ResVal<CTokenAmount> GuessTokenAmount(interfaces::Chain const & chain, std::stri
     } catch (...) {
         // assuming it's token symbol, read DCT_ID from DB
         auto token = chain.existTokenGuessId(parsed.val->second, tokenId);
-        Require(token, [=]{ return strprintf("Invalid Defi token: %s", parsed.val->second); });
+        if (!token) {
+            return Res::Err("Invalid Defi token: %s", parsed.val->second);
+        }
         return {{tokenId, parsed.val->first}, Res::Ok()};
     }
 }
 
 
-// decodes either base58/bech32 address, or a hex format
+// Decodes either base58/bech32 address, or a hex format. Legacy function, should
+// use DecodeScript(DecodeDestination(str)) to ensure proper decoding of address
+// to script to include erc55 address support.
 CScript DecodeScript(std::string const& str)
 {
     if (IsHex(str)) {
@@ -86,10 +90,10 @@ CScript DecodeScript(std::string const& str)
     return GetScriptForDestination(dest);
 }
 
-void RejectEthAddress(const CScript &address) {
+void RejectErc55Address(const CScript &address) {
     CTxDestination dest;
     if (ExtractDestination(address, dest) && dest.index() == WitV16KeyEthHashType) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Eth type addresses are not valid");
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "ERC55 addresses not supported");
     }
 }
 
@@ -262,7 +266,7 @@ CMutableTransaction ConstructTransaction(const UniValue& inputs_in, const UniVal
             }
             CScript scriptPubKey = GetScriptForDestination(destination);
 
-            RejectEthAddress(scriptPubKey);
+            RejectErc55Address(scriptPubKey);
 
             auto amounts = DecodeAmounts(chain, outputs[name_], name_);
             for (auto const & kv : amounts.balances) {
@@ -296,8 +300,14 @@ static void TxInErrorToJSON(const CTxIn& txin, UniValue& vErrorsRet, const std::
     vErrorsRet.push_back(entry);
 }
 
+int RPCSerializationFlags();
+UniValue ExtendedTxToUniv(const CTransaction& tx, bool include_hex, int serialize_flags, int version, bool txDetails, bool isEvmEnabledForBlock);
+
 UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, FillableSigningProvider* keystore, std::map<COutPoint, Coin>& coins, bool is_temp_keystore, const UniValue& hashType)
 {
+    if (LogAcceptCategory(BCLog::SIGN)) {
+        LogPrintf("SignTransaction::Pre: %s\n", ExtendedTxToUniv(CTransaction(mtx), true, RPCSerializationFlags(), 4, true, true).write(2));
+    }
     // Add previous txouts given in the RPC call:
     if (!prevTxsUnival.isNull()) {
         UniValue prevTxs = prevTxsUnival.get_array();
@@ -424,6 +434,10 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
         }
     }
     bool fComplete = vErrors.empty();
+
+    if (LogAcceptCategory(BCLog::SIGN)) {
+        LogPrintf("SignTransaction::Post: %s\n", ExtendedTxToUniv(CTransaction(mtx), true, RPCSerializationFlags(), 4, true, true).write(2));
+    }
 
     UniValue result(UniValue::VOBJ);
     result.pushKV("hex", EncodeHexTx(CTransaction(mtx)));

@@ -1,54 +1,88 @@
-use anyhow::format_err;
-use ethers_solc::{Project, ProjectPathsConfig, Solc};
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::{env, fs, path::PathBuf};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // compile solidity project
-    // configure `root` as our project root
-    let contracts = vec![("counter_contract", "Counter"), ("dst20", "DST20")];
+use anyhow::{bail, Context, Result};
+use ethers_solc::{artifacts::Optimizer, Project, ProjectPathsConfig, Solc, SolcConfig};
 
-    for (file_path, contract_name) in contracts {
-        let solc = Solc::new(env::var("SOLC_PATH")?);
-        let root = PathBuf::from(file_path);
-        if !root.exists() {
-            return Err("Project root {root:?} does not exists!".into());
+fn main() -> Result<()> {
+    let manifest_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+
+    // We use CARGO_TARGET_DIR from Makefile instead of OUT_DIR.
+    // Reason: Currently setting --out-dir is nightly only, so there's no way to get OUT_DIR
+    // out of cargo reliably for pointing non cargo deps (eg: python test files) determinisitcally.
+    let target_dir: PathBuf = PathBuf::from(env::var("CARGO_TARGET_DIR")?);
+    let solc_artifact_dir = target_dir.join("sol_artifacts");
+
+    // Solidity project root and contract names relative to our project
+    let contracts = vec![
+        ("dfi_reserved", "DFIReserved"),
+        ("dfi_intrinsics_registry", "DFIIntrinsicsRegistry"),
+        ("dfi_intrinsics_v1", "DFIIntrinsicsV1"),
+        ("transfer_domain", "TransferDomain"),
+        ("transfer_domain_v1", "TransferDomainV1"),
+        ("dst20", "DST20"),
+        ("dst20_v1", "DST20V1"),
+    ];
+
+    for (sol_project_name, contract_name) in contracts {
+        let solc = Solc::default();
+
+        let sol_project_root = manifest_path.join(sol_project_name);
+        if !sol_project_root.exists() {
+            bail!("Solidity project missing: {sol_project_root:?}");
         }
 
         let paths = ProjectPathsConfig::builder()
-            .root(&root)
-            .sources(&root)
+            .root(&sol_project_root)
+            .sources(&sol_project_root)
             .build()?;
+
+        let mut solc_config = SolcConfig::builder().build();
+
+        solc_config.settings.optimizer = Optimizer {
+            enabled: Some(true),
+            runs: Some(u32::MAX as usize),
+            details: None,
+        };
 
         let project = Project::builder()
             .solc(solc)
+            .solc_config(solc_config)
             .paths(paths)
             .set_auto_detect(true)
             .no_artifacts()
             .build()?;
-        let output = project.compile().unwrap();
+
+        let output = project.compile()?;
         let artifacts = output.into_artifacts();
+        let sol_project_outdir = solc_artifact_dir.join(sol_project_name);
 
         for (id, artifact) in artifacts {
-            if id.name == contract_name {
-                let abi = artifact.abi.ok_or_else(|| format_err!("ABI not found"))?;
-                let bytecode = artifact.deployed_bytecode.expect("No bytecode found");
+            if id.name != contract_name {
+                continue;
+            }
 
-                fs::create_dir_all(format!("{file_path}/output/"))?;
-                fs::write(
-                    PathBuf::from(format!("{file_path}/output/bytecode.json")),
-                    serde_json::to_string(&bytecode).unwrap().as_bytes(),
-                )?;
-                fs::write(
-                    PathBuf::from(format!("{file_path}/output/abi.json")),
-                    serde_json::to_string(&abi).unwrap().as_bytes(),
-                )?;
+            let abi = artifact.abi.context("ABI not found")?;
+            let bytecode = artifact.bytecode.context("Bytecode not found")?;
+            let deployed_bytecode = artifact
+                .deployed_bytecode
+                .context("Deployed bytecode not found")?;
+
+            let items = [
+                ("abi.json", serde_json::to_string(&abi)?),
+                ("bytecode.json", serde_json::to_string(&bytecode)?),
+                (
+                    "deployed_bytecode.json",
+                    serde_json::to_string(&deployed_bytecode)?,
+                ),
+            ];
+
+            fs::create_dir_all(&sol_project_outdir)?;
+            for (file_name, contents) in items {
+                fs::write(sol_project_outdir.join(file_name), contents.as_bytes())?;
             }
         }
 
         project.rerun_if_sources_changed();
     }
-
     Ok(())
 }

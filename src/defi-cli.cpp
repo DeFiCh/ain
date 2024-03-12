@@ -27,7 +27,7 @@
 #include <support/events.h>
 
 #include <univalue.h>
-#include <masternodes/coinselect.h>
+#include <dfi/coinselect.h>
 
 const std::function<std::string(const char*)> G_TRANSLATION_FUN = nullptr;
 
@@ -62,6 +62,9 @@ static void SetupCliArgs()
     gArgs.AddArg("-rpcwallet=<walletname>", "Send RPC for non-default wallet on RPC server (needs to exactly match corresponding -wallet option passed to defid). This changes the RPC endpoint used, e.g. http://127.0.0.1:8554/wallet/<walletname>", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-stdin", "Read extra arguments from standard input, one per line until EOF/Ctrl-D (recommended for sensitive information such as passphrases). When combined with -stdinrpcpass, the first line from standard input is used for the RPC password.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-stdinrpcpass", "Read RPC password from standard input as a single line. When combined with -stdin, the first line from standard input is used for the RPC password.", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-grpcport=<port>", strprintf("Start GRPC connections on <port> and <port + 1> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->GRPCPort(), testnetBaseParams->GRPCPort(), changiBaseParams->GRPCPort(), devnetBaseParams->GRPCPort(), regtestBaseParams->GRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethrpcport=<port>", strprintf("Listen for ETH-JSON-RPC connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->ETHRPCPort(), testnetBaseParams->ETHRPCPort(), changiBaseParams->ETHRPCPort(), devnetBaseParams->ETHRPCPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
+    gArgs.AddArg("-wsport=<port>", strprintf("Listen for ETH-WebSockets connections on <port>> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultBaseParams->WSPort(), testnetBaseParams->WSPort(), changiBaseParams->WSPort(), devnetBaseParams->WSPort(), regtestBaseParams->ETHRPCPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     RPCMetadata::SetupArgs(gArgs);
 }
 
@@ -307,13 +310,25 @@ public:
 static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, const std::vector<std::string>& args)
 {
     std::string host;
-    // In preference order, we choose the following for the port:
+    // Specify a specific host IP, using -rpcconnect.
+    // For DVM RPCs, in preference order, we choose the following for the port:
     //     1. -rpcport
     //     2. port in -rpcconnect (ie following : in ipv4 or ]: in ipv6)
     //     3. default port for chain
-    int port = BaseParams().RPCPort();
-    SplitHostPort(gArgs.GetArg("-rpcconnect", DEFAULT_RPCCONNECT), port, host);
-    port = gArgs.GetArg("-rpcport", port);
+    int dvmport = BaseParams().RPCPort();
+    SplitHostPort(gArgs.GetArg("-rpcconnect", DEFAULT_RPCCONNECT), dvmport, host);
+    dvmport = gArgs.GetArg("-rpcport", dvmport);
+
+    // For EVM RPCs, in preference order, we choose the following for the evm port:
+    //     1. -ethrpcport
+    //     2. default evm port for chain
+    int evmport = BaseParams().ETHRPCPort();
+    evmport = gArgs.GetArg("-ethrpcport", evmport);
+
+    // Check if DVM or EVM RPC
+    int port = dvmport;
+    if (strMethod.rfind("eth_", 0) == 0 || strMethod.rfind("debug_", 0) == 0 || strMethod.rfind("net_", 0) == 0 || strMethod.rfind("web3_", 0) == 0)
+        port = evmport;
 
     // Obtain event base
     raii_event_base base = obtain_event_base();

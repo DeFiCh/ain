@@ -18,7 +18,7 @@ class TokensForkTest(DefiTestFramework):
     def set_test_params(self):
         self.num_nodes = 1
         self.setup_clean_chain = True
-        self.extra_args = [['-txnotokens=0', '-amkheight=120']]
+        self.extra_args = [["-txnotokens=0", "-amkheight=120"]]
 
     def run_test(self):
         assert_equal(len(self.nodes[0].listtokens()), 1)  # only one token == DFI
@@ -30,19 +30,25 @@ class TokensForkTest(DefiTestFramework):
         collateralGold = self.nodes[0].getnewaddress("", "legacy")
         collateralSilver = self.nodes[0].getnewaddress("", "legacy")
         try:
-            self.nodes[0].createtoken({
-                "symbol": "GOLD",
-                "name": "shiny gold",
-                "collateralAddress": collateralGold
-            }, [])
-            self.nodes[0].createtoken({
-                "symbol": "SILVER",
-                "name": "just silver",
-                "collateralAddress": collateralSilver
-            }, [])
+            self.nodes[0].createtoken(
+                {
+                    "symbol": "GOLD",
+                    "name": "shiny gold",
+                    "collateralAddress": collateralGold,
+                },
+                [],
+            )
+            self.nodes[0].createtoken(
+                {
+                    "symbol": "SILVER",
+                    "name": "just silver",
+                    "collateralAddress": collateralSilver,
+                },
+                [],
+            )
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("before AMK height" in errorString)
+            errorString = e.error["message"]
+        assert "before AMK height" in errorString
 
         self.nodes[0].generate(1)
         # Before fork, create should fail, so now only have default token
@@ -64,42 +70,54 @@ class TokensForkTest(DefiTestFramework):
 
         # Now at AMK height 120
         # Now create again, it should pass
-        self.nodes[0].createtoken({
-            "symbol": "GOLD",
-            "name": "shiny gold",
-            "collateralAddress": collateralGold
-        })
+        self.nodes[0].createtoken(
+            {
+                "symbol": "GOLD",
+                "name": "shiny gold",
+                "collateralAddress": collateralGold,
+            }
+        )
         self.nodes[0].generate(1)
 
-        txid = self.nodes[0].createtoken({
-            "symbol": "SILVER",
-            "name": "just silver",
-            "collateralAddress": collateralSilver
-        })
+        txid = self.nodes[0].createtoken(
+            {
+                "symbol": "SILVER",
+                "name": "just silver",
+                "collateralAddress": collateralSilver,
+            }
+        )
         self.nodes[0].generate(1)
 
         # Get token ID
-        id_silver = list(self.nodes[0].gettoken('SILVER#129').keys())[0]
+        id_silver = list(self.nodes[0].gettoken("SILVER#129").keys())[0]
 
         # Check rollback of token
-        self.nodes[0].invalidateblock(self.nodes[0].getblockhash(self.nodes[0].getblockcount()))
+        self.nodes[0].invalidateblock(
+            self.nodes[0].getblockhash(self.nodes[0].getblockcount())
+        )
         self.nodes[0].clearmempool()
 
         # Make sure token not found
         assert_raises_rpc_error(-5, "Token not found", self.nodes[0].gettoken, txid)
-        assert_raises_rpc_error(-5, "Token not found", self.nodes[0].gettoken, id_silver)
-        assert_raises_rpc_error(-5, "Token not found", self.nodes[0].gettoken, 'SILVER#129')
+        assert_raises_rpc_error(
+            -5, "Token not found", self.nodes[0].gettoken, id_silver
+        )
+        assert_raises_rpc_error(
+            -5, "Token not found", self.nodes[0].gettoken, "SILVER#129"
+        )
 
         # Create token again
-        self.nodes[0].createtoken({
-            "symbol": "SILVER",
-            "name": "just silver",
-            "collateralAddress": collateralSilver
-        })
+        self.nodes[0].createtoken(
+            {
+                "symbol": "SILVER",
+                "name": "just silver",
+                "collateralAddress": collateralSilver,
+            }
+        )
         self.nodes[0].generate(1)
 
         # Check the same ID was provided, not an increment of the last one
-        assert_equal(id_silver, list(self.nodes[0].gettoken('SILVER#129').keys())[0])
+        assert_equal(id_silver, list(self.nodes[0].gettoken("SILVER#129").keys())[0])
 
         # After fork, create should pass, so now only have 3 kind of tokens
         tokens = self.nodes[0].listtokens()
@@ -107,9 +125,9 @@ class TokensForkTest(DefiTestFramework):
 
         list_tokens = self.nodes[0].listtokens()
         for idx, token in list_tokens.items():
-            if (token["symbol"] == "GOLD"):
+            if token["symbol"] == "GOLD":
                 idGold = idx
-            if (token["symbol"] == "SILVER"):
+            if token["symbol"] == "SILVER":
                 idSilver = idx
 
         symbolGold = "GOLD#" + idGold
@@ -130,14 +148,14 @@ class TokensForkTest(DefiTestFramework):
 
         # synthetically check for minting. restart w/o reindex and amk (so, token exists, but minting should fail)
         self.stop_node(0)
-        self.start_node(0, ['-txnotokens=0'])
+        self.start_node(0, ["-txnotokens=0"])
         try:
             self.nodes[0].minttokens("300@128", [])
-            assert (False)
+            assert False
         except JSONRPCException as e:
-            errorString = e.error['message']
-        assert ("before AMK height" in errorString)
+            errorString = e.error["message"]
+        assert "before AMK height" in errorString
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     TokensForkTest().main()

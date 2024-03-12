@@ -12,6 +12,7 @@
 #include <script/standard.h>
 #include <uint256.h>
 #include <logging.h>
+
 typedef std::vector<unsigned char> valtype;
 
 MutableTransactionSignatureCreator::MutableTransactionSignatureCreator(const CMutableTransaction* txToIn, unsigned int nInIn, const CAmount& amountIn, int nHashTypeIn) : txTo(txToIn), nIn(nInIn), nHashType(nHashTypeIn), amount(amountIn), checker(txTo, nIn, amountIn) {}
@@ -216,7 +217,6 @@ bool ProduceSignature(const SigningProvider& provider, const BaseSignatureCreato
         solved = solved && SignStep(provider, creator, subscript, result, whichType, SigVersion::BASE, sigdata) && whichType != TX_SCRIPTHASH;
         P2SH = true;
     }
-
     if (solved && whichType == TX_WITNESS_V0_KEYHASH)
     {
         CScript witnessscript;

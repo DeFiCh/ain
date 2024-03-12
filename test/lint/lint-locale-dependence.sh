@@ -16,6 +16,8 @@ KNOWN_VIOLATIONS=(
     "src/rest.cpp:.*strtol"
     "src/rpc/rawtransaction_util.cpp:.*stoul"
     "src/test/dbwrapper_tests.cpp:.*snprintf"
+    "src/test/key_tests.cpp:.*isdigit"
+    "src/test/key_tests.cpp:.*toupper"
     "src/test/liquidity_tests.cpp:.*printf"
     "src/torcontrol.cpp:.*atoi"
     "src/torcontrol.cpp:.*strtol"
@@ -26,8 +28,8 @@ KNOWN_VIOLATIONS=(
     "src/util/system.cpp:.*atoi"
     "src/util/system.cpp:.*atof"
     "src/validation.cpp:.*stoi"
-    "src/masternodes/govvariables/attributes.cpp:.*isspace"
-    "src/masternodes/validation.cpp:.*stoi"
+    "dfi/govvariables/attributes.cpp:.*isspace"
+    "dfi/validation.cpp:.*stoi"
 )
 
 REGEXP_IGNORE_EXTERNAL_DEPENDENCIES="^src/(crypto/ctaes/|leveldb/|secp256k1/|tinyformat.h|univalue|spv/)"
