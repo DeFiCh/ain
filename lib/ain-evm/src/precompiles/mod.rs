@@ -12,7 +12,7 @@ use ethereum_types::H160;
 use evm::executor::stack::IsPrecompileResult;
 pub use evm::{
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileSet},
-    Context, ExitError, ExitRevert, ExitSucceed, Transfer,
+    ExitError, ExitSucceed,
 };
 use modexp::Modexp;
 use simple::{ECRecover, Identity, Ripemd160, Sha256};

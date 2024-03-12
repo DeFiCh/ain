@@ -1,5 +1,5 @@
 use ain_grpc::rpc::MetachainRPCClient;
-use jsonrpsee::http_client::HttpClient;
+use defichain_rpc::{Client, RpcApi};
 
 use crate::{result::RpcResult, MetachainCLI};
 

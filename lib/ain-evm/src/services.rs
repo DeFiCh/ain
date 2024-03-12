@@ -41,6 +41,7 @@ pub struct Services {
     pub tokio_worker: Mutex<Option<JoinHandle<()>>>,
     pub json_rpc_handles: Mutex<Vec<ServerHandle>>,
     pub websocket_handles: Mutex<Vec<ServerHandle>>,
+    pub ocean_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
     pub evm: Arc<EVMServices>,
 }
 
@@ -66,6 +67,7 @@ impl Services {
             }))),
             json_rpc_handles: Mutex::new(vec![]),
             websocket_handles: Mutex::new(vec![]),
+            ocean_handle: Mutex::new(None),
             evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
         }
     }
@@ -84,6 +86,14 @@ impl Services {
                 server.stop()?;
             }
         }
+
+        {
+            if let Some(handle) = self.ocean_handle.lock().take() {
+                handle.abort();
+            }
+        }
+
+        // TODO: Propogate error
         Ok(())
     }
 

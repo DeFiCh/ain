@@ -668,7 +668,8 @@ void SetupServerArgs()
     gArgs.AddArg("-ethmaxresponsesize=<size>", strprintf("Set the maximum response size in MB by the ETH-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
-    gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-oceanarchive", strprintf("Enable ocean archive and REST server (default: %b)", DEFAULT_OCEAN_ARCHIVE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_ARCHIVE_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -1592,7 +1593,7 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 
 void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& gEndpoints, std::vector<std::string>& wsEndpoints) {
     std::string default_address = "127.0.0.1";
-    
+
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     if (eth_rpc_port == -1) {
@@ -2402,6 +2403,19 @@ bool AppInitMain(InitInterfaces& interfaces)
                 }
             }
         }
+
+        // bind ocean REST addresses
+        if (gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+        // for (auto it = ocean_endpoints.begin(); it != ocean_endpoints.end(); ++it) {
+            // LogPrint(BCLog::HTTP, "Binding ocean server on endpoint %s\n", *it);
+            auto port = gArgs.GetArg("-oceanarchiveport", DEFAULT_OCEAN_ARCHIVE_PORT);
+            auto res =  XResultStatusLogged(ain_rs_init_network_rest_ocean(result, strprintf("127.0.0.1:%s", port)))
+            if (!res) {
+                // LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
+                return false;
+            }
+        // }
+        }
     }
     uiInterface.InitMessage(_("Done loading").translated);
 
@@ -2450,7 +2464,33 @@ bool AppInitMain(InitInterfaces& interfaces)
         spv::pspv->Connect();
     }
 
-    // ********************************************************* Step 15: start minter thread
+
+    // ********************************************************* Step 15: start genesis ocean indexing
+    if(gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED)) {
+        const CBlock &block = chainparams.GenesisBlock();
+
+        const CBlockIndex* pblockindex;
+        const CBlockIndex* tip;
+        {
+            LOCK(cs_main);
+
+            pblockindex = LookupBlockIndex(block.GetHash());
+            assert(pblockindex);
+
+            tip = ::ChainActive().Tip();
+        }
+
+        const UniValue b = blockToJSON(block, tip, pblockindex, true, 2);
+
+        CrossBoundaryResult result;
+        ocean_index_block(result, b.write());
+        if (!result.ok) {
+            LogPrintf("Error indexing genesis block: %s\n", result.reason);
+            return false;
+        }
+    }
+
+    // ********************************************************* Step 16: start minter thread
     if(gArgs.GetBoolArg("-gen", DEFAULT_GENERATE)) {
         LOCK(cs_main);
 

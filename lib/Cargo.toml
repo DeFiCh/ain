@@ -18,6 +18,8 @@ lto = true
 vsdb = { git = "https://github.com/defich/vsdb.git" }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
+bitcoin = { git = "https://github.com/Jouzo/rust-bitcoin.git" }
+bitcoin-io = { git = "https://github.com/Jouzo/rust-bitcoin.git" }
 
 [workspace.dependencies]
 
@@ -61,6 +63,7 @@ sha3 = "0.10"
 
 num = { version = "0.4", default-features = false, features = ["alloc"] }
 num-traits = "0.2"
+num_cpus = "1.0"
 
 hex = "0.4"
 hex-literal = "0.4"
@@ -76,6 +79,7 @@ jsonrpsee-core = "0.16"
 jsonrpsee-server = "0.16"
 jsonrpsee-types = "0.16"
 
+axum = { version = "0.7.1", features = ["macros"] }
 tempdir = "0.3"
 
 rocksdb = { version = "0.21", default-features = false }
@@ -113,3 +117,14 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+#### Ocean dependencies
+bitcoin = "0.31"
+cached = { version = "0.48", features = ["async"] }
+defichain-rpc = { version = "0.18.0", git = "https://github.com/defich/rust-defichain-rpc.git" }
+
+### Local crates
+ain-cpp-imports = { path = "./ain-cpp-imports" }
+ain-db = { path = "./ain-db" }
+ain-macros = { path = "./ain-macros" }
+ain-dftx = { path = "./ain-dftx" }

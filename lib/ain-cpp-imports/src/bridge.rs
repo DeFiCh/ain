@@ -30,6 +30,8 @@ pub mod ffi {
         type TransactionData;
 
         fn getChainId() -> u64;
+        fn getRPCPort() -> i32;
+        fn getRPCAuth() -> String;
         fn isMining() -> bool;
         fn publishEthTransaction(data: Vec<u8>) -> String;
         fn getAccounts() -> Vec<String>;
@@ -60,5 +62,6 @@ pub mod ffi {
         fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
+        fn isOceanEnabled() -> bool;
     }
 }
