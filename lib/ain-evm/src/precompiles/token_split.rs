@@ -85,11 +85,6 @@ impl DVMStatePrecompile for TokenSplit {
             });
         };
 
-        debug!(
-            "XXX new token amount {} id {} converted {}",
-            new_amount.amount, new_amount.id, converted_amount.0
-        );
-
         let Ok(new_contract) = dst20_address_from_token_id(new_amount.id.into()) else {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Error getting DST20 from new_amount.id".into()),
