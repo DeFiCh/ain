@@ -68,11 +68,23 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Merge tokens via intrinsics contract
         self.intrinsic_token_merge(20)
 
-        # Merge small amount of tokens via intrinsics contract
+        # Merge small amount via intrinsics contract
         self.intrinsic_token_merge(0.00000002)
 
-        # Merge Satoshi amount of tokens via intrinsics contract
+        # Merge Satoshi amount via intrinsics contract
         self.intrinsic_token_merge(0.00000001)
+
+        # Merge tokens via transfer domain
+        self.transfer_domain_merge(20)
+
+        # Merge small amount via transfer domain
+        self.transfer_domain_merge(0.00000002)
+
+        # Merge Satoshi amount via transfer domain
+        self.transfer_domain_merge(0.00000001)
+
+    def satoshi_limit(self, amount):
+        return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
     def setup(self):
 
@@ -341,6 +353,76 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(2000.00000000),
         )
 
+    def transfer_domain_merge(self, amount):
+
+        # Set multiplier
+        split_multiplier = -2
+
+        # Rollback
+        self.rollback_to(self.block_height)
+
+        # Fund address
+        self.fund_address(self.address, self.evm_address, amount)
+
+        # Split token
+        self.split_token(
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            "v1",
+            split_multiplier,
+        )
+
+        # Generate new destination address
+        destination_address = self.nodes[0].getnewaddress("", "legacy")
+
+        # Transfer out METAv1 tokens
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {
+                        "address": self.evm_address,
+                        "amount": f"{amount}@META/v1",
+                        "domain": 3,
+                    },
+                    "dst": {
+                        "address": destination_address,
+                        "amount": f"{amount}@META/v1",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        # Work out expected balance
+        expected_balance = self.satoshi_limit(
+            Decimal(str(amount)) / abs(split_multiplier)
+        )
+
+        # Check META balance
+        if expected_balance > 0:
+            assert_equal(
+                Decimal(self.nodes[0].getaccount(destination_address)[0].split("@")[0]),
+                expected_balance,
+            )
+        else:
+            assert_equal(self.nodes[0].getaccount(destination_address), [])
+
+        # Calculate minted balance
+        minted_balance = (Decimal(1000.00000000) - Decimal(str(amount))) / abs(
+            split_multiplier
+        )
+
+        # Limit to 8 decimal places
+        balance_after_split = self.satoshi_limit(minted_balance)
+
+        # Check minted balance
+        assert_equal(
+            self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
+            balance_after_split + expected_balance,
+        )
+
     def transfer_domain_multiple_split(self):
 
         # Rollback
@@ -516,9 +598,6 @@ class EVMTokenSplitTest(DefiTestFramework):
             self.nodes[0].gettoken("META")["3"]["minted"],
             Decimal("3920.00000000") + (amount * split_multiplier),
         )
-
-    def satoshi_limit(self, amount):
-        return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
     def split_token(
         self,
