@@ -33,7 +33,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "-fortcanninghillheight=1",
                 "-fortcanningroadheight=1",
                 "-fortcanningcrunchheight=1",
-                "-nextnetworkupgradeheight=350",
+                "-df23height=350",
                 "-subsidytest=1",
             ]
         ]
@@ -183,7 +183,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Try and enable fractional split before the fork
         assert_raises_rpc_error(
             -32600,
-            "Cannot be set before NextNetworkUpgrade",
+            "Cannot be set before DF23Height",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/oracles/splits/fractional_enabled": "true"}},
         )
