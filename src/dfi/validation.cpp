@@ -1252,7 +1252,7 @@ static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache
     }
 }
 
-template<typename T>
+template <typename T>
 static inline T CalculateNewAmount(CAmount multiplier, const T amount) {
     return multiplier < 0 ? DivideAmounts(amount, std::abs(multiplier)) : MultiplyAmounts(amount, multiplier);
 }
@@ -1661,7 +1661,7 @@ static Res VaultSplits(CCustomCSView &view,
                        const DCT_ID oldTokenId,
                        const DCT_ID newTokenId,
                        const int height,
-                       const CMaount multiplier) {
+                       const CAmount multiplier) {
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, height);
 

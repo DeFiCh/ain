@@ -260,6 +260,8 @@ public:
 
     static Res GovVarValidateLoanTokenID(const uint32_t token) { return Res::Err("No loan token with id (%d)", token); }
 
+    static Res GovVarVerifySplitFractional() { return Res::Err("Fractional split not currently supported"); }
+
     static Res GovVarValidateExcessAmount() { return Res::Err("Percentage exceeds 100%%"); }
 
     static Res GovVarTokenAsString() { return Res::Err("Token should be defined as numeric ID"); }
