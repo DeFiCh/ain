@@ -8,7 +8,7 @@
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import assert_equal, get_solc_artifact_path, int_to_eth_u256
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 import math
 import time
 from web3 import Web3
@@ -65,11 +65,19 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Partial split tokens via intrinsics contract
         self.multiple_intrinsic_token_split()
 
+        # Merge tokens via intrinsics contract
+        self.intrinsic_token_merge(20)
+
+        # Merge small amount of tokens via intrinsics contract
+        self.intrinsic_token_merge(0.00000002)
+
+        # Merge Satoshi amount of tokens via intrinsics contract
+        self.intrinsic_token_merge(0.00000001)
+
     def setup(self):
 
         # Define address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.splitMultiplier = 2
 
         # Generate chain
         self.nodes[0].generate(105)
@@ -240,16 +248,16 @@ class EVMTokenSplitTest(DefiTestFramework):
                 self.nodes[0].getblockcount(),
             )
 
-    def fund_address(self):
+    def fund_address(self, source, destination, amount=20):
 
         # Fund address with META
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.address, "amount": "20@META", "domain": 2},
+                    "src": {"address": source, "amount": f"{amount}@META", "domain": 2},
                     "dst": {
-                        "address": self.evm_address,
-                        "amount": "20@META",
+                        "address": destination,
+                        "amount": f"{amount}@META",
                         "domain": 3,
                     },
                     "singlekeycheck": False,
@@ -262,10 +270,10 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.nodes[0].transferdomain(
             [
                 {
-                    "src": {"address": self.address, "amount": "10@DFI", "domain": 2},
+                    "src": {"address": source, "amount": "1@DFI", "domain": 2},
                     "dst": {
-                        "address": self.evm_address,
-                        "amount": "10@DFI",
+                        "address": destination,
+                        "amount": "1@DFI",
                         "domain": 3,
                     },
                     "singlekeycheck": False,
@@ -279,14 +287,14 @@ class EVMTokenSplitTest(DefiTestFramework):
             address=self.contract_address_metav1, abi=self.dst20_abi
         )
         assert_equal(
-            meta_contract.functions.balanceOf(self.evm_address).call()
+            meta_contract.functions.balanceOf(destination).call()
             / math.pow(10, meta_contract.functions.decimals().call()),
-            Decimal(20),
+            Decimal(amount),
         )
 
         # Check DFI balance
-        balance = self.nodes[0].eth_getBalance(self.evm_address)
-        assert_equal(balance, int_to_eth_u256(10))
+        balance = self.nodes[0].eth_getBalance(destination)
+        assert_equal(balance, int_to_eth_u256(1))
 
     def transfer_domain_split(self):
 
@@ -294,12 +302,10 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.rollback_to(self.block_height)
 
         # Fund address
-        self.fund_address()
+        self.fund_address(self.address, self.evm_address)
 
         # Split token
-        self.split_token(
-            self.contract_address_metav1, self.contract_address_metav2, "v1"
-        )
+        self.split_token(self.contract_address_metav1, self.contract_address_metav2)
 
         # Generate new destination address
         destination_address = self.nodes[0].getnewaddress("", "legacy")
@@ -341,12 +347,10 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.rollback_to(self.block_height)
 
         # Fund address
-        self.fund_address()
+        self.fund_address(self.address, self.evm_address)
 
         # Split token
-        self.split_token(
-            self.contract_address_metav1, self.contract_address_metav2, "v1"
-        )
+        self.split_token(self.contract_address_metav1, self.contract_address_metav2)
 
         # Split token twice
         self.split_token(
@@ -387,123 +391,90 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(4000.00000000),
         )
 
-    def intrinsic_token_split(self, amount):
+    def intrinsic_token_split(self, amount, split_multiplier=2):
 
         # Rollback
         self.rollback_to(self.block_height)
 
         # Fund address
-        self.fund_address()
+        self.fund_address(self.address, self.evm_address)
 
         # Split token
         self.split_token(
-            self.contract_address_metav1, self.contract_address_metav2, "v1"
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            "v1",
+            split_multiplier,
         )
 
-        # Create the amount to approve
-        amount_to_approve = Web3.to_wei(amount, "ether")
-        # Create the amount to approve
-        amount_to_receive = Web3.to_wei(amount * self.splitMultiplier, "ether")
-
-        # Get old contract
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav1, abi=self.dst20_abi
-        )
-
-        # Construct the approve transaction
-        approve_txn = meta_contract.functions.approve(
-            self.v2_address, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            approve_txn, self.evm_privkey
-        )
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check allowance
-        allowance = meta_contract.functions.allowance(
-            self.evm_address, self.v2_address
-        ).call()
-        assert_equal(Web3.from_wei(allowance, "ether"), amount)
-
-        # Call depositAndSplitTokens
-        deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
-            self.contract_address_metav1, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            deposit_txn, self.evm_privkey
-        )
-
-        balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
-        total_supply_before = meta_contract.functions.totalSupply().call()
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check METAv1 balance on sender
-        # METAv1 balance of sender should be reduced by the approved amount
-        assert_equal(
-            meta_contract.functions.balanceOf(self.evm_address).call(),
-            balance_before - amount_to_approve,
-        )
-
-        # Check METAv1 totalSupply.
-        # Funds should be reduced by the amount splitted
-        totalSupplyAfter = meta_contract.functions.totalSupply().call()
-        assert_equal(totalSupplyAfter, total_supply_before - amount_to_approve)
-
-        # Get new contract
-        meta_contract_new = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav2, abi=self.dst20_abi
-        )
-
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.evm_address).call(),
-            amount_to_receive,
-        )
-
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.v2_address).call(),
-            Decimal(0),
+        # Execute and test split transaction
+        self.execute_split_transaction(
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            amount,
+            split_multiplier,
         )
 
         # Check minted balance
         assert_equal(
             self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
-            Decimal(1960.00000000) + (amount * self.splitMultiplier),
+            Decimal(1960.00000000) + (amount * split_multiplier),
         )
 
-    def multiple_intrinsic_token_split(self):
+    def intrinsic_token_merge(self, amount):
+
+        # Set multiplier
+        split_multiplier = -2
 
         # Rollback
         self.rollback_to(self.block_height)
 
         # Fund address
-        self.fund_address()
+        self.fund_address(self.address, self.evm_address, amount)
 
         # Split token
         self.split_token(
-            self.contract_address_metav1, self.contract_address_metav2, "v1"
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            "v1",
+            split_multiplier,
         )
+
+        # Execute and test split transaction
+        split_amount = self.execute_split_transaction(
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            amount,
+            split_multiplier,
+        )
+
+        # Calculate minted balance
+        minted_balance = (Decimal(1000.00000000) - Decimal(str(amount))) / abs(
+            split_multiplier
+        )
+
+        # Limit to 8 decimal places
+        balance_after_split = self.satoshi_limit(minted_balance)
+
+        # Check minted balance
+        assert_equal(
+            self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
+            balance_after_split + Web3.from_wei(split_amount, "ether"),
+        )
+
+    def multiple_intrinsic_token_split(self):
+
+        # Set multiplier
+        split_multiplier = 2
+
+        # Rollback
+        self.rollback_to(self.block_height)
+
+        # Fund address
+        self.fund_address(self.address, self.evm_address)
+
+        # Split token
+        self.split_token(self.contract_address_metav1, self.contract_address_metav2)
 
         # Split token twice
         self.split_token(
@@ -513,181 +484,23 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Set amount to split
         amount = 20
 
-        # Create the amount to approve
-        amount_to_approve = Web3.to_wei(amount, "ether")
-
-        # Create the amount to approve
-        amount_to_receive = Web3.to_wei(amount * self.splitMultiplier, "ether")
-
-        # Get old contract
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav1, abi=self.dst20_abi
-        )
-
-        # Construct the approve transaction
-        approve_txn = meta_contract.functions.approve(
-            self.v2_address, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            approve_txn, self.evm_privkey
-        )
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check allowance
-        allowance = meta_contract.functions.allowance(
-            self.evm_address, self.v2_address
-        ).call()
-        assert_equal(Web3.from_wei(allowance, "ether"), amount)
-
-        # Call depositAndSplitTokens
-        deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
-            self.contract_address_metav1, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            deposit_txn, self.evm_privkey
-        )
-
-        balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
-        total_supply_before = meta_contract.functions.totalSupply().call()
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check METAv1 balance on sender
-        # METAv1 balance of sender should be reduced by the approved amount
-        assert_equal(
-            meta_contract.functions.balanceOf(self.evm_address).call(),
-            balance_before - amount_to_approve,
-        )
-
-        # Check METAv1 totalSupply.
-        # Funds should be reduced by the amount splitted
-        totalSupplyAfter = meta_contract.functions.totalSupply().call()
-        assert_equal(totalSupplyAfter, total_supply_before - amount_to_approve)
-
-        # Get new contract
-        meta_contract_new = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav2, abi=self.dst20_abi
-        )
-
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.evm_address).call(),
-            amount_to_receive,
-        )
-
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.v2_address).call(),
-            Decimal(0),
+        # Execute first split transaction
+        self.execute_split_transaction(
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            amount,
+            split_multiplier,
         )
 
         # Set amount to split
         amount = 40
 
-        # Create the amount to approve
-        amount_to_approve = Web3.to_wei(amount, "ether")
-
-        # Create the amount to approve
-        amount_to_receive = Web3.to_wei(amount * self.splitMultiplier, "ether")
-
-        # Get old contract
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav2, abi=self.dst20_abi
-        )
-
-        # Construct the approve transaction
-        approve_txn = meta_contract.functions.approve(
-            self.v2_address, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            approve_txn, self.evm_privkey
-        )
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check allowance
-        allowance = meta_contract.functions.allowance(
-            self.evm_address, self.v2_address
-        ).call()
-        assert_equal(Web3.from_wei(allowance, "ether"), amount)
-
-        # Call depositAndSplitTokens
-        deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
-            self.contract_address_metav2, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            deposit_txn, self.evm_privkey
-        )
-
-        balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
-        total_supply_before = meta_contract.functions.totalSupply().call()
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check METAv2 balance on sender
-        # METAv2 balance of sender should be reduced by the approved amount
-        assert_equal(
-            meta_contract.functions.balanceOf(self.evm_address).call(),
-            balance_before - amount_to_approve,
-        )
-
-        # Check METAv2 totalSupply.
-        # Funds should be reduced by the amount splitted
-        totalSupplyAfter = meta_contract.functions.totalSupply().call()
-        assert_equal(totalSupplyAfter, total_supply_before - amount_to_approve)
-
-        # Get new contract
-        meta_contract_new = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav3, abi=self.dst20_abi
-        )
-
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.evm_address).call(),
-            amount_to_receive,
-        )
-
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.v2_address).call(),
-            Decimal(0),
+        # Execute second split transaction
+        self.execute_split_transaction(
+            self.contract_address_metav2,
+            self.contract_address_metav3,
+            amount,
+            split_multiplier,
         )
 
         # Check minted balances
@@ -701,26 +514,42 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
         assert_equal(
             self.nodes[0].gettoken("META")["3"]["minted"],
-            Decimal("3920.00000000") + (amount * self.splitMultiplier),
+            Decimal("3920.00000000") + (amount * split_multiplier),
         )
 
+    def satoshi_limit(self, amount):
+        return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+
     def split_token(
-        self, old_contract_address, new_contract_address, symbol_postfix="v1"
+        self,
+        old_contract_address,
+        new_contract_address,
+        symbol_postfix="v1",
+        split_multiplier=2,
     ):
 
         # Get META ID
         meta_id = list(self.nodes[0].gettoken("META").keys())[0]
 
         # Get amount
-        balance_after_split = (
-            Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0]) * 2
-        )
+        if split_multiplier > 0:
+            balance_after_split = (
+                Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
+                * split_multiplier
+            )
+        else:
+            balance_after_split = Decimal(
+                self.nodes[0].getaccount(self.address)[1].split("@")[0]
+            ) / abs(split_multiplier)
+
+        # Limit to 8 decimal places
+        balance_after_split = self.satoshi_limit(balance_after_split)
 
         # Token split
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    f"v0/oracles/splits/{self.nodes[0].getblockcount() + 2}": f"{meta_id}/{self.splitMultiplier}"
+                    f"v0/oracles/splits/{self.nodes[0].getblockcount() + 2}": f"{meta_id}/{split_multiplier}"
                 }
             }
         )
@@ -759,6 +588,105 @@ class EVMTokenSplitTest(DefiTestFramework):
             ],
             "META",
         )
+
+    def execute_split_transaction(
+        self, source_contract, destination_contract, amount=20, split_multiplier=2
+    ):
+
+        # Create the amount to approve
+        amount_to_approve = Web3.to_wei(amount, "ether")
+        # Create the amount to approve
+        if split_multiplier > 0:
+            amount_to_receive = Web3.to_wei(amount * split_multiplier, "ether")
+        else:
+            amount_to_receive = Web3.to_wei(amount / abs(split_multiplier), "ether")
+
+        # If less than 1 Sat then amount will be 0
+        if amount_to_receive < Web3.to_wei(10, "gwei"):
+            amount_to_receive = 0
+
+        # Get old contract
+        meta_contract = self.nodes[0].w3.eth.contract(
+            address=source_contract, abi=self.dst20_abi
+        )
+
+        # Construct the approve transaction
+        approve_txn = meta_contract.functions.approve(
+            self.v2_address, amount_to_approve
+        ).build_transaction(
+            {
+                "from": self.evm_address,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
+            }
+        )
+
+        # Sign the transaction
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            approve_txn, self.evm_privkey
+        )
+
+        # Send the signed transaction
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Check allowance
+        allowance = meta_contract.functions.allowance(
+            self.evm_address, self.v2_address
+        ).call()
+        assert_equal(Web3.from_wei(allowance, "ether"), Decimal(str(amount)))
+
+        # Call depositAndSplitTokens
+        deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
+            source_contract, amount_to_approve
+        ).build_transaction(
+            {
+                "from": self.evm_address,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
+            }
+        )
+
+        # Sign the transaction
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            deposit_txn, self.evm_privkey
+        )
+
+        balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
+        total_supply_before = meta_contract.functions.totalSupply().call()
+
+        # Send the signed transaction
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+
+        # Check source contract balance on sender
+        # Source contract balance of sender should be reduced by the approved amount
+        assert_equal(
+            meta_contract.functions.balanceOf(self.evm_address).call(),
+            balance_before - amount_to_approve,
+        )
+
+        # Check source contract totalSupply.
+        # Funds should be reduced by the amount splitted
+        totalSupplyAfter = meta_contract.functions.totalSupply().call()
+        assert_equal(totalSupplyAfter, total_supply_before - amount_to_approve)
+
+        # Get new contract
+        meta_contract_new = self.nodes[0].w3.eth.contract(
+            address=destination_contract, abi=self.dst20_abi
+        )
+
+        # Check META balance on sender
+        assert_equal(
+            meta_contract_new.functions.balanceOf(self.evm_address).call(),
+            amount_to_receive,
+        )
+
+        # Check META balance on sender
+        assert_equal(
+            meta_contract_new.functions.balanceOf(self.v2_address).call(),
+            Decimal(0),
+        )
+
+        return amount_to_receive
 
 
 if __name__ == "__main__":
