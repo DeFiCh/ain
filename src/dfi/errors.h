@@ -196,6 +196,14 @@ public:
         return Res::Err(error);
     }
 
+    static Res GovVarOracleInvalidKey(const std::map<std::string, uint8_t> &keys) {
+        std::string error{"Unrecognised key, valid keys are either block height or:"};
+        for (const auto &pair : keys) {
+            error += ' ' + pair.first + ',';
+        }
+        return Res::Err(error);
+    }
+
     static Res GovVarVariableUnsupportedType(const unsigned char type) {
         return Res::Err("Unsupported type {%d}", type);
     }

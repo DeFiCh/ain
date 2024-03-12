@@ -1113,7 +1113,7 @@ Res ATTRIBUTES::ProcessVariable(const std::string &key,
 
             itype = ikey->second.find(keys[3]);
             if (itype == ikey->second.end()) {
-                return DeFiErrors::GovVarVariableInvalidKey("key", ikey->second);
+                return DeFiErrors::GovVarOracleInvalidKey(ikey->second);
             }
 
             typeKey = itype->second;

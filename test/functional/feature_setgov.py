@@ -1348,7 +1348,7 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Value must be an integer",
+            "Amount must be a valid number",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/oracles/splits/1200": "1/50,600"}},
         )
@@ -1423,7 +1423,7 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Token should be defined as numeric ID",
+            "Unrecognised key, valid keys are either block height or: fractional_enabled,",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/oracles/splits/abc": "4/2"}},
         )
