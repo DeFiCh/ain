@@ -65,7 +65,7 @@ pub async fn ocean_router(
         services: services.clone(),
         network,
     });
-
+    println!("{:?}", context.network);
     Ok(Router::new().nest(
         format!("/v0/{}", context.network).as_str(),
         Router::new()
@@ -74,7 +74,7 @@ pub async fn ocean_router(
             .nest("/loans", loan::router(Arc::clone(&context)))
             .nest("/fee", fee::router(Arc::clone(&context)))
             .nest("/masternodes", masternode::router(Arc::clone(&context)))
-            // .nest("/oracles", oracle::router(Arc::clone(&context)))
+            .nest("/oracles", oracle::router(Arc::clone(&context)))
             // .nest("/poolpairs", poolpairs::router(Arc::clone(&context)))
             // .nest("/prices", prices::router(Arc::clone(&context)))
             // .nest("/rawtx", rawtx::router(Arc::clone(&context)))
