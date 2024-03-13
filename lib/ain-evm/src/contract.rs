@@ -180,7 +180,7 @@ pub fn dst20_deploy_info(
     let Contract {
         runtime_bytecode, ..
     } = get_dst20_contract();
-    let storage = dst20_name_info(&name, &symbol);
+    let storage = dst20_name_info(name, symbol);
 
     Ok(DeployContractInfo {
         address,
