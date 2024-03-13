@@ -153,11 +153,9 @@ bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 
-bool fStopOrInterrupt = false;
+bool fInterrupt = false;
 std::string fInterruptBlockHash = "";
 int fInterruptBlockHeight = -1;
-std::string fStopBlockHash = "";
-int fStopBlockHeight = -1;
 
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
@@ -2583,7 +2581,7 @@ uint32_t GetNextAccPosition() {
 }
 
 bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) {
-    if (!fStopOrInterrupt) {
+    if (!fInterrupt) {
         return false;
     }
 
@@ -2591,13 +2589,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) 
         return height == index->nHeight || (!hash.empty() && hash == index->phashBlock->ToString());
     };
 
-    // Stop is processed first. So, if a block has both stop and interrupt
-    // stop will take priority.
-    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash) ||
-        checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
-        if (pIndex->nHeight == fStopBlockHeight) {
-            StartShutdown();
-        }
+    if (checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
         state.Invalid(
             ValidationInvalidReason::CONSENSUS, error("%s: user interrupt", __func__), "user-interrupt-request");
         return true;
