@@ -719,7 +719,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             static_cast<uint64_t>(nAcceptTime),
             consensus,
             &mnview,
-            IsEVMEnabled(mnview, consensus),
+            IsEVMEnabled(mnview),
             {},
             true,
         };
@@ -3369,7 +3369,10 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplate);
+    // Set to ConnectBlock CCustomCSView
+    blockCtx.SetView(mnview);
+
+    ProcessDeFiEvent(block, pindex, view, creationTxs, blockCtx);
 
     // Write any UTXO burns
     for (const auto &[key, value] : writeBurnEntries) {
@@ -7215,6 +7218,30 @@ public:
 };
 static CMainCleanup instance_of_cmaincleanup;
 
+BlockContext::BlockContext(const uint32_t height,
+                           const uint64_t time,
+                           const Consensus::Params &consensus,
+                           CCustomCSView *view,
+                           const std::optional<bool> enabled,
+                           const std::shared_ptr<CScopedTemplate> &evmTemplate,
+                           const bool prevalidate)
+    : view(view),
+      isEvmEnabledForBlock(enabled),
+      evmTemplate(evmTemplate),
+      evmPreValidate(prevalidate),
+      height(height),
+      time(time),
+      consensus(consensus) {}
+
+BlockContext::BlockContext(BlockContext &other, CCustomCSView &otherView)
+    : view(&otherView),
+      isEvmEnabledForBlock(other.GetEVMEnabledForBlock()),
+      evmTemplate(other.GetEVMTemplate()),
+      evmPreValidate(other.GetEVMPreValidate()),
+      height(other.GetHeight()),
+      time(other.GetTime()),
+      consensus(other.GetConsensus()) {}
+
 CCustomCSView &BlockContext::GetView() {
     if (!view) {
         cache = std::make_shared<CCustomCSView>(*pcustomcsview);
@@ -7225,7 +7252,7 @@ CCustomCSView &BlockContext::GetView() {
 
 bool BlockContext::GetEVMEnabledForBlock() {
     if (!isEvmEnabledForBlock) {
-        isEvmEnabledForBlock = IsEVMEnabled(GetView(), Params().GetConsensus());
+        isEvmEnabledForBlock = IsEVMEnabled(GetView());
     }
     return *isEvmEnabledForBlock;
 }

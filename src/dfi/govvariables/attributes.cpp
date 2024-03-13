@@ -872,7 +872,7 @@ bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
     return attributes->GetValue(enabledKey, false);
 }
 
-bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus) {
+bool IsEVMEnabled(const CCustomCSView &view) {
     auto attributes = view.GetAttributes();
 
     return IsEVMEnabled(attributes);

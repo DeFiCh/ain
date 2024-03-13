@@ -180,14 +180,7 @@ pub fn dst20_deploy_info(
     let Contract {
         runtime_bytecode, ..
     } = get_dst20_contract();
-    let storage = vec![
-        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
-        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
-        (
-            IMPLEMENTATION_SLOT,
-            h160_to_h256(get_dst20_v1_contract().fixed_address),
-        ),
-    ];
+    let storage = dst20_name_info(&name, &symbol);
 
     Ok(DeployContractInfo {
         address,
@@ -401,6 +394,24 @@ pub fn deploy_contract_tx(bytecode: Vec<u8>, base_fee: &U256) -> Result<(SignedT
     Ok((tx, receipt))
 }
 
+pub fn rename_contract_tx(token_id: u64, base_fee: &U256) -> Result<(Box<SignedTx>, ReceiptV3)> {
+    let tx = TransactionV2::Legacy(LegacyTransaction {
+        nonce: U256::from(token_id),
+        gas_price: *base_fee,
+        gas_limit: U256::from(u64::MAX),
+        action: TransactionAction::Create,
+        value: U256::zero(),
+        input: Vec::new(),
+        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+            .ok_or(format_err!("Invalid transaction signature format"))?,
+    })
+    .try_into()?;
+
+    let receipt = get_default_successful_receipt();
+
+    Ok((Box::new(tx), receipt))
+}
+
 fn get_default_successful_receipt() -> ReceiptV3 {
     ReceiptV3::Legacy(EIP1559ReceiptData {
         status_code: 1u8,
@@ -433,4 +444,15 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
         txs.push(tx);
     }
     Ok(txs)
+}
+
+pub fn dst20_name_info(name: &str, symbol: &str) -> Vec<(H256, H256)> {
+    vec![
+        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
+        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
+        (
+            IMPLEMENTATION_SLOT,
+            h160_to_h256(get_dst20_v1_contract().fixed_address),
+        ),
+    ]
 }

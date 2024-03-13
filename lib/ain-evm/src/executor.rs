@@ -17,14 +17,18 @@ use crate::{
     bytes::Bytes,
     contract::{
         bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
-        dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
+        dst20_deploy_info, dst20_name_info, rename_contract_tx, DST20BridgeInfo,
+        DeployContractInfo,
     },
     core::EVMCoreService,
     eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
-        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        system::{
+            DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData,
+            UpdateContractNameData,
+        },
         SignedTx,
     },
     EVMError, Result,
@@ -608,6 +612,30 @@ impl<'backend> AinExecutor<'backend> {
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
+
+                Ok(ApplyTxResult {
+                    tx,
+                    used_gas: U256::zero(),
+                    logs: Vec::new(),
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, Some(address)),
+                })
+            }
+            ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
+                name,
+                symbol,
+                address,
+                token_id,
+            })) => {
+                debug!(
+                    "[execute_tx] Rename contract for address {:x?}, name {}, symbol {}",
+                    address, name, symbol
+                );
+
+                let storage = dst20_name_info(&name, &symbol);
+
+                self.update_storage(address, storage)?;
+                let (tx, receipt) = rename_contract_tx(token_id, &base_fee)?;
 
                 Ok(ApplyTxResult {
                     tx,

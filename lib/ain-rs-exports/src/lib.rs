@@ -343,6 +343,13 @@ pub mod ffi {
         );
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
+
+        fn evm_try_unsafe_rename_dst20(
+            result: &mut CrossBoundaryResult,
+            block_template: &mut BlockTemplateWrapper,
+            native_hash: [u8; 32],
+            token: DST20TokenInfo,
+        );
     }
 
     // =========  Debug ==========
