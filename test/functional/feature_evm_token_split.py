@@ -12,6 +12,7 @@ from decimal import Decimal, ROUND_DOWN
 import math
 import time
 from web3 import Web3
+from web3.exceptions import ContractLogicError
 
 
 class EVMTokenSplitTest(DefiTestFramework):
@@ -50,6 +51,9 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Store block height for rollback
         self.block_height = self.nodes[0].getblockcount()
 
+        # Test split rollback
+        self.rollback_token_split()
+
         # Split token via transfer domain
         self.transfer_domain_split()
 
@@ -57,31 +61,55 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.transfer_domain_multiple_split()
 
         # Split tokens via intrinsics contract
-        self.intrinsic_token_split(20)
+        self.intrinsic_token_split(20, 2)
 
         # Partial split tokens via intrinsics contract
-        self.intrinsic_token_split(10)
+        self.intrinsic_token_split(10, 2)
 
         # Partial split tokens via intrinsics contract
         self.multiple_intrinsic_token_split()
 
         # Merge tokens via intrinsics contract
-        self.intrinsic_token_merge(20)
+        self.intrinsic_token_merge(20, -2)
 
         # Merge small amount via intrinsics contract
-        self.intrinsic_token_merge(0.00000002)
+        self.intrinsic_token_merge(0.00000002, -2)
 
         # Merge Satoshi amount via intrinsics contract
-        self.intrinsic_token_merge(0.00000001)
+        self.intrinsic_token_merge(0.00000001, -2)
+
+        # Merge tokens via intrinsics contract
+        self.intrinsic_token_merge(20, -3)
+
+        # Merge small amount via intrinsics contract
+        self.intrinsic_token_merge(0.00000003, -3)
+
+        # Merge small amount via intrinsics contract
+        self.intrinsic_token_merge(0.00000002, -3)
+
+        # Merge Satoshi amount via intrinsics contract
+        self.intrinsic_token_merge(0.00000001, -3)
 
         # Merge tokens via transfer domain
-        self.transfer_domain_merge(20)
+        self.transfer_domain_merge(20, -2)
 
         # Merge small amount via transfer domain
-        self.transfer_domain_merge(0.00000002)
+        self.transfer_domain_merge(0.00000002, -2)
 
         # Merge Satoshi amount via transfer domain
-        self.transfer_domain_merge(0.00000001)
+        self.transfer_domain_merge(0.00000001, -2)
+
+        # Merge tokens via transfer domain
+        self.transfer_domain_merge(20, -3)
+
+        # Merge small amount via transfer domain
+        self.transfer_domain_merge(0.00000003, -3)
+
+        # Merge small amount via transfer domain
+        self.transfer_domain_merge(0.00000002, -3)
+
+        # Merge Satoshi amount via transfer domain
+        self.transfer_domain_merge(0.00000001, -3)
 
     def satoshi_limit(self, amount):
         return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
@@ -353,10 +381,7 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(2000.00000000),
         )
 
-    def transfer_domain_merge(self, amount):
-
-        # Set multiplier
-        split_multiplier = -2
+    def transfer_domain_merge(self, amount, split_multiplier):
 
         # Rollback
         self.rollback_to(self.block_height)
@@ -473,7 +498,40 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(4000.00000000),
         )
 
-    def intrinsic_token_split(self, amount, split_multiplier=2):
+    def rollback_token_split(self):
+
+        # Set multiplier
+        split_multiplier = 2
+
+        # Rollback
+        self.rollback_to(self.block_height)
+
+        # Fund address
+        self.fund_address(self.address, self.evm_address)
+
+        # Split token
+        self.split_token(
+            self.contract_address_metav1,
+            self.contract_address_metav2,
+            "v1",
+            split_multiplier,
+        )
+
+        # Rollback
+        self.rollback_to(self.block_height)
+
+        # Check new contract has not been created
+        meta_contract_new = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_metav2, abi=self.dst20_abi
+        )
+
+        try:
+            meta_contract_new.functions.name().call()
+            raise AssertionError("New contract should not exist")
+        except ContractLogicError:
+            pass
+
+    def intrinsic_token_split(self, amount, split_multiplier):
 
         # Rollback
         self.rollback_to(self.block_height)
@@ -503,10 +561,7 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(1960.00000000) + (amount * split_multiplier),
         )
 
-    def intrinsic_token_merge(self, amount):
-
-        # Set multiplier
-        split_multiplier = -2
+    def intrinsic_token_merge(self, amount, split_multiplier):
 
         # Rollback
         self.rollback_to(self.block_height)
@@ -678,7 +733,9 @@ class EVMTokenSplitTest(DefiTestFramework):
         if split_multiplier > 0:
             amount_to_receive = Web3.to_wei(amount * split_multiplier, "ether")
         else:
-            amount_to_receive = Web3.to_wei(amount / abs(split_multiplier), "ether")
+            amount_to_receive = Decimal(str(amount)) / abs(split_multiplier)
+            amount_to_receive = self.satoshi_limit(Decimal(str(amount_to_receive)))
+            amount_to_receive = Web3.to_wei(amount_to_receive, "ether")
 
         # If less than 1 Sat then amount will be 0
         if amount_to_receive < Web3.to_wei(10, "gwei"):
