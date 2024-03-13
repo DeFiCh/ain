@@ -2780,7 +2780,6 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                              const CChainParams &chainparams,
                              const CreationTxs &creationTxs,
                              BlockContext &blockCtx) {
-    const auto &consensus = blockCtx.GetConsensus();
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
