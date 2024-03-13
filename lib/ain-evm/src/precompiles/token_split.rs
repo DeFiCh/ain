@@ -89,12 +89,9 @@ impl DVMStatePrecompile for TokenSplit {
             });
         };
 
-        let Ok(storage) = get_new_contract_storage_update(
-            handle,
-            sender,
-            new_contract,
-            converted_amount.0,
-        ) else {
+        let Ok(storage) =
+            get_new_contract_storage_update(handle, sender, new_contract, converted_amount.0)
+        else {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Error getting storage update".into()),
             });
