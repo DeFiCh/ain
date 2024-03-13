@@ -2785,10 +2785,8 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
 
-    if (pindex->nHeight >= consensus.DF23Height) {
-        // Loan splits
-        ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
-    }
+    // Loan splits
+    ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
@@ -2842,13 +2840,6 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, consensus);
-
-    // Moved to ProcessDeFiEventFallible after fork to
-    // execute before EVM queue processing
-    if (pindex->nHeight < consensus.DF23Height) {
-        // Loan splits
-        ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
-    }
 
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
