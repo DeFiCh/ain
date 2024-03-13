@@ -387,7 +387,7 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
 
             // Process TokenSplit
             if (height >= consensus.DF23Height) {
-                res = ExecuteTokenSplitFromTransferDomain(mnview, destAmount);
+                res = ExecuteTokenMigrationTransferDomain(mnview, destAmount);
                 if (!res) {
                     return res;
                 }

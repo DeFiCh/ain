@@ -2874,7 +2874,7 @@ void ProcessDeFiEvent(const CBlock &block,
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
 }
 
-bool ExecuteTokenSplitFromEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount) {
+bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount) {
     auto cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
     CCustomCSView copy(*pcustomcsview);
     if (!cache) {
@@ -2911,7 +2911,7 @@ bool ExecuteTokenSplitFromEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
     return true;
 }
 
-Res ExecuteTokenSplitFromTransferDomain(CCustomCSView &view, CTokenAmount &amount) {
+Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount) {
     if (amount.nValue == 0) {
         return Res::Ok();
     }

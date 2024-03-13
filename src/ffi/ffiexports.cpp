@@ -394,8 +394,8 @@ uint64_t getDF23Height() {
     return Params().GetConsensus().DF23Height;
 }
 
-bool splitTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
-    if (!ExecuteTokenSplitFromEVM(mnview_ptr, old_amount, new_amount)) {
+bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
+    if (!ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount)) {
         return false;
     }
     return true;

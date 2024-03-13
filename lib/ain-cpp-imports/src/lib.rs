@@ -132,7 +132,7 @@ mod ffi {
     pub fn getDF23Height() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
     }
-    pub fn splitTokensFromEVM(
+    pub fn migrateTokensFromEVM(
         _mnview_ptr: usize,
         _old_amount: TokenAmount,
         _new_amount: &mut TokenAmount,
@@ -331,7 +331,7 @@ pub fn split_tokens_from_evm(
     old_amount: ffi::TokenAmount,
     new_amount: &mut ffi::TokenAmount,
 ) -> bool {
-    ffi::splitTokensFromEVM(mnview_ptr, old_amount, new_amount)
+    ffi::migrateTokensFromEVM(mnview_ptr, old_amount, new_amount)
 }
 
 #[cfg(test)]
