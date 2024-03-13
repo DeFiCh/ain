@@ -291,7 +291,7 @@ impl<'backend> AinExecutor<'backend> {
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let gas_state = MemoryStackState::new(metadata.clone(), self.backend);
-        let precompiles = MetachainPrecompiles;
+        let precompiles = MetachainPrecompiles::default();
         let mut gas_executor =
             StackExecutor::new_with_precompiles(gas_state, &Self::CONFIG, &precompiles);
         let mut gas_listener = GasListener::new();
@@ -334,7 +334,7 @@ impl<'backend> AinExecutor<'backend> {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata.clone(), self.backend);
         let al_state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = MetachainPrecompiles;
+        let precompiles = MetachainPrecompiles::default();
         let mut al_executor =
             StackExecutor::new_with_precompiles(al_state, &Self::CONFIG, &precompiles);
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
