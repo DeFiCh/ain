@@ -106,6 +106,6 @@ bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
 bool isEthSubscriptionEnabled();
 uint64_t getDF23Height();
-bool splitTokensFromEVM(TokenAmount old_amount, TokenAmount &new_amount);
+bool splitTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

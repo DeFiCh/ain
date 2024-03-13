@@ -2874,20 +2874,23 @@ void ProcessDeFiEvent(const CBlock &block,
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
 }
 
-bool ExecuteTokenSplitFromEVM(const TokenAmount oldAmount, TokenAmount &newAmount) {
-    auto &mnview = *pcustomcsview;
-    CCustomCSView cache(mnview);
+bool ExecuteTokenSplitFromEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount) {
+    auto cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
+    if (!cache) {
+        // mnview_ptr will be 0 in case of a RPC `eth_call` or a debug_traceTransaction
+        cache = pcustomcsview.get();
+    }
 
     if (oldAmount.amount == 0) {
         return false;
     }
 
-    const auto token = cache.GetToken(DCT_ID{oldAmount.id});
+    const auto token = cache->GetToken(DCT_ID{oldAmount.id});
     if (!token) {
         return false;
     }
 
-    const auto idMultiplierPair = cache.GetTokenSplitMultiplier(oldAmount.id);
+    const auto idMultiplierPair = cache->GetTokenSplitMultiplier(oldAmount.id);
     if (!idMultiplierPair) {
         return false;
     }

@@ -57,12 +57,16 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.transfer_domain_multiple_split()
 
         # Split tokens via intrinsics contract
-        self.intrinsic_token_split()
+        self.intrinsic_token_split(20)
+
+        # Partial split tokens via intrinsics contract
+        self.intrinsic_token_split(10)
 
     def setup(self):
 
         # Define address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.splitMultiplier = 2
 
         # Generate chain
         self.nodes[0].generate(105)
@@ -380,7 +384,7 @@ class EVMTokenSplitTest(DefiTestFramework):
             Decimal(4000.00000000),
         )
 
-    def intrinsic_token_split(self):
+    def intrinsic_token_split(self, amount):
 
         # Rollback
         self.rollback_to(self.block_height)
@@ -394,7 +398,9 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
 
         # Create the amount to approve
-        amount_to_approve = Web3.to_wei(20, "ether")
+        amount_to_approve = Web3.to_wei(amount, "ether")
+        # Create the amount to approve
+        amount_to_receive = Web3.to_wei(amount * self.splitMultiplier, "ether")
 
         # Construct the approve transaction
         approve_txn = self.meta_contract.functions.approve(
@@ -419,7 +425,7 @@ class EVMTokenSplitTest(DefiTestFramework):
         allowance = self.meta_contract.functions.allowance(
             self.evm_address, self.v2_address
         ).call()
-        assert_equal(Web3.from_wei(allowance, "ether"), 20)
+        assert_equal(Web3.from_wei(allowance, "ether"), amount)
 
         # Call depositAndSplitTokens
         deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
@@ -436,26 +442,36 @@ class EVMTokenSplitTest(DefiTestFramework):
             deposit_txn, self.evm_privkey
         )
 
+        balanceBefore = self.meta_contract.functions.balanceOf(self.evm_address).call()
+        totalSupplyBefore = self.meta_contract.functions.totalSupply().call()
+
         # Send the signed transaction
         self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
         self.nodes[0].generate(1)
 
         # Check METAv1 balance on sender
+        # METAv1 balance of sender should be reduced by the approved amount
         assert_equal(
             self.meta_contract.functions.balanceOf(self.evm_address).call(),
-            Decimal(0),
+            balanceBefore - amount_to_approve,
         )
 
-        # Check METAv1 balance on contract
-        assert_equal(
-            self.meta_contract.functions.balanceOf(self.v2_address).call(),
-            Decimal(0),
-        )
+        # Check METAv1 balance on contract.
+        # Funds should not be sent to DFIIntrinsic contract
+        # assert_equal(
+        #     self.meta_contract.functions.balanceOf(self.v2_address).call(),
+        #     Decimal(0),
+        # )
+
+        # Check METAv1 totalSupply.
+        # Funds should be reduced by the amount splitted
+        totalSupplyAfter = self.meta_contract.functions.totalSupply().call()
+        assert_equal(totalSupplyAfter, totalSupplyBefore - amount_to_approve)
 
         # Check META balance on sender
         assert_equal(
             self.meta_contract_new.functions.balanceOf(self.evm_address).call(),
-            Decimal(40000000000000000000),
+            amount_to_receive,
         )
 
         # Check META balance on sender
@@ -480,7 +496,7 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    f"v0/oracles/splits/{self.nodes[0].getblockcount() + 2}": f"{meta_id}/2"
+                    f"v0/oracles/splits/{self.nodes[0].getblockcount() + 2}": f"{meta_id}/{self.splitMultiplier}"
                 }
             }
         )

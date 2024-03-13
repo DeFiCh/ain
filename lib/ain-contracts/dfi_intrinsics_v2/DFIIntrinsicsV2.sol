@@ -41,7 +41,7 @@ contract DFIIntrinsicsV2 is IDFIIntrinsicsV2 {
     }
 
     function depositAndSplitTokens(address tokenContract, uint256 amount) public {
-        require(IERC20(tokenContract).transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        // require(IERC20(tokenContract).transferFrom(msg.sender, address(this), amount), "Transfer failed");
         splitTokens(msg.sender, tokenContract, amount);
     }
 

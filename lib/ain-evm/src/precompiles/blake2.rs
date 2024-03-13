@@ -163,6 +163,7 @@ impl Precompile for Blake2F {
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
+            state_changes: None,
             output: output_buf.to_vec(),
         })
     }

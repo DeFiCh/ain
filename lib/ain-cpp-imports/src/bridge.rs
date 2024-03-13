@@ -68,6 +68,10 @@ pub mod ffi {
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
         fn getDF23Height() -> u64;
-        fn splitTokensFromEVM(old_amount: TokenAmount, new_amount: &mut TokenAmount) -> bool;
+        fn splitTokensFromEVM(
+            mnview_ptr: usize,
+            old_amount: TokenAmount,
+            new_amount: &mut TokenAmount,
+        ) -> bool;
     }
 }

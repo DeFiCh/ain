@@ -13,7 +13,7 @@ use ethereum_types::H160;
 use evm::executor::stack::IsPrecompileResult;
 pub use evm::{
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileSet},
-    Context, ExitError, ExitRevert, ExitSucceed, Transfer,
+    ExitError, ExitSucceed,
 };
 use modexp::Modexp;
 use simple::{ECRecover, Identity, Ripemd160, Sha256};
@@ -27,6 +27,11 @@ pub trait Precompile {
     /// Try to execute the precompile with given `handle` which provides all call data
     /// and allow to register costs and logs.
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult;
+}
+
+// Precompile with access to mnview
+pub trait DVMStatePrecompile {
+    fn execute(handle: &mut impl PrecompileHandle, mnview_ptr: usize) -> PrecompileResult;
 }
 
 pub trait LinearCostPrecompile {
@@ -49,6 +54,7 @@ impl<T: LinearCostPrecompile> Precompile for T {
         Ok(PrecompileOutput {
             exit_status,
             output,
+            state_changes: None,
         })
     }
 }
@@ -81,11 +87,16 @@ fn ensure_linear_cost(
     Ok(cost)
 }
 
-pub struct MetachainPrecompiles;
+#[derive(Default)]
+pub struct MetachainPrecompiles(Option<usize>);
 
 // Ethereum precompiles available as of shangai fork :
 // Ref: Ethereum Yellow Paper (https://ethereum.github.io/yellowpaper/paper.pdf) Page 12
 impl MetachainPrecompiles {
+    pub fn new(mnview_ptr: usize) -> Self {
+        Self(Some(mnview_ptr))
+    }
+
     pub fn used_addresses() -> [H160; 10] {
         [
             hash(1),
@@ -114,7 +125,7 @@ impl PrecompileSet for MetachainPrecompiles {
             a if a == hash(7) => Some(Bn128Mul::execute(handle)),
             a if a == hash(8) => Some(Bn128Pairing::execute(handle)),
             a if a == hash(9) => Some(Blake2F::execute(handle)),
-            a if a == hash(10) => Some(TokenSplit::execute(handle)),
+            a if a == hash(10) => Some(TokenSplit::execute(handle, self.0.unwrap_or_default())), // If None, should fetch from global view
             _ => None,
         }
     }
