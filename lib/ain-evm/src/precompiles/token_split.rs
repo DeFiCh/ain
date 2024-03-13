@@ -93,7 +93,7 @@ impl DVMStatePrecompile for TokenSplit {
             handle,
             sender,
             new_contract,
-            U256::from(converted_amount.0),
+            converted_amount.0,
         ) else {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Error getting storage update".into()),
