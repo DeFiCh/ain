@@ -13,6 +13,7 @@
 #include <primitives/transaction.h>
 #include <rpc/blockchain.h>
 #include <rpc/protocol.h>
+#include <rpc/request.h>
 #include <rpc/server.h>
 #include <streams.h>
 #include <sync.h>
@@ -89,6 +90,21 @@ static RetFormat ParseDataFormat(std::string& param, const std::string& strReq)
     /* If no suffix is found, return original string.  */
     param = strReq;
     return rf_names[0].rf;
+}
+
+static bool ParseVerbose(const std::string& strReq)
+{
+    const std::string::size_type pos = strReq.rfind('?');
+    if (pos == std::string::npos) {
+        return false;
+    }
+
+    const std::string suff(strReq, pos + 1);
+    if (suff == "verbose") {
+        return true;
+    }
+    // No verbose suffix found, set default verbose to false.
+    return false;
 }
 
 static std::string AvailableDataFormatsString()
@@ -622,6 +638,110 @@ static bool rest_blockhash_by_height(HTTPRequest* req,
     }
 }
 
+static bool rest_blockchain_liveness(HTTPRequest* req,
+                       const std::string& str_uri_part)
+{
+    const auto verbose = ParseVerbose(str_uri_part);
+    std::string statusmessage;
+    bool inStartup = RPCIsInWarmup(&statusmessage);
+
+    std::string msg = "";
+    if (verbose) {
+        if (inStartup) {
+            msg += "startup failed: rpc in warm up\n";
+            msg += "livez check failed\n";
+        } else {
+            msg += "startup: ok\n";
+            msg += "livez check passed\n";
+        }
+    }
+
+    req->WriteHeader("Content-Type", "text/plain");
+    if (inStartup) {
+        req->WriteReply(HTTP_SERVICE_UNAVAILABLE, msg);
+        return false;
+    } else {
+        req->WriteReply(HTTP_OK, msg);
+        return true;
+    }
+}
+
+struct ReadinessFlags {
+    bool inStartup;
+    bool p2pDisabled;
+    bool syncToTip;
+    bool activePeers;
+    bool healthz;
+
+    std::string ToLogOutput() const {
+        std::string msg{};
+        if (inStartup) {
+            msg += "startup failed: rpc in warm up\n";
+        } else {
+            msg += "startup: ok\n";
+        }
+        if (syncToTip) {
+            msg += "sync to tip: ok\n";
+        } else {
+            msg += "sync to tip failed: chain height less than header height\n";
+        }
+        if (activePeers) {
+            msg += "p2p check: ok\n";
+        } else {
+            if (p2pDisabled) {
+                msg += "p2p check failed: p2p functionality missing or disabled\n";
+            } else {
+                msg += "p2p check failed: insufficent active peers\n";
+            }
+        }
+        if (GetReadiness()) {
+            msg += "healthz check passed\n";
+        } else {
+            msg += "healthz check failed\n";
+        }
+        return msg;
+    }
+
+    bool GetReadiness() const {
+        return (healthz && !inStartup && !p2pDisabled && syncToTip && activePeers);
+    }
+};
+
+// Hack dependency on functions defined in rpc/net.cpp
+bool CheckChainSyncToTip();
+bool CheckActivePeerConnections(bool& flag);
+
+static bool rest_blockchain_readiness(HTTPRequest* req,
+                       const std::string& str_uri_part)
+{
+    const auto verbose = ParseVerbose(str_uri_part);
+
+
+    std::string statusmessage;
+    ReadinessFlags flags{false, false, false, false, false};
+    flags.inStartup = RPCIsInWarmup(&statusmessage);
+
+    if (!flags.inStartup) {
+        flags.syncToTip = CheckChainSyncToTip();
+        flags.activePeers = CheckActivePeerConnections(flags.p2pDisabled);
+        flags.healthz = flags.syncToTip && flags.activePeers;
+    }
+
+    std::string msg{};
+    if (verbose) {
+        msg = flags.ToLogOutput();
+    }
+
+    req->WriteHeader("Content-Type", "text/plain");
+    if (flags.GetReadiness()) {
+        req->WriteReply(HTTP_OK, msg);
+        return true;
+    } else {
+        req->WriteReply(HTTP_SERVICE_UNAVAILABLE, msg);
+        return false;
+    }
+}
+
 static const struct {
     const char* prefix;
     bool (*handler)(HTTPRequest* req, const std::string& strReq);
@@ -635,6 +755,14 @@ static const struct {
       {"/rest/headers/", rest_headers},
       {"/rest/getutxos", rest_getutxos},
       {"/rest/blockhashbyheight/", rest_blockhash_by_height},
+};
+
+static const struct {
+    const char* prefix;
+    bool (*handler)(HTTPRequest* req, const std::string& strReq);
+} health_uri_prefixes[] = {
+      {"/livez", rest_blockchain_liveness},
+      {"/readyz", rest_blockchain_readiness},
 };
 
 void StartREST()
@@ -651,4 +779,20 @@ void StopREST()
 {
     for (unsigned int i = 0; i < ARRAYLEN(uri_prefixes); i++)
         UnregisterHTTPHandler(uri_prefixes[i].prefix, false);
+}
+
+void StartHealthEndpoints()
+{
+    for (unsigned int i = 0; i < ARRAYLEN(health_uri_prefixes); i++)
+        RegisterHTTPHandler(health_uri_prefixes[i].prefix, false, health_uri_prefixes[i].handler);   
+}
+
+void InterruptHealthEndpoints()
+{
+}
+
+void StopHealthEndpoints()
+{
+    for (unsigned int i = 0; i < ARRAYLEN(health_uri_prefixes); i++)
+        UnregisterHTTPHandler(health_uri_prefixes[i].prefix, false);
 }

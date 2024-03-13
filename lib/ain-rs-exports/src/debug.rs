@@ -42,11 +42,7 @@ pub fn debug_log_account_states() -> Result<String> {
         return Err("debug_* RPCs have not been enabled".into());
     }
 
-    let backend = SERVICES
-        .evm
-        .core
-        .get_latest_block_backend()
-        .expect("Error restoring backend");
+    let backend = SERVICES.evm.core.get_latest_block_backend()?;
     let ro_handle = backend.ro_handle();
 
     let mut out = String::new();

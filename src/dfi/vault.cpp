@@ -21,6 +21,18 @@ Res CVaultView::StoreVault(const CVaultId &vaultId, const CVaultData &vault) {
     return Res::Ok();
 }
 
+bool CVaultView::SetVaultCreationFee(const CVaultId &vaultId, const CAmount creationFee) {
+    return WriteBy<HeightAndFeeKey>(vaultId, creationFee);
+}
+
+std::optional<CAmount> CVaultView::GetVaultCreationFee(const CVaultId &vaultId) {
+    return ReadBy<HeightAndFeeKey, CAmount>(vaultId);
+}
+
+bool CVaultView::EraseVaultCreationFee(const CVaultId &vaultId) {
+    return EraseBy<HeightAndFeeKey>(vaultId);
+}
+
 Res CVaultView::EraseVault(const CVaultId &vaultId) {
     auto vault = GetVault(vaultId);
     if (!vault) {

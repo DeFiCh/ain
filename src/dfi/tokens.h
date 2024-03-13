@@ -181,6 +181,15 @@ public:
     }
 };
 
+struct UpdateTokenContext {
+    const CTokenImplementation &newToken;
+    BlockContext &blockCtx;
+    const bool checkFinalised{};
+    const bool tokenSplitUpdate{};
+    const bool checkSymbol{};
+    const uint256 hash{};
+};
+
 class CTokensView : public virtual CStorageView {
 public:
     static const DCT_ID DCT_ID_START;            // = 128;
@@ -198,8 +207,8 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, BlockContext *blockCtx = nullptr);
-    Res UpdateToken(const CTokenImpl &newToken, bool skipFinalisedCheck = false, const bool tokenSplitUpdate = false);
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, BlockContext &blockCtx, bool isPreBayfront = false);
+    Res UpdateToken(UpdateTokenContext &ctx);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const &id, const CAmount &amount);

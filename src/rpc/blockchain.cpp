@@ -278,11 +278,16 @@ struct RewardInfo {
 
 std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForBlock) {
     auto evmBlockHeaderToUniValue = [](const EVMBlockHeader& header) {
+        const auto parent_hash = uint256::FromByteArray(header.parent_hash).GetHex();
+        const auto beneficiary = uint160::FromByteArray(header.beneficiary).GetHex();
+        const auto state_root = uint256::FromByteArray(header.state_root).GetHex();
+        const auto receipts_root = uint256::FromByteArray(header.receipts_root).GetHex();
+
         UniValue r(UniValue::VOBJ);
-        r.pushKV("parenthash", std::string(header.parent_hash.data(), header.parent_hash.length()));
-        r.pushKV("beneficiary", std::string(header.beneficiary.data(), header.beneficiary.length()));
-        r.pushKV("stateRoot", std::string(header.state_root.data(), header.state_root.length()));
-        r.pushKV("receiptRoot", std::string(header.receipts_root.data(), header.receipts_root.length()));
+        r.pushKV("parenthash", parent_hash);
+        r.pushKV("beneficiary", beneficiary);
+        r.pushKV("stateRoot", state_root);
+        r.pushKV("receiptRoot", receipts_root);
         r.pushKV("number", header.number);
         r.pushKV("gasLimit", header.gas_limit);
         r.pushKV("gasUsed", header.gas_used);
@@ -307,8 +312,10 @@ std::optional<UniValue> VmInfoUniv(const CTransaction& tx, bool isEvmEnabledForB
         result.pushKV("vmtype", "coinbase");
         result.pushKV("txtype", "coinbase");
         result.pushKV("msg", xvm->ToUniValue());
+
+        auto blockHash = uint256S(xvm->evm.blockHash);
         CrossBoundaryResult res;
-        auto evmBlockHeader = evm_try_get_block_header_by_hash(res, xvm->evm.blockHash);
+        auto evmBlockHeader = evm_try_get_block_header_by_hash(res, blockHash.GetByteArray());
         if (!res.ok) return {};
         result.pushKV("xvmHeader", evmBlockHeaderToUniValue(evmBlockHeader));
         return result;
@@ -348,7 +355,7 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
     const auto consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(*pcustomcsview);
 
     auto txsToUniValue = [&isEvmEnabledForBlock](const CBlock& block, bool txDetails, int version) {
         UniValue txs(UniValue::VARR);
