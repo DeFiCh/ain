@@ -12,7 +12,6 @@ from decimal import Decimal, ROUND_DOWN
 import math
 import time
 from web3 import Web3
-from web3.exceptions import ContractLogicError
 
 
 class EVMTokenSplitTest(DefiTestFramework):
