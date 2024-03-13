@@ -1,5 +1,6 @@
 #include <dfi/accountshistory.h>
 #include <dfi/auctionhistory.h>
+#include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <dfi/vaulthistory.h>
 
@@ -344,10 +345,14 @@ UniValue createvault(const JSONRPCRequest &request) {
         }
     }
 
-    int targetHeight;
+    int targetHeight{};
+    CAmount vaultCreationFee{};
     {
         LOCK(cs_main);
         targetHeight = ::ChainActive().Height() + 1;
+        const auto attributes = pcustomcsview->GetAttributes();
+        const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
+        vaultCreationFee = attributes->GetValue(creationFeeKey, Params().GetConsensus().vaultCreationFee);
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);
@@ -364,7 +369,7 @@ UniValue createvault(const JSONRPCRequest &request) {
     rawTx.vin = GetAuthInputsSmart(
         pwallet, rawTx.nVersion, auths, false, optAuthTx, request.params[2], request.metadata.coinSelectOpts);
 
-    rawTx.vout.emplace_back(Params().GetConsensus().vaultCreationFee, scriptMeta);
+    rawTx.vout.emplace_back(vaultCreationFee, scriptMeta);
 
     CCoinControl coinControl;
 

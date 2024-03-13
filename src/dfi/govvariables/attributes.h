@@ -72,6 +72,7 @@ enum TransferIDs : uint8_t {
 
 enum VaultIDs : uint8_t {
     DUSDVault = 'a',
+    Parameters = 'b',
 };
 
 enum RulesIDs : uint8_t {
@@ -174,6 +175,7 @@ enum TransferKeys : uint8_t {
 };
 
 enum VaultKeys : uint8_t {
+    CreationFee = 'a',
     DUSDVaultEnabled = 'w',
 };
 
