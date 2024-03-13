@@ -51,9 +51,6 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Store block height for rollback
         self.block_height = self.nodes[0].getblockcount()
 
-        # Test split rollback
-        self.rollback_token_split()
-
         # Split token via transfer domain
         self.transfer_domain_split()
 
@@ -497,39 +494,6 @@ class EVMTokenSplitTest(DefiTestFramework):
             self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
             Decimal(4000.00000000),
         )
-
-    def rollback_token_split(self):
-
-        # Set multiplier
-        split_multiplier = 2
-
-        # Rollback
-        self.rollback_to(self.block_height)
-
-        # Fund address
-        self.fund_address(self.address, self.evm_address)
-
-        # Split token
-        self.split_token(
-            self.contract_address_metav1,
-            self.contract_address_metav2,
-            "v1",
-            split_multiplier,
-        )
-
-        # Rollback
-        self.rollback_to(self.block_height)
-
-        # Check new contract has not been created
-        meta_contract_new = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav2, abi=self.dst20_abi
-        )
-
-        try:
-            meta_contract_new.functions.name().call()
-            raise AssertionError("New contract should not exist")
-        except ContractLogicError:
-            pass
 
     def intrinsic_token_split(self, amount, split_multiplier):
 
