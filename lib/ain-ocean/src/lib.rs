@@ -109,14 +109,14 @@ pub struct Services {
     pub result: TxResultRepository,
     pub pool: PoolService,
     pub transaction: TransactionService,
-    oracle: OracleService,
-    oracle_price_feed: OraclePriceFeedService,
-    oracle_price_active: OraclePriceActiveService,
-    oracle_price_aggregated_interval: OraclePriceAggregatedIntervalService,
-    oracle_price_aggregated: OraclePriceAggregatedService,
-    oracle_token_currency: OracleTokenCurrencyService,
-    oracle_history: OracleHistoryService,
-    price_ticker: PriceTickerService,
+    pub oracle: OracleService,
+    pub oracle_price_feed: OraclePriceFeedService,
+    pub oracle_price_active: OraclePriceActiveService,
+    pub oracle_price_aggregated_interval: OraclePriceAggregatedIntervalService,
+    pub oracle_price_aggregated: OraclePriceAggregatedService,
+    pub oracle_token_currency: OracleTokenCurrencyService,
+    pub oracle_history: OracleHistoryService,
+    pub price_ticker: PriceTickerService,
 }
 
 impl Services {
