@@ -142,7 +142,9 @@ Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
     }
 
     if (tokenUpdated) {
-        if (auto res = mnview.UpdateToken(*token, true); !res) {
+        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
+        UpdateTokenContext ctx{*token, dummyContext, false, false, true};
+        if (auto res = mnview.UpdateToken(ctx); !res) {
             return res;
         }
     }
