@@ -149,6 +149,7 @@ ResVal<DCT_ID> CTokensView::CreateToken(const CTokensView::CTokenImpl &token,
 }
 
 Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
+    // checkFinalised is always true before the bayfront fork.
     const auto checkFinalised = ctx.checkFinalised;
     const auto tokenSplitUpdate = ctx.tokenSplitUpdate;
     const auto checkSymbol = ctx.checkSymbol;
@@ -202,15 +203,15 @@ Res CTokensView::UpdateToken(UpdateTokenContext &ctx) {
             const auto &hash = ctx.hash;
             CrossBoundaryResult result;
             if (newToken.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
-                return Res::Err("Error creating DST20 token, token name is larger than max bytes\n");
+                return Res::Err("Error updating DST20 token, token name is larger than max bytes\n");
             }
             const auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(newToken.name));
             if (!result.ok) {
-                return Res::Err("Error creating DST20 token, token name not valid UTF-8\n");
+                return Res::Err("Error updating DST20 token, token name not valid UTF-8\n");
             }
             const auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(newToken.symbol));
             if (!result.ok) {
-                return Res::Err("Error creating DST20 token, token symbol not valid UTF-8\n");
+                return Res::Err("Error updating DST20 token, token symbol not valid UTF-8\n");
             }
             evm_try_unsafe_rename_dst20(result,
                                         evmTemplate->GetTemplate(),

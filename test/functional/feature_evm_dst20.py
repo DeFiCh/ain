@@ -1005,6 +1005,20 @@ class DST20(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        # Check that update has associated EVM TX and receipt
+        update_tx = self.nodes[0].eth_getBlockByNumber("latest")["transactions"][0]
+        receipt = self.nodes[0].eth_getTransactionReceipt(update_tx)
+        tx = self.nodes[0].eth_getTransactionByHash(update_tx)
+        assert_equal(
+            self.w0.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_btc,
+        )
+        assert_equal(receipt["from"], tx["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
+
         # Check contract variables
         self.btc = self.nodes[0].w3.eth.contract(
             address=self.contract_address_btc, abi=self.abi
