@@ -9,10 +9,9 @@ from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
-    truncate,
 )
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 import time
 
 
@@ -43,9 +42,27 @@ class TokenFractionalSplitTest(DefiTestFramework):
         ]
 
     def run_test(self):
+
+        # Set up test tokens
         self.setup_test_tokens()
+
+        # Test token split
         self.setup_and_check_govvars()
-        self.token_split()
+
+        # Test token 5-to-2 merge
+        self.token_split(-2.5)
+
+        # Test token 2-to-5 split
+        self.token_split(2.5)
+
+        # Test token 4-to-3 merge
+        self.token_split(-1.33333333)
+
+        # Test token 3-to-4 split
+        self.token_split(1.33333333)
+
+    def satoshi_limit(self, amount):
+        return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
     def setup_test_tokens(self):
         self.nodes[0].generate(101)
@@ -227,17 +244,34 @@ class TokenFractionalSplitTest(DefiTestFramework):
             },
         )
 
-    def token_split(self):
+        # Save block height
+        self.block_height = self.nodes[0].getblockcount()
+
+    def token_split(self, multiplier):
+
+        # Rollback to start
+        self.rollback_to(self.block_height)
+
+        # Get token ID
+        self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+
         # Set expected minted amount
-        minted = str(
-            self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"] / Decimal("2.5")
-        ).split(".")[0]
+        if multiplier < 0:
+            minted = str(
+                self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"]
+                / Decimal(str(abs(multiplier)))
+            ).split(".")[0]
+        else:
+            minted = str(
+                self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"]
+                * Decimal(str(multiplier))
+            ).split(".")[0]
 
         # Token split
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
-                    f"v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}": f"{self.idTSLA}/-2.5"
+                    f"v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}": f"{self.idTSLA}/{multiplier}"
                 }
             }
         )
@@ -253,7 +287,14 @@ class TokenFractionalSplitTest(DefiTestFramework):
         for [address, amount] in self.funded_addresses:
             account = self.nodes[0].getaccount(address)
             new_amount = account[0].split("@")[0]
-            split_amount = truncate(str(amount / Decimal("2.5")), 8)
+
+            if multiplier < 0:
+                split_amount = self.satoshi_limit(
+                    amount / Decimal(str(abs(multiplier)))
+                )
+            else:
+                split_amount = self.satoshi_limit(amount * Decimal(str(multiplier)))
+
             assert_equal(new_amount, f"{Decimal(split_amount):.8f}")
             history = self.nodes[0].listaccounthistory(
                 address, {"txtype": "TokenSplit"}
