@@ -275,7 +275,7 @@ pub fn validate_split_tokens_input(input: &[u8]) -> Result<TokenSplitParams> {
     let function = get_split_tokens_function();
     let token_inputs = function.decode_input(input)?;
 
-    let Some(ethabi::Token::Address(sender)) = token_inputs.get(0).cloned() else {
+    let Some(ethabi::Token::Address(sender)) = token_inputs.first() else {
         return Err(format_err!("invalid from address input in evm tx"));
     };
     let Some(ethabi::Token::Address(token_contract)) = token_inputs.get(1).cloned() else {
@@ -286,7 +286,7 @@ pub fn validate_split_tokens_input(input: &[u8]) -> Result<TokenSplitParams> {
     };
 
     Ok(TokenSplitParams {
-        sender,
+        sender: *sender,
         token_contract,
         amount,
     })
