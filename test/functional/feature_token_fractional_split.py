@@ -14,7 +14,6 @@ from test_framework.util import (
 
 from decimal import Decimal
 import time
-import random
 
 
 class TokenFractionalSplitTest(DefiTestFramework):
@@ -33,7 +32,12 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "-fortcanninghillheight=1",
                 "-fortcanningroadheight=1",
                 "-fortcanningcrunchheight=1",
-                "-df23height=350",
+                "-fortcanningspringheight=1",
+                "-fortcanninggreatworldheight=1",
+                "-grandcentralheight=1",
+                "-grandcentralepilogueheight=1",
+                "-metachainheight=105",
+                "-df23height=250",
                 "-subsidytest=1",
             ]
         ]
@@ -94,16 +98,18 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Store token IDs
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
 
+        # Enable mint tokens to address
+        self.nodes[0].setgov(
+            {"ATTRIBUTES": {"v0/params/feature/mint-tokens-to-address": "true"}}
+        )
+        self.nodes[0].generate(1)
+
         # Create funded addresses
         self.funded_addresses = []
-        for _ in range(100):
-            amount = round(random.uniform(1, 1000), 8)
-            self.nodes[0].minttokens([f"{str(amount)}@{self.idTSLA}"])
-            self.nodes[0].generate(1)
+        for i in range(100):
             address = self.nodes[0].getnewaddress()
-            self.nodes[0].accounttoaccount(
-                self.address, {address: f"{str(amount)}@{self.idTSLA}"}
-            )
+            amount = 10 + (i * 10)
+            self.nodes[0].minttokens([f"{str(amount)}@{self.idTSLA}"], [], address)
             self.nodes[0].generate(1)
             self.funded_addresses.append([address, Decimal(str(amount))])
 
@@ -189,7 +195,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         )
 
         # Move to fork
-        self.nodes[0].generate(350 - self.nodes[0].getblockcount())
+        self.nodes[0].generate(250 - self.nodes[0].getblockcount())
 
         # Try and create a fractional split before the fork
         assert_raises_rpc_error(
@@ -226,10 +232,6 @@ class TokenFractionalSplitTest(DefiTestFramework):
         minted = str(
             self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"] / Decimal("2.5")
         ).split(".")[0]
-
-        # Lock token
-        self.nodes[0].setgov({"ATTRIBUTES": {f"v0/locks/token/{self.idTSLA}": "true"}})
-        self.nodes[0].generate(1)
 
         # Token split
         self.nodes[0].setgov(
