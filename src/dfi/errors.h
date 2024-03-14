@@ -270,6 +270,8 @@ public:
 
     static Res GovVarVerifySplitFractional() { return Res::Err("Fractional split not currently supported"); }
 
+    static Res GovVarVerifySplitFractionalTooSmall() { return Res::Err("Fractional split cannot be less than 1"); }
+
     static Res GovVarValidateExcessAmount() { return Res::Err("Percentage exceeds 100%%"); }
 
     static Res GovVarTokenAsString() { return Res::Err("Token should be defined as numeric ID"); }

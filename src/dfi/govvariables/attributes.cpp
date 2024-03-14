@@ -1898,6 +1898,9 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             if (!fractionalEnabled && multiplier % COIN != 0) {
                                 return DeFiErrors::GovVarVerifySplitFractional();
                             }
+                            if (fractionalEnabled && multiplier < COIN && multiplier > -COIN) {
+                                return DeFiErrors::GovVarVerifySplitFractionalTooSmall();
+                            }
                         }
                     }
                 } else {

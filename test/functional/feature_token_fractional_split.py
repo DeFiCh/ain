@@ -209,6 +209,18 @@ class TokenFractionalSplitTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        # Try and create a fractional split of less than 1
+        assert_raises_rpc_error(
+            -32600,
+            "Fractional split cannot be less than 1",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
+                    f"v0/oracles/splits/{str(self.nodes[0].getblockcount() + 2)}": f"{self.idTSLA}/-0.99999999"
+                }
+            },
+        )
+
     def token_split(self):
         # Set expected minted amount
         minted = str(
