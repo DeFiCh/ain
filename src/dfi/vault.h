@@ -154,6 +154,10 @@ public:
                       const CVaultId &start = {},
                       const CScript &ownerAddress = {});
 
+    bool SetVaultCreationFee(const CVaultId &vaultId, const CAmount creationFee);
+    std::optional<CAmount> GetVaultCreationFee(const CVaultId &vaultId);
+    bool EraseVaultCreationFee(const CVaultId &vaultId);
+
     virtual Res AddVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
     virtual Res SubVaultCollateral(const CVaultId &vaultId, CTokenAmount amount);
     std::optional<CBalances> GetVaultCollaterals(const CVaultId &vaultId);
@@ -192,6 +196,10 @@ public:
     };
     struct AuctionBidKey {
         static constexpr uint8_t prefix() { return 0x25; }
+    };
+
+    struct HeightAndFeeKey {
+        static constexpr uint8_t prefix() { return 0x26; }
     };
 };
 

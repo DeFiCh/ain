@@ -560,8 +560,7 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx) {
         // TX changes are applied on a different view which
         // is then used to create the TX undo based on the
         // difference between the original and the copy.
-        auto blockCtxTxView{blockCtx};
-        blockCtxTxView.SetView(view);
+        BlockContext blockCtxTxView{blockCtx, view};
 
         res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
