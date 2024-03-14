@@ -1,6 +1,6 @@
+pub mod consts;
 pub mod error;
 mod indexer;
-
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
