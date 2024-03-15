@@ -36,7 +36,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "-grandcentralheight=1",
                 "-grandcentralepilogueheight=1",
                 "-metachainheight=105",
-                "-df23height=250",
+                "-df23height=350",
                 "-subsidytest=1",
             ]
         ]
@@ -69,11 +69,45 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Set up pool pair
         self.setup_poolpair()
 
+        # Set up vaults
+        self.setup_vaults()
+
         # Save block height
         self.block_height = self.nodes[0].getblockcount()
 
     def satoshi_limit(self, amount):
         return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+
+    def setup_vaults(self):
+
+        # Create loan scheme
+        self.nodes[0].createloanscheme(100, 0.1, "LOAN0001")
+        self.nodes[0].generate(1)
+
+        # Fund address for vault creation
+        self.nodes[0].utxostoaccount({self.address: f"30000@{self.symbolDFI}"})
+        self.nodes[0].generate(1)
+
+        # Create vaults
+        for i in range(1, 11):
+
+            # Create vault
+            vault_id = self.nodes[0].createvault(self.address, "")
+            self.nodes[0].generate(1)
+
+            # Deposit
+            collateral = i * 10
+            self.nodes[0].deposittovault(
+                vault_id, self.address, f"{collateral}@{self.symbolDFI}"
+            )
+            self.nodes[0].generate(1)
+
+            # Take loan
+            loan = collateral / 2
+            self.nodes[0].takeloan(
+                {"vaultId": vault_id, "amounts": f"{loan}@{self.symbolTSLA}"}
+            )
+            self.nodes[0].generate(1)
 
     def setup_poolpair(self):
 
@@ -114,6 +148,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Price feeds
         price_feed = [
             {"currency": "USD", "token": self.symbolTSLA},
+            {"currency": "USD", "token": self.symbolDFI},
         ]
 
         # Appoint oracle
@@ -124,11 +159,12 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Set Oracle prices
         oracle_prices = [
             {"currency": "USD", "tokenAmount": f"1@{self.symbolTSLA}"},
+            {"currency": "USD", "tokenAmount": f"1@{self.symbolDFI}"},
         ]
         self.nodes[0].setoracledata(oracle, int(time.time()), oracle_prices)
         self.nodes[0].generate(11)
 
-        # Create tokens
+        # Create loan token
         self.nodes[0].setloantoken(
             {
                 "symbol": self.symbolTSLA,
@@ -140,12 +176,12 @@ class TokenFractionalSplitTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        # Set collateral tokens
+        # Set collateral token
         self.nodes[0].setcollateraltoken(
             {
-                "token": self.symbolTSLA,
+                "token": self.symbolDFI,
                 "factor": 1,
-                "fixedIntervalPriceId": f"{self.symbolTSLA}/USD",
+                "fixedIntervalPriceId": f"{self.symbolDFI}/USD",
             }
         )
         self.nodes[0].generate(1)
@@ -169,6 +205,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
             self.funded_addresses.append([address, Decimal(str(amount))])
 
     def setup_and_check_govvars(self):
+
         # Try and enable fractional split before the fork
         assert_raises_rpc_error(
             -32600,
@@ -178,7 +215,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
         )
 
         # Move to fork
-        self.nodes[0].generate(250 - self.nodes[0].getblockcount())
+        self.nodes[0].generate(350 - self.nodes[0].getblockcount())
 
         # Try and create a fractional split before the fork
         assert_raises_rpc_error(
@@ -212,6 +249,9 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
     def token_split(self, multiplier):
 
+        # Convert mutliplier to Decimal
+        multiplier = Decimal(str(abs(multiplier)))
+
         # Rollback to start
         self.rollback_to(self.block_height)
 
@@ -220,13 +260,19 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
         # Set expected minted amount
         if multiplier < 0:
-            minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA][
-                "minted"
-            ] / Decimal(str(abs(multiplier)))
+            minted = (
+                self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"] / multiplier
+            )
         else:
-            minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA][
-                "minted"
-            ] * Decimal(str(multiplier))
+            minted = (
+                self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"] * multiplier
+            )
+
+        # Get vault balances before migration
+        self.vault_balances = []
+        for vault_info in self.nodes[0].listvaults():
+            vault = self.nodes[0].getvault(vault_info["vaultId"])
+            self.vault_balances.append([vault_info["vaultId"], vault])
 
         # Token split
         self.nodes[0].setgov(
@@ -241,9 +287,9 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Calculate pool pair reserve
         reserve_a = Decimal("1000.00000000")
         if multiplier < 0:
-            reserve_a = self.satoshi_limit(reserve_a / Decimal(str(abs(multiplier))))
+            reserve_a = self.satoshi_limit(reserve_a / multiplier)
         else:
-            reserve_a = reserve_a * Decimal(str(multiplier))
+            reserve_a = reserve_a * multiplier
 
         # Check balances are equal
         assert_equal(self.nodes[0].listpoolpairs()["4"]["reserveA"], reserve_a)
@@ -261,21 +307,30 @@ class TokenFractionalSplitTest(DefiTestFramework):
             new_amount = account[0].split("@")[0]
 
             if multiplier < 0:
-                split_amount = self.satoshi_limit(
-                    amount / Decimal(str(abs(multiplier)))
-                )
+                split_amount = self.satoshi_limit(amount / multiplier)
             else:
-                split_amount = self.satoshi_limit(amount * Decimal(str(multiplier)))
+                split_amount = self.satoshi_limit(amount * multiplier)
 
-            assert_equal(new_amount, f"{Decimal(split_amount):.8f}")
-            history = self.nodes[0].listaccounthistory(
-                address, {"txtype": "TokenSplit"}
+            assert_equal(Decimal(new_amount), split_amount)
+
+        # Check vault balances after migration
+        for [vault_id, pre_vault] in self.vault_balances:
+            post_vault = self.nodes[0].getvault(vault_id)
+            pre_interest = Decimal(pre_vault["interestAmounts"][0].split("@")[0])
+            post_interest = Decimal(post_vault["interestAmounts"][0].split("@")[0])
+            pre_loan_amount = (
+                Decimal(pre_vault["loanAmounts"][0].split("@")[0]) - pre_interest
             )
-            assert_equal(len(history), 2)
-            assert_equal(
-                history[0]["amounts"][0], f"{-amount:.8f}" + f"@{self.symbolTSLA}/v1"
+            post_loan_amount = (
+                Decimal(post_vault["loanAmounts"][0].split("@")[0]) - post_interest
             )
-            assert_equal(history[1]["amounts"][0], account[0])
+
+            if multiplier < 0:
+                pre_loan_scaled = self.satoshi_limit(pre_loan_amount / multiplier)
+            else:
+                pre_loan_scaled = pre_loan_amount * multiplier
+
+            assert_equal(post_loan_amount, pre_loan_scaled)
 
 
 if __name__ == "__main__":
