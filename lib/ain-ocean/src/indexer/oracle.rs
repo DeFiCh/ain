@@ -8,6 +8,7 @@ use rust_decimal::{
 };
 
 use crate::{
+    error::NotFoundKind,
     indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
@@ -80,8 +81,34 @@ impl Index for AppointOracle {
         Ok(())
     }
 
-    fn invalidate(&self, _services: &Arc<Services>, _context: &Context) -> Result<()> {
-        todo!()
+    fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
+        let oracle_id = context.tx.txid;
+        services.oracle.by_id.delete(&oracle_id)?;
+        services.oracle_history.by_id.delete(&(
+            oracle_id,
+            context.block.height,
+            context.tx.txid,
+        ))?;
+        for currency_pair in self.price_feeds.as_ref().iter() {
+            let token_currency_id = (
+                currency_pair.token.to_owned(),
+                currency_pair.currency.to_owned(),
+                oracle_id,
+            );
+            let token_currency_key = (
+                currency_pair.token.to_owned(),
+                currency_pair.currency.to_owned(),
+            );
+            services
+                .oracle_token_currency
+                .by_id
+                .delete(&token_currency_id)?;
+            services
+                .oracle_token_currency
+                .by_key
+                .delete(&token_currency_key)?;
+        }
+        Ok(())
     }
 }
 
@@ -99,15 +126,23 @@ impl Index for RemoveOracle {
                             price_feed_item.currency.to_owned(),
                             oracle_id,
                         );
-                        if let Err(err) = services.oracle_token_currency.by_id.delete(&deletion_key)
-                        {
-                            eprintln!("Error removing oracle: {:?}", err);
+                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message = format!("Error:remove oracle: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
                         }
                     }
                 }
             }
             Err(err) => {
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error:remove oracle: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
         Ok(())
@@ -186,17 +221,23 @@ impl Index for UpdateOracle {
                             price_feed_item.currency.clone(),
                             oracle_id,
                         );
-                        if let Err(err) = services.oracle_token_currency.by_id.delete(&deletion_key)
-                        {
-                            // Handle the error, if necessary
-                            eprintln!("Error deleting data: {:?}", err);
+                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message = format!("Error:update oracle: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
                         }
                     }
                 }
             }
             Err(err) => {
-                // Handle the error from the Result
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error:update oracle: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
         let prices_feeds = self.price_feeds.as_ref();
@@ -263,15 +304,24 @@ impl Index for UpdateOracle {
                             price_feed_item.currency.clone(),
                             oracle_id,
                         );
-                        if let Err(err) = services.oracle_token_currency.by_id.delete(&deletion_key)
-                        {
-                            eprintln!("Error deleting data: {:?}", err);
+                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message =
+                                    format!("Error update oracle invalidate: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
                         }
                     }
                 }
             }
             Err(err) => {
-                eprintln!("Error getting previous oracle: {:?}", err);
+                let error_message = format!("Error update oracle invalidate: {:?}", err);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
 
