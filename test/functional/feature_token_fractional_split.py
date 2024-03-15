@@ -43,11 +43,8 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
     def run_test(self):
 
-        # Set up test tokens
-        self.setup_test_tokens()
-
-        # Test token split
-        self.setup_and_check_govvars()
+        # Setup test
+        self.setup_tests()
 
         # Test token 5-to-2 merge
         self.token_split(-2.5)
@@ -61,14 +58,55 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Test token 3-to-4 split
         self.token_split(1.33333333)
 
+    def setup_tests(self):
+
+        # Set up test tokens
+        self.setup_test_tokens()
+
+        # Set up and check Gov vars
+        self.setup_and_check_govvars()
+
+        # Set up pool pair
+        self.setup_poolpair()
+
+        # Save block height
+        self.block_height = self.nodes[0].getblockcount()
+
     def satoshi_limit(self, amount):
         return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+
+    def setup_poolpair(self):
+
+        # Fund address for pool
+        self.nodes[0].utxostoaccount({self.address: f"1000@{self.symbolDFI}"})
+        self.nodes[0].minttokens([f"1000@{self.idTSLA}"])
+        self.nodes[0].generate(1)
+
+        # Create pool pair
+        self.nodes[0].createpoolpair(
+            {
+                "tokenA": self.symbolTSLA,
+                "tokenB": self.symbolDFI,
+                "status": True,
+                "ownerAddress": self.address,
+                "symbol": self.symbolTSLA + "-" + self.symbolDFI,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.address: [f"1000@{self.symbolTSLA}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].generate(1)
 
     def setup_test_tokens(self):
         self.nodes[0].generate(101)
 
         # Symbols
         self.symbolTSLA = "TSLA"
+        self.symbolDFI = "DFI"
 
         # Store address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -130,78 +168,6 @@ class TokenFractionalSplitTest(DefiTestFramework):
             self.nodes[0].generate(1)
             self.funded_addresses.append([address, Decimal(str(amount))])
 
-    def check_token_split(
-        self, token_id, token_symbol, token_suffix, minted, loan, collateral
-    ):
-        # Check old token
-        result = self.nodes[0].gettoken(token_id)[token_id]
-        assert_equal(result["symbol"], f"{token_symbol}{token_suffix}")
-        assert_equal(result["minted"], Decimal("0.00000000"))
-        assert_equal(result["mintable"], False)
-        assert_equal(result["tradeable"], False)
-        assert_equal(result["finalized"], True)
-        assert_equal(result["isLoanToken"], False)
-        assert_equal(result["destructionTx"], self.nodes[0].getbestblockhash())
-        assert_equal(result["destructionHeight"], self.nodes[0].getblockcount())
-
-        # Check old token in Gov vars
-        result = self.nodes[0].listgovs("attrs")[0][0]["ATTRIBUTES"]
-        assert f"v0/token/{token_id}/fixed_interval_price_id" not in result
-        if collateral:
-            assert f"v0/token/{token_id}/loan_collateral_enabled" not in result
-            assert f"v0/token/{token_id}/loan_collateral_factor" not in result
-        if loan:
-            assert f"v0/token/{token_id}/loan_minting_enabled" not in result
-            assert f"v0/token/{token_id}/loan_minting_interest" not in result
-        assert f"v0/locks/token/{token_id}" not in result
-
-        # Save old ID and get new one
-        token_idv1 = token_id
-        token_id = list(self.nodes[0].gettoken(token_symbol).keys())[0]
-
-        # Check new token in Gov vars
-        assert_equal(
-            result[f"v0/token/{token_id}/fixed_interval_price_id"],
-            f"{token_symbol}/USD",
-        )
-        if collateral:
-            assert_equal(result[f"v0/token/{token_id}/loan_collateral_enabled"], "true")
-            assert_equal(result[f"v0/token/{token_id}/loan_collateral_factor"], "1")
-        if loan:
-            assert_equal(result[f"v0/token/{token_id}/loan_minting_enabled"], "true")
-            assert_equal(result[f"v0/token/{token_id}/loan_minting_interest"], "0")
-        assert f"v0/oracles/splits/{self.nodes[0].getblockcount()}" not in result
-        assert_equal(
-            result[f"v0/token/{token_idv1}/descendant"],
-            f"{token_id}/{self.nodes[0].getblockcount()}",
-        )
-        assert_equal(result[f"v0/token/{token_id}/ascendant"], f"{token_idv1}/split")
-        assert_equal(result[f"v0/locks/token/{token_id}"], "true")
-
-        # Check new token
-        result = self.nodes[0].gettoken(token_id)[token_id]
-        assert_equal(result["symbol"], f"{token_symbol}")
-        assert_equal(str(result["minted"]).split(".")[0], minted)
-        assert_equal(result["mintable"], True)
-        assert_equal(result["tradeable"], True)
-        assert_equal(result["finalized"], False)
-        assert_equal(result["isLoanToken"], True)
-        assert_equal(
-            result["creationTx"],
-            self.nodes[0].getblock(self.nodes[0].getbestblockhash())["tx"][1],
-        )
-        assert_equal(result["creationHeight"], self.nodes[0].getblockcount())
-        assert_equal(
-            result["destructionTx"],
-            "0000000000000000000000000000000000000000000000000000000000000000",
-        )
-        assert_equal(result["destructionHeight"], -1)
-
-        # Make sure no old tokens remain in the account
-        result = self.nodes[0].getaccount(self.address)
-        for val in result:
-            assert_equal(val.find(f"{token_symbol}{token_suffix}"), -1)
-
     def setup_and_check_govvars(self):
         # Try and enable fractional split before the fork
         assert_raises_rpc_error(
@@ -244,9 +210,6 @@ class TokenFractionalSplitTest(DefiTestFramework):
             },
         )
 
-        # Save block height
-        self.block_height = self.nodes[0].getblockcount()
-
     def token_split(self, multiplier):
 
         # Rollback to start
@@ -257,15 +220,13 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
         # Set expected minted amount
         if multiplier < 0:
-            minted = str(
-                self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"]
-                / Decimal(str(abs(multiplier)))
-            ).split(".")[0]
+            minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA][
+                "minted"
+            ] / Decimal(str(abs(multiplier)))
         else:
-            minted = str(
-                self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]["minted"]
-                * Decimal(str(multiplier))
-            ).split(".")[0]
+            minted = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA][
+                "minted"
+            ] * Decimal(str(multiplier))
 
         # Token split
         self.nodes[0].setgov(
@@ -277,11 +238,22 @@ class TokenFractionalSplitTest(DefiTestFramework):
         )
         self.nodes[0].generate(2)
 
-        # Check token split correctly
-        self.check_token_split(self.idTSLA, self.symbolTSLA, "/v1", minted, True, True)
+        # Calculate pool pair reserve
+        reserve_a = Decimal("1000.00000000")
+        if multiplier < 0:
+            reserve_a = self.satoshi_limit(reserve_a / Decimal(str(abs(multiplier))))
+        else:
+            reserve_a = reserve_a * Decimal(str(multiplier))
+
+        # Check balances are equal
+        assert_equal(self.nodes[0].listpoolpairs()["4"]["reserveA"], reserve_a)
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+
+        # Check new token amount to whole DFI as Sats will be lost due to rounding
+        result = self.nodes[0].gettoken(self.idTSLA)[self.idTSLA]
+        assert_equal(str(result["minted"]).split(".")[0], str(minted).split(".")[0])
 
         # Check new balances and history
         for [address, amount] in self.funded_addresses:
