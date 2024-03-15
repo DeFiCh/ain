@@ -691,7 +691,8 @@ class EVMTokenSplitTest(DefiTestFramework):
     ):
 
         # Create the amount to approve
-        amount_to_approve = Web3.to_wei(amount, "ether")
+        amount_to_send = Web3.to_wei(amount, "ether")
+
         # Create the amount to approve
         if split_multiplier > 0:
             amount_to_receive = Web3.to_wei(amount * split_multiplier, "ether")
@@ -709,34 +710,9 @@ class EVMTokenSplitTest(DefiTestFramework):
             address=source_contract, abi=self.dst20_abi
         )
 
-        # Construct the approve transaction
-        approve_txn = meta_contract.functions.approve(
-            self.v2_address, amount_to_approve
-        ).build_transaction(
-            {
-                "from": self.evm_address,
-                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
-            }
-        )
-
-        # Sign the transaction
-        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
-            approve_txn, self.evm_privkey
-        )
-
-        # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-        self.nodes[0].generate(1)
-
-        # Check allowance
-        allowance = meta_contract.functions.allowance(
-            self.evm_address, self.v2_address
-        ).call()
-        assert_equal(Web3.from_wei(allowance, "ether"), Decimal(str(amount)))
-
         # Call depositAndSplitTokens
         deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
-            source_contract, amount_to_approve
+            source_contract, amount_to_send
         ).build_transaction(
             {
                 "from": self.evm_address,
@@ -760,13 +736,13 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Source contract balance of sender should be reduced by the approved amount
         assert_equal(
             meta_contract.functions.balanceOf(self.evm_address).call(),
-            balance_before - amount_to_approve,
+            balance_before - amount_to_send,
         )
 
         # Check source contract totalSupply.
         # Funds should be reduced by the amount splitted
         totalSupplyAfter = meta_contract.functions.totalSupply().call()
-        assert_equal(totalSupplyAfter, total_supply_before - amount_to_approve)
+        assert_equal(totalSupplyAfter, total_supply_before - amount_to_send)
 
         # Get new contract
         meta_contract_new = self.nodes[0].w3.eth.contract(
