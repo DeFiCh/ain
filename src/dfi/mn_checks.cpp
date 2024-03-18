@@ -1077,7 +1077,7 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
                     return res;
                 }
 
-                if (lastSwap) {
+                if (LogAcceptCategory(BCLog::SWAPRESULT) && lastSwap) {
                     LogPrint(BCLog::SWAPRESULT,
                              "SwapResult: height=%d destination=%s result=%s\n",
                              height,
