@@ -7,6 +7,7 @@ mod token_split;
 #[cfg(test)]
 mod test_vector_support;
 
+use ain_contracts::get_dfi_intrinsics_v2_contract;
 use blake2::Blake2F;
 use bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use ethereum_types::H160;
@@ -115,6 +116,9 @@ impl MetachainPrecompiles {
 
 impl PrecompileSet for MetachainPrecompiles {
     fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
+        let is_intrinsics =
+            || handle.context().caller == get_dfi_intrinsics_v2_contract().fixed_address;
+
         match handle.code_address() {
             a if a == hash(1) => Some(<ECRecover as Precompile>::execute(handle)),
             a if a == hash(2) => Some(<Sha256 as Precompile>::execute(handle)),
@@ -125,7 +129,11 @@ impl PrecompileSet for MetachainPrecompiles {
             a if a == hash(7) => Some(Bn128Mul::execute(handle)),
             a if a == hash(8) => Some(Bn128Pairing::execute(handle)),
             a if a == hash(9) => Some(Blake2F::execute(handle)),
-            a if a == hash(10) => Some(TokenSplit::execute(handle, self.0.unwrap_or_default())), // If None, should fetch from global view
+
+            a if a == hash(10) && is_intrinsics() => {
+                let mnview_ptr = self.0.unwrap_or_default(); // If None, should fetch from global view
+                Some(TokenSplit::execute(handle, mnview_ptr))
+            }
             _ => None,
         }
     }
