@@ -2765,8 +2765,8 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
 
 static void ProcessNullPoolSwapRefund(const CBlockIndex *pindex,
                                       CCustomCSView &cache,
-                                      const CChainParams &chainparams) {
-    if (pindex->nHeight != chainparams.GetConsensus().DF23Height) {
+                                      const Consensus::Params &consensus) {
+    if (pindex->nHeight != consensus.DF23Height) {
         return;
     }
 
@@ -2775,7 +2775,7 @@ static void ProcessNullPoolSwapRefund(const CBlockIndex *pindex,
         if (!cache.SubBalance(nullSource, amounts)) {
             continue;
         }
-        const auto dest = DecodeDestination(address, chainparams);
+        const auto dest = DecodeDestination(address);
         if (!IsValidDestination(dest)) {
             continue;
         }
@@ -3026,7 +3026,7 @@ void ProcessDeFiEvent(const CBlock &block,
     ProcessGrandCentralEvents(pindex, cache, consensus);
 
     // Refund null pool swap amounts
-    ProcessNullPoolSwapRefund(pindex, cache, chainparams);
+    ProcessNullPoolSwapRefund(pindex, cache, consensus);
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
