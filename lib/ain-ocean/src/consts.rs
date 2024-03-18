@@ -21,14 +21,14 @@ impl std::str::FromStr for Network {
     }
 }
 
-impl Network {
-    pub fn as_str(&self) -> &'static str {
+impl ToString for Network {
+    fn to_string(&self) -> String {
         match self {
-            Network::Mainnet => "mainnet",
-            Network::Testnet => "testnet",
-            Network::Regtest => "regtest",
-            Network::Devnet => "devnet",
-            Network::Changi => "changi",
+            Network::Mainnet => String::from("mainnet"),
+            Network::Testnet => String::from("testnet"),
+            Network::Regtest => String::from("regtest"),
+            Network::Devnet => String::from("devnet"),
+            Network::Changi => String::from("changi"),
         }
     }
 }
