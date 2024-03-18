@@ -93,10 +93,10 @@ class EvmTracerTest(DefiTestFramework):
 
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
-        hashes = []
+
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         for i in range(3):
-            hash = self.nodes[0].eth_sendTransaction(
+            _ = self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": hex(start_nonce + i),
                     "from": self.ethAddress,
@@ -106,7 +106,6 @@ class EvmTracerTest(DefiTestFramework):
                     "gasPrice": "0x5D21DBA00",  # 25_000_000_000
                 }
             )
-            hashes.append(hash)
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
 
@@ -117,12 +116,12 @@ class EvmTracerTest(DefiTestFramework):
                 {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
             )
 
-    def test_tracer_on_transfer_tx_with_sys_txs(self):
+    def test_tracer_on_transfer_tx_with_transferdomain_txs(self):
         self.rollback_to(self.start_height)
-        hashes = []
+
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
         for i in range(3):
-            hash = self.nodes[0].eth_sendTransaction(
+            _ = self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": hex(start_nonce + i),
                     "from": self.ethAddress,
@@ -132,7 +131,6 @@ class EvmTracerTest(DefiTestFramework):
                     "gasPrice": "0x5D21DBA00",  # 25_000_000_000
                 }
             )
-            hashes.append(hash)
         # Add transfer domain inside block
         self.nodes[0].transferdomain(
             [
@@ -148,7 +146,7 @@ class EvmTracerTest(DefiTestFramework):
             ]
         )
         for i in range(4, 7):
-            hash = self.nodes[0].eth_sendTransaction(
+            _ = self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": hex(start_nonce + i),
                     "from": self.ethAddress,
@@ -158,7 +156,6 @@ class EvmTracerTest(DefiTestFramework):
                     "gasPrice": "0x5D21DBA00",  # 25_000_000_000
                 }
             )
-            hashes.append(hash)
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
 
@@ -184,8 +181,102 @@ class EvmTracerTest(DefiTestFramework):
                     },
                 )
 
+    def test_tracer_on_transfer_tx_with_deploy_dst20_txs(self):
+        self.rollback_to(self.start_height)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(6):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        # Create tokens
+        self.nodes[0].createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+
+        # Test tracer for every tx
+        for tx in block_txs[2:]:
+            assert_equal(
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                {
+                    "gas": "0x5208",
+                    "failed": False,
+                    "returnValue": "",
+                    "structLogs": [],
+                },
+            )
+
+    def test_tracer_on_transfer_tx_with_deploy_and_update_dst20_txs(self):
+        self.rollback_to(self.start_height)
+
+        # Create tokens
+        self.nodes[0].createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Update tokens
+        token_info = self.nodes[0].listtokens()["1"]
+        self.nodes[0].updatetoken("1", {"symbol": "goldy", "name": "GOLD token"})
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(6):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        # Test tracer for every tx
+        for tx in block_txs[2:]:
+            assert_equal(
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                {
+                    "gas": "0x5208",
+                    "failed": False,
+                    "returnValue": "",
+                    "structLogs": [],
+                },
+            )
+        token_info = self.nodes[0].listtokens()["1"]
+        assert_equal(token_info["symbol"], "goldy")
+        assert_equal(token_info["name"], "GOLD token")
+
     def test_tracer_on_contract_call_tx(self):
         self.rollback_to(self.start_height)
+
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -281,7 +372,11 @@ class EvmTracerTest(DefiTestFramework):
 
         self.test_tracer_on_transfer_tx()
 
-        self.test_tracer_on_transfer_tx_with_sys_txs()
+        self.test_tracer_on_transfer_tx_with_transferdomain_txs()
+
+        self.test_tracer_on_transfer_tx_with_deploy_dst20_txs()
+
+        self.test_tracer_on_transfer_tx_with_deploy_and_update_dst20_txs()
 
         self.test_tracer_on_contract_call_tx()
 

@@ -490,7 +490,7 @@ rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBloc
             }
             auto id = pair->first;
             auto token = pair->second;
-            if (token.IsDAT()) {
+            if (!token.IsDAT()) {
                 return out;
             }
             CrossBoundaryResult result;
