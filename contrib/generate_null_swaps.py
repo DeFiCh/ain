@@ -118,9 +118,6 @@ def print_out_results():
 # Start the DeFiChain client
 start_defid(last_null_swap)
 
-# Create RPC connection
-node = attempt_rpc_connection()
-
 # Wait till the block height is reached
 wait_till_block_height(last_null_swap)
 
