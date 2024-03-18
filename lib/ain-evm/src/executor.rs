@@ -1,4 +1,5 @@
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
+use ain_cpp_imports::{SystemTxData, SystemTxType};
 use anyhow::format_err;
 use ethereum::{AccessList, AccessListItem, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
@@ -250,9 +251,52 @@ impl<'backend> AinExecutor<'backend> {
 
     /// Execute tx with tracer
     pub fn exec_with_tracer(
-        &self,
+        &mut self,
+        tx_data: &SystemTxData,
         signed_tx: &SignedTx,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        // Handle state for supported system txs
+        match tx_data.tx_type {
+            SystemTxType::EVMTx => (),
+            SystemTxType::TransferDomainIn => {
+                let FixedContract {
+                    contract,
+                    fixed_address,
+                    ..
+                } = get_transfer_domain_contract();
+                let mismatch = match self.backend.get_account(&fixed_address) {
+                    None => false,
+                    Some(account) => account.code_hash != contract.codehash,
+                };
+                if mismatch {
+                    return Err(format_err!("[exec_with_trace] tx trace execution failed as transferdomain account codehash mismatch").into());
+                }
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[68..100]);
+                let storage = bridge_dfi(self.backend, amount, TransferDirection::EvmIn)?;
+                self.update_storage(fixed_address, storage)?;
+                self.add_balance(fixed_address, amount)?;
+            }
+            SystemTxType::TransferDomainOut => (),
+            SystemTxType::DST20BridgeIn => {
+                let contract_address =
+                    ain_contracts::dst20_address_from_token_id(tx_data.token.id)?;
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[100..132]);
+                let DST20BridgeInfo { address, storage } =
+                    bridge_dst20_in(self.backend, contract_address, amount)?;
+                self.update_storage(address, storage)?;
+                let allowance = dst20_allowance(TransferDirection::EvmIn, signed_tx.sender, amount);
+                self.update_storage(contract_address, allowance)?;
+            }
+            SystemTxType::DST20BridgeOut => (),
+            _ => {
+                return Err(format_err!(
+                    "[exec_with_trace] tx trace execution failed, unsupported system tx type"
+                )
+                .into())
+            }
+        }
         trace!(
             "[Executor] Executing trace EVM TX with vicinity : {:?}",
             self.backend.vicinity

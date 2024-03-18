@@ -117,7 +117,7 @@ impl TracerService {
             if tx.hash() == replay_tx.hash() {
                 backend.update_vicinity_from_tx(tx)?;
                 // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
-                return AinExecutor::new(&mut backend).exec_with_tracer(tx);
+                return AinExecutor::new(&mut backend).exec_with_tracer(tx_data, tx);
             }
 
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
