@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
 
-use ain_ocean::{index_block, storage::ocean_store::OceanStore, Result, Services};
+use ain_ocean::{consts::Network, index_block, storage::ocean_store::OceanStore, Result, Services};
 use clap::Parser;
 use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client};
 
@@ -35,7 +35,7 @@ struct Cli {
 
     /// Sets Ocean network
     #[arg(long, value_name = "NETWORK", default_value = "mainnet")]
-    network: String,
+    network: Network,
 }
 
 #[tokio::main]
@@ -50,7 +50,8 @@ async fn main() -> Result<()> {
     let services = Arc::new(Services::new(store));
 
     let listener = tokio::net::TcpListener::bind(cli.bind_address).await?;
-    let ocean_router = ain_ocean::ocean_router(&services, client.clone(), cli.network).await?;
+    let ocean_router =
+        ain_ocean::ocean_router(&services, client.clone(), cli.network.to_string()).await?;
     tokio::spawn(async move { axum::serve(listener, ocean_router).await.unwrap() });
 
     let mut indexed_block = 0;
