@@ -30,7 +30,7 @@ use crate::{
         cache::{TransactionCache, ValidateTxInfo},
         SignedTx,
     },
-    trie::TrieDBStore,
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
@@ -687,31 +687,44 @@ impl EVMCoreService {
 
     pub fn get_backend_from_block(
         &self,
-        block_number: U256,
+        block_number: Option<U256>,
         caller: Option<H160>,
         gas_price: Option<U256>,
         overlay: Option<Overlay>,
     ) -> Result<EVMBackend> {
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .map(|block| block.header)
-            .ok_or(format_err!("Block number {:x?} not found", block_number))?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
+        let (state_root, vicinity) = if let Some(block_number) = block_number {
+            let block_header = self
+                .storage
+                .get_block_by_number(&block_number)?
+                .map(|block| block.header)
+                .ok_or(format_err!("Block number {:x?} not found", block_number))?;
+            let state_root = block_header.state_root;
+            debug!(
+                "Calling EVM at block number : {:#x}, state_root : {:#x}",
+                block_number, state_root
+            );
 
-        let mut vicinity = Vicinity::from(block_header);
-        if let Some(gas_price) = gas_price {
-            vicinity.gas_price = gas_price;
-        }
-        if let Some(caller) = caller {
-            vicinity.origin = caller;
-        }
-        debug!("Vicinity: {:?}", vicinity);
-
+            let mut vicinity = Vicinity::from(block_header);
+            if let Some(gas_price) = gas_price {
+                vicinity.gas_price = gas_price;
+            }
+            if let Some(caller) = caller {
+                vicinity.origin = caller;
+            }
+            debug!("Vicinity: {:?}", vicinity);
+            (state_root, vicinity)
+        } else {
+            // Handle edge case of no genesis block
+            let block_gas_limit =
+                U256::from(ain_cpp_imports::get_attribute_values(None).block_gas_limit);
+            let vicinity: Vicinity = Vicinity {
+                block_number: U256::zero(),
+                block_gas_limit,
+                block_base_fee_per_gas: INITIAL_BASE_FEE,
+                ..Vicinity::default()
+            };
+            (GENESIS_STATE_ROOT, vicinity)
+        };
         EVMBackend::from_root(
             state_root,
             Arc::clone(&self.trie_store),
@@ -785,7 +798,7 @@ impl EVMCoreService {
             block_number,
         } = arguments;
         let mut backend = self
-            .get_backend_from_block(block_number, Some(caller), Some(gas_price), overlay)
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), overlay)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
         Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
             caller,
@@ -809,7 +822,7 @@ impl EVMCoreService {
             block_number,
         } = arguments;
         let mut backend = self
-            .get_backend_from_block(block_number, Some(caller), Some(gas_price), None)
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
         AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
             caller,
@@ -826,9 +839,12 @@ impl EVMCoreService {
         tx: &SignedTx,
         block_number: U256,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        // Backend state to start the tx replay should be at the end of the previous block
+        let start_block_number = block_number.checked_sub(U256::one());
         let mut backend = self
-            .get_backend_from_block(block_number, None, None, None)
+            .get_backend_from_block(start_block_number, None, None, None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        backend.update_vicinity_from_tx(tx)?;
         AinExecutor::new(&mut backend).exec_with_tracer(tx)
     }
 }
