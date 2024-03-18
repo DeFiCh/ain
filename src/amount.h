@@ -138,7 +138,7 @@ struct CTokenAmount { // simple std::pair is less informative
         // add
         auto sumRes = SafeAdd(nValue, amount);
         if (!sumRes) {
-            return std::move(sumRes);
+            return sumRes;
         }
 
         nValue = *sumRes;

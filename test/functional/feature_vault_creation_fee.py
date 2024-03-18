@@ -56,7 +56,6 @@ class VaultCreationFeeTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def test_vault_creation_fee(self):
-
         # Try and set creation fee before fork
         assert_raises_rpc_error(
             -32600,
