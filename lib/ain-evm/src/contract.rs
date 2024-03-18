@@ -17,9 +17,9 @@ use sha3::{Digest, Keccak256};
 use crate::{
     backend::EVMBackend,
     bytes::Bytes,
-    executor::{AinExecutor, ExecuteTx},
+    executor::AinExecutor,
     transaction::{
-        system::{DeployContractData, SystemTx, TransferDirection},
+        system::{DeployContractData, ExecuteTx, SystemTx, TransferDirection},
         SignedTx, LOWER_H256,
     },
     Result,

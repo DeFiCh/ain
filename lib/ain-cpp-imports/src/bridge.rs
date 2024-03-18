@@ -30,12 +30,14 @@ pub mod ffi {
         TransferDomainOut,
         DST20BridgeIn,
         DST20BridgeOut,
+        DeployContract,
+        UpdateContractName,
     }
 
     #[derive(Debug, Clone)]
     pub struct SystemTxData {
         pub tx_type: SystemTxType,
-        pub token_id: u64,
+        pub token: DST20Token,
     }
 
     unsafe extern "C++" {

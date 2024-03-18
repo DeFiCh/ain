@@ -26,25 +26,13 @@ use crate::{
     precompiles::MetachainPrecompiles,
     transaction::{
         system::{
-            DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData,
-            UpdateContractNameData,
+            DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
+            TransferDomainData, UpdateContractNameData,
         },
         SignedTx,
     },
     EVMError, Result,
 };
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExecuteTx {
-    SignedTx(Box<SignedTx>),
-    SystemTx(SystemTx),
-}
-
-impl From<SignedTx> for ExecuteTx {
-    fn from(tx: SignedTx) -> Self {
-        Self::SignedTx(Box::new(tx))
-    }
-}
 
 pub struct AccessListInfo {
     pub access_list: AccessList,

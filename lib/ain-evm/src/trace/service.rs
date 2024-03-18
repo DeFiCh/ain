@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use ain_contracts::dst20_address_from_token_id;
-use ain_cpp_imports::SystemTxType;
 use anyhow::format_err;
 use ethereum_types::{H160, U256};
 use log::debug;
@@ -12,12 +10,9 @@ use crate::{
     block::INITIAL_BASE_FEE,
     core::EthCallArgs,
     eventlistener::ExecutionStep,
-    executor::{AccessListInfo, AinExecutor, ExecuteTx, ExecutorContext},
+    executor::{AccessListInfo, AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
-    transaction::{
-        system::{DST20Data, SystemTx, TransferDirection, TransferDomainData},
-        SignedTx,
-    },
+    transaction::{system::ExecuteTx, SignedTx},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
 };
@@ -119,45 +114,13 @@ impl TracerService {
 
         for (idx, replay_tx) in replay_txs.iter().enumerate() {
             let tx_data = &txs_data[idx];
-
             if tx.hash() == replay_tx.hash() {
                 backend.update_vicinity_from_tx(tx)?;
                 // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
                 return AinExecutor::new(&mut backend).exec_with_tracer(tx);
             }
 
-            let exec_tx = match tx_data.tx_type {
-                SystemTxType::EVMTx => ExecuteTx::SignedTx(Box::new(replay_tx.clone())),
-                SystemTxType::TransferDomainIn => {
-                    ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                        signed_tx: Box::new(replay_tx.clone()),
-                        direction: TransferDirection::EvmIn,
-                    }))
-                }
-                SystemTxType::TransferDomainOut => {
-                    ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                        signed_tx: Box::new(replay_tx.clone()),
-                        direction: TransferDirection::EvmOut,
-                    }))
-                }
-                SystemTxType::DST20BridgeIn => {
-                    let contract_address = dst20_address_from_token_id(tx_data.token_id)?;
-                    ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-                        signed_tx: Box::new(replay_tx.clone()),
-                        contract_address,
-                        direction: TransferDirection::EvmIn,
-                    }))
-                }
-                SystemTxType::DST20BridgeOut => {
-                    let contract_address = dst20_address_from_token_id(tx_data.token_id)?;
-                    ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-                        signed_tx: Box::new(replay_tx.clone()),
-                        contract_address,
-                        direction: TransferDirection::EvmOut,
-                    }))
-                }
-                _ => return Err(format_err!("Cannot replay tx, system tx type error.").into()),
-            };
+            let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee)?;
         }
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
