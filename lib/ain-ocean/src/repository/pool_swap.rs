@@ -3,7 +3,7 @@ use std::sync::Arc;
 use ain_db::LedgerColumn;
 use ain_macros::Repository;
 
-use super::RepositoryOps;
+use super::{InitialKeyProvider, RepositoryOps};
 use crate::{
     model::{PoolSwap, PoolSwapKey},
     storage::{columns, ocean_store::OceanStore},
@@ -23,5 +23,12 @@ impl PoolSwapRepository {
             col: store.column(),
             store,
         }
+    }
+}
+
+impl InitialKeyProvider<PoolSwapKey, PoolSwap> for PoolSwapRepository {
+    type PartialKey = u32;
+    fn initial_key(pk: Self::PartialKey) -> PoolSwapKey {
+        (pk, u32::MAX, usize::MAX)
     }
 }
