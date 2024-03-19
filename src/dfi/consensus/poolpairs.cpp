@@ -117,8 +117,37 @@ Res CPoolPairsConsensus::operator()(const CUpdatePoolPairMessage &obj) const {
         }
     }
 
+    const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
     auto &mnview = blockCtx.GetView();
+
+    auto token = mnview.GetToken(obj.poolId);
+    if (!token) {
+        return Res::Err("Pool token %d does not exist\n", obj.poolId.v);
+    }
+
+    const auto tokenUpdated = !obj.pairSymbol.empty() || !obj.pairName.empty();
+    if (tokenUpdated) {
+        if (height < static_cast<uint32_t>(consensus.DF23Height)) {
+            return Res::Err("Poolpair symbol cannot be changed below DF23 height");
+        }
+    }
+
+    if (!obj.pairSymbol.empty()) {
+        token->symbol = trim_ws(obj.pairSymbol).substr(0, CToken::MAX_TOKEN_POOLPAIR_LENGTH);
+    }
+
+    if (!obj.pairName.empty()) {
+        token->name = trim_ws(obj.pairName).substr(0, CToken::MAX_TOKEN_NAME_LENGTH);
+    }
+
+    if (tokenUpdated) {
+        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
+        UpdateTokenContext ctx{*token, dummyContext, false, false, true};
+        if (auto res = mnview.UpdateToken(ctx); !res) {
+            return res;
+        }
+    }
 
     return mnview.UpdatePoolPair(obj.poolId, height, obj.status, obj.commission, obj.ownerAddress, rewards);
 }
