@@ -1,6 +1,7 @@
-use crate::Result;
 use ethereum_types::H256;
 use tokio::sync::broadcast::{self, Sender};
+
+use crate::Result;
 
 pub const NOTIFICATION_CHANNEL_BUFFER_SIZE: usize = 10_000;
 
