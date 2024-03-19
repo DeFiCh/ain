@@ -1940,6 +1940,47 @@ static Res GetTokenSuffix(const CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
+static void UpdateOracleSplitKeys(const uint32_t id, ATTRIBUTES &attributes) {
+    std::map<CDataStructureV0, T> updateAttributesKeys;
+    attributes.ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
+            if (attr.type != AttributeTypes::Oracles) {
+                return false;
+            }
+
+            if (attr.typeId != OracleIDs::Splits) {
+                return true;
+            }
+
+            if (attr.key == OracleKeys::FractionalSplits) {
+                return true;
+            }
+
+            if (const auto splitMap = std::get_if<T>(&value)) {
+                for (auto [splitMapKey, splitMapValue] : *splitMap) {
+                    if (splitMapKey == id) {
+                        auto copyMap{*splitMap};
+                        copyMap.erase(splitMapKey);
+                        updateAttributesKeys.emplace(attr, copyMap);
+                        break;
+                    }
+                }
+            }
+
+            return true;
+        },
+        CDataStructureV0{AttributeTypes::Oracles});
+
+    for (const auto &[key, value] : updateAttributesKeys) {
+        if (value.empty()) {
+            attributes.EraseKey(key);
+        } else {
+            attributes.SetValue(key, value);
+        }
+    }
+}
+
 static void ProcessTokenSplits(const CBlock &block,
                                const CBlockIndex *pindex,
                                CCustomCSView &cache,
@@ -1951,14 +1992,18 @@ static void ProcessTokenSplits(const CBlock &block,
     const auto attributes = cache.GetAttributes();
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+    const auto splits32 = attributes->GetValue(splitKey, OracleSplits{});
+    auto splits64 = attributes->GetValue(splitKey, OracleSplits64{});
+    if (!splits32.empty()) {
+        splits64 = ConvertOracleSplits64(splits32);
+    }
 
-    if (!splits.empty()) {
+    if (!splits64.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
     }
 
-    for (const auto &[id, multiplier] : splits) {
+    for (const auto &[id, multiplier] : splits64) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
 
@@ -2154,30 +2199,9 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
-        for (const auto &[key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = std::get_if<CDataStructureV0>(&key);
-                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
-                if (const auto splitMap = std::get_if<OracleSplits>(&value)) {
-                    for (auto [splitMapKey, splitMapValue] : *splitMap) {
-                        if (splitMapKey == oldTokenId.v) {
-                            auto copyMap{*splitMap};
-                            copyMap.erase(splitMapKey);
-                            updateAttributesKeys.emplace_back(*v0Key, copyMap);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        UpdateOracleSplitKeys<OracleSplits>(oldTokenId.v, *attributes);
+        UpdateOracleSplitKeys<OracleSplits64>(oldTokenId.v, *attributes);
 
-        for (const auto &[key, value] : updateAttributesKeys) {
-            if (value.empty()) {
-                attributes->EraseKey(key);
-            } else {
-                attributes->SetValue(key, value);
-            }
-        }
         view.SetVariable(*attributes);
 
         // Migrate stored unlock

@@ -352,7 +352,8 @@ struct CEvmBlockStatsLive {
 };
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
-using OracleSplits = std::map<uint32_t, CAmount>;
+using OracleSplits = std::map<uint32_t, int32_t>;
+using OracleSplits64 = std::map<uint32_t, CAmount>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
@@ -383,7 +384,16 @@ using CAttributeValue = std::variant<bool,
                                      uint64_t,
                                      XVmAddressFormatItems,
                                      CTransferDomainStatsLive,
-                                     CEvmBlockStatsLive>;
+                                     CEvmBlockStatsLive,
+                                     OracleSplits64>;
+
+inline OracleSplits64 ConvertOracleSplits64(const OracleSplits &splits) {
+    OracleSplits64 splits64;
+    for (const auto &[key, value] : splits) {
+        splits64[key] = value * COIN;
+    }
+    return splits64;
+}
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);
@@ -513,6 +523,8 @@ public:
     Res RefundFuturesContracts(CCustomCSView &mnview,
                                const uint32_t height,
                                const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+
+    void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
 
 private:
     friend class CGovView;

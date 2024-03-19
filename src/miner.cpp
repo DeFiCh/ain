@@ -303,9 +303,13 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
     if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
         if (attributes) {
             CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-            const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+            const auto splits32 = attributes->GetValue(splitKey, OracleSplits{});
+            auto splits64 = attributes->GetValue(splitKey, OracleSplits64{});
+            if (!splits32.empty()) {
+                splits64 = ConvertOracleSplits64(splits32);
+            }
 
-            for (const auto &[id, multiplier] : splits) {
+            for (const auto &[id, multiplier] : splits64) {
                 uint32_t entries{1};
                 mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
                     if (pool.idTokenA.v == id || pool.idTokenB.v == id) {

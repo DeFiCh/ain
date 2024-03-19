@@ -3270,18 +3270,22 @@ bool CChainState::ConnectBlock(const CBlock &block,
 
     // Reject block without token split coinbase TX outputs.
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
+    const auto splits32 = attributes->GetValue(splitKey, OracleSplits{});
+    auto splits64 = attributes->GetValue(splitKey, OracleSplits64{});
+    if (!splits32.empty()) {
+        splits64 = ConvertOracleSplits64(splits32);
+    }
 
-    const auto isSplitsBlock = splits.size() > 0;
+    const auto isSplitsBlock = splits64.size() > 0;
 
     CreationTxs creationTxs;
     auto counter_n = 1;
-    for (const auto &[id, multiplier] : splits) {
+    for (const auto &[id, multiplier] : splits64) {
         LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
                   id,
                   multiplier,
                   counter_n++,
-                  splits.size(),
+                  splits64.size(),
                   pindex->nHeight);
         uint256 tokenCreationTx{};
         std::vector<uint256> poolCreationTx;
