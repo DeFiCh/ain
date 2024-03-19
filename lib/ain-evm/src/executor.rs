@@ -255,9 +255,8 @@ impl<'backend> AinExecutor<'backend> {
         tx_data: &SystemTxData,
         signed_tx: &SignedTx,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        // Handle state for supported system txs
+        // Handle state dependent system txs
         match tx_data.tx_type {
-            SystemTxType::EVMTx => (),
             SystemTxType::TransferDomainIn => {
                 let FixedContract {
                     contract,
@@ -277,7 +276,6 @@ impl<'backend> AinExecutor<'backend> {
                 self.update_storage(fixed_address, storage)?;
                 self.add_balance(fixed_address, amount)?;
             }
-            SystemTxType::TransferDomainOut => (),
             SystemTxType::DST20BridgeIn => {
                 let contract_address =
                     ain_contracts::dst20_address_from_token_id(tx_data.token.id)?;
@@ -289,13 +287,13 @@ impl<'backend> AinExecutor<'backend> {
                 let allowance = dst20_allowance(TransferDirection::EvmIn, signed_tx.sender, amount);
                 self.update_storage(contract_address, allowance)?;
             }
-            SystemTxType::DST20BridgeOut => (),
-            _ => {
-                return Err(format_err!(
-                    "[exec_with_trace] tx trace execution failed, unsupported system tx type"
-                )
-                .into())
-            }
+            // TODO: running trace on DST20 deployment tx or DST20 update tx will be buggy at the moment
+            // as these custom system txs is never executed on the VM. The current trace pipeline is also
+            // buggy that does not handle contract creation txs. These will be resolved once the tracing
+            // pipeline is in - but more thought has to be placed into how we can do accurate traces on
+            // the custom system txs related to DST20 tokens, since these txs are state injections on
+            // execution, and the txs are never executed.
+            _ => (),
         }
         trace!(
             "[Executor] Executing trace EVM TX with vicinity : {:?}",
@@ -304,12 +302,18 @@ impl<'backend> AinExecutor<'backend> {
         let to = signed_tx.to().ok_or(format_err!(
             "debug_traceTransaction does not support contract creation transactions",
         ))?;
+        self.backend.update_vicinity_from_tx(signed_tx)?;
+        let system_tx = tx_data.tx_type != SystemTxType::EVMTx;
         let ctx = ExecutorContext {
             caller: signed_tx.sender,
             to: Some(to),
             value: signed_tx.value(),
             data: signed_tx.data(),
-            gas_limit: u64::try_from(signed_tx.gas_limit())?,
+            gas_limit: if !system_tx {
+                u64::try_from(signed_tx.gas_limit())?
+            } else {
+                u64::MAX
+            },
             access_list: signed_tx.access_list(),
         };
         let access_list = ctx
@@ -348,7 +352,11 @@ impl<'backend> AinExecutor<'backend> {
                 ctx.gas_limit,
                 access_list,
             );
-            Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
+            if !exit_reason.is_succeed() {
+                debug!("failed VM execution {:?}", exit_reason);
+            }
+            let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
+            Ok::<_, EVMError>((exit_reason.is_succeed(), data, used_gas))
         })?;
         Ok((listener.trace, exec_flag, data, used_gas))
     }

@@ -10,6 +10,10 @@ from test_framework.evm_contract import EVMContract
 from test_framework.util import assert_equal
 
 from decimal import Decimal
+import json
+import os
+
+TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class EvmTracerTest(DefiTestFramework):
@@ -38,6 +42,25 @@ class EvmTracerTest(DefiTestFramework):
                 "-ethmaxresponsesize=100",
             ],
         ]
+
+    def add_options(self, parser):
+        parser.add_argument(
+            "--td-in-file",
+            dest="td_in_file",
+            default="data/trace_transferdomain_in.json",
+            action="store",
+            metavar="FILE",
+            help="Transferdomain in data file",
+        )
+
+        parser.add_argument(
+            "--td-out-file",
+            dest="td_out_file",
+            default="data/trace_transferdomain_out.json",
+            action="store",
+            metavar="FILE",
+            help="Transferdomain out data file",
+        )
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -90,6 +113,15 @@ class EvmTracerTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
+        self.td_in_f = os.path.join(TESTSDIR, self.options.td_in_file)
+        self.td_out_f = os.path.join(TESTSDIR, self.options.td_out_file)
+        self.load_td_data()
+
+    def load_td_data(self):
+        with open(self.td_in_f, "r", encoding="utf8") as f:
+            self.td_in_data = json.load(f)
+        with open(self.td_out_f, "r", encoding="utf8") as f:
+            self.td_out_data = json.load(f)
 
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
@@ -131,8 +163,22 @@ class EvmTracerTest(DefiTestFramework):
                     "gasPrice": "0x5D21DBA00",  # 25_000_000_000
                 }
             )
-        # Add transfer domain inside block
-        self.nodes[0].transferdomain(
+        # Add transfer domain in inside block
+        in_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        # Add transfer domain out inside block
+        out_hash = self.nodes[0].transferdomain(
             [
                 {
                     "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
@@ -157,19 +203,26 @@ class EvmTracerTest(DefiTestFramework):
                 }
             )
         self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
+        evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
 
         # Test tracer for every tx
-        for idx, tx in enumerate(block_txs):
-            if idx == 3:
-                # TODO: Trace on transferdomain tx test is disabled for now, to add support on
-                # tracer for system txs in the near future.
-                # Test trace for transferdomain tx
-                # assert_equal(
-                #     self.nodes[0].debug_traceTransaction(tx["hash"]),
-                #     {"gas": "0x0", "failed": False, "returnValue": "", "structLogs": []},
-                # )
-                continue
+        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
+            "transactions"
+        ]
+        for tx in evm_block_txs:
+            if tx["hash"] == evm_in_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.td_in_data,
+                )
+            elif tx["hash"] == evm_out_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.td_out_data,
+                )
             else:
                 assert_equal(
                     self.nodes[0].debug_traceTransaction(tx["hash"]),
@@ -241,6 +294,10 @@ class EvmTracerTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        # TODO: Disabled for now as tracer implementation is incorrect and does not support
+        # contract creation. To enable once correct logic pipeline features are in.
+        # assert_equal(self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]), False)
 
         # Update tokens
         token_info = self.nodes[0].listtokens()["1"]
