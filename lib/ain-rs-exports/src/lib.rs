@@ -348,6 +348,12 @@ pub mod ffi {
         fn ocean_index_block(result: &mut CrossBoundaryResult, block_str: String);
         fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String);
 
+        fn evm_try_unsafe_rename_dst20(
+            result: &mut CrossBoundaryResult,
+            block_template: &mut BlockTemplateWrapper,
+            native_hash: [u8; 32],
+            token: DST20TokenInfo,
+        );
     }
 
     // =========  Debug ==========

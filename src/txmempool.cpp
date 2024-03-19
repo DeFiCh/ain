@@ -1272,8 +1272,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
     setEntries staged;
     std::vector<CTransactionRef> vtx;
 
-    const auto &consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(viewDuplicate, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(viewDuplicate);
 
     // Check custom TX consensus types are now not in conflict with account layer
     auto &txsByEntryTime = mapTx.get<entry_time>();
@@ -1296,7 +1295,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
         auto blockCtx = BlockContext{
             static_cast<uint32_t>(height),
             static_cast<uint64_t>(it->GetTime()),
-            consensus,
+            Params().GetConsensus(),
             &viewDuplicate,
             isEvmEnabledForBlock,
             {},

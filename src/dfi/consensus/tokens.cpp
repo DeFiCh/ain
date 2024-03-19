@@ -113,7 +113,8 @@ Res CTokensConsensus::operator()(const CCreateTokenMessage &obj) const {
         }
     }
 
-    auto tokenId = mnview.CreateToken(token, static_cast<int>(height) < consensus.DF2BayfrontHeight, &blockCtx);
+    const auto isPreBayFront = static_cast<int>(height) < consensus.DF2BayfrontHeight;
+    auto tokenId = mnview.CreateToken(token, blockCtx, isPreBayFront);
     return tokenId;
 }
 
@@ -130,7 +131,9 @@ Res CTokensConsensus::operator()(const CUpdateTokenPreAMKMessage &obj) const {
 
     if (token.IsDAT() != obj.isDAT && pair->first >= CTokensView::DCT_ID_START) {
         token.flags ^= (uint8_t)CToken::TokenFlags::DAT;
-        return !res ? res : mnview.UpdateToken(token, true);
+        UpdateTokenContext ctx{token,
+                               blockCtx};  // CUpdateTokenPreAMKMessage disabled after Bayfront. No TX hash needed.
+        return !res ? res : mnview.UpdateToken(ctx);
     }
     return res;
 }
@@ -139,6 +142,7 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
     const auto &coins = txCtx.GetCoins();
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
+    const auto hash = txCtx.GetTransaction().GetHash();
     auto &mnview = blockCtx.GetView();
 
     auto pair = mnview.GetTokenByCreationTx(obj.tokenTx);
@@ -199,7 +203,9 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         updatedToken.symbol = trim_ws(updatedToken.symbol).substr(0, CToken::MAX_TOKEN_SYMBOL_LENGTH);
     }
 
-    return mnview.UpdateToken(updatedToken);
+    const auto checkSymbol = height >= static_cast<uint32_t>(consensus.DF23Height);
+    UpdateTokenContext ctx{updatedToken, blockCtx, true, false, checkSymbol, hash};
+    return mnview.UpdateToken(ctx);
 }
 
 Res CTokensConsensus::operator()(const CMintTokensMessage &obj) const {
