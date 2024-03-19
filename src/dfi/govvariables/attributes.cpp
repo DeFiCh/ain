@@ -553,14 +553,22 @@ static ResVal<CAttributeValue> VerifyBool(const std::string &str) {
 }
 
 static auto isFloat(const std::string &str) {
+    std::stringstream ss(str);
     float floatValue;
-    auto [ptr, ec]{std::from_chars(str.data(), str.data() + str.size(), floatValue)};
-    if (ec == std::errc::invalid_argument || ec == std::errc::result_out_of_range) {
-        return false;
+    ss >> floatValue;
+
+    if (!ss.fail() && ss.eof()) {
+        std::stringstream ss2(str);
+        int intValue;
+        ss2 >> intValue;
+
+        if (!ss2.fail() && ss2.eof()) {
+            return floatValue != static_cast<float>(intValue);
+        } else {
+            return true;
+        }
     }
-    int intValue;
-    auto [ptrInt, ecInt]{std::from_chars(str.data(), str.data() + str.size(), intValue)};
-    return ecInt != std::errc() || ptrInt != str.data() + str.size() || floatValue != static_cast<float>(intValue);
+    return false;
 }
 
 static ResVal<CAttributeValue> VerifySplit(const std::string &str) {
