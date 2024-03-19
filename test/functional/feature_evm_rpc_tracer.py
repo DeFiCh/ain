@@ -45,21 +45,36 @@ class EvmTracerTest(DefiTestFramework):
 
     def add_options(self, parser):
         parser.add_argument(
-            "--td-in-file",
-            dest="td_in_file",
-            default="data/trace_transferdomain_in.json",
+            "--native-td-in-file",
+            dest="native_td_in_file",
+            default="data/trace_native_transferdomain_in.json",
             action="store",
             metavar="FILE",
-            help="Transferdomain in data file",
+            help="Native transferdomain in data file",
         )
-
         parser.add_argument(
-            "--td-out-file",
-            dest="td_out_file",
-            default="data/trace_transferdomain_out.json",
+            "--native-td-out-file",
+            dest="native_td_out_file",
+            default="data/trace_native_transferdomain_out.json",
             action="store",
             metavar="FILE",
-            help="Transferdomain out data file",
+            help="Native transferdomain out data file",
+        )
+        parser.add_argument(
+            "--dst20-td-in-file",
+            dest="dst20_td_in_file",
+            default="data/trace_dst20_transferdomain_in.json",
+            action="store",
+            metavar="FILE",
+            help="DST20 transferdomain in data file",
+        )
+        parser.add_argument(
+            "--dst20-td-out-file",
+            dest="dst20_td_out_file",
+            default="data/trace_dst20_transferdomain_out.json",
+            action="store",
+            metavar="FILE",
+            help="DST20 transferdomain out data file",
         )
 
     def setup(self):
@@ -113,15 +128,21 @@ class EvmTracerTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
-        self.td_in_f = os.path.join(TESTSDIR, self.options.td_in_file)
-        self.td_out_f = os.path.join(TESTSDIR, self.options.td_out_file)
         self.load_td_data()
 
     def load_td_data(self):
-        with open(self.td_in_f, "r", encoding="utf8") as f:
-            self.td_in_data = json.load(f)
-        with open(self.td_out_f, "r", encoding="utf8") as f:
-            self.td_out_data = json.load(f)
+        native_td_in_f = os.path.join(TESTSDIR, self.options.native_td_in_file)
+        native_td_out_f = os.path.join(TESTSDIR, self.options.native_td_out_file)
+        dst20_td_in_f = os.path.join(TESTSDIR, self.options.dst20_td_in_file)
+        dst20_td_out_f = os.path.join(TESTSDIR, self.options.dst20_td_out_file)
+        with open(native_td_in_f, "r", encoding="utf8") as f:
+            self.native_td_in_data = json.load(f)
+        with open(native_td_out_f, "r", encoding="utf8") as f:
+            self.native_td_out_data = json.load(f)
+        with open(dst20_td_in_f, "r", encoding="utf8") as f:
+            self.dst20_td_in_data = json.load(f)
+        with open(dst20_td_out_f, "r", encoding="utf8") as f:
+            self.dst20_td_out_data = json.load(f)
 
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
@@ -215,13 +236,127 @@ class EvmTracerTest(DefiTestFramework):
                 # Test trace for transferdomain evm-in tx
                 assert_equal(
                     self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    self.td_in_data,
+                    self.native_td_in_data,
                 )
             elif tx["hash"] == evm_out_hash:
                 # Test trace for transferdomain evm-in tx
                 assert_equal(
                     self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    self.td_out_data,
+                    self.native_td_out_data,
+                )
+            else:
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    {
+                        "gas": "0x5208",
+                        "failed": False,
+                        "returnValue": "",
+                        "structLogs": [],
+                    },
+                )
+
+    def test_tracer_on_transfer_tx_with_dst20_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+
+        # Create tokens
+        symbolBTC = "BTC"
+        self.nodes[0].createtoken(
+            {
+                "symbol": symbolBTC,
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        self.nodes[0].minttokens("100@BTC")
+        self.nodes[0].generate(1)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "10@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "10@BTC",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(3):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        # Add transfer domain in inside block
+        in_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        # Add transfer domain out inside block
+        out_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        for i in range(4, 7):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        self.nodes[0].generate(1)
+        evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
+        evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
+
+        # Test tracer for every tx
+        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
+            "transactions"
+        ]
+        for tx in evm_block_txs:
+            if tx["hash"] == evm_in_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.dst20_td_in_data,
+                )
+            elif tx["hash"] == evm_out_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.dst20_td_out_data,
                 )
             else:
                 assert_equal(
@@ -430,6 +565,8 @@ class EvmTracerTest(DefiTestFramework):
         self.test_tracer_on_transfer_tx()
 
         self.test_tracer_on_transfer_tx_with_transferdomain_txs()
+
+        self.test_tracer_on_transfer_tx_with_dst20_transferdomain_txs()
 
         self.test_tracer_on_transfer_tx_with_deploy_dst20_txs()
 
