@@ -127,29 +127,55 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(ConsensusEncoding)]
-pub fn consensus_encoding_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
+#[proc_macro_attribute]
+pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemFn);
+    let inputs = &input.sig.inputs;
 
-    let fields = if let Data::Struct(data) = input.data {
-        if let Fields::Named(fields) = data.fields {
-            fields
-                .named
-                .into_iter()
-                .map(|f| f.ident)
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        }
-    } else {
-        Vec::new()
+    let name = &input.sig.ident;
+
+    let output = &input.sig.output;
+    let inner_type = match output {
+        ReturnType::Type(_, type_box) => match &**type_box {
+            Type::Path(type_path) => type_path.path.segments.last().and_then(|pair| {
+                if let syn::PathArguments::AngleBracketed(angle_bracketed_args) = &pair.arguments {
+                    angle_bracketed_args.args.first()
+                } else {
+                    None
+                }
+            }),
+            _ => None,
+        },
+        _ => None,
     };
 
-    let field_names = fields.iter().filter_map(|f| f.as_ref()).collect::<Vec<_>>();
+    let param_names: Vec<_> = inputs
+        .iter()
+        .filter_map(|arg| {
+            if let syn::FnArg::Typed(pat_type) = arg {
+                Some(&pat_type.pat)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let expanded = quote! {
-        bitcoin::impl_consensus_encoding!(#name, #(#field_names),*);
+        pub async fn #name(axum::extract::OriginalUri(uri): axum::extract::OriginalUri, #inputs) -> std::result::Result<axum::Json<#inner_type>, ApiError> {
+            #input
+
+            match #name(#(#param_names),*).await {
+                Err(e) => {
+                let (status, message) = e.into_code_and_message();
+                Err(ApiError::new(
+                    status,
+                    message,
+                    uri.to_string()
+                ))
+            },
+                Ok(v) => Ok(axum::Json(v))
+            }
+        }
     };
 
     TokenStream::from(expanded)
@@ -193,4 +219,32 @@ pub fn test_dftx_serialization(_attr: TokenStream, item: TokenStream) -> TokenSt
     };
 
     TokenStream::from(output)
+}
+
+#[proc_macro_derive(ConsensusEncoding)]
+pub fn consensus_encoding_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    let fields = if let Data::Struct(data) = input.data {
+        if let Fields::Named(fields) = data.fields {
+            fields
+                .named
+                .into_iter()
+                .map(|f| f.ident)
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    let field_names = fields.iter().filter_map(|f| f.as_ref()).collect::<Vec<_>>();
+
+    let expanded = quote! {
+        bitcoin::impl_consensus_encoding!(#name, #(#field_names),*);
+    };
+
+    TokenStream::from(expanded)
 }

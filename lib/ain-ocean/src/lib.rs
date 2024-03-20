@@ -10,6 +10,7 @@ use repository::{
     PoolSwapRepository, RawBlockRepository, TransactionByBlockHashRepository,
     TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
+mod api;
 mod indexer;
 mod model;
 mod repository;
