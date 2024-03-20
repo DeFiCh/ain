@@ -21,8 +21,8 @@
 #include <ffi/ffihelpers.h>
 #include <validation.h>
 
-#include <boost/asio.hpp>
 #include <consensus/params.h>
+#include <boost/asio.hpp>
 
 #define MILLI 0.001
 
