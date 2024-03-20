@@ -389,6 +389,8 @@ bool isEthDebugTraceRPCEnabled() {
 }
 
 rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBlockHash) {
+    LOCK(cs_main);
+
     rust::vec<SystemTxData> out;
     auto blockHash =
         pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, uint256::FromByteArray(evmBlockHash).GetHex());
@@ -417,7 +419,9 @@ rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBloc
         std::vector<unsigned char> metadata;
         auto txType = GuessCustomTxType(*tx, metadata, true);
         if (txType == CustomTxType::EvmTx) {
-            out.push_back(SystemTxData{SystemTxType::EVMTx, 0});
+            out.push_back(SystemTxData{
+                SystemTxType::EVMTx, {0, {}, {}}
+            });
         } else if (txType == CustomTxType::TransferDomain) {
             auto txMessage = customTypeToMessage(CustomTxType::TransferDomain);
             auto res = CustomMetadataParse(block.deprecatedHeight, consensus, metadata, txMessage);
@@ -430,21 +434,77 @@ rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBloc
                 if (tokenId != DCT_ID{0}) {
                     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) &&
                         dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                        out.push_back(SystemTxData{SystemTxType::DST20BridgeIn, tokenId.v});
+                        out.push_back(SystemTxData{
+                            SystemTxType::DST20BridgeIn, {tokenId.v, {}, {}}
+                        });
                     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
                                dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                        out.push_back(SystemTxData{SystemTxType::DST20BridgeOut, tokenId.v});
+                        out.push_back(SystemTxData{
+                            SystemTxType::DST20BridgeOut, {tokenId.v, {}, {}}
+                        });
                     }
                 } else {
                     if (src.domain == static_cast<uint8_t>(VMDomain::DVM) &&
                         dst.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                        out.push_back(SystemTxData{SystemTxType::TransferDomainIn, 0});
+                        out.push_back(SystemTxData{
+                            SystemTxType::TransferDomainIn, {0, {}, {}}
+                        });
                     } else if (src.domain == static_cast<uint8_t>(VMDomain::EVM) &&
                                dst.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                        out.push_back(SystemTxData{SystemTxType::TransferDomainOut, 0});
+                        out.push_back(SystemTxData{
+                            SystemTxType::TransferDomainOut, {0, {}, {}}
+                        });
                     }
                 }
             }
+        } else if (txType == CustomTxType::CreateToken) {
+            auto creationTx = tx->GetHash();
+            auto res = pcustomcsview->GetTokenByCreationTx(creationTx);
+            if (!res) {
+                return out;
+            }
+            auto id = res->first;
+            auto token = res->second;
+            CrossBoundaryResult result;
+            auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(token.name));
+            if (!result.ok) {
+                return out;
+            }
+            auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(token.symbol));
+            if (!result.ok) {
+                return out;
+            }
+            out.push_back(SystemTxData{
+                SystemTxType::DeployContract, {id.v, token_name, token_symbol}
+            });
+        } else if (txType == CustomTxType::UpdateTokenAny) {
+            auto txMessage = customTypeToMessage(CustomTxType::UpdateTokenAny);
+            auto res = CustomMetadataParse(block.deprecatedHeight, consensus, metadata, txMessage);
+            if (!res) {
+                return out;
+            }
+            const auto obj = std::get<CUpdateTokenMessage>(txMessage);
+            auto pair = pcustomcsview->GetTokenByCreationTx(obj.tokenTx);
+            if (!pair) {
+                return out;
+            }
+            auto id = pair->first;
+            auto token = pair->second;
+            if (!token.IsDAT()) {
+                return out;
+            }
+            CrossBoundaryResult result;
+            auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(obj.token.name));
+            if (!result.ok) {
+                return out;
+            }
+            auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(obj.token.symbol));
+            if (!result.ok) {
+                return out;
+            }
+            out.push_back(SystemTxData{
+                SystemTxType::UpdateContractName, {id.v, token_name, token_symbol}
+            });
         }
     }
     return out;

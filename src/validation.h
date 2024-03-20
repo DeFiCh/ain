@@ -174,11 +174,9 @@ extern std::atomic_bool fReindex;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 
-extern bool fStopOrInterrupt;
+extern bool fInterrupt;
 extern std::string fInterruptBlockHash;
 extern int fInterruptBlockHeight;
-extern std::string fStopBlockHash;
-extern int fStopBlockHeight;
 
 extern size_t nCoinCacheUsage;
 extern size_t nCustomMemUsage;

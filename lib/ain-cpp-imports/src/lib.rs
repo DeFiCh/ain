@@ -28,6 +28,8 @@ mod ffi {
         TransferDomainOut,
         DST20BridgeIn,
         DST20BridgeOut,
+        DeployContract,
+        UpdateContractName,
     }
 
     pub struct TransactionData {
@@ -39,7 +41,7 @@ mod ffi {
 
     pub struct SystemTxData {
         pub tx_type: SystemTxType,
-        pub token_id: u64,
+        pub token: DST20Token,
     }
 
     const UNIMPL_MSG: &str = "This cannot be used on a test path";

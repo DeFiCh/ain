@@ -5,14 +5,16 @@ use ain_contracts::{
 use ain_evm::{
     core::{TransferDomainTxInfo, XAddress, XHash},
     evm::FinalizedBlockInfo,
-    executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
     subscription::Notification,
     transaction::{
         self,
-        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        system::{
+            DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
+            TransferDomainData, UpdateContractNameData,
+        },
         SignedTx,
     },
     weiamount::{try_from_gwei, try_from_satoshi, WeiAmount},
@@ -856,4 +858,27 @@ fn evm_try_dispatch_pending_transactions_event(raw_tx: &str) -> Result<()> {
 #[ffi_fallible]
 fn evm_try_flush_db() -> Result<()> {
     unsafe { SERVICES.evm.flush_state_to_db() }
+}
+
+#[ffi_fallible]
+fn evm_try_unsafe_rename_dst20(
+    template: &mut BlockTemplateWrapper,
+    native_hash: XHash,
+    token: ffi::DST20TokenInfo,
+) -> Result<()> {
+    let address = ain_contracts::dst20_address_from_token_id(token.id)?;
+    debug!("Renaming token on address {:#?}", address);
+
+    let system_tx = ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
+        name: token.name,
+        symbol: token.symbol,
+        address,
+        token_id: token.id,
+    }));
+
+    unsafe {
+        SERVICES
+            .evm
+            .push_tx_in_block_template(template.get_inner_mut()?, system_tx, native_hash)
+    }
 }

@@ -879,8 +879,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                 };
 
                 // Copy block context and update to cache view
-                auto blockCtxTxView{blockCtx};
-                blockCtxTxView.SetView(cache);
+                BlockContext blockCtxTxView{blockCtx, cache};
 
                 const auto res = ApplyCustomTx(blockCtxTxView, txCtx);
                 // Not okay invalidate, undo and skip

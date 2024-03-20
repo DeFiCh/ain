@@ -1,4 +1,5 @@
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
+use ain_cpp_imports::{SystemTxData, SystemTxType};
 use anyhow::format_err;
 use ethereum::{AccessList, AccessListItem, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
@@ -17,30 +18,22 @@ use crate::{
     bytes::Bytes,
     contract::{
         bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
-        dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
+        dst20_deploy_info, dst20_name_info, rename_contract_tx, DST20BridgeInfo,
+        DeployContractInfo,
     },
     core::EVMCoreService,
     eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
-        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        system::{
+            DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
+            TransferDomainData, UpdateContractNameData,
+        },
         SignedTx,
     },
     EVMError, Result,
 };
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExecuteTx {
-    SignedTx(Box<SignedTx>),
-    SystemTx(SystemTx),
-}
-
-impl From<SignedTx> for ExecuteTx {
-    fn from(tx: SignedTx) -> Self {
-        Self::SignedTx(Box::new(tx))
-    }
-}
 
 pub struct AccessListInfo {
     pub access_list: AccessList,
@@ -258,9 +251,50 @@ impl<'backend> AinExecutor<'backend> {
 
     /// Execute tx with tracer
     pub fn exec_with_tracer(
-        &self,
+        &mut self,
+        tx_data: &SystemTxData,
         signed_tx: &SignedTx,
     ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        // Handle state dependent system txs
+        match tx_data.tx_type {
+            SystemTxType::TransferDomainIn => {
+                let FixedContract {
+                    contract,
+                    fixed_address,
+                    ..
+                } = get_transfer_domain_contract();
+                let mismatch = match self.backend.get_account(&fixed_address) {
+                    None => false,
+                    Some(account) => account.code_hash != contract.codehash,
+                };
+                if mismatch {
+                    return Err(format_err!("[exec_with_trace] tx trace execution failed as transferdomain account codehash mismatch").into());
+                }
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[68..100]);
+                let storage = bridge_dfi(self.backend, amount, TransferDirection::EvmIn)?;
+                self.update_storage(fixed_address, storage)?;
+                self.add_balance(fixed_address, amount)?;
+            }
+            SystemTxType::DST20BridgeIn => {
+                let contract_address =
+                    ain_contracts::dst20_address_from_token_id(tx_data.token.id)?;
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[100..132]);
+                let DST20BridgeInfo { address, storage } =
+                    bridge_dst20_in(self.backend, contract_address, amount)?;
+                self.update_storage(address, storage)?;
+                let allowance = dst20_allowance(TransferDirection::EvmIn, signed_tx.sender, amount);
+                self.update_storage(contract_address, allowance)?;
+            }
+            // TODO: running trace on DST20 deployment tx or DST20 update tx will be buggy at the moment
+            // as these custom system txs is never executed on the VM. The current trace pipeline is also
+            // buggy that does not handle contract creation txs. These will be resolved once the tracing
+            // pipeline is in - but more thought has to be placed into how we can do accurate traces on
+            // the custom system txs related to DST20 tokens, since these txs are state injections on
+            // execution, and the txs are never executed.
+            _ => (),
+        }
         trace!(
             "[Executor] Executing trace EVM TX with vicinity : {:?}",
             self.backend.vicinity
@@ -268,12 +302,18 @@ impl<'backend> AinExecutor<'backend> {
         let to = signed_tx.to().ok_or(format_err!(
             "debug_traceTransaction does not support contract creation transactions",
         ))?;
+        self.backend.update_vicinity_from_tx(signed_tx)?;
+        let system_tx = tx_data.tx_type != SystemTxType::EVMTx;
         let ctx = ExecutorContext {
             caller: signed_tx.sender,
             to: Some(to),
             value: signed_tx.value(),
             data: signed_tx.data(),
-            gas_limit: u64::try_from(signed_tx.gas_limit())?,
+            gas_limit: if !system_tx {
+                u64::try_from(signed_tx.gas_limit())?
+            } else {
+                u64::MAX
+            },
             access_list: signed_tx.access_list(),
         };
         let access_list = ctx
@@ -312,7 +352,11 @@ impl<'backend> AinExecutor<'backend> {
                 ctx.gas_limit,
                 access_list,
             );
-            Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
+            if !exit_reason.is_succeed() {
+                debug!("failed VM execution {:?}", exit_reason);
+            }
+            let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
+            Ok::<_, EVMError>((exit_reason.is_succeed(), data, used_gas))
         })?;
         Ok((listener.trace, exec_flag, data, used_gas))
     }
@@ -608,6 +652,30 @@ impl<'backend> AinExecutor<'backend> {
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
+
+                Ok(ApplyTxResult {
+                    tx,
+                    used_gas: U256::zero(),
+                    logs: Vec::new(),
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, Some(address)),
+                })
+            }
+            ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
+                name,
+                symbol,
+                address,
+                token_id,
+            })) => {
+                debug!(
+                    "[execute_tx] Rename contract for address {:x?}, name {}, symbol {}",
+                    address, name, symbol
+                );
+
+                let storage = dst20_name_info(&name, &symbol);
+
+                self.update_storage(address, storage)?;
+                let (tx, receipt) = rename_contract_tx(token_id, &base_fee)?;
 
                 Ok(ApplyTxResult {
                     tx,

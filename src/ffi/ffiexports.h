@@ -75,11 +75,13 @@ enum class SystemTxType : uint8_t {
     TransferDomainOut = 2,
     DST20BridgeIn = 3,
     DST20BridgeOut = 4,
+    DeployContract = 5,
+    UpdateContractName = 6,
 };
 
 struct SystemTxData {
     SystemTxType txType;
-    uint64_t tokenId;
+    DST20Token token;
 };
 
 uint64_t getChainId();

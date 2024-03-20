@@ -22,7 +22,7 @@ use crate::{
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
-    executor::{AinExecutor, ExecuteTx},
+    executor::AinExecutor,
     filters::FilterService,
     log::LogService,
     receipt::ReceiptService,
@@ -32,7 +32,7 @@ use crate::{
     },
     subscription::{Notification, SubscriptionService},
     trace::service::TracerService,
-    transaction::{cache::TransactionCache, SignedTx},
+    transaction::{cache::TransactionCache, system::ExecuteTx, SignedTx},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
 };
