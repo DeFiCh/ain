@@ -11,7 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal, connect_nodes_bi
+from test_framework.util import assert_equal, assert_raises_rpc_error, connect_nodes_bi
 
 
 class TokensBasicTest(DefiTestFramework):
@@ -22,7 +22,7 @@ class TokensBasicTest(DefiTestFramework):
         # node2: Non Foundation
         self.setup_clean_chain = True
         self.extra_args = [
-            ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50"],
+            ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50", "-df23height=150"],
             ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50", "-bayfrontheight=50"],
@@ -298,16 +298,17 @@ class TokensBasicTest(DefiTestFramework):
             errorString = e.error["message"]
         assert "already exists" in errorString
 
-        # REVERTING:
-        # ========================
-        print("Reverting...")
-        # Reverting creation!
-        self.start_node(3)
-        self.nodes[3].generate(30)
+        # Move to fork height
+        self.nodes[0].generate(150 - self.nodes[0].getblockcount())
 
-        connect_nodes_bi(self.nodes, 0, 3)
-        self.sync_blocks()
-        assert_equal(len(self.nodes[0].listtokens()), 1)
+        # Check that isDAT can no longer be changed
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot change isDAT flag after DF23Height",
+            self.nodes[0].updatetoken,
+            "PT",
+            {"isDAT": False},
+        )
 
 
 if __name__ == "__main__":
