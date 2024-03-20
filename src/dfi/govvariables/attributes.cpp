@@ -200,14 +200,16 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::displayTransferIDs() {
 
 const std::map<std::string, uint8_t> &ATTRIBUTES::allowedVaultIDs() {
     static const std::map<std::string, uint8_t> params{
-        {"dusd-vault", VaultIDs::DUSDVault},
+        {"dusd-vault", VaultIDs::DUSDVault },
+        {"params",     VaultIDs::Parameters},
     };
     return params;
 }
 
 const std::map<uint8_t, std::string> &ATTRIBUTES::displayVaultIDs() {
     static const std::map<uint8_t, std::string> params{
-        {VaultIDs::DUSDVault, "dusd-vault"},
+        {VaultIDs::DUSDVault,  "dusd-vault"},
+        {VaultIDs::Parameters, "params"    },
     };
     return params;
 }
@@ -309,6 +311,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
          }},
         {AttributeTypes::Vaults,
          {
+             {"creation_fee", VaultKeys::CreationFee},
              {"enabled", VaultKeys::DUSDVaultEnabled},
          }},
         {AttributeTypes::Rules,
@@ -430,6 +433,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
          }},
         {AttributeTypes::Vaults,
          {
+             {VaultKeys::CreationFee, "creation_fee"},
              {VaultKeys::DUSDVaultEnabled, "enabled"},
          }},
         {AttributeTypes::Rules,
@@ -837,6 +841,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
              }},
             {AttributeTypes::Vaults,
              {
+                 {VaultKeys::CreationFee, VerifyPositiveFloat},
                  {VaultKeys::DUSDVaultEnabled, VerifyBool},
              }},
             {AttributeTypes::Rules,
@@ -915,7 +920,7 @@ bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes) {
     return attributes->GetValue(enabledKey, false);
 }
 
-bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus) {
+bool IsEVMEnabled(const CCustomCSView &view) {
     auto attributes = view.GetAttributes();
 
     return IsEVMEnabled(attributes);
@@ -1014,6 +1019,10 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
     } else if (type == AttributeTypes::Vaults) {
         if (typeId == VaultIDs::DUSDVault) {
             if (typeKey != VaultKeys::DUSDVaultEnabled) {
+                return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
+            }
+        } else if (typeId == VaultIDs::Parameters) {
+            if (typeKey != VaultKeys::CreationFee) {
                 return DeFiErrors::GovVarVariableUnsupportedVaultsType(typeKey);
             }
         } else {
@@ -2081,9 +2090,17 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 break;
 
             case AttributeTypes::Vaults:
-                if (attrV0->typeId == VaultIDs::DUSDVault && attrV0->key == VaultKeys::DUSDVaultEnabled) {
-                    if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
-                        return Res::Err("Cannot be set before Metachain");
+                if (attrV0->typeId == VaultIDs::DUSDVault) {
+                    if (attrV0->key == VaultKeys::DUSDVaultEnabled) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF22MetachainHeight) {
+                            return Res::Err("Cannot be set before Metachain");
+                        }
+                    }
+                } else if (attrV0->typeId == VaultIDs::Parameters) {
+                    if (attrV0->key == VaultKeys::CreationFee) {
+                        if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
+                            return Res::Err("Cannot be set before DF23Height");
+                        }
                     }
                 }
                 break;

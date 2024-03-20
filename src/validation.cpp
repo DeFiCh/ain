@@ -153,11 +153,9 @@ bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 
-bool fStopOrInterrupt = false;
+bool fInterrupt = false;
 std::string fInterruptBlockHash = "";
 int fInterruptBlockHeight = -1;
-std::string fStopBlockHash = "";
-int fStopBlockHeight = -1;
 
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
@@ -721,7 +719,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             static_cast<uint64_t>(nAcceptTime),
             consensus,
             &mnview,
-            IsEVMEnabled(mnview, consensus),
+            IsEVMEnabled(mnview),
             {},
             true,
         };
@@ -2583,7 +2581,7 @@ uint32_t GetNextAccPosition() {
 }
 
 bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) {
-    if (!fStopOrInterrupt) {
+    if (!fInterrupt) {
         return false;
     }
 
@@ -2591,13 +2589,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) 
         return height == index->nHeight || (!hash.empty() && hash == index->phashBlock->ToString());
     };
 
-    // Stop is processed first. So, if a block has both stop and interrupt
-    // stop will take priority.
-    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash) ||
-        checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
-        if (pIndex->nHeight == fStopBlockHeight) {
-            StartShutdown();
-        }
+    if (checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
         state.Invalid(
             ValidationInvalidReason::CONSENSUS, error("%s: user interrupt", __func__), "user-interrupt-request");
         return true;
@@ -3397,7 +3389,10 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplate);
+    // Set to ConnectBlock CCustomCSView
+    blockCtx.SetView(mnview);
+
+    ProcessDeFiEvent(block, pindex, view, creationTxs, blockCtx);
 
     // Write any UTXO burns
     for (const auto &[key, value] : writeBurnEntries) {
@@ -7243,6 +7238,30 @@ public:
 };
 static CMainCleanup instance_of_cmaincleanup;
 
+BlockContext::BlockContext(const uint32_t height,
+                           const uint64_t time,
+                           const Consensus::Params &consensus,
+                           CCustomCSView *view,
+                           const std::optional<bool> enabled,
+                           const std::shared_ptr<CScopedTemplate> &evmTemplate,
+                           const bool prevalidate)
+    : view(view),
+      isEvmEnabledForBlock(enabled),
+      evmTemplate(evmTemplate),
+      evmPreValidate(prevalidate),
+      height(height),
+      time(time),
+      consensus(consensus) {}
+
+BlockContext::BlockContext(BlockContext &other, CCustomCSView &otherView)
+    : view(&otherView),
+      isEvmEnabledForBlock(other.GetEVMEnabledForBlock()),
+      evmTemplate(other.GetEVMTemplate()),
+      evmPreValidate(other.GetEVMPreValidate()),
+      height(other.GetHeight()),
+      time(other.GetTime()),
+      consensus(other.GetConsensus()) {}
+
 CCustomCSView &BlockContext::GetView() {
     if (!view) {
         cache = std::make_shared<CCustomCSView>(*pcustomcsview);
@@ -7253,7 +7272,7 @@ CCustomCSView &BlockContext::GetView() {
 
 bool BlockContext::GetEVMEnabledForBlock() {
     if (!isEvmEnabledForBlock) {
-        isEvmEnabledForBlock = IsEVMEnabled(GetView(), Params().GetConsensus());
+        isEvmEnabledForBlock = IsEVMEnabled(GetView());
     }
     return *isEvmEnabledForBlock;
 }

@@ -72,6 +72,7 @@ enum TransferIDs : uint8_t {
 
 enum VaultIDs : uint8_t {
     DUSDVault = 'a',
+    Parameters = 'b',
 };
 
 enum RulesIDs : uint8_t {
@@ -174,6 +175,7 @@ enum TransferKeys : uint8_t {
 };
 
 enum VaultKeys : uint8_t {
+    CreationFee = 'a',
     DUSDVaultEnabled = 'w',
 };
 
@@ -393,7 +395,7 @@ void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
-bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
 enum GovVarsFilter {

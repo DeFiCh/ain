@@ -29,6 +29,8 @@
 
 #include <algorithm>
 
+extern std::string ScriptToString(const CScript &script);
+
 CCustomTxMessage customTypeToMessage(CustomTxType txType) {
     switch (txType) {
         case CustomTxType::CreateMasternode:
@@ -560,8 +562,7 @@ Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx) {
         // TX changes are applied on a different view which
         // is then used to create the TX undo based on the
         // difference between the original and the copy.
-        auto blockCtxTxView{blockCtx};
-        blockCtxTxView.SetView(view);
+        BlockContext blockCtxTxView{blockCtx, view};
 
         res = CustomTxVisit(txMessage, blockCtxTxView, txCtx);
 
@@ -1074,6 +1075,15 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
                 if (!res) {
                     return res;
                 }
+
+                if (LogAcceptCategory(BCLog::SWAPRESULT) && lastSwap) {
+                    LogPrint(BCLog::SWAPRESULT,
+                             "SwapResult: height=%d destination=%s result=%s\n",
+                             height,
+                             ScriptToString(obj.to),
+                             swapAmountResult.ToString());
+                }
+
                 intermediateView.Flush();
 
                 const auto token = view.GetToken("DUSD");

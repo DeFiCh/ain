@@ -14,8 +14,11 @@ Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
     const auto &consensus = txCtx.GetConsensus();
     const auto &tx = txCtx.GetTransaction();
     auto &mnview = blockCtx.GetView();
+    auto &height = blockCtx.GetHeight();
+    auto attributes = mnview.GetAttributes();
 
-    auto vaultCreationFee = consensus.vaultCreationFee;
+    const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
+    const auto vaultCreationFee = attributes->GetValue(creationFeeKey, consensus.vaultCreationFee);
     if (tx.vout[0].nValue != vaultCreationFee || tx.vout[0].nTokenId != DCT_ID{0}) {
         return Res::Err("Malformed tx vouts, creation vault fee is %s DFI", GetDecimalString(vaultCreationFee));
     }
@@ -38,12 +41,18 @@ Res CVaultsConsensus::operator()(const CVaultMessage &obj) const {
     }
 
     // check loan scheme is not to be destroyed
-    auto height = mnview.GetDestroyLoanScheme(obj.schemeId);
-    if (height) {
-        return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *height);
+    if (auto schemeHeight = mnview.GetDestroyLoanScheme(obj.schemeId); schemeHeight) {
+        return Res::Err("Cannot set %s as loan scheme, set to be destroyed on block %d", obj.schemeId, *schemeHeight);
     }
 
     auto vaultId = tx.GetHash();
+
+    if (height >= consensus.DF23Height) {
+        if (!mnview.SetVaultCreationFee(vaultId, vaultCreationFee)) {
+            return Res::Err("Failed to set vault height and fee");
+        }
+    }
+
     return mnview.StoreVault(vaultId, vault);
 }
 
@@ -112,10 +121,16 @@ Res CVaultsConsensus::operator()(const CCloseVaultMessage &obj) const {
     }
 
     // return half fee, the rest is burned at creation
-    auto feeBack = consensus.vaultCreationFee / 2;
+    const auto vaultCreationFee = mnview.GetVaultCreationFee(obj.vaultId);
+    auto feeBack = vaultCreationFee ? *vaultCreationFee / 2 : consensus.vaultCreationFee / 2;
     if (auto res = mnview.AddBalance(obj.to, {DCT_ID{0}, feeBack}); !res) {
         return res;
     }
+
+    if (vaultCreationFee && !mnview.EraseVaultCreationFee(obj.vaultId)) {
+        return Res::Err("Failed to erase vault height and fee");
+    }
+
     return mnview.EraseVault(obj.vaultId);
 }
 
