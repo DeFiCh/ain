@@ -2133,7 +2133,7 @@ template <typename T>
 static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
-                               const CChainParams &chainparams,
+                               const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
                                const T &splits) {
     for (const auto &[id, multiplier] : splits) {
@@ -2379,8 +2379,9 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
 static void ProcessTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
-                               const Consensus::Params &consensus) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
+                               BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
         return;
     }
     const auto attributes = cache.GetAttributes();
@@ -2390,11 +2391,11 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, chainparams, *attributes, splits32);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32);
     } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, chainparams, *attributes, splits64);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64);
     }
 }
 
