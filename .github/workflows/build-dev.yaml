@@ -128,16 +128,8 @@ jobs:
         username: ${{ env.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-    - name: Tag version to built image
+    - name: Push to Docker Hub
       run: |
         set -e; ver=${{ env.BUILD_VERSION }}
         docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:${ver}
-
-    - name: Tag latest to built image
-      if: env.BUILD_VERSION != 'latest'
-      run: |
-        set -e; ver=${{ env.BUILD_VERSION }}
-        docker tag defichain-${{ env.TARGET }}:${ver} defi/defichain:latest
-
-    - name: Push to Docker Hub
-      run: docker push defi/defichain --all-tags
+        docker push defi/defichain:${ver}
