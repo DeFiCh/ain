@@ -42,7 +42,7 @@ class DST20(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=153",
-                "-df23height=153",
+                "-df23height=200",
                 "-subsidytest=1",
             ]
         ]
@@ -988,6 +988,121 @@ class DST20(DefiTestFramework):
             Decimal(0),
         )
 
+    def test_rename_dst20(self):
+        # Reset test
+        self.rollback_to(self.start_height)
+
+        # Move to fork height
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
+
+        # Update token name
+        self.nodes[0].updatetoken(
+            "BTC",
+            {
+                "name": "Litecoin",
+                "symbol": "LTC",
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Check that update has associated EVM TX and receipt
+        update_tx = self.nodes[0].eth_getBlockByNumber("latest")["transactions"][0]
+        receipt = self.nodes[0].eth_getTransactionReceipt(update_tx)
+        tx = self.nodes[0].eth_getTransactionByHash(update_tx)
+        assert_equal(
+            self.w0.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_btc,
+        )
+        assert_equal(receipt["from"], tx["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
+
+        # Check contract variables
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        assert_equal(self.btc.functions.name().call(), "Litecoin")
+        assert_equal(self.btc.functions.symbol().call(), "LTC")
+
+        assert_raises_rpc_error(
+            -32600,
+            "Invalid token symbol",
+            self.nodes[0].updatetoken,
+            "LTC",
+            {"symbol": "LT#C"},
+        )
+
+        # Move back to fork height
+        self.rollback_to(200)
+
+        # Check contract variables
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        assert_equal(self.btc.functions.name().call(), "BTC token")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+
+        # Setup oracle
+        address = self.nodes[0].getnewaddress("", "legacy")
+        prices = [
+            {"currency": "USD", "token": "DFI"},
+            {"currency": "USD", "token": "TSLA"},
+        ]
+        self.nodes[0].appointoracle(address, prices, 10)
+        self.nodes[0].generate(1)
+
+        # Create loan token
+        self.nodes[0].setloantoken(
+            {
+                "symbol": "TSLA",
+                "name": "Tesla Token",
+                "fixedIntervalPriceId": "TSLA/USD",
+                "mintable": True,
+                "interest": 0.01,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check DST token
+        self.tsla = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_tsla, abi=self.abi
+        )
+
+        assert_equal(self.tsla.functions.name().call(), "Tesla Token")
+        assert_equal(self.tsla.functions.symbol().call(), "TSLA")
+
+        # Update via loan token
+        self.nodes[0].updateloantoken(
+            "TSLA",
+            {
+                "symbol": "META",
+                "name": "Meta",
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Check contract variables
+        self.tsla = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_tsla, abi=self.abi
+        )
+
+        assert_equal(self.tsla.functions.name().call(), "Meta")
+        assert_equal(self.tsla.functions.symbol().call(), "META")
+
+        # Check invalid symbol
+        assert_raises_rpc_error(
+            -32600,
+            "Invalid token symbol",
+            self.nodes[0].updateloantoken,
+            "META",
+            {
+                "symbol": "ME#/TA",
+                "name": "Me#/ta",
+            },
+        )
+
     def run_test(self):
         self.node = self.nodes[0]
         self.w0 = self.node.w3
@@ -1115,6 +1230,8 @@ class DST20(DefiTestFramework):
         self.test_loan_token()
 
         self.test_dst20_back_and_forth()
+
+        self.test_rename_dst20()
 
 
 if __name__ == "__main__":

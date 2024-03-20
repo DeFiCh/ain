@@ -10,10 +10,11 @@
 struct CAuctionBatch;
 class CBlock;
 class CBlockIndex;
+class CBurnHistoryStorage;
 class CChainParams;
 class CCoinsViewCache;
-class CVaultAssets;
 class CCustomCSView;
+class CVaultAssets;
 
 constexpr CAmount DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD = 28 * 2880;
 constexpr CAmount DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE = COIN / 10;
@@ -22,11 +23,9 @@ using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<
 
 void ProcessDeFiEvent(const CBlock &block,
                       const CBlockIndex *pindex,
-                      CCustomCSView &mnview,
                       const CCoinsViewCache &view,
-                      const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplate> &evmTemplate);
+                      BlockContext &blockCtx);
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,

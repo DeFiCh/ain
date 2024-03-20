@@ -404,7 +404,7 @@ void SetupServerArgs()
     // Hidden Options
     std::vector<std::string> hidden_args = {
         "-dbcrashratio", "-forcecompactdb",
-        "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
+        "-interrupt-block=<hash|height>",
         "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
         "-checkpoints-file",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
@@ -1712,10 +1712,7 @@ bool SetupInterruptArg(const std::string &argName, std::string &hashStore, int &
 }
 
 void SetupInterrupts() {
-    auto isSet = false;
-    isSet = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight) || isSet;
-    isSet = SetupInterruptArg("-stop-block", fStopBlockHash, fStopBlockHeight) || isSet;
-    fStopOrInterrupt = isSet;
+    fInterrupt = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight);
 }
 
 bool AppInitMain(InitInterfaces& interfaces)

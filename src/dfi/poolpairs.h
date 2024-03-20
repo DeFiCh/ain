@@ -123,6 +123,8 @@ struct CUpdatePoolPairMessage {
     CAmount commission;
     CScript ownerAddress;
     CBalances rewards;
+    std::string pairSymbol;
+    std::string pairName;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -133,6 +135,10 @@ struct CUpdatePoolPairMessage {
         READWRITE(ownerAddress);
         if (!s.empty()) {
             READWRITE(rewards);
+        }
+        if (!s.empty()) {
+            READWRITE(pairSymbol);
+            READWRITE(pairName);
         }
     }
 };
