@@ -22,8 +22,7 @@
 #include <validation.h>
 
 #include <boost/asio.hpp>
-#include "chainparams.h"
-#include "consensus/params.h"
+#include <consensus/params.h>
 
 #define MILLI 0.001
 
