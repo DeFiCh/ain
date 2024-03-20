@@ -1348,7 +1348,7 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Amount must be a valid number",
+            "Value must be an integer",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/oracles/splits/1200": "1/50,600"}},
         )
@@ -1597,7 +1597,7 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Amount must be a valid number",
+            "Value must be an integer",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/oracles/splits/1200": "1/50,600"}},
         )
