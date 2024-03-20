@@ -387,14 +387,6 @@ using CAttributeValue = std::variant<bool,
                                      CEvmBlockStatsLive,
                                      OracleSplits64>;
 
-inline OracleSplits64 ConvertOracleSplits64(const OracleSplits &splits) {
-    OracleSplits64 splits64;
-    for (const auto &[key, value] : splits) {
-        splits64[key] = value * COIN;
-    }
-    return splits64;
-}
-
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);
 void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
