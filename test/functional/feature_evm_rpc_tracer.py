@@ -404,7 +404,19 @@ class EvmTracerTest(DefiTestFramework):
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
 
-        # Test tracer for every tx
+        # Test tracer for every DST20 creation tx
+        for tx in block_txs[:2]:
+            assert_equal(
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                {
+                    "gas": "0x0",
+                    "failed": False,
+                    "returnValue": "",
+                    "structLogs": [],
+                },
+            )
+
+        # Test tracer for every transfer tx
         for tx in block_txs[2:]:
             assert_equal(
                 self.nodes[0].debug_traceTransaction(tx["hash"]),
@@ -430,9 +442,15 @@ class EvmTracerTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
-        # TODO: Disabled for now as tracer implementation is incorrect and does not support
-        # contract creation. To enable once correct logic pipeline features are in.
-        # assert_equal(self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]), False)
+        assert_equal(
+            self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]),
+            {
+                "gas": "0x0",
+                "failed": False,
+                "returnValue": "",
+                "structLogs": [],
+            },
+        )
 
         # Update tokens
         token_info = self.nodes[0].listtokens()["1"]

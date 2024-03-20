@@ -114,12 +114,11 @@ impl TracerService {
 
         for (idx, replay_tx) in replay_txs.iter().enumerate() {
             let tx_data = &txs_data[idx];
+            let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             if tx.hash() == replay_tx.hash() {
                 // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
-                return AinExecutor::new(&mut backend).exec_with_tracer(tx_data, tx);
+                return AinExecutor::new(&mut backend).execute_tx_with_tracer(exec_tx);
             }
-
-            let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee)?;
         }
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
