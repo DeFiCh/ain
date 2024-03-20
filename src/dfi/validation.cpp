@@ -22,6 +22,8 @@
 #include <validation.h>
 
 #include <boost/asio.hpp>
+#include "chainparams.h"
+#include "consensus/params.h"
 
 #define MILLI 0.001
 
@@ -987,10 +989,10 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
 
 static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
                                      CCustomCSView &cache,
-                                     const CChainParams &chainparams,
+                                     const Consensus::Params &consensus,
                                      const LoanTokenCollection &loanTokens,
                                      const bool futureSwapBlock) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF23Height) {
+    if (pindex->nHeight < consensus.DF23Height) {
         return;
     }
 
@@ -1159,7 +1161,7 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
     const auto futureSwapBlock = (pindex->nHeight - startBlock) % blockPeriod == 0;
 
-    LiquidityForFuturesLimit(pindex, cache, chainparams, loanTokens, futureSwapBlock);
+    LiquidityForFuturesLimit(pindex, cache, consensus, loanTokens, futureSwapBlock);
 
     if (!futureSwapBlock) {
         return;
