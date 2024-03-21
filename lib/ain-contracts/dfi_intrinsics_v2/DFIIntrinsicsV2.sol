@@ -32,11 +32,11 @@ contract DFIIntrinsicsV2 is IDFIIntrinsicsV2 {
         return _getDFIIntrinsicsV1().dvmBlockCount();
     }
 
-    function depositAndSplitTokens(address tokenContract, uint256 amount) public {
-        migrateTokens(msg.sender, tokenContract, amount);
+    function migrateTokens(address tokenContract, uint256 amount) public {
+        migrateTokensImpl(msg.sender, tokenContract, amount);
     }
 
-    function migrateTokens(address sender, address tokenContract, uint256 amount) private {
+    function migrateTokensImpl(address sender, address tokenContract, uint256 amount) private {
         address precompileAddress = address(0x0a);
         bytes memory inputData = abi.encode(sender, tokenContract, amount);
         bytes memory outputData = "";

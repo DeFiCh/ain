@@ -241,7 +241,7 @@ lazy_static::lazy_static! {
 pub fn get_split_tokens_function() -> ethabi::Function {
     #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
     ethabi::Function {
-        name: String::from("migrateTokens"),
+        name: String::from("migrateTokensImpl"),
         inputs: vec![
             ethabi::Param {
                 name: String::from("sender"),

@@ -710,8 +710,8 @@ class EVMTokenSplitTest(DefiTestFramework):
             address=source_contract, abi=self.dst20_abi
         )
 
-        # Call depositAndSplitTokens
-        deposit_txn = self.intrinsics_contract.functions.depositAndSplitTokens(
+        # Call migrateTokens
+        deposit_txn = self.intrinsics_contract.functions.migrateTokens(
             source_contract, amount_to_send
         ).build_transaction(
             {
