@@ -33,10 +33,10 @@ contract DFIIntrinsicsV2 is IDFIIntrinsicsV2 {
     }
 
     function migrateTokens(address tokenContract, uint256 amount) public {
-        migrateTokensImpl(msg.sender, tokenContract, amount);
+        migrateTokensOnAddress(msg.sender, tokenContract, amount);
     }
 
-    function migrateTokensImpl(address sender, address tokenContract, uint256 amount) private {
+    function migrateTokensOnAddress(address sender, address tokenContract, uint256 amount) private {
         address precompileAddress = address(0x0a);
         bytes memory inputData = abi.encode(sender, tokenContract, amount);
         bytes memory outputData = "";
