@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ain_contracts::{dst20_address_from_token_id, validate_split_tokens_input, TokenSplitParams};
-use ain_cpp_imports::{bridge::ffi::TokenAmount, split_tokens_from_evm};
+use ain_cpp_imports::{split_tokens_from_evm, TokenAmount};
 use ethereum_types::{H160, H256, U256};
 use evm::{
     backend::Apply,

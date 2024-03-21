@@ -95,7 +95,7 @@ bitcoin = "0.31"
 ### eth
 
 evm = { version = "0.39", default-features = false, features = ["with-serde", "tracing"] }
-evm-runtime = { version  = "0.39.0" }
+evm-runtime = "0.39.0"
 
 ethereum = { git = "https://github.com/defich/ethereum.git" }
 ethereum-types = "0.14"

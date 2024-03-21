@@ -1,7 +1,7 @@
 use std::error::Error;
 
 #[cfg(not(test))]
-pub mod bridge;
+mod bridge;
 
 #[cfg(not(test))]
 use bridge::ffi;
@@ -142,6 +142,7 @@ mod ffi {
 }
 
 pub use ffi::Attributes;
+pub use ffi::TokenAmount;
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
