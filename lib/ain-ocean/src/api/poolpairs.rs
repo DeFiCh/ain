@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::hex::parse;
 use defichain_rpc::{
     json::poolpair::{PoolPairInfo, PoolPairsResult},
+    json::token::TokenInfo,
     RpcApi,
 };
 use log::debug;
@@ -12,7 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{
-    common::{parse_dat_symbol, parse_display_symbol},
+    cache::{get_token_cached, list_pool_pairs_cached},
+    common::parse_dat_symbol,
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -24,7 +26,7 @@ use crate::{
     model::{BlockContext, PoolSwap},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
-    Result,
+    Result, TokenIdentifier,
 };
 
 // #[derive(Deserialize)]
@@ -41,12 +43,6 @@ use crate::{
 // #[derive(Deserialize)]
 // struct SwappableTokens {
 //     token_id: String,
-// }
-
-// #[derive(Deserialize)]
-// struct BestPath {
-//     from_token_id: String,
-//     to_token_id: String,
 // }
 
 // #[derive(Debug, Deserialize)]
@@ -431,18 +427,87 @@ async fn list_pool_swaps_verbose(
 //     format!("Swappable tokens for token id {}", token_id)
 // }
 
-// #[ocean_endpoint]
-// async fn get_best_path(
-//     Query(BestPath {
-//         from_token_id,
-//         to_token_id,
-//     }): Query<BestPath>,
-// ) -> String {
-//     format!(
-//         "Best path from token id {} to {}",
-//         from_token_id, to_token_id
-//     )
-// }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BestSwapPathResponse {
+    from_token: String,
+    to_token: String,
+    best_path: Vec<String>,
+    estimated_return: String,
+    estimated_return_less_dex_fees: String
+}
+
+#[ocean_endpoint]
+async fn get_best_path(
+    Path(from_token_id): Path<String>,
+    Path(to_token_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<BestSwapPathResponse> {
+    let res = get_all_swap_paths(&ctx, from_token_id, to_token_id);
+
+    // dummy first
+    Ok(BestSwapPathResponse{
+        from_token: "1".to_string(),
+        to_token: "1".to_string(),
+        best_path: vec!["1".to_string()],
+        estimated_return: "1".to_string(),
+        estimated_return_less_dex_fees: "1".to_string(),
+    })
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapPathPoolPairResponse {
+    pool_pair_id: String,
+    symbol: String,
+    token_a: TokenIdentifier,
+    token_b: TokenIdentifier,
+    price_ratio: PoolPairPriceRatioResponse,
+    commission_fee_in_pct: String,
+    estimated_dex_fees_in_pct: Option<PoolPairPriceRatioResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapPathsResponse {
+    from_token: TokenIdentifier,
+    to_token: TokenIdentifier,
+    paths: Vec<Vec<SwapPathPoolPairResponse>>,
+}
+
+async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: String, to_token_id: String) -> Result<bool> {
+    Ok(true)
+}
+
+async fn get_token_identifier(ctx: &Arc<AppContext>, id: String) -> Result<TokenIdentifier> {
+    let (id, token) = get_token_cached(ctx, &id).await?;
+    Ok(TokenIdentifier{
+        id,
+        name: token.name,
+        symbol: token.symbol.clone(),
+        display_symbol: parse_dat_symbol(&token.symbol),
+    })
+
+}
+
+async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: String, to_token_id: String) -> Result<SwapPathsResponse> {
+    assert!(from_token_id != to_token_id);
+
+    let mut res = SwapPathsResponse {
+        from_token: get_token_identifier(ctx, from_token_id.clone()).await?,
+        to_token: get_token_identifier(ctx, to_token_id.clone()).await?,
+        paths: vec![],
+    };
+
+    if !ctx.services.token_graph.lock().contains_node(from_token_id.parse::<u32>()?)
+        || !ctx.services.token_graph.lock().contains_node(to_token_id.parse::<u32>()?) {
+            return Ok(res)
+        }
+
+    // res.paths = compute_paths_between_tokens(from_token_id, to_token_id).await?;
+
+    return Ok(res)
+}
 
 // #[ocean_endpoint]
 // async fn get_all_paths(
