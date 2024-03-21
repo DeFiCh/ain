@@ -10,6 +10,7 @@ mod loan;
 mod masternode;
 // mod oracle;
 mod poolpairs;
+pub mod poolpairs_path;
 // mod prices;
 // mod rawtx;
 mod cache;
@@ -64,6 +65,11 @@ pub async fn ocean_router(
         client,
         services: services.clone(),
         network,
+    });
+
+    let context_cloned = context.clone();
+    tokio::spawn(async move {
+        poolpairs_path::sync_token_graph(&context_cloned).await
     });
 
     Ok(Router::new().nest(
