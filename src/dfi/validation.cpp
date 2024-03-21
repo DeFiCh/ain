@@ -1081,8 +1081,9 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         {static_cast<uint32_t>(pindex->nHeight - blockPeriod)});
 
     // Calculate average liquidity for each token
+    const auto expectedEntries = blockPeriod / samplingPeriod;
     for (const auto &[key, liquidityPerBlock] : liquidityPerBlockByToken) {
-        if (liquidityPerBlock.size() < blockPeriod) {
+        if (liquidityPerBlock.size() < expectedEntries) {
             cache.EraseTokenAverageLiquidity(key);
             continue;
         }
@@ -1092,7 +1093,7 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
             tokenTotal += liquidity;
         }
 
-        const auto tokenAverage = tokenTotal / blockPeriod;
+        const auto tokenAverage = tokenTotal / expectedEntries;
         cache.SetLoanTokenAverageLiquidity(key, tokenAverage.GetLow64());
     }
 }

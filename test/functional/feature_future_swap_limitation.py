@@ -302,31 +302,31 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Check liquidity data changed
         assert_equal(
             self.nodes[0].listloantokenliquidity(),
-            {"META-DUSD": "72.48624516", "DUSD-META": "155.00000000"},
+            {"META-DUSD": "69.98499472", "DUSD-META": "160.00000000"},
         )
 
         # Try and swap above new limit
         assert_raises_rpc_error(
             -32600,
-            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 7.24862451@META",
+            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 6.99849947@META",
             self.nodes[0].futureswap,
             self.address,
-            "7.24862452@META",
+            "6.99849948@META",
         )
 
         # Try and swap above new limit
         assert_raises_rpc_error(
             -32600,
-            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 15.50000000@DUSD",
+            "Swap amount exceeds 10% of average pool liquidity limit. Available amount to swap: 16.00000000@DUSD",
             self.nodes[0].futureswap,
             self.address,
-            "15.50000001@DUSD",
+            "16.00000001@DUSD",
             "META",
         )
 
         # Swap the max limit
         self.nodes[0].futureswap(self.address, "10.00000000@DUSD", "META")
-        self.nodes[0].futureswap(self.address, "5.50000000@DUSD", "META")
+        self.nodes[0].futureswap(self.address, "6.00000000@DUSD", "META")
         self.nodes[0].generate(1)
 
         # Try and swap above new limit
