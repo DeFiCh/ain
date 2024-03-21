@@ -56,11 +56,14 @@ jobs:
     - name: Build binaries
       run: ./make.sh build
 
+    - name: Pack binaries
+      run: ./make.sh deploy && ./make.sh package
+
     - name: Upload binaries
       uses: actions/upload-artifact@v3
       with:
         name: defi-bins
-        path: build/src/defid
+        path: ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }}
 
   test:
     name: Test
@@ -85,6 +88,9 @@ jobs:
         with:
           name: defi-bins
           path: ./build/
+
+      - name: Unpack binaries
+        run: tar -xvzf ./build/defichain-${{ env.BUILD_VERSION }}-${{ env.TARGET }}.${{ env.PKG_TYPE }} -C ./build/
 
       - name: Build defi image
         run: rm .dockerignore && ./make.sh docker-build-from-binaries
