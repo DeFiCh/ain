@@ -1567,7 +1567,8 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
                     (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F || attrV0->typeId == DFIP2211F) &&
-                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
+                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     auto decimalStr = GetDecimalString(*amount);
