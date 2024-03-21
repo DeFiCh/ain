@@ -592,7 +592,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
             auto chunk = DivideAmounts(batchThreshold, collateralChunkValue);
             auto loanAmount = MultiplyAmounts(maxLoanAmount, chunk);
             for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
-                chunk = std::min(chunk, chunks);
+                chunk = std::min(static_cast<CAmount>(chunk), chunks);
                 loanAmount = std::min(loanAmount, maxLoanAmount);
                 auto collateralChunk = MultiplyAmounts(chunk, loanChunk);
                 batches.push_back(CreateAuctionBatch({loan.nTokenId, loanAmount}, collateralChunk));
@@ -1390,7 +1390,12 @@ static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache
 }
 
 template <typename T>
-static inline T CalculateNewAmount(const int multiplier, const T amount) {
+static inline T CalculateNewAmount(const CAmount multiplier, const T amount) {
+    return multiplier < 0 ? DivideAmounts(amount, std::abs(multiplier)) : MultiplyAmounts(amount, multiplier);
+}
+
+template <typename T>
+static inline T CalculateNewAmount(const int32_t multiplier, const T amount) {
     return multiplier < 0 ? amount / std::abs(multiplier) : amount * multiplier;
 }
 
@@ -1483,6 +1488,7 @@ static Res UpdateLiquiditySplits(CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
 static Res PoolSplits(CCustomCSView &view,
                       CAmount &totalBalance,
                       ATTRIBUTES &attributes,
@@ -1490,7 +1496,7 @@ static Res PoolSplits(CCustomCSView &view,
                       const DCT_ID newTokenId,
                       const CBlockIndex *pindex,
                       const CreationTxs &creationTxs,
-                      const int32_t multiplier) {
+                      const T multiplier) {
     LogPrintf(
         "Pool migration in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, pindex->nHeight);
 
@@ -1796,12 +1802,13 @@ static Res PoolSplits(CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
 static Res VaultSplits(CCustomCSView &view,
                        ATTRIBUTES &attributes,
                        const DCT_ID oldTokenId,
                        const DCT_ID newTokenId,
                        const int height,
-                       const int multiplier) {
+                       const T multiplier) {
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, height);
 
@@ -2025,12 +2032,13 @@ static Res VaultSplits(CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
 static void MigrateV1Remnants(const CCustomCSView &cache,
                               ATTRIBUTES &attributes,
                               const uint8_t key,
                               const DCT_ID oldId,
                               const DCT_ID newId,
-                              const int32_t multiplier,
+                              const T multiplier,
                               const uint8_t typeID = ParamIDs::Economy) {
     CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
     auto balances = attributes.GetValue(attrKey, CBalances{});
@@ -2080,25 +2088,54 @@ static Res GetTokenSuffix(const CCustomCSView &view,
     return Res::Ok();
 }
 
-static void ProcessTokenSplits(const CBlock &block,
-                               const CBlockIndex *pindex,
+template <typename T>
+static void UpdateOracleSplitKeys(const uint32_t id, ATTRIBUTES &attributes) {
+    std::map<CDataStructureV0, T> updateAttributesKeys;
+    attributes.ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
+            if (attr.type != AttributeTypes::Oracles) {
+                return false;
+            }
+
+            if (attr.typeId != OracleIDs::Splits) {
+                return true;
+            }
+
+            if (attr.key == OracleKeys::FractionalSplits) {
+                return true;
+            }
+
+            if (const auto splitMap = std::get_if<T>(&value)) {
+                for (auto [splitMapKey, splitMapValue] : *splitMap) {
+                    if (splitMapKey == id) {
+                        auto copyMap{*splitMap};
+                        copyMap.erase(splitMapKey);
+                        updateAttributesKeys.emplace(attr, copyMap);
+                        break;
+                    }
+                }
+            }
+
+            return true;
+        },
+        CDataStructureV0{AttributeTypes::Oracles});
+
+    for (const auto &[key, value] : updateAttributesKeys) {
+        if (value.empty()) {
+            attributes.EraseKey(key);
+        } else {
+            attributes.SetValue(key, value);
+        }
+    }
+}
+
+template <typename T>
+static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
-                               BlockContext &blockCtx) {
-    const auto &consensus = blockCtx.GetConsensus();
-    if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
-        return;
-    }
-    const auto attributes = cache.GetAttributes();
-
-    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
-
-    if (!splits.empty()) {
-        attributes->EraseKey(splitKey);
-        cache.SetVariable(*attributes);
-    }
-
+                               const Consensus::Params &consensus,
+                               ATTRIBUTES &attributes,
+                               const T &splits) {
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -2111,7 +2148,7 @@ static void ProcessTokenSplits(const CBlock &block,
         auto view{cache};
 
         // Refund affected future swaps
-        auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
+        auto res = attributes.RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
         if (!res) {
             LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
             continue;
@@ -2126,7 +2163,7 @@ static void ProcessTokenSplits(const CBlock &block,
         }
 
         std::string newTokenSuffix = "/v";
-        res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
+        res = GetTokenSuffix(cache, attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
             continue;
@@ -2171,46 +2208,41 @@ static void ProcessTokenSplits(const CBlock &block,
         LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", newToken.symbol, oldTokenId.v, newTokenId.v);
 
         std::vector<CDataStructureV0> eraseKeys;
-        for (const auto &[key, value] : attributes->GetAttributesMap()) {
+        for (const auto &[key, value] : attributes.GetAttributesMap()) {
             if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
                 if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
-                    attributes->SetValue(newKey, value);
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 } else if (v0Key->typeId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
-                    attributes->SetValue(newKey, value);
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 } else if (v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
-                    attributes->SetValue(newKey, value);
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 }
             }
         }
 
         for (const auto &key : eraseKeys) {
-            attributes->EraseKey(key);
+            attributes.EraseKey(key);
         }
 
         CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
+        attributes.SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+        attributes.SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(
+            cache, attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
         MigrateV1Remnants(cache,
-                          *attributes,
-                          EconomyKeys::BatchRoundingExcess,
-                          oldTokenId,
-                          newTokenId,
-                          multiplier,
-                          ParamIDs::Auction);
-        MigrateV1Remnants(cache,
-                          *attributes,
+                          attributes,
                           EconomyKeys::ConsolidatedInterest,
                           oldTokenId,
                           newTokenId,
@@ -2219,7 +2251,7 @@ static void ProcessTokenSplits(const CBlock &block,
 
         CAmount totalBalance{0};
 
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
+        res = PoolSplits(view, totalBalance, attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
         if (!res) {
             LogPrintf("Pool splits failed %s\n", res.msg);
             continue;
@@ -2292,37 +2324,16 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+        res = VaultSplits(view, attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
         if (!res) {
             LogPrintf("Token splits failed: %s\n", res.msg);
             continue;
         }
 
-        std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
-        for (const auto &[key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = std::get_if<CDataStructureV0>(&key);
-                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
-                if (const auto splitMap = std::get_if<OracleSplits>(&value)) {
-                    for (auto [splitMapKey, splitMapValue] : *splitMap) {
-                        if (splitMapKey == oldTokenId.v) {
-                            auto copyMap{*splitMap};
-                            copyMap.erase(splitMapKey);
-                            updateAttributesKeys.emplace_back(*v0Key, copyMap);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        UpdateOracleSplitKeys<OracleSplits>(oldTokenId.v, attributes);
+        UpdateOracleSplitKeys<OracleSplits64>(oldTokenId.v, attributes);
 
-        for (const auto &[key, value] : updateAttributesKeys) {
-            if (value.empty()) {
-                attributes->EraseKey(key);
-            } else {
-                attributes->SetValue(key, value);
-            }
-        }
-        view.SetVariable(*attributes);
+        view.SetVariable(attributes);
 
         // Migrate stored unlock
         if (pindex->nHeight >= consensus.DF20GrandCentralHeight) {
@@ -2362,6 +2373,29 @@ static void ProcessTokenSplits(const CBlock &block,
 
         view.Flush();
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
+    }
+}
+
+static void ProcessTokenSplits(const CBlockIndex *pindex,
+                               CCustomCSView &cache,
+                               const CreationTxs &creationTxs,
+                               BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
+        return;
+    }
+    const auto attributes = cache.GetAttributes();
+
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+
+    if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+        attributes->EraseKey(splitKey);
+        cache.SetVariable(*attributes);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32);
+    } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+        attributes->EraseKey(splitKey);
+        cache.SetVariable(*attributes);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64);
     }
 }
 
@@ -3003,7 +3037,7 @@ void ProcessDeFiEvent(const CBlock &block,
     ProcessTokenToGovVar(pindex, cache, consensus);
 
     // Loan splits
-    ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
+    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
 
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
