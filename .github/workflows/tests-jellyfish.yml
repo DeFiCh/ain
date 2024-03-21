@@ -12,6 +12,7 @@ concurrency:
 
 env:
   BUILD_VERSION: latest
+  TARGET: x86_64-pc-linux-gnu
   MAKE_DEBUG: 0
   GIT_VERSION: 1
 
@@ -21,7 +22,6 @@ jobs:
     container: defi/ain-builder:latest
     env:
       CARGO_INCREMENTAL: 0
-      TARGET: x86_64-pc-linux-gnu
     steps:
     - uses: actions/checkout@v4
     - run: git config --global --add safe.directory '*'
