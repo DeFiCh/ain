@@ -196,6 +196,14 @@ public:
         return Res::Err(error);
     }
 
+    static Res GovVarOracleInvalidKey(const std::map<std::string, uint8_t> &keys) {
+        std::string error{"Unrecognised key, valid keys are either block height or:"};
+        for (const auto &pair : keys) {
+            error += ' ' + pair.first + ',';
+        }
+        return Res::Err(error);
+    }
+
     static Res GovVarVariableUnsupportedType(const unsigned char type) {
         return Res::Err("Unsupported type {%d}", type);
     }
@@ -261,6 +269,10 @@ public:
     static Res GovVarValidateLoanToken(const uint32_t token) { return Res::Err("No such loan token (%d)", token); }
 
     static Res GovVarValidateLoanTokenID(const uint32_t token) { return Res::Err("No loan token with id (%d)", token); }
+
+    static Res GovVarVerifySplitFractional() { return Res::Err("Fractional split not currently supported"); }
+
+    static Res GovVarVerifySplitFractionalTooSmall() { return Res::Err("Fractional split cannot be less than 1"); }
 
     static Res GovVarValidateExcessAmount() { return Res::Err("Percentage exceeds 100%%"); }
 
