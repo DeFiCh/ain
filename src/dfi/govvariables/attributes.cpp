@@ -278,6 +278,7 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
              {"transferdomain", DFIPKeys::TransferDomain},
+             {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
              {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
          }},
         {AttributeTypes::EVMType,
@@ -378,6 +379,7 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
              {DFIPKeys::TransferDomain, "transferdomain"},
+             {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
              {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
          }},
         {AttributeTypes::EVMType,
@@ -754,6 +756,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
                  {DFIPKeys::TransferDomain, VerifyBool},
+                 {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
              }},
             {AttributeTypes::Locks,
@@ -916,7 +919,7 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
             }
         } else if (typeId == ParamIDs::DFIP2211F) {
             if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::BlockPeriod &&
-                typeKey != DFIPKeys::AverageLiquidityPercentage) {
+                typeKey != DFIPKeys::LiquidityCalcSamplingPeriod && typeKey != DFIPKeys::AverageLiquidityPercentage) {
                 return DeFiErrors::GovVarVariableUnsupportedDFIPType(typeKey);
             }
         } else if (typeId == ParamIDs::Feature) {

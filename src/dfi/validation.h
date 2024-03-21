@@ -17,6 +17,7 @@ class CCustomCSView;
 class CVaultAssets;
 
 constexpr CAmount DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD = 28 * 2880;
+constexpr CAmount DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD = 120;
 constexpr CAmount DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE = COIN / 10;
 
 using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;

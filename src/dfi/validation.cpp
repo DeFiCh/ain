@@ -1002,6 +1002,12 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         return;
     }
 
+    CDataStructureV0 samplingKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::LiquidityCalcSamplingPeriod};
+    const auto samplingPeriod = attributes->GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
+    if ((pindex->nHeight - consensus.DF23Height) % samplingPeriod != 0) {
+        return;
+    }
+
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::BlockPeriod};
     const auto blockPeriod = attributes->GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
 

@@ -193,6 +193,16 @@ class FutureSwapLimitationTest(DefiTestFramework):
             self.nodes[0].setgov,
             {
                 "ATTRIBUTES": {
+                    "v0/params/dfip2211f/liquidity_calc_sampling_period": "1",
+                }
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Cannot be set before DF23Height",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
                     "v0/params/dfip2211f/average_liquidity_percentage": "0.1",
                 }
             },
@@ -216,6 +226,7 @@ class FutureSwapLimitationTest(DefiTestFramework):
             {
                 "ATTRIBUTES": {
                     "v0/params/dfip2211f/active": "true",
+                    "v0/params/dfip2211f/liquidity_calc_sampling_period": "1",
                     "v0/params/dfip2211f/average_liquidity_percentage": "0.1",
                     "v0/params/dfip2211f/block_period": "20",
                 }
@@ -226,6 +237,7 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Verify Gov vars
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
         assert_equal(result["v0/params/dfip2211f/active"], "true")
+        assert_equal(result["v0/params/dfip2211f/liquidity_calc_sampling_period"], "1")
         assert_equal(result["v0/params/dfip2211f/average_liquidity_percentage"], "0.1")
         assert_equal(result["v0/params/dfip2211f/block_period"], "20")
 

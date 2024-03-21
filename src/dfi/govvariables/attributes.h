@@ -122,7 +122,8 @@ enum DFIPKeys : uint8_t {
     EVMEnabled = 'u',
     ICXEnabled = 'v',
     TransferDomain = 'w',
-    AverageLiquidityPercentage = 'x',
+    LiquidityCalcSamplingPeriod = 'x',
+    AverageLiquidityPercentage = 'y',
 };
 
 enum GovernanceKeys : uint8_t {
