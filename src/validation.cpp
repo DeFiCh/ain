@@ -3725,6 +3725,10 @@ void static UpdateTip(const CBlockIndex *pindexNew, const CChainParams &chainPar
     }
 }
 
+static bool BlockchainNearTip(const int64_t blockTime) {
+    return blockTime > (GetTime() - nMaxTipAge);
+}
+
 /** Disconnect m_chain's tip.
  * After calling, the mempool will be in an inconsistent state, with
  * transactions from disconnected blocks being added to disconnectpool.  You
@@ -3808,7 +3812,7 @@ bool CChainState::DisconnectTip(CValidationState &state,
     // DisconnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
     if (psnapshotManager) {
-        if (!IsInitialBlockDownload()) {
+        if (BlockchainNearTip(pindexDelete->pprev->GetBlockTime())) {
             psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexDelete->pprev);
         } else {
             psnapshotManager->EraseCurrentSnapshot();
@@ -4013,7 +4017,7 @@ bool CChainState::ConnectTip(CValidationState &state,
 
     // ConnectTip might be called before psnapshotManager has been initialised
     // as part of start-up so check psnapshotManager before using it.
-    if (psnapshotManager && !IsInitialBlockDownload()) {
+    if (psnapshotManager && BlockchainNearTip(pindexNew->GetBlockTime())) {
         psnapshotManager->SetBlockSnapshot(*pcustomcsview, pindexNew);
     }
 
