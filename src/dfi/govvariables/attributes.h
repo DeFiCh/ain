@@ -43,6 +43,7 @@ enum ParamIDs : uint8_t {
     Feature = 'h',
     Auction = 'i',
     Foundation = 'j',
+    DFIP2211F = 'k',
 };
 
 enum OracleIDs : uint8_t {
@@ -121,6 +122,8 @@ enum DFIPKeys : uint8_t {
     EVMEnabled = 'u',
     ICXEnabled = 'v',
     TransferDomain = 'w',
+    LiquidityCalcSamplingPeriod = 'x',
+    AverageLiquidityPercentage = 'y',
 };
 
 enum GovernanceKeys : uint8_t {

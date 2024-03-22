@@ -21,9 +21,12 @@
 #include <ffi/ffihelpers.h>
 #include <validation.h>
 
+#include <consensus/params.h>
 #include <boost/asio.hpp>
 
 #define MILLI 0.001
+
+using LoanTokenCollection = std::vector<std::pair<DCT_ID, CLoanSetLoanTokenImplementation>>;
 
 struct NullPoolSwapData {
     uint256 txid;
@@ -983,6 +986,162 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
     view.Flush();
 }
 
+static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
+                                     CCustomCSView &cache,
+                                     const Consensus::Params &consensus,
+                                     const LoanTokenCollection &loanTokens,
+                                     const bool futureSwapBlock) {
+    if (pindex->nHeight < consensus.DF23Height) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
+    if (!attributes->GetValue(activeKey, false)) {
+        return;
+    }
+
+    CDataStructureV0 samplingKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::LiquidityCalcSamplingPeriod};
+    const auto samplingPeriod = attributes->GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
+    if ((pindex->nHeight - consensus.DF23Height) % samplingPeriod != 0) {
+        return;
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::BlockPeriod};
+    const auto blockPeriod = attributes->GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
+
+    const auto dusdToken = cache.GetToken("DUSD");
+    if (!dusdToken) {
+        return;
+    }
+
+    const auto &dusdID = dusdToken->first;
+
+    std::set<DCT_ID> tokens;
+    for (const auto &[id, loanToken] : loanTokens) {
+        tokens.insert(id);
+    }
+
+    // Filter out DUSD
+    tokens.erase(dusdID);
+
+    // Store liquidity for loan tokens
+    cache.ForEachPoolPair([&](const DCT_ID &, const CPoolPair &poolPair) {
+        // Check for loan token
+        const auto tokenA = tokens.count(poolPair.idTokenA);
+        const auto tokenB = tokens.count(poolPair.idTokenB);
+        if (!tokenA && !tokenB) {
+            return true;
+        }
+
+        // Make sure this is the DUSD loan token pair
+        const auto dusdA = poolPair.idTokenA == dusdID;
+        const auto dusdB = poolPair.idTokenB == dusdID;
+        if (!dusdA && !dusdB) {
+            return true;
+        }
+
+        cache.SetLoanTokenLiquidityPerBlock(
+            {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
+        cache.SetLoanTokenLiquidityPerBlock(
+            {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
+
+        return true;
+    });
+
+    // Collect old entries to delete
+    std::vector<LoanTokenLiquidityPerBlockKey> keysToDelete;
+    cache.ForEachTokenLiquidityPerBlock(
+        [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
+            if (key.height <= pindex->nHeight - blockPeriod) {
+                keysToDelete.push_back(key);
+            } else {
+                return false;
+            }
+            return true;
+        });
+
+    // Delete old entries
+    for (const auto &key : keysToDelete) {
+        cache.EraseTokenLiquidityPerBlock(key);
+    }
+
+    if (!futureSwapBlock) {
+        return;
+    }
+
+    // Get liquidity per block for each token
+    std::map<LoanTokenAverageLiquidityKey, std::vector<CAmount>> liquidityPerBlockByToken;
+    cache.ForEachTokenLiquidityPerBlock(
+        [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
+            liquidityPerBlockByToken[{key.sourceID, key.destID}].push_back(liquidityPerBlock);
+            return true;
+        },
+        {static_cast<uint32_t>(pindex->nHeight - blockPeriod)});
+
+    // Calculate average liquidity for each token
+    const auto expectedEntries = blockPeriod / samplingPeriod;
+    for (const auto &[key, liquidityPerBlock] : liquidityPerBlockByToken) {
+        if (liquidityPerBlock.size() < expectedEntries) {
+            cache.EraseTokenAverageLiquidity(key);
+            continue;
+        }
+
+        arith_uint256 tokenTotal{};
+        for (const auto &liquidity : liquidityPerBlock) {
+            tokenTotal += liquidity;
+        }
+
+        const auto tokenAverage = tokenTotal / expectedEntries;
+        cache.SetLoanTokenAverageLiquidity(key, tokenAverage.GetLow64());
+    }
+}
+
+static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes) {
+    LoanTokenCollection loanTokens;
+
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
+    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
+        tokenKey.typeId = id.v;
+        const auto enabled = attributes.GetValue(tokenKey, true);
+        if (!enabled) {
+            return true;
+        }
+
+        loanTokens.emplace_back(id, loanToken);
+
+        return true;
+    });
+
+    if (loanTokens.empty()) {
+        attributes.ForEach(
+            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+                if (attr.type != AttributeTypes::Token) {
+                    return false;
+                }
+
+                tokenKey.typeId = attr.typeId;
+                const auto enabled = attributes.GetValue(tokenKey, true);
+                if (!enabled) {
+                    return true;
+                }
+
+                if (attr.key == TokenKeys::LoanMintingEnabled) {
+                    auto tokenId = DCT_ID{attr.typeId};
+                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                        loanTokens.emplace_back(tokenId, *loanToken);
+                    }
+                }
+
+                return true;
+            },
+            CDataStructureV0{AttributeTypes::Token});
+    }
+
+    return loanTokens;
+}
+
 static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
     if (pindex->nHeight < consensus.DF15FortCanningRoadHeight) {
         return;
@@ -1004,8 +1163,13 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
         return;
     }
 
+    const auto loanTokens = GetLoanTokensForFutures(cache, *attributes);
     const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
-    if ((pindex->nHeight - startBlock) % blockPeriod != 0) {
+    const auto futureSwapBlock = (pindex->nHeight - startBlock) % blockPeriod == 0;
+
+    LiquidityForFuturesLimit(pindex, cache, consensus, loanTokens, futureSwapBlock);
+
+    if (!futureSwapBlock) {
         return;
     }
 
@@ -1017,46 +1181,6 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     const auto premium{COIN + rewardPct};
 
     std::map<DCT_ID, CFuturesPrice> futuresPrices;
-    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
-
-    std::vector<std::pair<DCT_ID, CLoanView::CLoanSetLoanTokenImpl>> loanTokens;
-
-    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
-        tokenKey.typeId = id.v;
-        const auto enabled = attributes->GetValue(tokenKey, true);
-        if (!enabled) {
-            return true;
-        }
-
-        loanTokens.emplace_back(id, loanToken);
-
-        return true;
-    });
-
-    if (loanTokens.empty()) {
-        attributes->ForEach(
-            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
-                if (attr.type != AttributeTypes::Token) {
-                    return false;
-                }
-
-                tokenKey.typeId = attr.typeId;
-                const auto enabled = attributes->GetValue(tokenKey, true);
-                if (!enabled) {
-                    return true;
-                }
-
-                if (attr.key == TokenKeys::LoanMintingEnabled) {
-                    auto tokenId = DCT_ID{attr.typeId};
-                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
-                        loanTokens.emplace_back(tokenId, *loanToken);
-                    }
-                }
-
-                return true;
-            },
-            CDataStructureV0{AttributeTypes::Token});
-    }
 
     for (const auto &[id, loanToken] : loanTokens) {
         const auto useNextPrice{false}, requireLivePrice{true};
