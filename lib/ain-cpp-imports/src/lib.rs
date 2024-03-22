@@ -160,8 +160,8 @@ mod ffi {
 }
 
 pub use ffi::Attributes;
-pub use ffi::SystemTxType;
 pub use ffi::SystemTxData;
+pub use ffi::SystemTxType;
 pub use ffi::TokenAmount;
 
 /// Returns the chain ID of the current network.
