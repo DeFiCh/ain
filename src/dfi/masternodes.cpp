@@ -1399,11 +1399,3 @@ void CalcMissingRewardTempFix(CCustomCSView &mnview, const uint32_t targetHeight
         }
     }
 }
-
-std::unique_ptr<CCustomCSView> GetViewSnapshot() {
-    // Get database snapshot and flushable storage changed map
-    auto [changed, snapshotDB] = pcustomcsview->GetStorage().GetSnapshotPair();
-
-    // Create new view using snapshot and change map
-    return std::make_unique<CCustomCSView>(snapshotDB, changed);
-}
