@@ -67,8 +67,11 @@
 #include <ffi/ffihelpers.h>
 #include <ffi/ffiexports.h>
 
-#include <stdint.h>
-#include <stdio.h>
+#include <condition_variable>
+#include <cstdint>
+#include <cstdio>
+#include <fstream>
+#include <string>
 
 #ifndef WIN32
 #include <attributes.h>
@@ -116,12 +119,12 @@ static const char* DEFI_PID_FILENAME = "defid.pid";
 
 static fs::path GetPidFile()
 {
-    return AbsPathForConfigVal(fs::path(gArgs.GetArg("-pid", DEFI_PID_FILENAME)));
+    return AbsPathForConfigVal(fs::PathFromString(gArgs.GetArg("-pid", DEFI_PID_FILENAME)));
 }
 
 NODISCARD static bool CreatePidFile()
 {
-    fsbridge::ofstream file{GetPidFile()};
+    std::ofstream file{GetPidFile()};
     if (file) {
 #ifdef WIN32
         tfm::format(file, "%d\n", GetCurrentProcessId());
@@ -130,7 +133,7 @@ NODISCARD static bool CreatePidFile()
 #endif
         return true;
     } else {
-        return InitError(strprintf(_("Unable to create the PID file '%s': %s").translated, GetPidFile().string(), std::strerror(errno)));
+        return InitError(strprintf(_("Unable to create the PID file '%s': %s").translated, fs::PathToString(GetPidFile()), std::strerror(errno)));
     }
 }
 
@@ -266,7 +269,7 @@ void Shutdown(InitInterfaces& interfaces)
         if (!est_fileout.IsNull())
             ::feeEstimator.Write(est_fileout);
         else
-            LogPrintf("%s: Failed to write fee estimates to %s\n", __func__, est_path.string());
+            LogPrintf("%s: Failed to write fee estimates to %s\n", __func__, fs::PathToString(est_path));
         fFeeEstimatesInitialized = false;
     }
 
@@ -761,13 +764,14 @@ static void CleanupBlockRevFiles()
     LogPrintf("Removing unusable blk?????.dat and rev?????.dat files for -reindex with -prune\n");
     fs::path blocksdir = GetBlocksDir();
     for (fs::directory_iterator it(blocksdir); it != fs::directory_iterator(); it++) {
+        const std::string path = fs::PathToString(it->path().filename());
         if (fs::is_regular_file(*it) &&
-            it->path().filename().string().length() == 12 &&
-            it->path().filename().string().substr(8,4) == ".dat")
+            path.length() == 12 &&
+            path.substr(8,4) == ".dat")
         {
-            if (it->path().filename().string().substr(0,3) == "blk")
-                mapBlockFiles[it->path().filename().string().substr(3,5)] = it->path();
-            else if (it->path().filename().string().substr(0,3) == "rev")
+            if (path.substr(0,3) == "blk")
+                mapBlockFiles[path.substr(3,5)] = it->path();
+            else if (path.substr(0,3) == "rev")
                 remove(it->path());
         }
     }
@@ -834,7 +838,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             }
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
-            LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
+            LogPrintf("Warning: Could not open bootstrap file %s\n", fs::PathToString(pathBootstrap));
         }
     }
 
@@ -842,14 +846,14 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
     for (const fs::path& path : vImportFiles) {
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
-            LogPrintf("Importing blocks file %s...\n", path.string());
+            LogPrintf("Importing blocks file %s...\n", fs::PathToString(path));
             LoadExternalBlockFile(chainparams, file);
             if (ShutdownRequested()) {
                 LogPrintf("Shutdown requested. Exit %s\n", __func__);
                 return;
             }
         } else {
-            LogPrintf("Warning: Could not open blocks file %s\n", path.string());
+            LogPrintf("Warning: Could not open blocks file %s\n", fs::PathToString(path));
         }
     }
 
@@ -1019,7 +1023,7 @@ void InitParameterInteraction()
 void InitLogging()
 {
     LogInstance().m_print_to_file = !gArgs.IsArgNegated("-debuglogfile");
-    LogInstance().m_file_path = AbsPathForConfigVal(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE));
+    LogInstance().m_file_path = AbsPathForConfigVal(fs::PathFromString(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE)));
     LogInstance().m_print_to_console = gArgs.GetBoolArg("-printtoconsole", !gArgs.GetBoolArg("-daemon", false));
     LogInstance().m_log_timestamps = gArgs.GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     LogInstance().m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
@@ -1363,10 +1367,10 @@ static bool LockDataDirectory(bool probeOnly)
     // Make sure only a single DeFi Blockchain process is using the data directory.
     fs::path datadir = GetDataDir();
     if (!DirIsWritable(datadir)) {
-        return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, datadir.string()));
+        return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, fs::PathToString(datadir)));
     }
     if (!LockDirectory(datadir, ".lock", probeOnly)) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running.").translated, datadir.string(), PACKAGE_NAME));
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running.").translated, fs::PathToString(datadir), PACKAGE_NAME));
     }
     return true;
 }
@@ -1414,13 +1418,13 @@ bool SetupLogging() {
     }
     if (!LogInstance().StartLogging()) {
             return InitError(strprintf("Could not open debug log file %s",
-                LogInstance().m_file_path.string()));
+                                       fs::PathToString(LogInstance().m_file_path)));
     }
 
     if (!LogInstance().m_log_timestamps)
         LogPrintf("Startup time: %s\n", FormatISO8601DateTime(GetTime()));
-    LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
-    LogPrintf("Using data directory %s\n", GetDataDir().string());
+    LogPrintf("Default data directory %s\n", fs::PathToString(GetDefaultDataDir()));
+    LogPrintf("Using data directory %s\n", fs::PathToString(GetDataDir()));
 
     return true;
 }
@@ -1730,24 +1734,24 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Only log conf file usage message if conf file actually exists.
     fs::path config_file_path = GetConfigFile(gArgs.GetArg("-conf", DEFI_CONF_FILENAME));
     if (fs::exists(config_file_path)) {
-        LogPrintf("Config file: %s\n", config_file_path.string());
+        LogPrintf("Config file: %s\n", fs::PathToString(config_file_path));
     } else if (gArgs.IsArgSet("-conf")) {
         // Warn if no conf file exists at path provided by user
-        InitWarning(strprintf(_("The specified config file %s does not exist\n").translated, config_file_path.string()));
+        InitWarning(strprintf(_("The specified config file %s does not exist\n").translated, fs::PathToString(config_file_path)));
     } else {
         // Not categorizing as "Warning" because it's the default behavior
-        LogPrintf("Config file: %s (not found, skipping)\n", config_file_path.string());
+        LogPrintf("Config file: %s (not found, skipping)\n", fs::PathToString(config_file_path));
     }
 
     LogPrintf("Using at most %i automatic connections (%i file descriptors available)\n", nMaxConnections, nFD);
 
     // Warn about relative -datadir path.
-    if (gArgs.IsArgSet("-datadir") && !fs::path(gArgs.GetArg("-datadir", "")).is_absolute()) {
+    if (gArgs.IsArgSet("-datadir") && !fs::PathFromString(gArgs.GetArg("-datadir", "")).is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
                   "current working directory '%s'. This is fragile, because if defid is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
                   "also be data loss if defi is started while in a temporary directory.\n",
-            gArgs.GetArg("-datadir", ""), fs::current_path().string());
+            gArgs.GetArg("-datadir", ""), fs::PathToString(fs::current_path()));
     }
 
     InitSignatureCache();
@@ -2222,11 +2226,11 @@ bool AppInitMain(InitInterfaces& interfaces)
     // ********************************************************* Step 12: import blocks
 
     if (!CheckDiskSpace(GetDataDir())) {
-        InitError(strprintf(_("Error: Disk space is low for %s").translated, GetDataDir()));
+        InitError(strprintf(_("Error: Disk space is low for %s").translated, fs::quoted(fs::PathToString(GetDataDir()))));
         return false;
     }
     if (!CheckDiskSpace(GetBlocksDir())) {
-        InitError(strprintf(_("Error: Disk space is low for %s").translated, GetBlocksDir()));
+        InitError(strprintf(_("Error: Disk space is low for %s").translated, fs::quoted(fs::PathToString(GetBlocksDir()))));
         return false;
     }
 
@@ -2246,7 +2250,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     std::vector<fs::path> vImportFiles;
     for (const std::string& strFile : gArgs.GetArgs("-loadblock")) {
-        vImportFiles.push_back(strFile);
+        vImportFiles.push_back(fs::PathFromString(strFile));
     }
 
     threadGroup.emplace_back(ThreadImport, vImportFiles);

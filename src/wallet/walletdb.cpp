@@ -691,25 +691,25 @@ void AutoBackupWallet() {
         fs::path prevBackup = env->Directory() / strprintf("auto.backup.%s.bak1", walletName);
         fs::path currentBackup = env->Directory() / strprintf("auto.backup.%s.bak2", walletName);
         if (fs::exists(prevBackup) && !fs::exists(currentBackup)) {
-            pwallet->BackupWallet(currentBackup.string());
+            pwallet->BackupWallet(fs::PathToString(currentBackup));
         } else if (fs::exists(prevBackup) && fs::exists(currentBackup)) {
             fs::remove(prevBackup);
             try {
                 fs::rename(currentBackup, prevBackup);
             } catch (const fs::filesystem_error &) {
-                LogPrintf("failed rename %s to %s\n", prevBackup.string(), currentBackup.string());
+                LogPrintf("failed rename %s to %s\n", fs::PathToString(prevBackup), fs::PathToString(currentBackup));
             }
-            pwallet->BackupWallet(currentBackup.string());
+            pwallet->BackupWallet(fs::PathToString(currentBackup));
 
         } else if (!fs::exists(prevBackup) && fs::exists(currentBackup)) {
             try {
                 fs::rename(currentBackup, prevBackup);
             } catch (const fs::filesystem_error &) {
-                LogPrintf("failed rename %s to %s\n", prevBackup.string(), currentBackup.string());
+                LogPrintf("failed rename %s to %s\n", fs::PathToString(prevBackup), fs::PathToString(currentBackup));
             }
-            pwallet->BackupWallet(currentBackup.string());
+            pwallet->BackupWallet(fs::PathToString(currentBackup));
         } else {
-            pwallet->BackupWallet(prevBackup.string());
+            pwallet->BackupWallet(fs::PathToString(prevBackup));
         }
 
     }

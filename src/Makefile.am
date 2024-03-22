@@ -279,6 +279,7 @@ DEFI_CORE_H = \
   util/bytevectorhash.h \
   util/error.h \
   util/fees.h \
+  util/getuniquepath.h \
   util/system.h \
   util/moneystr.h \
   util/rbf.h \
@@ -701,6 +702,7 @@ libdefi_util_a_SOURCES = \
   util/bytevectorhash.cpp \
   util/error.cpp \
   util/fees.cpp \
+  util/getuniquepath.cpp \
   util/system.cpp \
   util/moneystr.cpp \
   util/rbf.cpp \
