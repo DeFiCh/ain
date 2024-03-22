@@ -25,6 +25,144 @@
 
 #define MILLI 0.001
 
+struct NullPoolSwapData {
+    uint256 txid;
+    uint32_t height;
+    std::string address;
+    CTokenAmount amount;
+};
+
+/*
+ * Due to a bug in pool swap if a user failed to set a to address, the swap amount
+ * was sent to an empty CScript address. The collection below is the list of such
+ * transactions. For reference the transaction ID and height is provided along with
+ * the address and amount. The address is the source of each pool swap and the amount
+ * is the resulting amount of the original swap. These amounts reside on the empty
+ * CScript address and will be restored to the original source address.
+ *
+ * This bug was fixed in the following PR.
+ * https://github.com/DeFiCh/ain/pull/1534
+ */
+static std::vector<NullPoolSwapData> nullPoolSwapAmounts = {
+    {uint256S("87606c8d4d4079b2aeeda669b5a17a15c16ddd1eebf11036913a8735b8ecf4ce"),
+     582119,  "dX9bZ7XmWSwdArNjswpZLFe12rMcaFK5tC",
+     {{2}, 2879}        },
+    {uint256S("6726cfcbb6a00d605a5bf83bdcf80b7c3f6d24a7dbfeb4f84d094659380705bf"),
+     588961,  "dYBEB3q9sd7e7wi4JKsPdtaWCcrAitQd3K",
+     {{0}, 17746031907} },
+    {uint256S("fe7f88fa179d5d42845a72ac8058a389f6f32c8f416ae27e807757ced15dfa0e"),
+     603251,  "daRtigh64NnuNRvKpECgcpWWJxfXoysL1B",
+     {{2}, 15733742}    },
+    {uint256S("70933a17bd504198a23d0b76751fe2bc3ea3a59229b8f5bc824a172199a2149b"),
+     1393664, "dF9ot6cxhKX8o6BLYYg8jRj29uykjMH4pj",
+     {{0}, 38568286}    },
+    {uint256S("85c0281c72c2c198e5d315174b8af17d34d0f8649593bb1f0d72820d72033583"),
+     1394217, "dFvadXjXApXbzdPDbzHdqRtqi3FRgR4bJF",
+     {{15}, 2786945615} },
+    {uint256S("b1a46fdb400ebb802da48b92a55ed1a80f55389bc734d6b851a5d27657c2aab3"),
+     1514756, "dYGKdwGU5QGMFUz8jhCEe54GjLKkyMoYmw",
+     {{15}, 539588954}  },
+    {uint256S("393609be8ab41bda8e139673aa63d03fd2d6a9b9d34aa79ffe059ac286acdebb"),
+     1546518, "dEN8ASewehaiirxSi2wXh7uthuFyuByjWi",
+     {{0}, 21555036213} },
+    {uint256S("48589a782be651e76279cb2eaf3196c574cd28ec443d548cca3ac5a769a49915"),
+     1634162, "dEzuYZ2ow4nRnzHYUiedj12DzCmKGpcwrX",
+     {{0}, 0}           },
+    {uint256S("17b7ab18074877dd35ea09925b9a00b17d450d1bcff631e000793f298a945586"),
+     1791032, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{26}, 1264}       },
+    {uint256S("2f00758226522a43e7bb99104572f481268fa9d8da66ecd38069f32975ec5852"),
+     1791050, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{26}, 84}         },
+    {uint256S("b6410b56257c4cb8e7299c3908db19971c70578e55ce7a297f064474ff2490c2"),
+     1791054, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{26}, 42}         },
+    {uint256S("de1d6f9a701b458218dec5d98722b38d939a4cfb958ead0387b032b59cc77e1a"),
+     1805337, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 1467276}    },
+    {uint256S("c511317d0a5da24246333aff63e0a941116fdbd595835bdf1dc31d153bb32075"),
+     1805392, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 132799941}  },
+    {uint256S("f4d3732def5cc2aeab2e11312c9e9e4d98394b85fc9345d4377da49e2ee95496"),
+     1805412, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{0}, 263914}      },
+    {uint256S("c18f19d355d6add3b9776f3195026b231fbf3047caa614794d927379939fa62d"),
+     1808344, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{0}, 451934}      },
+    {uint256S("0a09b6d132661619f044a00992d5f0e129d79e20fe8b0c2098698c847979fe75"),
+     1808505, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{0}, 29492}       },
+    {uint256S("403d2f69e1a7216b4b654c090424b3ac24de0951a2399ec7d12375b889b8636a"),
+     1808517, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 3679962}    },
+    {uint256S("42eb84e03d03200896a19608731989cccf7401be6439fe71f3aba3ba2d2d9aa3"),
+     1808525, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 43318576}   },
+    {uint256S("30d4fc8d0940c8a27f72e7aff584e834e4225c6d65006008fbf4beefe1156d28"),
+     1808534, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 43318011}   },
+    {uint256S("7bd6631a6f836f8fc9cf221924afdd70cbf6882baeafa5a58e5942a2920d368e"),
+     1808594, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 43316180}   },
+    {uint256S("d0c731bc4ed71a832e96342db07207fc6ed72cc9e594f829d470f60f6dcdfb81"),
+     1808614, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{68}, 2}          },
+    {uint256S("9767ce6592650ea8f33763c5c3413d19b66d9d981a1260441681ea559053623d"),
+     1809421, "dSBVE8ovbCMXCzjPRdpyEkGMspk6nfGHdo",
+     {{15}, 15603}      },
+    {uint256S("2c95644f7e69029c0187d4fea3e0bada058db166b78bbb9085a33f7819152aa8"),
+     1810446, "8FXJVWVwDDjqWvSspCmGQ2s1HayPyUkSi4",
+     {{15}, 212403799}  },
+    {uint256S("244c366093ea7ef8cd6e8830ccf3490a8d00475271d6aea3c06179791f72dcc1"),
+     1812405, "8FXJVWVwDDjqWvSspCmGQ2s1HayPyUkSi4",
+     {{0}, 54140884}    },
+    {uint256S("f233573b41577a0b12abe82babb41faa5dd602e99798175df09204a59e40ce4c"),
+     1919436, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 191772603}  },
+    {uint256S("d7a8807bc3e0aebf5db4b7cd392698a3e3213a2b33738091bf085b24b2d760fb"),
+     1919436, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 159432864}  },
+    {uint256S("c2a1523edcc75043e0dc8fdd5d06a0c414658f6140cdfc85430c4dd93120f9df"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 97167004}   },
+    {uint256S("fd7ee2e7f8b184cb02bea04f8aa0e0bbff038659e241316ae8846e57810a173d"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 32948497}   },
+    {uint256S("72cb7e4bee5ed9ac59cd26d08f52d9db3147e9735c6360c94cafef0b13109538"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 2647089470} },
+    {uint256S("9c262cda4088a3c2c5c16eef3d3df0e5917a16d01b83b7b6dddd6df14b7904e3"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 136219703}  },
+    {uint256S("25f42fa88d8aae0442fb5f001a9408a152b5434cf33becf29f739ede7f179b2e"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 1108217183} },
+    {uint256S("42bf12b1a847397186fa015a81fb74c13965fcef608b3dacfbc6b8a444717e4c"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 22813721}   },
+    {uint256S("1a4075603abed93c640a89fcdb720d6bae82562dc7fa85969bf12b4e15da9de2"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 19564673}   },
+    {uint256S("89fd2b6493283b3a6ffc65353d9d670bc72951b490d865b4d3a293ae749c6c5d"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 881176354}  },
+    {uint256S("9b593d5d3c08b8357a72e4736b3629e4d0fa5bb6eda21626f97c55ab90f82603"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 1266342401} },
+    {uint256S("18db206764c5a54df3308593c5df1f7c5b9cefe041b9da06ed637e9f873b33d9"),
+     1919438, "dac8o4Qw9KyWPyuiSmvU4K91BHGkJ6Ne2y",
+     {{15}, 637813546}  },
+    {uint256S("7c2e806a317a573076f83948d5dea3725b5467fbe565fbbe2ac0f895eb50b2da"),
+     2237402, "df1q734dll45dug5prgxznuvg7wdq2avsc20dpr3wl",
+     {{13}, 49800219866}},
+    {uint256S("5fd8479f4a3f831b36eff8d732893755c760d245d9d8f22bf7c16e541246c3cb"),
+     2259206, "dJs8vikW87E1M3e5oe4N6hUpBs89Dhh77S",
+     {{15}, 1}          },
+    {uint256S("86934063307d74a32354cd07cb0969e5ff7eed592e5d8a88b4b5ace0ae55262b"),
+     2269592, "dEPoXJzwGia1aAbz6ZRB7FFSKSeWPn1v7A",
+     {{2}, 11472400}    },
+};
+
 template <typename GovVar>
 static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_t>::const_iterator &incentivePair,
                                     CCustomCSView &cache,
@@ -47,17 +185,16 @@ static void UpdateDailyGovVariables(const std::map<CommunityAccountType, uint32_
     }
 }
 
-static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
+static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
     // Hard coded LP_DAILY_DFI_REWARD change
-    if (pindex->nHeight >= chainparams.GetConsensus().DF8EunosHeight) {
-        const auto &incentivePair =
-            chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::IncentiveFunding);
+    if (pindex->nHeight >= consensus.DF8EunosHeight) {
+        const auto &incentivePair = consensus.blockTokenRewards.find(CommunityAccountType::IncentiveFunding);
         UpdateDailyGovVariables<LP_DAILY_DFI_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
     // Hard coded LP_DAILY_LOAN_TOKEN_REWARD change
-    if (pindex->nHeight >= chainparams.GetConsensus().DF11FortCanningHeight) {
-        const auto &incentivePair = chainparams.GetConsensus().blockTokenRewards.find(CommunityAccountType::Loan);
+    if (pindex->nHeight >= consensus.DF11FortCanningHeight) {
+        const auto &incentivePair = consensus.blockTokenRewards.find(CommunityAccountType::Loan);
         UpdateDailyGovVariables<LP_DAILY_LOAN_TOKEN_REWARD>(incentivePair, cache, pindex->nHeight);
     }
 
@@ -105,7 +242,7 @@ static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache,
         }
     }
 
-    if (pindex->nHeight >= chainparams.GetConsensus().DF11FortCanningHeight) {
+    if (pindex->nHeight >= consensus.DF11FortCanningHeight) {
         res = cache.SubCommunityBalance(CommunityAccountType::Loan, distributed.second);
         if (!res.ok) {
             LogPrintf("Pool rewards: can't update community balance: %s. Block %ld (%s)\n",
@@ -123,12 +260,12 @@ static void ProcessRewardEvents(const CBlockIndex *pindex, CCustomCSView &cache,
     }
 }
 
-static void ProcessICXEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF8EunosHeight) {
+static void ProcessICXEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF8EunosHeight) {
         return;
     }
 
-    bool isPreEunosPaya = pindex->nHeight < chainparams.GetConsensus().DF10EunosPayaHeight;
+    bool isPreEunosPaya = pindex->nHeight < consensus.DF10EunosPayaHeight;
 
     cache.ForEachICXOrderExpire(
         [&](const CICXOrderView::StatusKey &key, uint8_t status) {
@@ -307,8 +444,8 @@ Res AddNonTxToBurnIndex(const CScript &from, const CBalances &amounts) {
     return mapBurnAmounts[from].AddBalances(amounts.balances);
 }
 
-static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight != chainparams.GetConsensus().DF8EunosHeight) {
+static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight != consensus.DF8EunosHeight) {
         return;
     }
 
@@ -324,12 +461,12 @@ static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, 
 
             return true;
         },
-        BalanceKey{chainparams.GetConsensus().retiredBurnAddress, DCT_ID{}});
+        BalanceKey{consensus.retiredBurnAddress, DCT_ID{}});
 
-    AddNonTxToBurnIndex(chainparams.GetConsensus().retiredBurnAddress, burnAmounts);
+    AddNonTxToBurnIndex(consensus.retiredBurnAddress, burnAmounts);
 
     // Zero foundation balances
-    for (const auto &script : chainparams.GetConsensus().accountDestruction) {
+    for (const auto &script : consensus.accountDestruction) {
         CBalances zeroAmounts;
         cache.ForEachBalance(
             [&zeroAmounts, script](const CScript &owner, CTokenAmount balance) {
@@ -352,7 +489,7 @@ static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, 
             // If amount cannot be deducted then burn skipped.
             auto result = cache.SubBalance(item.first, {subItem.first, subItem.second});
             if (result.ok) {
-                cache.AddBalance(chainparams.GetConsensus().burnAddress, {subItem.first, subItem.second});
+                cache.AddBalance(consensus.burnAddress, {subItem.first, subItem.second});
 
                 // Add transfer as additional TX in block
                 cache.GetHistoryWriters().WriteAccountHistory({Params().GetConsensus().burnAddress,
@@ -377,8 +514,8 @@ static void ProcessEunosEvents(const CBlockIndex *pindex, CCustomCSView &cache, 
     mapBurnAmounts.clear();
 }
 
-static void ProcessOracleEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
+static void ProcessOracleEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF11FortCanningHeight) {
         return;
     }
     auto blockInterval = cache.GetIntervalBlock();
@@ -455,7 +592,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
             auto chunk = DivideAmounts(batchThreshold, collateralChunkValue);
             auto loanAmount = MultiplyAmounts(maxLoanAmount, chunk);
             for (auto chunks = COIN; chunks > 0; chunks -= chunk) {
-                chunk = std::min(chunk, chunks);
+                chunk = std::min(static_cast<CAmount>(chunk), chunks);
                 loanAmount = std::min(loanAmount, maxLoanAmount);
                 auto collateralChunk = MultiplyAmounts(chunk, loanChunk);
                 batches.push_back(CreateAuctionBatch({loan.nTokenId, loanAmount}, collateralChunk));
@@ -493,8 +630,8 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
     return batches;
 }
 
-static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
+static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF11FortCanningHeight) {
         return;
     }
 
@@ -541,7 +678,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
         viewCache.Flush();
     }
 
-    if (pindex->nHeight % chainparams.GetConsensus().blocksCollateralizationRatioCalculation() == 0) {
+    if (pindex->nHeight % consensus.blocksCollateralizationRatioCalculation() == 0) {
         bool useNextPrice = false, requireLivePrice = true;
 
         auto &pool = DfTxTaskPool->pool;
@@ -713,7 +850,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                 // All done. Ready to save the overall auction.
                 cache.StoreAuction(vaultId,
                                    CAuctionData{uint32_t(batches.size()),
-                                                pindex->nHeight + chainparams.GetConsensus().blocksCollateralAuction(),
+                                                pindex->nHeight + consensus.blocksCollateralAuction(),
                                                 cache.GetLoanLiquidationPenalty()});
 
                 // Store state in vault DB
@@ -759,9 +896,9 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                                         bidTokenAmount.nTokenId,
                                         amountToBurn,
                                         tmpAddress,
-                                        chainparams.GetConsensus().burnAddress,
+                                        consensus.burnAddress,
                                         pindex->nHeight,
-                                        chainparams.GetConsensus());
+                                        consensus);
                     }
 
                     view.CalculateOwnerRewards(bidOwner, pindex->nHeight);
@@ -784,7 +921,7 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
                                         tmpAddress,
                                         tmpAddress,
                                         pindex->nHeight,
-                                        chainparams.GetConsensus());
+                                        consensus);
                         auto amount = view.GetBalance(tmpAddress, DCT_ID{0});
                         view.SubBalance(tmpAddress, amount);
                         view.AddVaultCollateral(vaultId, amount);
@@ -846,8 +983,8 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
     view.Flush();
 }
 
-static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF15FortCanningRoadHeight) {
+static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF15FortCanningRoadHeight) {
         return;
     }
 
@@ -1069,9 +1206,9 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
 
 static void ProcessGovEvents(const CBlockIndex *pindex,
                              CCustomCSView &cache,
-                             const CChainParams &chainparams,
+                             const Consensus::Params &consensus,
                              const std::shared_ptr<CScopedTemplate> &evmTemplate) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF11FortCanningHeight) {
+    if (pindex->nHeight < consensus.DF11FortCanningHeight) {
         return;
     }
 
@@ -1160,10 +1297,10 @@ static bool ApplyGovVars(CCustomCSView &cache,
     return false;
 }
 
-static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
+static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
     // Migrate at +1 height so that GetLastHeight() in Gov var
     // Validate() has a height equal to the GW fork.
-    if (pindex->nHeight != chainparams.GetConsensus().DF16FortCanningCrunchHeight + 1) {
+    if (pindex->nHeight != consensus.DF16FortCanningCrunchHeight + 1) {
         return;
     }
 
@@ -1253,7 +1390,12 @@ static void ProcessTokenToGovVar(const CBlockIndex *pindex, CCustomCSView &cache
 }
 
 template <typename T>
-static inline T CalculateNewAmount(const int multiplier, const T amount) {
+static inline T CalculateNewAmount(const CAmount multiplier, const T amount) {
+    return multiplier < 0 ? DivideAmounts(amount, std::abs(multiplier)) : MultiplyAmounts(amount, multiplier);
+}
+
+template <typename T>
+static inline T CalculateNewAmount(const int32_t multiplier, const T amount) {
     return multiplier < 0 ? amount / std::abs(multiplier) : amount * multiplier;
 }
 
@@ -1346,6 +1488,7 @@ static Res UpdateLiquiditySplits(CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
 static Res PoolSplits(CCustomCSView &view,
                       CAmount &totalBalance,
                       ATTRIBUTES &attributes,
@@ -1353,7 +1496,7 @@ static Res PoolSplits(CCustomCSView &view,
                       const DCT_ID newTokenId,
                       const CBlockIndex *pindex,
                       const CreationTxs &creationTxs,
-                      const int32_t multiplier) {
+                      const T multiplier) {
     LogPrintf(
         "Pool migration in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, pindex->nHeight);
 
@@ -1393,12 +1536,15 @@ static Res PoolSplits(CCustomCSView &view,
             oldPoolToken->destructionHeight = pindex->nHeight;
             oldPoolToken->destructionTx = pindex->GetBlockHash();
 
-            auto res = view.UpdateToken(*oldPoolToken, true, true);
+            // EVM Template will be null so no DST20 will be updated or created
+            BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
+            UpdateTokenContext ctx{*oldPoolToken, dummyContext, false, true, false};
+            auto res = view.UpdateToken(ctx);
             if (!res) {
                 throw std::runtime_error(res.msg);
             }
 
-            auto resVal = view.CreateToken(newPoolToken, false);
+            auto resVal = view.CreateToken(newPoolToken, dummyContext);
             if (!resVal) {
                 throw std::runtime_error(resVal.msg);
             }
@@ -1656,12 +1802,13 @@ static Res PoolSplits(CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
 static Res VaultSplits(CCustomCSView &view,
                        ATTRIBUTES &attributes,
                        const DCT_ID oldTokenId,
                        const DCT_ID newTokenId,
                        const int height,
-                       const int multiplier) {
+                       const T multiplier) {
     auto time = GetTimeMillis();
     LogPrintf("Vaults rebalance in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, height);
 
@@ -1885,12 +2032,13 @@ static Res VaultSplits(CCustomCSView &view,
     return Res::Ok();
 }
 
+template <typename T>
 static void MigrateV1Remnants(const CCustomCSView &cache,
                               ATTRIBUTES &attributes,
                               const uint8_t key,
                               const DCT_ID oldId,
                               const DCT_ID newId,
-                              const int32_t multiplier,
+                              const T multiplier,
                               const uint8_t typeID = ParamIDs::Economy) {
     CDataStructureV0 attrKey{AttributeTypes::Live, typeID, key};
     auto balances = attributes.GetValue(attrKey, CBalances{});
@@ -1940,24 +2088,54 @@ static Res GetTokenSuffix(const CCustomCSView &view,
     return Res::Ok();
 }
 
-static void ProcessTokenSplits(const CBlock &block,
-                               const CBlockIndex *pindex,
+template <typename T>
+static void UpdateOracleSplitKeys(const uint32_t id, ATTRIBUTES &attributes) {
+    std::map<CDataStructureV0, T> updateAttributesKeys;
+    attributes.ForEach(
+        [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
+            if (attr.type != AttributeTypes::Oracles) {
+                return false;
+            }
+
+            if (attr.typeId != OracleIDs::Splits) {
+                return true;
+            }
+
+            if (attr.key == OracleKeys::FractionalSplits) {
+                return true;
+            }
+
+            if (const auto splitMap = std::get_if<T>(&value)) {
+                for (auto [splitMapKey, splitMapValue] : *splitMap) {
+                    if (splitMapKey == id) {
+                        auto copyMap{*splitMap};
+                        copyMap.erase(splitMapKey);
+                        updateAttributesKeys.emplace(attr, copyMap);
+                        break;
+                    }
+                }
+            }
+
+            return true;
+        },
+        CDataStructureV0{AttributeTypes::Oracles});
+
+    for (const auto &[key, value] : updateAttributesKeys) {
+        if (value.empty()) {
+            attributes.EraseKey(key);
+        } else {
+            attributes.SetValue(key, value);
+        }
+    }
+}
+
+template <typename T>
+static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
-                               const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
-        return;
-    }
-    const auto attributes = cache.GetAttributes();
-
-    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
-
-    if (!splits.empty()) {
-        attributes->EraseKey(splitKey);
-        cache.SetVariable(*attributes);
-    }
-
+                               const Consensus::Params &consensus,
+                               ATTRIBUTES &attributes,
+                               const T &splits) {
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -1970,7 +2148,7 @@ static void ProcessTokenSplits(const CBlock &block,
         auto view{cache};
 
         // Refund affected future swaps
-        auto res = attributes->RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
+        auto res = attributes.RefundFuturesContracts(view, std::numeric_limits<uint32_t>::max(), id);
         if (!res) {
             LogPrintf("Token split failed on refunding futures: %s\n", res.msg);
             continue;
@@ -1985,7 +2163,7 @@ static void ProcessTokenSplits(const CBlock &block,
         }
 
         std::string newTokenSuffix = "/v";
-        res = GetTokenSuffix(cache, *attributes, oldTokenId.v, newTokenSuffix);
+        res = GetTokenSuffix(cache, attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
             continue;
@@ -2010,14 +2188,17 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        res = view.UpdateToken(*token, false, true);
+        // TODO pass block context to update old EVM token.
+        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, consensus};
+        UpdateTokenContext ctx{*token, dummyContext, true, true, false, pindex->GetBlockHash()};
+        res = view.UpdateToken(ctx);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;
         }
 
-        // TODO: Pass this on, once we add support for EVM splits
-        auto resVal = view.CreateToken(newToken, false);
+        // TODO pass block context on fork to create new EVM token.
+        auto resVal = view.CreateToken(newToken, dummyContext);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
@@ -2027,46 +2208,41 @@ static void ProcessTokenSplits(const CBlock &block,
         LogPrintf("Token split info: (symbol: %s, id: %d -> %d)\n", newToken.symbol, oldTokenId.v, newTokenId.v);
 
         std::vector<CDataStructureV0> eraseKeys;
-        for (const auto &[key, value] : attributes->GetAttributesMap()) {
+        for (const auto &[key, value] : attributes.GetAttributesMap()) {
             if (const auto v0Key = std::get_if<CDataStructureV0>(&key); v0Key->type == AttributeTypes::Token) {
                 if (v0Key->typeId == oldTokenId.v && v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, newTokenId.v};
-                    attributes->SetValue(newKey, value);
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 } else if (v0Key->typeId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, newTokenId.v, v0Key->key, v0Key->keyId};
-                    attributes->SetValue(newKey, value);
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 } else if (v0Key->keyId == oldTokenId.v) {
                     CDataStructureV0 newKey{AttributeTypes::Token, v0Key->typeId, v0Key->key, newTokenId.v};
-                    attributes->SetValue(newKey, value);
+                    attributes.SetValue(newKey, value);
                     eraseKeys.push_back(*v0Key);
                 }
             }
         }
 
         for (const auto &key : eraseKeys) {
-            attributes->EraseKey(key);
+            attributes.EraseKey(key);
         }
 
         CDataStructureV0 newAscendantKey{AttributeTypes::Token, newTokenId.v, TokenKeys::Ascendant};
-        attributes->SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
+        attributes.SetValue(newAscendantKey, AscendantValue{oldTokenId.v, "split"});
 
         CDataStructureV0 descendantKey{AttributeTypes::Token, oldTokenId.v, TokenKeys::Descendant};
-        attributes->SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
+        attributes.SetValue(descendantKey, DescendantValue{newTokenId.v, static_cast<int32_t>(pindex->nHeight)});
 
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
-        MigrateV1Remnants(cache, *attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Current, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Burned, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(cache, attributes, EconomyKeys::DFIP2203Minted, oldTokenId, newTokenId, multiplier);
+        MigrateV1Remnants(
+            cache, attributes, EconomyKeys::BatchRoundingExcess, oldTokenId, newTokenId, multiplier, ParamIDs::Auction);
         MigrateV1Remnants(cache,
-                          *attributes,
-                          EconomyKeys::BatchRoundingExcess,
-                          oldTokenId,
-                          newTokenId,
-                          multiplier,
-                          ParamIDs::Auction);
-        MigrateV1Remnants(cache,
-                          *attributes,
+                          attributes,
                           EconomyKeys::ConsolidatedInterest,
                           oldTokenId,
                           newTokenId,
@@ -2075,7 +2251,7 @@ static void ProcessTokenSplits(const CBlock &block,
 
         CAmount totalBalance{0};
 
-        res = PoolSplits(view, totalBalance, *attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
+        res = PoolSplits(view, totalBalance, attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
         if (!res) {
             LogPrintf("Pool splits failed %s\n", res.msg);
             continue;
@@ -2148,40 +2324,19 @@ static void ProcessTokenSplits(const CBlock &block,
             continue;
         }
 
-        res = VaultSplits(view, *attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
+        res = VaultSplits(view, attributes, oldTokenId, newTokenId, pindex->nHeight, multiplier);
         if (!res) {
             LogPrintf("Token splits failed: %s\n", res.msg);
             continue;
         }
 
-        std::vector<std::pair<CDataStructureV0, OracleSplits>> updateAttributesKeys;
-        for (const auto &[key, value] : attributes->GetAttributesMap()) {
-            if (const auto v0Key = std::get_if<CDataStructureV0>(&key);
-                v0Key->type == AttributeTypes::Oracles && v0Key->typeId == OracleIDs::Splits) {
-                if (const auto splitMap = std::get_if<OracleSplits>(&value)) {
-                    for (auto [splitMapKey, splitMapValue] : *splitMap) {
-                        if (splitMapKey == oldTokenId.v) {
-                            auto copyMap{*splitMap};
-                            copyMap.erase(splitMapKey);
-                            updateAttributesKeys.emplace_back(*v0Key, copyMap);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+        UpdateOracleSplitKeys<OracleSplits>(oldTokenId.v, attributes);
+        UpdateOracleSplitKeys<OracleSplits64>(oldTokenId.v, attributes);
 
-        for (const auto &[key, value] : updateAttributesKeys) {
-            if (value.empty()) {
-                attributes->EraseKey(key);
-            } else {
-                attributes->SetValue(key, value);
-            }
-        }
-        view.SetVariable(*attributes);
+        view.SetVariable(attributes);
 
         // Migrate stored unlock
-        if (pindex->nHeight >= chainparams.GetConsensus().DF20GrandCentralHeight) {
+        if (pindex->nHeight >= consensus.DF20GrandCentralHeight) {
             bool updateStoredVar{};
             auto storedGovVars = view.GetStoredVariablesRange(pindex->nHeight, std::numeric_limits<uint32_t>::max());
             for (const auto &[varHeight, var] : storedGovVars) {
@@ -2221,8 +2376,31 @@ static void ProcessTokenSplits(const CBlock &block,
     }
 }
 
-static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF17FortCanningSpringHeight) {
+static void ProcessTokenSplits(const CBlockIndex *pindex,
+                               CCustomCSView &cache,
+                               const CreationTxs &creationTxs,
+                               BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
+        return;
+    }
+    const auto attributes = cache.GetAttributes();
+
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+
+    if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+        attributes->EraseKey(splitKey);
+        cache.SetVariable(*attributes);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32);
+    } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+        attributes->EraseKey(splitKey);
+        cache.SetVariable(*attributes);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64);
+    }
+}
+
+static void ProcessFuturesDUSD(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF17FortCanningSpringHeight) {
         return;
     }
 
@@ -2412,8 +2590,8 @@ static void ProcessNegativeInterest(const CBlockIndex *pindex, CCustomCSView &ca
     }
 }
 
-static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cache, const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF20GrandCentralHeight) {
+static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF20GrandCentralHeight) {
         return;
     }
 
@@ -2425,15 +2603,15 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
     if (!attributes->GetValue(enabledKey, false)) {
         if (funds > 0) {
             cache.SubCommunityBalance(CommunityAccountType::CommunityDevFunds, funds);
-            cache.AddBalance(chainparams.GetConsensus().foundationShareScript, {DCT_ID{0}, funds});
+            cache.AddBalance(consensus.foundationShareScript, {DCT_ID{0}, funds});
         }
 
         return;
     }
 
-    auto balance = cache.GetBalance(chainparams.GetConsensus().foundationShareScript, DCT_ID{0});
+    auto balance = cache.GetBalance(consensus.foundationShareScript, DCT_ID{0});
     if (balance.nValue > 0) {
-        cache.SubBalance(chainparams.GetConsensus().foundationShareScript, balance);
+        cache.SubBalance(consensus.foundationShareScript, balance);
         cache.AddCommunityBalance(CommunityAccountType::CommunityDevFunds, balance.nValue);
     }
 
@@ -2510,7 +2688,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                                   amountPerVoter);
                     }
 
-                    if (pindex->nHeight >= chainparams.GetConsensus().DF22MetachainHeight) {
+                    if (pindex->nHeight >= consensus.DF22MetachainHeight) {
                         subView.CalculateOwnerRewards(scriptPubKey, pindex->nHeight);
                     }
 
@@ -2532,11 +2710,11 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 return true;
             }
 
-            if (pindex->nHeight < chainparams.GetConsensus().DF22MetachainHeight &&
+            if (pindex->nHeight < consensus.DF22MetachainHeight &&
                 lround(voteYes * 10000.f / voters.size()) <= prop.approvalThreshold) {
                 cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Rejected);
                 return true;
-            } else if (pindex->nHeight >= chainparams.GetConsensus().DF22MetachainHeight) {
+            } else if (pindex->nHeight >= consensus.DF22MetachainHeight) {
                 auto onlyNeutral = voters.size() == voteNeutral;
                 if (onlyNeutral ||
                     lround(voteYes * 10000.f / (voters.size() - voteNeutral)) <= prop.approvalThreshold) {
@@ -2549,7 +2727,7 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
                 cache.UpdateProposalStatus(propId, pindex->nHeight, CProposalStatusType::Completed);
             } else {
                 assert(prop.nCycles > prop.cycle);
-                cache.UpdateProposalCycle(propId, prop.cycle + 1, pindex->nHeight, chainparams.GetConsensus());
+                cache.UpdateProposalCycle(propId, prop.cycle + 1, pindex->nHeight, consensus);
             }
 
             CDataStructureV0 payoutKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::CFPPayout};
@@ -2572,8 +2750,8 @@ static void ProcessProposalEvents(const CBlockIndex *pindex, CCustomCSView &cach
 static void ProcessMasternodeUpdates(const CBlockIndex *pindex,
                                      CCustomCSView &cache,
                                      const CCoinsViewCache &view,
-                                     const CChainParams &chainparams) {
-    if (pindex->nHeight < chainparams.GetConsensus().DF20GrandCentralHeight) {
+                                     const Consensus::Params &consensus) {
+    if (pindex->nHeight < consensus.DF20GrandCentralHeight) {
         return;
     }
     // Apply any pending masternode owner changes
@@ -2607,16 +2785,44 @@ static void ProcessMasternodeUpdates(const CBlockIndex *pindex,
 
 static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
                                       CCustomCSView &cache,
-                                      const CChainParams &chainparams) {
-    if (pindex->nHeight != chainparams.GetConsensus().DF20GrandCentralHeight) {
+                                      const Consensus::Params &consensus) {
+    if (pindex->nHeight != consensus.DF20GrandCentralHeight) {
         return;
     }
 
     auto attributes = cache.GetAttributes();
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-    attributes->SetValue(key, chainparams.GetConsensus().foundationMembers);
+    attributes->SetValue(key, consensus.foundationMembers);
     cache.SetVariable(*attributes);
+}
+
+static void ProcessNullPoolSwapRefund(const CBlockIndex *pindex,
+                                      CCustomCSView &cache,
+                                      const Consensus::Params &consensus) {
+    if (pindex->nHeight != consensus.DF23Height) {
+        return;
+    }
+
+    const CScript nullSource{};
+    for (const auto &[txid, height, address, amounts] : nullPoolSwapAmounts) {
+        if (!cache.SubBalance(nullSource, amounts)) {
+            continue;
+        }
+        const auto dest = DecodeDestination(address);
+        if (!IsValidDestination(dest)) {
+            continue;
+        }
+        const auto script = GetScriptForDestination(dest);
+        if (!cache.AddBalance(script, amounts)) {
+            continue;
+        }
+        LogPrintf("Null pool swap refund. Height: %d TX: %s Address: %s Amount: %s\n",
+                  height,
+                  txid.ToString(),
+                  address,
+                  amounts.ToString());
+    }
 }
 
 static Res ValidateCoinbaseXVMOutput(const XVM &xvm, const FinalizeBlockCompletion &blockResult) {
@@ -2793,44 +2999,45 @@ Res ProcessDeFiEventFallible(const CBlock &block,
 
 void ProcessDeFiEvent(const CBlock &block,
                       const CBlockIndex *pindex,
-                      CCustomCSView &mnview,
                       const CCoinsViewCache &view,
-                      const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplate> &evmTemplate) {
+                      BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
+    auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
 
     // calculate rewards to current block
-    ProcessRewardEvents(pindex, cache, chainparams);
+    ProcessRewardEvents(pindex, cache, consensus);
 
     // close expired orders, refund all expired DFC HTLCs at this block height
-    ProcessICXEvents(pindex, cache, chainparams);
+    ProcessICXEvents(pindex, cache, consensus);
 
     // Remove `Finalized` and/or `LPS` flags _possibly_set_ by bytecoded (cheated) txs before bayfront fork
-    if (pindex->nHeight == chainparams.GetConsensus().DF2BayfrontHeight - 1) {  // call at block _before_ fork
+    if (pindex->nHeight == consensus.DF2BayfrontHeight - 1) {  // call at block _before_ fork
         cache.BayfrontFlagsCleanup();
     }
 
     // burn DFI on Eunos height
-    ProcessEunosEvents(pindex, cache, chainparams);
+    ProcessEunosEvents(pindex, cache, consensus);
 
     // set oracle prices
-    ProcessOracleEvents(pindex, cache, chainparams);
+    ProcessOracleEvents(pindex, cache, consensus);
 
     // loan scheme, collateral ratio, liquidations
-    ProcessLoanEvents(pindex, cache, chainparams);
+    ProcessLoanEvents(pindex, cache, consensus);
 
     // Must be before set gov by height to clear futures in case there's a disabling of loan token in v3+
-    ProcessFutures(pindex, cache, chainparams);
+    ProcessFutures(pindex, cache, consensus);
 
     // update governance variables
-    ProcessGovEvents(pindex, cache, chainparams, evmTemplate);
+    ProcessGovEvents(pindex, cache, consensus, evmTemplate);
 
     // Migrate loan and collateral tokens to Gov vars.
-    ProcessTokenToGovVar(pindex, cache, chainparams);
+    ProcessTokenToGovVar(pindex, cache, consensus);
 
     // Loan splits
-    ProcessTokenSplits(block, pindex, cache, creationTxs, chainparams);
+    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
 
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
@@ -2838,19 +3045,22 @@ void ProcessDeFiEvent(const CBlock &block,
     }
 
     // DFI-to-DUSD swaps
-    ProcessFuturesDUSD(pindex, cache, chainparams);
+    ProcessFuturesDUSD(pindex, cache, consensus);
 
     // Tally negative interest across vaults
     ProcessNegativeInterest(pindex, cache);
 
     // proposal activations
-    ProcessProposalEvents(pindex, cache, chainparams);
+    ProcessProposalEvents(pindex, cache, consensus);
 
     // Masternode updates
-    ProcessMasternodeUpdates(pindex, cache, view, chainparams);
+    ProcessMasternodeUpdates(pindex, cache, view, consensus);
 
     // Migrate foundation members to attributes
-    ProcessGrandCentralEvents(pindex, cache, chainparams);
+    ProcessGrandCentralEvents(pindex, cache, consensus);
+
+    // Refund null pool swap amounts
+    ProcessNullPoolSwapRefund(pindex, cache, consensus);
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
