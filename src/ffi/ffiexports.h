@@ -29,6 +29,9 @@ static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
 static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = true;
 
+static constexpr bool DEFAULT_OCEAN_ARCHIVE_ENABLED = false;
+static constexpr uint32_t DEFAULT_OCEAN_ARCHIVE_PORT = 3002;
+
 struct Attributes {
     uint64_t blockGasTargetFactor;
     uint64_t blockGasLimit;
@@ -70,6 +73,8 @@ enum class TransactionDataDirection : uint8_t {
 };
 
 uint64_t getChainId();
+int getRPCPort();
+rust::string getRPCAuth();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
 rust::vec<rust::string> getAccounts();
@@ -99,6 +104,6 @@ size_t getEvmValidationLruCacheCount();
 size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
-bool isEthSubscriptionEnabled();
+bool isOceanEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H
