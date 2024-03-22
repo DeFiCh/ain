@@ -303,8 +303,26 @@ class LoanSetLoanTokenTest(DefiTestFramework):
             "TSLA",
             {
                 "symbol": "",
-            }
+            },
         )
+
+        # Rename loan token after fork
+        self.nodes[0].updateloantoken(
+            "TSLA",
+            {
+                "symbol": "TSLAA",
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Rename loan token again
+        self.nodes[0].updateloantoken(
+            "TSLAA",
+            {
+                "symbol": "TSLA",
+            },
+        )
+        self.nodes[0].generate(1)
 
 
 if __name__ == "__main__":
