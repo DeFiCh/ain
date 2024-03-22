@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fstream>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -1478,7 +1479,7 @@ void ClearCheckpoints(CChainParams &params) {
 }
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
-    std::ifstream file(fileName);
+    std::ifstream file(fs::PathFromString(fileName));
     if (!file.good()) {
         return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
     }

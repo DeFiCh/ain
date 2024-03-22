@@ -6,6 +6,8 @@
 #include <util/system.h>
 
 #include <chainparamsbase.h>
+#include <fs.h>
+#include <util/getuniquepath.h>
 #include <util/strencodings.h>
 #include <util/translation.h>
 
@@ -29,6 +31,8 @@
 #endif // __linux__
 
 #include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <fcntl.h>
 #include <sched.h>
 #include <sys/resource.h>
@@ -63,6 +67,10 @@
 #include <malloc.h>
 #endif
 
+#include <fstream>
+#include <map>
+#include <memory>
+#include <string>
 #include <thread>
 
 // Application startup time (used for uptime calculation)
@@ -87,7 +95,7 @@ bool LockDirectory(const fs::path& directory, const std::string lockfile_name, b
     fs::path pathLockFile = directory / lockfile_name;
 
     // If a lock for this directory already exists in the map, don't try to re-lock it
-    if (dir_locks.count(pathLockFile.string())) {
+    if (dir_locks.count(fs::PathToString(pathLockFile))) {
         return true;
     }
 
@@ -96,11 +104,11 @@ bool LockDirectory(const fs::path& directory, const std::string lockfile_name, b
     if (file) fclose(file);
     auto lock = std::make_unique<fsbridge::FileLock>(pathLockFile);
     if (!lock->TryLock()) {
-        return error("Error while attempting to lock directory %s: %s", directory.string(), lock->GetReason());
+        return error("Error while attempting to lock directory %s: %s", fs::PathToString(directory), lock->GetReason());
     }
     if (!probe_only) {
         // Lock successful and we're not just probing, put it into the map
-        dir_locks.emplace(pathLockFile.string(), std::move(lock));
+        dir_locks.emplace(fs::PathToString(pathLockFile), std::move(lock));
     }
     return true;
 }
@@ -108,7 +116,7 @@ bool LockDirectory(const fs::path& directory, const std::string lockfile_name, b
 void UnlockDirectory(const fs::path& directory, const std::string& lockfile_name)
 {
     std::lock_guard<std::mutex> lock(cs_dir_locks);
-    dir_locks.erase((directory / lockfile_name).string());
+    dir_locks.erase(fs::PathToString(directory / lockfile_name));
 }
 
 void ReleaseDirectoryLocks()
@@ -119,7 +127,7 @@ void ReleaseDirectoryLocks()
 
 bool DirIsWritable(const fs::path& directory)
 {
-    fs::path tmpFile = directory / fs::unique_path();
+    fs::path tmpFile = GetUniquePath(directory);
 
     FILE* file = fsbridge::fopen(tmpFile, "a");
     if (!file) return false;
@@ -313,6 +321,19 @@ NODISCARD static bool InterpretOption(std::string key, std::string val, unsigned
     args[key].push_back(val);
     return true;
 }
+
+namespace {
+    fs::path StripRedundantLastElementsOfPath(const fs::path& path)
+    {
+        auto result = path;
+        while (result.filename().empty() || fs::PathToString(result.filename()) == ".") {
+            result = result.parent_path();
+        }
+
+        assert(fs::equivalent(result, path));
+        return result;
+    }
+} // namespace
 
 ArgsManager::ArgsManager()
 {
@@ -740,7 +761,7 @@ const fs::path &GetBlocksDir()
     if (!path.empty()) return path;
 
     if (gArgs.IsArgSet("-blocksdir")) {
-        path = fs::system_complete(gArgs.GetArg("-blocksdir", ""));
+        path = fs::absolute(fs::PathFromString(gArgs.GetArg("-blocksdir", "")));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -749,7 +770,7 @@ const fs::path &GetBlocksDir()
         path = GetDataDir(false);
     }
 
-    path /= BaseParams().DataDir();
+    path /= fs::PathFromString(BaseParams().DataDir());
     path /= "blocks";
     fs::create_directories(path);
     return path;
@@ -766,7 +787,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
 
     std::string datadir = gArgs.GetArg("-datadir", "");
     if (!datadir.empty()) {
-        path = fs::system_complete(datadir);
+        path = fs::absolute(StripRedundantLastElementsOfPath(fs::PathFromString(datadir)));
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -775,20 +796,21 @@ const fs::path &GetDataDir(bool fNetSpecific)
         path = GetDefaultDataDir();
     }
     if (fNetSpecific)
-        path /= BaseParams().DataDir();
+        path /= fs::PathFromString(BaseParams().DataDir());
 
     if (fs::create_directories(path)) {
         // This is the first run, create wallets subdirectory too
         fs::create_directories(path / "wallets");
     }
 
+    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
 bool CheckDataDirOption()
 {
     std::string datadir = gArgs.GetArg("-datadir", "");
-    return datadir.empty() || fs::is_directory(fs::system_complete(datadir));
+    return datadir.empty() || fs::is_directory(fs::absolute(fs::PathFromString(datadir)));
 }
 
 void ClearDatadirCache()
@@ -802,7 +824,7 @@ void ClearDatadirCache()
 
 fs::path GetConfigFile(const std::string& confPath)
 {
-    return AbsPathForConfigVal(fs::path(confPath), false);
+    return AbsPathForConfigVal(fs::PathFromString(confPath), false);
 }
 
 static std::string TrimString(const std::string& str, const std::string& pattern)
@@ -895,7 +917,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
     }
 
     const std::string confPath = GetArg("-conf", DEFI_CONF_FILENAME);
-    fsbridge::ifstream stream(GetConfigFile(confPath));
+    std::ifstream stream(GetConfigFile(confPath));
 
     // ok to not have a config file
     if (stream.good()) {
@@ -928,7 +950,7 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
             }
 
             for (const std::string& to_include : includeconf) {
-                fsbridge::ifstream include_config(GetConfigFile(to_include));
+                std::ifstream include_config(GetConfigFile(to_include));
                 if (include_config.good()) {
                     if (!ReadConfigStream(include_config, to_include, error, ignore_invalid_keys)) {
                         return false;
@@ -994,13 +1016,13 @@ bool RenameOver(fs::path src, fs::path dest)
     return MoveFileExW(src.wstring().c_str(), dest.wstring().c_str(),
                        MOVEFILE_REPLACE_EXISTING) != 0;
 #else
-    int rc = std::rename(src.string().c_str(), dest.string().c_str());
+    int rc = std::rename(src.c_str(), dest.c_str());
     return (rc == 0);
 #endif /* WIN32 */
 }
 
 /**
- * Ignores exceptions thrown by Boost's create_directories if the requested directory exists.
+ * Ignores exceptions thrown by create_directories if the requested directory exists.
  * Specifically handles case where path p exists, but it wasn't possible for the user to
  * write to the parent directory.
  */
@@ -1188,16 +1210,6 @@ void SetupEnvironment()
     SetConsoleCP(CP_UTF8);
     SetConsoleOutputCP(CP_UTF8);
 #endif
-    // The path locale is lazy initialized and to avoid deinitialization errors
-    // in multithreading environments, it is set explicitly by the main thread.
-    // A dummy locale is used to extract the internal default locale, used by
-    // fs::path, which is then used to explicitly imbue the path.
-    std::locale loc = fs::path::imbue(std::locale::classic());
-#ifndef WIN32
-    fs::path::imbue(loc);
-#else
-    fs::path::imbue(std::locale(loc, new std::codecvt_utf8_utf16<wchar_t>()));
-#endif
 }
 
 bool SetupNetworking()
@@ -1240,7 +1252,7 @@ fs::path AbsPathForConfigVal(const fs::path& path, bool net_specific)
     if (path.is_absolute()) {
         return path;
     }
-    return fs::absolute(path, GetDataDir(net_specific));
+    return fsbridge::AbsPathJoin(GetDataDir(net_specific), path);
 }
 
 int ScheduleBatchPriority()
