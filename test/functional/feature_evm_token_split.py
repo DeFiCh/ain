@@ -510,6 +510,11 @@ class EVMTokenSplitTest(DefiTestFramework):
             split_multiplier,
         )
 
+        # Get values from before transfer out
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+        dvm_current = result["v0/live/economy/transferdomain/dvm/1/current"]
+        evm_current = result["v0/live/economy/transferdomain/evm/1/current"]
+
         # Execute and test split transaction
         self.execute_split_transaction(
             self.contract_address_metav1,
@@ -517,6 +522,34 @@ class EVMTokenSplitTest(DefiTestFramework):
             amount,
             split_multiplier,
         )
+
+        # Get values from after transfer out
+        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
+
+        # Verify transfer out stats
+        assert_equal(result["v0/live/economy/transferdomain/evm-dvm/1/total"], amount)
+        assert_equal(
+            result["v0/live/economy/transferdomain/dvm/1/current"],
+            Decimal(dvm_current) + amount,
+        )
+        assert_equal(result["v0/live/economy/transferdomain/dvm/1/in"], amount)
+        assert_equal(
+            result["v0/live/economy/transferdomain/evm/1/current"],
+            Decimal(evm_current) - amount,
+        )
+        assert_equal(result["v0/live/economy/transferdomain/evm/1/out"], amount)
+
+        # Verify transfer in stats
+        in_amount = amount * abs(split_multiplier)
+        assert_equal(
+            result["v0/live/economy/transferdomain/dvm-evm/2/total"], in_amount
+        )
+        assert_equal(
+            result["v0/live/economy/transferdomain/dvm/2/current"], Decimal(-in_amount)
+        )
+        assert_equal(result["v0/live/economy/transferdomain/dvm/2/out"], in_amount)
+        assert_equal(result["v0/live/economy/transferdomain/evm/2/current"], in_amount)
+        assert_equal(result["v0/live/economy/transferdomain/evm/2/in"], in_amount)
 
         # Check minted balance
         assert_equal(

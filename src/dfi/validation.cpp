@@ -3067,6 +3067,30 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
         }
     }
 
+    auto attributes = cache->GetAttributes();
+    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
+    // Transfer out old token
+    auto outAmount = CTokenAmount{{oldAmount.id}, static_cast<CAmount>(oldAmount.amount)};
+    stats.evmOut.Add(outAmount);
+    stats.evmCurrent.Sub(outAmount);
+    stats.evmDvmTotal.Add(outAmount);
+    stats.dvmIn.Add(outAmount);
+    stats.dvmCurrent.Add(outAmount);
+
+    // Transfer in new token
+    auto inAmount = CTokenAmount{{newAmount.id}, static_cast<CAmount>(newAmount.amount)};
+    stats.dvmEvmTotal.Add(inAmount);
+    stats.dvmOut.Add(inAmount);
+    stats.dvmCurrent.Sub(inAmount);
+    stats.evmIn.Add(inAmount);
+    stats.evmCurrent.Add(inAmount);
+
+    attributes->SetValue(CTransferDomainStatsLive::Key, stats);
+    if (const auto res = cache->SetVariable(*attributes); !res) {
+        return res;
+    }
+
     return true;
 }
 
