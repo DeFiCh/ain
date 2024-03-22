@@ -116,8 +116,6 @@ static const unsigned int BLOCK_DOWNLOAD_WINDOW = 1024;
 static const unsigned int DATABASE_WRITE_INTERVAL = 60 * 60;
 /** Time to wait (in seconds) between flushing chainstate to disk. */
 static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
-/** Maximum length of reject messages. */
-static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /** Block download timeout base, expressed in millionths of the block interval (i.e. 10 min) */
 static const int64_t BLOCK_DOWNLOAD_TIMEOUT_BASE = 1000000;
 /** Additional block download timeout per parallel downloading peer (i.e. 5 min) */
@@ -176,11 +174,9 @@ extern std::atomic_bool fReindex;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
 
-extern bool fStopOrInterrupt;
+extern bool fInterrupt;
 extern std::string fInterruptBlockHash;
 extern int fInterruptBlockHeight;
-extern std::string fStopBlockHash;
-extern int fStopBlockHeight;
 
 extern size_t nCoinCacheUsage;
 extern size_t nCustomMemUsage;
@@ -901,14 +897,6 @@ extern VersionBitsCache versionbitscache;
  * Determine what nVersion a new block should use.
  */
 int32_t ComputeBlockVersion(const CBlockIndex *pindexPrev, const Consensus::Params &params);
-
-/** Reject codes greater or equal to this can be returned by AcceptToMemPool
- * for transactions, to signal internal conditions. They cannot and should not
- * be sent over the P2P network.
- */
-static const unsigned int REJECT_INTERNAL = 0x100;
-/** Too high fee. Can not be triggered by P2P transactions */
-static const unsigned int REJECT_HIGHFEE = 0x100;
 
 /** Get block file info entry for one block file */
 CBlockFileInfo *GetBlockFileInfo(size_t n);

@@ -27,7 +27,6 @@ class LoanInterestTest(DefiTestFramework):
                 "-eunosheight=50",
                 "-fortcanningheight=50",
                 "-fortcanningmuseumheight=50",
-                "-txindex=1",
             ],
             [
                 "-txnotokens=0",
@@ -36,7 +35,6 @@ class LoanInterestTest(DefiTestFramework):
                 "-eunosheight=50",
                 "-fortcanningheight=50",
                 "-fortcanningmuseumheight=50",
-                "-txindex=1",
             ],
         ]
 

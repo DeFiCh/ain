@@ -692,7 +692,7 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Unrecognised type argument provided, valid types are: consortium, evm, gov, locks, oracles, params, poolpairs, rules, token, transferdomain, vaults,",
+            "Unrecognised type argument provided, valid types are: evm, gov, locks, oracles, params, poolpairs, rules, token, transferdomain, vaults,",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/unrecognised/5/payback_dfi": "true"}},
         )
@@ -701,12 +701,6 @@ class GovsetTest(DefiTestFramework):
             "Unrecognised key argument provided, valid keys are: dex_in_fee_pct, dex_out_fee_pct, dfip2203, fixed_interval_price_id, loan_collateral_enabled, loan_collateral_factor, loan_minting_enabled, loan_minting_interest, loan_payback, loan_payback_collateral, loan_payback_fee_pct, payback_dfi, payback_dfi_fee_pct,",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/token/5/unrecognised": "true"}},
-        )
-        assert_raises_rpc_error(
-            -5,
-            "Unrecognised key argument provided, valid keys are: members, mint_limit, mint_limit_daily,",
-            self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/consortium/5/unrecognised": "true"}},
         )
         assert_raises_rpc_error(
             -5,
@@ -1429,7 +1423,7 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Token should be defined as numeric ID",
+            "Unrecognised key, valid keys are either block height or: fractional_enabled,",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/oracles/splits/abc": "4/2"}},
         )
@@ -1570,6 +1564,243 @@ class GovsetTest(DefiTestFramework):
             "Token should be defined as numeric ID",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/locks/token/abc": "true"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Unrecognised locks argument provided, valid lockss are: token,",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/locks/oracle/5": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No loan token with id (4)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/locks/token/4": "true"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Unrecognised key argument provided",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/ascendant": "1"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Unrecognised key argument provided",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/descendant": "1"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Unrecognised key argument provided",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/epitaph": "1"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Value must be an integer",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1200": "1/50,600"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Two int values expected for split in id/mutliplier",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1200": "1/50,5/10"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Mutliplier cannot be zero",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1201": "1/0"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Token (127) does not exist",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1201": "127/50"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Only DATs can be split",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1201": "128/50"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Tokenised DFI cannot be split",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1201": "0/50"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Pool tokens cannot be split",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/1201": "1/50"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Cannot be set at or below current height",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
+                    f"v0/oracles/splits/{self.nodes[0].getblockcount()}": "5/50"
+                }
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Cannot be set at or below current height",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
+                    f"v0/oracles/splits/{self.nodes[0].getblockcount() + 1}": "5/50"
+                }
+            },
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Cumulative application of Gov vars failed: Cannot be set at or below current height",
+            self.nodes[0].setgovheight,
+            {"ATTRIBUTES": {f"v0/oracles/splits/2000": "5/50"}},
+            2000,
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No loan token with id (4)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/oracles/splits/4000": "4/2"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "ATTRIBUTES: Price feed DUFF/USD does not belong to any oracle",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/fixed_interval_price_id": "DUFF/USD"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Empty token / currency",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/fixed_interval_price_id": " /USD"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Empty token / currency",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/fixed_interval_price_id": "DUFF/ "}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Empty token / currency",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/fixed_interval_price_id": " / "}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No such token (127)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/127/fixed_interval_price_id": "TSLA/USD"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Exactly two entires expected for currency pair",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/fixed_interval_price_id": "5"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Exactly two entires expected for currency pair",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/fixed_interval_price_id": "5/10/20"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            'Boolean value must be either "true" or "false"',
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_collateral_enabled": "not_a_bool"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No such token (127)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/127/loan_collateral_enabled": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Fixed interval price currency pair must be set first",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_collateral_enabled": "true"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Amount must be a positive value",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_collateral_factor": "-1"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Percentage exceeds 100%",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_collateral_factor": "1.00000001"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Amount must be a positive value",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_collateral_factor": "not_a_number"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No such token (127)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/127/loan_collateral_factor": "1"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Fixed interval price currency pair must be set first",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_collateral_factor": "1"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            'Boolean value must be either "true" or "false"',
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_minting_enabled": "not_a_bool"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No such token (127)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/127/loan_minting_enabled": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Fixed interval price currency pair must be set first",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_minting_enabled": "true"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Amount must be a positive value",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_minting_interest": "-1"}},
+        )
+        assert_raises_rpc_error(
+            -5,
+            "Amount must be a valid number",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_minting_interest": "not_a_number"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "No such token (127)",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/127/loan_minting_interest": "1"}},
+        )
+        assert_raises_rpc_error(
+            -32600,
+            "Fixed interval price currency pair must be set first",
+            self.nodes[0].setgov,
+            {"ATTRIBUTES": {"v0/token/5/loan_minting_interest": "1"}},
         )
 
         # Set locks
@@ -1791,36 +2022,6 @@ class GovsetTest(DefiTestFramework):
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/dfip2206a/dusd_loan_burn": "not_a_bool"}},
         )
-        assert_raises_rpc_error(
-            -32600,
-            "ATTRIBUTES: Cannot be set before GrandCentral",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/5/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": "10.00000000",
-                            "mintLimitDaily": "1.0000000",
-                        }
-                    }
-                }
-            },
-        )
-        assert_raises_rpc_error(
-            -32600,
-            "ATTRIBUTES: Cannot be set before GrandCentral",
-            self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/params/feature/consortium": "true"}},
-        )
-        assert_raises_rpc_error(
-            -32600,
-            "ATTRIBUTES: Cannot be set before GrandCentral",
-            self.nodes[0].setgov,
-            {"ATTRIBUTES": {"v0/consortium/5/mint_limit": "1000000000"}},
-        )
 
         self.nodes[0].setgov(
             {
@@ -1964,157 +2165,6 @@ class GovsetTest(DefiTestFramework):
 
         # Move to GrandCentral
         self.nodes[0].generate(1300 - self.nodes[0].getblockcount())
-
-        assert_raises_rpc_error(
-            -5,
-            "Invalid ownerAddress in consortium member data",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/4/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": "",
-                            "backingId": "blablabla",
-                            "mintLimit": 10.00000000,
-                        }
-                    }
-                }
-            },
-        )
-        assert_raises_rpc_error(
-            -5,
-            "Member name too short, must be at least 3 chars long",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/4/members": {
-                        "01": {
-                            "name": "12",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": 10.00000000,
-                        }
-                    }
-                }
-            },
-        )
-        assert_raises_rpc_error(
-            -5,
-            "Mint limit is an invalid amount",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/4/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": -10.00000000,
-                        }
-                    }
-                }
-            },
-        )
-        assert_raises_rpc_error(
-            -5,
-            "Daily mint limit is an invalid amount",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/4/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": 10.00000000,
-                            "mintLimitDaily": -10.00000000,
-                        }
-                    }
-                }
-            },
-        )
-        assert_raises_rpc_error(
-            -5,
-            "Status must be a positive number",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/4/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": 10.00000000,
-                            "mintLimitDaily": 1.00000000,
-                            "status": -1,
-                        }
-                    }
-                }
-            },
-        )
-        assert_raises_rpc_error(
-            -5,
-            "Status can be either 0 or 1",
-            self.nodes[0].setgov,
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/4/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": 10.00000000,
-                            "mintLimitDaily": 1.00000000,
-                            "status": 2,
-                        }
-                    }
-                }
-            },
-        )
-
-        self.nodes[0].setgov(
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/5/mint_limit": "10",
-                    "v0/consortium/5/mint_limit_daily": "1",
-                }
-            }
-        )
-        self.nodes[0].generate(1)
-
-        self.nodes[0].setgov(
-            {
-                "ATTRIBUTES": {
-                    "v0/consortium/5/members": {
-                        "01": {
-                            "name": "test",
-                            "ownerAddress": owner,
-                            "backingId": "blablabla",
-                            "mintLimit": 10,
-                            "mintLimitDaily": 1,
-                        }
-                    }
-                }
-            }
-        )
-        self.nodes[0].generate(1)
-
-        # Check result
-        result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
-        assert_equal(
-            result["v0/consortium/5/members"],
-            {
-                "01": {
-                    "name": "test",
-                    "ownerAddress": owner,
-                    "backingId": "blablabla",
-                    "mintLimit": Decimal("10.00000000"),
-                    "mintLimitDaily": Decimal("1.00000000"),
-                    "status": 0,
-                }
-            },
-        )
 
         assert_raises_rpc_error(
             -5,

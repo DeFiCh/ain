@@ -81,7 +81,7 @@ Build requirements:
 
 Now, you can either build from self-compiled [depends](/depends/README.md) or install the required dependencies:
 
-    sudo apt-get install libssl-dev libevent-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev
+    sudo apt-get install libssl-dev libevent-dev libboost-test-dev
 
 Rust toolchain is necessary for the build:
 

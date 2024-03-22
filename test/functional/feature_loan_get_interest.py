@@ -32,7 +32,6 @@ class LoanGetInterestTest(DefiTestFramework):
                 "-fortcanningparkheight=270",
                 "-fortcanninghillheight=300",
                 "-eunosheight=50",
-                "-txindex=1",
             ]
         ]
 

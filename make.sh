@@ -18,7 +18,9 @@ setup_vars() {
     fi
 
     DOCKER_ROOT_CONTEXT=${DOCKER_ROOT_CONTEXT:-"."}
+    DOCKER_RELATIVE_BUILD_DIR=${DOCKER_RELATIVE_BUILD_DIR:-"./build"}
     DOCKERFILES_DIR=${DOCKERFILES_DIR:-"./contrib/dockerfiles"}
+    DEFI_DOCKERFILE=${DEFI_DOCKERFILE:-"${DOCKERFILES_DIR}/defi.dockerfile"}
 
     ROOT_DIR="$(_canonicalize "${_SCRIPT_DIR}")"
 
@@ -219,10 +221,13 @@ package() {
     local build_dir="${BUILD_DIR}"
 
     local pkg_name="${img_prefix}-${img_version}-${target}"
-    local pkg_tar_file_name="${pkg_name}.tar.gz"
 
     local pkg_path
-    pkg_path="$(_canonicalize "${build_dir}/${pkg_tar_file_name}")"
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.zip")"
+    else
+        pkg_path="$(_canonicalize "${build_dir}/${pkg_name}.tar.gz")"
+    fi
 
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
@@ -235,8 +240,14 @@ package() {
 
     echo "> packaging: ${pkg_name} from ${versioned_build_dir}"
 
-    _ensure_enter_dir "${versioned_build_dir}"
-    _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    if [[ "$target" == "x86_64-w64-mingw32" ]]; then
+        _ensure_enter_dir "${build_dir}"
+        zip -r "${pkg_path}" "$(basename "${versioned_build_dir}")"
+    else
+        _ensure_enter_dir "${versioned_build_dir}"
+        _tar --transform "s,^./,${versioned_name}/," -czf "${pkg_path}" ./*
+    fi
+    sha256sum "${pkg_path}" > "${pkg_path}.SHA256"
     _exit_dir
 
     echo "> package: ${pkg_path}"
@@ -282,7 +293,6 @@ docker_deploy() {
     local img="${img_prefix}-${target}:${img_version}"
     echo "> deploy from: ${img}"
 
-    local pkg_name="${img_prefix}-${img_version}-${target}"
     local versioned_name="${img_prefix}-${img_version}"
     local versioned_build_dir="${build_dir}/${versioned_name}"
 
@@ -309,6 +319,29 @@ docker_release() {
     docker_deploy "$target"
     package "$target"
     _sign "$target"
+}
+
+docker_build_from_binaries() {
+    local target=${1:-${TARGET}}
+    local img_prefix="${IMAGE_PREFIX}"
+    local img_version="${IMAGE_VERSION}"
+    local build_dir="${DOCKER_RELATIVE_BUILD_DIR}"
+
+    local docker_context="${DOCKER_ROOT_CONTEXT}"
+    local docker_file="${DEFI_DOCKERFILE}"
+
+    echo "> docker-build-from-binaries";
+
+    local img="${img_prefix}-${target}:${img_version}"
+    echo "> building: ${img}"
+    echo "> docker defi build: ${img}"
+
+    local versioned_name="${img_prefix}-${img_version}"
+    local versioned_build_dir="${build_dir}/${versioned_name}"
+
+    docker build -f "${docker_file}" \
+        --build-arg BINARY_DIR="${versioned_build_dir}" \
+        -t "${img}" "${docker_context}"
 }
 
 docker_clean_builds() {
@@ -373,7 +406,7 @@ check_py() {
     py_ensure_env_active
     _exec_black 1
     # TODO Add flake as well
-    py_env_deactivate 
+    py_env_deactivate
 }
 
 check_rs() {
@@ -422,7 +455,7 @@ check_cpp() {
 
 check_enter_build_rs_dir() {
     local build_dir="${BUILD_DIR}"
-    _ensure_enter_dir "$build_dir/lib" || { 
+    _ensure_enter_dir "$build_dir/lib" || {
         echo "Please configure first";
         exit 1; }
 }
@@ -461,19 +494,19 @@ _run_clang_format() {
     local fmt_args=""
 
     for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
-        if "${clang_formatters[$idx]}" --version &> /dev/null; then 
+        if "${clang_formatters[$idx]}" --version &> /dev/null; then
             index="$idx"
             break
         fi
     done
     if [[ "$index" == -1 ]]; then
-        echo "clang-format(-${clang_ver}) required" 
+        echo "clang-format(-${clang_ver}) required"
         exit 1
     fi
 
     if [[ "$check_only" == 1 ]]; then
         fmt_args="--dry-run --Werror"
-    fi 
+    fi
 
     # shellcheck disable=SC2086
     find src/dfi src/ffi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
@@ -657,11 +690,11 @@ pkg_install_deps() {
     # python3-venv for settings up all python deps
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
-        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
-        libminiupnpc-dev libzmq3-dev libqrencode-dev wget \
+        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev \
+        libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+        libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
-        curl cmake unzip libc6-dev gcc-multilib locales locales-all
+        curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
 
     _fold_end
 }
@@ -711,6 +744,20 @@ pkg_install_deps_osx_tools() {
         python3-dev libcap-dev libbz2-dev libz-dev fonts-tuffy librsvg2-bin libtiff-tools imagemagick libtinfo5
 
     _fold_end
+}
+
+pkg_install_gh_cli() {
+    _fold_start "pkg-install-gh_cli"
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+        dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
+        chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) \
+        signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+        https://cli.github.com/packages stable main" | \
+        tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    apt-get update
+    apt-get install -y gh
+
 }
 
 pkg_install_llvm() {
@@ -1029,9 +1076,9 @@ _bash_version_check() {
         echo "Bash version 5+ required."; exit 1;
     }
     [ -z "$BASH_VERSION" ] && _bash_ver_err_exit
-    case $BASH_VERSION in 
+    case $BASH_VERSION in
         5.*) return 0;;
-        *) _bash_ver_err_exit;; 
+        *) _bash_ver_err_exit;;
     esac
 }
 
@@ -1110,11 +1157,31 @@ _nproc() {
 
 # shellcheck disable=SC2129
 ci_export_vars() {
+    local build_dir="${BUILD_DIR}"
+
     if [[ -n "${GITHUB_ACTIONS-}" ]]; then
         # GitHub Actions
         echo "BUILD_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
         echo "PATH=$HOME/.cargo/bin:$PATH" >> "$GITHUB_ENV"
         echo "CARGO_INCREMENTAL=0" >> "$GITHUB_ENV"
+
+        if [[ "${MAKE_DEBUG}" == "1" ]]; then
+            echo "BUILD_TYPE=debug" >> "$GITHUB_ENV"
+        else
+            echo "BUILD_TYPE=release" >> "$GITHUB_ENV"
+        fi
+
+        if [[ "${TARGET}" == "x86_64-w64-mingw32" ]]; then
+            echo "PKG_TYPE=zip" >> "$GITHUB_ENV"
+        else
+            echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
+        fi
+
+        if [[ "${TARGET}" =~ .*darwin.* ]]; then
+            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.14}" >> "$GITHUB_ENV"
+        fi
+
+        echo "RUST_DEFAULT_VERSION=1.76" >> "$GITHUB_ENV"
     fi
 }
 
@@ -1123,6 +1190,7 @@ ci_setup_deps() {
     DEBIAN_FRONTEND=noninteractive pkg_install_deps
     DEBIAN_FRONTEND=noninteractive pkg_setup_locale
     DEBIAN_FRONTEND=noninteractive pkg_install_llvm
+    DEBIAN_FRONTEND=noninteractive pkg_install_gh_cli
     ci_setup_deps_target
 }
 
@@ -1158,11 +1226,11 @@ lib() {
     local cmd="${1-}"
     local exit_on_err="${2:-0}"
     local jobs="$MAKE_JOBS"
-    
+
     check_enter_build_rs_dir
     # shellcheck disable=SC2086
-    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
-        echo "Error: Please resolve all checks"; 
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then
+        echo "Error: Please resolve all checks";
         exit 1;
         fi; }
     _exit_dir

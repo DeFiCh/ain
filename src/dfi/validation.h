@@ -10,20 +10,19 @@
 struct CAuctionBatch;
 class CBlock;
 class CBlockIndex;
+class CBurnHistoryStorage;
 class CChainParams;
 class CCoinsViewCache;
-class CVaultAssets;
 class CCustomCSView;
+class CVaultAssets;
 
 using CreationTxs = std::map<uint32_t, std::pair<uint256, std::vector<std::pair<DCT_ID, uint256>>>>;
 
 void ProcessDeFiEvent(const CBlock &block,
                       const CBlockIndex *pindex,
-                      CCustomCSView &mnview,
                       const CCoinsViewCache &view,
-                      const CChainParams &chainparams,
                       const CreationTxs &creationTxs,
-                      const std::shared_ptr<CScopedTemplate> &evmTemplate);
+                      BlockContext &blockCtx);
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,

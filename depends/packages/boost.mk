@@ -3,9 +3,10 @@ package=boost
 # Official version hashes
 # 77: fc9f85fc030e233142908241af7a846e60630aa7388de9a5fafb1f3a26840854
 # 78: 8681f175d4bdb26c52222665793eef08490d7758529330f98d3b29dd0735bccc
+# 83: 6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e
 
-$(package)_version=1_77_0
-$(package)_sha256_hash=fc9f85fc030e233142908241af7a846e60630aa7388de9a5fafb1f3a26840854
+$(package)_version=1_83_0
+$(package)_sha256_hash=6478edfe2f3305127cffe8caf73ea0176c53769f4bf1585be237eb30798c3b8e
 
 $(package)_version_dot=$(subst _,.,$($(package)_version))
 $(package)_download_path=https://boostorg.jfrog.io/artifactory/main/release/$($(package)_version_dot)/source/
@@ -26,7 +27,7 @@ $(package)_toolset_$(host_os)=gcc
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_toolset_darwin=darwin
 $(package)_archiver_darwin=$($(package)_libtool)
-$(package)_config_libraries=filesystem,system,test
+$(package)_config_libraries=test
 $(package)_cxxflags_linux=-fPIC
 endef
 

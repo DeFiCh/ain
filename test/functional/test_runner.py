@@ -83,6 +83,7 @@ EXTENDED_SCRIPTS = [
     "mempool_accept.py",  # moved to ext due to heavy load for trevis
     "wallet_backup.py",  # moved to ext due to heavy load for trevis
     "feature_on_chain_government_govvar_update.py",
+    "feature_multisig_vault.py",
 ]
 
 BASE_SCRIPTS = [
@@ -200,7 +201,6 @@ BASE_SCRIPTS = [
     "feature_masternode_operator.py",
     "feature_mine_cached.py",
     "feature_mempool_dakota.py",
-    "feature_consortium.py",
     "interface_http.py",
     "interface_http_cors.py",
     "interface_http_cors_wildcard.py",
@@ -211,6 +211,7 @@ BASE_SCRIPTS = [
     "rpc_signrawtransaction.py",
     "wallet_groups.py",
     "p2p_disconnect_ban.py",
+    "feature_poolpair_rename.py",
     "rpc_decodescript.py",
     "rpc_blockchain.py",
     "rpc_deprecated.py",
@@ -312,14 +313,17 @@ BASE_SCRIPTS = [
     "feature_evm_rollback.py",
     "feature_evm_rpc_transaction.py",
     "feature_evm_rpc.py",
-    "feature_evm_rpc_fee_history.py",
+    "feature_evm_rpc_accesslist.py",
+    "feature_evm_rpc_fee.py",
     "feature_evm_rpc_filters.py",
+    "feature_evm_rpc_tracer.py",
     "feature_evm_smart_contract.py",
     "feature_evm_transaction_replacement.py",
     "feature_evm_transferdomain.py",
     "feature_evm_vmmap_rpc.py",
     "feature_loan_low_interest.py",
     "feature_loan_estimatecollateral.py",
+    "feature_vault_creation_fee.py",
     "feature_vault_pct_check_factor.py",
     "feature_address_map.py",
     "p2p_node_network_limited.py",

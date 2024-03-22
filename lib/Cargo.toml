@@ -18,6 +18,8 @@ lto = true
 vsdb = { git = "https://github.com/defich/vsdb.git" }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
+bitcoin = { git = "https://github.com/defich/rust-bitcoin.git" }
+bitcoin-io = { git = "https://github.com/defich/rust-bitcoin.git" }
 
 [workspace.dependencies]
 
@@ -61,6 +63,7 @@ sha3 = "0.10"
 
 num = { version = "0.4", default-features = false, features = ["alloc"] }
 num-traits = "0.2"
+num_cpus = "1.0"
 
 hex = "0.4"
 hex-literal = "0.4"
@@ -85,6 +88,8 @@ rustc_version_runtime = "0.2.1"
 parking_lot = "0.12.1"
 spin = "0.9.8"
 rayon = "1.8.0"
+
+bitcoin = "0.31"
 
 ### eth
 
@@ -113,3 +118,9 @@ lru = "0.12"
 #### Precompile dependencies
 sp-io = "24.0"
 substrate-bn = "0.6"
+
+### Local crates
+ain-cpp-imports = { path = "./ain-cpp-imports" }
+ain-db = { path = "./ain-db" }
+ain-macros = { path = "./ain-macros" }
+ain-dftx = { path = "./ain-dftx" }

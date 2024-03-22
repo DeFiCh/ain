@@ -93,7 +93,7 @@ CAccounts GetAllMineAccounts(CWallet *const pwallet);
 CAccounts SelectAccountsByTargetBalances(const CAccounts &accounts,
                                          const CBalances &targetBalances,
                                          AccountSelectionMode selectionMode);
-void execTestTx(const CTransaction &tx, uint32_t height, CTransactionRef optAuthTx = {});
+void execTestTx(const CTransaction &tx, const uint32_t height, const CTransactionRef &optAuthTx = {});
 CScript CreateScriptForHTLC(const JSONRPCRequest &request, uint32_t &blocks, std::vector<unsigned char> &image);
 CPubKey PublickeyFromString(const std::string &pubkey);
 std::optional<CScript> AmIFounder(CWallet *const pwallet);

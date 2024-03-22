@@ -2,6 +2,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
 #include <ffi/ffiexports.h>
+#include <ffi/ffihelpers.h>
 #include <httprpc.h>
 #include <key_io.h>
 #include <logging.h>
@@ -138,7 +139,7 @@ std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash) {
 }
 
 rust::vec<TransactionData> getPoolTransactions() {
-    std::multimap<uint64_t, TransactionData> poolTransactionsByFee;
+    std::multimap<int64_t, TransactionData> poolTransactionsByEntryTime;
 
     for (auto mi = mempool.mapTx.get<entry_time>().begin(); mi != mempool.mapTx.get<entry_time>().end(); ++mi) {
         const auto &tx = mi->GetTx();
@@ -154,12 +155,13 @@ rust::vec<TransactionData> getPoolTransactions() {
             }
 
             const auto obj = std::get<CEvmTxMessage>(txMessage);
-            poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
-                                          TransactionData{
-                                              static_cast<uint8_t>(TransactionDataTxType::EVM),
-                                              HexStr(obj.evmTx),
-                                              static_cast<uint8_t>(TransactionDataDirection::None),
-                                          });
+            poolTransactionsByEntryTime.emplace(mi->GetTime(),
+                                                TransactionData{
+                                                    static_cast<uint8_t>(TransactionDataTxType::EVM),
+                                                    HexStr(obj.evmTx),
+                                                    static_cast<uint8_t>(TransactionDataDirection::None),
+                                                    mi->GetTime(),
+                                                });
         } else if (txType == CustomTxType::TransferDomain) {
             CCustomTxMessage txMessage{CTransferDomainMessage{}};
             const auto res =
@@ -175,26 +177,28 @@ rust::vec<TransactionData> getPoolTransactions() {
 
             if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::DVM) &&
                 obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::EVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
-                                              TransactionData{
-                                                  static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
-                                                  HexStr(obj.transfers[0].second.data),
-                                                  static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
-                                              });
+                poolTransactionsByEntryTime.emplace(mi->GetTime(),
+                                                    TransactionData{
+                                                        static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                                                        HexStr(obj.transfers[0].second.data),
+                                                        static_cast<uint8_t>(TransactionDataDirection::DVMToEVM),
+                                                        mi->GetTime(),
+                                                    });
             } else if (obj.transfers[0].first.domain == static_cast<uint8_t>(VMDomain::EVM) &&
                        obj.transfers[0].second.domain == static_cast<uint8_t>(VMDomain::DVM)) {
-                poolTransactionsByFee.emplace(mi->GetEVMRbfMinTipFee(),
-                                              TransactionData{
-                                                  static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
-                                                  HexStr(obj.transfers[0].first.data),
-                                                  static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
-                                              });
+                poolTransactionsByEntryTime.emplace(mi->GetTime(),
+                                                    TransactionData{
+                                                        static_cast<uint8_t>(TransactionDataTxType::TransferDomain),
+                                                        HexStr(obj.transfers[0].first.data),
+                                                        static_cast<uint8_t>(TransactionDataDirection::EVMToDVM),
+                                                        mi->GetTime(),
+                                                    });
             }
         }
     }
 
     rust::vec<TransactionData> poolTransactions;
-    for (const auto &[key, txData] : poolTransactionsByFee) {
+    for (const auto &[key, txData] : poolTransactionsByEntryTime) {
         poolTransactions.push_back(txData);
     }
 
@@ -234,15 +238,9 @@ uint64_t getMinRelayTxFee() {
     return ::minRelayTxFee.GetFeePerK() * 10000000;
 }
 
-std::array<uint8_t, 32> getEthPrivKey(rust::string key) {
-    const auto dest = DecodeDestination(std::string(key.begin(), key.length()));
-    if (dest.index() != WitV16KeyEthHashType) {
-        return {};
-    }
-    const auto keyID = std::get<WitnessV16EthHash>(dest);
-    const CKeyID ethKeyID{keyID};
-
+std::array<uint8_t, 32> getEthPrivKey(EvmAddressData key) {
     CKey ethPrivKey;
+    const auto ethKeyID = CKeyID(uint160::FromByteArray(key));
     for (const auto &wallet : GetWallets()) {
         if (wallet->GetKey(ethKeyID, ethPrivKey)) {
             std::array<uint8_t, 32> privKeyArray{};
@@ -313,22 +311,47 @@ uint32_t getEthMaxResponseByteSize() {
     return max_response_size_mb * 1024 * 1024;
 }
 
-rust::vec<DST20Token> getDST20Tokens(std::size_t mnview_ptr) {
+int64_t getSuggestedPriorityFeePercentile() {
+    return gArgs.GetArg("-evmtxpriorityfeepercentile", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE);
+}
+
+uint64_t getEstimateGasErrorRatio() {
+    return gArgs.GetArg("-evmestimategaserrorratio", DEFAULT_ESTIMATE_GAS_ERROR_RATIO);
+}
+
+bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 
-    rust::vec<DST20Token> tokens;
+    bool res = true;
     CCustomCSView *cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
     cache->ForEachToken(
         [&](DCT_ID const &id, CTokensView::CTokenImpl token) {
             if (!token.IsDAT() || token.IsPoolShare()) {
                 return true;
             }
+            if (token.name.size() > CToken::POST_METACHAIN_TOKEN_NAME_BYTE_SIZE) {
+                res = false;
+                return false;
+            }
 
-            tokens.push_back({id.v, token.name, token.symbol});
+            CrossBoundaryResult result;
+            auto token_name = rs_try_from_utf8(result, ffi_from_string_to_slice(token.name));
+            if (!result.ok) {
+                LogPrintf("Error migrating DST20 token, token name not valid UTF-8\n");
+                res = false;
+                return false;
+            }
+            auto token_symbol = rs_try_from_utf8(result, ffi_from_string_to_slice(token.symbol));
+            if (!result.ok) {
+                LogPrintf("Error migrating DST20 token, token symbol not valid UTF-8\n");
+                res = false;
+                return false;
+            }
+            tokens.push_back({id.v, token_name, token_symbol});
             return true;
         },
         DCT_ID{1});  // start from non-DFI
-    return tokens;
+    return res;
 }
 
 int32_t getNumCores() {
@@ -350,6 +373,10 @@ size_t getEccLruCacheCount() {
 
 size_t getEvmValidationLruCacheCount() {
     return gArgs.GetArg("-evmvlrucache", DEFAULT_EVMV_LRU_CACHE_COUNT);
+}
+
+size_t getEvmNotificationChannelBufferSize() {
+    return gArgs.GetArg("-evmnotificationchannel", DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE);
 }
 
 bool isEthDebugRPCEnabled() {

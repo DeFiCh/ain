@@ -612,10 +612,16 @@ CTxMemPool::~CTxMemPool() {}
 
 CCustomCSView &CTxMemPool::accountsView() {
     if (!acview) {
+        LOCK(cs_main);
         assert(pcustomcsview);
         acview = std::make_unique<CCustomCSView>(*pcustomcsview);
     }
     return *acview;
+}
+
+void CTxMemPool::resetAccountsView() {
+    LOCK(cs_main);
+    acview = std::make_unique<CCustomCSView>(*pcustomcsview);
 }
 
 /**
@@ -1260,14 +1266,13 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
     }
 
     CAmount txfee{};
-    accountsView().Discard();
+    resetAccountsView();
     CCustomCSView viewDuplicate(accountsView());
 
     setEntries staged;
     std::vector<CTransactionRef> vtx;
 
-    const auto &consensus = Params().GetConsensus();
-    const auto isEvmEnabledForBlock = IsEVMEnabled(viewDuplicate, consensus);
+    const auto isEvmEnabledForBlock = IsEVMEnabled(viewDuplicate);
 
     // Check custom TX consensus types are now not in conflict with account layer
     auto &txsByEntryTime = mapTx.get<entry_time>();
@@ -1288,6 +1293,9 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
             continue;
         }
         auto blockCtx = BlockContext{
+            static_cast<uint32_t>(height),
+            static_cast<uint64_t>(it->GetTime()),
+            Params().GetConsensus(),
             &viewDuplicate,
             isEvmEnabledForBlock,
             {},
@@ -1296,8 +1304,7 @@ void CTxMemPool::rebuildAccountsView(int height, const CCoinsViewCache &coinsCac
         auto txCtx = TransactionContext{
             coinsCache,
             tx,
-            consensus,
-            static_cast<uint32_t>(height),
+            blockCtx,
         };
         auto res = ApplyCustomTx(blockCtx, txCtx);
 

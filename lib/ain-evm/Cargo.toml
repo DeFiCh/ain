@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ain-cpp-imports = { path = "../ain-cpp-imports" }
+ain-cpp-imports.workspace = true
+ain-db.workspace = true
 ain-contracts = { path = "../ain-contracts" }
 
 evm = { workspace = true, default-features = false, features = ["with-serde", "tracing", "std"] }

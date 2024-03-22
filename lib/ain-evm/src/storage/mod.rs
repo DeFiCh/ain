@@ -185,7 +185,17 @@ impl FlushableStorage for Storage {
 
 impl Storage {
     pub fn get_code_by_hash(&self, address: H160, hash: H256) -> Result<Option<Vec<u8>>> {
-        self.blockstore.get_code_by_hash(address, &hash)
+        match self.cache.get_code_by_hash(&hash) {
+            Ok(Some(code)) => Ok(Some(code)),
+            Ok(None) => {
+                let code = self.blockstore.get_code_by_hash(address, &hash);
+                if let Ok(Some(ref code)) = code {
+                    self.cache.put_code(hash, code)?;
+                }
+                code
+            }
+            Err(e) => Err(e),
+        }
     }
 
     pub fn put_code(

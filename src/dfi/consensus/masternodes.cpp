@@ -198,7 +198,9 @@ Res CMasternodesConsensus::operator()(const CUpdateMasterNodeMessage &obj) const
             }
 
             if (tx.vout[1].nValue != GetMnCollateralAmount(height)) {
-                return Res::Err("Incorrect collateral amount");
+                return Res::Err("Incorrect collateral amount. Found: %s Expected: %s",
+                                GetDecimalString(tx.vout[1].nValue),
+                                GetDecimalString(GetMnCollateralAmount(height)));
             }
 
             if (mnview.GetMasternodeIdByOwner(keyID) || mnview.GetMasternodeIdByOperator(keyID)) {

@@ -16,7 +16,7 @@ BOOST_AUTO_TEST_CASE(walletinit_verify_walletdir_default)
     SetWalletDir(m_walletdir_path_cases["default"]);
     bool result = m_chain_client->verify();
     BOOST_CHECK(result == true);
-    fs::path walletdir = gArgs.GetArg("-walletdir", "");
+    fs::path walletdir = fs::PathFromString(gArgs.GetArg("-walletdir", ""));
     fs::path expected_path = fs::canonical(m_walletdir_path_cases["default"]);
     BOOST_CHECK(walletdir == expected_path);
 }
@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE(walletinit_verify_walletdir_custom)
     SetWalletDir(m_walletdir_path_cases["custom"]);
     bool result = m_chain_client->verify();
     BOOST_CHECK(result == true);
-    fs::path walletdir = gArgs.GetArg("-walletdir", "");
+    fs::path walletdir = fs::PathFromString(gArgs.GetArg("-walletdir", ""));
     fs::path expected_path = fs::canonical(m_walletdir_path_cases["custom"]);
     BOOST_CHECK(walletdir == expected_path);
 }
@@ -63,19 +63,22 @@ BOOST_AUTO_TEST_CASE(walletinit_verify_walletdir_no_trailing)
     SetWalletDir(m_walletdir_path_cases["trailing"]);
     bool result = m_chain_client->verify();
     BOOST_CHECK(result == true);
-    fs::path walletdir = gArgs.GetArg("-walletdir", "");
+    fs::path walletdir = fs::PathFromString(gArgs.GetArg("-walletdir", ""));
     fs::path expected_path = fs::canonical(m_walletdir_path_cases["default"]);
     BOOST_CHECK(walletdir == expected_path);
 }
 
+#ifndef WIN32
+// Windows does not consider "datadir/wallets//" to be a valid directory path.
 BOOST_AUTO_TEST_CASE(walletinit_verify_walletdir_no_trailing2)
 {
     SetWalletDir(m_walletdir_path_cases["trailing2"]);
     bool result = m_chain_client->verify();
     BOOST_CHECK(result == true);
-    fs::path walletdir = gArgs.GetArg("-walletdir", "");
+    fs::path walletdir = fs::PathFromString(gArgs.GetArg("-walletdir", ""));
     fs::path expected_path = fs::canonical(m_walletdir_path_cases["default"]);
     BOOST_CHECK(walletdir == expected_path);
 }
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
