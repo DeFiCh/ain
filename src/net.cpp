@@ -15,6 +15,7 @@
 #include <consensus/consensus.h>
 #include <crypto/common.h>
 #include <crypto/sha256.h>
+#include <fs.h>
 #include <netbase.h>
 #include <net_permissions.h>
 #include <primitives/transaction.h>
