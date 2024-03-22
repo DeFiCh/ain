@@ -295,7 +295,7 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut template.backend);
 
         executor.update_total_gas_used(template.total_gas_used);
-        match executor.execute_tx(tx, base_fee, &template.ctx) {
+        match executor.execute_tx(tx, base_fee, Some(&template.ctx)) {
             Ok(apply_tx) => {
                 EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
                 template.backend.increase_tx_count();
@@ -454,7 +454,7 @@ impl EVMServices {
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(template.ctx.mnview_ptr)?;
             for exec_tx in migration_txs.clone() {
-                let apply_result = executor.execute_tx(exec_tx, base_fee, &template.ctx)?;
+                let apply_result = executor.execute_tx(exec_tx, base_fee, Some(&template.ctx))?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
                 template.transactions.push(TemplateTxItem::new_system_tx(
                     apply_result.tx,

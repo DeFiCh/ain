@@ -149,7 +149,7 @@ impl<'backend> AinExecutor<'backend> {
         gas_limit: U256,
         base_fee: U256,
         system_tx: bool,
-        block_ctx: &BlockContext,
+        block_ctx: Option<&BlockContext>,
     ) -> Result<(TxResponse, ReceiptV3)> {
         self.backend.update_vicinity_from_tx(signed_tx)?;
         trace!(
@@ -178,7 +178,11 @@ impl<'backend> AinExecutor<'backend> {
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = MetachainPrecompiles::new(block_ctx.mnview_ptr);
+        let precompiles = if let Some(block_ctx) = block_ctx {
+            MetachainPrecompiles::new(block_ctx.mnview_ptr)
+        } else {
+            MetachainPrecompiles::default()
+        };
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -406,7 +410,7 @@ impl<'backend> AinExecutor<'backend> {
         &mut self,
         tx: ExecuteTx,
         base_fee: U256,
-        ctx: &BlockContext,
+        ctx: Option<&BlockContext>,
     ) -> Result<ApplyTxResult> {
         match tx {
             ExecuteTx::SignedTx(signed_tx) => {
