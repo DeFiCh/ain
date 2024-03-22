@@ -9,10 +9,6 @@ use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
-use tokio::sync::{
-    mpsc::{self, UnboundedReceiver, UnboundedSender},
-    RwLock,
-};
 
 use crate::{
     backend::{EVMBackend, Vicinity},
@@ -27,18 +23,17 @@ use crate::{
     core::{EVMCoreService, XHash},
     executor::{AinExecutor, ExecuteTx},
     filters::FilterService,
-    log::{LogService, Notification},
+    log::LogService,
     receipt::ReceiptService,
-    storage::{traits::BlockStorage, Storage},
-    transaction::SignedTx,
+    storage::{
+        traits::{BlockStorage, FlushableStorage},
+        Storage,
+    },
+    subscription::{Notification, SubscriptionService},
+    transaction::{cache::TransactionCache, SignedTx},
     trie::GENESIS_STATE_ROOT,
     Result,
 };
-
-pub struct NotificationChannel<T> {
-    pub sender: UnboundedSender<T>,
-    pub receiver: RwLock<UnboundedReceiver<T>>,
-}
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -46,8 +41,9 @@ pub struct EVMServices {
     pub receipt: ReceiptService,
     pub logs: LogService,
     pub filters: FilterService,
+    pub subscriptions: SubscriptionService,
     pub storage: Arc<Storage>,
-    pub channel: NotificationChannel<Notification>,
+    pub tx_cache: Arc<TransactionCache>,
 }
 
 pub struct ExecTxState {
@@ -89,7 +85,6 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self> {
-        let (sender, receiver) = mpsc::unbounded_channel();
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {
@@ -104,35 +99,34 @@ impl EVMServices {
                 .into());
             }
             let storage = Arc::new(Storage::new(&path)?);
+            let tx_cache = Arc::new(TransactionCache::new());
             Ok(Self {
                 core: EVMCoreService::new_from_json(
                     Arc::clone(&storage),
+                    Arc::clone(&tx_cache),
                     PathBuf::from(state_input_path),
                     path,
                 )?,
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
-                filters: FilterService::new(Arc::clone(&storage)),
+                filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
+                subscriptions: SubscriptionService::new(),
                 storage,
-                channel: NotificationChannel {
-                    sender,
-                    receiver: RwLock::new(receiver),
-                },
+                tx_cache,
             })
         } else {
             let storage = Arc::new(Storage::restore(&path)?);
+            let tx_cache = Arc::new(TransactionCache::new());
             Ok(Self {
-                core: EVMCoreService::restore(Arc::clone(&storage), path),
+                core: EVMCoreService::restore(Arc::clone(&storage), Arc::clone(&tx_cache), path),
                 block: BlockService::new(Arc::clone(&storage))?,
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
-                filters: FilterService::new(Arc::clone(&storage)),
+                filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
+                subscriptions: SubscriptionService::new(),
                 storage,
-                channel: NotificationChannel {
-                    sender,
-                    receiver: RwLock::new(receiver),
-                },
+                tx_cache,
             })
         }
     }
@@ -221,7 +215,7 @@ impl EVMServices {
                 .collect(),
             Vec::new(),
         );
-        let block_hash = format!("{:?}", block.header.hash());
+        let block_hash = block.header.hash().to_fixed_bytes();
         let receipts = self.receipt.generate_receipts(
             &all_transactions,
             receipts_v3.clone(),
@@ -246,27 +240,22 @@ impl EVMServices {
     /// across all usages. Note: To be replaced with a proper lock flow later.
     ///
     pub unsafe fn commit_block(&self, template: &BlockTemplate) -> Result<()> {
-        {
-            let Some(BlockData { block, receipts }) = template.block_data.clone() else {
-                return Err(format_err!("no constructed EVM block exist in template id").into());
-            };
+        let Some(BlockData { block, receipts }) = template.block_data.clone() else {
+            return Err(format_err!("no constructed EVM block exist in template id").into());
+        };
 
-            debug!(
-                "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
-                block.header.number, block.header.state_root
-            );
+        debug!(
+            "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
+            block.header.number, block.header.state_root
+        );
 
-            self.block.connect_block(&block)?;
-            self.logs
-                .generate_logs_from_receipts(&receipts, block.header.number)?;
-            self.receipt.put_receipts(receipts)?;
-            self.channel
-                .sender
-                .send(Notification::Block(block.header.hash()))
-                .map_err(|e| format_err!(e.to_string()))?;
-        }
+        self.block.connect_block(&block)?;
+        self.logs
+            .generate_logs_from_receipts(&receipts, block.header.number)?;
+        self.receipt.put_receipts(receipts)?;
+        self.subscriptions
+            .send(Notification::Block(block.header.hash()))?;
         self.core.clear_account_nonce();
-
         Ok(())
     }
 
@@ -458,6 +447,17 @@ impl EVMServices {
         template.backend.increase_tx_count();
         Ok(())
     }
+
+    ///
+    /// # Safety
+    ///
+    /// Result cannot be used safety unless `cs_main` lock is taken on C++ side
+    /// across all usages. Note: To be replaced with a proper lock flow later.
+    ///
+    pub unsafe fn flush_state_to_db(&self) -> Result<()> {
+        self.core.flush()?;
+        self.storage.flush()
+    }
 }
 
 // Block template methods
@@ -526,6 +526,7 @@ impl EVMServices {
             Arc::clone(&self.core.trie_store),
             Arc::clone(&self.storage),
             vicinity.clone(),
+            None,
         )?;
 
         let template = BlockTemplate::new(vicinity, ctx, backend);

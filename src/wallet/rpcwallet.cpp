@@ -3804,11 +3804,20 @@ UniValue getaddressinfo(const JSONRPCRequest& request)
     LOCK(pwallet->cs_wallet);
 
     UniValue ret(UniValue::VOBJ);
-    CTxDestination dest = DecodeDestination(request.params[0].get_str());
 
-    // Make sure the destination is valid
-    if (!IsValidDestination(dest)) {
-        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+    const auto userAddress = request.params[0].get_str();
+    CTxDestination dest;
+    if (IsHex(userAddress)) {  // ScriptPubKey
+        const auto hexVec = ParseHex(userAddress);
+        const auto reqOwner = CScript(hexVec.begin(), hexVec.end());
+        if (!ExtractDestination(reqOwner, dest) || !IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+        }
+    } else {  // Address
+        dest = DecodeDestination(userAddress);
+        if (!IsValidDestination(dest)) {
+            throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Invalid address");
+        }
     }
 
     std::string currentAddress = EncodeDestination(dest);

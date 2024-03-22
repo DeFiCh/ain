@@ -36,6 +36,7 @@ class OnChainGovernanceTest(DefiTestFramework):
                 "-grandcentralheight=101",
                 "-subsidytest=1",
                 "-txindex=1",
+                "-rpc-governance-accept-neutral=0",
             ],
             [
                 "-dummypos=0",
@@ -52,6 +53,7 @@ class OnChainGovernanceTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-subsidytest=1",
+                "-rpc-governance-accept-neutral=0",
             ],
             [
                 "-dummypos=0",
@@ -68,6 +70,7 @@ class OnChainGovernanceTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-subsidytest=1",
+                "-rpc-governance-accept-neutral=0",
             ],
             [
                 "-dummypos=0",
@@ -84,6 +87,7 @@ class OnChainGovernanceTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-subsidytest=1",
+                "-rpc-governance-accept-neutral=0",
             ],
         ]
 

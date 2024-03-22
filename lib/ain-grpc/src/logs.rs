@@ -66,6 +66,6 @@ pub struct GetLogsRequest {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LogRequestTopics {
-    VecOfHashes(Vec<H256>),
-    VecOfHashVecs(Vec<Vec<H256>>),
+    VecOfHashes(Vec<Option<H256>>),
+    VecOfHashVecs(Vec<Vec<Option<H256>>>),
 }

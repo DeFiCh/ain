@@ -27,7 +27,7 @@ struct EVM {
     std::string blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
-    EvmAddressData beneficiary;
+    std::string beneficiary;
 
     ADD_SERIALIZE_METHODS;
 
@@ -170,16 +170,10 @@ public:
                           const uint64_t time,
                           const Consensus::Params &consensus,
                           CCustomCSView *view = {},
-                          const std::optional<bool> enabled = {},
+                          const std::optional<bool> enabled = std::nullopt,
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
-                          const bool prevalidate = {})
-        : view(view),
-          isEvmEnabledForBlock(enabled),
-          evmTemplate(evmTemplate),
-          evmPreValidate(prevalidate),
-          height(height),
-          time(time),
-          consensus(consensus) {}
+                          const bool prevalidate = {});
+    explicit BlockContext(BlockContext &other, CCustomCSView &otherView);
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
@@ -232,7 +226,7 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx);
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 

@@ -754,52 +754,6 @@ static int _BRPeerAcceptMerkleblockMessage(BRPeer *peer, const uint8_t *msg, siz
     return r;
 }
 
-// described in BIP61: https://github.com/bitcoin/bips/blob/master/bip-0061.mediawiki
-static int _BRPeerAcceptRejectMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen)
-{
-    BRPeerContext *ctx = (BRPeerContext *)peer;
-    size_t off = 0, strLen = (size_t)BRVarInt(msg, msgLen, &off);
-    int r = 1;
-    
-    if (off + strLen + sizeof(uint8_t) > msgLen) {
-        peer_log(peer, "malformed reject message, length is %zu, should be >= %zu", msgLen,
-                 off + strLen + sizeof(uint8_t));
-        r = 0;
-    }
-    else {
-        uint8_t code;
-        size_t len = 0, hashLen = 0;
-
-        std::string type((const char *)&msg[off], strLen);
-        off += strLen;
-        code = msg[off++];
-        strLen = (size_t)BRVarInt(&msg[off], (off <= msgLen ? msgLen - off : 0), &len);
-        off += len;
-        if (type == NetMsgType::TX) hashLen = sizeof(UInt256);
-        
-        if (off + strLen + hashLen > msgLen) {
-            peer_log(peer, "malformed reject message, length is %zu, should be >= %zu", msgLen, off + strLen + hashLen);
-            r = 0;
-        }
-        else {
-            UInt256 txHash = UINT256_ZERO;
-            
-            std::string reason((const char *)&msg[off], strLen);
-            off += strLen;
-            if (hashLen == sizeof(UInt256)) txHash = UInt256Get(&msg[off]);
-            off += hashLen;
-
-            if (! UInt256IsZero(txHash)) {
-                peer_log(peer, "rejected %s code: 0x%x reason: \"%s\" txid: %s", type.c_str(), code, reason.c_str(), u256hex(txHash).c_str());
-                if (ctx->rejectedTx) ctx->rejectedTx(ctx->info, txHash, code);
-            }
-            else peer_log(peer, "rejected %s code: 0x%x reason: \"%s\"", type.c_str(), code, reason.c_str());
-        }
-    }
-
-    return r;
-}
-
 // BIP133: https://github.com/bitcoin/bips/blob/master/bip-0133.mediawiki
 static int _BRPeerAcceptFeeFilterMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen)
 {
@@ -846,7 +800,6 @@ static int _BRPeerAcceptMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen,
     else if (strncmp(NetMsgType::PING, type, 12) == 0) r = _BRPeerAcceptPingMessage(peer, msg, msgLen);
     else if (strncmp(NetMsgType::PONG, type, 12) == 0) r = _BRPeerAcceptPongMessage(peer, msg, msgLen);
     else if (strncmp(NetMsgType::MERKLEBLOCK, type, 12) == 0) r = _BRPeerAcceptMerkleblockMessage(peer, msg, msgLen);
-    else if (strncmp(NetMsgType::REJECT, type, 12) == 0) r = _BRPeerAcceptRejectMessage(peer, msg, msgLen);
     else if (strncmp(NetMsgType::FEEFILTER, type, 12) == 0) r = _BRPeerAcceptFeeFilterMessage(peer, msg, msgLen);
     else peer_log(peer, "dropping %s, length %zu, not implemented", type, msgLen);
 

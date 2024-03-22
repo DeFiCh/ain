@@ -12,12 +12,11 @@ pub mod logging;
 mod logs;
 mod receipt;
 pub mod rpc;
+mod subscription;
 mod sync;
 mod transaction;
 mod transaction_request;
 mod utils;
-
-mod subscription;
 
 #[cfg(test)]
 mod tests;
@@ -72,9 +71,9 @@ pub fn init_services() {
     let _ = &*SERVICES;
 }
 
-pub fn init_network_json_rpc_service(addr: &str) -> Result<()> {
+pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
     info!("Starting JSON RPC server at {}", addr);
-    let addr = addr.parse::<SocketAddr>()?;
+    let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
     let runtime = &SERVICES;
@@ -112,7 +111,7 @@ pub fn init_network_json_rpc_service(addr: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn init_network_grpc_service(_addr: &str) -> Result<()> {
+pub fn init_network_grpc_service(_addr: String) -> Result<()> {
     // log::info!("Starting gRPC server at {}", addr);
     // Commented out for now as nothing to serve
     // let runtime = &SERVICES;
@@ -122,9 +121,9 @@ pub fn init_network_grpc_service(_addr: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn init_network_subscriptions_service(addr: &str) -> Result<()> {
+pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
     info!("Starting WebSockets server at {}", addr);
-    let addr = addr.parse::<SocketAddr>()?;
+    let addr = addr.as_str().parse::<SocketAddr>()?;
     let max_connections = ain_cpp_imports::get_max_connections();
     let max_response_size = ain_cpp_imports::get_max_response_byte_size();
     let runtime = &SERVICES;
@@ -139,7 +138,10 @@ pub fn init_network_subscriptions_service(addr: &str) -> Result<()> {
             .build(addr),
     )?;
     let mut methods: Methods = Methods::new();
-    methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
+    methods.merge(
+        MetachainPubSubModule::new(Arc::clone(&runtime.evm), runtime.tokio_runtime.clone())
+            .into_rpc(),
+    )?;
 
     runtime
         .websocket_handles
@@ -152,11 +154,12 @@ fn is_services_init_called() -> bool {
     IS_SERVICES_INIT_CALL.load(Ordering::SeqCst)
 }
 
-pub fn stop_services() {
+pub fn stop_services() -> Result<()> {
     if is_services_init_called() {
         info!("Shutdown rs services");
-        SERVICES.stop();
+        SERVICES.stop()?;
     }
+    Ok(())
 }
 
 pub fn wipe_evm_folder() -> Result<()> {

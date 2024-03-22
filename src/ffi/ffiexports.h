@@ -15,11 +15,19 @@ static constexpr CAmount DEFAULT_EVM_RBF_FEE_INCREMENT = COIN / 10;
 static constexpr uint32_t DEFAULT_ETH_MAX_CONNECTIONS = 100;
 static constexpr uint32_t DEFAULT_ETH_MAX_RESPONSE_SIZE_MB = 25;  // 25 megabytes
 
+// Default for attributes relating to gasprice setting
+static constexpr int64_t DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE = 60;
+
+// Default for attributes relating to gasprice setting
+static constexpr uint64_t DEFAULT_ESTIMATE_GAS_ERROR_RATIO = 15;
+
 static constexpr uint32_t DEFAULT_ECC_LRU_CACHE_COUNT = 10000;
 static constexpr uint32_t DEFAULT_EVMV_LRU_CACHE_COUNT = 10000;
+static constexpr uint32_t DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE = 10000;
 
 static constexpr bool DEFAULT_ETH_DEBUG_ENABLED = false;
 static constexpr bool DEFAULT_ETH_DEBUG_TRACE_ENABLED = true;
+static constexpr bool DEFAULT_ETH_SUBSCRIPTION_ENABLED = true;
 
 struct Attributes {
     uint64_t blockGasTargetFactor;
@@ -47,6 +55,7 @@ struct TransactionData {
     uint8_t txType;
     rust::string data;
     uint8_t direction;
+    int64_t entryTime;
 };
 
 enum class TransactionDataTxType : uint8_t {
@@ -69,11 +78,13 @@ rust::string getNetwork();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
 uint32_t getEthMaxConnections();
 uint32_t getEthMaxResponseByteSize();
+int64_t getSuggestedPriorityFeePercentile();
+uint64_t getEstimateGasErrorRatio();
 std::array<uint8_t, 32> getChainWork(std::array<uint8_t, 32> blockHash);
 rust::vec<TransactionData> getPoolTransactions();
 uint64_t getNativeTxSize(rust::Vec<uint8_t> rawTransaction);
 uint64_t getMinRelayTxFee();
-std::array<uint8_t, 32> getEthPrivKey(rust::string key);
+std::array<uint8_t, 32> getEthPrivKey(EvmAddressData key);
 rust::string getStateInputJSON();
 std::array<int64_t, 2> getEthSyncStatus();
 Attributes getAttributeValues(std::size_t mnview_ptr);
@@ -85,7 +96,9 @@ rust::string getCORSAllowedOrigin();
 int32_t getNumConnections();
 size_t getEccLruCacheCount();
 size_t getEvmValidationLruCacheCount();
+size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
+bool isEthSubscriptionEnabled();
 
 #endif  // DEFI_FFI_FFIEXPORTS_H

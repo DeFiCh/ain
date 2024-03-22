@@ -27,7 +27,6 @@ enum AttributeTypes : uint8_t {
     Poolpairs = 'p',
     Locks = 'L',
     Governance = 'g',
-    Consortium = 'c',
     Transfer = 'b',
     EVMType = 'e',
     Vaults = 'v',
@@ -73,6 +72,7 @@ enum TransferIDs : uint8_t {
 
 enum VaultIDs : uint8_t {
     DUSDVault = 'a',
+    Parameters = 'b',
 };
 
 enum RulesIDs : uint8_t {
@@ -91,8 +91,6 @@ enum EconomyKeys : uint8_t {
     DexTokens = 'i',
     NegativeInt = 'j',
     NegativeIntCurrent = 'k',
-    ConsortiumMinted = 'l',
-    ConsortiumMembersMinted = 'm',
     BatchRoundingExcess = 'n',        // Extra added to loan amounts on auction creation due to round errors.
     ConsolidatedInterest = 'o',       // Amount added to loan amounts after auction with no bids.
     PaybackDFITokensPrincipal = 'p',  // Same as PaybackDFITokens but without interest.
@@ -115,7 +113,6 @@ enum DFIPKeys : uint8_t {
     MNSetRewardAddress = 'l',
     MNSetOperatorAddress = 'm',
     MNSetOwnerAddress = 'n',
-    ConsortiumEnabled = 'o',
     Members = 'p',
     GovernanceEnabled = 'q',
     CFPPayout = 'r',
@@ -160,12 +157,6 @@ enum TokenKeys : uint8_t {
     LoanPaybackCollateral = 'p',
 };
 
-enum ConsortiumKeys : uint8_t {
-    MemberValues = 'a',
-    MintLimit = 'b',
-    DailyMintLimit = 'c',
-};
-
 enum PoolKeys : uint8_t {
     TokenAFeePCT = 'a',
     TokenBFeePCT = 'b',
@@ -184,7 +175,12 @@ enum TransferKeys : uint8_t {
 };
 
 enum VaultKeys : uint8_t {
+    CreationFee = 'a',
     DUSDVaultEnabled = 'w',
+};
+
+enum OracleKeys : uint8_t {
+    FractionalSplits = 0,
 };
 
 enum RulesKeys : uint8_t {
@@ -317,59 +313,6 @@ struct CTransferDomainStatsLive {
                                              EconomyKeys::TransferDomainStatsLive};
 };
 
-struct CConsortiumMember {
-    static const uint16_t MAX_CONSORTIUM_MEMBERS_STRING_LENGTH = 512;
-    static const uint16_t MIN_CONSORTIUM_MEMBERS_STRING_LENGTH = 3;
-    enum Status : uint8_t {
-        Active = 0,
-        Disabled = 0x01,
-    };
-
-    std::string name;
-    CScript ownerAddress;
-    std::string backingId;
-    CAmount mintLimit;
-    CAmount dailyMintLimit;
-    uint8_t status;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(name);
-        READWRITE(ownerAddress);
-        READWRITE(backingId);
-        READWRITE(mintLimit);
-        READWRITE(dailyMintLimit);
-        READWRITE(status);
-    }
-};
-
-struct CConsortiumMinted {
-    CAmount minted;
-    CAmount burnt;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(minted);
-        READWRITE(burnt);
-    }
-};
-
-struct CConsortiumDailyMinted : public CConsortiumMinted {
-    std::pair<uint32_t, CAmount> dailyMinted;
-
-    ADD_SERIALIZE_METHODS;
-
-    template <typename Stream, typename Operation>
-    inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITEAS(CConsortiumMinted, *this);
-        READWRITE(dailyMinted);
-    }
-};
-
 enum XVmAddressFormatTypes : uint8_t {
     None,
     Bech32,
@@ -412,12 +355,17 @@ struct CEvmBlockStatsLive {
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
+using OracleSplits64 = std::map<uint32_t, CAmount>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
-using CConsortiumMembers = std::map<std::string, CConsortiumMember>;
-using CConsortiumMembersMinted = std::map<DCT_ID, std::map<std::string, CConsortiumDailyMinted>>;
-using CConsortiumGlobalMinted = std::map<DCT_ID, CConsortiumMinted>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
+
+// Unused legacy types but can be changed and update for future use.
+// Required for sync to maintain consistent variant indexing.
+using LegacyEntry1 = std::map<std::string, std::string>;
+using LegacyEntry2 = std::map<std::string, uint64_t>;
+using LegacyEntry3 = std::map<std::string, int64_t>;
+
 using CAttributeValue = std::variant<bool,
                                      CAmount,
                                      CBalances,
@@ -430,15 +378,16 @@ using CAttributeValue = std::variant<bool,
                                      CDexBalances,
                                      std::set<CScript>,
                                      std::set<std::string>,
-                                     CConsortiumMembers,
-                                     CConsortiumMembersMinted,
-                                     CConsortiumGlobalMinted,
+                                     LegacyEntry1,
+                                     LegacyEntry2,
+                                     LegacyEntry3,
                                      int32_t,
                                      uint32_t,
                                      uint64_t,
                                      XVmAddressFormatItems,
                                      CTransferDomainStatsLive,
-                                     CEvmBlockStatsLive>;
+                                     CEvmBlockStatsLive,
+                                     OracleSplits64>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);
@@ -446,7 +395,7 @@ void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
-bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
 enum GovVarsFilter {
@@ -568,6 +517,8 @@ public:
     Res RefundFuturesContracts(CCustomCSView &mnview,
                                const uint32_t height,
                                const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+
+    void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
 
 private:
     friend class CGovView;

@@ -208,15 +208,6 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,
                      "Lock token properties forever (bool, optional)"},
-                    // it is possible to transfer token's owner. but later
-                    //                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                    //                            "Any valid destination for keeping collateral amount - used as token's
-                    //                            owner auth"},
-                    // omitted for now, need to research/discuss
-                    //                           {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                    //                            "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
-                    //                           {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                    //                            "Token's total supply limit (optional, zero for now, unchecked)"},
                 },
             }, {
                 "inputs",
@@ -252,8 +243,6 @@ UniValue updatetoken(const JSONRPCRequest &request) {
     pwallet->BlockUntilSyncedToCurrentChain();
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, true);  // first means "any"
-
-    /// @todo RPCTypeCheckObj or smth to help with option's names and old/new tx type
 
     const std::string tokenStr = trim_ws(request.params[0].getValStr());
     UniValue metaObj = request.params[1].get_obj();
@@ -810,25 +799,7 @@ UniValue minttokens(const JSONRPCRequest &request) {
             }
 
             if (token->IsDAT()) {
-                auto found{false};
-                auto attributes = pcustomcsview->GetAttributes();
-
-                CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
-                if (attributes->GetValue(enableKey, false)) {
-                    CDataStructureV0 membersKey{AttributeTypes::Consortium, id.v, ConsortiumKeys::MemberValues};
-                    auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-
-                    for (const auto &member : members) {
-                        if (IsMineCached(*pwallet, member.second.ownerAddress)) {
-                            auths.insert(member.second.ownerAddress);
-                            found = true;
-                        }
-                    }
-                }
-
-                if (!found) {
-                    needFoundersAuth = true;
-                }
+                needFoundersAuth = true;
             }
             // Get token owner auth if present
             const Coin &authCoin =
@@ -943,22 +914,6 @@ UniValue burntokens(const JSONRPCRequest &request) {
     }
 
     if (burnedTokens.amounts.balances.size() == 1 && metaObj["from"].isNull() && metaObj["context"].isNull()) {
-        auto attributes = pcustomcsview->GetAttributes();
-
-        CDataStructureV0 enableKey{AttributeTypes::Param, ParamIDs::Feature, DFIPKeys::ConsortiumEnabled};
-        if (attributes->GetValue(enableKey, false)) {
-            CDataStructureV0 membersKey{AttributeTypes::Consortium,
-                                        burnedTokens.amounts.balances.begin()->first.v,
-                                        ConsortiumKeys::MemberValues};
-            auto members = attributes->GetValue(membersKey, CConsortiumMembers{});
-
-            for (const auto &member : members) {
-                if (IsMineCached(*pwallet, member.second.ownerAddress)) {
-                    burnedTokens.from = member.second.ownerAddress;
-                    break;
-                }
-            }
-        }
         if (burnedTokens.from.empty()) {
             throw JSONRPCError(
                 RPC_INVALID_PARAMETER,

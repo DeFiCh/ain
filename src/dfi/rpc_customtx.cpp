@@ -595,12 +595,15 @@ public:
     void operator()(const CEvmTxMessage &obj) const {
         auto txHash = tx.GetHash().GetHex();
         if (auto evmTxHash = mnview.GetVMDomainTxEdge(VMDomainEdge::DVMToEVM, txHash)) {
+            const auto hash = uint256S(*evmTxHash);
+
             CrossBoundaryResult result;
-            auto txInfo = evm_try_get_tx_by_hash(result, *evmTxHash);
+            auto txInfo = evm_try_get_tx_by_hash(result, hash.GetByteArray());
             if (!result.ok) {
                 LogPrintf("Failed to get EVM tx info for tx %s: %s\n", txHash, result.reason.c_str());
                 return;
             }
+
             std::string tx_type;
             switch (txInfo.tx_type) {
                 case CEVMTxType::LegacyTransaction: {
@@ -619,16 +622,19 @@ public:
                     break;
                 }
             }
+            const auto sender = ETH_ADDR_PREFIX + uint160::FromByteArray(txInfo.sender).GetHex();
+            const auto to = ETH_ADDR_PREFIX + uint160::FromByteArray(txInfo.to).GetHex();
+
             rpcInfo.pushKV("type", tx_type);
-            rpcInfo.pushKV("hash", *evmTxHash);
-            rpcInfo.pushKV("sender", std::string(txInfo.sender.data(), txInfo.sender.length()));
+            rpcInfo.pushKV("hash", hash.GetHex());
+            rpcInfo.pushKV("sender", sender);
             rpcInfo.pushKV("nonce", txInfo.nonce);
             rpcInfo.pushKV("gasPrice", txInfo.gas_price);
             rpcInfo.pushKV("gasLimit", txInfo.gas_limit);
             rpcInfo.pushKV("maxFeePerGas", txInfo.max_fee_per_gas);
             rpcInfo.pushKV("maxPriorityFeePerGas", txInfo.max_priority_fee_per_gas);
             rpcInfo.pushKV("createTx", txInfo.create_tx);
-            rpcInfo.pushKV("to", std::string(txInfo.to.data(), txInfo.to.length()));
+            rpcInfo.pushKV("to", to);
             rpcInfo.pushKV("value", txInfo.value);
         }
     }

@@ -107,9 +107,50 @@ void BlockAssembler::resetBlock() {
     nFees = 0;
 }
 
+template <typename T>
+static void AddSplitTxs(CCustomCSView &mnview,
+                        CBlock *pblock,
+                        std::unique_ptr<CBlockTemplate> &pblocktemplate,
+                        const int height,
+                        const T &splits,
+                        const int txVersion) {
+    for (const auto &[id, multiplier] : splits) {
+        uint32_t entries{1};
+        mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
+            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                const auto tokenA = mnview.GetToken(pool.idTokenA);
+                const auto tokenB = mnview.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                    ++entries;
+                }
+            }
+            return true;
+        });
+
+        for (uint32_t i{0}; i < entries; ++i) {
+            CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
+            metadata << i << id << multiplier;
+
+            CMutableTransaction mTx(txVersion);
+            mTx.vin.resize(1);
+            mTx.vin[0].prevout.SetNull();
+            mTx.vin[0].scriptSig = CScript() << height << OP_0;
+            mTx.vout.resize(1);
+            mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
+            mTx.vout[0].nValue = 0;
+            pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+            pblocktemplate->vTxFees.push_back(0);
+            pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
+        }
+    }
+}
+
 ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CScript &scriptPubKeyIn,
                                                                        int64_t blockTime,
-                                                                       const EvmAddressData &evmBeneficiary) {
+                                                                       const std::string &evmBeneficiary) {
     int64_t nTimeStart = GetTimeMicros();
 
     resetBlock();
@@ -293,55 +334,19 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
             return Res::Err("Failed to construct block");
         }
         auto blockResult = *res;
+        auto blockHash = uint256::FromByteArray(blockResult.block_hash).GetHex();
         xvm = XVM{
-            0,
-            {0,
-              std::string(blockResult.block_hash.data(), blockResult.block_hash.length()).substr(2),
-              blockResult.total_burnt_fees,
-              blockResult.total_priority_fees,
-              evmBeneficiary}
+            0, {0, blockHash, blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}
         };
     }
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
-        if (attributes) {
-            CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-            const auto splits = attributes->GetValue(splitKey, OracleSplits{});
-
-            for (const auto &[id, multiplier] : splits) {
-                uint32_t entries{1};
-                mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
-                    if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                        const auto tokenA = mnview.GetToken(pool.idTokenA);
-                        const auto tokenB = mnview.GetToken(pool.idTokenB);
-                        assert(tokenA);
-                        assert(tokenB);
-                        if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
-                            (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
-                            ++entries;
-                        }
-                    }
-                    return true;
-                });
-
-                for (uint32_t i{0}; i < entries; ++i) {
-                    CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-                    metadata << i << id << multiplier;
-
-                    CMutableTransaction mTx(txVersion);
-                    mTx.vin.resize(1);
-                    mTx.vin[0].prevout.SetNull();
-                    mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                    mTx.vout.resize(1);
-                    mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                    mTx.vout[0].nValue = 0;
-                    pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
-                    pblocktemplate->vTxFees.push_back(0);
-                    pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
-                                                            GetLegacySigOpCount(*pblock->vtx.back()));
-                }
-            }
+        CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
+        if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+            AddSplitTxs(mnview, pblock, pblocktemplate, nHeight, splits32, txVersion);
+        } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+            AddSplitTxs(mnview, pblock, pblocktemplate, nHeight, splits64, txVersion);
         }
     }
 
@@ -883,8 +888,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                 };
 
                 // Copy block context and update to cache view
-                auto blockCtxTxView{blockCtx};
-                blockCtxTxView.SetView(cache);
+                BlockContext blockCtxTxView{blockCtx, cache};
 
                 const auto res = ApplyCustomTx(blockCtxTxView, txCtx);
                 // Not okay invalidate, undo and skip
@@ -928,7 +932,7 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected,
                     if (entryHash != failedCustomTx) {
                         CrossBoundaryResult result;
                         evm_try_unsafe_remove_txs_above_hash_in_template(
-                            result, evmTemplate->GetTemplate(), entryHash.ToString());
+                            result, evmTemplate->GetTemplate(), entryHash.GetByteArray());
                         if (!result.ok) {
                             LogPrintf("%s: Unable to remove %s from queue. Will result in a block hash mismatch.\n",
                                       __func__,
