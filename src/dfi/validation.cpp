@@ -2133,7 +2133,8 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                const CreationTxs &creationTxs,
                                const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
-                               const T &splits) {
+                               const T &splits,
+                               BlockContext &blockCtx) {
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -2390,11 +2391,11 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx);
     } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx);
     }
 }
 
@@ -2985,7 +2986,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     CCustomCSView cache(mnview);
 
     // Loan splits
-    ProcessTokenSplits(block, pindex, cache, creationTxs, blockCtx);
+    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
