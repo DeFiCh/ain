@@ -28,6 +28,7 @@ class LoanSetLoanTokenTest(DefiTestFramework):
                 "-fortcanningheight=50",
                 "-fortcanninghillheight=50",
                 "-fortcanningcrunchheight=110",
+                "-df23height=150",
             ]
         ]
 
@@ -290,6 +291,20 @@ class LoanSetLoanTokenTest(DefiTestFramework):
         assert_equal(result["v0/token/4/loan_minting_enabled"], "false")
         assert_equal(result["v0/token/4/loan_minting_interest"], "0.05")
         assert_equal(result["v0/token/4/fixed_interval_price_id"], "MSFT/USD")
+
+        # Move to fork height
+        self.nodes[0].generate(150 - self.nodes[0].getblockcount())
+
+        # Verify update token fails on empty string
+        assert_raises_rpc_error(
+            -32600,
+            "Start with an alphabet, non-empty, not contain # or /",
+            self.nodes[0].updateloantoken,
+            "TSLA",
+            {
+                "symbol": "",
+            }
+        )
 
 
 if __name__ == "__main__":
