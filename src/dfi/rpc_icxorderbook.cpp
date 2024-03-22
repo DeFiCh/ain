@@ -516,10 +516,6 @@ UniValue icxmakeoffer(const JSONRPCRequest &request) {
                            strprintf("Address (%s) is not owned by the wallet", metaObj["ownerAddress"].getValStr()));
     }
 
-    if (!metaObj["expiry"].isNull()) {
-        makeoffer.expiry = metaObj["expiry"].get_int();
-    }
-
     int targetHeight;
     {
         LOCK(cs_main);
@@ -547,7 +543,11 @@ UniValue icxmakeoffer(const JSONRPCRequest &request) {
         }
 
         targetHeight = ::ChainActive().Height() + 1;
+    }
 
+    if (!metaObj["expiry"].isNull()) {
+        makeoffer.expiry = metaObj["expiry"].get_int();
+    } else {
         if (targetHeight < Params().GetConsensus().DF10EunosPayaHeight) {
             makeoffer.expiry = CICXMakeOffer::DEFAULT_EXPIRY;
         } else {

@@ -24,6 +24,7 @@ public:
     static const uint8_t MAX_TOKEN_NAME_LENGTH = 128;
     static const uint8_t MAX_TOKEN_SYMBOL_LENGTH = 8;
     static const uint8_t MAX_TOKEN_POOLPAIR_LENGTH = 16;
+    static const uint8_t POST_METACHAIN_TOKEN_NAME_BYTE_SIZE = 30;
     enum class TokenFlags : uint8_t {
         None = 0,
         Mintable = 0x01,
@@ -180,6 +181,15 @@ public:
     }
 };
 
+struct UpdateTokenContext {
+    const CTokenImplementation &newToken;
+    BlockContext &blockCtx;
+    const bool checkFinalised{};
+    const bool tokenSplitUpdate{};
+    const bool checkSymbol{};
+    const uint256 hash{};
+};
+
 class CTokensView : public virtual CStorageView {
 public:
     static const DCT_ID DCT_ID_START;            // = 128;
@@ -197,8 +207,8 @@ public:
                       DCT_ID const &start = DCT_ID{0});
 
     Res CreateDFIToken();
-    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, bool isPreBayfront = false, BlockContext *blockCtx = nullptr);
-    Res UpdateToken(const CTokenImpl &newToken, bool isPreBayfront = false, const bool tokenSplitUpdate = false);
+    ResVal<DCT_ID> CreateToken(const CTokenImpl &token, BlockContext &blockCtx, bool isPreBayfront = false);
+    Res UpdateToken(UpdateTokenContext &ctx);
 
     Res BayfrontFlagsCleanup();
     Res AddMintedTokens(DCT_ID const &id, const CAmount &amount);

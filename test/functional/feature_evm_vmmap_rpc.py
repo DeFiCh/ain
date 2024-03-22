@@ -39,8 +39,8 @@ class VMMapTests(DefiTestFramework):
             "-fortcanningepilogueheight=96",
             "-grandcentralheight=101",
             "-metachainheight=105",
+            "-df23height=105",
             "-subsidytest=1",
-            "-txindex=1",
         ]
         self.extra_args = [extra_args, extra_args]
 
@@ -104,6 +104,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -190,6 +191,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -243,6 +245,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -325,6 +328,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -361,6 +365,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -416,6 +421,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -441,6 +447,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "100@DFI",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -489,6 +496,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -510,6 +518,7 @@ class VMMapTests(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )

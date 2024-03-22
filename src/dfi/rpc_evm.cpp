@@ -2,6 +2,7 @@
 
 #include <ain_rs_exports.h>
 #include <dfi/errors.h>
+#include <ffi/ffihelpers.h>
 #include <key_io.h>
 #include <util/strencodings.h>
 
@@ -77,7 +78,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
 
     const auto fromEth = std::get<WitnessV16EthHash>(fromDest);
     const CKeyID keyId{fromEth};
-    const auto from = fromEth.GetHex();
+    const auto from = fromEth.GetByteArray();
 
     CKey key;
     if (!pwallet->GetKey(keyId, key)) {
@@ -102,7 +103,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     const uint64_t value = AmountFromValue(request.params[5]);  // Amount in CAmount
 
     const auto toStr = request.params[4].get_str();
-    std::string to = "";
+    EvmAddressData to{};
     if (!toStr.empty()) {
         const auto toDest = DecodeDestination(toStr);
         if (toDest.index() != WitV16KeyEthHashType) {
@@ -110,7 +111,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
         }
 
         const auto toEth = std::get<WitnessV16EthHash>(toDest);
-        to = toEth.GetHex();
+        to = toEth.GetByteArray();
     }
 
     rust::Vec<uint8_t> input{};
@@ -158,7 +159,7 @@ UniValue evmtx(const JSONRPCRequest &request) {
     execTestTx(CTransaction(rawTx), targetHeight, optAuthTx);
     evm_try_store_account_nonce(result, from, createResult.nonce);
     if (!result.ok) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, strprintf("Could not cache nonce %i for %s", from, createResult.nonce));
+        throw JSONRPCError(RPC_DATABASE_ERROR, "Could not cache nonce");
     }
 
     return send(MakeTransactionRef(std::move(rawTx)), optAuthTx)->GetHash().ToString();
@@ -316,31 +317,34 @@ UniValue vmmap(const JSONRPCRequest &request) {
         if (!evmBlockHash.val.has_value()) {
             throwInvalidParam(evmBlockHash.msg);
         }
+        auto hash = uint256S(evmBlockHash);
         CrossBoundaryResult result;
-        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, *evmBlockHash.val);
+        uint64_t blockNumber = evm_try_get_block_number_by_hash(result, hash.GetByteArray());
         crossBoundaryOkOrThrow(result);
         return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
     };
 
-    auto handleMapBlockNumberEVMToDVMRequest =
-        [&throwInvalidParam, &ensureEVMHashStripped, &crossBoundaryOkOrThrow](const std::string &input) {
-            uint64_t height;
-            bool success = ParseUInt64(input, &height);
-            if (!success || height < 0) {
-                throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
-            }
-            CrossBoundaryResult result;
-            auto evmHash = evm_try_get_block_hash_by_number(result, height);
-            auto evmBlockHash = ensureEVMHashStripped(std::string(evmHash.data(), evmHash.length()));
-            crossBoundaryOkOrThrow(result);
-            auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
-            if (!dvmBlockHash.val.has_value()) {
-                throwInvalidParam(dvmBlockHash.msg);
-            }
-            CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
-            uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
-            return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
-        };
+    auto handleMapBlockNumberEVMToDVMRequest = [&throwInvalidParam, &crossBoundaryOkOrThrow](const std::string &input) {
+        uint64_t height;
+        bool success = ParseUInt64(input, &height);
+        if (!success || height < 0) {
+            throwInvalidParam(DeFiErrors::InvalidBlockNumberString(input).msg);
+        }
+        CrossBoundaryResult result;
+        auto hash = evm_try_get_block_hash_by_number(result, height);
+        auto evmBlockHash = uint256::FromByteArray(hash).GetHex();
+        crossBoundaryOkOrThrow(result);
+        auto dvmBlockHash = pcustomcsview->GetVMDomainBlockEdge(VMDomainEdge::EVMToDVM, evmBlockHash);
+        if (!dvmBlockHash.val.has_value()) {
+            throwInvalidParam(dvmBlockHash.msg);
+        }
+        CBlockIndex *pindex = LookupBlockIndex(uint256S(*dvmBlockHash.val));
+        if (!pindex) {
+            throwInvalidParam(DeFiErrors::InvalidBlockHashString(*dvmBlockHash.val).msg);
+        }
+        uint64_t blockNumber = pindex->GetBlockHeader().deprecatedHeight;
+        return ResVal<std::string>(std::to_string(blockNumber), Res::Ok());
+    };
 
     if (type == VMDomainRPCMapType::Auto) {
         auto [mapType, isResolved] = handleAutoInfer();
@@ -386,7 +390,7 @@ UniValue vmmap(const JSONRPCRequest &request) {
 UniValue logvmmaps(const JSONRPCRequest &request) {
     RPCHelpMan{
         "logvmmaps",
-        "\nLogs all block or tx indexes for debugging.\n",
+        "Logs all block or tx indexes for debugging.\n",
         {{"type",
           RPCArg::Type::NUM,
           RPCArg::Optional::NO,
@@ -468,12 +472,116 @@ UniValue logvmmaps(const JSONRPCRequest &request) {
     return result;
 }
 
+UniValue dumpevmdb(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "dumpevmdb",
+        "Dump the full evm backend db for debugging.\n",
+        {{
+            "options",
+            RPCArg::Type::OBJ,
+            RPCArg::Optional::OMITTED,
+            "",
+            {
+                {
+                    "dumparg",
+                    RPCArg::Type::STR,
+                    RPCArg::Optional::OMITTED,
+                    "Option to specify dump index",
+                },
+                {
+                    "from",
+                    RPCArg::Type::STR,
+                    RPCArg::Optional::OMITTED,
+                    "Specify starting key",
+                },
+                {
+                    "limit",
+                    RPCArg::Type::NUM,
+                    RPCArg::Optional::OMITTED,
+                    "Specify dump limit",
+                },
+            },
+        }},
+        RPCResult{"\"dbdump\"                  (string) The full evm backend db dump."
+                  "This is for debugging purposes only.\n"},
+        RPCExamples{HelpExampleCli("dumpevmdb", "'{\"dumparg\":\"all\", \"from\":<hex>, \"limit\":100}'")},
+    }
+        .Check(request);
+
+    rust::string dumparg{};
+    rust::string from{};
+    rust::string limit{};
+    CrossBoundaryResult result;
+    if (request.params.size() == 1) {
+        UniValue optionsObj = request.params[0].get_obj();
+        RPCTypeCheckObj(optionsObj,
+                        {
+                            {"dumparg", UniValueType(UniValue::VSTR)},
+                            {"from",    UniValueType(UniValue::VSTR)},
+                            {"limit",   UniValueType(UniValue::VSTR)},
+        },
+                        true,
+                        false);
+
+        if (!optionsObj["dumparg"].isNull()) {
+            const auto dumpargParam = optionsObj["dumparg"].get_str();
+            dumparg = rs_try_from_utf8(result, ffi_from_string_to_slice(dumpargParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid dumparg set, not UTF-8 valid");
+            }
+        }
+
+        if (!optionsObj["from"].isNull()) {
+            const auto fromParam = optionsObj["from"].get_str();
+            from = rs_try_from_utf8(result, ffi_from_string_to_slice(fromParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid from set, not UTF-8 valid");
+            }
+        }
+
+        if (!optionsObj["limit"].isNull()) {
+            const auto limitParam = optionsObj["limit"].get_str();
+            limit = rs_try_from_utf8(result, ffi_from_string_to_slice(limitParam));
+            if (!result.ok) {
+                return JSONRPCError(RPC_INVALID_PARAMETER, "Invalid limit set, not UTF-8 valid");
+            }
+        }
+    }
+
+    const auto dumpResults = debug_dump_db(result, dumparg, from, limit);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to get dumpdb logs: %s", result.reason.c_str()));
+    }
+    return std::string(dumpResults.data(), dumpResults.length());
+}
+
+UniValue logevmaccountstates(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "logevmaccountstates",
+        "Log the full evm account states for debugging.\n",
+        {},
+        RPCResult{"\"accountstates\"                  (string) The full evm account states."
+                  "This is for debugging purposes only.\n"},
+        RPCExamples{HelpExampleCli("logevmaccountstates", "")},
+    }
+        .Check(request);
+
+    CrossBoundaryResult result;
+    const auto dumpResults = debug_log_account_states(result);
+    if (!result.ok) {
+        throw JSONRPCError(RPC_MISC_ERROR, strprintf("Failed to log evm account states: %s", result.reason.c_str()));
+    }
+    return std::string(dumpResults.data(), dumpResults.length());
+}
+
 static const CRPCCommand commands[] = {
-  //  category        name                         actor (function)        params
-  //  --------------- ----------------------       ---------------------   ----------
-    {"evm", "evmtx",     &evmtx,     {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
-    {"evm", "vmmap",     &vmmap,     {"input", "type"}                                               },
-    {"evm", "logvmmaps", &logvmmaps, {"type"}                                                        },
+  //  category  name                   actor (function)      params
+  //  --------- ---------------------- --------------------  ----------
+    {"evm", "evmtx",               &evmtx,               {"from", "nonce", "gasPrice", "gasLimit", "to", "value", "data"}},
+    {"evm", "vmmap",               &vmmap,               {"input", "type"}                                               },
+    {"evm", "logvmmaps",           &logvmmaps,           {"type"}                                                        },
+    {"evm", "dumpevmdb",           &dumpevmdb,           {"dumparg", "from", "limit"}                                    },
+    {"evm", "logevmaccountstates", &logevmaccountstates, {}                                                              },
 };
 
 void RegisterEVMRPCCommands(CRPCTable &tableRPC) {

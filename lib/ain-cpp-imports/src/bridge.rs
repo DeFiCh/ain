@@ -20,6 +20,7 @@ pub mod ffi {
         pub tx_type: u8,
         pub data: String,
         pub direction: u8,
+        pub entry_time: i64,
     }
 
     unsafe extern "C++" {
@@ -35,23 +36,28 @@ pub mod ffi {
         fn getDatadir() -> String;
         fn getNetwork() -> String;
         fn getEthMaxConnections() -> u32;
+        fn getEthMaxResponseByteSize() -> u32;
+        fn getSuggestedPriorityFeePercentile() -> i64;
+        fn getEstimateGasErrorRatio() -> u64;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
         fn getPoolTransactions() -> Vec<TransactionData>;
         fn getNativeTxSize(data: Vec<u8>) -> u64;
         fn getMinRelayTxFee() -> u64;
-        fn getEthPrivKey(key: String) -> [u8; 32];
+        fn getEthPrivKey(key: [u8; 20]) -> [u8; 32];
         fn getStateInputJSON() -> String;
         fn getEthSyncStatus() -> [i64; 2];
         fn getAttributeValues(mnview_ptr: usize) -> Attributes;
         fn CppLogPrintf(message: String);
-        fn getDST20Tokens(mnview_ptr: usize) -> Vec<DST20Token>;
+        #[allow(clippy::ptr_arg)]
+        fn getDST20Tokens(mnview_ptr: usize, tokens: &mut Vec<DST20Token>) -> bool;
         fn getClientVersion() -> String;
         fn getNumCores() -> i32;
         fn getCORSAllowedOrigin() -> String;
         fn getNumConnections() -> i32;
         fn getEccLruCacheCount() -> usize;
         fn getEvmValidationLruCacheCount() -> usize;
+        fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
     }

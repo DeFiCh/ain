@@ -28,7 +28,6 @@ class LoanSetCollateralTokenTest(DefiTestFramework):
                 "-fortcanningheight=50",
                 "-fortcanninghillheight=50",
                 "-fortcanningcrunchheight=150",
-                "-txindex=1",
             ]
         ]
 

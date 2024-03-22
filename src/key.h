@@ -15,8 +15,7 @@
 #include <stdexcept>
 #include <vector>
 
-// typedef std::array<uint8_t, 20> EvmAddressData;
-typedef std::string EvmAddressData;
+typedef std::array<uint8_t, 20> EvmAddressData;
 
 /**
  * secure_allocator is defined in allocators.h

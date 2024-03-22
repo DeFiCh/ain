@@ -36,8 +36,8 @@ class addressmapTests(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23height=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
             [
                 "-dummypos=0",
@@ -54,8 +54,8 @@ class addressmapTests(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
+                "-df23height=105",
                 "-subsidytest=1",
-                "-txindex=1",
             ],
         ]
 
@@ -129,14 +129,17 @@ class addressmapTests(DefiTestFramework):
         ]
         addr_maps = [
             [
+                "n32jT7A5sv6t9Hm2NAYK6juuwsCdsWe1SF",
                 "bcrt1qmhpq9hxgdglwja6uruc92yne8ekxljgykrfta5",
                 "0xfD0766e7aBe123A25c73c95f6dc3eDe26D0b7263",
             ],
             [
+                "n4VvfBJBTQpDf8ooyjgehiq9mTjeKhcwEc",
                 "bcrt1qtqggfdte5jp8duffzmt54aqtqwlv3l8xsjdrhf",
                 "0x4d07A76Db2a281a348d5A5a1833F4322D77799d5",
             ],
             [
+                "n1HUChzN3RR89jhtehNBNboLUnt4QNAJ8E",
                 "bcrt1qdw7fqrq9n2d530uh05vdm2yvpag2ydm0z67yc5",
                 "0x816a4DDbC26B80602767B13Fb17B2e1785125BE7",
             ],
@@ -153,44 +156,58 @@ class addressmapTests(DefiTestFramework):
             #
             # self.nodes[0].importprivkey(wif)
             self.nodes[0].importprivkey(rawkey)
-        for [dfi_addr, eth_addr] in addr_maps:
+        for [legacy_address, bech32_address, erc55_address] in addr_maps:
             # dvm -> evm
             res = self.nodes[0].addressmap(
-                dfi_addr, AddressConversionType.DVMToEVMAddress
+                legacy_address, AddressConversionType.DVMToEVMAddress
             )
-            assert_equal(res["input"], dfi_addr)
+            assert_equal(res["input"], legacy_address)
             assert_equal(res["type"], 1)
-            assert_equal(res["format"]["erc55"], eth_addr)
+            assert_equal(res["format"]["erc55"], erc55_address)
+
+            res = self.nodes[0].addressmap(
+                bech32_address, AddressConversionType.DVMToEVMAddress
+            )
+            assert_equal(res["input"], bech32_address)
+            assert_equal(res["type"], 1)
+            assert_equal(res["format"]["erc55"], erc55_address)
 
             # evm -> dvm
             res = self.nodes[0].addressmap(
-                eth_addr, AddressConversionType.EVMToDVMAddress
+                erc55_address, AddressConversionType.EVMToDVMAddress
             )
-            assert_equal(res["input"], eth_addr)
+            assert_equal(res["input"], erc55_address)
             assert_equal(res["type"], 2)
-            assert_equal(res["format"]["bech32"], dfi_addr)
+            assert_equal(res["format"]["legacy"], legacy_address)
+            assert_equal(res["format"]["bech32"], bech32_address)
 
             # auto (dvm -> evm)
-            res = self.nodes[0].addressmap(dfi_addr, AddressConversionType.Auto)
-            assert_equal(res["input"], dfi_addr)
+            res = self.nodes[0].addressmap(legacy_address, AddressConversionType.Auto)
+            assert_equal(res["input"], legacy_address)
             assert_equal(res["type"], 1)
-            assert_equal(res["format"]["erc55"], eth_addr)
+            assert_equal(res["format"]["erc55"], erc55_address)
+
+            res = self.nodes[0].addressmap(bech32_address, AddressConversionType.Auto)
+            assert_equal(res["input"], bech32_address)
+            assert_equal(res["type"], 1)
+            assert_equal(res["format"]["erc55"], erc55_address)
 
             # auto (evm -> dvm)
-            res = self.nodes[0].addressmap(eth_addr, AddressConversionType.Auto)
-            assert_equal(res["input"], eth_addr)
+            res = self.nodes[0].addressmap(erc55_address, AddressConversionType.Auto)
+            assert_equal(res["input"], erc55_address)
             assert_equal(res["type"], 2)
-            assert_equal(res["format"]["bech32"], dfi_addr)
+            assert_equal(res["format"]["legacy"], legacy_address)
+            assert_equal(res["format"]["bech32"], bech32_address)
 
     def addressmap_valid_address_not_present_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Give an address that is not own by the node. THis should fail since we don't have the public key of the address.
-        eth_address = self.nodes[1].getnewaddress("", "erc55")
+        erc55_addressess = self.nodes[1].getnewaddress("", "erc55")
         assert_raises_rpc_error(
             -5,
-            "no full public key for address " + eth_address,
+            "no full public key for address " + erc55_addressess,
             self.nodes[0].addressmap,
-            eth_address,
+            erc55_addressess,
             AddressConversionType.EVMToDVMAddress,
         )
 
@@ -198,7 +215,7 @@ class addressmapTests(DefiTestFramework):
         self.rollback_to(self.start_block_height)
         address = self.nodes[0].getnewaddress("", "legacy")
         p2sh_address = self.nodes[0].getnewaddress("", "p2sh-segwit")
-        eth_address = self.nodes[0].getnewaddress("", "erc55")
+        erc55_addressess = self.nodes[0].getnewaddress("", "erc55")
         assert_invalid_parameter = lambda *args: assert_raises_rpc_error(
             -8, "Invalid type parameter", self.nodes[0].addressmap, *args
         )
@@ -207,7 +224,7 @@ class addressmapTests(DefiTestFramework):
         )
         assert_invalid_parameter(address, 9)
         assert_invalid_parameter(address, -1)
-        assert_invalid_format(eth_address, AddressConversionType.DVMToEVMAddress)
+        assert_invalid_format(erc55_addressess, AddressConversionType.DVMToEVMAddress)
         assert_invalid_format(address, AddressConversionType.EVMToDVMAddress)
         assert_invalid_format(p2sh_address, AddressConversionType.DVMToEVMAddress)
         assert_invalid_format(p2sh_address, AddressConversionType.DVMToEVMAddress)
@@ -215,19 +232,19 @@ class addressmapTests(DefiTestFramework):
     def addressmap_invalid_address_should_fail(self):
         self.rollback_to(self.start_block_height)
         # Check that addressmap is failing on wrong input
-        eth_address = "0x0000000000000000000000000000000000000000"
+        erc55_addressess = "0x0000000000000000000000000000000000000000"
         assert_raises_rpc_error(
             -5,
-            eth_address + " does not refer to a key",
+            erc55_addressess + " does not refer to a key",
             self.nodes[0].addressmap,
-            eth_address,
+            erc55_addressess,
             AddressConversionType.EVMToDVMAddress,
         )
         assert_raises_rpc_error(
             -8,
             "Invalid address format",
             self.nodes[0].addressmap,
-            eth_address,
+            erc55_addressess,
             AddressConversionType.DVMToEVMAddress,
         )
         assert_raises_rpc_error(

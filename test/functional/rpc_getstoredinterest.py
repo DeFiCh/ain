@@ -40,7 +40,6 @@ class GetStoredInterestTest(DefiTestFramework):
                 "-fortcanningspringheight=1",
                 f"-fortcanninggreatworldheight={self.fortcanninggreatworldheight}",
                 "-jellyfish_regtest=1",
-                "-txindex=1",
                 "-simulatemainnet=1",
             ]
         ]

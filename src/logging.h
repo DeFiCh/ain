@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <mutex>
 #include <string>
@@ -67,6 +68,7 @@ namespace BCLog {
         CUSTOMTXBENCH = (1ull << 30ull),
         CONNECT       = (1ull << 31ull),
         SIGN          = (1ull << 32ull),
+        SWAPRESULT    = (1ull << 33ull),
         ALL           = ~(0ull),
     };
 

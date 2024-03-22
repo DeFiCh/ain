@@ -5,11 +5,6 @@
 # file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 """Test EVM behaviour"""
 
-import math
-import json
-import time
-from decimal import Decimal
-
 from test_framework.evm_key_pair import EvmKeyPair
 from test_framework.test_framework import DefiTestFramework
 from test_framework.util import (
@@ -17,6 +12,11 @@ from test_framework.util import (
     assert_raises_rpc_error,
     get_solc_artifact_path,
 )
+
+import math
+import json
+import time
+from decimal import Decimal
 from web3 import Web3
 
 
@@ -41,11 +41,65 @@ class DST20(DefiTestFramework):
                 "-fortcanninggreatworldheight=94",
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
-                "-metachainheight=105",
+                "-metachainheight=153",
+                "-df23height=200",
                 "-subsidytest=1",
-                "-txindex=1",
             ]
         ]
+
+    def test_invalid_too_long_token_name_dst20_migration_tx(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.node.createtoken(
+            {
+                "symbol": "TooLongTokenName",
+                "name": "TheTokenWithNameMore30ByteLimit",  # 31 bytes
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(2)
+
+        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Trigger EVM genesis DST20 migration
+        assert_equal(self.nodes[0].generatetoaddress(1, self.address, 1), 0)
+        self.rollback_to(block_height)
+
+    def test_invalid_utf8_encoding_token_name_dst20_migration_tx(self):
+        block_height = self.nodes[0].getblockcount()
+
+        self.node.createtoken(
+            {
+                "symbol": "InvalidUTF8TokenName",
+                "name": "InvalidUTF8TokenNameIsThisOne🤩",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(2)
+
+        # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Trigger EVM genesis DST20 migration
+        assert_equal(self.nodes[0].generatetoaddress(1, self.address, 1), 0)
+        self.rollback_to(block_height)
 
     def test_dst20_migration_txs(self):
         block_height = self.nodes[0].getblockcount()
@@ -74,7 +128,16 @@ class DST20(DefiTestFramework):
                 "collateralAddress": self.address,
             }
         )
-        self.nodes[0].generate(1)
+        # create DST20 token with maximum byte size limit
+        self.node.createtoken(
+            {
+                "symbol": "Test",
+                "name": "TheTokenWithNameMax30ByteLimit",  # 30 bytes
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(2)
 
         # enable EVM, transferdomain, DVM to EVM transfers and EVM to DVM transfers
         self.nodes[0].setgov(
@@ -231,6 +294,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@USDT",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -254,6 +318,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@USDT", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -371,6 +436,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -402,6 +468,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -430,6 +497,7 @@ class DST20(DefiTestFramework):
                         "amount": "1.5@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -460,6 +528,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "nonce": nonce,
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -473,6 +542,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "nonce": nonce + 1,
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -504,6 +574,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -516,6 +587,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -549,6 +621,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -584,6 +657,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@XYZ",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -618,6 +692,7 @@ class DST20(DefiTestFramework):
                         "amount": "-1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -635,6 +710,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@ETH",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ],
         )
@@ -709,6 +785,7 @@ class DST20(DefiTestFramework):
                         "amount": "2@TSLA",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -736,6 +813,7 @@ class DST20(DefiTestFramework):
                         "domain": 3,
                     },
                     "dst": {"address": self.address, "amount": "1@TSLA", "domain": 2},
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -765,6 +843,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -802,6 +881,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 3,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -841,6 +921,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -880,6 +961,7 @@ class DST20(DefiTestFramework):
                         "amount": "1@BTC",
                         "domain": 2,
                     },
+                    "singlekeycheck": False,
                 }
             ]
         )
@@ -904,6 +986,121 @@ class DST20(DefiTestFramework):
             self.btc.functions.totalSupply().call()
             / math.pow(10, self.btc.functions.decimals().call()),
             Decimal(0),
+        )
+
+    def test_rename_dst20(self):
+        # Reset test
+        self.rollback_to(self.start_height)
+
+        # Move to fork height
+        self.nodes[0].generate(200 - self.nodes[0].getblockcount())
+
+        # Update token name
+        self.nodes[0].updatetoken(
+            "BTC",
+            {
+                "name": "Litecoin",
+                "symbol": "LTC",
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Check that update has associated EVM TX and receipt
+        update_tx = self.nodes[0].eth_getBlockByNumber("latest")["transactions"][0]
+        receipt = self.nodes[0].eth_getTransactionReceipt(update_tx)
+        tx = self.nodes[0].eth_getTransactionByHash(update_tx)
+        assert_equal(
+            self.w0.to_checksum_address(receipt["contractAddress"]),
+            self.contract_address_btc,
+        )
+        assert_equal(receipt["from"], tx["from"])
+        assert_equal(receipt["gasUsed"], "0x0")
+        assert_equal(receipt["logs"], [])
+        assert_equal(receipt["status"], "0x1")
+        assert_equal(receipt["to"], None)
+
+        # Check contract variables
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        assert_equal(self.btc.functions.name().call(), "Litecoin")
+        assert_equal(self.btc.functions.symbol().call(), "LTC")
+
+        assert_raises_rpc_error(
+            -32600,
+            "Invalid token symbol",
+            self.nodes[0].updatetoken,
+            "LTC",
+            {"symbol": "LT#C"},
+        )
+
+        # Move back to fork height
+        self.rollback_to(200)
+
+        # Check contract variables
+        self.btc = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_btc, abi=self.abi
+        )
+        assert_equal(self.btc.functions.name().call(), "BTC token")
+        assert_equal(self.btc.functions.symbol().call(), "BTC")
+
+        # Setup oracle
+        address = self.nodes[0].getnewaddress("", "legacy")
+        prices = [
+            {"currency": "USD", "token": "DFI"},
+            {"currency": "USD", "token": "TSLA"},
+        ]
+        self.nodes[0].appointoracle(address, prices, 10)
+        self.nodes[0].generate(1)
+
+        # Create loan token
+        self.nodes[0].setloantoken(
+            {
+                "symbol": "TSLA",
+                "name": "Tesla Token",
+                "fixedIntervalPriceId": "TSLA/USD",
+                "mintable": True,
+                "interest": 0.01,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Check DST token
+        self.tsla = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_tsla, abi=self.abi
+        )
+
+        assert_equal(self.tsla.functions.name().call(), "Tesla Token")
+        assert_equal(self.tsla.functions.symbol().call(), "TSLA")
+
+        # Update via loan token
+        self.nodes[0].updateloantoken(
+            "TSLA",
+            {
+                "symbol": "META",
+                "name": "Meta",
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Check contract variables
+        self.tsla = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_tsla, abi=self.abi
+        )
+
+        assert_equal(self.tsla.functions.name().call(), "Meta")
+        assert_equal(self.tsla.functions.symbol().call(), "META")
+
+        # Check invalid symbol
+        assert_raises_rpc_error(
+            -32600,
+            "Invalid token symbol",
+            self.nodes[0].updateloantoken,
+            "META",
+            {
+                "symbol": "ME#/TA",
+                "name": "Me#/ta",
+            },
         )
 
     def run_test(self):
@@ -963,9 +1160,13 @@ class DST20(DefiTestFramework):
         # Generate chain
         self.node.generate(150)
         self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
+
+        # pre-metachain fork height
         self.nodes[0].generate(1)
 
         # Create token and check DST20 migration pre EVM activation
+        self.test_invalid_too_long_token_name_dst20_migration_tx()
+        self.test_invalid_utf8_encoding_token_name_dst20_migration_tx()
         self.test_dst20_migration_txs()
 
         # Create token before EVM
@@ -1029,6 +1230,8 @@ class DST20(DefiTestFramework):
         self.test_loan_token()
 
         self.test_dst20_back_and_forth()
+
+        self.test_rename_dst20()
 
 
 if __name__ == "__main__":

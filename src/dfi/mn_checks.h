@@ -27,7 +27,7 @@ struct EVM {
     std::string blockHash;
     uint64_t burntFee;
     uint64_t priorityFee;
-    EvmAddressData beneficiary;
+    std::string beneficiary;
 
     ADD_SERIALIZE_METHODS;
 
@@ -161,21 +161,27 @@ class BlockContext {
     std::optional<bool> isEvmEnabledForBlock;
     std::shared_ptr<CScopedTemplate> evmTemplate{};
     bool evmPreValidate{};
+    const uint32_t height{};
+    const uint64_t time{};
+    const Consensus::Params &consensus;
 
 public:
-    explicit BlockContext(CCustomCSView *view = {},
-                          const std::optional<bool> enabled = {},
+    explicit BlockContext(const uint32_t height,
+                          const uint64_t time,
+                          const Consensus::Params &consensus,
+                          CCustomCSView *view = {},
+                          const std::optional<bool> enabled = std::nullopt,
                           const std::shared_ptr<CScopedTemplate> &evmTemplate = {},
-                          const bool prevalidate = {})
-        : view(view),
-          isEvmEnabledForBlock(enabled),
-          evmTemplate(evmTemplate),
-          evmPreValidate(prevalidate) {}
+                          const bool prevalidate = {});
+    explicit BlockContext(BlockContext &other, CCustomCSView &otherView);
 
     [[nodiscard]] CCustomCSView &GetView();
     [[nodiscard]] bool GetEVMEnabledForBlock();
     [[nodiscard]] bool GetEVMPreValidate() const;
     [[nodiscard]] const std::shared_ptr<CScopedTemplate> &GetEVMTemplate() const;
+    [[nodiscard]] const uint32_t &GetHeight() const;
+    [[nodiscard]] const uint64_t &GetTime() const;
+    [[nodiscard]] const Consensus::Params &GetConsensus() const;
 
     void SetView(CCustomCSView &other);
     void SetEVMPreValidate(const bool other);
@@ -186,8 +192,8 @@ class TransactionContext {
     const CCoinsViewCache &coins;
     const CTransaction &tx;
     const Consensus::Params &consensus;
-    const uint32_t height{};
-    const uint64_t time{};
+    const uint32_t &height;
+    const uint64_t &time;
     const uint32_t txn{};
 
     std::vector<unsigned char> metadata;
@@ -198,9 +204,7 @@ class TransactionContext {
 public:
     TransactionContext(const CCoinsViewCache &coins,
                        const CTransaction &tx,
-                       const Consensus::Params &consensus,
-                       const uint32_t height = {},
-                       const uint64_t time = {},
+                       const BlockContext &blockCtx,
                        const uint32_t txn = {});
 
     [[nodiscard]] const CCoinsViewCache &GetCoins() const;
@@ -222,7 +226,7 @@ Res CustomMetadataParse(uint32_t height,
                         const std::vector<unsigned char> &metadata,
                         CCustomTxMessage &txMessage);
 
-Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx, uint256 *canSpend = nullptr);
+Res ApplyCustomTx(BlockContext &blockCtx, TransactionContext &txCtx);
 
 Res CustomTxVisit(const CCustomTxMessage &txMessage, BlockContext &blockCtx, const TransactionContext &txCtx);
 

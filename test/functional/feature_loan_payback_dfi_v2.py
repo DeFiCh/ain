@@ -32,7 +32,6 @@ class PaybackDFILoanTest(DefiTestFramework):
                 "-fortcanninghillheight=50",
                 f"-fortcanningroadheight={self.FCR_HEIGHT}",
                 "-simulatemainnet",
-                "-txindex=1",
                 "-jellyfish_regtest=1",
             ],
         ]
@@ -337,7 +336,7 @@ class PaybackDFILoanTest(DefiTestFramework):
     def setgov_attribute_to_false_and_payback(self):
         assert_raises_rpc_error(
             -5,
-            "Unrecognised type argument provided, valid types are: consortium, evm, gov, locks, oracles, params, poolpairs, rules, token, transferdomain, vaults,",
+            "Unrecognised type argument provided, valid types are: evm, gov, locks, oracles, params, poolpairs, rules, token, transferdomain, vaults,",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/live/economy/dfi_payback_tokens": "1"}},
         )

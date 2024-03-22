@@ -33,6 +33,7 @@ class ICXOrderbookTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=3505",
+                "-df23height=3505",
                 "-txindex=1",
             ],
             [
@@ -51,6 +52,7 @@ class ICXOrderbookTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=3505",
+                "-df23height=3505",
                 "-txindex=1",
             ],
         ]

@@ -1,4 +1,5 @@
 use ain_evm::EVMError;
+use ethereum_types::H256;
 use jsonrpsee::{
     core::{to_json_raw_value, Error},
     types::error::{CallError, ErrorObject},
@@ -7,22 +8,26 @@ use jsonrpsee::{
 pub enum RPCError {
     AccountError,
     BlockNotFound,
+    DebugNotEnabled,
     Error(Box<dyn std::error::Error>),
     EvmError(EVMError),
-    FromBlockGreaterThanToBlock,
     GasCapTooLow(u64),
     InsufficientFunds,
     InvalidBlockInput,
     InvalidDataInput,
-    InvalidLogFilter,
     InvalidGasPrice,
     InvalidTransactionMessage,
     InvalidTransactionType,
     NonceCacheError,
+    ReceiptNotFound(H256),
     RevertError(String, String),
     StateRootNotFound,
+    TraceNotEnabled,
     TxExecutionFailed,
+    TxNotFound(H256),
     ValueOverflow,
+    ValueUnderflow,
+    DivideError,
 }
 
 impl From<RPCError> for Error {
@@ -30,10 +35,10 @@ impl From<RPCError> for Error {
         match e {
             RPCError::AccountError => to_custom_err("error getting account"),
             RPCError::BlockNotFound => to_custom_err("header not found"),
-            RPCError::Error(e) => Error::Custom(format!("{e:?}")),
-            RPCError::EvmError(e) => Error::Custom(format!("error calling EVM : {e:?}")),
-            RPCError::FromBlockGreaterThanToBlock => {
-                to_custom_err("fromBlock is greater than toBlock")
+            RPCError::DebugNotEnabled => to_custom_err("debug_* RPCs have not been enabled"),
+            RPCError::Error(e) => Error::Custom(format!("{:?}", e.to_string())),
+            RPCError::EvmError(e) => {
+                Error::Custom(format!("error calling EVM : {:?}", e.to_string()))
             }
             RPCError::GasCapTooLow(cap) => {
                 Error::Custom(format!("gas required exceeds allowance {:#?}", cap))
@@ -48,19 +53,29 @@ impl From<RPCError> for Error {
             RPCError::InvalidGasPrice => {
                 to_custom_err("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
             }
-            RPCError::InvalidLogFilter => to_custom_err("invalid log filter"),
             RPCError::InvalidTransactionMessage => {
                 to_custom_err("invalid transaction message parameters")
             }
             RPCError::InvalidTransactionType => to_custom_err("invalid transaction type specified"),
             RPCError::NonceCacheError => to_custom_err("could not cache account nonce"),
+            RPCError::ReceiptNotFound(hash) => Error::Custom(format!(
+                "could not find receipt for transaction hash {:#?}",
+                hash
+            )),
             RPCError::RevertError(msg, data) => {
                 let raw_value = to_json_raw_value(&data).ok();
                 Error::Call(CallError::Custom(ErrorObject::owned(3, msg, raw_value)))
             }
             RPCError::StateRootNotFound => to_custom_err("state root not found"),
+            RPCError::TraceNotEnabled => to_custom_err("debug_trace* RPCs have not been enabled"),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
+            RPCError::TxNotFound(hash) => Error::Custom(format!(
+                "could not find transaction for transaction hash {:#?}",
+                hash
+            )),
             RPCError::ValueOverflow => to_custom_err("value overflow"),
+            RPCError::ValueUnderflow => to_custom_err("value underflow"),
+            RPCError::DivideError => to_custom_err("divide error"),
         }
     }
 }

@@ -16,8 +16,8 @@ class SendUTXOsFromTest(DefiTestFramework):
         self.num_nodes = 2
         self.setup_clean_chain = True
         self.extra_args = [
-            ["-txnotokens=0", "-amkheight=1", "-txindex=1"],
-            ["-txnotokens=0", "-amkheight=1", "-txindex=1"],
+            ["-txnotokens=0", "-amkheight=1"],
+            ["-txnotokens=0", "-amkheight=1"],
         ]
 
     def run_test(self):
@@ -80,12 +80,14 @@ class SendUTXOsFromTest(DefiTestFramework):
         txid = self.nodes[1].sendutxosfrom(address, to, 1.5, change)
         self.nodes[1].generate(1)
 
-        raw_tx = self.nodes[1].getrawtransaction(txid, 1)
+        get_tx = self.nodes[1].gettransaction(txid)["hex"]
+        raw_tx = self.nodes[1].decoderawtransaction(get_tx)
 
         # Check all inputs are from the from address
         for vin in raw_tx["vin"]:
             num = vin["vout"]
-            input_tx = self.nodes[1].getrawtransaction(vin["txid"], 1)
+            get_tx = self.nodes[1].gettransaction(vin["txid"])["hex"]
+            input_tx = self.nodes[1].decoderawtransaction(get_tx)
             assert_equal(input_tx["vout"][num]["scriptPubKey"]["addresses"][0], address)
 
         # Check change address is present
@@ -100,12 +102,14 @@ class SendUTXOsFromTest(DefiTestFramework):
         txid = self.nodes[1].sendutxosfrom(address, to, 1.5)
         self.nodes[1].generate(1)
 
-        raw_tx = self.nodes[1].getrawtransaction(txid, 1)
+        get_tx = self.nodes[1].gettransaction(txid)["hex"]
+        raw_tx = self.nodes[1].decoderawtransaction(get_tx)
 
         # Check all inputs are from the from address
         for vin in raw_tx["vin"]:
             num = vin["vout"]
-            input_tx = self.nodes[1].getrawtransaction(vin["txid"], 1)
+            get_tx = self.nodes[1].gettransaction(vin["txid"])["hex"]
+            input_tx = self.nodes[1].decoderawtransaction(get_tx)
             assert_equal(input_tx["vout"][num]["scriptPubKey"]["addresses"][0], address)
 
         # Check change address is present
@@ -121,7 +125,8 @@ class SendUTXOsFromTest(DefiTestFramework):
         txid = self.nodes[1].sendutxosfrom(address, to, amount)
         self.nodes[1].generate(2)
 
-        raw_tx = self.nodes[1].getrawtransaction(txid, 1)
+        get_tx = self.nodes[1].gettransaction(txid)["hex"]
+        raw_tx = self.nodes[1].decoderawtransaction(get_tx)
 
         # Check 'to' address is present
         found = False
