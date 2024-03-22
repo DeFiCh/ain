@@ -1414,19 +1414,49 @@ UniValue listpoolshares(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue listloantokenliquidity(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listloantokenliquidity",
+        "\nReturns information about the average liquidity for loan tokens if a sufficient sample is available.\n",
+        {{}},
+        RPCResult{"{token symbol : value }     (array) JSON object with token ID and average liquidity\n"},
+        RPCExamples{HelpExampleCli("listloantokenliquidity", "") + HelpExampleRpc("listloantokenliquidity", "")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+
+    auto view = ::GetViewSnapshot();
+
+    UniValue ret(UniValue::VOBJ);
+    view->ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
+        const auto sourceToken = view->GetToken(DCT_ID{key.sourceID});
+        const auto destToken = view->GetToken(DCT_ID{key.destID});
+        if (sourceToken && destToken) {
+            ret.pushKV(sourceToken->symbol + '-' + destToken->symbol, GetDecimalString(liquidity));
+        }
+        return true;
+    });
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 static const CRPCCommand commands[] = {
   //  category        name                        actor (function)            params
   //  -------------   -----------------------     ---------------------       ----------
-    {"poolpair", "listpoolpairs",       &listpoolpairs,       {"pagination", "verbose"}                },
-    {"poolpair", "getpoolpair",         &getpoolpair,         {"key", "verbose"}                       },
-    {"poolpair", "addpoolliquidity",    &addpoolliquidity,    {"from", "shareAddress", "inputs"}       },
-    {"poolpair", "removepoolliquidity", &removepoolliquidity, {"from", "amount", "inputs"}             },
-    {"poolpair", "createpoolpair",      &createpoolpair,      {"metadata", "inputs"}                   },
-    {"poolpair", "updatepoolpair",      &updatepoolpair,      {"metadata", "inputs"}                   },
-    {"poolpair", "poolswap",            &poolswap,            {"metadata", "inputs"}                   },
-    {"poolpair", "compositeswap",       &compositeswap,       {"metadata", "inputs"}                   },
-    {"poolpair", "listpoolshares",      &listpoolshares,      {"pagination", "verbose", "is_mine_only"}},
-    {"poolpair", "testpoolswap",        &testpoolswap,        {"metadata", "path", "verbose"}          },
+    {"poolpair", "listpoolpairs",          &listpoolpairs,          {"pagination", "verbose"}                },
+    {"poolpair", "getpoolpair",            &getpoolpair,            {"key", "verbose"}                       },
+    {"poolpair", "addpoolliquidity",       &addpoolliquidity,       {"from", "shareAddress", "inputs"}       },
+    {"poolpair", "removepoolliquidity",    &removepoolliquidity,    {"from", "amount", "inputs"}             },
+    {"poolpair", "createpoolpair",         &createpoolpair,         {"metadata", "inputs"}                   },
+    {"poolpair", "updatepoolpair",         &updatepoolpair,         {"metadata", "inputs"}                   },
+    {"poolpair", "poolswap",               &poolswap,               {"metadata", "inputs"}                   },
+    {"poolpair", "compositeswap",          &compositeswap,          {"metadata", "inputs"}                   },
+    {"poolpair", "listpoolshares",         &listpoolshares,         {"pagination", "verbose", "is_mine_only"}},
+    {"poolpair", "testpoolswap",           &testpoolswap,           {"metadata", "path", "verbose"}          },
+    {"poolpair", "listloantokenliquidity", &listloantokenliquidity, {}                                       },
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable &tableRPC) {
