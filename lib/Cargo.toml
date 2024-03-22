@@ -18,6 +18,8 @@ lto = true
 vsdb = { git = "https://github.com/defich/vsdb.git" }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
+evm = { git = "https://github.com/defich/evm.git" }
+evm-runtime = { git = "https://github.com/defich/evm.git" }
 bitcoin = { git = "https://github.com/defich/rust-bitcoin.git" }
 bitcoin-io = { git = "https://github.com/defich/rust-bitcoin.git" }
 

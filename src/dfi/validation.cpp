@@ -18,6 +18,7 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <validation.h>
 
@@ -2178,10 +2179,7 @@ static void MigrateV1Remnants(const CCustomCSView &cache,
     attributes.SetValue(attrKey, balances);
 }
 
-static Res GetTokenSuffix(const CCustomCSView &view,
-                          const ATTRIBUTES &attributes,
-                          const uint32_t id,
-                          std::string &newSuffix) {
+Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix) {
     CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
     if (attributes.CheckKey(ascendantKey)) {
         const auto &[previousID, str] =
@@ -2259,7 +2257,8 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                const CreationTxs &creationTxs,
                                const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
-                               const T &splits) {
+                               const T &splits,
+                               BlockContext &blockCtx) {
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -2312,17 +2311,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             continue;
         }
 
-        // TODO pass block context to update old EVM token.
-        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, consensus};
-        UpdateTokenContext ctx{*token, dummyContext, true, true, false, pindex->GetBlockHash()};
+        UpdateTokenContext ctx{*token, blockCtx, true, true, false, pindex->GetBlockHash()};
         res = view.UpdateToken(ctx);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;
         }
 
-        // TODO pass block context on fork to create new EVM token.
-        auto resVal = view.CreateToken(newToken, dummyContext);
+        auto resVal = view.CreateToken(newToken, blockCtx);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
@@ -2495,6 +2491,10 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             }
         }
 
+        if (pindex->nHeight >= consensus.DF23Height) {
+            view.SetTokenSplitMultiplier(id, newTokenId.v, multiplier);
+        }
+
         view.Flush();
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
@@ -2515,11 +2515,11 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx);
     } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx);
     }
 }
 
@@ -2971,7 +2971,8 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
                            const CChainParams &chainparams,
-                           const std::shared_ptr<CScopedTemplate> &evmTemplate) {
+                           BlockContext &blockCtx) {
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -3101,15 +3102,19 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
-                             CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplate> &evmTemplate,
-                             const bool isEvmEnabledForBlock) {
+                             const CreationTxs &creationTxs,
+                             BlockContext &blockCtx) {
+    auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
+
+    // Loan splits
+    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
-        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplate);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, blockCtx);
         if (!res) {
             return res;
         }
@@ -3160,9 +3165,6 @@ void ProcessDeFiEvent(const CBlock &block,
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, consensus);
 
-    // Loan splits
-    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
-
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
         cache.SetDexStatsLastHeight(pindex->nHeight);
@@ -3188,4 +3190,89 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
+}
+
+bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount) {
+    auto cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
+    CCustomCSView copy(*pcustomcsview);
+    if (!cache) {
+        // mnview_ptr will be 0 in case of a RPC `eth_call` or a debug_traceTransaction
+        cache = &copy;
+    }
+
+    if (oldAmount.amount == 0) {
+        return false;
+    }
+
+    const auto token = cache->GetToken(DCT_ID{oldAmount.id});
+    if (!token) {
+        return false;
+    }
+
+    const auto idMultiplierPair = cache->GetTokenSplitMultiplier(oldAmount.id);
+    if (!idMultiplierPair) {
+        return false;
+    }
+
+    auto &[id, multiplier] = *idMultiplierPair;
+
+    newAmount.id = id;
+    newAmount.amount = CalculateNewAmount(multiplier, oldAmount.amount);
+
+    // Only increment minted tokens if there is no additional split on new token.
+    if (const auto additionalSplit = cache->GetTokenSplitMultiplier(newAmount.id); !additionalSplit) {
+        if (const auto res = cache->AddMintedTokens({id}, newAmount.amount); !res) {
+            return res;
+        }
+    }
+
+    auto attributes = cache->GetAttributes();
+    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
+    // Transfer out old token
+    auto outAmount = CTokenAmount{{oldAmount.id}, static_cast<CAmount>(oldAmount.amount)};
+    stats.evmOut.Add(outAmount);
+    stats.evmCurrent.Sub(outAmount);
+    stats.evmDvmTotal.Add(outAmount);
+    stats.dvmIn.Add(outAmount);
+    stats.dvmCurrent.Add(outAmount);
+
+    // Transfer in new token
+    auto inAmount = CTokenAmount{{newAmount.id}, static_cast<CAmount>(newAmount.amount)};
+    stats.dvmEvmTotal.Add(inAmount);
+    stats.dvmOut.Add(inAmount);
+    stats.dvmCurrent.Sub(inAmount);
+    stats.evmIn.Add(inAmount);
+    stats.evmCurrent.Add(inAmount);
+
+    attributes->SetValue(CTransferDomainStatsLive::Key, stats);
+    if (const auto res = cache->SetVariable(*attributes); !res) {
+        return res;
+    }
+
+    return true;
+}
+
+Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount) {
+    if (amount.nValue == 0) {
+        return Res::Ok();
+    }
+
+    while (true) {
+        const auto idMultiplierPair = view.GetTokenSplitMultiplier(amount.nTokenId.v);
+        if (!idMultiplierPair) {
+            return Res::Ok();
+        }
+
+        if (const auto token = view.GetToken(amount.nTokenId); !token) {
+            return Res::Err("Token not found");
+        }
+
+        auto &[id, multiplier] = *idMultiplierPair;
+        amount = {{id}, CalculateNewAmount(multiplier, amount.nValue)};
+
+        if (const auto res = view.AddMintedTokens(amount.nTokenId, amount.nValue); !res) {
+            return res;
+        }
+    }
 }

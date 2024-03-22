@@ -319,6 +319,7 @@ BASE_SCRIPTS = [
     "feature_evm_rpc_filters.py",
     "feature_evm_rpc_tracer.py",
     "feature_evm_smart_contract.py",
+    "feature_evm_token_split.py",
     "feature_evm_transaction_replacement.py",
     "feature_evm_transferdomain.py",
     "feature_evm_vmmap_rpc.py",

@@ -36,7 +36,6 @@ class addressmapTests(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
-                "-df23height=105",
                 "-subsidytest=1",
             ],
             [
@@ -54,7 +53,6 @@ class addressmapTests(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
-                "-df23height=105",
                 "-subsidytest=1",
             ],
         ]
