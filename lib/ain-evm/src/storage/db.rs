@@ -39,53 +39,52 @@ pub mod columns {
     #[derive(Debug)]
     /// Column family for block code map data
     pub struct BlockDeployedCodeHashes;
-}
 
-const BLOCKS_CF: &str = "blocks";
-const TRANSACTIONS_CF: &str = "transactions";
-const RECEIPTS_CF: &str = "receipts";
-const BLOCK_MAP_CF: &str = "block_map";
-const LATEST_BLOCK_NUMBER_CF: &str = "latest_block_number";
-const ADDRESS_LOGS_MAP_CF: &str = "address_logs_map";
-const ADDRESS_CODE_MAP_CF: &str = "address_code_map";
-const BLOCK_DEPLOYED_CODES_CF: &str = "block_deployed_codes";
+    #[derive(Debug)]
+    /// Column family for database configuration
+    pub struct Metadata;
+}
 
 //
 // ColumnName impl
 //
 impl ColumnName for columns::Transactions {
-    const NAME: &'static str = TRANSACTIONS_CF;
+    const NAME: &'static str = "transactions";
 }
 
 impl ColumnName for columns::Blocks {
-    const NAME: &'static str = BLOCKS_CF;
+    const NAME: &'static str = "blocks";
 }
 
 impl ColumnName for columns::Receipts {
-    const NAME: &'static str = RECEIPTS_CF;
+    const NAME: &'static str = "receipts";
 }
 
 impl ColumnName for columns::BlockMap {
-    const NAME: &'static str = BLOCK_MAP_CF;
+    const NAME: &'static str = "block_map";
 }
 
 impl ColumnName for columns::LatestBlockNumber {
-    const NAME: &'static str = LATEST_BLOCK_NUMBER_CF;
+    const NAME: &'static str = "latest_block_number";
 }
 
 impl ColumnName for columns::AddressLogsMap {
-    const NAME: &'static str = ADDRESS_LOGS_MAP_CF;
+    const NAME: &'static str = "address_logs_map";
 }
 
 impl ColumnName for columns::AddressCodeMap {
-    const NAME: &'static str = ADDRESS_CODE_MAP_CF;
+    const NAME: &'static str = "address_code_map";
 }
 
 impl ColumnName for columns::BlockDeployedCodeHashes {
-    const NAME: &'static str = BLOCK_DEPLOYED_CODES_CF;
+    const NAME: &'static str = "block_deployed_codes";
 }
 
-pub const COLUMN_NAMES: [&str; 8] = [
+impl ColumnName for columns::Metadata {
+    const NAME: &'static str = "metadata";
+}
+
+pub const COLUMN_NAMES: [&str; 9] = [
     columns::Blocks::NAME,
     columns::Transactions::NAME,
     columns::Receipts::NAME,
@@ -94,6 +93,7 @@ pub const COLUMN_NAMES: [&str; 8] = [
     columns::AddressLogsMap::NAME,
     columns::AddressCodeMap::NAME,
     columns::BlockDeployedCodeHashes::NAME,
+    columns::Metadata::NAME,
 ];
 
 //
@@ -214,6 +214,18 @@ impl Column for columns::BlockDeployedCodeHashes {
         let h160 = H160::from_slice(h160_bytes);
 
         Ok((u256, h160))
+    }
+}
+
+impl Column for columns::Metadata {
+    type Index = String;
+
+    fn key(index: &Self::Index) -> Result<Vec<u8>> {
+        Ok(index.as_bytes().to_vec())
+    }
+
+    fn get_key(raw_key: Box<[u8]>) -> Result<Self::Index> {
+        Ok(String::from_utf8_lossy(&raw_key).to_string())
     }
 }
 

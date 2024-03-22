@@ -93,6 +93,7 @@ impl Precompile for Bn128Add {
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
+            state_changes: None,
             output: buf.to_vec(),
         })
     }
@@ -137,6 +138,7 @@ impl Precompile for Bn128Mul {
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
+            state_changes: None,
             output: buf.to_vec(),
         })
     }
@@ -266,6 +268,7 @@ impl Precompile for Bn128Pairing {
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
+            state_changes: None,
             output: buf.to_vec(),
         })
     }

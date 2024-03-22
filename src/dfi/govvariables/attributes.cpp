@@ -100,6 +100,7 @@ const std::map<std::string, uint8_t> &ATTRIBUTES::allowedParamIDs() {
  // Note: DFIP2206F is currently in beta testing
   // for testnet. May not be enabled on mainnet until testing is complete.
         {"dfip2206f",  ParamIDs::DFIP2206F },
+        {"dfip2211f",  ParamIDs::DFIP2211F },
         {"feature",    ParamIDs::Feature   },
         {"foundation", ParamIDs::Foundation},
     };
@@ -112,6 +113,7 @@ const std::map<uint8_t, std::string> &ATTRIBUTES::allowedExportParamsIDs() {
         {ParamIDs::DFIP2203,   "dfip2203"  },
         {ParamIDs::DFIP2206A,  "dfip2206a" },
         {ParamIDs::DFIP2206F,  "dfip2206f" },
+        {ParamIDs::DFIP2211F,  "dfip2211f" },
         {ParamIDs::Feature,    "feature"   },
         {ParamIDs::Foundation, "foundation"},
     };
@@ -276,6 +278,8 @@ const std::map<uint8_t, std::map<std::string, uint8_t>> &ATTRIBUTES::allowedKeys
              {"emission-unused-fund", DFIPKeys::EmissionUnusedFund},
              {"mint-tokens-to-address", DFIPKeys::MintTokens},
              {"transferdomain", DFIPKeys::TransferDomain},
+             {"liquidity_calc_sampling_period", DFIPKeys::LiquidityCalcSamplingPeriod},
+             {"average_liquidity_percentage", DFIPKeys::AverageLiquidityPercentage},
          }},
         {AttributeTypes::EVMType,
          {
@@ -379,6 +383,8 @@ const std::map<uint8_t, std::map<uint8_t, std::string>> &ATTRIBUTES::displayKeys
              {DFIPKeys::EmissionUnusedFund, "emission-unused-fund"},
              {DFIPKeys::MintTokens, "mint-tokens-to-address"},
              {DFIPKeys::TransferDomain, "transferdomain"},
+             {DFIPKeys::LiquidityCalcSamplingPeriod, "liquidity_calc_sampling_period"},
+             {DFIPKeys::AverageLiquidityPercentage, "average_liquidity_percentage"},
          }},
         {AttributeTypes::EVMType,
          {
@@ -740,10 +746,6 @@ static ResVal<CAttributeValue> VerifyEVMAuthTypes(const UniValue &array) {
     return {addressSet, Res::Ok()};
 }
 
-static inline void rtrim(std::string &s, unsigned char remove) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) { return ch != remove; }).base(), s.end());
-}
-
 static inline std::string GetDecimalStringNormalized(const CAmount amount) {
     auto decimalStr = GetDecimalString(amount);
     rtrim(decimalStr, '0');
@@ -802,6 +804,8 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
                  {DFIPKeys::TransferDomain, VerifyBool},
+                 {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyInt64},
+                 {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
              }},
             {AttributeTypes::Locks,
              {
@@ -959,6 +963,11 @@ static Res CheckValidAttrV0Key(const uint8_t type, const uint32_t typeId, const 
             }
         } else if (typeId == ParamIDs::DFIP2206A) {
             if (typeKey != DFIPKeys::DUSDInterestBurn && typeKey != DFIPKeys::DUSDLoanBurn) {
+                return DeFiErrors::GovVarVariableUnsupportedDFIPType(typeKey);
+            }
+        } else if (typeId == ParamIDs::DFIP2211F) {
+            if (typeKey != DFIPKeys::Active && typeKey != DFIPKeys::BlockPeriod &&
+                typeKey != DFIPKeys::LiquidityCalcSamplingPeriod && typeKey != DFIPKeys::AverageLiquidityPercentage) {
                 return DeFiErrors::GovVarVariableUnsupportedDFIPType(typeKey);
             }
         } else if (typeId == ParamIDs::Feature) {
@@ -1651,8 +1660,9 @@ UniValue ATTRIBUTES::ExportFiltered(GovVarsFilter filter, const std::string &pre
                 ret.pushKV(key, KeyBuilder(*number));
             } else if (const auto amount = std::get_if<CAmount>(&attribute.second)) {
                 if (attrV0->type == AttributeTypes::Param &&
-                    (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F) &&
-                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock)) {
+                    (attrV0->typeId == DFIP2203 || attrV0->typeId == DFIP2206F || attrV0->typeId == DFIP2211F) &&
+                    (attrV0->key == DFIPKeys::BlockPeriod || attrV0->key == DFIPKeys::StartBlock ||
+                     attrV0->key == DFIPKeys::LiquidityCalcSamplingPeriod)) {
                     ret.pushKV(key, KeyBuilder(*amount));
                 } else {
                     const auto decimalStr = GetDecimalStringNormalized(*amount);
@@ -2040,6 +2050,10 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                             return Res::Err("Cannot be set before FortCanningSpringHeight");
                         }
                     }
+                } else if (attrV0->typeId == ParamIDs::DFIP2211F) {
+                    if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
+                        return DeFiErrors::GovVarValidateDF23Height();
+                    }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
                 }
@@ -2312,6 +2326,41 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
                     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2206F, DFIPKeys::Active};
                     if (GetValue(activeKey, false)) {
                         return DeFiErrors::GovVarApplyDFIPActive("DFIP2206F");
+                    }
+                }
+            } else if (attrV0->typeId == ParamIDs::DFIP2211F) {
+                if (attrV0->key == DFIPKeys::Active) {
+                    const auto value = std::get_if<bool>(&attribute.second);
+                    if (!value) {
+                        return DeFiErrors::GovVarApplyUnexpectedType();
+                    }
+
+                    if (*value) {
+                        continue;
+                    }
+
+                    // Disabled so delete all data to prevent stale data
+                    // when re-enabled. Gov var TX could enable it again
+                    // and a subsequent TX in the block could be impacted.
+                    std::vector<LoanTokenLiquidityPerBlockKey> perBlockKeys;
+                    mnview.ForEachTokenLiquidityPerBlock(
+                        [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
+                            perBlockKeys.push_back(key);
+                            return true;
+                        });
+
+                    for (const auto &key : perBlockKeys) {
+                        mnview.EraseTokenLiquidityPerBlock(key);
+                    }
+
+                    std::vector<LoanTokenAverageLiquidityKey> averageKeys;
+                    mnview.ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t) {
+                        averageKeys.push_back(key);
+                        return true;
+                    });
+
+                    for (const auto &key : averageKeys) {
+                        mnview.EraseTokenAverageLiquidity(key);
                     }
                 }
             }

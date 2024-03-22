@@ -17,6 +17,7 @@ fn main() -> Result<()> {
         ("dfi_reserved", "DFIReserved"),
         ("dfi_intrinsics_registry", "DFIIntrinsicsRegistry"),
         ("dfi_intrinsics_v1", "DFIIntrinsicsV1"),
+        ("dfi_intrinsics_v2", "DFIIntrinsicsV2"),
         ("transfer_domain", "TransferDomain"),
         ("transfer_domain_v1", "TransferDomainV1"),
         ("dst20", "DST20"),

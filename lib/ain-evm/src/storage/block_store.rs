@@ -1,23 +1,28 @@
-use std::{
-    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
-};
-
+use ain_db::version::{DBVersionControl, Migration};
 use ain_db::{Column, ColumnName, LedgerColumn, Rocks, TypedColumn};
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
+use std::{
+    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
+    time::Instant,
+};
 
 use super::{
-    db::COLUMN_NAMES,
+    migration::MigrationV1,
     traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
 };
 use crate::{
     log::LogIndex,
     receipt::Receipt,
-    storage::{db::columns, traits::LogStorage},
+    storage::{
+        db::{columns, COLUMN_NAMES},
+        traits::LogStorage,
+    },
     EVMError, Result,
 };
+use ain_db::Result as DBResult;
 
 #[derive(Debug, Clone)]
 pub struct BlockStore(Arc<Rocks>);
@@ -27,8 +32,9 @@ impl BlockStore {
         let path = path.join("indexes");
         fs::create_dir_all(&path)?;
         let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES, None)?);
-
-        Ok(Self(backend))
+        let store = Self(backend);
+        store.startup()?;
+        Ok(store)
     }
 
     pub fn column<C>(&self) -> LedgerColumn<C>
@@ -39,6 +45,60 @@ impl BlockStore {
             backend: Arc::clone(&self.0),
             column: PhantomData,
         }
+    }
+}
+
+impl DBVersionControl for BlockStore {
+    const VERSION_KEY: &'static str = "version";
+    const CURRENT_VERSION: u32 = 1;
+
+    fn set_version(&self, version: u32) -> DBResult<()> {
+        let metadata_cf = self.column::<columns::Metadata>();
+        metadata_cf.put_bytes(&String::from(Self::VERSION_KEY), &version.to_be_bytes())?;
+        self.0.flush()?;
+        Ok(())
+    }
+
+    fn get_version(&self) -> DBResult<u32> {
+        let metadata_cf = self.column::<columns::Metadata>();
+        let version = metadata_cf
+            .get_bytes(&String::from(Self::VERSION_KEY))?
+            .ok_or(format_err!("Missing version"))
+            .and_then(|bytes| {
+                bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|e| format_err!("{e}"))
+                    .map(u32::from_be_bytes)
+            })?;
+        Ok(version)
+    }
+
+    fn migrate(&self) -> DBResult<()> {
+        let current_version = self.get_version().unwrap_or(0);
+        let mut migrations: [Box<dyn Migration<Self>>; Self::CURRENT_VERSION as usize] =
+            [Box::new(MigrationV1)];
+        migrations.sort_by_key(|a| a.version());
+
+        for migration in migrations {
+            if current_version < migration.version() {
+                debug!("Migrating to version {}...", migration.version());
+                let start = Instant::now();
+                migration.migrate(self)?;
+                debug!(
+                    "Migration to version {} took {:?}",
+                    migration.version(),
+                    start.elapsed()
+                );
+                self.set_version(migration.version())?;
+            }
+        }
+
+        self.set_version(Self::CURRENT_VERSION)
+    }
+
+    fn startup(&self) -> DBResult<()> {
+        self.migrate()
     }
 }
 
