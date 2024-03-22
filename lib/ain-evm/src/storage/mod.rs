@@ -1,6 +1,7 @@
 pub mod block_store;
 mod cache;
 mod db;
+mod migration;
 pub mod traits;
 
 use std::{collections::HashMap, path::Path};
@@ -67,7 +68,6 @@ impl BlockStorage for Storage {
     }
 
     fn put_block(&self, block: &BlockAny) -> Result<()> {
-        self.cache.put_block(block)?;
         self.blockstore.put_block(block)
     }
 
@@ -92,11 +92,8 @@ impl BlockStorage for Storage {
 }
 
 impl TransactionStorage for Storage {
-    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
-        // Feature flag
-        self.cache.extend_transactions_from_block(block)?;
-
-        self.blockstore.extend_transactions_from_block(block)
+    fn put_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
+        self.blockstore.put_transactions_from_block(block)
     }
 
     fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
@@ -157,11 +154,6 @@ impl TransactionStorage for Storage {
             }
             Err(e) => Err(e),
         }
-    }
-
-    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
-        self.cache.put_transaction(transaction)?;
-        self.blockstore.put_transaction(transaction)
     }
 }
 

@@ -22,6 +22,13 @@ mod ffi {
         pub symbol: String,
     }
 
+    pub struct TransactionData {
+        pub tx_type: u8,
+        pub data: String,
+        pub direction: u8,
+        pub entry_time: i64,
+    }
+
     pub enum SystemTxType {
         EVMTx,
         TransferDomainIn,
@@ -32,16 +39,14 @@ mod ffi {
         UpdateContractName,
     }
 
-    pub struct TransactionData {
-        pub tx_type: u8,
-        pub data: String,
-        pub direction: u8,
-        pub entry_time: i64,
-    }
-
     pub struct SystemTxData {
         pub tx_type: SystemTxType,
         pub token: DST20Token,
+    }
+
+    pub struct TokenAmount {
+        pub id: u32,
+        pub amount: u64,
     }
 
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
@@ -142,11 +147,22 @@ mod ffi {
     pub fn getEVMSystemTxsFromBlock(_block_hash: [u8; 32]) -> Vec<SystemTxData> {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getDF23Height() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn migrateTokensFromEVM(
+        _mnview_ptr: usize,
+        _old_amount: TokenAmount,
+        _new_amount: &mut TokenAmount,
+    ) -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
-pub use ffi::SystemTxData;
 pub use ffi::SystemTxType;
+pub use ffi::SystemTxData;
+pub use ffi::TokenAmount;
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -327,6 +343,20 @@ pub fn is_eth_debug_trace_rpc_enabled() -> bool {
 
 pub fn get_evm_system_txs_from_block(block_hash: [u8; 32]) -> Vec<ffi::SystemTxData> {
     ffi::getEVMSystemTxsFromBlock(block_hash)
+}
+
+/// Gets the DF23 height
+pub fn get_df23_height() -> u64 {
+    ffi::getDF23Height()
+}
+
+/// Send tokens to DVM to split
+pub fn split_tokens_from_evm(
+    mnview_ptr: usize,
+    old_amount: ffi::TokenAmount,
+    new_amount: &mut ffi::TokenAmount,
+) -> bool {
+    ffi::migrateTokensFromEVM(mnview_ptr, old_amount, new_amount)
 }
 
 #[cfg(test)]

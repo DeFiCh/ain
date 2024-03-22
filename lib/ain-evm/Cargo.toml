@@ -31,6 +31,7 @@ rustc-hex.workspace = true
 ethabi.workspace = true
 parking_lot.workspace = true
 spin.workspace = true
+rayon.workspace = true
 
 # Trie dependencies
 hash-db.workspace = true

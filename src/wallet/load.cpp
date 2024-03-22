@@ -13,28 +13,30 @@
 #include <wallet/rpcwallet.h>
 #include <wallet/wallet.h>
 
+#include <system_error>
+
 bool VerifyWallets(interfaces::Chain& chain, const std::vector<std::string>& wallet_files)
 {
     if (gArgs.IsArgSet("-walletdir")) {
-        fs::path wallet_dir = gArgs.GetArg("-walletdir", "");
-        boost::system::error_code error;
+        fs::path wallet_dir = fs::PathFromString(gArgs.GetArg("-walletdir", ""));
+        std::error_code error;
         // The canonical path cleans the path, preventing >1 Berkeley environment instances for the same directory
         fs::path canonical_wallet_dir = fs::canonical(wallet_dir, error);
         if (error || !fs::exists(wallet_dir)) {
-            chain.initError(strprintf(_("Specified -walletdir \"%s\" does not exist").translated, wallet_dir.string()));
+            chain.initError(strprintf(_("Specified -walletdir \"%s\" does not exist").translated, fs::PathToString(wallet_dir)));
             return false;
         } else if (!fs::is_directory(wallet_dir)) {
-            chain.initError(strprintf(_("Specified -walletdir \"%s\" is not a directory").translated, wallet_dir.string()));
+            chain.initError(strprintf(_("Specified -walletdir \"%s\" is not a directory").translated, fs::PathToString(wallet_dir)));
             return false;
         // The canonical path transforms relative paths into absolute ones, so we check the non-canonical version
         } else if (!wallet_dir.is_absolute()) {
-            chain.initError(strprintf(_("Specified -walletdir \"%s\" is a relative path").translated, wallet_dir.string()));
+            chain.initError(strprintf(_("Specified -walletdir \"%s\" is a relative path").translated, fs::PathToString(wallet_dir)));
             return false;
         }
-        gArgs.ForceSetArg("-walletdir", canonical_wallet_dir.string());
+        gArgs.ForceSetArg("-walletdir", fs::PathToString(canonical_wallet_dir));
     }
 
-    LogPrintf("Using wallet directory %s\n", GetWalletDir().string());
+    LogPrintf("Using wallet directory %s\n", fs::PathToString(GetWalletDir()));
 
     chain.initMessage(_("Verifying wallet(s)...").translated);
 
