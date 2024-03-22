@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fstream>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -640,7 +641,7 @@ public:
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
         consensus.DF22MetachainHeight = 1586750;
-        consensus.DF23Height = std::numeric_limits<int>::max();
+        consensus.DF23Height = 1985600;
         consensus.DF24Height = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -1478,7 +1479,7 @@ void ClearCheckpoints(CChainParams &params) {
 }
 
 Res UpdateCheckpointsFromFile(CChainParams &params, const std::string &fileName) {
-    std::ifstream file(fileName);
+    std::ifstream file(fs::PathFromString(fileName));
     if (!file.good()) {
         return Res::Err("Could not read %s. Ensure it exists and has read permissions", fileName);
     }

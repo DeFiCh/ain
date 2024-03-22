@@ -18,6 +18,8 @@ lto = true
 vsdb = { git = "https://github.com/defich/vsdb.git" }
 vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
+evm = { git = "https://github.com/defich/evm.git" }
+evm-runtime = { git = "https://github.com/defich/evm.git" }
 bitcoin = { git = "https://github.com/defich/rust-bitcoin.git" }
 bitcoin-io = { git = "https://github.com/defich/rust-bitcoin.git" }
 
@@ -87,6 +89,7 @@ rustc-hex = "2.1"
 rustc_version_runtime = "0.2.1"
 parking_lot = "0.12.1"
 spin = "0.9.8"
+rayon = "1.8.0"
 
 bitcoin = "0.31"
 

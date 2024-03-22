@@ -154,6 +154,7 @@ impl Precompile for Modexp {
             return Ok(PrecompileOutput {
                 exit_status: ExitSucceed::Returned,
                 output: vec![],
+                state_changes: None,
             });
         }
 
@@ -206,11 +207,13 @@ impl Precompile for Modexp {
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
                     output: ret.to_vec(),
+                    state_changes: None,
                 })
             }
             Ordering::Equal => Ok(PrecompileOutput {
                 exit_status: ExitSucceed::Returned,
                 output: bytes.to_vec(),
+                state_changes: None,
             }),
             Ordering::Greater => Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("failed".into()),

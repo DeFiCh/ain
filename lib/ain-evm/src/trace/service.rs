@@ -119,7 +119,7 @@ impl TracerService {
                 // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
                 return AinExecutor::new(&mut backend).execute_tx_with_tracer(exec_tx);
             }
-            AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee)?;
+            AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
         }
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
     }

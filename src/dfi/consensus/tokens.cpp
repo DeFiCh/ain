@@ -187,11 +187,14 @@ Res CTokensConsensus::operator()(const CUpdateTokenMessage &obj) const {
         }
     }
 
-    // Check for isDAT change in non-foundation token after set height
-    if (static_cast<int>(height) >= consensus.DF3BayfrontMarinaHeight) {
-        // check foundation auth
-        if (obj.token.IsDAT() != token.IsDAT() && !HasFoundationAuth()) {
-            return Res::Err("can't set isDAT to true, tx not from foundation member");
+    // Check for isDAT change
+    if (obj.token.IsDAT() != token.IsDAT()) {
+        if (height >= static_cast<uint32_t>(consensus.DF23Height)) {
+            // We disallow this for now since we don't yet support dynamic migration
+            // of non DAT to EVM if it's suddenly turned into a DAT.
+            return Res::Err("Cannot change isDAT flag after DF23Height");
+        } else if (height >= static_cast<uint32_t>(consensus.DF3BayfrontMarinaHeight) && !HasFoundationAuth()) {
+            return Res::Err("Foundation auth required to change isDAT flag");
         }
     }
 

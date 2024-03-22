@@ -40,6 +40,12 @@ pub mod ffi {
         pub token: DST20Token,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct TokenAmount {
+        pub id: u32,
+        pub amount: u64,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
@@ -47,6 +53,7 @@ pub mod ffi {
         type TransactionData;
         type SystemTxType;
         type SystemTxData;
+        type TokenAmount;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -80,5 +87,11 @@ pub mod ffi {
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
         fn getEVMSystemTxsFromBlock(block_hash: [u8; 32]) -> Vec<SystemTxData>;
+        fn getDF23Height() -> u64;
+        fn migrateTokensFromEVM(
+            mnview_ptr: usize,
+            old_amount: TokenAmount,
+            new_amount: &mut TokenAmount,
+        ) -> bool;
     }
 }
