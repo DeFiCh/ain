@@ -1095,7 +1095,7 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         }
 
         const auto tokenAverage = tokenTotal / expectedEntries;
-        LogPrintf("Liquidity for future swap limit: token src id: %i, token dest id: %i, new average liquidity: %i\n",
+        LogPrint(BCLog::FUTURESWAP, "Liquidity for future swap limit: token src id: %i, token dest id: %i, new average liquidity: %i\n",
                   key.sourceID,
                   key.destID,
                   tokenAverage.GetLow64());
