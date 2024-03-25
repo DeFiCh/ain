@@ -14,13 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-/// EVM tracing module.
-///
-/// Contains tracing of the EVM opcode execution used by Dapp develops and
-/// indexers to access the EVM callstack (nteranl transactions) and get
-/// granular view on their transactions.
-pub mod events;
-pub mod formatters;
-pub mod service;
-pub mod tracing;
-pub mod types;
+use crate::listeners::raw::Listener;
+use crate::types::single::TransactionTrace;
+
+pub struct Formatter;
+
+impl super::ResponseFormatter for Formatter {
+	type Listener = Listener;
+	type Response = TransactionTrace;
+
+	fn format(listener: Listener) -> Option<TransactionTrace> {
+		if listener.remaining_memory_usage.is_none() {
+			None
+		} else {
+			Some(TransactionTrace::Raw {
+				struct_logs: listener.struct_logs,
+				gas: listener.final_gas.into(),
+				return_value: listener.return_value,
+			})
+		}
+	}
+}
