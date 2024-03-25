@@ -397,7 +397,7 @@ UniValue listaccounts(const JSONRPCRequest &request) {
 
             mnview.CalculateOwnerRewards(account, targetHeight);
 
-            // output the relavant balances only for account
+            // output the relevant balances only for account
             mnview.ForEachBalance(
                 [&](CScript const &owner, CTokenAmount balance) {
                     if (account != owner) {
