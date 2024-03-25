@@ -71,6 +71,8 @@ print_info() {
     ${DEFI_CLI_CMD} listvaults '{\"verbose\": true}' '{\"limit\":1000000}'
     ${DEFI_CLI_CMD} listtokens '{\"limit\":1000000}'
     ${DEFI_CLI_CMD} getburninfo
+    ${DEFI_CLI_CMD} listgovs
+    ${DEFI_CLI_CMD} logevmaccountstates
 
   - defi.conf:
     $(cat "$CONF_FILE")
@@ -91,6 +93,10 @@ get_full_log() {
     $DEFI_CLI_CMD listtokens '{"limit":1000000}'
     echo "-- getburninfo --"
     $DEFI_CLI_CMD getburninfo
+    echo "-- listgovs --"
+    $DEFI_CLI_CMD listgovs
+    echo "-- logevmaccountstates --"
+    $DEFI_CLI_CMD logevmaccountstates
 }
 
 rollback_and_log() {
