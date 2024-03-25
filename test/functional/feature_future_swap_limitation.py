@@ -46,6 +46,8 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Test wiping of data on disable
         self.test_wiping_data()
 
+        assert_equal(True, False)
+
     def setup(self):
         # Define address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
