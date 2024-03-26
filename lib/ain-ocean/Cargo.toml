@@ -7,6 +7,10 @@ edition = "2021"
 [profile.test]
 debug = true
 
+[profile.dev]
+opt-level = 0
+debug = true
+
 [dependencies]
 ain-cpp-imports.workspace = true
 ain-db.workspace = true

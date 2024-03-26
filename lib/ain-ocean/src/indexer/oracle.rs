@@ -380,10 +380,12 @@ impl Index for SetOracleData {
         let set_oracle_data = SetOracleData {
             oracle_id: self.oracle_id,
             timestamp: self.timestamp,
-            token_prices: CompactVec::from(Vec::new()),
+            token_prices: self.token_prices,
         };
 
+        println!("the value inside set_oracle_data {:?}", set_oracle_data);
         let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
+        println!("the value inside oracle_data {:?}", feeds);
         let mut pairs: HashSet<(String, String)> = HashSet::new();
         for feed in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
