@@ -1,4 +1,7 @@
 use ain_db::{Column, ColumnName, TypedColumn};
+use bitcoin::Txid;
+
+use crate::model;
 
 #[derive(Debug)]
 pub struct OracleHistory;
@@ -8,9 +11,23 @@ impl ColumnName for OracleHistory {
 }
 
 impl Column for OracleHistory {
-    type Index = String;
+    type Index = model::OracleHistoryId;
 }
 
 impl TypedColumn for OracleHistory {
-    type Type = String;
+    type Type = model::OracleHistory;
+}
+
+pub struct OracleHistoryKey;
+
+impl ColumnName for OracleHistoryKey {
+    const NAME: &'static str = "oracle_history_key";
+}
+
+impl Column for OracleHistoryKey {
+    type Index = Txid;
+}
+
+impl TypedColumn for OracleHistoryKey {
+    type Type = model::OracleHistoryId;
 }

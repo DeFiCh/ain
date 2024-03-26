@@ -7,6 +7,10 @@ edition = "2021"
 [profile.test]
 debug = true
 
+[profile.dev]
+opt-level = 0
+debug = true
+
 [dependencies]
 ain-cpp-imports.workspace = true
 ain-db.workspace = true
@@ -45,3 +49,5 @@ num_cpus.workspace = true
 tempdir.workspace = true
 tempfile = "3.8.1"
 chrono = "0.4.31"
+num-bigint = "0.4.4"
+num-traits = "0.2.17"

@@ -531,8 +531,8 @@ private:
     static const std::map<std::string, uint8_t> &allowedVaultIDs();
     static const std::map<std::string, uint8_t> &allowedRulesIDs();
     static const std::map<uint8_t, std::map<std::string, uint8_t>> &allowedKeys();
-    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
-        &parseValue();
+    static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>> &
+    parseValue();
 
     Res ProcessVariable(const std::string &key,
                         const std::optional<UniValue> &value,

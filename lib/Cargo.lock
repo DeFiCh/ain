@@ -259,6 +259,8 @@ dependencies = [
  "keccak-hash",
  "lazy_static",
  "log",
+ "num-bigint",
+ "num-traits",
  "num_cpus",
  "rocksdb",
  "rust_decimal",
