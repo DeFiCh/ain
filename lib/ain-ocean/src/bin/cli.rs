@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
             .by_height
             .get_highest()?
             .map_or(0, |b| b.height);
-
+        println!("current height in {:?}", highest_block);
         let new_height = highest_block + 1;
         let hash = if let Some(hash) = next_block_hash {
             hash
@@ -79,7 +79,6 @@ async fn main() -> Result<()> {
                 }
             }
         };
-
         let block = match client.get_block(hash, 2).await {
             Err(e) => {
                 println!("e : {:?}", e);

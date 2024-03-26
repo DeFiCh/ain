@@ -1,6 +1,7 @@
 mod auction;
 mod masternode;
 pub mod oracle;
+pub mod oracle_test;
 mod pool;
 pub mod transaction;
 pub mod tx_result;
@@ -77,13 +78,13 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                         DfTx::CreateMasternode(data) => data.index(services, &ctx)?,
                         DfTx::UpdateMasternode(data) => data.index(services, &ctx)?,
                         DfTx::ResignMasternode(data) => data.index(services, &ctx)?,
-                        // DfTx::AppointOracle(data) => data.index(services,&ctx)?,
-                        // DfTx::RemoveOracle(data) => data.index(services,&ctx)?,
-                        // DfTx::UpdateOracle(data) => data.index(services,&ctx)?,
-                        // DfTx::SetOracleData(data) => data.index(services,&ctx)?,
-                        DfTx::PoolSwap(data) => data.index(services, &ctx)?,
-                        DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
-                        DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
+                        DfTx::AppointOracle(data) => data.index(services, &ctx)?,
+                        DfTx::RemoveOracle(data) => data.index(services, &ctx)?,
+                        DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
+                        DfTx::SetOracleData(data) => data.index(services, &ctx)?,
+                        // DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                        // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
                     }
                     log_elapsed(start, "Indexed dftx");
