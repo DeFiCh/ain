@@ -14,24 +14,23 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::listeners::raw::Listener;
-use crate::types::single::TransactionTrace;
+use crate::trace::{listeners::raw::Listener, types::single::TransactionTrace};
 
 pub struct Formatter;
 
 impl super::ResponseFormatter for Formatter {
-	type Listener = Listener;
-	type Response = TransactionTrace;
+    type Listener = Listener;
+    type Response = TransactionTrace;
 
-	fn format(listener: Listener) -> Option<TransactionTrace> {
-		if listener.remaining_memory_usage.is_none() {
-			None
-		} else {
-			Some(TransactionTrace::Raw {
-				struct_logs: listener.struct_logs,
-				gas: listener.final_gas.into(),
-				return_value: listener.return_value,
-			})
-		}
-	}
+    fn format(listener: Listener) -> Option<TransactionTrace> {
+        if listener.remaining_memory_usage.is_none() {
+            None
+        } else {
+            Some(TransactionTrace::Raw {
+                struct_logs: listener.struct_logs,
+                gas: listener.final_gas.into(),
+                return_value: listener.return_value,
+            })
+        }
+    }
 }

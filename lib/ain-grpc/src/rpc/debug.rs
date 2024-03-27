@@ -14,7 +14,7 @@ use log::debug;
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
-    trace::TraceParams,
+    trace::{handle_trace_params, TraceParams},
     transaction::{TraceLogs, TraceTransactionResult},
 };
 
@@ -66,15 +66,17 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
+    /// Replays a transaction in the Runtime at a given block height.
+    /// In order to succesfully reproduce the result of the original transaction we need a correct
+    /// state to replay over.
     fn trace_transaction(
         &self,
         tx_hash: H256,
-        _trace_params: Option<TraceParams>,
+        trace_params: Option<TraceParams>,
     ) -> RpcResult<TraceTransactionResult> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
-        debug!(target: "rpc", "Tracing transaction {tx_hash}");
-
+        let (_tracer_input, _trace_type) = handle_trace_params(trace_params)?;
         let receipt = self
             .handler
             .storage
