@@ -16,7 +16,7 @@ from itertools import islice
 from base58 import b58encode_chk, b58decode_chk, b58chars
 import random
 from binascii import b2a_hex
-from segwit_addr import bech32_convertbits, CHARSET
+from segwit_addr import bech32_encode, decode, convertbits, CHARSET
 
 # key types
 PUBKEY_ADDRESS = 0
