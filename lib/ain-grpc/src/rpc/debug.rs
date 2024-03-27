@@ -5,6 +5,7 @@ use ain_evm::{
     evm::EVMServices,
     executor::TxResponse,
     storage::traits::{ReceiptStorage, TransactionStorage},
+    trace::types::single::TraceType,
     transaction::SignedTx,
 };
 use ethereum_types::{H256, U256};
@@ -14,8 +15,9 @@ use log::debug;
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
+    // trace::{handle_trace_params, TraceParams, TraceResponse},
     trace::{handle_trace_params, TraceParams},
-    transaction::{TraceLogs, TraceTransactionResult},
+    transaction::TraceTransactionResult,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -76,7 +78,13 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     ) -> RpcResult<TraceTransactionResult> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
-        let (_tracer_input, _trace_type) = handle_trace_params(trace_params)?;
+        let params = handle_trace_params(trace_params)?;
+        match params.1 {
+            TraceType::Raw { .. } => (),
+            TraceType::CallList => (),
+            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
+        }
+
         let receipt = self
             .handler
             .storage
@@ -92,18 +100,26 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .ok_or(RPCError::TxNotFound(tx_hash))?;
 
         let signed_tx = SignedTx::try_from(tx).map_err(to_custom_err)?;
-        let (logs, succeeded, return_data, gas_used) = self
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        let (succeeded, return_data, gas_used) = self
             .handler
             .tracer
-            .call_with_tracer(&signed_tx, receipt.block_number)
+            .trace_transaction(
+                &signed_tx,
+                receipt.block_number,
+                params,
+                raw_max_memory_usage,
+            )
             .map_err(RPCError::EvmError)?;
-        let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
         Ok(TraceTransactionResult {
             gas: U256::from(gas_used),
             failed: !succeeded,
             return_value: hex::encode(return_data).to_string(),
-            struct_logs: trace_logs,
+            struct_logs: vec![],
         })
     }
 

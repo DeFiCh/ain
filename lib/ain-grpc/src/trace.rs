@@ -1,20 +1,4 @@
-// Copyright 2019-2022 PureStake Inc.
-// This file is part of Moonbeam.
-
-// Moonbeam is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Moonbeam is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
-
-use ain_evm::trace::types::single;
+use ain_evm::trace::{types::single::TraceType, TracerInput};
 use jsonrpsee::core::RpcResult;
 use serde::{Deserialize, Serialize};
 
@@ -32,24 +16,15 @@ pub struct TraceParams {
     pub timeout: Option<String>,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum TracerInput {
-    None,
-    Blockscout,
-    CallTracer,
-}
-
 /// DebugRuntimeApi V2 result. Trace response is stored in client and runtime api call response is
 /// empty.
 // #[derive(Debug)]
-// pub enum Response {
+// pub enum TraceResponse {
 //     Single,
 //     Block,
 // }
 
-pub fn handle_trace_params(
-    params: Option<TraceParams>,
-) -> RpcResult<(TracerInput, single::TraceType)> {
+pub fn handle_trace_params(params: Option<TraceParams>) -> RpcResult<(TracerInput, TraceType)> {
     // Set trace input and type
     match params {
         Some(TraceParams {
@@ -69,14 +44,14 @@ pub fn handle_trace_params(
                 None
             };
             if let Some(tracer) = tracer {
-                Ok((tracer, single::TraceType::CallList))
+                Ok((tracer, TraceType::CallList))
             } else {
                 Err(RPCError::TracingParamError(hash).into())
             }
         }
         Some(params) => Ok((
             TracerInput::None,
-            single::TraceType::Raw {
+            TraceType::Raw {
                 disable_storage: params.disable_storage.unwrap_or(false),
                 disable_memory: params.disable_memory.unwrap_or(false),
                 disable_stack: params.disable_stack.unwrap_or(false),
@@ -84,7 +59,7 @@ pub fn handle_trace_params(
         )),
         _ => Ok((
             TracerInput::None,
-            single::TraceType::Raw {
+            TraceType::Raw {
                 disable_storage: false,
                 disable_memory: false,
                 disable_stack: false,

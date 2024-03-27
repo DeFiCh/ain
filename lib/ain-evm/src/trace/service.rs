@@ -9,9 +9,9 @@ use crate::{
     backend::{EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     core::EthCallArgs,
-    eventlistener::ExecutionStep,
     executor::{AccessListInfo, AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
+    trace::{types::single::TraceType, TracerInput},
     transaction::{system::ExecuteTx, SignedTx},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
@@ -85,11 +85,13 @@ impl TracerService {
         )
     }
 
-    pub fn call_with_tracer(
+    pub fn trace_transaction(
         &self,
         tx: &SignedTx,
         block_number: U256,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        trace_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<(bool, Vec<u8>, u64)> {
         // Backend state to start the tx replay should be at the end of the previous block
         let start_block_number = block_number.checked_sub(U256::one());
         let mut backend = self
@@ -117,7 +119,11 @@ impl TracerService {
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             if tx.hash() == replay_tx.hash() {
                 // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
-                return AinExecutor::new(&mut backend).execute_tx_with_tracer(exec_tx);
+                return AinExecutor::new(&mut backend).execute_tx_with_tracer(
+                    exec_tx,
+                    trace_params,
+                    raw_max_memory_usage,
+                );
             }
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
         }

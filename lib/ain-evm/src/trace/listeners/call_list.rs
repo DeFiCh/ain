@@ -16,13 +16,14 @@
 
 use std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
-use crate::trace::formatters::blockscout::BlockscoutCall as Call;
-use crate::trace::formatters::blockscout::BlockscoutCallInner as CallInner;
-use crate::trace::tracing::{
-    runtime::{Capture, ExitError, ExitReason, ExitSucceed},
-    Event, EvmEvent, GasometerEvent, Listener as ListenerT, RuntimeEvent, StepEventFilter,
+use crate::trace::{
+    formatters::blockscout::{BlockscoutCall as Call, BlockscoutCallInner as CallInner},
+    tracing::{
+        runtime::{Capture, ExitError, ExitReason, ExitSucceed},
+        Event, EvmEvent, GasometerEvent, Listener as ListenerT, RuntimeEvent, StepEventFilter,
+    },
+    types::{CallResult, CallType, ContextType, CreateResult},
 };
-use crate::trace::types::{CallResult, CallType, ContextType, CreateResult};
 use ethereum_types::{H160, U256};
 
 /// Enum of the different "modes" of tracer for multiple runtime versions and

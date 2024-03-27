@@ -14,14 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use ethereum_types::{H160, H256};
 use std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
-use crate::trace::tracing::{
-    runtime::{Capture, ExitReason},
-    Event, GasometerEvent, Listener as ListenerT, RuntimeEvent, StepEventFilter,
+use crate::trace::{
+    tracing::{
+        runtime::{Capture, ExitReason},
+        Event, GasometerEvent, Listener as ListenerT, RuntimeEvent, StepEventFilter,
+    },
+    types::{convert_memory, single::RawStepLog, ContextType},
 };
-use crate::trace::types::{convert_memory, single::RawStepLog, ContextType};
+use ethereum_types::{H160, H256};
 
 #[derive(Debug)]
 pub struct Listener {

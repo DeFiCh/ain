@@ -63,6 +63,7 @@ pub mod ffi {
         fn getNetwork() -> String;
         fn getEthMaxConnections() -> u32;
         fn getEthMaxResponseByteSize() -> u32;
+        fn getEthTracingMaxMemoryUsageBytes() -> u32;
         fn getSuggestedPriorityFeePercentile() -> i64;
         fn getEstimateGasErrorRatio() -> u64;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;

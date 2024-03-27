@@ -5,11 +5,11 @@ use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    gasometer::tracing::using as gas_using,
     Config, CreateScheme, ExitReason,
 };
 use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
+use std::cell::RefCell;
 
 use crate::{
     backend::EVMBackend,
@@ -21,10 +21,11 @@ use crate::{
         DeployContractInfo,
     },
     core::EVMCoreService,
-    eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
+    eventlistener::StorageAccessListener,
     evm::BlockContext,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
+    trace::{listeners, types::single::TraceType, EvmTracer, TracerInput},
     transaction::{
         system::{
             DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
@@ -32,7 +33,7 @@ use crate::{
         },
         SignedTx,
     },
-    EVMError, Result,
+    Result,
 };
 
 pub struct AccessListInfo {
@@ -260,7 +261,9 @@ impl<'backend> AinExecutor<'backend> {
         signed_tx: &SignedTx,
         gas_limit: U256,
         system_tx: bool,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        trace_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<(bool, Vec<u8>, u64)> {
         self.backend.update_vicinity_from_tx(signed_tx)?;
         trace!(
             "[Executor] Executing trace EVM TX with vicinity : {:?}",
@@ -286,13 +289,12 @@ impl<'backend> AinExecutor<'backend> {
         let al = access_list.clone();
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
-        let gas_state = MemoryStackState::new(metadata.clone(), self.backend);
+        let state = MemoryStackState::new(metadata.clone(), self.backend);
         let precompiles = MetachainPrecompiles::default();
-        let mut gas_executor =
-            StackExecutor::new_with_precompiles(gas_state, &Self::CONFIG, &precompiles);
-        let mut gas_listener = GasListener::new();
-        gas_using(&mut gas_listener, move || {
-            gas_executor.transact_call(
+        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
+
+        let f = move || {
+            let (exit_reason, data) = executor.transact_call(
                 ctx.caller,
                 to,
                 ctx.value,
@@ -300,27 +302,37 @@ impl<'backend> AinExecutor<'backend> {
                 ctx.gas_limit,
                 al,
             );
-        });
-
-        let state = MemoryStackState::new(metadata, self.backend);
-        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
-        let mut listener = ExecListener::new(gas_listener.gas, gas_listener.gas_cost);
-        let (exec_flag, data, used_gas) = runtime_using(&mut listener, move || {
-            let (exit_reason, data) = executor.transact_call(
-                ctx.caller,
-                to,
-                ctx.value,
-                ctx.data.to_vec(),
-                ctx.gas_limit,
-                access_list,
-            );
             if !exit_reason.is_succeed() {
                 debug!("failed VM execution {:?}", exit_reason);
             }
             let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
-            Ok::<_, EVMError>((exit_reason.is_succeed(), data, used_gas))
-        })?;
-        Ok((listener.trace, exec_flag, data, used_gas))
+            (exit_reason.is_succeed(), data, used_gas)
+        };
+
+        match trace_params.1 {
+            TraceType::Raw {
+                disable_storage,
+                disable_memory,
+                disable_stack,
+            } => {
+                let listener = RefCell::new(listeners::Raw::new(
+                    disable_storage,
+                    disable_memory,
+                    disable_stack,
+                    raw_max_memory_usage,
+                ));
+                let tracer = EvmTracer::new(listener);
+                Ok(tracer.trace(f))
+            }
+            TraceType::CallList => {
+                let listener = RefCell::new(listeners::CallList::default());
+                let tracer = EvmTracer::new(listener);
+                Ok(tracer.trace(f))
+            }
+            not_supported => {
+                Err(format_err!("trace_transaction does not support {:?}", not_supported).into())
+            }
+        }
     }
 
     /// Execute tx with storage access listener
@@ -659,12 +671,18 @@ impl<'backend> AinExecutor<'backend> {
     pub fn execute_tx_with_tracer(
         &mut self,
         tx: ExecuteTx,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        trace_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<(bool, Vec<u8>, u64)> {
         // Handle state dependent system txs
         match tx {
-            ExecuteTx::SignedTx(signed_tx) => {
-                self.exec_with_tracer(&signed_tx, signed_tx.gas_limit(), false)
-            }
+            ExecuteTx::SignedTx(signed_tx) => self.exec_with_tracer(
+                &signed_tx,
+                signed_tx.gas_limit(),
+                false,
+                trace_params,
+                raw_max_memory_usage,
+            ),
             ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
                 signed_tx,
                 direction,
@@ -688,7 +706,13 @@ impl<'backend> AinExecutor<'backend> {
                     self.update_storage(fixed_address, storage)?;
                     self.add_balance(fixed_address, amount)?;
                 }
-                self.exec_with_tracer(&signed_tx, U256::MAX, true)
+                self.exec_with_tracer(
+                    &signed_tx,
+                    U256::MAX,
+                    true,
+                    trace_params,
+                    raw_max_memory_usage,
+                )
             }
             ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
                 signed_tx,
@@ -705,21 +729,27 @@ impl<'backend> AinExecutor<'backend> {
                         dst20_allowance(TransferDirection::EvmIn, signed_tx.sender, amount);
                     self.update_storage(contract_address, allowance)?;
                 }
-                self.exec_with_tracer(&signed_tx, U256::MAX, true)
+                self.exec_with_tracer(
+                    &signed_tx,
+                    U256::MAX,
+                    true,
+                    trace_params,
+                    raw_max_memory_usage,
+                )
             }
             ExecuteTx::SystemTx(SystemTx::DeployContract(_)) => {
                 // TODO: running trace on DST20 deployment txs will be buggy at the moment as these custom system txs
                 // are never executed on the VM. More thought has to be placed into how we can do accurate traces on
                 // the custom system txs related to DST20 tokens, since these txs are state injections on execution.
                 // For now, empty execution step with a successful execution trace is returned.
-                Ok((vec![], true, vec![], 0u64))
+                Ok((true, vec![], 0u64))
             }
             ExecuteTx::SystemTx(SystemTx::UpdateContractName(_)) => {
                 // TODO: running trace on DST20 update txs will be buggy at the moment as these custom system txs
                 // are never executed on the VM. More thought has to be placed into how we can do accurate traces on
                 // the custom system txs related to DST20 tokens, since these txs are state injections on execution.
                 // For now, empty execution step with a successful execution trace is returned.
-                Ok((vec![], true, vec![], 0u64))
+                Ok((true, vec![], 0u64))
             }
         }
     }

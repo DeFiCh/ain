@@ -1,27 +1,11 @@
-// Copyright 2019-2022 PureStake Inc.
-// This file is part of Moonbeam.
-
-// Moonbeam is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Moonbeam is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
-
-pub mod formatters;
-pub mod listeners;
-pub mod service;
 /// EVM tracing module.
 ///
 /// Contains tracing of the EVM opcode execution used by Dapp develops and
 /// indexers to access the EVM callstack (nteranl transactions) and get
 /// granular view on their transactions.
+pub mod formatters;
+pub mod listeners;
+pub mod service;
 pub mod tracing;
 pub mod types;
 
@@ -33,6 +17,13 @@ use evm::{
 };
 use evm_runtime::tracing::{using as runtime_using, EventListener as RuntimeListener};
 use std::{cell::RefCell, rc::Rc};
+
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum TracerInput {
+    None,
+    Blockscout,
+    CallTracer,
+}
 
 struct ListenerProxy<T>(pub Rc<RefCell<T>>);
 impl<T: GasometerListener> GasometerListener for ListenerProxy<T> {
@@ -54,13 +45,13 @@ impl<T: EvmListener> EvmListener for ListenerProxy<T> {
 }
 
 pub struct EvmTracer<T: Listener + 'static> {
-    listener: T,
+    listener: RefCell<T>,
     step_event_filter: StepEventFilter,
 }
 
 impl<T: Listener + 'static> EvmTracer<T> {
-    pub fn new(listener: T) -> Self {
-        let step_event_filter = listener.step_event_filter();
+    pub fn new(listener: RefCell<T>) -> Self {
+        let step_event_filter = listener.borrow_mut().step_event_filter();
 
         Self {
             listener,
@@ -72,7 +63,7 @@ impl<T: Listener + 'static> EvmTracer<T> {
     ///
     /// Consume the tracer and return it alongside the return value of
     /// the closure.
-    pub fn trace<R, F: FnOnce() -> R>(self, f: F) {
+    pub fn trace<R, F: FnOnce() -> R>(self, f: F) -> R {
         let wrapped = Rc::new(RefCell::new(self));
 
         let mut gasometer = ListenerProxy(Rc::clone(&wrapped));
@@ -85,7 +76,7 @@ impl<T: Listener + 'static> EvmTracer<T> {
         let f = || runtime_using(&mut runtime, f);
         let f = || gasometer_using(&mut gasometer, f);
         let f = || evm_using(&mut evm, f);
-        f();
+        f()
     }
 }
 
@@ -93,7 +84,7 @@ impl<T: Listener + 'static> EvmListener for EvmTracer<T> {
     /// Proxies `evm::tracing::Event` to the host.
     fn event(&mut self, event: evm::tracing::Event) {
         let event: EvmEvent = event.into();
-        self.listener.event(Event::Evm(event));
+        self.listener.borrow_mut().event(Event::Evm(event));
     }
 }
 
@@ -101,7 +92,7 @@ impl<T: Listener + 'static> GasometerListener for EvmTracer<T> {
     /// Proxies `evm_gasometer::tracing::Event` to the host.
     fn event(&mut self, event: evm::gasometer::tracing::Event) {
         let event: GasometerEvent = event.into();
-        self.listener.event(Event::Gasometer(event));
+        self.listener.borrow_mut().event(Event::Gasometer(event));
     }
 }
 
@@ -109,6 +100,6 @@ impl<T: Listener + 'static> RuntimeListener for EvmTracer<T> {
     /// Proxies `evm_runtime::tracing::Event` to the host.
     fn event(&mut self, event: evm_runtime::tracing::Event) {
         let event = RuntimeEvent::from_evm_event(event, self.step_event_filter);
-        self.listener.event(Event::Runtime(event));
+        self.listener.borrow_mut().event(Event::Runtime(event));
     }
 }

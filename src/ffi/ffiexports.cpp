@@ -315,6 +315,10 @@ uint32_t getEthMaxResponseByteSize() {
     return max_response_size_mb * 1024 * 1024;
 }
 
+uint32_t getEthTracingMaxMemoryUsageBytes() {
+    const auto max_response_size_mb = gArgs.GetArg("-ethtracingmaxmemoryusage", DEFAULT_TRACING_RAW_MAX_MEMORY_USAGE_BYTES);
+}
+
 int64_t getSuggestedPriorityFeePercentile() {
     return gArgs.GetArg("-evmtxpriorityfeepercentile", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE);
 }
