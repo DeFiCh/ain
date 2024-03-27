@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, AccessListItem, EIP658ReceiptData, Log, ReceiptV3};
@@ -9,7 +11,6 @@ use evm::{
 };
 use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
-use std::cell::RefCell;
 
 use crate::{
     backend::EVMBackend,
