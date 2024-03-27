@@ -262,7 +262,7 @@ impl<'backend> AinExecutor<'backend> {
         signed_tx: &SignedTx,
         gas_limit: U256,
         system_tx: bool,
-        trace_params: (TracerInput, TraceType),
+        tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<(bool, Vec<u8>, u64)> {
         self.backend.update_vicinity_from_tx(signed_tx)?;
@@ -310,7 +310,7 @@ impl<'backend> AinExecutor<'backend> {
             (exit_reason.is_succeed(), data, used_gas)
         };
 
-        match trace_params.1 {
+        match tracer_params.1 {
             TraceType::Raw {
                 disable_storage,
                 disable_memory,
@@ -672,7 +672,7 @@ impl<'backend> AinExecutor<'backend> {
     pub fn execute_tx_with_tracer(
         &mut self,
         tx: ExecuteTx,
-        trace_params: (TracerInput, TraceType),
+        tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<(bool, Vec<u8>, u64)> {
         // Handle state dependent system txs
@@ -681,7 +681,7 @@ impl<'backend> AinExecutor<'backend> {
                 &signed_tx,
                 signed_tx.gas_limit(),
                 false,
-                trace_params,
+                tracer_params,
                 raw_max_memory_usage,
             ),
             ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
@@ -711,7 +711,7 @@ impl<'backend> AinExecutor<'backend> {
                     &signed_tx,
                     U256::MAX,
                     true,
-                    trace_params,
+                    tracer_params,
                     raw_max_memory_usage,
                 )
             }
@@ -734,7 +734,7 @@ impl<'backend> AinExecutor<'backend> {
                     &signed_tx,
                     U256::MAX,
                     true,
-                    trace_params,
+                    tracer_params,
                     raw_max_memory_usage,
                 )
             }

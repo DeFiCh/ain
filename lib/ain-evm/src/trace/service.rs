@@ -89,7 +89,7 @@ impl TracerService {
         &self,
         tx: &SignedTx,
         block_number: U256,
-        trace_params: (TracerInput, TraceType),
+        tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<(bool, Vec<u8>, u64)> {
         // Backend state to start the tx replay should be at the end of the previous block
@@ -121,7 +121,7 @@ impl TracerService {
                 // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
                 return AinExecutor::new(&mut backend).execute_tx_with_tracer(
                     exec_tx,
-                    trace_params,
+                    tracer_params,
                     raw_max_memory_usage,
                 );
             }
