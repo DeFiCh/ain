@@ -566,6 +566,12 @@ UniValue logevmaccountstates(const JSONRPCRequest &request) {
     }
         .Check(request);
 
+    auto &consensus = Params().GetConsensus();
+    const CBlockIndex *tip = ::ChainActive().Tip();
+    if (tip->nHeight < consensus.DF22MetachainHeight) {
+        return "";
+    }
+
     CrossBoundaryResult result;
     const auto dumpResults = debug_log_account_states(result);
     if (!result.ok) {
