@@ -43,6 +43,7 @@ impl From<Option<evm::gasometer::Snapshot>> for Snapshot {
     }
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GasometerEvent {
     RecordCost {
