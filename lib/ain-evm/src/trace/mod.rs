@@ -56,7 +56,7 @@ impl<T: Listener + 'static> EvmTracer<T> {
     ///
     /// Consume the tracer and return it alongside the return value of
     /// the closure.
-    pub fn trace<R, F: FnOnce() -> R>(self, f: F) {
+    pub fn trace<R, F: FnOnce() -> R>(self, f: F) -> R {
         let wrapped = Rc::new(RefCell::new(self));
 
         let mut gasometer = ListenerProxy(Rc::clone(&wrapped));
@@ -69,7 +69,7 @@ impl<T: Listener + 'static> EvmTracer<T> {
         let f = || runtime_using(&mut runtime, f);
         let f = || gasometer_using(&mut gasometer, f);
         let f = || evm_using(&mut evm, f);
-        f();
+        f()
     }
 }
 

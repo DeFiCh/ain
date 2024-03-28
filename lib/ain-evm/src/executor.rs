@@ -318,6 +318,7 @@ impl<'backend> AinExecutor<'backend> {
             if !exit_reason.is_succeed() {
                 debug!("failed VM execution {:?}", exit_reason);
             }
+            (!exit_reason.is_succeed(), executor.used_gas())
         };
 
         match tracer_params.1 {
@@ -333,7 +334,8 @@ impl<'backend> AinExecutor<'backend> {
                     raw_max_memory_usage,
                 )));
                 let tracer = EvmTracer::new(Rc::clone(&listener));
-                tracer.trace(f);
+                let (exec_flag, used_gas) = tracer.trace(f);
+                listener.borrow_mut().finish_transaction(exec_flag, used_gas);
                 let res = RawFormatter::format(listener, system_tx)
                     .ok_or_else(|| format_err!("trace result is empty"))?;
                 Ok(res)
@@ -742,16 +744,16 @@ impl<'backend> AinExecutor<'backend> {
                 contract_address,
                 direction,
             })) => {
+                let input = signed_tx.data();
+                let amount = U256::from_big_endian(&input[100..132]);
                 if direction == TransferDirection::EvmIn {
-                    let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[100..132]);
                     let DST20BridgeInfo { address, storage } =
                         bridge_dst20_in(self.backend, contract_address, amount)?;
                     self.update_storage(address, storage)?;
-                    let allowance =
-                        dst20_allowance(TransferDirection::EvmIn, signed_tx.sender, amount);
-                    self.update_storage(contract_address, allowance)?;
                 }
+                let allowance = dst20_allowance(direction, signed_tx.sender, amount);
+                self.update_storage(contract_address, allowance)?;
+
                 self.exec_with_tracer(
                     &signed_tx,
                     U256::MAX,
@@ -781,7 +783,8 @@ impl<'backend> AinExecutor<'backend> {
         // execution. For now, empty execution step with a successful execution trace is returned.
         match tracer_params.1 {
             TraceType::Raw { .. } => Ok(TransactionTrace::Raw {
-                gas: U256::MAX,
+                gas: U256::zero(),
+                failed: false,
                 return_value: vec![],
                 struct_logs: vec![],
             }),

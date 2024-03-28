@@ -36,6 +36,7 @@ pub struct Listener {
     pub return_value: Vec<u8>,
     pub final_gas: u64,
     pub remaining_memory_usage: Option<usize>,
+    pub exec_flag: bool,
 }
 
 #[derive(Debug)]
@@ -76,14 +77,20 @@ impl Listener {
             disable_memory,
             disable_stack,
             remaining_memory_usage: Some(raw_max_memory_usage),
-
             struct_logs: vec![],
             return_value: vec![],
             final_gas: 0,
-
             new_context: false,
             context_stack: vec![],
+            exec_flag: false,
         }
+    }
+
+    /// Called at the end of each transaction when tracing.
+    /// Allow to insert execution flag from executor.
+    pub fn finish_transaction(&mut self, flag: bool, used_gas: u64) {
+        self.exec_flag = flag;
+        self.final_gas = used_gas;
     }
 
     pub fn gasometer_event(&mut self, event: GasometerEvent) {

@@ -353,7 +353,7 @@ class EvmTracerTest(DefiTestFramework):
                     self.dst20_td_in_data,
                 )
             elif tx["hash"] == evm_out_hash:
-                # Test trace for transferdomain evm-in tx
+                # Test trace for transferdomain evm-out tx
                 assert_equal(
                     self.nodes[0].debug_traceTransaction(tx["hash"]),
                     self.dst20_td_out_data,

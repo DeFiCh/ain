@@ -38,6 +38,13 @@ where
     }
 }
 
+pub fn bytes_serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&format!("{}", hex::encode(bytes)))
+}
+
 pub fn bytes_0x_serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,

@@ -32,6 +32,7 @@ impl super::ResponseFormatter for Formatter {
         } else {
             Some(TransactionTrace::Raw {
                 struct_logs: l.struct_logs.clone(),
+                failed: l.exec_flag,
                 gas: if system_tx {
                     U256::zero()
                 } else {
