@@ -335,7 +335,9 @@ impl<'backend> AinExecutor<'backend> {
                 )));
                 let tracer = EvmTracer::new(Rc::clone(&listener));
                 let (exec_flag, used_gas) = tracer.trace(f);
-                listener.borrow_mut().finish_transaction(exec_flag, used_gas);
+                listener
+                    .borrow_mut()
+                    .finish_transaction(exec_flag, used_gas);
                 let res = RawFormatter::format(listener, system_tx)
                     .ok_or_else(|| format_err!("trace result is empty"))?;
                 Ok(res)
