@@ -14,22 +14,17 @@ use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
 use log::{debug, trace};
 use parking_lot::Mutex;
-use vsdb_core::vsdb_set_base_dir;
 
 use crate::{
     backend::{BackendError, EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     blocktemplate::BlockTemplate,
-    eventlistener::ExecutionStep,
-    executor::{AccessListInfo, AinExecutor, ExecutorContext, TxResponse},
+    executor::{AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
-    transaction::{
-        cache::{TransactionCache, ValidateTxInfo},
-        SignedTx,
-    },
+    transaction::cache::{TransactionCache, ValidateTxInfo},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
@@ -44,6 +39,7 @@ pub struct EVMCoreService {
     pub tx_cache: Arc<TransactionCache>,
     nonce_store: Mutex<HashMap<H160, BTreeSet<U256>>>,
 }
+
 pub struct EthCallArgs<'a> {
     pub caller: H160,
     pub to: Option<H160>,
@@ -64,19 +60,14 @@ pub struct TransferDomainTxInfo {
     pub token_id: u32,
 }
 
-fn init_vsdb(path: PathBuf) {
-    debug!(target: "vsdb", "Initializating VSDB");
-    let vsdb_dir_path = path.join(".vsdb");
-    vsdb_set_base_dir(&vsdb_dir_path).expect("Could not update vsdb base dir");
-    debug!(target: "vsdb", "VSDB directory : {}", vsdb_dir_path.display());
-}
-
 impl EVMCoreService {
-    pub fn restore(storage: Arc<Storage>, tx_cache: Arc<TransactionCache>, path: PathBuf) -> Self {
-        init_vsdb(path);
-
+    pub fn restore(
+        trie_store: Arc<TrieDBStore>,
+        storage: Arc<Storage>,
+        tx_cache: Arc<TransactionCache>,
+    ) -> Self {
         Self {
-            trie_store: Arc::new(TrieDBStore::restore()),
+            trie_store,
             storage,
             tx_cache,
             nonce_store: Mutex::new(HashMap::new()),
@@ -84,16 +75,15 @@ impl EVMCoreService {
     }
 
     pub fn new_from_json(
+        trie_store: Arc<TrieDBStore>,
         storage: Arc<Storage>,
         tx_cache: Arc<TransactionCache>,
         genesis_path: PathBuf,
-        evm_datadir: PathBuf,
     ) -> Result<Self> {
         debug!("Loading genesis state from {}", genesis_path.display());
-        init_vsdb(evm_datadir);
 
         let handler = Self {
-            trie_store: Arc::new(TrieDBStore::new()),
+            trie_store: Arc::clone(&trie_store),
             storage: Arc::clone(&storage),
             tx_cache: Arc::clone(&tx_cache),
             nonce_store: Mutex::new(HashMap::new()),
@@ -808,43 +798,5 @@ impl EVMCoreService {
             gas_limit,
             access_list,
         }))
-    }
-
-    pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<AccessListInfo> {
-        let EthCallArgs {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            gas_price,
-            access_list,
-            block_number,
-        } = arguments;
-        let mut backend = self
-            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
-            .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            access_list,
-        })
-    }
-
-    pub fn call_with_tracer(
-        &self,
-        tx: &SignedTx,
-        block_number: U256,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        // Backend state to start the tx replay should be at the end of the previous block
-        let start_block_number = block_number.checked_sub(U256::one());
-        let mut backend = self
-            .get_backend_from_block(start_block_number, None, None, None)
-            .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        backend.update_vicinity_from_tx(tx)?;
-        AinExecutor::new(&mut backend).exec_with_tracer(tx)
     }
 }

@@ -10,6 +10,10 @@ from test_framework.evm_contract import EVMContract
 from test_framework.util import assert_equal
 
 from decimal import Decimal
+import json
+import os
+
+TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
 
 class EvmTracerTest(DefiTestFramework):
@@ -35,8 +39,43 @@ class EvmTracerTest(DefiTestFramework):
                 "-metachainheight=105",
                 "-df23height=105",
                 "-subsidytest=1",
+                "-ethmaxresponsesize=100",
             ],
         ]
+
+    def add_options(self, parser):
+        parser.add_argument(
+            "--native-td-in-file",
+            dest="native_td_in_file",
+            default="data/trace_native_transferdomain_in.json",
+            action="store",
+            metavar="FILE",
+            help="Native transferdomain in data file",
+        )
+        parser.add_argument(
+            "--native-td-out-file",
+            dest="native_td_out_file",
+            default="data/trace_native_transferdomain_out.json",
+            action="store",
+            metavar="FILE",
+            help="Native transferdomain out data file",
+        )
+        parser.add_argument(
+            "--dst20-td-in-file",
+            dest="dst20_td_in_file",
+            default="data/trace_dst20_transferdomain_in.json",
+            action="store",
+            metavar="FILE",
+            help="DST20 transferdomain in data file",
+        )
+        parser.add_argument(
+            "--dst20-td-out-file",
+            dest="dst20_td_out_file",
+            default="data/trace_dst20_transferdomain_out.json",
+            action="store",
+            metavar="FILE",
+            help="DST20 transferdomain out data file",
+        )
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -89,13 +128,28 @@ class EvmTracerTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
+        self.load_td_data()
+
+    def load_td_data(self):
+        native_td_in_f = os.path.join(TESTSDIR, self.options.native_td_in_file)
+        native_td_out_f = os.path.join(TESTSDIR, self.options.native_td_out_file)
+        dst20_td_in_f = os.path.join(TESTSDIR, self.options.dst20_td_in_file)
+        dst20_td_out_f = os.path.join(TESTSDIR, self.options.dst20_td_out_file)
+        with open(native_td_in_f, "r", encoding="utf8") as f:
+            self.native_td_in_data = json.load(f)
+        with open(native_td_out_f, "r", encoding="utf8") as f:
+            self.native_td_out_data = json.load(f)
+        with open(dst20_td_in_f, "r", encoding="utf8") as f:
+            self.dst20_td_in_data = json.load(f)
+        with open(dst20_td_out_f, "r", encoding="utf8") as f:
+            self.dst20_td_out_data = json.load(f)
 
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
-        hashes = []
+
         start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        for i in range(5):
-            hash = self.nodes[0].eth_sendTransaction(
+        for i in range(3):
+            _ = self.nodes[0].eth_sendTransaction(
                 {
                     "nonce": hex(start_nonce + i),
                     "from": self.ethAddress,
@@ -105,7 +159,6 @@ class EvmTracerTest(DefiTestFramework):
                     "gasPrice": "0x5D21DBA00",  # 25_000_000_000
                 }
             )
-            hashes.append(hash)
         self.nodes[0].generate(1)
         block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
 
@@ -116,8 +169,324 @@ class EvmTracerTest(DefiTestFramework):
                 {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
             )
 
+    def test_tracer_on_transfer_tx_with_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(3):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        # Add transfer domain in inside block
+        in_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "1@DFI",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        # Add transfer domain out inside block
+        out_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@DFI",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        for i in range(4, 7):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        self.nodes[0].generate(1)
+        evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
+        evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
+
+        # Test tracer for every tx
+        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
+            "transactions"
+        ]
+        for tx in evm_block_txs:
+            if tx["hash"] == evm_in_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.native_td_in_data,
+                )
+            elif tx["hash"] == evm_out_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.native_td_out_data,
+                )
+            else:
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    {
+                        "gas": "0x5208",
+                        "failed": False,
+                        "returnValue": "",
+                        "structLogs": [],
+                    },
+                )
+
+    def test_tracer_on_transfer_tx_with_dst20_transferdomain_txs(self):
+        self.rollback_to(self.start_height)
+
+        # Create tokens
+        symbolBTC = "BTC"
+        self.nodes[0].createtoken(
+            {
+                "symbol": symbolBTC,
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        self.nodes[0].minttokens("100@BTC")
+        self.nodes[0].generate(1)
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "10@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "10@BTC",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(3):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        # Add transfer domain in inside block
+        in_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
+                    "dst": {
+                        "address": self.ethAddress,
+                        "amount": "1@BTC",
+                        "domain": 3,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        # Add transfer domain out inside block
+        out_hash = self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.ethAddress, "amount": "1@BTC", "domain": 3},
+                    "dst": {
+                        "address": self.address,
+                        "amount": "1@BTC",
+                        "domain": 2,
+                    },
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        for i in range(4, 7):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        self.nodes[0].generate(1)
+        evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
+        evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
+
+        # Test tracer for every tx
+        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
+            "transactions"
+        ]
+        for tx in evm_block_txs:
+            if tx["hash"] == evm_in_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.dst20_td_in_data,
+                )
+            elif tx["hash"] == evm_out_hash:
+                # Test trace for transferdomain evm-in tx
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    self.dst20_td_out_data,
+                )
+            else:
+                assert_equal(
+                    self.nodes[0].debug_traceTransaction(tx["hash"]),
+                    {
+                        "gas": "0x5208",
+                        "failed": False,
+                        "returnValue": "",
+                        "structLogs": [],
+                    },
+                )
+
+    def test_tracer_on_transfer_tx_with_deploy_dst20_txs(self):
+        self.rollback_to(self.start_height)
+
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(6):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        # Create tokens
+        self.nodes[0].createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].createtoken(
+            {
+                "symbol": "BTC",
+                "name": "BTC token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+
+        # Test tracer for every DST20 creation tx
+        for tx in block_txs[:2]:
+            assert_equal(
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                {
+                    "gas": "0x0",
+                    "failed": False,
+                    "returnValue": "",
+                    "structLogs": [],
+                },
+            )
+
+        # Test tracer for every transfer tx
+        for tx in block_txs[2:]:
+            assert_equal(
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                {
+                    "gas": "0x5208",
+                    "failed": False,
+                    "returnValue": "",
+                    "structLogs": [],
+                },
+            )
+
+    def test_tracer_on_transfer_tx_with_deploy_and_update_dst20_txs(self):
+        self.rollback_to(self.start_height)
+
+        # Create tokens
+        self.nodes[0].createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        assert_equal(
+            self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]),
+            {
+                "gas": "0x0",
+                "failed": False,
+                "returnValue": "",
+                "structLogs": [],
+            },
+        )
+
+        # Update tokens
+        token_info = self.nodes[0].listtokens()["1"]
+        self.nodes[0].updatetoken("1", {"symbol": "goldy", "name": "GOLD token"})
+        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
+        for i in range(6):
+            _ = self.nodes[0].eth_sendTransaction(
+                {
+                    "nonce": hex(start_nonce + i),
+                    "from": self.ethAddress,
+                    "to": self.toAddress,
+                    "value": "0xDE0B6B3A7640000",  # 1 DFI
+                    "gas": "0x5209",
+                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
+                }
+            )
+        self.nodes[0].generate(1)
+        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        # Test tracer for every tx
+        for tx in block_txs[2:]:
+            assert_equal(
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                {
+                    "gas": "0x5208",
+                    "failed": False,
+                    "returnValue": "",
+                    "structLogs": [],
+                },
+            )
+        token_info = self.nodes[0].listtokens()["1"]
+        assert_equal(token_info["symbol"], "goldy")
+        assert_equal(token_info["name"], "GOLD token")
+
     def test_tracer_on_contract_call_tx(self):
         self.rollback_to(self.start_height)
+
         before_balance = Decimal(
             self.nodes[0].getaccount(self.ethAddress)[0].split("@")[0]
         )
@@ -171,9 +540,7 @@ class EvmTracerTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        # TODO: Disabled for now because state consistency of the debug_traceTransaction is
-        # incorrect.
-        # loop_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        loop_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
         self.nodes[0].generate(1)
 
         # Test tracer for contract call txs
@@ -182,11 +549,9 @@ class EvmTracerTest(DefiTestFramework):
                 "gasUsed"
             ]
         )
-        # TODO: Disabled for now because state consistency of the debug_traceTransaction is
-        # incorrect.
-        # loop_gas_used = Decimal(
-        #     self.nodes[0].w3.eth.wait_for_transaction_receipt(loop_tx_hash)["gasUsed"]
-        # )
+        loop_gas_used = Decimal(
+            self.nodes[0].w3.eth.wait_for_transaction_receipt(loop_tx_hash)["gasUsed"]
+        )
         # Test tracer for state change tx
         assert_equal(
             int(
@@ -200,24 +565,30 @@ class EvmTracerTest(DefiTestFramework):
             False,
         )
         # Test tracer for loop tx
-        # TODO: Disabled for now because state consistency of the debug_traceTransaction is
-        # incorrect.
-        # assert_equal(
-        #     int(
-        #         self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["gas"],
-        #         16,
-        #     ),
-        #     loop_gas_used,
-        # )
-        # assert_equal(
-        #     self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["failed"],
-        #     False,
-        # )
+        assert_equal(
+            int(
+                self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["gas"],
+                16,
+            ),
+            loop_gas_used,
+        )
+        assert_equal(
+            self.nodes[0].debug_traceTransaction(loop_tx_hash.hex())["failed"],
+            False,
+        )
 
     def run_test(self):
         self.setup()
 
         self.test_tracer_on_transfer_tx()
+
+        self.test_tracer_on_transfer_tx_with_transferdomain_txs()
+
+        self.test_tracer_on_transfer_tx_with_dst20_transferdomain_txs()
+
+        self.test_tracer_on_transfer_tx_with_deploy_dst20_txs()
+
+        self.test_tracer_on_transfer_tx_with_deploy_and_update_dst20_txs()
 
         self.test_tracer_on_contract_call_tx()
 

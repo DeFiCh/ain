@@ -1,6 +1,10 @@
+use anyhow::format_err;
 use ethereum_types::H160;
 
 use super::SignedTx;
+use crate::Result;
+use ain_contracts::dst20_address_from_token_id;
+use ain_cpp_imports::{SystemTxData, SystemTxType};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeployContractData {
@@ -66,6 +70,79 @@ impl fmt::Display for TransferDirection {
         match *self {
             TransferDirection::EvmIn => write!(f, "EVM In"),
             TransferDirection::EvmOut => write!(f, "EVM Out"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecuteTx {
+    SignedTx(Box<SignedTx>),
+    SystemTx(SystemTx),
+}
+
+impl From<SignedTx> for ExecuteTx {
+    fn from(tx: SignedTx) -> Self {
+        Self::SignedTx(Box::new(tx))
+    }
+}
+
+impl ExecuteTx {
+    pub fn from_tx_data(tx_data: SystemTxData, tx: SignedTx) -> Result<Self> {
+        match tx_data.tx_type {
+            SystemTxType::EVMTx => Ok(Self::SignedTx(Box::new(tx))),
+            SystemTxType::TransferDomainIn => Ok(Self::SystemTx(SystemTx::TransferDomain(
+                TransferDomainData {
+                    signed_tx: Box::new(tx),
+                    direction: TransferDirection::EvmIn,
+                },
+            ))),
+            SystemTxType::TransferDomainOut => Ok(ExecuteTx::SystemTx(SystemTx::TransferDomain(
+                TransferDomainData {
+                    signed_tx: Box::new(tx),
+                    direction: TransferDirection::EvmOut,
+                },
+            ))),
+            SystemTxType::DST20BridgeIn => {
+                let contract_address = dst20_address_from_token_id(tx_data.token.id)?;
+                Ok(ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                    signed_tx: Box::new(tx),
+                    contract_address,
+                    direction: TransferDirection::EvmIn,
+                })))
+            }
+            SystemTxType::DST20BridgeOut => {
+                let contract_address = dst20_address_from_token_id(tx_data.token.id)?;
+                Ok(ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
+                    signed_tx: Box::new(tx),
+                    contract_address,
+                    direction: TransferDirection::EvmOut,
+                })))
+            }
+            SystemTxType::DeployContract => {
+                let address = dst20_address_from_token_id(tx_data.token.id)?;
+                Ok(ExecuteTx::SystemTx(SystemTx::DeployContract(
+                    UpdateContractNameData {
+                        name: tx_data.token.name,
+                        symbol: tx_data.token.symbol,
+                        address,
+                        token_id: tx_data.token.id,
+                    },
+                )))
+            }
+            SystemTxType::UpdateContractName => {
+                let address = dst20_address_from_token_id(tx_data.token.id)?;
+                Ok(ExecuteTx::SystemTx(SystemTx::UpdateContractName(
+                    UpdateContractNameData {
+                        name: tx_data.token.name,
+                        symbol: tx_data.token.symbol,
+                        address,
+                        token_id: tx_data.token.id,
+                    },
+                )))
+            }
+            _ => {
+                Err(format_err!("Cannot get execute tx from tx data, system tx type error.").into())
+            }
         }
     }
 }
