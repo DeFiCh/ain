@@ -24,6 +24,8 @@ pub use call_tracer::Formatter as CallTracer;
 pub use raw::Formatter as Raw;
 pub use trace_filter::Formatter as TraceFilter;
 
+use std::{cell::RefCell, rc::Rc};
+
 use crate::trace::Listener;
 use serde::Serialize;
 
@@ -31,5 +33,5 @@ pub trait ResponseFormatter {
     type Listener: Listener;
     type Response: Serialize;
 
-    fn format(listener: Self::Listener) -> Option<Self::Response>;
+    fn format(listener: Rc<RefCell<Self::Listener>>, system_tx: bool) -> Option<Self::Response>;
 }

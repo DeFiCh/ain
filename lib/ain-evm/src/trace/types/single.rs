@@ -25,13 +25,20 @@ use crate::trace::formatters::{blockscout::BlockscoutCall, call_tracer::CallTrac
 
 use super::serialization::*;
 use ethereum_types::{H256, U256};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum Call {
     Blockscout(Box<BlockscoutCall>),
     CallTracer(CallTracerCall),
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum TracerInput {
+    None,
+    Blockscout,
+    CallTracer,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -49,7 +56,7 @@ pub enum TraceType {
 }
 
 /// Single transaction trace.
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum TransactionTrace {
     /// Classical output of `debug_trace`.
@@ -67,7 +74,7 @@ pub enum TransactionTrace {
     CallListNested(Call),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawStepLog {
     #[serde(serialize_with = "u256_serialize")]

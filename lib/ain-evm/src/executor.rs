@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
@@ -26,7 +26,16 @@ use crate::{
     evm::BlockContext,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
-    trace::{listeners, types::single::TraceType, EvmTracer, TracerInput},
+    trace::{
+        formatters::{
+            call_tracer::{CallTracerCall, CallTracerInner},
+            Blockscout as BlockscoutFormatter, CallTracer as CallTracerFormatter,
+            Raw as RawFormatter, ResponseFormatter,
+        },
+        listeners,
+        types::single::{Call, TraceType, TracerInput, TransactionTrace},
+        EvmTracer,
+    },
     transaction::{
         system::{
             DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
@@ -264,19 +273,15 @@ impl<'backend> AinExecutor<'backend> {
         system_tx: bool,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
-    ) -> Result<(bool, Vec<u8>, u64)> {
+    ) -> Result<TransactionTrace> {
         self.backend.update_vicinity_from_tx(signed_tx)?;
         trace!(
             "[Executor] Executing trace EVM TX with vicinity : {:?}",
             self.backend.vicinity
         );
-        // TODO: Buggy, to be removed in tracer revamp fixes.
-        let to = signed_tx.to().ok_or(format_err!(
-            "debug_traceTransaction does not support contract creation transactions",
-        ))?;
         let ctx = ExecutorContext {
             caller: signed_tx.sender,
-            to: Some(to),
+            to: signed_tx.to(),
             value: signed_tx.value(),
             data: signed_tx.data(),
             gas_limit: u64::try_from(gas_limit).unwrap_or(u64::MAX), // Sets to u64 if overflows
@@ -287,27 +292,32 @@ impl<'backend> AinExecutor<'backend> {
             .into_iter()
             .map(|x| (x.address, x.storage_keys))
             .collect::<Vec<_>>();
-        let al = access_list.clone();
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata.clone(), self.backend);
         let precompiles = MetachainPrecompiles::default();
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
-
         let f = move || {
-            let (exit_reason, data) = executor.transact_call(
-                ctx.caller,
-                to,
-                ctx.value,
-                ctx.data.to_vec(),
-                ctx.gas_limit,
-                al,
-            );
+            let (exit_reason, _) = match ctx.to {
+                Some(address) => executor.transact_call(
+                    ctx.caller,
+                    address,
+                    ctx.value,
+                    ctx.data.to_vec(),
+                    ctx.gas_limit,
+                    access_list,
+                ),
+                None => executor.transact_create(
+                    ctx.caller,
+                    ctx.value,
+                    ctx.data.to_vec(),
+                    ctx.gas_limit,
+                    access_list,
+                ),
+            };
             if !exit_reason.is_succeed() {
                 debug!("failed VM execution {:?}", exit_reason);
             }
-            let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
-            (exit_reason.is_succeed(), data, used_gas)
         };
 
         match tracer_params.1 {
@@ -316,19 +326,31 @@ impl<'backend> AinExecutor<'backend> {
                 disable_memory,
                 disable_stack,
             } => {
-                let listener = RefCell::new(listeners::Raw::new(
+                let listener = Rc::new(RefCell::new(listeners::Raw::new(
                     disable_storage,
                     disable_memory,
                     disable_stack,
                     raw_max_memory_usage,
-                ));
-                let tracer = EvmTracer::new(listener);
-                Ok(tracer.trace(f))
+                )));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                tracer.trace(f);
+                let res = RawFormatter::format(listener, system_tx)
+                    .ok_or_else(|| format_err!("trace result is empty"))?;
+                Ok(res)
             }
             TraceType::CallList => {
-                let listener = RefCell::new(listeners::CallList::default());
-                let tracer = EvmTracer::new(listener);
-                Ok(tracer.trace(f))
+                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                tracer.trace(f);
+                listener.borrow_mut().finish_transaction();
+                let res = match tracer_params.0 {
+                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, system_tx),
+                    TracerInput::CallTracer => CallTracerFormatter::format(listener, system_tx)
+                        .and_then(|mut response| response.pop()),
+                    _ => return Err(format_err!("failed to resolve tracer format").into()),
+                }
+                .ok_or_else(|| format_err!("trace result is empty"))?;
+                Ok(res)
             }
             not_supported => {
                 Err(format_err!("trace_transaction does not support {:?}", not_supported).into())
@@ -674,7 +696,7 @@ impl<'backend> AinExecutor<'backend> {
         tx: ExecuteTx,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
-    ) -> Result<(bool, Vec<u8>, u64)> {
+    ) -> Result<TransactionTrace> {
         // Handle state dependent system txs
         match tx {
             ExecuteTx::SignedTx(signed_tx) => self.exec_with_tracer(
@@ -738,19 +760,54 @@ impl<'backend> AinExecutor<'backend> {
                     raw_max_memory_usage,
                 )
             }
-            ExecuteTx::SystemTx(SystemTx::DeployContract(_)) => {
-                // TODO: running trace on DST20 deployment txs will be buggy at the moment as these custom system txs
-                // are never executed on the VM. More thought has to be placed into how we can do accurate traces on
-                // the custom system txs related to DST20 tokens, since these txs are state injections on execution.
-                // For now, empty execution step with a successful execution trace is returned.
-                Ok((true, vec![], 0u64))
-            }
-            ExecuteTx::SystemTx(SystemTx::UpdateContractName(_)) => {
-                // TODO: running trace on DST20 update txs will be buggy at the moment as these custom system txs
-                // are never executed on the VM. More thought has to be placed into how we can do accurate traces on
-                // the custom system txs related to DST20 tokens, since these txs are state injections on execution.
-                // For now, empty execution step with a successful execution trace is returned.
-                Ok((true, vec![], 0u64))
+            ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                address, ..
+            })) => self.get_dst20_system_tx_trace(address, tracer_params),
+            ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
+                address,
+                ..
+            })) => self.get_dst20_system_tx_trace(address, tracer_params),
+        }
+    }
+
+    fn get_dst20_system_tx_trace(
+        &self,
+        address: H160,
+        tracer_params: (TracerInput, TraceType),
+    ) -> Result<TransactionTrace> {
+        // TODO: running trace on DST20 deployment/update txs will be buggy at the moment as these custom
+        // system txs are never executed on the VM. More thought has to be placed into how we can do accurate
+        // traces on the custom system txs related to DST20 tokens, since these txs are state injections on
+        // execution. For now, empty execution step with a successful execution trace is returned.
+        match tracer_params.1 {
+            TraceType::Raw { .. } => Ok(TransactionTrace::Raw {
+                gas: U256::MAX,
+                return_value: vec![],
+                struct_logs: vec![],
+            }),
+            TraceType::CallList => match tracer_params.0 {
+                TracerInput::Blockscout => Ok(TransactionTrace::CallList(vec![])),
+                TracerInput::CallTracer => Ok(TransactionTrace::CallListNested(Call::CallTracer(
+                    CallTracerCall {
+                        from: address,
+                        trace_address: None,
+                        gas: U256::MAX,
+                        gas_used: U256::zero(),
+                        inner: CallTracerInner::Create {
+                            call_type: vec![],
+                            input: vec![],
+                            to: None,
+                            output: None,
+                            error: None,
+                            value: U256::zero(),
+                        },
+                        calls: vec![],
+                    },
+                ))),
+                _ => Err(format_err!("failed to resolve tracer format").into()),
+            },
+            not_supported => {
+                Err(format_err!("trace_transaction does not support {:?}", not_supported).into())
             }
         }
     }

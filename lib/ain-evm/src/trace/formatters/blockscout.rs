@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::{cell::RefCell, rc::Rc};
+
 use crate::trace::{
     listeners::call_list::Listener,
     types::{
@@ -24,7 +26,7 @@ use crate::trace::{
 };
 
 use ethereum_types::{H160, U256};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub struct Formatter;
 
@@ -32,8 +34,8 @@ impl super::ResponseFormatter for Formatter {
     type Listener = Listener;
     type Response = TransactionTrace;
 
-    fn format(listener: Listener) -> Option<TransactionTrace> {
-        if let Some(entry) = listener.entries.last() {
+    fn format(listener: Rc<RefCell<Listener>>, _system_tx: bool) -> Option<TransactionTrace> {
+        if let Some(entry) = listener.borrow().entries.last() {
             return Some(TransactionTrace::CallList(
                 entry
                     .iter()
@@ -45,7 +47,7 @@ impl super::ResponseFormatter for Formatter {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase", tag = "type")]
 pub enum BlockscoutCallInner {
     Call {
@@ -72,7 +74,7 @@ pub enum BlockscoutCallInner {
     },
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockscoutCall {
     pub from: H160,

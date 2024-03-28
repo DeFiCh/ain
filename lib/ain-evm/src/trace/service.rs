@@ -11,7 +11,7 @@ use crate::{
     core::EthCallArgs,
     executor::{AccessListInfo, AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
-    trace::{types::single::TraceType, TracerInput},
+    trace::types::single::{TraceType, TracerInput, TransactionTrace},
     transaction::{system::ExecuteTx, SignedTx},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
@@ -91,7 +91,7 @@ impl TracerService {
         block_number: U256,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
-    ) -> Result<(bool, Vec<u8>, u64)> {
+    ) -> Result<TransactionTrace> {
         // Backend state to start the tx replay should be at the end of the previous block
         let start_block_number = block_number.checked_sub(U256::one());
         let mut backend = self

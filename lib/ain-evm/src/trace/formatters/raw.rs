@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::{cell::RefCell, rc::Rc};
+
 use crate::trace::{listeners::raw::Listener, types::single::TransactionTrace};
+use ethereum_types::U256;
 
 pub struct Formatter;
 
@@ -22,14 +25,19 @@ impl super::ResponseFormatter for Formatter {
     type Listener = Listener;
     type Response = TransactionTrace;
 
-    fn format(listener: Listener) -> Option<TransactionTrace> {
-        if listener.remaining_memory_usage.is_none() {
+    fn format(listener: Rc<RefCell<Listener>>, system_tx: bool) -> Option<TransactionTrace> {
+        let l = listener.borrow();
+        if l.remaining_memory_usage.is_none() {
             None
         } else {
             Some(TransactionTrace::Raw {
-                struct_logs: listener.struct_logs,
-                gas: listener.final_gas.into(),
-                return_value: listener.return_value,
+                struct_logs: l.struct_logs.clone(),
+                gas: if system_tx {
+                    U256::zero()
+                } else {
+                    l.final_gas.into()
+                },
+                return_value: l.return_value.clone(),
             })
         }
     }

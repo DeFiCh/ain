@@ -5,7 +5,7 @@ use ain_evm::{
     evm::EVMServices,
     executor::TxResponse,
     storage::traits::{ReceiptStorage, TransactionStorage},
-    trace::types::single::TraceType,
+    trace::types::single::{TraceType, TransactionTrace},
     transaction::SignedTx,
 };
 use ethereum_types::{H256, U256};
@@ -17,7 +17,6 @@ use crate::{
     errors::{to_custom_err, RPCError},
     // trace::{handle_trace_params, TraceParams, TraceResponse},
     trace::{handle_trace_params, TraceParams},
-    transaction::TraceTransactionResult,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -35,7 +34,7 @@ pub trait MetachainDebugRPC {
         &self,
         tx_hash: H256,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<TraceTransactionResult>;
+    ) -> RpcResult<TransactionTrace>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -75,7 +74,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         &self,
         tx_hash: H256,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<TraceTransactionResult> {
+    ) -> RpcResult<TransactionTrace> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         let params = handle_trace_params(trace_params)?;
@@ -104,7 +103,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
-        let (succeeded, return_data, gas_used) = self
+        Ok(self
             .handler
             .tracer
             .trace_transaction(
@@ -113,14 +112,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 params,
                 raw_max_memory_usage,
             )
-            .map_err(RPCError::EvmError)?;
-
-        Ok(TraceTransactionResult {
-            gas: U256::from(gas_used),
-            failed: !succeeded,
-            return_value: hex::encode(return_data).to_string(),
-            struct_logs: vec![],
-        })
+            .map_err(RPCError::EvmError)?)
     }
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {

@@ -17,11 +17,11 @@
 //! Types for tracing all Ethereum transactions of a block.
 
 use super::serialization::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use ethereum_types::{H160, H256, U256};
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionTrace {
     #[serde(flatten)]
@@ -38,7 +38,7 @@ pub struct TransactionTrace {
     pub transaction_position: u32,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type", content = "action")]
 pub enum TransactionTraceAction {
     #[serde(rename_all = "camelCase")]
@@ -68,14 +68,14 @@ pub enum TransactionTraceAction {
     },
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum TransactionTraceOutput {
     Result(TransactionTraceResult),
     Error(#[serde(serialize_with = "string_serialize")] Vec<u8>),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum TransactionTraceResult {
     #[serde(rename_all = "camelCase")]

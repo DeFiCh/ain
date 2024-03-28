@@ -18,13 +18,6 @@ use evm::{
 use evm_runtime::tracing::{using as runtime_using, EventListener as RuntimeListener};
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum TracerInput {
-    None,
-    Blockscout,
-    CallTracer,
-}
-
 struct ListenerProxy<T>(pub Rc<RefCell<T>>);
 impl<T: GasometerListener> GasometerListener for ListenerProxy<T> {
     fn event(&mut self, event: evm::gasometer::tracing::Event) {
@@ -45,12 +38,12 @@ impl<T: EvmListener> EvmListener for ListenerProxy<T> {
 }
 
 pub struct EvmTracer<T: Listener + 'static> {
-    listener: RefCell<T>,
+    listener: Rc<RefCell<T>>,
     step_event_filter: StepEventFilter,
 }
 
 impl<T: Listener + 'static> EvmTracer<T> {
-    pub fn new(listener: RefCell<T>) -> Self {
+    pub fn new(listener: Rc<RefCell<T>>) -> Self {
         let step_event_filter = listener.borrow_mut().step_event_filter();
 
         Self {
@@ -63,7 +56,7 @@ impl<T: Listener + 'static> EvmTracer<T> {
     ///
     /// Consume the tracer and return it alongside the return value of
     /// the closure.
-    pub fn trace<R, F: FnOnce() -> R>(self, f: F) -> R {
+    pub fn trace<R, F: FnOnce() -> R>(self, f: F) {
         let wrapped = Rc::new(RefCell::new(self));
 
         let mut gasometer = ListenerProxy(Rc::clone(&wrapped));
@@ -76,7 +69,7 @@ impl<T: Listener + 'static> EvmTracer<T> {
         let f = || runtime_using(&mut runtime, f);
         let f = || gasometer_using(&mut gasometer, f);
         let f = || evm_using(&mut evm, f);
-        f()
+        f();
     }
 }
 

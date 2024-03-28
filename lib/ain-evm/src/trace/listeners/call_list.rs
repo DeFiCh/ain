@@ -357,7 +357,7 @@ impl Listener {
             } => {
                 self.record_transaction_event_only = false;
 
-                let call_type = match (self.call_type, is_static) {
+                let call_type = match (self.call_type.clone(), is_static) {
                     (None, true) => CallType::StaticCall,
                     (None, false) => CallType::Call,
                     (Some(call_type), _) => call_type,

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::{cell::RefCell, rc::Rc};
+
 use super::blockscout::BlockscoutCallInner as CallInner;
 use crate::trace::{
     listeners::call_list::Listener,
@@ -26,7 +28,7 @@ use crate::trace::{
     },
 };
 
-use ethereum_types::H256;
+use ethereum_types::{H256, U256};
 
 pub struct Formatter;
 
@@ -34,12 +36,13 @@ impl super::ResponseFormatter for Formatter {
     type Listener = Listener;
     type Response = Vec<TransactionTrace>;
 
-    fn format(mut listener: Listener) -> Option<Vec<TransactionTrace>> {
+    fn format(listener: Rc<RefCell<Listener>>, system_tx: bool) -> Option<Vec<TransactionTrace>> {
         // Remove empty BTreeMaps pushed to `entries`.
         // I.e. InvalidNonce or other pallet_evm::runner exits
-        listener.entries.retain(|x| !x.is_empty());
+        let mut l = listener.borrow_mut();
+        l.entries.retain(|x| !x.is_empty());
         let mut traces = Vec::new();
-        for (eth_tx_index, entry) in listener.entries.iter().enumerate() {
+        for (eth_tx_index, entry) in l.entries.iter().enumerate() {
             let mut tx_traces: Vec<_> = entry
                 .iter()
                 .map(|(_, trace)| match trace.inner.clone() {
@@ -64,7 +67,11 @@ impl super::ResponseFormatter for Formatter {
                         output: match res {
                             CallResult::Output(output) => {
                                 TransactionTraceOutput::Result(TransactionTraceResult::Call {
-                                    gas_used: trace.gas_used,
+                                    gas_used: if system_tx {
+                                        U256::zero()
+                                    } else {
+                                        trace.gas_used
+                                    },
                                     output,
                                 })
                             }
@@ -95,7 +102,11 @@ impl super::ResponseFormatter for Formatter {
                                     created_contract_code,
                                 } => {
                                     TransactionTraceOutput::Result(TransactionTraceResult::Create {
-                                        gas_used: trace.gas_used,
+                                        gas_used: if system_tx {
+                                            U256::zero()
+                                        } else {
+                                            trace.gas_used
+                                        },
                                         code: created_contract_code,
                                         address: created_contract_address_hash,
                                     })

@@ -1,4 +1,4 @@
-use ain_evm::trace::{types::single::TraceType, TracerInput};
+use ain_evm::trace::types::single::{TraceType, TracerInput};
 use jsonrpsee::core::RpcResult;
 use serde::{Deserialize, Serialize};
 

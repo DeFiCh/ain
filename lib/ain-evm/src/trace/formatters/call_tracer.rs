@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::cmp::Ordering;
+use std::{cell::RefCell, cmp::Ordering, rc::Rc};
 
 use super::blockscout::BlockscoutCallInner;
 use crate::trace::{
@@ -27,7 +27,7 @@ use crate::trace::{
 };
 
 use ethereum_types::{H160, U256};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub struct Formatter;
 
@@ -35,12 +35,13 @@ impl super::ResponseFormatter for Formatter {
     type Listener = Listener;
     type Response = Vec<TransactionTrace>;
 
-    fn format(mut listener: Listener) -> Option<Vec<TransactionTrace>> {
+    fn format(listener: Rc<RefCell<Listener>>, system_tx: bool) -> Option<Vec<TransactionTrace>> {
         // Remove empty BTreeMaps pushed to `entries`.
         // I.e. InvalidNonce or other pallet_evm::runner exits
-        listener.entries.retain(|x| !x.is_empty());
+        let mut l = listener.borrow_mut();
+        l.entries.retain(|x| !x.is_empty());
         let mut traces = Vec::new();
-        for entry in listener.entries.iter() {
+        for entry in l.entries.iter() {
             let mut result: Vec<Call> = entry
                 .iter()
                 .map(|(_, it)| {
@@ -48,7 +49,7 @@ impl super::ResponseFormatter for Formatter {
                     let trace_address = it.trace_address.clone();
                     let value = it.value;
                     let gas = it.gas;
-                    let gas_used = it.gas_used;
+                    let gas_used = if system_tx { U256::zero() } else { it.gas_used };
                     let inner = it.inner.clone();
                     Call::CallTracer(CallTracerCall {
                         from,
@@ -248,7 +249,7 @@ impl super::ResponseFormatter for Formatter {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CallTracerCall {
     pub from: H160,
@@ -265,7 +266,7 @@ pub struct CallTracerCall {
     pub calls: Vec<Call>,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CallTracerInner {
     Call {

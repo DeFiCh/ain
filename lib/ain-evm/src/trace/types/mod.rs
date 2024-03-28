@@ -24,12 +24,12 @@ pub mod block;
 pub mod serialization;
 pub mod single;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serialization::*;
 
 pub const MANUAL_BLOCK_INITIALIZATION_RUNTIME_VERSION: u32 = 159;
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CallResult {
     Output(#[serde(serialize_with = "bytes_0x_serialize")] Vec<u8>),
@@ -37,7 +37,7 @@ pub enum CallResult {
     Error(#[serde(serialize_with = "string_serialize")] Vec<u8>),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", untagged)]
 pub enum CreateResult {
     Error {
@@ -52,7 +52,7 @@ pub enum CreateResult {
     },
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CallType {
     Call,
@@ -61,7 +61,7 @@ pub enum CallType {
     StaticCall,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug, Serialize)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CreateType {
     Create,
