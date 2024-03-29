@@ -1,4 +1,4 @@
-use std::{sync::Arc, num::NonZeroUsize};
+use std::{num::NonZeroUsize, sync::Arc};
 
 use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
