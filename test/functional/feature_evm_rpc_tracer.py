@@ -76,6 +76,14 @@ class EvmTracerTest(DefiTestFramework):
             metavar="FILE",
             help="DST20 transferdomain out data file",
         )
+        parser.add_argument(
+            "--contract-creation-tx-file",
+            dest="contract_creation_tx_file",
+            default="data/trace_contract_creation_tx.json",
+            action="store",
+            metavar="FILE",
+            help="Contract creation tx data file",
+        )
 
     def setup(self):
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
@@ -128,13 +136,14 @@ class EvmTracerTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         self.start_height = self.nodes[0].getblockcount()
-        self.load_td_data()
+        self.load_test_data()
 
-    def load_td_data(self):
+    def load_test_data(self):
         native_td_in_f = os.path.join(TESTSDIR, self.options.native_td_in_file)
         native_td_out_f = os.path.join(TESTSDIR, self.options.native_td_out_file)
         dst20_td_in_f = os.path.join(TESTSDIR, self.options.dst20_td_in_file)
         dst20_td_out_f = os.path.join(TESTSDIR, self.options.dst20_td_out_file)
+        contract_creation_tx_f = os.path.join(TESTSDIR, self.options.contract_creation_tx_file)
         with open(native_td_in_f, "r", encoding="utf8") as f:
             self.native_td_in_data = json.load(f)
         with open(native_td_out_f, "r", encoding="utf8") as f:
@@ -143,6 +152,8 @@ class EvmTracerTest(DefiTestFramework):
             self.dst20_td_in_data = json.load(f)
         with open(dst20_td_out_f, "r", encoding="utf8") as f:
             self.dst20_td_out_data = json.load(f)
+        with open(contract_creation_tx_f, "r", encoding="utf8") as f:
+            self.contract_creation_tx_data = json.load(f)
 
     def test_tracer_on_transfer_tx(self):
         self.rollback_to(self.start_height)
@@ -514,6 +525,9 @@ class EvmTracerTest(DefiTestFramework):
             "contractAddress"
         ]
         contract = self.nodes[0].w3.eth.contract(address=contract_address, abi=abi)
+
+        # Test tracer for contract creation tx
+        assert_equal(self.nodes[0].debug_traceTransaction(hash.hex()), self.contract_creation_tx_data)
 
         # Set state to true
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
