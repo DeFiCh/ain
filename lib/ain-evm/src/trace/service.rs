@@ -118,7 +118,6 @@ impl TracerService {
             let tx_data = &txs_data[idx];
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             if tx.hash() == replay_tx.hash() {
-                // TODO: Pass tx type to tracer and add execute system tx with tracer pipeline
                 return AinExecutor::new(&mut backend).execute_tx_with_tracer(
                     exec_tx,
                     tracer_params,
