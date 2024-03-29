@@ -143,7 +143,9 @@ class EvmTracerTest(DefiTestFramework):
         native_td_out_f = os.path.join(TESTSDIR, self.options.native_td_out_file)
         dst20_td_in_f = os.path.join(TESTSDIR, self.options.dst20_td_in_file)
         dst20_td_out_f = os.path.join(TESTSDIR, self.options.dst20_td_out_file)
-        contract_creation_tx_f = os.path.join(TESTSDIR, self.options.contract_creation_tx_file)
+        contract_creation_tx_f = os.path.join(
+            TESTSDIR, self.options.contract_creation_tx_file
+        )
         with open(native_td_in_f, "r", encoding="utf8") as f:
             self.native_td_in_data = json.load(f)
         with open(native_td_out_f, "r", encoding="utf8") as f:
@@ -527,7 +529,10 @@ class EvmTracerTest(DefiTestFramework):
         contract = self.nodes[0].w3.eth.contract(address=contract_address, abi=abi)
 
         # Test tracer for contract creation tx
-        assert_equal(self.nodes[0].debug_traceTransaction(hash.hex()), self.contract_creation_tx_data)
+        assert_equal(
+            self.nodes[0].debug_traceTransaction(hash.hex()),
+            self.contract_creation_tx_data,
+        )
 
         # Set state to true
         nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
