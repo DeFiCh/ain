@@ -16,14 +16,6 @@ pub struct TraceParams {
     pub timeout: Option<String>,
 }
 
-/// DebugRuntimeApi V2 result. Trace response is stored in client and runtime api call response is
-/// empty.
-// #[derive(Debug)]
-// pub enum TraceResponse {
-//     Single,
-//     Block,
-// }
-
 pub fn handle_trace_params(params: Option<TraceParams>) -> RpcResult<(TracerInput, TraceType)> {
     // Set trace input and type
     match params {
