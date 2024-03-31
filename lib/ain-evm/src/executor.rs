@@ -270,6 +270,7 @@ impl<'backend> AinExecutor<'backend> {
         &mut self,
         signed_tx: &SignedTx,
         gas_limit: U256,
+        base_fee: U256,
         system_tx: bool,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
@@ -287,16 +288,28 @@ impl<'backend> AinExecutor<'backend> {
             gas_limit: u64::try_from(gas_limit).unwrap_or(u64::MAX), // Sets to u64 if overflows
             access_list: signed_tx.access_list(),
         };
+
+        let prepay_fee = if system_tx {
+            U256::zero()
+        } else {
+            calculate_current_prepay_gas_fee(signed_tx, base_fee)?
+        };
+
+        if !system_tx {
+            self.backend
+                .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
+        }
+
+        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
+        let state = MemoryStackState::new(metadata.clone(), self.backend);
+        let precompiles = MetachainPrecompiles::default();
+        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
             .into_iter()
             .map(|x| (x.address, x.storage_keys))
             .collect::<Vec<_>>();
 
-        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
-        let state = MemoryStackState::new(metadata.clone(), self.backend);
-        let precompiles = MetachainPrecompiles::default();
-        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let f = move || {
             let (exit_reason, _) = match ctx.to {
                 Some(address) => executor.transact_call(
@@ -318,10 +331,13 @@ impl<'backend> AinExecutor<'backend> {
             if !exit_reason.is_succeed() {
                 debug!("failed VM execution {:?}", exit_reason);
             }
-            (!exit_reason.is_succeed(), executor.used_gas())
+            let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
+            let (values, logs) = executor.into_state().deconstruct();
+            let logs = logs.into_iter().collect::<Vec<_>>();
+            (!exit_reason.is_succeed(), used_gas, values, logs)
         };
 
-        match tracer_params.1 {
+        let (res, used_gas, values, logs) = match tracer_params.1 {
             TraceType::Raw {
                 disable_storage,
                 disable_memory,
@@ -334,32 +350,55 @@ impl<'backend> AinExecutor<'backend> {
                     raw_max_memory_usage,
                 )));
                 let tracer = EvmTracer::new(Rc::clone(&listener));
-                let (exec_flag, used_gas) = tracer.trace(f);
+                let (exec_flag, used_gas, values, logs) = tracer.trace(f);
                 listener
                     .borrow_mut()
                     .finish_transaction(exec_flag, used_gas);
-                let res = RawFormatter::format(listener, system_tx)
-                    .ok_or_else(|| format_err!("trace result is empty"))?;
-                Ok(res)
+                let res = RawFormatter::format(listener, system_tx);
+                (res, used_gas, values, logs)
             }
             TraceType::CallList => {
                 let listener = Rc::new(RefCell::new(listeners::CallList::default()));
                 let tracer = EvmTracer::new(Rc::clone(&listener));
-                tracer.trace(f);
+                let (_, used_gas, values, logs) = tracer.trace(f);
                 listener.borrow_mut().finish_transaction();
                 let res = match tracer_params.0 {
                     TracerInput::Blockscout => BlockscoutFormatter::format(listener, system_tx),
                     TracerInput::CallTracer => CallTracerFormatter::format(listener, system_tx)
                         .and_then(|mut response| response.pop()),
                     _ => return Err(format_err!("failed to resolve tracer format").into()),
-                }
-                .ok_or_else(|| format_err!("trace result is empty"))?;
-                Ok(res)
+                };
+                (res, used_gas, values, logs)
             }
             not_supported => {
-                Err(format_err!("trace_transaction does not support {:?}", not_supported).into())
+                return Err(
+                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
+                );
             }
+        };
+
+        // Update backend states
+        let total_gas_used = self.backend.vicinity.total_gas_used;
+        let block_gas_limit = self.backend.vicinity.block_gas_limit;
+        if !system_tx
+            && total_gas_used
+                .checked_add(U256::from(used_gas))
+                .ok_or_else(|| format_err!("total_gas_used overflow"))?
+                > block_gas_limit
+        {
+            return Err(format_err!(
+                "[exec] block size limit exceeded, tx cannot make it into the block"
+            )
+            .into());
         }
+
+        ApplyBackend::apply(self.backend, values, logs.clone(), true);
+
+        if !system_tx {
+            self.backend
+                .refund_unused_gas_fee(signed_tx, U256::from(used_gas), base_fee)?;
+        }
+        Ok(res.ok_or_else(|| format_err!("trace result is empty"))?)
     }
 
     /// Execute tx with storage access listener
@@ -700,12 +739,14 @@ impl<'backend> AinExecutor<'backend> {
         tx: ExecuteTx,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
+        base_fee: U256,
     ) -> Result<TransactionTrace> {
         // Handle state dependent system txs
         match tx {
             ExecuteTx::SignedTx(signed_tx) => self.exec_with_tracer(
                 &signed_tx,
                 signed_tx.gas_limit(),
+                base_fee,
                 false,
                 tracer_params,
                 raw_max_memory_usage,
@@ -736,6 +777,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.exec_with_tracer(
                     &signed_tx,
                     U256::MAX,
+                    base_fee,
                     true,
                     tracer_params,
                     raw_max_memory_usage,
@@ -759,6 +801,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.exec_with_tracer(
                     &signed_tx,
                     U256::MAX,
+                    base_fee,
                     true,
                     tracer_params,
                     raw_max_memory_usage,

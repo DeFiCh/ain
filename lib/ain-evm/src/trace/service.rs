@@ -122,6 +122,7 @@ impl TracerService {
                     exec_tx,
                     tracer_params,
                     raw_max_memory_usage,
+                    base_fee,
                 );
             }
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
