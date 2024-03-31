@@ -27,6 +27,7 @@ pub struct TracerService {
     pub tracer_cache: Arc<Mutex<TracerCache>>,
 }
 
+/// Tracer service methods
 impl TracerService {
     pub fn new(trie_store: Arc<TrieDBStore>, storage: Arc<Storage>) -> Self {
         Self {
@@ -34,55 +35,6 @@ impl TracerService {
             storage,
             tracer_cache: Arc::new(Mutex::new(TracerCache::default())),
         }
-    }
-
-    pub fn get_backend_from_block(
-        &self,
-        block_number: Option<U256>,
-        caller: Option<H160>,
-        gas_price: Option<U256>,
-        overlay: Option<Overlay>,
-    ) -> Result<EVMBackend> {
-        let (state_root, vicinity) = if let Some(block_number) = block_number {
-            let block_header = self
-                .storage
-                .get_block_by_number(&block_number)?
-                .map(|block| block.header)
-                .ok_or(format_err!("Block number {:x?} not found", block_number))?;
-            let state_root = block_header.state_root;
-            debug!(
-                "Calling EVM at block number : {:#x}, state_root : {:#x}",
-                block_number, state_root
-            );
-
-            let mut vicinity = Vicinity::from(block_header);
-            if let Some(gas_price) = gas_price {
-                vicinity.gas_price = gas_price;
-            }
-            if let Some(caller) = caller {
-                vicinity.origin = caller;
-            }
-            debug!("Vicinity: {:?}", vicinity);
-            (state_root, vicinity)
-        } else {
-            // Handle edge case of no genesis block
-            let block_gas_limit =
-                U256::from(ain_cpp_imports::get_attribute_values(None).block_gas_limit);
-            let vicinity: Vicinity = Vicinity {
-                block_number: U256::zero(),
-                block_gas_limit,
-                block_base_fee_per_gas: INITIAL_BASE_FEE,
-                ..Vicinity::default()
-            };
-            (GENESIS_STATE_ROOT, vicinity)
-        };
-        EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            overlay,
-        )
     }
 
     pub fn trace_transaction(
@@ -152,5 +104,57 @@ impl TracerService {
             gas_limit,
             access_list,
         })
+    }
+}
+
+/// Internal tracer service state methods
+impl TracerService {
+    fn get_backend_from_block(
+        &self,
+        block_number: Option<U256>,
+        caller: Option<H160>,
+        gas_price: Option<U256>,
+        overlay: Option<Overlay>,
+    ) -> Result<EVMBackend> {
+        let (state_root, vicinity) = if let Some(block_number) = block_number {
+            let block_header = self
+                .storage
+                .get_block_by_number(&block_number)?
+                .map(|block| block.header)
+                .ok_or(format_err!("Block number {:x?} not found", block_number))?;
+            let state_root = block_header.state_root;
+            debug!(
+                "Calling EVM at block number : {:#x}, state_root : {:#x}",
+                block_number, state_root
+            );
+
+            let mut vicinity = Vicinity::from(block_header);
+            if let Some(gas_price) = gas_price {
+                vicinity.gas_price = gas_price;
+            }
+            if let Some(caller) = caller {
+                vicinity.origin = caller;
+            }
+            debug!("Vicinity: {:?}", vicinity);
+            (state_root, vicinity)
+        } else {
+            // Handle edge case of no genesis block
+            let block_gas_limit =
+                U256::from(ain_cpp_imports::get_attribute_values(None).block_gas_limit);
+            let vicinity: Vicinity = Vicinity {
+                block_number: U256::zero(),
+                block_gas_limit,
+                block_base_fee_per_gas: INITIAL_BASE_FEE,
+                ..Vicinity::default()
+            };
+            (GENESIS_STATE_ROOT, vicinity)
+        };
+        EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            overlay,
+        )
     }
 }
