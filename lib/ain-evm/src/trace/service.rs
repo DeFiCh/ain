@@ -80,6 +80,7 @@ impl TracerService {
                     exec_tx,
                     tracer_params,
                     raw_max_memory_usage,
+                    base_fee,
                 )?;
                 // Add tracer to cache
                 self.cache_tx_trace(tx.hash(), res.clone());
