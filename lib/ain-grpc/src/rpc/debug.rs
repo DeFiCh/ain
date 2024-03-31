@@ -15,7 +15,6 @@ use log::debug;
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
-    // trace::{handle_trace_params, TraceParams, TraceResponse},
     trace::{handle_trace_params, TraceParams},
 };
 
