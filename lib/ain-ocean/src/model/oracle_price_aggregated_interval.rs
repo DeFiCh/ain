@@ -17,12 +17,6 @@ pub enum OracleIntervalSeconds {
     OneDay = ONE_DAY,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct SetOracleInterval {
-    pub oracle_id: Txid,
-    pub timestamp: i64,
-    pub token_prices: CompactVec<TokenPrice>,
-}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedInterval {

@@ -15,7 +15,6 @@ use crate::{
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
         OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
-        SetOracleInterval,
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -32,6 +31,7 @@ impl Index for AppointOracle {
             price_feeds: vec![],
             block: ctx.block.clone(),
         };
+        println!("oracle: {:?}", oracle);
         services.oracle.by_id.put(&oracle.id, &oracle)?;
         let oracle_history = OracleHistory {
             id: (ctx.tx.txid, ctx.block.height, oracle_id),
@@ -46,14 +46,17 @@ impl Index for AppointOracle {
             price_feeds: vec![],
             block: ctx.block.clone(),
         };
-
+        println!("oracle_history: {:?}", oracle_history);
         services
             .oracle_history
             .by_id
             .put(&oracle_history.id, &oracle_history)?;
-
+        services
+            .oracle_history
+            .by_key
+            .put(&oracle_history.oracle_id, &oracle_history.id)?;
         let prices_feeds = self.price_feeds.as_ref();
-
+        println!("prices_feeds: {:?}", prices_feeds);
         for token_currency in prices_feeds {
             let oracle_token_currency = OracleTokenCurrency {
                 id: (
@@ -72,6 +75,11 @@ impl Index for AppointOracle {
                 block: ctx.block.clone(),
             };
 
+            println!("token_currency: {:?}", oracle_token_currency);
+            services
+                .oracle_token_currency
+                .by_key
+                .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
             services
                 .oracle_token_currency
                 .by_id
