@@ -316,8 +316,7 @@ uint32_t getEthMaxResponseByteSize() {
 }
 
 uint32_t getEthTracingMaxMemoryUsageBytes() {
-    const auto max_response_size_mb =
-        gArgs.GetArg("-ethtracingmaxmemoryusage", DEFAULT_TRACING_RAW_MAX_MEMORY_USAGE_BYTES);
+    return gArgs.GetArg("-ethtracingmaxmemoryusage", DEFAULT_TRACING_RAW_MAX_MEMORY_USAGE_BYTES);
 }
 
 int64_t getSuggestedPriorityFeePercentile() {
