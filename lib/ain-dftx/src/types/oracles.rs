@@ -33,7 +33,6 @@ pub struct UpdateOracle {
     pub price_feeds: CompactVec<CurrencyPair>,
 }
 
-
 #[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
 pub struct SetOracleInterval {
     pub oracle_id: Txid,
