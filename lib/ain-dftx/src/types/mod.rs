@@ -139,7 +139,7 @@ impl DfTx {
             DfTx::UpdateVault(_) => b'v',
             DfTx::UpdateLoanToken(_) => b'x',
             DfTx::SetOracleData(_) => b'y',
-            DfTx::SetOracleInterval(_)=>b'Y',
+            DfTx::SetOracleInterval(_) => b'Y',
             DfTx::CreateCfp(_) => b'z',
         }
     }
