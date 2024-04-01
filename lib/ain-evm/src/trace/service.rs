@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::BlockAny;
@@ -13,7 +13,15 @@ use crate::{
     core::EthCallArgs,
     executor::{AccessListInfo, AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
-    trace::types::single::{TraceType, TracerInput, TransactionTrace},
+    trace::{
+        formatters::{
+            Blockscout as BlockscoutFormatter, CallTracer as CallTracerFormatter,
+            Raw as RawFormatter, ResponseFormatter,
+        },
+        listeners,
+        types::single::{TraceType, TracerInput, TransactionTrace},
+        EvmTracer,
+    },
     transaction::{system::ExecuteTx, SignedTx},
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
@@ -99,6 +107,80 @@ impl TracerService {
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
         }
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
+    }
+
+    pub fn trace_call(
+        &self,
+        arguments: EthCallArgs,
+        overlay: Option<Overlay>,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<TransactionTrace> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            gas_price,
+            access_list,
+            block_number,
+        } = arguments;
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), overlay)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        let f = move || {
+            AinExecutor::new(&mut backend).call(ExecutorContext {
+                caller,
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list,
+            })
+        };
+
+        // Execute read-only call with tracer
+        let res = match tracer_params.1 {
+            TraceType::Raw {
+                disable_storage,
+                disable_memory,
+                disable_stack,
+            } => {
+                let listener = Rc::new(RefCell::new(listeners::Raw::new(
+                    disable_storage,
+                    disable_memory,
+                    disable_stack,
+                    raw_max_memory_usage,
+                )));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                let tx_res = tracer.trace(f);
+                listener
+                    .borrow_mut()
+                    .finish_transaction(!tx_res.exit_reason.is_succeed(), tx_res.used_gas);
+                RawFormatter::format(listener, false)
+                    .ok_or_else(|| format_err!("trace result is empty"))?
+            }
+            TraceType::CallList => {
+                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                tracer.trace(f);
+                listener.borrow_mut().finish_transaction();
+                match tracer_params.0 {
+                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, false),
+                    TracerInput::CallTracer => CallTracerFormatter::format(listener, false)
+                        .and_then(|mut response| response.pop()),
+                    _ => return Err(format_err!("failed to resolve tracer format").into()),
+                }
+                .ok_or_else(|| format_err!("trace result is empty"))?
+            }
+            not_supported => {
+                return Err(
+                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
+                );
+            }
+        };
+        Ok(res)
     }
 
     pub fn trace_block(
