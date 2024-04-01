@@ -9,8 +9,13 @@ pub mod service;
 pub mod tracing;
 pub mod types;
 
+use formatters::call_tracer::{CallTracerCall, CallTracerInner};
 use tracing::{Event, EvmEvent, GasometerEvent, Listener, RuntimeEvent, StepEventFilter};
+use types::single::{Call, TraceType, TracerInput, TransactionTrace};
 
+use crate::Result;
+use anyhow::format_err;
+use ethereum_types::{H160, U256};
 use evm::{
     gasometer::tracing::{using as gasometer_using, EventListener as GasometerListener},
     tracing::{using as evm_using, EventListener as EvmListener},
@@ -94,5 +99,47 @@ impl<T: Listener + 'static> RuntimeListener for EvmTracer<T> {
     fn event(&mut self, event: evm_runtime::tracing::Event) {
         let event = RuntimeEvent::from_evm_event(event, self.step_event_filter);
         self.listener.borrow_mut().event(Event::Runtime(event));
+    }
+}
+
+pub fn get_dst20_system_tx_trace(
+    address: H160,
+    tracer_params: (TracerInput, TraceType),
+) -> Result<TransactionTrace> {
+    // TODO: running trace on DST20 deployment/update txs will be buggy at the moment as these custom
+    // system txs are never executed on the VM. More thought has to be placed into how we can do accurate
+    // traces on the custom system txs related to DST20 tokens, since these txs are state injections on
+    // execution. For now, empty execution step with a successful execution trace is returned.
+    match tracer_params.1 {
+        TraceType::Raw { .. } => Ok(TransactionTrace::Raw {
+            gas: U256::zero(),
+            failed: false,
+            return_value: vec![],
+            struct_logs: vec![],
+        }),
+        TraceType::CallList => match tracer_params.0 {
+            TracerInput::Blockscout => Ok(TransactionTrace::CallList(vec![])),
+            TracerInput::CallTracer => Ok(TransactionTrace::CallListNested(Call::CallTracer(
+                CallTracerCall {
+                    from: address,
+                    trace_address: None,
+                    gas: U256::MAX,
+                    gas_used: U256::zero(),
+                    inner: CallTracerInner::Create {
+                        call_type: vec![],
+                        input: vec![],
+                        to: None,
+                        output: None,
+                        error: None,
+                        value: U256::zero(),
+                    },
+                    calls: vec![],
+                },
+            ))),
+            _ => Err(format_err!("failed to resolve tracer format").into()),
+        },
+        not_supported => {
+            Err(format_err!("trace_transaction does not support {:?}", not_supported).into())
+        }
     }
 }
