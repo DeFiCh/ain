@@ -177,11 +177,11 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
-        let block = self.get_block(Some(block_number))?;
+        let trace_block = self.get_block(Some(block_number))?;
         Ok(self
             .handler
             .tracer
-            .trace_block(block, params, raw_max_memory_usage)
+            .trace_block(trace_block, params, raw_max_memory_usage)
             .map_err(RPCError::EvmError)?)
     }
 
@@ -203,7 +203,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
-        let block = self
+        let trace_block = self
             .handler
             .storage
             .get_block_by_hash(&hash)
@@ -213,7 +213,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         Ok(self
             .handler
             .tracer
-            .trace_block(block, params, raw_max_memory_usage)
+            .trace_block(trace_block, params, raw_max_memory_usage)
             .map_err(RPCError::EvmError)?)
     }
 

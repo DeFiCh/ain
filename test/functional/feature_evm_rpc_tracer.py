@@ -173,19 +173,25 @@ class EvmTracerTest(DefiTestFramework):
                 }
             )
         self.nodes[0].generate(1)
-        block_info = self.nodes[0].eth_getBlockByNumber("latest", True) 
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True)
         block_txs = block_info["transactions"]
 
         # Test tracer for every tx
         block_trace = []
         for tx in block_txs:
-            res = self.nodes[0].debug_traceTransaction(tx["hash"])
             assert_equal(
-                res,
+                self.nodes[0].debug_traceTransaction(tx["hash"]),
                 {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
             )
+            # Accumulate tx traces
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
             block_trace.append(res)
-        assert_equal(block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"]))
+
+        # Test block tracer
+        assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
+        assert_equal(
+            block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"])
+        )
 
     def test_tracer_on_transfer_tx_with_transferdomain_txs(self):
         self.rollback_to(self.start_height)
@@ -242,14 +248,15 @@ class EvmTracerTest(DefiTestFramework):
                 }
             )
         self.nodes[0].generate(1)
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True)
+        block_txs = block_info["transactions"]
+
         evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
         evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
 
         # Test tracer for every tx
-        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
-            "transactions"
-        ]
-        for tx in evm_block_txs:
+        block_trace = []
+        for tx in block_txs:
             if tx["hash"] == evm_in_hash:
                 # Test trace for transferdomain evm-in tx
                 assert_equal(
@@ -272,6 +279,15 @@ class EvmTracerTest(DefiTestFramework):
                         "structLogs": [],
                     },
                 )
+            # Accumulate tx traces
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
+            block_trace.append(res)
+
+        # Test block tracer
+        assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
+        assert_equal(
+            block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"])
+        )
 
     def test_tracer_on_transfer_tx_with_dst20_transferdomain_txs(self):
         self.rollback_to(self.start_height)
@@ -356,14 +372,15 @@ class EvmTracerTest(DefiTestFramework):
                 }
             )
         self.nodes[0].generate(1)
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True)
+        block_txs = block_info["transactions"]
+
         evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
         evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
 
         # Test tracer for every tx
-        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
-            "transactions"
-        ]
-        for tx in evm_block_txs:
+        block_trace = []
+        for tx in block_txs:
             if tx["hash"] == evm_in_hash:
                 # Test trace for transferdomain evm-in tx
                 assert_equal(
@@ -386,6 +403,15 @@ class EvmTracerTest(DefiTestFramework):
                         "structLogs": [],
                     },
                 )
+            # Accumulate tx traces
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
+            block_trace.append(res)
+
+        # Test block tracer
+        assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
+        assert_equal(
+            block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"])
+        )
 
     def test_tracer_on_transfer_tx_with_deploy_dst20_txs(self):
         self.rollback_to(self.start_height)
@@ -420,9 +446,11 @@ class EvmTracerTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True)
+        block_txs = block_info["transactions"]
 
         # Test tracer for every DST20 creation tx
+        block_trace = []
         for tx in block_txs[:2]:
             assert_equal(
                 self.nodes[0].debug_traceTransaction(tx["hash"]),
@@ -433,6 +461,9 @@ class EvmTracerTest(DefiTestFramework):
                     "structLogs": [],
                 },
             )
+            # Accumulate tx traces
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
+            block_trace.append(res)
 
         # Test tracer for every transfer tx
         for tx in block_txs[2:]:
@@ -445,6 +476,15 @@ class EvmTracerTest(DefiTestFramework):
                     "structLogs": [],
                 },
             )
+            # Accumulate tx traces
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
+            block_trace.append(res)
+
+        # Test block tracer
+        assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
+        assert_equal(
+            block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"])
+        )
 
     def test_tracer_on_transfer_tx_with_deploy_and_update_dst20_txs(self):
         self.rollback_to(self.start_height)
@@ -459,7 +499,10 @@ class EvmTracerTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True)
+        block_txs = block_info["transactions"]
+
+        # Test DST20 token creation tx
         assert_equal(
             self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]),
             {
@@ -486,9 +529,26 @@ class EvmTracerTest(DefiTestFramework):
                 }
             )
         self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True)
+        block_txs = block_info["transactions"]
+        block_trace = []
+
+        # Test DST20 token update tx
+        assert_equal(
+            self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]),
+            {
+                "gas": "0x0",
+                "failed": False,
+                "returnValue": "",
+                "structLogs": [],
+            },
+        )
+        # Accumulate tx traces
+        res = self.nodes[0].debug_traceTransaction(block_txs[0]["hash"])
+        block_trace.append(res)
+
         # Test tracer for every tx
-        for tx in block_txs[2:]:
+        for tx in block_txs[1:]:
             assert_equal(
                 self.nodes[0].debug_traceTransaction(tx["hash"]),
                 {
@@ -498,6 +558,17 @@ class EvmTracerTest(DefiTestFramework):
                     "structLogs": [],
                 },
             )
+            # Accumulate tx traces
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
+            block_trace.append(res)
+
+        # Test block tracer
+        assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
+        assert_equal(
+            block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"])
+        )
+
+        # Check DST20 update tokens
         token_info = self.nodes[0].listtokens()["1"]
         assert_equal(token_info["symbol"], "goldy")
         assert_equal(token_info["name"], "GOLD token")

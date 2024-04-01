@@ -103,33 +103,31 @@ impl TracerService {
 
     pub fn trace_block(
         &self,
-        block: BlockAny,
+        trace_block: BlockAny,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<Vec<TransactionTrace>> {
-        let block_hash = block.header.hash();
+        let block_hash = trace_block.header.hash();
         if let Some(res) = self.get_block_trace(block_hash) {
+            debug!("XXX used cached block trace");
             return Ok(res);
         }
 
-        let base_fee = block.header.base_fee;
-        let state_root = block.header.state_root;
-        let vicinity = Vicinity::from(block.header.clone());
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            None,
-        )?;
-        backend.update_vicinity_from_header(block.header.clone());
-        let replay_txs: Vec<_> = block
+        // Backend state to start the tx replay should be at the end of the previous block
+        let start_block_number = trace_block.header.number.checked_sub(U256::one());
+        let mut backend = self
+            .get_backend_from_block(start_block_number, None, None, None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        backend.update_vicinity_from_header(trace_block.header.clone());
+        let base_fee = trace_block.header.base_fee;
+        let replay_txs: Vec<_> = trace_block
             .transactions
             .into_iter()
             .flat_map(SignedTx::try_from)
             .collect();
-        let txs_data =
-            ain_cpp_imports::get_evm_system_txs_from_block(block.header.hash().to_fixed_bytes());
+        let txs_data = ain_cpp_imports::get_evm_system_txs_from_block(
+            trace_block.header.hash().to_fixed_bytes(),
+        );
         if replay_txs.len() != txs_data.len() {
             return Err(format_err!("Cannot replay tx, DVM and EVM block state mismatch.").into());
         }
