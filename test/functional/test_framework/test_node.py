@@ -279,6 +279,7 @@ class TestNode:
         # net
         "net_version",
         # debug
+        "debug_traceCall",
         "debug_traceTransaction",
         "debug_traceBlockByNumber",
         "debug_traceBlockByHash",
