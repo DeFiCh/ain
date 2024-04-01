@@ -124,12 +124,17 @@ impl TracerService {
         for (idx, replay_tx) in replay_txs.iter().enumerate() {
             let tx_data = &txs_data[idx];
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
-            let trace = AinExecutor::new(&mut backend).execute_tx_with_tracer(
-                exec_tx,
-                tracer_params,
-                raw_max_memory_usage,
-                base_fee,
-            )?;
+            let trace = if let Some(trace) = self.get_tx_trace(replay_tx.hash()) {
+                AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
+                trace
+            } else {
+                AinExecutor::new(&mut backend).execute_tx_with_tracer(
+                    exec_tx,
+                    tracer_params,
+                    raw_max_memory_usage,
+                    base_fee,
+                )?
+            };
             res.push(trace);
         }
         Ok(res)
