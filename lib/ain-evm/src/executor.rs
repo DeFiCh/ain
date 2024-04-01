@@ -265,7 +265,7 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
-    /// Execute tx with tracer
+    /// Execute tx with tracer. Wraps exec method with EVMTracer
     pub fn exec_with_tracer(
         &mut self,
         signed_tx: &SignedTx,
@@ -275,69 +275,8 @@ impl<'backend> AinExecutor<'backend> {
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<TransactionTrace> {
-        self.backend.update_vicinity_from_tx(signed_tx)?;
-        trace!(
-            "[Executor] Executing trace EVM TX with vicinity : {:?}",
-            self.backend.vicinity
-        );
-        let ctx = ExecutorContext {
-            caller: signed_tx.sender,
-            to: signed_tx.to(),
-            value: signed_tx.value(),
-            data: signed_tx.data(),
-            gas_limit: u64::try_from(gas_limit).unwrap_or(u64::MAX), // Sets to u64 if overflows
-            access_list: signed_tx.access_list(),
-        };
-
-        let prepay_fee = if system_tx {
-            U256::zero()
-        } else {
-            calculate_current_prepay_gas_fee(signed_tx, base_fee)?
-        };
-
-        if !system_tx {
-            self.backend
-                .deduct_prepay_gas_fee(signed_tx.sender, prepay_fee)?;
-        }
-
-        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
-        let state = MemoryStackState::new(metadata.clone(), self.backend);
-        let precompiles = MetachainPrecompiles::default();
-        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
-        let access_list = ctx
-            .access_list
-            .into_iter()
-            .map(|x| (x.address, x.storage_keys))
-            .collect::<Vec<_>>();
-
-        let f = move || {
-            let (exit_reason, _) = match ctx.to {
-                Some(address) => executor.transact_call(
-                    ctx.caller,
-                    address,
-                    ctx.value,
-                    ctx.data.to_vec(),
-                    ctx.gas_limit,
-                    access_list,
-                ),
-                None => executor.transact_create(
-                    ctx.caller,
-                    ctx.value,
-                    ctx.data.to_vec(),
-                    ctx.gas_limit,
-                    access_list,
-                ),
-            };
-            if !exit_reason.is_succeed() {
-                debug!("failed VM execution {:?}", exit_reason);
-            }
-            let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
-            let (values, logs) = executor.into_state().deconstruct();
-            let logs = logs.into_iter().collect::<Vec<_>>();
-            (!exit_reason.is_succeed(), used_gas, values, logs)
-        };
-
-        let (res, used_gas, values, logs) = match tracer_params.1 {
+        let f = move || self.exec(signed_tx, gas_limit, base_fee, system_tx, None);
+        let res = match tracer_params.1 {
             TraceType::Raw {
                 disable_storage,
                 disable_memory,
@@ -350,25 +289,26 @@ impl<'backend> AinExecutor<'backend> {
                     raw_max_memory_usage,
                 )));
                 let tracer = EvmTracer::new(Rc::clone(&listener));
-                let (exec_flag, used_gas, values, logs) = tracer.trace(f);
+                let response = tracer.trace(f)?;
                 listener
                     .borrow_mut()
-                    .finish_transaction(exec_flag, used_gas);
-                let res = RawFormatter::format(listener, system_tx);
-                (res, used_gas, values, logs)
+                    .finish_transaction(!response.0.exit_reason.is_succeed(), response.0.used_gas);
+                debug!("XXX trace response is {}, used gas is {}", response.0.exit_reason.is_succeed(), response.0.used_gas);
+                RawFormatter::format(listener, system_tx)
+                    .ok_or_else(|| format_err!("trace result is empty"))?
             }
             TraceType::CallList => {
                 let listener = Rc::new(RefCell::new(listeners::CallList::default()));
                 let tracer = EvmTracer::new(Rc::clone(&listener));
-                let (_, used_gas, values, logs) = tracer.trace(f);
+                tracer.trace(f)?;
                 listener.borrow_mut().finish_transaction();
-                let res = match tracer_params.0 {
+                match tracer_params.0 {
                     TracerInput::Blockscout => BlockscoutFormatter::format(listener, system_tx),
                     TracerInput::CallTracer => CallTracerFormatter::format(listener, system_tx)
                         .and_then(|mut response| response.pop()),
                     _ => return Err(format_err!("failed to resolve tracer format").into()),
-                };
-                (res, used_gas, values, logs)
+                }
+                .ok_or_else(|| format_err!("trace result is empty"))?
             }
             not_supported => {
                 return Err(
@@ -376,29 +316,7 @@ impl<'backend> AinExecutor<'backend> {
                 );
             }
         };
-
-        // Update backend states
-        let total_gas_used = self.backend.vicinity.total_gas_used;
-        let block_gas_limit = self.backend.vicinity.block_gas_limit;
-        if !system_tx
-            && total_gas_used
-                .checked_add(U256::from(used_gas))
-                .ok_or_else(|| format_err!("total_gas_used overflow"))?
-                > block_gas_limit
-        {
-            return Err(format_err!(
-                "[exec] block size limit exceeded, tx cannot make it into the block"
-            )
-            .into());
-        }
-
-        ApplyBackend::apply(self.backend, values, logs.clone(), true);
-
-        if !system_tx {
-            self.backend
-                .refund_unused_gas_fee(signed_tx, U256::from(used_gas), base_fee)?;
-        }
-        Ok(res.ok_or_else(|| format_err!("trace result is empty"))?)
+        Ok(res)
     }
 
     /// Execute tx with storage access listener
