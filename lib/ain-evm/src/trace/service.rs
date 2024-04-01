@@ -109,7 +109,6 @@ impl TracerService {
     ) -> Result<Vec<TransactionTrace>> {
         let block_hash = trace_block.header.hash();
         if let Some(res) = self.get_block_trace(block_hash) {
-            debug!("XXX used cached block trace");
             return Ok(res);
         }
 
