@@ -293,11 +293,6 @@ impl<'backend> AinExecutor<'backend> {
                 listener
                     .borrow_mut()
                     .finish_transaction(!response.0.exit_reason.is_succeed(), response.0.used_gas);
-                debug!(
-                    "XXX trace response is {}, used gas is {}",
-                    response.0.exit_reason.is_succeed(),
-                    response.0.used_gas
-                );
                 RawFormatter::format(listener, system_tx)
                     .ok_or_else(|| format_err!("trace result is empty"))?
             }
