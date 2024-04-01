@@ -4,15 +4,17 @@ use ain_evm::{
     core::EthCallArgs,
     evm::EVMServices,
     executor::TxResponse,
-    storage::traits::{ReceiptStorage, TransactionStorage},
+    storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
     trace::types::single::{TraceType, TransactionTrace},
     transaction::SignedTx,
 };
+use ethereum::BlockAny;
 use ethereum_types::{H256, U256};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use log::debug;
 
 use crate::{
+    block::BlockNumber,
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
     trace::{handle_trace_params, TraceParams},
@@ -34,6 +36,20 @@ pub trait MetachainDebugRPC {
         tx_hash: H256,
         trace_params: Option<TraceParams>,
     ) -> RpcResult<TransactionTrace>;
+
+    #[method(name = "traceBlockByNumber")]
+    fn trace_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<TransactionTrace>>;
+
+    #[method(name = "traceBlockByHash")]
+    fn trace_block_by_hash(
+        &self,
+        hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<TransactionTrace>>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -63,6 +79,34 @@ impl MetachainDebugRPCModule {
         }
         Ok(())
     }
+
+    fn get_block(&self, block_number: Option<BlockNumber>) -> RpcResult<BlockAny> {
+        match block_number.unwrap_or(BlockNumber::Latest) {
+            BlockNumber::Hash { hash, .. } => self.handler.storage.get_block_by_hash(&hash),
+            BlockNumber::Num(n) => self.handler.storage.get_block_by_number(&U256::from(n)),
+            BlockNumber::Earliest => self.handler.storage.get_block_by_number(&U256::zero()),
+            BlockNumber::Safe | BlockNumber::Finalized => {
+                self.handler.storage.get_latest_block().and_then(|block| {
+                    block.map_or(Ok(None), |block| {
+                        let finality_count =
+                            ain_cpp_imports::get_attribute_values(None).finality_count;
+
+                        block
+                            .header
+                            .number
+                            .checked_sub(U256::from(finality_count))
+                            .map_or(Ok(None), |safe_block_number| {
+                                self.handler.storage.get_block_by_number(&safe_block_number)
+                            })
+                    })
+                })
+            }
+            // BlockNumber::Pending => todo!(),
+            _ => self.handler.storage.get_latest_block(),
+        }
+        .map_err(RPCError::EvmError)?
+        .ok_or(RPCError::BlockNotFound.into())
+    }
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
@@ -76,6 +120,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     ) -> RpcResult<TransactionTrace> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
+        // Handle trace params
         let params = handle_trace_params(trace_params)?;
         match params.1 {
             TraceType::Raw { .. } => (),
@@ -111,6 +156,64 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 params,
                 raw_max_memory_usage,
             )
+            .map_err(RPCError::EvmError)?)
+    }
+
+    fn trace_block_by_number(
+        &self,
+        block_number: BlockNumber,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<TransactionTrace>> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        match params.1 {
+            TraceType::Raw { .. } => (),
+            TraceType::CallList => (),
+            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
+        }
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        let block = self.get_block(Some(block_number))?;
+        Ok(self
+            .handler
+            .tracer
+            .trace_block(block, params, raw_max_memory_usage)
+            .map_err(RPCError::EvmError)?)
+    }
+
+    fn trace_block_by_hash(
+        &self,
+        hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<Vec<TransactionTrace>> {
+        self.is_trace_enabled().or_else(|_| self.is_enabled())?;
+
+        // Handle trace params
+        let params = handle_trace_params(trace_params)?;
+        match params.1 {
+            TraceType::Raw { .. } => (),
+            TraceType::CallList => (),
+            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
+        }
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        let block = self
+            .handler
+            .storage
+            .get_block_by_hash(&hash)
+            .map_err(to_custom_err)?
+            .ok_or(RPCError::BlockNotFound)?;
+
+        Ok(self
+            .handler
+            .tracer
+            .trace_block(block, params, raw_max_memory_usage)
             .map_err(RPCError::EvmError)?)
     }
 

@@ -1,6 +1,7 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use anyhow::format_err;
+use ethereum::BlockAny;
 use ethereum_types::{H160, H256, U256};
 use log::debug;
 use lru::LruCache;
@@ -19,7 +20,7 @@ use crate::{
 };
 
 // The default LRU cache size
-const TRACER_LRU_CACHE_DEFAULT_SIZE: usize = 5000;
+const TRACER_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
 
 pub struct TracerService {
     trie_store: Arc<TrieDBStore>,
@@ -89,6 +90,49 @@ impl TracerService {
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
         }
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
+    }
+
+    pub fn trace_block(
+        &self,
+        block: BlockAny,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<Vec<TransactionTrace>> {
+        let base_fee = block.header.base_fee;
+        let state_root = block.header.state_root;
+        let vicinity = Vicinity::from(block.header.clone());
+        let mut backend = EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            None,
+        )?;
+        backend.update_vicinity_from_header(block.header.clone());
+        let replay_txs: Vec<_> = block
+            .transactions
+            .into_iter()
+            .flat_map(SignedTx::try_from)
+            .collect();
+        let txs_data =
+            ain_cpp_imports::get_evm_system_txs_from_block(block.header.hash().to_fixed_bytes());
+        if replay_txs.len() != txs_data.len() {
+            return Err(format_err!("Cannot replay tx, DVM and EVM block state mismatch.").into());
+        }
+
+        let mut res = vec![];
+        for (idx, replay_tx) in replay_txs.iter().enumerate() {
+            let tx_data = &txs_data[idx];
+            let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
+            let trace = AinExecutor::new(&mut backend).execute_tx_with_tracer(
+                exec_tx,
+                tracer_params,
+                raw_max_memory_usage,
+                base_fee,
+            )?;
+            res.push(trace);
+        }
+        Ok(res)
     }
 
     pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<AccessListInfo> {
