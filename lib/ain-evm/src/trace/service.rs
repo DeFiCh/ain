@@ -64,19 +64,20 @@ impl TracerService {
         let mut backend = self
             .get_backend_from_block(start_block_number, None, None, None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        let block = self
+        let trace_block = self
             .storage
             .get_block_by_number(&block_number)?
             .ok_or(format_err!("Block number {:x?} not found", block_number))?;
-        backend.update_vicinity_from_header(block.header.clone());
-        let base_fee = block.header.base_fee;
-        let replay_txs: Vec<_> = block
+        backend.update_vicinity_from_header(trace_block.header.clone());
+        let base_fee = trace_block.header.base_fee;
+        let replay_txs: Vec<_> = trace_block
             .transactions
             .into_iter()
             .flat_map(SignedTx::try_from)
             .collect();
-        let txs_data =
-            ain_cpp_imports::get_evm_system_txs_from_block(block.header.hash().to_fixed_bytes());
+        let txs_data = ain_cpp_imports::get_evm_system_txs_from_block(
+            trace_block.header.hash().to_fixed_bytes(),
+        );
         if replay_txs.len() != txs_data.len() {
             return Err(format_err!("Cannot replay tx, DVM and EVM block state mismatch.").into());
         }
