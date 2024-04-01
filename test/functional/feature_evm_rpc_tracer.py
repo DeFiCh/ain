@@ -173,14 +173,19 @@ class EvmTracerTest(DefiTestFramework):
                 }
             )
         self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
+        block_info = self.nodes[0].eth_getBlockByNumber("latest", True) 
+        block_txs = block_info["transactions"]
 
         # Test tracer for every tx
+        block_trace = []
         for tx in block_txs:
+            res = self.nodes[0].debug_traceTransaction(tx["hash"])
             assert_equal(
-                self.nodes[0].debug_traceTransaction(tx["hash"]),
+                res,
                 {"gas": "0x5208", "failed": False, "returnValue": "", "structLogs": []},
             )
+            block_trace.append(res)
+        assert_equal(block_trace, self.nodes[0].debug_traceBlockByHash(block_info["hash"]))
 
     def test_tracer_on_transfer_tx_with_transferdomain_txs(self):
         self.rollback_to(self.start_height)
