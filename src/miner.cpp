@@ -109,7 +109,7 @@ void BlockAssembler::resetBlock() {
     nFees = 0;
 }
 
-static void AddSplitEVMTxs(BlockContext &blockCtx, const std::map<uint32_t, std::pair<int32_t, uint256>> &splitMap) {
+static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
     const auto evmEnabled = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
