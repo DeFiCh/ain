@@ -1,7 +1,7 @@
 use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
 
 use anyhow::format_err;
-use ethereum::BlockAny;
+use ethereum::{AccessList, BlockAny};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
 use lru::LruCache;
@@ -11,7 +11,7 @@ use crate::{
     backend::{EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     core::EthCallArgs,
-    executor::{AccessListInfo, AinExecutor, ExecutorContext},
+    executor::{AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
     trace::{
         formatters::{
@@ -30,6 +30,10 @@ use crate::{
 // The default LRU cache size
 const TRACER_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
 
+pub struct AccessListInfo {
+    pub access_list: AccessList,
+    pub gas_used: U256,
+}
 pub struct TraceCache {
     tx_cache: LruCache<H256, TransactionTrace>,
     block_cache: LruCache<H256, Vec<TransactionTrace>>,
@@ -250,13 +254,39 @@ impl TracerService {
         let mut backend = self
             .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            access_list,
+        let f = move || {
+            AinExecutor::new(&mut backend).call(ExecutorContext {
+                caller,
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list,
+            })
+        };
+
+        let listener = Rc::new(RefCell::new(listeners::AccessList::default()));
+        let tracer = EvmTracer::new(Rc::clone(&listener));
+        tracer.trace(f);
+        let al = listener.borrow_mut().finish_transaction();
+
+        // Re-execute call to get gas usage
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        let gas_used = AinExecutor::new(&mut backend)
+            .call(ExecutorContext {
+                caller,
+                to,
+                value,
+                data,
+                gas_limit,
+                access_list: al.clone(),
+            })
+            .used_gas;
+        Ok(AccessListInfo {
+            access_list: al,
+            gas_used: U256::from(gas_used),
         })
     }
 }

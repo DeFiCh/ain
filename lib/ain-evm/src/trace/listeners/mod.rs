@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod access_list;
 pub mod call_list;
 pub mod raw;
 
+pub use access_list::Listener as AccessList;
 pub use call_list::Listener as CallList;
 pub use raw::Listener as Raw;
