@@ -2,6 +2,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::{common::CompactVec, oracles::*};
 use bitcoin::Txid;
+use hyper::client::service;
 use rust_decimal::{
     prelude::{ToPrimitive, Zero},
     Decimal,
@@ -31,7 +32,6 @@ impl Index for AppointOracle {
             price_feeds: vec![],
             block: ctx.block.clone(),
         };
-        println!("oracle: {:?}", oracle);
         services.oracle.by_id.put(&oracle.id, &oracle)?;
         let oracle_history = OracleHistory {
             id: (ctx.tx.txid, ctx.block.height, oracle_id),
@@ -46,7 +46,6 @@ impl Index for AppointOracle {
             price_feeds: vec![],
             block: ctx.block.clone(),
         };
-        println!("oracle_history: {:?}", oracle_history);
         services
             .oracle_history
             .by_id
@@ -56,7 +55,6 @@ impl Index for AppointOracle {
             .by_key
             .put(&oracle_history.oracle_id, &oracle_history.id)?;
         let prices_feeds = self.price_feeds.as_ref();
-        println!("prices_feeds: {:?}", prices_feeds);
         for token_currency in prices_feeds {
             let oracle_token_currency = OracleTokenCurrency {
                 id: (
@@ -74,8 +72,6 @@ impl Index for AppointOracle {
                 weightage: self.weightage,
                 block: ctx.block.clone(),
             };
-
-            println!("token_currency: {:?}", oracle_token_currency);
             services
                 .oracle_token_currency
                 .by_key
@@ -123,23 +119,24 @@ impl Index for AppointOracle {
 impl Index for RemoveOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
-        //delete for oracle
+        //delete for oracle data from oracle
         services.oracle.by_id.delete(&oracle_id)?;
-        match services.oracle.by_id.get(&oracle_id) {
-            Ok(previous_oracle_result) => {
-                if let Some(previous_oracle) = previous_oracle_result {
-                    for price_feed_item in &previous_oracle.price_feeds {
+        let previous_hsitory = get_oracle_history_list(services, oracle_id.clone());
+        match previous_hsitory {
+            Ok(previous_oracle) => {
+                for oracle_history in &previous_oracle {
+                    for price_feed_item in &oracle_history.price_feeds {
                         let deletion_key = (
                             price_feed_item.token.to_owned(),
                             price_feed_item.currency.to_owned(),
-                            oracle_id,
+                            oracle_history.oracle_id,
                         );
                         match services.oracle_token_currency.by_id.delete(&deletion_key) {
                             Ok(_) => {
                                 // Successfully deleted
                             }
                             Err(err) => {
-                                let error_message = format!("Error:remove oracle: {:?}", err);
+                                let error_message = format!("Error: remove oracle: {:?}", err);
                                 eprintln!("{}", error_message);
                                 return Err(Error::NotFound(NotFoundKind::Oracle));
                             }
@@ -148,24 +145,25 @@ impl Index for RemoveOracle {
                 }
             }
             Err(err) => {
-                let error_message = format!("Error:remove oracle: {:?}", err);
+                let error_message = format!("Error: remove oracle: {:?}", err);
                 eprintln!("{}", error_message);
                 return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
         Ok(())
     }
-
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
-        match services.oracle.by_id.get(&oracle_id) {
-            Ok(previous_oracle_result) => {
-                if let Some(previous_oracle) = previous_oracle_result {
+        let previous_oracle_history_result = get_oracle_history_list(services, oracle_id.clone());
+
+        match previous_oracle_history_result {
+            Ok(previous_oracle_history) => {
+                for previous_oracle in previous_oracle_history {
                     let oracle = Oracle {
-                        id: previous_oracle.id,
+                        id: previous_oracle.oracle_id,
                         owner_address: previous_oracle.owner_address,
                         weightage: previous_oracle.weightage,
-                        price_feeds: vec![],
+                        price_feeds: previous_oracle.price_feeds.clone(),
                         block: previous_oracle.block,
                     };
                     services.oracle.by_id.put(&oracle.id, &oracle)?;
@@ -193,12 +191,11 @@ impl Index for RemoveOracle {
                             .by_id
                             .put(&oracle_token_currency.id, &oracle_token_currency)?;
                     }
-                } else {
-                    eprintln!("Error saving previous oracle data",);
                 }
             }
             Err(err) => {
                 eprintln!("Error getting previous oracle: {:?}", err);
+                return Err(Error::from(err));
             }
         }
 
@@ -873,4 +870,27 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32
         eprintln!("Result is too large to fit into i32, returning 0");
         0
     })
+}
+
+fn get_oracle_history_list(
+    services: &Arc<Services>,
+    oracle_id: Txid,
+) -> std::result::Result<Vec<OracleHistory>, Box<dyn std::error::Error>> {
+    let history = services
+        .oracle_history
+        .by_key
+        .list(Some((oracle_id)), SortOrder::Descending)?
+        .map(|item| {
+            let (_, id) = item?;
+            let b = services
+                .oracle_history
+                .by_id
+                .get(&id)?
+                .ok_or_else(|| Box::new("Missing price_aggregated index").to_string())?;
+
+            Ok(b)
+        })
+        .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
+
+    Ok(history)
 }

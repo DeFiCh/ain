@@ -18,16 +18,16 @@ impl TypedColumn for OracleHistory {
     type Type = model::OracleHistory;
 }
 
-pub struct OracleHistoryKey;
+pub struct OracleHistoryOracleIdSort;
 
-impl ColumnName for OracleHistoryKey {
-    const NAME: &'static str = "oracle_history_key";
+impl ColumnName for OracleHistoryOracleIdSort {
+    const NAME: &'static str = "oracle_history_oracle_id_sort";
 }
 
-impl Column for OracleHistoryKey {
+impl Column for OracleHistoryOracleIdSort {
     type Index = Txid;
 }
 
-impl TypedColumn for OracleHistoryKey {
+impl TypedColumn for OracleHistoryOracleIdSort {
     type Type = model::OracleHistoryId;
 }

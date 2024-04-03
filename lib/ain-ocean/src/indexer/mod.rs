@@ -82,7 +82,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                         DfTx::RemoveOracle(data) => data.index(services, &ctx)?,
                         DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
                         DfTx::SetOracleData(data) => data.index(services, &ctx)?,
-                        DfTx::SetOracleData(data) => data.index(services, &ctx)?,
+                        DfTx::SetOracleInterval(data) => data.index(services, &ctx)?,
                         // DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,

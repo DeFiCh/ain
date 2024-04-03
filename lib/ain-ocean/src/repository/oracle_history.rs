@@ -30,7 +30,7 @@ impl OracleHistoryRepository {
 #[repository(K = "Txid", V = "OracleHistoryId")]
 pub struct OracleHistoryRepositoryKey {
     pub store: Arc<OceanStore>,
-    col: LedgerColumn<columns::OracleHistoryKey>,
+    col: LedgerColumn<columns::OracleHistoryOracleIdSort>,
 }
 
 impl OracleHistoryRepositoryKey {
