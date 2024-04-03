@@ -60,7 +60,7 @@ ResVal<CScript> CTokensConsensus::MintableToken(DCT_ID id,
     static const auto isMainNet = Params().NetworkIDString() == CBaseChainParams::MAIN;
     // may be different logic with LPS, so, dedicated check:
     auto &mnview = blockCtx.GetView();
-    if (!token.IsMintable() || (isMainNet && mnview.GetLoanTokenByID(id))) {
+    if (!token.IsMintable() || (isMainNet && !fMockNetwork && mnview.GetLoanTokenByID(id))) {
         return Res::Err("token %s is not mintable!", id.ToString());
     }
 

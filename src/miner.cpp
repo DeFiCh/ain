@@ -41,6 +41,8 @@
 #include <random>
 #include <utility>
 
+using SplitMap = std::map<uint32_t, std::pair<int32_t, uint256>>;
+
 struct EvmTxPreApplyContext {
     const CTxMemPool::txiter &txIter;
     const std::shared_ptr<CScopedTemplate> &evmTemplate;
@@ -107,7 +109,7 @@ void BlockAssembler::resetBlock() {
     nFees = 0;
 }
 
-static void AddTokenSplitTxs(BlockContext &blockCtx, const std::map<uint32_t, std::pair<int32_t, uint256>> &splitMap) {
+static void AddSplitEVMTxs(BlockContext &blockCtx, const SplitMap &splitMap) {
     const auto evmEnabled = blockCtx.GetEVMEnabledForBlock();
     const auto &evmTemplate = blockCtx.GetEVMTemplate();
 
@@ -178,12 +180,13 @@ static void AddTokenSplitTxs(BlockContext &blockCtx, const std::map<uint32_t, st
 }
 
 template <typename T>
-static void AddSplitTxs(CCustomCSView &mnview,
-                        CBlock *pblock,
-                        std::unique_ptr<CBlockTemplate> &pblocktemplate,
-                        const int height,
-                        const T &splits,
-                        const int txVersion) {
+static void AddSplitDVMTxs(CCustomCSView &mnview,
+                           CBlock *pblock,
+                           std::unique_ptr<CBlockTemplate> &pblocktemplate,
+                           const int height,
+                           const T &splits,
+                           const int txVersion,
+                           SplitMap &splitMap) {
     for (const auto &[id, multiplier] : splits) {
         uint32_t entries{1};
         mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
@@ -211,7 +214,11 @@ static void AddSplitTxs(CCustomCSView &mnview,
             mTx.vout.resize(1);
             mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
             mTx.vout[0].nValue = 0;
-            pblock->vtx.push_back(MakeTransactionRef(std::move(mTx)));
+            auto tx = MakeTransactionRef(std::move(mTx));
+            if (!i) {
+                splitMap[id] = std::make_pair(multiplier, tx->GetHash());
+            }
+            pblock->vtx.push_back(tx);
             pblocktemplate->vTxFees.push_back(0);
             pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR * GetLegacySigOpCount(*pblock->vtx.back()));
         }
@@ -396,55 +403,21 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         addPackageTxs<ancestor_score>(nPackagesSelected, nDescendantsUpdated, nHeight, txFees, blockCtx);
     }
 
-    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
-
-    std::map<uint32_t, std::pair<int32_t, uint256>> splitMap;
+    SplitMap splitMap;
 
     // TXs for the creationTx field in new tokens created via token split
     if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
-        for (const auto &[id, multiplier] : splits) {
-            uint32_t entries{1};
-            mnview.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
-                if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                    const auto tokenA = mnview.GetToken(pool.idTokenA);
-                    const auto tokenB = mnview.GetToken(pool.idTokenB);
-                    assert(tokenA);
-                    assert(tokenB);
-                    if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
-                        (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
-                        ++entries;
-                    }
-                }
-                return true;
-            });
-
-            for (uint32_t i{0}; i < entries; ++i) {
-                CDataStream metadata(DfTokenSplitMarker, SER_NETWORK, PROTOCOL_VERSION);
-                metadata << i << id << multiplier;
-
-                CMutableTransaction mTx(txVersion);
-                mTx.vin.resize(1);
-                mTx.vin[0].prevout.SetNull();
-                mTx.vin[0].scriptSig = CScript() << nHeight << OP_0;
-                mTx.vout.resize(1);
-                mTx.vout[0].scriptPubKey = CScript() << OP_RETURN << ToByteVector(metadata);
-                mTx.vout[0].nValue = 0;
-                const auto tx = MakeTransactionRef(std::move(mTx));
-                if (!i) {
-                    splitMap[id] = std::make_pair(multiplier, tx->GetHash());
-                }
-                pblock->vtx.push_back(tx);
-                pblocktemplate->vTxFees.push_back(0);
-                pblocktemplate->vTxSigOpsCost.push_back(WITNESS_SCALE_FACTOR *
-                                                        GetLegacySigOpCount(*pblock->vtx.back()));
-            }
+        CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
+        if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+            AddSplitDVMTxs(mnview, pblock, pblocktemplate, nHeight, splits32, txVersion, splitMap);
+        } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+            AddSplitDVMTxs(mnview, pblock, pblocktemplate, nHeight, splits64, txVersion, splitMap);
         }
     }
 
     if (nHeight >= chainparams.GetConsensus().DF23Height) {
         // Add token split TXs
-        AddTokenSplitTxs(blockCtx, splitMap);
+        AddSplitEVMTxs(blockCtx, splitMap);
     }
 
     XVM xvm{};
@@ -459,16 +432,6 @@ ResVal<std::unique_ptr<CBlockTemplate>> BlockAssembler::CreateNewBlock(const CSc
         xvm = XVM{
             0, {0, blockHash, blockResult.total_burnt_fees, blockResult.total_priority_fees, evmBeneficiary}
         };
-    }
-
-    // TXs for the creationTx field in new tokens created via token split
-    if (nHeight >= chainparams.GetConsensus().DF16FortCanningCrunchHeight) {
-        CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(nHeight)};
-        if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
-            AddSplitTxs(mnview, pblock, pblocktemplate, nHeight, splits32, txVersion);
-        } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
-            AddSplitTxs(mnview, pblock, pblocktemplate, nHeight, splits64, txVersion);
-        }
     }
 
     int64_t nTime1 = GetTimeMicros();
