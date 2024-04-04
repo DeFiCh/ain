@@ -1,7 +1,4 @@
-use std::{
-    num::NonZeroUsize,
-    {cell::RefCell, rc::Rc, sync::Arc},
-};
+use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
 
 use anyhow::format_err;
 use ethereum::BlockAny;
