@@ -154,7 +154,8 @@ impl TracerService {
                 AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
                 trace
             } else {
-                let trace = AinExecutor::new(&mut backend).execute_tx_with_tracer(
+                let trace = self.execute_tx_with_tracer(
+                    &mut backend,
                     exec_tx,
                     tracer_params,
                     raw_max_memory_usage,
