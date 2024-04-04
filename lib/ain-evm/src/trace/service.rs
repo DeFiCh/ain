@@ -133,58 +133,15 @@ impl TracerService {
         let mut backend = self
             .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), overlay)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        let f = move || {
-            AinExecutor::new(&mut backend).call(ExecutorContext {
-                caller,
-                to,
-                value,
-                data,
-                gas_limit,
-                access_list,
-            })
+        let ctx = ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
         };
-
-        // Execute read-only call with tracer
-        let res = match tracer_params.1 {
-            TraceType::Raw {
-                disable_storage,
-                disable_memory,
-                disable_stack,
-            } => {
-                let listener = Rc::new(RefCell::new(listeners::Raw::new(
-                    disable_storage,
-                    disable_memory,
-                    disable_stack,
-                    raw_max_memory_usage,
-                )));
-                let tracer = EvmTracer::new(Rc::clone(&listener));
-                let tx_res = tracer.trace(f);
-                listener
-                    .borrow_mut()
-                    .finish_transaction(!tx_res.exit_reason.is_succeed(), tx_res.used_gas);
-                RawFormatter::format(listener, false)
-                    .ok_or_else(|| format_err!("replayed transaction generated too much data, try disabling memory or storage?"))?
-            }
-            TraceType::CallList => {
-                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
-                let tracer = EvmTracer::new(Rc::clone(&listener));
-                tracer.trace(f);
-                listener.borrow_mut().finish_transaction();
-                match tracer_params.0 {
-                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, false),
-                    TracerInput::CallTracer => CallTracerFormatter::format(listener, false)
-                        .and_then(|mut response| response.pop()),
-                    _ => return Err(format_err!("failed to resolve tracer format").into()),
-                }
-                .ok_or_else(|| format_err!("trace result is empty"))?
-            }
-            not_supported => {
-                return Err(
-                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
-                );
-            }
-        };
-        Ok(res)
+        self.call_with_tracer(&mut backend, ctx, tracer_params, raw_max_memory_usage)
     }
 
     pub fn trace_block(
@@ -339,6 +296,57 @@ impl TracerService {
             })) => get_dst20_system_tx_trace(address, tracer_params),
             _ => Ok(res),
         }
+    }
+
+    /// Wraps eth read-only call with tracer
+    fn call_with_tracer(
+        &self,
+        backend: &mut EVMBackend,
+        ctx: ExecutorContext,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<TransactionTrace> {
+        let f = move || AinExecutor::new(backend).call(ctx);
+        let res = match tracer_params.1 {
+            TraceType::Raw {
+                disable_storage,
+                disable_memory,
+                disable_stack,
+            } => {
+                let listener = Rc::new(RefCell::new(listeners::Raw::new(
+                    disable_storage,
+                    disable_memory,
+                    disable_stack,
+                    raw_max_memory_usage,
+                )));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                let tx_res = tracer.trace(f);
+                listener
+                    .borrow_mut()
+                    .finish_transaction(!tx_res.exit_reason.is_succeed(), tx_res.used_gas);
+                RawFormatter::format(listener, false)
+                    .ok_or_else(|| format_err!("replayed transaction generated too much data, try disabling memory or storage?"))?
+            }
+            TraceType::CallList => {
+                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                tracer.trace(f);
+                listener.borrow_mut().finish_transaction();
+                match tracer_params.0 {
+                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, false),
+                    TracerInput::CallTracer => CallTracerFormatter::format(listener, false)
+                        .and_then(|mut response| response.pop()),
+                    _ => return Err(format_err!("failed to resolve tracer format").into()),
+                }
+                .ok_or_else(|| format_err!("trace result is empty"))?
+            }
+            not_supported => {
+                return Err(
+                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
+                );
+            }
+        };
+        Ok(res)
     }
 
     fn get_backend_from_block(
