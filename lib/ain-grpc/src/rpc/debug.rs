@@ -76,25 +76,25 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
     ) -> RpcResult<TransactionTrace> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
+        // Handle trace params
         let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
         let receipt = self
             .handler
             .storage
             .get_receipt(&tx_hash)
             .map_err(to_custom_err)?
             .ok_or(RPCError::ReceiptNotFound(tx_hash))?;
-
         let tx = self
             .handler
             .storage
             .get_transaction_by_block_hash_and_index(&receipt.block_hash, receipt.tx_index)
             .map_err(RPCError::EvmError)?
             .ok_or(RPCError::TxNotFound(tx_hash))?;
-
         let signed_tx = SignedTx::try_from(tx).map_err(to_custom_err)?;
-        let raw_max_memory_usage =
-            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
-                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
         Ok(self
             .handler
