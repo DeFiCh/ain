@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use anyhow::format_err;
 use ethereum_types::{H160, U256};
@@ -11,8 +11,19 @@ use crate::{
     core::EthCallArgs,
     executor::{AccessListInfo, AinExecutor, ExecutorContext},
     storage::{traits::BlockStorage, Storage},
-    trace::types::single::{TraceType, TracerInput, TransactionTrace},
-    transaction::{system::ExecuteTx, SignedTx},
+    trace::{
+        formatters::{
+            Blockscout as BlockscoutFormatter, CallTracer as CallTracerFormatter,
+            Raw as RawFormatter, ResponseFormatter,
+        },
+        get_dst20_system_tx_trace, listeners,
+        types::single::{TraceType, TracerInput, TransactionTrace},
+        EvmTracer,
+    },
+    transaction::{
+        system::{DeployContractData, ExecuteTx, SystemTx, UpdateContractNameData},
+        SignedTx,
+    },
     trie::{TrieDBStore, GENESIS_STATE_ROOT},
     Result,
 };
@@ -71,7 +82,8 @@ impl TracerService {
             let tx_data = &txs_data[idx];
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             if tx.hash() == replay_tx.hash() {
-                return AinExecutor::new(&mut backend).execute_tx_with_tracer(
+                return self.execute_tx_with_tracer(
+                    &mut backend,
                     exec_tx,
                     tracer_params,
                     raw_max_memory_usage,
@@ -110,6 +122,79 @@ impl TracerService {
 
 /// Internal tracer service state methods
 impl TracerService {
+    /// Wraps system tx execution with EVMTracer
+    fn execute_tx_with_tracer(
+        &self,
+        backend: &mut EVMBackend,
+        exec_tx: ExecuteTx,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+        base_fee: U256,
+    ) -> Result<TransactionTrace> {
+        let tx = exec_tx.clone();
+        let system_tx = match tx {
+            ExecuteTx::SystemTx(_) => true,
+            ExecuteTx::SignedTx(_) => false,
+        };
+        let f = move || AinExecutor::new(backend).execute_tx(exec_tx, base_fee, None);
+
+        let res = match tracer_params.1 {
+            TraceType::Raw {
+                disable_storage,
+                disable_memory,
+                disable_stack,
+            } => {
+                let listener = Rc::new(RefCell::new(listeners::Raw::new(
+                    disable_storage,
+                    disable_memory,
+                    disable_stack,
+                    raw_max_memory_usage,
+                )));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                let tx_res = tracer.trace(f)?;
+                listener.borrow_mut().finish_transaction(
+                    !tx_res.exec_flag,
+                    u64::try_from(tx_res.used_gas).unwrap_or(u64::MAX),
+                );
+                RawFormatter::format(listener, system_tx).ok_or_else(|| {
+                    format_err!(
+                        "replayed transaction generated too much data. \
+                        try disabling memory or storage?"
+                    )
+                })?
+            }
+            TraceType::CallList => {
+                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
+                let tracer = EvmTracer::new(Rc::clone(&listener));
+                tracer.trace(f)?;
+                listener.borrow_mut().finish_transaction();
+                match tracer_params.0 {
+                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, system_tx),
+                    TracerInput::CallTracer => CallTracerFormatter::format(listener, system_tx)
+                        .and_then(|mut response| response.pop()),
+                    _ => return Err(format_err!("failed to resolve tracer format").into()),
+                }
+                .ok_or_else(|| format_err!("trace result is empty"))?
+            }
+            not_supported => {
+                return Err(
+                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
+                );
+            }
+        };
+
+        match tx {
+            ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
+                address, ..
+            })) => get_dst20_system_tx_trace(address, tracer_params),
+            ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
+                address,
+                ..
+            })) => get_dst20_system_tx_trace(address, tracer_params),
+            _ => Ok(res),
+        }
+    }
+
     fn get_backend_from_block(
         &self,
         block_number: Option<U256>,

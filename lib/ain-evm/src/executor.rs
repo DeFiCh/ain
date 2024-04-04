@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
 use ethereum::{AccessList, AccessListItem, EIP658ReceiptData, Log, ReceiptV3};
@@ -26,15 +24,6 @@ use crate::{
     evm::BlockContext,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
-    trace::{
-        formatters::{
-            Blockscout as BlockscoutFormatter, CallTracer as CallTracerFormatter,
-            Raw as RawFormatter, ResponseFormatter,
-        },
-        get_dst20_system_tx_trace, listeners,
-        types::single::{TraceType, TracerInput, TransactionTrace},
-        EvmTracer,
-    },
     transaction::{
         system::{
             DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
@@ -598,75 +587,6 @@ impl<'backend> AinExecutor<'backend> {
                     exec_flag: true,
                 })
             }
-        }
-    }
-
-    /// Wraps system tx execution with EVMTracer
-    pub fn execute_tx_with_tracer(
-        &mut self,
-        tx: ExecuteTx,
-        tracer_params: (TracerInput, TraceType),
-        raw_max_memory_usage: usize,
-        base_fee: U256,
-    ) -> Result<TransactionTrace> {
-        let exec_tx = tx.clone();
-        let system_tx = match tx {
-            ExecuteTx::SystemTx(_) => true,
-            ExecuteTx::SignedTx(_) => false,
-        };
-        let f = move || self.execute_tx(exec_tx, base_fee, None);
-
-        // Execute tx with tracer
-        let res = match tracer_params.1 {
-            TraceType::Raw {
-                disable_storage,
-                disable_memory,
-                disable_stack,
-            } => {
-                let listener = Rc::new(RefCell::new(listeners::Raw::new(
-                    disable_storage,
-                    disable_memory,
-                    disable_stack,
-                    raw_max_memory_usage,
-                )));
-                let tracer = EvmTracer::new(Rc::clone(&listener));
-                let tx_res = tracer.trace(f)?;
-                listener.borrow_mut().finish_transaction(
-                    !tx_res.exec_flag,
-                    u64::try_from(tx_res.used_gas).unwrap_or(u64::MAX),
-                );
-                RawFormatter::format(listener, system_tx)
-                    .ok_or_else(|| format_err!("replayed transaction generated too much data, try disabling memory or storage?"))?
-            }
-            TraceType::CallList => {
-                let listener = Rc::new(RefCell::new(listeners::CallList::default()));
-                let tracer = EvmTracer::new(Rc::clone(&listener));
-                tracer.trace(f)?;
-                listener.borrow_mut().finish_transaction();
-                match tracer_params.0 {
-                    TracerInput::Blockscout => BlockscoutFormatter::format(listener, system_tx),
-                    TracerInput::CallTracer => CallTracerFormatter::format(listener, system_tx)
-                        .and_then(|mut response| response.pop()),
-                    _ => return Err(format_err!("failed to resolve tracer format").into()),
-                }
-                .ok_or_else(|| format_err!("trace result is empty"))?
-            }
-            not_supported => {
-                return Err(
-                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
-                );
-            }
-        };
-
-        match tx {
-            ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
-                address, ..
-            })) => get_dst20_system_tx_trace(address, tracer_params),
-            ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
-                address,
-                ..
-            })) => get_dst20_system_tx_trace(address, tracer_params),
-            _ => Ok(res),
         }
     }
 }
