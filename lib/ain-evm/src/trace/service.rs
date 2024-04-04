@@ -34,8 +34,8 @@ use crate::{
 const TRACER_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
 
 pub struct TraceCache {
-    tx_cache: LruCache<H256, TransactionTrace>,
-    block_cache: LruCache<H256, Vec<TransactionTrace>>,
+    tx_cache: LruCache<(H256, TraceType), TransactionTrace>,
+    block_cache: LruCache<(H256, TraceType), Vec<TransactionTrace>>,
 }
 
 pub struct TracerService {
@@ -66,7 +66,7 @@ impl TracerService {
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<TransactionTrace> {
-        if let Some(res) = self.get_tx_trace(tx.hash()) {
+        if let Some(res) = self.get_tx_trace((tx.hash(), tracer_params.1)) {
             return Ok(res);
         }
 
@@ -105,7 +105,7 @@ impl TracerService {
                     base_fee,
                 )?;
                 // Add tracer to cache
-                self.cache_tx_trace(tx.hash(), res.clone());
+                self.cache_tx_trace((tx.hash(), tracer_params.1), res.clone());
                 return Ok(res);
             }
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
@@ -120,7 +120,7 @@ impl TracerService {
         raw_max_memory_usage: usize,
     ) -> Result<Vec<TransactionTrace>> {
         let block_hash = trace_block.header.hash();
-        if let Some(res) = self.get_block_trace(block_hash) {
+        if let Some(res) = self.get_block_trace((block_hash, tracer_params.1)) {
             return Ok(res);
         }
 
@@ -147,7 +147,8 @@ impl TracerService {
         for (idx, replay_tx) in replay_txs.iter().enumerate() {
             let tx_data = &txs_data[idx];
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
-            let trace = if let Some(trace) = self.get_tx_trace(replay_tx.hash()) {
+            let trace = if let Some(trace) = self.get_tx_trace((replay_tx.hash(), tracer_params.1))
+            {
                 AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
                 trace
             } else {
@@ -158,12 +159,12 @@ impl TracerService {
                     raw_max_memory_usage,
                     base_fee,
                 )?;
-                self.cache_tx_trace(replay_tx.hash(), trace.clone());
+                self.cache_tx_trace((replay_tx.hash(), tracer_params.1), trace.clone());
                 trace
             };
             res.push(trace);
         }
-        self.cache_block_trace(block_hash, res.clone());
+        self.cache_block_trace((block_hash, tracer_params.1), res.clone());
         Ok(res)
     }
 
@@ -316,23 +317,23 @@ impl TracerService {
         )
     }
 
-    fn get_tx_trace(&self, tx_hash: H256) -> Option<TransactionTrace> {
+    fn get_tx_trace(&self, key: (H256, TraceType)) -> Option<TransactionTrace> {
         let mut cache = self.tracer_cache.lock();
-        cache.tx_cache.get(&tx_hash).cloned()
+        cache.tx_cache.get(&key).cloned()
     }
 
-    fn get_block_trace(&self, block_hash: H256) -> Option<Vec<TransactionTrace>> {
+    fn get_block_trace(&self, key: (H256, TraceType)) -> Option<Vec<TransactionTrace>> {
         let mut cache = self.tracer_cache.lock();
-        cache.block_cache.get(&block_hash).cloned()
+        cache.block_cache.get(&key).cloned()
     }
 
-    fn cache_tx_trace(&self, tx_hash: H256, trace_tx: TransactionTrace) {
+    fn cache_tx_trace(&self, key: (H256, TraceType), trace_tx: TransactionTrace) {
         let mut cache = self.tracer_cache.lock();
-        cache.tx_cache.put(tx_hash, trace_tx);
+        cache.tx_cache.put(key, trace_tx);
     }
 
-    fn cache_block_trace(&self, block_hash: H256, block_trace: Vec<TransactionTrace>) {
+    fn cache_block_trace(&self, key: (H256, TraceType), block_trace: Vec<TransactionTrace>) {
         let mut cache = self.tracer_cache.lock();
-        cache.block_cache.put(block_hash, block_trace);
+        cache.block_cache.put(key, block_trace);
     }
 }

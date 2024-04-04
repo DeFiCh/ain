@@ -41,7 +41,7 @@ pub enum TracerInput {
     CallTracer,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum TraceType {
     /// Classic geth with no javascript based tracing.
     Raw {
