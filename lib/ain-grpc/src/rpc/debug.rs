@@ -5,7 +5,7 @@ use ain_evm::{
     evm::EVMServices,
     executor::TxResponse,
     storage::traits::{ReceiptStorage, TransactionStorage},
-    trace::types::single::{TraceType, TransactionTrace},
+    trace::types::single::TransactionTrace,
     transaction::SignedTx,
 };
 use ethereum_types::{H256, U256};
@@ -77,12 +77,6 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         let params = handle_trace_params(trace_params)?;
-        match params.1 {
-            TraceType::Raw { .. } => (),
-            TraceType::CallList => (),
-            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
-        }
-
         let receipt = self
             .handler
             .storage
