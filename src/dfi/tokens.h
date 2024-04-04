@@ -195,6 +195,8 @@ public:
     static const DCT_ID DCT_ID_START;            // = 128;
     static const unsigned char DB_TOKEN_LASTID;  // = 'L';
 
+    using SplitMultiplier = std::variant<int32_t, CAmount>;
+
     using CTokenImpl = CTokenImplementation;
     using TokenIDPair = std::pair<DCT_ID, std::optional<CTokenImpl>>;
     std::optional<CTokenImpl> GetToken(DCT_ID id) const;
@@ -202,8 +204,8 @@ public:
     // the only possible type of token (with creationTx) is CTokenImpl
     std::optional<std::pair<DCT_ID, CTokenImpl>> GetTokenByCreationTx(const uint256 &txid) const;
     [[nodiscard]] virtual std::optional<CTokenImpl> GetTokenGuessId(const std::string &str, DCT_ID &id) const = 0;
-    void SetTokenSplitMultiplier(const uint32_t oldId, const uint32_t newId, const int32_t multiplier);
-    [[nodiscard]] std::optional<std::pair<uint32_t, int32_t>> GetTokenSplitMultiplier(const uint32_t id) const;
+    void SetTokenSplitMultiplier(const uint32_t oldId, const uint32_t newId, const SplitMultiplier multiplier);
+    [[nodiscard]] std::optional<std::pair<uint32_t, SplitMultiplier>> GetTokenSplitMultiplier(const uint32_t id) const;
 
     void ForEachToken(std::function<bool(DCT_ID const &, CLazySerialize<CTokenImpl>)> callback,
                       DCT_ID const &start = DCT_ID{0});
