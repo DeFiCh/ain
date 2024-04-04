@@ -1095,6 +1095,11 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         }
 
         const auto tokenAverage = tokenTotal / expectedEntries;
+        LogPrint(BCLog::FUTURESWAP,
+                 "Liquidity for future swap limit: token src id: %i, token dest id: %i, new average liquidity: %i\n",
+                 key.sourceID,
+                 key.destID,
+                 tokenAverage.GetLow64());
         cache.SetLoanTokenAverageLiquidity(key, tokenAverage.GetLow64());
     }
 }
@@ -3214,10 +3219,16 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
         return false;
     }
 
-    auto &[id, multiplier] = *idMultiplierPair;
+    auto &[id, multiplierVariant] = *idMultiplierPair;
 
     newAmount.id = id;
-    newAmount.amount = CalculateNewAmount(multiplier, oldAmount.amount);
+
+    if (const auto multiplier64 = std::get_if<CAmount>(&multiplierVariant); multiplier64) {
+        newAmount.amount = CalculateNewAmount(*multiplier64, oldAmount.amount);
+    } else {
+        const auto multiplier32 = std::get<int32_t>(multiplierVariant);
+        newAmount.amount = CalculateNewAmount(multiplier32, oldAmount.amount);
+    }
 
     // Only increment minted tokens if there is no additional split on new token.
     if (const auto additionalSplit = cache->GetTokenSplitMultiplier(newAmount.id); !additionalSplit) {
@@ -3268,8 +3279,14 @@ Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amoun
             return Res::Err("Token not found");
         }
 
-        auto &[id, multiplier] = *idMultiplierPair;
-        amount = {{id}, CalculateNewAmount(multiplier, amount.nValue)};
+        auto &[id, multiplierVariant] = *idMultiplierPair;
+
+        if (const auto multiplier64 = std::get_if<CAmount>(&multiplierVariant); multiplier64) {
+            amount = {{id}, CalculateNewAmount(*multiplier64, amount.nValue)};
+        } else {
+            const auto multiplier32 = std::get<int32_t>(multiplierVariant);
+            amount = {{id}, CalculateNewAmount(multiplier32, amount.nValue)};
+        }
 
         if (const auto res = view.AddMintedTokens(amount.nTokenId, amount.nValue); !res) {
             return res;
