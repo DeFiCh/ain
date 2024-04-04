@@ -216,21 +216,15 @@ impl TracerService {
         let mut backend = self
             .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
             .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        let f = move || {
-            AinExecutor::new(&mut backend).call(ExecutorContext {
-                caller,
-                to,
-                value,
-                data,
-                gas_limit,
-                access_list,
-            })
+        let ctx = ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
         };
-
-        let listener = Rc::new(RefCell::new(listeners::AccessList::default()));
-        let tracer = EvmTracer::new(Rc::clone(&listener));
-        tracer.trace(f);
-        let al = listener.borrow_mut().finish_transaction();
+        let al = self.call_with_access_list_tracer(&mut backend, ctx);
 
         // Re-execute call to get gas usage
         let mut backend = self
@@ -381,6 +375,20 @@ impl TracerService {
             }
         };
         Ok(res)
+    }
+
+    /// Wraps eth read-only call with access list tracer
+    fn call_with_access_list_tracer(
+        &self,
+        backend: &mut EVMBackend,
+        ctx: ExecutorContext,
+    ) -> AccessList {
+        let f = move || AinExecutor::new(backend).call(ctx);
+        let listener = Rc::new(RefCell::new(listeners::AccessList::default()));
+        let tracer = EvmTracer::new(Rc::clone(&listener));
+        tracer.trace(f);
+        let res = listener.borrow_mut().finish_transaction();
+        res
     }
 
     fn get_backend_from_block(
