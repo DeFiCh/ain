@@ -107,6 +107,12 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Merge Satoshi amount via transfer domain
         self.transfer_domain_merge(0.00000001, -3)
 
+        # Fractional split via transferdomain
+        self.transfer_domain_split(1.5)
+
+        # Fractional split via intrinsics contract
+        self.intrinsic_token_split(20, 1.5)
+
     def satoshi_limit(self, amount):
         return amount.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
 
@@ -194,6 +200,16 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
         assert_equal(meta_contract.functions.name().call(), "Meta")
         assert_equal(meta_contract.functions.symbol().call(), "META")
+
+        # Activate fractional split
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/oracles/splits/fractional_enabled": "true",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
 
     def setup_oracles(self):
 
@@ -332,7 +348,7 @@ class EVMTokenSplitTest(DefiTestFramework):
         balance = self.nodes[0].eth_getBalance(destination)
         assert_equal(balance, int_to_eth_u256(1))
 
-    def transfer_domain_split(self):
+    def transfer_domain_split(self, multiplier=2):
 
         # Rollback
         self.rollback_to(self.block_height)
@@ -341,7 +357,9 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.fund_address(self.address, self.evm_address)
 
         # Split token
-        self.split_token(self.contract_address_metav1, self.contract_address_metav2)
+        self.split_token(
+            self.contract_address_metav1, self.contract_address_metav2, "v1", multiplier
+        )
 
         # Generate new destination address
         destination_address = self.nodes[0].getnewaddress("", "legacy")
@@ -366,15 +384,19 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
+        # Create Decimal multiplier
+        decimal_multiplier = Decimal(str(multiplier))
+
         # Check META balance
         assert_equal(
-            self.nodes[0].getaccount(destination_address)[0], "40.00000000@META"
+            Decimal(self.nodes[0].getaccount(destination_address)[0].split("@")[0]),
+            Decimal("20.00000000") * decimal_multiplier,
         )
 
         # Check minted balance
         assert_equal(
             self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
-            Decimal(2000.00000000),
+            Decimal("1000.00000000") * decimal_multiplier,
         )
 
     def transfer_domain_merge(self, amount, split_multiplier):
@@ -500,7 +522,8 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.rollback_to(self.block_height)
 
         # Fund address
-        self.fund_address(self.address, self.evm_address)
+        fund_amount = 20
+        self.fund_address(self.address, self.evm_address, fund_amount)
 
         # Split token
         self.split_token(
@@ -552,9 +575,11 @@ class EVMTokenSplitTest(DefiTestFramework):
         assert_equal(result["v0/live/economy/transferdomain/evm/2/in"], in_amount)
 
         # Check minted balance
+        decimal_multiplier = Decimal(str(split_multiplier))
         assert_equal(
             self.nodes[0].gettoken("META")[f"{self.meta_final_id}"]["minted"],
-            Decimal(1960.00000000) + (amount * split_multiplier),
+            ((Decimal(1000.00000000) - Decimal(fund_amount)) * decimal_multiplier)
+            + (amount * decimal_multiplier),
         )
 
     def intrinsic_token_merge(self, amount, split_multiplier):
@@ -663,10 +688,9 @@ class EVMTokenSplitTest(DefiTestFramework):
 
         # Get amount
         if split_multiplier > 0:
-            balance_after_split = (
-                Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
-                * split_multiplier
-            )
+            balance_after_split = Decimal(
+                self.nodes[0].getaccount(self.address)[1].split("@")[0]
+            ) * Decimal(str(split_multiplier))
         else:
             balance_after_split = Decimal(
                 self.nodes[0].getaccount(self.address)[1].split("@")[0]
