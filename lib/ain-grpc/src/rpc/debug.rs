@@ -248,15 +248,17 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         // Handle trace params
         let params = handle_trace_params(trace_params)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
+
+        // Get block
         let trace_block = self
             .handler
             .storage
             .get_block_by_hash(&hash)
             .map_err(to_custom_err)?
             .ok_or(RPCError::BlockNotFound)?;
-        let raw_max_memory_usage =
-            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
-                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
         Ok(self
             .handler
