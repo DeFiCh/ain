@@ -636,7 +636,7 @@ impl<'backend> AinExecutor<'backend> {
                     u64::try_from(tx_res.used_gas).unwrap_or(u64::MAX),
                 );
                 RawFormatter::format(listener, system_tx)
-                    .ok_or_else(|| format_err!("trace result is empty"))?
+                    .ok_or_else(|| format_err!("replayed transaction generated too much data, try disabling memory or storage?"))?
             }
             TraceType::CallList => {
                 let listener = Rc::new(RefCell::new(listeners::CallList::default()));
