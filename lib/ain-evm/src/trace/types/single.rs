@@ -41,7 +41,7 @@ pub enum TracerInput {
     CallTracer,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum TraceType {
     /// Classic geth with no javascript based tracing.
     Raw {
@@ -51,8 +51,6 @@ pub enum TraceType {
     },
     /// List of calls and subcalls formatted with an input tracer (i.e. callTracer or Blockscout).
     CallList,
-    /// A single block trace. Use in `debug_traceTransactionByNumber` / `traceTransactionByHash`.
-    Block,
 }
 
 /// Single transaction trace.

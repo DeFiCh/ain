@@ -138,8 +138,5 @@ pub fn get_dst20_system_tx_trace(
             ))),
             _ => Err(format_err!("failed to resolve tracer format").into()),
         },
-        not_supported => {
-            Err(format_err!("trace_transaction does not support {:?}", not_supported).into())
-        }
     }
 }
