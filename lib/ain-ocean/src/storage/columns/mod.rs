@@ -45,7 +45,7 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&'static str; 28] = [
+pub const COLUMN_NAMES: [&'static str; 30] = [
     block::Block::NAME,
     block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
@@ -56,8 +56,10 @@ pub const COLUMN_NAMES: [&'static str; 28] = [
     oracle_history::OracleHistoryOracleIdSort::NAME,
     oracle_price_active::OraclePriceActive::NAME,
     oracle_price_aggregated::OraclePriceAggregated::NAME,
+    oracle_price_aggregated::OraclePriceAggregatedKey::NAME,
     oracle_price_aggregated_interval::OraclePriceAggregatedInterval::NAME,
     oracle_price_feed::OraclePriceFeed::NAME,
+    oracle_price_feed::OraclePriceFeedKey::NAME,
     oracle_token_currency::OracleTokenCurrency::NAME,
     oracle_token_currency::OracleTokenCurrencyKey::NAME,
     pool_swap_aggregated::PoolSwapAggregated::NAME,

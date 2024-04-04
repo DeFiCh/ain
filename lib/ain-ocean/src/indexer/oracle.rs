@@ -2,7 +2,6 @@ use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use ain_dftx::{common::CompactVec, oracles::*};
 use bitcoin::Txid;
-use hyper::client::service;
 use rust_decimal::{
     prelude::{ToPrimitive, Zero},
     Decimal,
@@ -16,6 +15,7 @@ use crate::{
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
         OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
+        PriceFeedsItem,
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -121,7 +121,7 @@ impl Index for RemoveOracle {
         let oracle_id = ctx.tx.txid;
         //delete for oracle data from oracle
         services.oracle.by_id.delete(&oracle_id)?;
-        let previous_hsitory = get_oracle_history_list(services, oracle_id.clone());
+        let previous_hsitory = get_previous_oracle_history_list(services, oracle_id.clone());
         match previous_hsitory {
             Ok(previous_oracle) => {
                 for oracle_history in &previous_oracle {
@@ -154,7 +154,8 @@ impl Index for RemoveOracle {
     }
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
-        let previous_oracle_history_result = get_oracle_history_list(services, oracle_id.clone());
+        let previous_oracle_history_result =
+            get_previous_oracle_history_list(services, oracle_id.clone());
 
         match previous_oracle_history_result {
             Ok(previous_oracle_history) => {
@@ -206,25 +207,36 @@ impl Index for RemoveOracle {
 impl Index for UpdateOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
+        let price_feeds_items: Vec<PriceFeedsItem> = self
+            .price_feeds
+            .iter()
+            .map(|pair| PriceFeedsItem {
+                token: pair.token.clone(),
+                currency: pair.currency.clone(),
+            })
+            .collect();
+
         let oracle = Oracle {
             id: oracle_id,
             owner_address: self.script.to_hex_string(),
             weightage: self.weightage,
-            price_feeds: vec![],
+            price_feeds: price_feeds_items,
             block: ctx.block.clone(),
         };
-        //store value in oracle
-        services.oracle.by_id.put(&oracle.id, &oracle)?;
 
-        match services.oracle.by_id.get(&oracle.id) {
-            Ok(previous_oracle_result) => {
-                if let Some(previous_oracle) = previous_oracle_result {
-                    for price_feed_item in &previous_oracle.price_feeds {
+        //save oracle
+        services.oracle.by_id.put(&oracle.id, &oracle)?;
+        let previous_oracle_history_result =
+            get_previous_oracle_history_list(services, oracle_id.clone());
+        match previous_oracle_history_result {
+            Ok(previous_oracle) => {
+                for oracle in previous_oracle {
+                    for price_feed_item in &oracle.price_feeds {
                         // Assuming `oracle_id` is a field in `data` that you want to use for deletion
                         let deletion_key = (
                             price_feed_item.token.clone(),
                             price_feed_item.currency.clone(),
-                            oracle_id,
+                            oracle_id.clone(),
                         );
                         match services.oracle_token_currency.by_id.delete(&deletion_key) {
                             Ok(_) => {
@@ -245,6 +257,7 @@ impl Index for UpdateOracle {
                 return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
+
         let prices_feeds = self.price_feeds.as_ref();
         //saving value in oracle_token_currency
         for token_currency in prices_feeds {
@@ -267,6 +280,10 @@ impl Index for UpdateOracle {
 
             services
                 .oracle_token_currency
+                .by_key
+                .put(&oracle_token_currency.key, &oracle_token_currency.id)?;
+            services
+                .oracle_token_currency
                 .by_id
                 .put(&oracle_token_currency.id, &oracle_token_currency)?;
         }
@@ -287,6 +304,10 @@ impl Index for UpdateOracle {
         //saving value in oracle_history
         services
             .oracle_history
+            .by_key
+            .put(&oracle_history.oracle_id, &oracle_history.id)?;
+        services
+            .oracle_history
             .by_id
             .put(&oracle_history.id, &oracle_history)?;
 
@@ -295,27 +316,40 @@ impl Index for UpdateOracle {
 
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
+        services.oracle_history.by_key.delete(&oracle_id)?;
         services.oracle_history.by_id.delete(&(
             oracle_id,
             context.block.height,
             context.tx.txid,
         ))?;
-        match services.oracle.by_id.get(&oracle_id) {
+
+        let prices_feeds = self.price_feeds.as_ref();
+        for (pair) in prices_feeds {
+            services.oracle_token_currency.by_id.delete(&(
+                pair.token.to_string(),
+                pair.token.to_string(),
+                self.oracle_id,
+            ))?;
+        }
+        let previous_oracle_history_result =
+            get_previous_oracle_history_list(services, oracle_id.clone());
+        match previous_oracle_history_result {
             Ok(previous_oracle_result) => {
-                if let Some(previous_oracle) = previous_oracle_result {
+                for previous_oracle in previous_oracle_result {
                     for price_feed_item in &previous_oracle.price_feeds {
                         let deletion_key = (
                             price_feed_item.token.clone(),
                             price_feed_item.currency.clone(),
-                            oracle_id,
+                            previous_oracle.oracle_id.clone(),
                         );
+
                         match services.oracle_token_currency.by_id.delete(&deletion_key) {
                             Ok(_) => {
                                 // Successfully deleted
                             }
                             Err(err) => {
                                 let error_message =
-                                    format!("Error update oracle invalidate: {:?}", err);
+                                    format!("Error updating oracle invalidate: {:?}", err);
                                 eprintln!("{}", error_message);
                                 return Err(Error::NotFound(NotFoundKind::Oracle));
                             }
@@ -324,12 +358,11 @@ impl Index for UpdateOracle {
                 }
             }
             Err(err) => {
-                let error_message = format!("Error update oracle invalidate: {:?}", err);
+                let error_message = format!("Error updating oracle invalidate: {:?}", err);
                 eprintln!("{}", error_message);
                 return Err(Error::NotFound(NotFoundKind::Oracle));
             }
         }
-
         Ok(())
     }
 }
@@ -394,12 +427,13 @@ impl Index for SetOracleData {
         let mut pairs: HashSet<(String, String)> = HashSet::new();
         for feed in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
+            services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
             services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
 
         for (token, currency) in pairs.iter() {
             let aggregated_value = map_price_aggregated(services, context, token, currency);
-
+            println!("aggregated_value {:?}", aggregated_value);
             if let Ok(Some(value)) = aggregated_value {
                 let aggreated_id = (
                     value.token.clone(),
@@ -430,6 +464,7 @@ impl Index for SetOracleData {
         let mut pairs: HashSet<(String, String)> = HashSet::new();
         for feed in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
+            services.oracle_price_feed.by_key.delete(&feed.key)?;
             services.oracle_price_feed.by_id.delete(&feed.id)?;
         }
         for (token, currency) in pairs.iter() {
@@ -451,6 +486,7 @@ pub fn map_price_aggregated(
 ) -> Result<Option<OraclePriceAggregated>> {
     // Convert Result to Option
     let key = (token.to_string(), currency.to_string());
+    println!("the value {:?}", key);
     let oracle_token_currency = services
         .oracle_token_currency
         .by_key
@@ -468,6 +504,7 @@ pub fn map_price_aggregated(
         .collect::<Result<Vec<_>>>()?;
 
     let result = oracle_token_currency;
+    println!("the result {:?}", result);
     let mut aggregated = OraclePriceAggregatedAggregated {
         amount: "0".to_string(),
         weightage: 0,
@@ -496,7 +533,10 @@ pub fn map_price_aggregated(
                         .map(|data| Some(data))
                 },
             ),
-            Err(err) => Err(err), // Pass along the error if there was one
+            Err(err) => {
+                println!("the err {:?}", err);
+                Err(err)
+            } // Pass along the error if there was one
         };
 
         let oracle_price_feed: Option<OraclePriceFeed> = match feeds {
@@ -585,7 +625,7 @@ pub fn map_price_feeds(
             }
         }
     }
-
+    println!("the value in {:?}", result);
     Ok(result)
 }
 
@@ -635,26 +675,6 @@ pub fn index_interval_mapper(
             }
         }
     }
-}
-
-pub fn get_previous_history(oracle_id: Txid, services: &Services) -> Result<OracleHistory> {
-    let previous_history_result = services
-        .oracle_history
-        .by_key
-        .list(Some(oracle_id), SortOrder::Descending)?
-        .map(|item| {
-            let (_, id) = item?;
-            let b = services
-                .oracle_history
-                .by_id
-                .get(&id)?
-                .ok_or("Missing block index")?;
-
-            Ok(b)
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(previous_history_result[0].clone())
 }
 
 pub fn invalidate_oracle_interval(
@@ -872,10 +892,11 @@ fn backward_aggregate_number(last_value: i32, new_value: i32, count: u32) -> i32
     })
 }
 
-fn get_oracle_history_list(
+fn get_previous_oracle_history_list(
     services: &Arc<Services>,
     oracle_id: Txid,
 ) -> std::result::Result<Vec<OracleHistory>, Box<dyn std::error::Error>> {
+    println!("oracle_id {:?}", oracle_id);
     let history = services
         .oracle_history
         .by_key
@@ -886,11 +907,11 @@ fn get_oracle_history_list(
                 .oracle_history
                 .by_id
                 .get(&id)?
-                .ok_or_else(|| Box::new("Missing price_aggregated index").to_string())?;
+                .ok_or("Missing oracle previous history index")?;
 
             Ok(b)
         })
         .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
-
+    println!("the value in history {:?}", history);
     Ok(history)
 }
