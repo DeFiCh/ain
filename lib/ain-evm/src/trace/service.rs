@@ -159,7 +159,7 @@ impl TracerService {
                     .borrow_mut()
                     .finish_transaction(!tx_res.exit_reason.is_succeed(), tx_res.used_gas);
                 RawFormatter::format(listener, false)
-                    .ok_or_else(|| format_err!("trace result is empty"))?
+                    .ok_or_else(|| format_err!("replayed transaction generated too much data, try disabling memory or storage?"))?
             }
             TraceType::CallList => {
                 let listener = Rc::new(RefCell::new(listeners::CallList::default()));
