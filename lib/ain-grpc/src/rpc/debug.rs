@@ -82,6 +82,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
+        // Get signed tx
         let receipt = self
             .handler
             .storage
