@@ -5,7 +5,7 @@ use ain_evm::{
     evm::EVMServices,
     executor::TxResponse,
     storage::traits::{BlockStorage, ReceiptStorage, TransactionStorage},
-    trace::types::single::{TraceType, TransactionTrace},
+    trace::types::single::TransactionTrace,
     transaction::SignedTx,
 };
 use ethereum::BlockAny;
@@ -131,12 +131,6 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         // Handle trace params
         let params = handle_trace_params(trace_params)?;
-        match params.1 {
-            TraceType::Raw { .. } => (),
-            TraceType::CallList => (),
-            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
-        }
-
         let receipt = self
             .handler
             .storage
@@ -231,15 +225,10 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         // Handle trace params
         let params = handle_trace_params(trace_params)?;
-        match params.1 {
-            TraceType::Raw { .. } => (),
-            TraceType::CallList => (),
-            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
-        }
+        let trace_block = self.get_block(Some(block_number))?;
         let raw_max_memory_usage =
             usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
-        let trace_block = self.get_block(Some(block_number))?;
 
         Ok(self
             .handler
@@ -257,21 +246,15 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         // Handle trace params
         let params = handle_trace_params(trace_params)?;
-        match params.1 {
-            TraceType::Raw { .. } => (),
-            TraceType::CallList => (),
-            not_supported => return Err(RPCError::TraceTypeError(not_supported).into()),
-        }
-        let raw_max_memory_usage =
-            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
-                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
-
         let trace_block = self
             .handler
             .storage
             .get_block_by_hash(&hash)
             .map_err(to_custom_err)?
             .ok_or(RPCError::BlockNotFound)?;
+        let raw_max_memory_usage =
+            usize::try_from(ain_cpp_imports::get_tracing_raw_max_memory_usage_bytes())
+                .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
         Ok(self
             .handler

@@ -1,4 +1,4 @@
-use ain_evm::{trace::types::single::TraceType, EVMError};
+use ain_evm::EVMError;
 use ethereum_types::H256;
 use jsonrpsee::{
     core::{to_json_raw_value, Error},
@@ -24,7 +24,6 @@ pub enum RPCError {
     StateRootNotFound,
     TraceNotEnabled,
     TracingParamError([u8; 16]),
-    TraceTypeError(TraceType),
     TxExecutionFailed,
     TxNotFound(H256),
     ValueOverflow,
@@ -73,10 +72,6 @@ impl From<RPCError> for Error {
             RPCError::TracingParamError(hash) => Error::Custom(format!(
                 "javascript based tracing is not available (hash :{:?})",
                 hash
-            )),
-            RPCError::TraceTypeError(not_supported) => Error::Custom(format!(
-                "Bug: `trace_transaction` does not support {:?}",
-                not_supported
             )),
             RPCError::TxExecutionFailed => to_custom_err("transaction execution failed"),
             RPCError::TxNotFound(hash) => Error::Custom(format!(
