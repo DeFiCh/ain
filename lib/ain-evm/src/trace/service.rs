@@ -340,11 +340,6 @@ impl TracerService {
                 }
                 .ok_or_else(|| format_err!("trace result is empty"))?
             }
-            not_supported => {
-                return Err(
-                    format_err!("trace_transaction does not support {:?}", not_supported).into(),
-                );
-            }
         };
         Ok(res)
     }
