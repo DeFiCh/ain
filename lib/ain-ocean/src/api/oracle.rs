@@ -50,24 +50,32 @@ async fn get_price_feed(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceFeed>> {
     let next = query
-    .next
-    .map(|q| {
-        // Split the URL by '/'
-        let parts: Vec<&str> = q.split('/').collect();
-        
-        // Check if enough parts exist
-        if parts.len() != 4 {
-            return Err("Invalid query format");
-        }
+        .next
+        .map(|q| {
+            // Split the URL by '/'
+            let parts: Vec<&str> = q.split('/').collect();
 
-        // Extract oracle_id, token, and currency from the URL
-        let oracle_id = parts[2].parse::<Txid>().map_err(|_| "Invalid oracle_id")?;
-        let token = parts[3].split('-').next().ok_or("Invalid token")?.to_string();
-        let currency = parts[3].split('-').nth(1).ok_or("Invalid currency")?.to_string();
-        
-        Ok((token, currency, oracle_id))
-    })
-    .transpose()?;
+            // Check if enough parts exist
+            if parts.len() != 4 {
+                return Err("Invalid query format");
+            }
+
+            // Extract oracle_id, token, and currency from the URL
+            let oracle_id = parts[2].parse::<Txid>().map_err(|_| "Invalid oracle_id")?;
+            let token = parts[3]
+                .split('-')
+                .next()
+                .ok_or("Invalid token")?
+                .to_string();
+            let currency = parts[3]
+                .split('-')
+                .nth(1)
+                .ok_or("Invalid currency")?
+                .to_string();
+
+            Ok((token, currency, oracle_id))
+        })
+        .transpose()?;
     let oracle_price_feed = ctx
         .services
         .oracle_price_feed
