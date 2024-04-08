@@ -25,11 +25,21 @@ use crate::{
 impl Index for AppointOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
+
+        let price_feeds_items: Vec<PriceFeedsItem> = self
+            .price_feeds
+            .iter()
+            .map(|pair| PriceFeedsItem {
+                token: pair.token.clone(),
+                currency: pair.currency.clone(),
+            })
+            .collect();
+
         let oracle = Oracle {
             id: oracle_id,
             owner_address: self.script.to_hex_string(),
             weightage: self.weightage,
-            price_feeds: vec![],
+            price_feeds: price_feeds_items.clone(),
             block: ctx.block.clone(),
         };
         services.oracle.by_id.put(&oracle.id, &oracle)?;
@@ -43,7 +53,7 @@ impl Index for AppointOracle {
             ),
             owner_address: self.script.to_hex_string(),
             weightage: self.weightage,
-            price_feeds: vec![],
+            price_feeds: price_feeds_items,
             block: ctx.block.clone(),
         };
         services
@@ -372,7 +382,7 @@ impl Index for SetOracleInterval {
         let set_oracle_data = SetOracleData {
             oracle_id: self.oracle_id,
             timestamp: self.timestamp,
-            token_prices: CompactVec::from(Vec::new()),
+            token_prices: self.token_prices,
         };
 
         let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
@@ -393,7 +403,6 @@ impl Index for SetOracleInterval {
             ))?;
 
             for interval in intervals.clone() {
-                // Call the equivalent of indexIntervalMapper in Rust
                 index_interval_mapper(
                     services,
                     &context.block,
@@ -420,10 +429,7 @@ impl Index for SetOracleData {
             timestamp: self.timestamp,
             token_prices: self.token_prices,
         };
-
-        println!("the value inside set_oracle_data {:?}", set_oracle_data);
         let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
-        println!("the value inside oracle_data {:?}", feeds);
         let mut pairs: HashSet<(String, String)> = HashSet::new();
         for feed in feeds {
             pairs.insert((feed.token.clone(), feed.currency.clone()));
@@ -433,7 +439,6 @@ impl Index for SetOracleData {
 
         for (token, currency) in pairs.iter() {
             let aggregated_value = map_price_aggregated(services, context, token, currency);
-            println!("aggregated_value {:?}", aggregated_value);
             if let Ok(Some(value)) = aggregated_value {
                 let aggreated_id = (
                     value.token.clone(),
@@ -484,9 +489,7 @@ pub fn map_price_aggregated(
     token: &str,
     currency: &str,
 ) -> Result<Option<OraclePriceAggregated>> {
-    // Convert Result to Option
     let key = (token.to_string(), currency.to_string());
-    println!("the value {:?}", key);
     let oracle_token_currency = services
         .oracle_token_currency
         .by_key
@@ -504,7 +507,6 @@ pub fn map_price_aggregated(
         .collect::<Result<Vec<_>>>()?;
 
     let result = oracle_token_currency;
-    println!("the result {:?}", result);
     let mut aggregated = OraclePriceAggregatedAggregated {
         amount: "0".to_string(),
         weightage: 0,
@@ -536,7 +538,7 @@ pub fn map_price_aggregated(
             Err(err) => {
                 println!("the err {:?}", err);
                 Err(err)
-            } // Pass along the error if there was one
+            }
         };
 
         let oracle_price_feed: Option<OraclePriceFeed> = match feeds {
@@ -564,7 +566,7 @@ pub fn map_price_aggregated(
     }
 
     if aggregated.oracles.active == 0 {
-        return Ok(None); // Replace with an appropriate error variant
+        return Ok(None);
     };
 
     Ok(Some(OraclePriceAggregated {
@@ -587,15 +589,10 @@ pub fn map_price_feeds(
     context: Vec<&Context>,
 ) -> Result<Vec<OraclePriceFeed>> {
     let mut result: Vec<OraclePriceFeed> = Vec::new();
-
     for (idx, ctx) in context.into_iter().enumerate() {
         // Use indexing to access elements in set_oracle_data
         let set_data = set_oracle_data[idx];
-
-        // Use as_ref() to get a reference to the inner vector
         let token_prices = set_data.token_prices.as_ref();
-
-        // Perform additional processing and create OraclePriceFeed object
         for token_price in token_prices {
             for token_amount in token_price.prices.as_ref() {
                 let oracle_price_feed = OraclePriceFeed {
@@ -625,7 +622,6 @@ pub fn map_price_feeds(
             }
         }
     }
-    println!("the value in {:?}", result);
     Ok(result)
 }
 
@@ -664,13 +660,11 @@ pub fn index_interval_mapper(
                             aggregated,
                             interval.clone(),
                         );
-                    } else {
-                        // Handle the case when inner_values is None or Err
                     }
                 }
-                Err(db_error) => {
-                    // Handle the error if needed
-                    println!("Error in outer iterator: {:?}", db_error);
+                Err(err) => {
+                    let error_message = format!("Error: index_interval_mapper oracle: {:?}", err);
+                    eprintln!("{}", error_message);
                 }
             }
         }
@@ -759,7 +753,6 @@ pub fn invalidate_oracle_interval(
                     }
                 }
                 Err(db_error) => {
-                    // Handle the error if needed
                     println!("Error in outer iterator: {:?}", db_error);
                 }
             }
@@ -896,7 +889,6 @@ fn get_previous_oracle_history_list(
     services: &Arc<Services>,
     oracle_id: Txid,
 ) -> std::result::Result<Vec<OracleHistory>, Box<dyn std::error::Error>> {
-    println!("oracle_id {:?}", oracle_id);
     let history = services
         .oracle_history
         .by_key
@@ -912,6 +904,5 @@ fn get_previous_oracle_history_list(
             Ok(b)
         })
         .collect::<std::result::Result<Vec<_>, Box<dyn std::error::Error>>>()?;
-    println!("the value in history {:?}", history);
     Ok(history)
 }

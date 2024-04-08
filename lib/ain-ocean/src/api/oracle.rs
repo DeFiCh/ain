@@ -113,7 +113,8 @@ async fn get_oracle_by_address(
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
-        .route("/oracles", get(list_oracles))
+        .route("/", get(list_oracles))
         .route("/:oracleId/:key/feed", get(get_price_feed))
         .route("/:address", get(get_oracle_by_address))
+        .layer(Extension(ctx))
 }
