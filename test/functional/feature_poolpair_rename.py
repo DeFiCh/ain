@@ -100,6 +100,7 @@ class PoolPairRenameTest(DefiTestFramework):
         self.nodes[0].setloantoken(
             {
                 "symbol": "TSLA",
+                "name": "TSLA",
                 "fixedIntervalPriceId": "TSLA/USD",
                 "interest": 1,
             }
