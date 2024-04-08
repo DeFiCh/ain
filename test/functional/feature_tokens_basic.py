@@ -11,7 +11,7 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
 class TokensBasicTest(DefiTestFramework):
@@ -40,15 +40,37 @@ class TokensBasicTest(DefiTestFramework):
         # ========================
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
+        # Try and create token without a name
+        assert_raises_rpc_error(
+            -8,
+            "Token name should not be empty",
+            self.nodes[0].createtoken,
+            {
+                "symbol": "GOLD",
+                "collateralAddress": collateral0,
+            },
+        )
+
+        # Try and create token with an empty name
+        assert_raises_rpc_error(
+            -8,
+            "Token name should not be empty",
+            self.nodes[0].createtoken,
+            {
+                "symbol": "GOLD",
+                "name": "",
+                "collateralAddress": collateral0,
+            },
+        )
+
         # Fail to create: Insufficient funds (not matured coins)
         try:
-            createTokenTx = self.nodes[0].createtoken(
+            self.nodes[0].createtoken(
                 {
                     "symbol": "GOLD",
                     "name": "shiny gold",
                     "collateralAddress": collateral0,
-                },
-                [],
+                }
             )
         except JSONRPCException as e:
             errorString = e.error["message"]
@@ -63,17 +85,14 @@ class TokensBasicTest(DefiTestFramework):
                     "symbol": "GOLD#1",
                     "name": "shiny gold",
                     "collateralAddress": collateral0,
-                },
-                [],
+                }
             )
         except JSONRPCException as e:
             errorString = e.error["message"]
         assert "Invalid token symbol" in errorString
 
-        print("Create token 'GOLD' (128)...")
         createTokenTx = self.nodes[0].createtoken(
-            {"symbol": "GOLD", "name": "shiny gold", "collateralAddress": collateral0},
-            [],
+            {"symbol": "GOLD", "name": "shiny gold", "collateralAddress": collateral0}
         )
 
         # Create and sign (only) collateral spending tx
