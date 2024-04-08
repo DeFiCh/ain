@@ -753,7 +753,7 @@ pub fn invalidate_oracle_interval(
                     }
                 }
                 Err(db_error) => {
-                    println!("Error in outer iterator: {:?}", db_error);
+                    println!("Error in invalidate_oracle_interval : {:?}", db_error);
                 }
             }
         }
