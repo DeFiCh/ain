@@ -421,7 +421,7 @@ public:
         consensus.DF20GrandCentralHeight = 1150020;
         consensus.DF21GrandCentralEpilogueHeight = 1150030;
         consensus.DF22MetachainHeight = 1150040;
-        consensus.DF23Height = std::numeric_limits<int>::max();
+        consensus.DF23Height = 1507200;
         consensus.DF24Height = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
