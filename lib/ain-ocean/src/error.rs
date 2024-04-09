@@ -19,6 +19,8 @@ pub enum NotFoundKind {
     Masternode,
     #[error("scheme")]
     Scheme,
+    #[error("oracle")]
+    Oracle,
 }
 
 #[derive(Error, Debug)]

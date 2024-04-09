@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::opcode;
 use ethereum_types::{H160, H256};
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
 use evm_runtime::{
@@ -8,6 +7,8 @@ use evm_runtime::{
     Opcode,
 };
 use log::debug;
+
+use crate::opcode;
 
 #[derive(Clone, Debug)]
 pub struct ExecutionStep {

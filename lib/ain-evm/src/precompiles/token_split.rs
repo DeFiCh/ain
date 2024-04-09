@@ -2,24 +2,22 @@ use std::collections::BTreeMap;
 
 use ain_contracts::{dst20_address_from_token_id, validate_split_tokens_input, TokenSplitParams};
 use ain_cpp_imports::{split_tokens_from_evm, TokenAmount};
+use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
 use evm::{
     backend::Apply,
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput},
     ExitError, ExitSucceed,
 };
+use log::debug;
 
+use super::DVMStatePrecompile;
 use crate::{
     contract::{get_address_storage_index, u256_to_h256},
     precompiles::PrecompileResult,
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
-
-use anyhow::format_err;
-use log::debug;
-
-use super::DVMStatePrecompile;
 
 pub struct TokenSplit;
 

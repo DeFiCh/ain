@@ -1,18 +1,20 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
-
+pub type OraclePriceFeedId = (String, String, Txid, Txid); // token-currency-oracle_id-txid
+pub type OraclePriceFeedkey = (String, String, Txid); // token-currency-oracle_id
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceFeed {
-    pub id: String,
-    pub key: String,
+    pub id: OraclePriceFeedId,
+    pub key: OraclePriceFeedkey,
     pub sort: String,
     pub token: String,
     pub currency: String,
-    pub oracle_id: String,
-    pub txid: String,
+    pub oracle_id: Txid,
+    pub txid: Txid,
     pub time: i32,
-    pub amount: String,
+    pub amount: i64,
     pub block: BlockContext,
 }

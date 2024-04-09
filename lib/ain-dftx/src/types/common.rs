@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 use bitcoin::{
     consensus::{Decodable, Encodable},
     io::{self, ErrorKind},
@@ -167,5 +169,11 @@ impl Decodable for VarInt {
         }
 
         Ok(VarInt(n))
+    }
+}
+
+impl<T> CompactVec<T> {
+    pub fn iter(&self) -> Iter<'_, T> {
+        self.0.iter()
     }
 }

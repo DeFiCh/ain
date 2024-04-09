@@ -2,22 +2,23 @@ use std::sync::Arc;
 
 use ain_db::LedgerColumn;
 use ain_macros::Repository;
+use bitcoin::Txid;
 
 use super::RepositoryOps;
 use crate::{
-    model::{OraclePriceActive, OraclePriceActiveId, OraclePriceActiveKey},
+    model::{OracleHistory, OracleHistoryId},
     storage::{columns, ocean_store::OceanStore},
     Result,
 };
 
 #[derive(Repository)]
-#[repository(K = "OraclePriceActiveId", V = "OraclePriceActive")]
-pub struct OraclePriceActiveRepository {
+#[repository(K = "OracleHistoryId", V = "OracleHistory")]
+pub struct OracleHistoryRepository {
     pub store: Arc<OceanStore>,
-    col: LedgerColumn<columns::OraclePriceActive>,
+    col: LedgerColumn<columns::OracleHistory>,
 }
 
-impl OraclePriceActiveRepository {
+impl OracleHistoryRepository {
     pub fn new(store: Arc<OceanStore>) -> Self {
         Self {
             col: store.column(),
@@ -25,15 +26,14 @@ impl OraclePriceActiveRepository {
         }
     }
 }
-
 #[derive(Repository)]
-#[repository(K = "OraclePriceActiveKey", V = "OraclePriceActiveId")]
-pub struct OraclePriceActiveKeyRepository {
+#[repository(K = "Txid", V = "OracleHistoryId")]
+pub struct OracleHistoryRepositoryKey {
     pub store: Arc<OceanStore>,
-    col: LedgerColumn<columns::OraclePriceActiveKey>,
+    col: LedgerColumn<columns::OracleHistoryOracleIdSort>,
 }
 
-impl OraclePriceActiveKeyRepository {
+impl OracleHistoryRepositoryKey {
     pub fn new(store: Arc<OceanStore>) -> Self {
         Self {
             col: store.column(),

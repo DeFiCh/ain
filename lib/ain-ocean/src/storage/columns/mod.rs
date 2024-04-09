@@ -1,6 +1,7 @@
 mod block;
 mod masternode;
 mod masternode_stats;
+mod oracle;
 mod oracle_history;
 mod oracle_price_active;
 mod oracle_price_aggregated;
@@ -24,6 +25,7 @@ use ain_db::ColumnName;
 pub use block::*;
 pub use masternode::*;
 pub use masternode_stats::*;
+pub use oracle::*;
 pub use oracle_history::*;
 pub use oracle_price_active::*;
 pub use oracle_price_aggregated::*;
@@ -43,18 +45,23 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&str; 25] = [
+pub const COLUMN_NAMES: [&str; 30] = [
     block::Block::NAME,
     block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
     masternode::Masternode::NAME,
     masternode::MasternodeByHeight::NAME,
+    oracle::Oracle::NAME,
     oracle_history::OracleHistory::NAME,
+    oracle_history::OracleHistoryOracleIdSort::NAME,
     oracle_price_active::OraclePriceActive::NAME,
     oracle_price_aggregated::OraclePriceAggregated::NAME,
+    oracle_price_aggregated::OraclePriceAggregatedKey::NAME,
     oracle_price_aggregated_interval::OraclePriceAggregatedInterval::NAME,
     oracle_price_feed::OraclePriceFeed::NAME,
+    oracle_price_feed::OraclePriceFeedKey::NAME,
     oracle_token_currency::OracleTokenCurrency::NAME,
+    oracle_token_currency::OracleTokenCurrencyKey::NAME,
     pool_swap_aggregated::PoolSwapAggregated::NAME,
     pool_swap::PoolSwap::NAME,
     price_ticker::PriceTicker::NAME,
