@@ -1,4 +1,4 @@
-use std::{collections::HashSet, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::{common::CompactVec, oracles::*};
 use bitcoin::Txid;
@@ -377,51 +377,6 @@ impl Index for UpdateOracle {
     }
 }
 
-impl Index for SetOracleInterval {
-    fn index(self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        let set_oracle_data = SetOracleData {
-            oracle_id: self.oracle_id,
-            timestamp: self.timestamp,
-            token_prices: self.token_prices,
-        };
-
-        let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
-        let mut pairs: HashSet<(String, String)> = HashSet::new();
-        for feed in feeds {
-            pairs.insert((feed.token.clone(), feed.currency.clone()));
-        }
-        let intervals: Vec<OracleIntervalSeconds> = vec![
-            OracleIntervalSeconds::FifteenMinutes,
-            OracleIntervalSeconds::OneHour,
-            OracleIntervalSeconds::OneDay,
-        ];
-        for (token, currency) in pairs.iter() {
-            let aggregated = services.oracle_price_aggregated.by_id.get(&(
-                token.to_owned(),
-                currency.to_owned(),
-                context.block.height,
-            ))?;
-
-            for interval in intervals.clone() {
-                index_interval_mapper(
-                    services,
-                    &context.block,
-                    token,
-                    currency,
-                    aggregated.as_ref().unwrap(),
-                    interval,
-                );
-            }
-        }
-
-        Ok(())
-    }
-
-    fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
-        todo!() // follow invalidate_oracle_interval method
-    }
-}
-
 impl Index for SetOracleData {
     fn index(self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let set_oracle_data = SetOracleData {
@@ -430,13 +385,17 @@ impl Index for SetOracleData {
             token_prices: self.token_prices,
         };
         let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
-        let mut pairs: HashSet<(String, String)> = HashSet::new();
+        let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
-            pairs.insert((feed.token.clone(), feed.currency.clone()));
+            pairs.push((feed.token.clone(), feed.currency.clone()));
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
             services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
-
+        let intervals: Vec<OracleIntervalSeconds> = vec![
+            OracleIntervalSeconds::FifteenMinutes,
+            OracleIntervalSeconds::OneHour,
+            OracleIntervalSeconds::OneDay,
+        ];
         for (token, currency) in pairs.iter() {
             let aggregated_value = map_price_aggregated(services, context, token, currency);
             if let Ok(Some(value)) = aggregated_value {
@@ -454,8 +413,26 @@ impl Index for SetOracleData {
                     .oracle_price_aggregated
                     .by_key
                     .put(&aggreated_key, &aggreated_id)?;
+
+                //SetOracleInterval
+                let aggregated = services.oracle_price_aggregated.by_id.get(&(
+                    token.to_owned(),
+                    currency.to_owned(),
+                    context.block.height,
+                ))?;
+                for interval in intervals.clone() {
+                    index_interval_mapper(
+                        services,
+                        &context.block,
+                        token,
+                        currency,
+                        aggregated.as_ref().unwrap(),
+                        &interval,
+                    );
+                }
             }
         }
+
         Ok(())
     }
 
@@ -465,15 +442,33 @@ impl Index for SetOracleData {
             timestamp: self.timestamp,
             token_prices: CompactVec::from(Vec::new()),
         };
+        let intervals: Vec<OracleIntervalSeconds> = vec![
+            OracleIntervalSeconds::FifteenMinutes,
+            OracleIntervalSeconds::OneHour,
+            OracleIntervalSeconds::OneDay,
+        ];
         let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
-        let mut pairs: HashSet<(String, String)> = HashSet::new();
+        let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
-            pairs.insert((feed.token.clone(), feed.currency.clone()));
+            pairs.push((feed.token.clone(), feed.currency.clone()));
             services.oracle_price_feed.by_key.delete(&feed.key)?;
             services.oracle_price_feed.by_id.delete(&feed.id)?;
         }
         for (token, currency) in pairs.iter() {
             let aggreated_id = (token.to_owned(), currency.to_owned(), context.block.height);
+            let aggregated_price = services.oracle_price_aggregated.by_id.get(&aggreated_id)?;
+            if let Some(aggregated) = aggregated_price {
+                for interval in &intervals {
+                    invalidate_oracle_interval(
+                        services,
+                        &context.block,
+                        token,
+                        currency,
+                        &aggregated,
+                        interval,
+                    );
+                }
+            }
             services
                 .oracle_price_aggregated
                 .by_id
@@ -631,7 +626,7 @@ pub fn index_interval_mapper(
     token: &str,
     currency: &str,
     aggregated: &OraclePriceAggregated,
-    interval: OracleIntervalSeconds,
+    interval: &OracleIntervalSeconds,
 ) {
     if let Some(previous_iter) = services
         .oracle_price_aggregated_interval
@@ -677,7 +672,7 @@ pub fn invalidate_oracle_interval(
     token: &str,
     currency: &str,
     aggregated: &OraclePriceAggregated,
-    interval: OracleIntervalSeconds,
+    interval: &OracleIntervalSeconds,
 ) {
     if let Some(previous_iter) = services
         .oracle_price_aggregated_interval
@@ -797,10 +792,9 @@ fn process_inner_values(
             &oracle_price_aggregated_interval.id,
         );
     } else {
-        // Add logic for the case when the condition is false
         let lastprice = previous_data.as_ref().unwrap().aggregated.clone();
         let count = lastprice.count + 1;
-        let aggregatedInterval = OraclePriceAggregatedInterval {
+        let aggregated_interval = OraclePriceAggregatedInterval {
             id: previous_data.as_ref().unwrap().id.clone(),
             key: previous_data.as_ref().unwrap().key.clone(),
             sort: previous_data.as_ref().unwrap().sort.clone(),
@@ -834,6 +828,14 @@ fn process_inner_values(
             },
             block: previous_data.as_ref().unwrap().block.clone(),
         };
+        let err = services
+            .oracle_price_aggregated_interval
+            .by_id
+            .put(&aggregated_interval.id, &aggregated_interval);
+        let err = services
+            .oracle_price_aggregated_interval
+            .by_key
+            .put(&aggregated_interval.key, &aggregated_interval.id);
     }
 }
 

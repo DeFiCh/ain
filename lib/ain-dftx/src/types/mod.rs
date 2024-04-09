@@ -64,7 +64,6 @@ pub enum DfTx {
     SetLoanScheme(SetLoanScheme),
     SetLoanToken(SetLoanToken),
     SetOracleData(SetOracleData),
-    SetOracleInterval(SetOracleInterval),
     TakeLoan(TakeLoan),
     BurnToken(BurnToken),
     CreateToken(CreateToken),
@@ -139,7 +138,6 @@ impl DfTx {
             DfTx::UpdateVault(_) => b'v',
             DfTx::UpdateLoanToken(_) => b'x',
             DfTx::SetOracleData(_) => b'y',
-            DfTx::SetOracleInterval(_) => b'Y',
             DfTx::CreateCfp(_) => b'z',
         }
     }
@@ -318,7 +316,6 @@ impl Encodable for DfTx {
             DfTx::SetCollateralToken(data) => data.consensus_encode(w),
             DfTx::SetLoanToken(data) => data.consensus_encode(w),
             DfTx::SetOracleData(data) => data.consensus_encode(w),
-            DfTx::SetOracleInterval(data) => data.consensus_encode(w),
             DfTx::TakeLoan(data) => data.consensus_encode(w),
             DfTx::TransferDomain(data) => data.consensus_encode(w),
             DfTx::UpdateLoanToken(data) => data.consensus_encode(w),
