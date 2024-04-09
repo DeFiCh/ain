@@ -115,7 +115,7 @@ UniValue createtoken(const JSONRPCRequest &request) {
         metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::DAT : token.flags;  // setting isDAT
 
     if (token.name.empty()) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Token name should not be empty");
+        token.name = token.symbol;
     }
 
     if (!metaObj["tradeable"].isNull()) {
