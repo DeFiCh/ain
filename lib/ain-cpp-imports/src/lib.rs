@@ -29,6 +29,11 @@ mod ffi {
         pub entry_time: i64,
     }
 
+    pub struct TokenAmount {
+        pub id: u32,
+        pub amount: u64,
+    }
+
     const UNIMPL_MSG: &str = "This cannot be used on a test path";
     pub fn getChainId() -> u64 {
         unimplemented!("{}", UNIMPL_MSG)
@@ -133,9 +138,20 @@ mod ffi {
     pub fn isOceanEnabled() -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn getDF23Height() -> u64 {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
+    pub fn migrateTokensFromEVM(
+        _mnview_ptr: usize,
+        _old_amount: TokenAmount,
+        _new_amount: &mut TokenAmount,
+    ) -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::Attributes;
+pub use ffi::TokenAmount;
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {
@@ -335,6 +351,20 @@ pub fn is_eth_debug_trace_rpc_enabled() -> bool {
 /// Checks if Ocean REST API is enabled
 pub fn is_ocean_rest_enabled() -> bool {
     ffi::isOceanEnabled()
+}
+
+/// Gets the DF23 height
+pub fn get_df23_height() -> u64 {
+    ffi::getDF23Height()
+}
+
+/// Send tokens to DVM to split
+pub fn split_tokens_from_evm(
+    mnview_ptr: usize,
+    old_amount: ffi::TokenAmount,
+    new_amount: &mut ffi::TokenAmount,
+) -> bool {
+    ffi::migrateTokensFromEVM(mnview_ptr, old_amount, new_amount)
 }
 
 #[cfg(test)]

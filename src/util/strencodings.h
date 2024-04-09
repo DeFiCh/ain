@@ -40,6 +40,8 @@ std::vector<unsigned char> ParseHex(const char* psz);
 std::vector<unsigned char> ParseHex(const std::string& str);
 signed char HexDigit(char c);
 std::string trim_ws(std::string const & str);
+void rtrim(std::string &s, unsigned char remove);
+
 /* Returns true if each character in str is a hex character, and has an even
  * number of hex digits.*/
 bool IsHex(const std::string& str);

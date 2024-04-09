@@ -690,8 +690,8 @@ pkg_install_deps() {
     # python3-venv for settings up all python deps
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
-        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev \
+        libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
@@ -1178,7 +1178,7 @@ ci_export_vars() {
         fi
 
         if [[ "${TARGET}" =~ .*darwin.* ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.14}" >> "$GITHUB_ENV"
+            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}" >> "$GITHUB_ENV"
         fi
 
         echo "RUST_DEFAULT_VERSION=1.76" >> "$GITHUB_ENV"

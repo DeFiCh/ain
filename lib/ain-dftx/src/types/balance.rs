@@ -1,5 +1,5 @@
 use ain_macros::ConsensusEncoding;
-use bitcoin::{impl_consensus_encoding, io, ScriptBuf, VarInt};
+use bitcoin::{io, ScriptBuf, VarInt};
 
 use super::common::CompactVec;
 

@@ -1,8 +1,8 @@
 use ain_contracts::{
     get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract,
-    get_dfi_reserved_contract, get_dst20_contract, get_dst20_v1_contract,
-    get_transfer_domain_contract, get_transfer_domain_v1_contract, Contract, FixedContract,
-    IMPLEMENTATION_SLOT,
+    get_dfi_intrinsics_v2_contract, get_dfi_reserved_contract, get_dst20_contract,
+    get_dst20_v1_contract, get_transfer_domain_contract, get_transfer_domain_v1_contract, Contract,
+    FixedContract, IMPLEMENTATION_SLOT,
 };
 use anyhow::format_err;
 use ethbloom::Bloom;
@@ -91,22 +91,29 @@ pub struct DST20BridgeInfo {
     pub storage: Vec<(H256, H256)>,
 }
 
-pub fn dfi_intrinsics_registry_deploy_info(v1_address: H160) -> DeployContractInfo {
+pub fn dfi_intrinsics_registry_deploy_info(addresses: Vec<H160>) -> DeployContractInfo {
     let FixedContract {
         contract,
         fixed_address,
     } = get_dfi_instrinics_registry_contract();
 
+    let storage = addresses
+        .into_iter()
+        .enumerate()
+        .map(|(index, address)| {
+            (
+                get_uint_storage_index(H256::from_low_u64_be(0), index as u64),
+                h160_to_h256(address),
+            )
+        })
+        .collect();
+
     DeployContractInfo {
         address: fixed_address,
         bytecode: Bytes::from(contract.runtime_bytecode),
-        storage: vec![(
-            get_uint_storage_index(H256::from_low_u64_be(0), 0),
-            h160_to_h256(v1_address),
-        )],
+        storage,
     }
 }
-
 /// Returns address, bytecode and storage with incremented count for the counter contract
 pub fn dfi_intrinsics_v1_deploy_info(
     dvm_block_number: u64,
@@ -128,6 +135,23 @@ pub fn dfi_intrinsics_v1_deploy_info(
                 H256::from_low_u64_be(2),
                 u256_to_h256(U256::from(dvm_block_number)),
             ),
+        ],
+    })
+}
+
+pub fn dfi_intrinsics_v2_deploy_info(registry_address: H160) -> Result<DeployContractInfo> {
+    let FixedContract {
+        contract,
+        fixed_address,
+        ..
+    } = get_dfi_intrinsics_v2_contract();
+
+    Ok(DeployContractInfo {
+        address: fixed_address,
+        bytecode: Bytes::from(contract.runtime_bytecode),
+        storage: vec![
+            (H256::from_low_u64_be(0), u256_to_h256(U256::from(2))),
+            (H256::from_low_u64_be(1), h160_to_h256(registry_address)),
         ],
     })
 }
@@ -180,14 +204,7 @@ pub fn dst20_deploy_info(
     let Contract {
         runtime_bytecode, ..
     } = get_dst20_contract();
-    let storage = vec![
-        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
-        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
-        (
-            IMPLEMENTATION_SLOT,
-            h160_to_h256(get_dst20_v1_contract().fixed_address),
-        ),
-    ];
+    let storage = dst20_name_info(name, symbol);
 
     Ok(DeployContractInfo {
         address,
@@ -401,6 +418,24 @@ pub fn deploy_contract_tx(bytecode: Vec<u8>, base_fee: &U256) -> Result<(SignedT
     Ok((tx, receipt))
 }
 
+pub fn rename_contract_tx(token_id: u64, base_fee: &U256) -> Result<(Box<SignedTx>, ReceiptV3)> {
+    let tx = TransactionV2::Legacy(LegacyTransaction {
+        nonce: U256::from(token_id),
+        gas_price: *base_fee,
+        gas_limit: U256::from(u64::MAX),
+        action: TransactionAction::Create,
+        value: U256::zero(),
+        input: Vec::new(),
+        signature: TransactionSignature::new(27, LOWER_H256, LOWER_H256)
+            .ok_or(format_err!("Invalid transaction signature format"))?,
+    })
+    .try_into()?;
+
+    let receipt = get_default_successful_receipt();
+
+    Ok((Box::new(tx), receipt))
+}
+
 fn get_default_successful_receipt() -> ReceiptV3 {
     ReceiptV3::Legacy(EIP1559ReceiptData {
         status_code: 1u8,
@@ -433,4 +468,15 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
         txs.push(tx);
     }
     Ok(txs)
+}
+
+pub fn dst20_name_info(name: &str, symbol: &str) -> Vec<(H256, H256)> {
+    vec![
+        (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
+        (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
+        (
+            IMPLEMENTATION_SLOT,
+            h160_to_h256(get_dst20_v1_contract().fixed_address),
+        ),
+    ]
 }

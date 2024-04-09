@@ -83,6 +83,14 @@ impl PrecompileHandle for MockHandle {
     fn gas_limit(&self) -> Option<u64> {
         self.gas_limit
     }
+
+    fn storage(&self, _: H160, _: H256) -> H256 {
+        unimplemented!()
+    }
+
+    fn basic(&self, _: H160) -> evm::backend::Basic {
+        unimplemented!()
+    }
 }
 
 /// Tests a precompile against the ethereum consensus tests defined in the given file at filepath.

@@ -15,7 +15,7 @@ pub mod vault;
 pub use ain_macros::ConsensusEncoding;
 use bitcoin::{
     consensus::{Decodable, Encodable},
-    impl_consensus_encoding, io,
+    io,
 };
 
 use self::{

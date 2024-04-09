@@ -1,6 +1,7 @@
 #include <clientversion.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/validation.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <httprpc.h>
@@ -8,6 +9,8 @@
 #include <logging.h>
 #include <net.h>
 #include <util/system.h>
+
+#include <algorithm>
 #include <array>
 #include <cstdint>
 
@@ -405,4 +408,13 @@ bool isEthDebugTraceRPCEnabled() {
 
 bool isOceanEnabled() {
     return gArgs.GetBoolArg("-oceanarchive", DEFAULT_OCEAN_ARCHIVE_ENABLED);
+}
+uint64_t getDF23Height() {
+    return Params().GetConsensus().DF23Height;
+}
+
+bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
+    if (!ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount)) {
+        return false;
+    }
 }

@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+pub mod version;
 
 use anyhow::format_err;
 use rocksdb::{
@@ -218,6 +219,7 @@ pub enum DBError {
     RocksDBError(RocksDBError),
     Bincode(BincodeError),
     ParseKey,
+    WrongKeyLength,
     Custom(anyhow::Error),
 }
 
@@ -227,6 +229,7 @@ impl fmt::Display for DBError {
             DBError::RocksDBError(e) => write!(f, "RocksDB Error: {e}"),
             DBError::Bincode(e) => write!(f, "Bincode Error: {e}"),
             DBError::ParseKey => write!(f, "Error parsing key"),
+            DBError::WrongKeyLength => write!(f, "Wrong key length"),
             DBError::Custom(e) => write!(f, "Custom Error: {e}"),
         }
     }

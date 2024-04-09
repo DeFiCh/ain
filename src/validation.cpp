@@ -153,11 +153,9 @@ bool fPruneMode = false;
 bool fRequireStandard = true;
 bool fCheckBlockIndex = false;
 
-bool fStopOrInterrupt = false;
+bool fInterrupt = false;
 std::string fInterruptBlockHash = "";
 int fInterruptBlockHeight = -1;
-std::string fStopBlockHash = "";
-int fStopBlockHeight = -1;
 
 size_t nCoinCacheUsage = 5000 * 300;
 size_t nCustomMemUsage = nDefaultDbCache << 10;
@@ -721,7 +719,7 @@ static bool AcceptToMemoryPoolWorker(const CChainParams &chainparams,
             static_cast<uint64_t>(nAcceptTime),
             consensus,
             &mnview,
-            IsEVMEnabled(mnview, consensus),
+            IsEVMEnabled(mnview),
             {},
             true,
         };
@@ -1956,7 +1954,7 @@ int ApplyTxInUndo(Coin &&undo, CCoinsViewCache &view, const COutPoint &out) {
 
 static bool GetCreationTransactions(const CBlock &block,
                                     const uint32_t id,
-                                    const int32_t multiplier,
+                                    const CAmount multiplier,
                                     uint256 &tokenCreationTx,
                                     std::vector<uint256> &poolCreationTx) {
     bool opcodes{false};
@@ -2583,7 +2581,7 @@ uint32_t GetNextAccPosition() {
 }
 
 bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) {
-    if (!fStopOrInterrupt) {
+    if (!fInterrupt) {
         return false;
     }
 
@@ -2591,13 +2589,7 @@ bool StopOrInterruptConnect(const CBlockIndex *pIndex, CValidationState &state) 
         return height == index->nHeight || (!hash.empty() && hash == index->phashBlock->ToString());
     };
 
-    // Stop is processed first. So, if a block has both stop and interrupt
-    // stop will take priority.
-    if (checkMatch(pIndex, fStopBlockHeight, fStopBlockHash) ||
-        checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
-        if (pIndex->nHeight == fStopBlockHeight) {
-            StartShutdown();
-        }
+    if (checkMatch(pIndex, fInterruptBlockHeight, fInterruptBlockHash)) {
         state.Invalid(
             ValidationInvalidReason::CONSENSUS, error("%s: user interrupt", __func__), "user-interrupt-request");
         return true;
@@ -2626,6 +2618,74 @@ static void LogApplyCustomTx(TransactionContext &txCtx, const int64_t start) {
                  ToString(txType),
                  (GetTimeMicros() - start) * MILLI);
     }
+}
+
+template <typename T>
+static bool GetTokenMigrationCreationTxs(CCustomCSView &view,
+                                         const CBlock &block,
+                                         const CBlockIndex *pindex,
+                                         const T splits,
+                                         CreationTxs &creationTxs,
+                                         CValidationState &state) {
+    auto counter_n = 1;
+    for (const auto &[id, multiplier] : splits) {
+        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
+                  id,
+                  multiplier,
+                  counter_n++,
+                  splits.size(),
+                  pindex->nHeight);
+        uint256 tokenCreationTx{};
+        std::vector<uint256> poolCreationTx;
+        if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                 error("%s: coinbase missing split token creation TX", __func__),
+                                 "bad-cb-token-split");
+        }
+
+        std::vector<DCT_ID> poolsToMigrate;
+        view.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
+            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                const auto tokenA = view.GetToken(pool.idTokenA);
+                const auto tokenB = view.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                    poolsToMigrate.push_back(poolId);
+                }
+            }
+            return true;
+        });
+
+        std::stringstream poolIdStr;
+        for (size_t i{0}; i < poolsToMigrate.size(); i++) {
+            if (i != 0) {
+                poolIdStr << ", ";
+            }
+            poolIdStr << poolsToMigrate[i].ToString();
+        }
+
+        LogPrintf("Pools to migrate for token %d: (count: %d, ids: %s)\n", id, poolsToMigrate.size(), poolIdStr.str());
+
+        if (poolsToMigrate.size() != poolCreationTx.size()) {
+            return state.Invalid(ValidationInvalidReason::CONSENSUS,
+                                 error("%s: coinbase missing split pool creation TX", __func__),
+                                 "bad-cb-pool-split");
+        }
+
+        std::vector<std::pair<DCT_ID, uint256>> poolPairs;
+        poolPairs.reserve(poolsToMigrate.size());
+        std::transform(poolsToMigrate.begin(),
+                       poolsToMigrate.end(),
+                       poolCreationTx.begin(),
+                       std::back_inserter(poolPairs),
+                       [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
+
+        creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
+    }
+
+    return true;
 }
 
 /** Apply the effects of this block (with given index) on the UTXO set represented by coins.
@@ -3269,68 +3329,20 @@ bool CChainState::ConnectBlock(const CBlock &block,
              nTimeVerify * MILLI / nBlocksTotal);
 
     // Reject block without token split coinbase TX outputs.
-    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
-    const auto splits = attributes->GetValue(splitKey, OracleSplits{});
-
-    const auto isSplitsBlock = splits.size() > 0;
-
     CreationTxs creationTxs;
-    auto counter_n = 1;
-    for (const auto &[id, multiplier] : splits) {
-        LogPrintf("Preparing for token split (id=%d, mul=%d, n=%d/%d, height: %d)\n",
-                  id,
-                  multiplier,
-                  counter_n++,
-                  splits.size(),
-                  pindex->nHeight);
-        uint256 tokenCreationTx{};
-        std::vector<uint256> poolCreationTx;
-        if (!GetCreationTransactions(block, id, multiplier, tokenCreationTx, poolCreationTx)) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                 error("%s: coinbase missing split token creation TX", __func__),
-                                 "bad-cb-token-split");
+    bool isSplitsBlock{};
+    CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
+
+    if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+        if (!GetTokenMigrationCreationTxs(accountsView, block, pindex, splits32, creationTxs, state)) {
+            return false;
         }
-
-        std::vector<DCT_ID> poolsToMigrate;
-        accountsView.ForEachPoolPair([&, id = id](DCT_ID const &poolId, const CPoolPair &pool) {
-            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
-                const auto tokenA = accountsView.GetToken(pool.idTokenA);
-                const auto tokenB = accountsView.GetToken(pool.idTokenB);
-                assert(tokenA);
-                assert(tokenB);
-                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
-                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
-                    poolsToMigrate.push_back(poolId);
-                }
-            }
-            return true;
-        });
-
-        std::stringstream poolIdStr;
-        for (size_t i{0}; i < poolsToMigrate.size(); i++) {
-            if (i != 0) {
-                poolIdStr << ", ";
-            }
-            poolIdStr << poolsToMigrate[i].ToString();
+        isSplitsBlock = true;
+    } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+        if (!GetTokenMigrationCreationTxs(accountsView, block, pindex, splits64, creationTxs, state)) {
+            return false;
         }
-
-        LogPrintf("Pools to migrate for token %d: (count: %d, ids: %s)\n", id, poolsToMigrate.size(), poolIdStr.str());
-
-        if (poolsToMigrate.size() != poolCreationTx.size()) {
-            return state.Invalid(ValidationInvalidReason::CONSENSUS,
-                                 error("%s: coinbase missing split pool creation TX", __func__),
-                                 "bad-cb-pool-split");
-        }
-
-        std::vector<std::pair<DCT_ID, uint256>> poolPairs;
-        poolPairs.reserve(poolsToMigrate.size());
-        std::transform(poolsToMigrate.begin(),
-                       poolsToMigrate.end(),
-                       poolCreationTx.begin(),
-                       std::back_inserter(poolPairs),
-                       [](DCT_ID a, uint256 b) { return std::make_pair(a, b); });
-
-        creationTxs.emplace(id, std::make_pair(tokenCreationTx, poolPairs));
+        isSplitsBlock = true;
     }
 
     if (fJustCheck) {
@@ -3358,8 +3370,11 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // account changes are validated
     accountsView.Flush();
 
+    // Set to ConnectBlock CCustomCSView
+    blockCtx.SetView(mnview);
+
     // Execute EVM Queue
-    res = ProcessDeFiEventFallible(block, pindex, mnview, chainparams, evmTemplate, isEvmEnabledForBlock);
+    res = ProcessDeFiEventFallible(block, pindex, chainparams, creationTxs, blockCtx);
     if (!res.ok) {
         return state.Invalid(ValidationInvalidReason::CONSENSUS, error("%s: %s", __func__, res.msg), res.dbgMsg);
     }
@@ -3377,7 +3392,7 @@ bool CChainState::ConnectBlock(const CBlock &block,
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
 
-    ProcessDeFiEvent(block, pindex, mnview, view, chainparams, creationTxs, evmTemplate);
+    ProcessDeFiEvent(block, pindex, view, creationTxs, blockCtx);
 
     // Write any UTXO burns
     for (const auto &[key, value] : writeBurnEntries) {
@@ -7223,6 +7238,30 @@ public:
 };
 static CMainCleanup instance_of_cmaincleanup;
 
+BlockContext::BlockContext(const uint32_t height,
+                           const uint64_t time,
+                           const Consensus::Params &consensus,
+                           CCustomCSView *view,
+                           const std::optional<bool> enabled,
+                           const std::shared_ptr<CScopedTemplate> &evmTemplate,
+                           const bool prevalidate)
+    : view(view),
+      isEvmEnabledForBlock(enabled),
+      evmTemplate(evmTemplate),
+      evmPreValidate(prevalidate),
+      height(height),
+      time(time),
+      consensus(consensus) {}
+
+BlockContext::BlockContext(BlockContext &other, CCustomCSView &otherView)
+    : view(&otherView),
+      isEvmEnabledForBlock(other.GetEVMEnabledForBlock()),
+      evmTemplate(other.GetEVMTemplate()),
+      evmPreValidate(other.GetEVMPreValidate()),
+      height(other.GetHeight()),
+      time(other.GetTime()),
+      consensus(other.GetConsensus()) {}
+
 CCustomCSView &BlockContext::GetView() {
     if (!view) {
         cache = std::make_shared<CCustomCSView>(*pcustomcsview);
@@ -7233,7 +7272,7 @@ CCustomCSView &BlockContext::GetView() {
 
 bool BlockContext::GetEVMEnabledForBlock() {
     if (!isEvmEnabledForBlock) {
-        isEvmEnabledForBlock = IsEVMEnabled(GetView(), Params().GetConsensus());
+        isEvmEnabledForBlock = IsEVMEnabled(GetView());
     }
     return *isEvmEnabledForBlock;
 }

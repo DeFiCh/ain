@@ -180,6 +180,33 @@ pub fn ocean_endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+#[proc_macro_derive(ConsensusEncoding)]
+pub fn consensus_encoding_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    let fields = if let Data::Struct(data) = input.data {
+        if let Fields::Named(fields) = data.fields {
+            fields
+                .named
+                .into_iter()
+                .map(|f| f.ident)
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
+    let field_names = fields.iter().filter_map(|f| f.as_ref()).collect::<Vec<_>>();
+
+    let expanded = quote! {
+        bitcoin::impl_consensus_encoding!(#name, #(#field_names),*);
+    };
+
+    TokenStream::from(expanded)
+}
 
 #[proc_macro_attribute]
 pub fn test_dftx_serialization(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -219,32 +246,4 @@ pub fn test_dftx_serialization(_attr: TokenStream, item: TokenStream) -> TokenSt
     };
 
     TokenStream::from(output)
-}
-
-#[proc_macro_derive(ConsensusEncoding)]
-pub fn consensus_encoding_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-
-    let fields = if let Data::Struct(data) = input.data {
-        if let Fields::Named(fields) = data.fields {
-            fields
-                .named
-                .into_iter()
-                .map(|f| f.ident)
-                .collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        }
-    } else {
-        Vec::new()
-    };
-
-    let field_names = fields.iter().filter_map(|f| f.as_ref()).collect::<Vec<_>>();
-
-    let expanded = quote! {
-        impl_consensus_encoding!(#name, #(#field_names),*);
-    };
-
-    TokenStream::from(expanded)
 }

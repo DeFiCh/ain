@@ -11,4 +11,3 @@ anyhow.workspace = true
 bitcoin.workspace = true
 hex.workspace = true
 bitflags = "2.4.1"
-

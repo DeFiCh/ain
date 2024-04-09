@@ -1,5 +1,5 @@
 use ain_macros::ConsensusEncoding;
-use bitcoin::{impl_consensus_encoding, io, ScriptBuf, Txid, VarInt};
+use bitcoin::{io, ScriptBuf, Txid, VarInt};
 
 use super::{balance::TokenBalanceUInt32, common::CompactVec, price::CurrencyPair};
 
