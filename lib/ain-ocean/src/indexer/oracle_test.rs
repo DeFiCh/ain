@@ -4,10 +4,9 @@ mod tests {
 
     use ain_dftx::{common::CompactVec, price::CurrencyPair, types::oracles::AppointOracle};
     use bitcoin::{BlockHash, ScriptBuf, Txid};
-    use defichain_rpc::json::blockchain::{Block, Transaction};
+    use defichain_rpc::json::blockchain::Transaction;
     use tempfile::tempdir;
 
-    use super::*;
     use crate::{
         indexer::{Context, Index},
         model::BlockContext,

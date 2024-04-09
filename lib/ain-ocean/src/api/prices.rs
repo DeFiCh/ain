@@ -254,7 +254,7 @@ async fn get_oracles(
     }))
 }
 
-pub fn router(ctx: Arc<AppContext>) -> Router {
+pub fn router(_ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_prices))
         .route("/:key", get(get_price))
