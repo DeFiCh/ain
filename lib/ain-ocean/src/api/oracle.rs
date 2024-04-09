@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use axum::{
@@ -46,41 +46,17 @@ async fn list_oracles(
 }
 #[ocean_endpoint]
 async fn get_price_feed(
+    Path((oracle_id, key)): Path<(String, String)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceFeed>> {
-    let next = query
-        .next
-        .map(|q| {
-            // Split the URL by '/'
-            let parts: Vec<&str> = q.split('/').collect();
-
-            // Check if enough parts exist
-            if parts.len() != 4 {
-                return Err("Invalid query format");
-            }
-
-            // Extract oracle_id, token, and currency from the URL
-            let oracle_id = parts[2].parse::<Txid>().map_err(|_| "Invalid oracle_id")?;
-            let token = parts[3]
-                .split('-')
-                .next()
-                .ok_or("Invalid token")?
-                .to_string();
-            let currency = parts[3]
-                .split('-')
-                .nth(1)
-                .ok_or("Invalid currency")?
-                .to_string();
-
-            Ok((token, currency, oracle_id))
-        })
-        .transpose()?;
+    let txid = Txid::from_str(&oracle_id)?;
+    let (token, currency) = split_key(&key);
     let oracle_price_feed = ctx
         .services
         .oracle_price_feed
         .by_key
-        .list(next, SortOrder::Descending)?
+        .list(Some((token, currency, txid)), SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -94,11 +70,9 @@ async fn get_price_feed(
             Ok(b)
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok(ApiPagedResponse::of(
-        oracle_price_feed,
-        query.size,
-        |price_feed| price_feed.sort.clone(),
-    ))
+    Ok(ApiPagedResponse::of(oracle_price_feed, 2, |price_feed| {
+        price_feed.sort.clone()
+    }))
 }
 
 #[ocean_endpoint]
@@ -123,6 +97,15 @@ async fn get_oracle_by_address(
         .next()
         .ok_or(Error::NotFound(NotFoundKind::Oracle))?;
     Ok(Response::new(oracle))
+}
+
+fn split_key(key: &str) -> (String, String) {
+    let parts: Vec<&str> = key.split('-').collect();
+    if parts.len() == 2 {
+        (parts[0].to_owned(), parts[1].to_owned())
+    } else {
+        (String::new(), String::new())
+    }
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
