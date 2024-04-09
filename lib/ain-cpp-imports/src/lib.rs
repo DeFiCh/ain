@@ -150,8 +150,7 @@ mod ffi {
     }
 }
 
-pub use ffi::Attributes;
-pub use ffi::TokenAmount;
+pub use ffi::{Attributes, TokenAmount};
 
 /// Returns the chain ID of the current network.
 pub fn get_chain_id() -> Result<u64, Box<dyn Error>> {

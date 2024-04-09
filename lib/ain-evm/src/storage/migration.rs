@@ -1,10 +1,9 @@
-use ain_db::{version::Migration, DBError};
+use ain_db::{version::Migration, DBError, Result as DBResult};
 use anyhow::format_err;
 use rayon::prelude::*;
 
 use super::{block_store::BlockStore, db::columns};
 use crate::Result;
-use ain_db::Result as DBResult;
 
 /// Migration for version 1.
 /// Context:

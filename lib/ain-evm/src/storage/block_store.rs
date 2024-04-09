@@ -1,13 +1,16 @@
-use ain_db::version::{DBVersionControl, Migration};
-use ain_db::{Column, ColumnName, LedgerColumn, Rocks, TypedColumn};
-use anyhow::format_err;
-use ethereum::{BlockAny, TransactionV2};
-use ethereum_types::{H160, H256, U256};
-use log::debug;
 use std::{
     collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
     time::Instant,
 };
+
+use ain_db::{
+    version::{DBVersionControl, Migration},
+    Column, ColumnName, LedgerColumn, Result as DBResult, Rocks, TypedColumn,
+};
+use anyhow::format_err;
+use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::{H160, H256, U256};
+use log::debug;
 
 use super::{
     migration::MigrationV1,
@@ -22,7 +25,6 @@ use crate::{
     },
     EVMError, Result,
 };
-use ain_db::Result as DBResult;
 
 #[derive(Debug, Clone)]
 pub struct BlockStore(Arc<Rocks>);
