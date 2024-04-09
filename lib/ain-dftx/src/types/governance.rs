@@ -1,7 +1,6 @@
 use ain_macros::ConsensusEncoding;
 use bitcoin::{
     consensus::{Decodable, Encodable, ReadExt},
-    impl_consensus_encoding,
     io::{self},
     ScriptBuf, Txid, VarInt,
 };

@@ -2,7 +2,7 @@ use ain_macros::ConsensusEncoding;
 use bitcoin::{
     consensus::{Decodable, Encodable},
     hashes::Hash,
-    impl_consensus_encoding, io, PubkeyHash, Txid, VarInt,
+    io, PubkeyHash, Txid, VarInt,
 };
 
 use super::common::{CompactVec, Maybe};

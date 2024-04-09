@@ -23,11 +23,18 @@ pub mod ffi {
         pub entry_time: i64,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct TokenAmount {
+        pub id: u32,
+        pub amount: u64,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
         type DST20Token;
         type TransactionData;
+        type TokenAmount;
 
         fn getChainId() -> u64;
         fn getRPCPort() -> i32;
@@ -63,5 +70,11 @@ pub mod ffi {
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
         fn isOceanEnabled() -> bool;
+        fn getDF23Height() -> u64;
+        fn migrateTokensFromEVM(
+            mnview_ptr: usize,
+            old_amount: TokenAmount,
+            new_amount: &mut TokenAmount,
+        ) -> bool;
     }
 }

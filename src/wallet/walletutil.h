@@ -19,7 +19,6 @@ std::vector<fs::path> ListWalletDir();
 //! The WalletLocation class provides wallet information.
 class WalletLocation final
 {
-    std::string m_file_path;
     std::string m_name;
     fs::path m_path;
 
@@ -32,9 +31,6 @@ public:
 
     //! Get wallet absolute path.
     const fs::path& GetPath() const { return m_path; }
-
-    //! Get wallet absolute file path.
-    const std::string& GetFilePath() const { return m_file_path; }
 
     //! Return whether the wallet exists.
     bool Exists() const;

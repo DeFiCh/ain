@@ -43,6 +43,7 @@ enum ParamIDs : uint8_t {
     Feature = 'h',
     Auction = 'i',
     Foundation = 'j',
+    DFIP2211F = 'k',
 };
 
 enum OracleIDs : uint8_t {
@@ -72,6 +73,7 @@ enum TransferIDs : uint8_t {
 
 enum VaultIDs : uint8_t {
     DUSDVault = 'a',
+    Parameters = 'b',
 };
 
 enum RulesIDs : uint8_t {
@@ -120,6 +122,8 @@ enum DFIPKeys : uint8_t {
     EVMEnabled = 'u',
     ICXEnabled = 'v',
     TransferDomain = 'w',
+    LiquidityCalcSamplingPeriod = 'x',
+    AverageLiquidityPercentage = 'y',
 };
 
 enum GovernanceKeys : uint8_t {
@@ -174,7 +178,12 @@ enum TransferKeys : uint8_t {
 };
 
 enum VaultKeys : uint8_t {
+    CreationFee = 'a',
     DUSDVaultEnabled = 'w',
+};
+
+enum OracleKeys : uint8_t {
+    FractionalSplits = 0,
 };
 
 enum RulesKeys : uint8_t {
@@ -349,6 +358,7 @@ struct CEvmBlockStatsLive {
 
 using CDexBalances = std::map<DCT_ID, CDexTokenInfo>;
 using OracleSplits = std::map<uint32_t, int32_t>;
+using OracleSplits64 = std::map<uint32_t, CAmount>;
 using DescendantValue = std::pair<uint32_t, int32_t>;
 using AscendantValue = std::pair<uint32_t, std::string>;
 using CAttributeType = std::variant<CDataStructureV0, CDataStructureV1>;
@@ -379,7 +389,8 @@ using CAttributeValue = std::variant<bool,
                                      uint64_t,
                                      XVmAddressFormatItems,
                                      CTransferDomainStatsLive,
-                                     CEvmBlockStatsLive>;
+                                     CEvmBlockStatsLive,
+                                     OracleSplits64>;
 
 void TrackNegativeInterest(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackLiveBalances(CCustomCSView &mnview, const CBalances &balances, const uint8_t key);
@@ -387,7 +398,7 @@ void TrackDUSDAdd(CCustomCSView &mnview, const CTokenAmount &amount);
 void TrackDUSDSub(CCustomCSView &mnview, const CTokenAmount &amount);
 
 bool IsEVMEnabled(const std::shared_ptr<ATTRIBUTES> attributes);
-bool IsEVMEnabled(const CCustomCSView &view, const Consensus::Params &consensus);
+bool IsEVMEnabled(const CCustomCSView &view);
 Res StoreGovVars(const CGovernanceHeightMessage &obj, CCustomCSView &view);
 
 enum GovVarsFilter {
@@ -509,6 +520,8 @@ public:
     Res RefundFuturesContracts(CCustomCSView &mnview,
                                const uint32_t height,
                                const uint32_t tokenID = std::numeric_limits<uint32_t>::max());
+
+    void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
 
 private:
     friend class CGovView;

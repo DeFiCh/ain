@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::format_err;
-use ethereum_types::{H160, H256};
+use ethereum_types::{H160, H256, U256};
 use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
@@ -155,6 +155,23 @@ lazy_static::lazy_static! {
         }
     };
 
+    pub static ref DFI_INTRINSICS_V2_CONTRACT: FixedContract = {
+        let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics_v2", "deployed_bytecode.json");
+        let input = solc_artifact_bytecode_str!(
+            "dfi_intrinsics_v2",
+            "bytecode.json"
+        );
+
+        FixedContract {
+            contract: Contract {
+                codehash: Blake2Hasher::hash(&bytecode),
+                runtime_bytecode: bytecode,
+                init_bytecode: input,
+            },
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x5)),
+        }
+    };
+
     pub static ref TRANSFERDOMAIN_CONTRACT : FixedContract = {
         let bytecode = solc_artifact_bytecode_str!("transfer_domain", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
@@ -219,6 +236,60 @@ lazy_static::lazy_static! {
             fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x4))
         }
     };
+}
+
+pub fn get_split_tokens_function() -> ethabi::Function {
+    #[allow(deprecated)] // constant field is deprecated since Solidity 0.5.0
+    ethabi::Function {
+        name: String::from("migrateTokensOnAddress"),
+        inputs: vec![
+            ethabi::Param {
+                name: String::from("sender"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("tokenContract"),
+                kind: ethabi::ParamType::Address,
+                internal_type: None,
+            },
+            ethabi::Param {
+                name: String::from("amount"),
+                kind: ethabi::ParamType::Uint(256),
+                internal_type: None,
+            },
+        ],
+        outputs: vec![],
+        constant: None,
+        state_mutability: ethabi::StateMutability::NonPayable,
+    }
+}
+
+pub struct TokenSplitParams {
+    pub sender: H160,
+    pub token_contract: H160,
+    pub amount: U256,
+}
+
+pub fn validate_split_tokens_input(input: &[u8]) -> Result<TokenSplitParams> {
+    let function = get_split_tokens_function();
+    let token_inputs = function.decode_input(input)?;
+
+    let Some(ethabi::Token::Address(sender)) = token_inputs.first() else {
+        return Err(format_err!("invalid from address input in evm tx"));
+    };
+    let Some(ethabi::Token::Address(token_contract)) = token_inputs.get(1).cloned() else {
+        return Err(format_err!("invalid from address input in evm tx"));
+    };
+    let Some(ethabi::Token::Uint(amount)) = token_inputs.get(2).cloned() else {
+        return Err(format_err!("invalid value input in evm tx"));
+    };
+
+    Ok(TokenSplitParams {
+        sender: *sender,
+        token_contract,
+        amount,
+    })
 }
 
 pub fn get_transferdomain_native_transfer_function() -> ethabi::Function {
@@ -300,6 +371,10 @@ pub fn get_dfi_instrinics_registry_contract() -> FixedContract {
 
 pub fn get_dfi_intrinsics_v1_contract() -> FixedContract {
     DFI_INTRINSICS_V1_CONTRACT.clone()
+}
+
+pub fn get_dfi_intrinsics_v2_contract() -> FixedContract {
+    DFI_INTRINSICS_V2_CONTRACT.clone()
 }
 
 pub fn get_transfer_domain_contract() -> FixedContract {

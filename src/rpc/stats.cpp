@@ -2,6 +2,8 @@
 #include <rpc/server.h>
 #include <rpc/util.h>
 
+#include <fstream>
+
 bool CRPCStats::isActive() { return active.load(); }
 void CRPCStats::setActive(bool isActive) { active.store(isActive); }
 
@@ -22,7 +24,7 @@ std::map<std::string, RPCStats> CRPCStats::getMap() {
 
 void CRPCStats::save() {
     fs::path statsPath = GetDataDir() / DEFAULT_STATSFILE;
-    fsbridge::ofstream file(statsPath);
+    std::ofstream file(statsPath);
 
     file << toJSON().write() << '\n';
     file.close();
@@ -30,7 +32,7 @@ void CRPCStats::save() {
 
 void CRPCStats::load() {
     fs::path statsPath = GetDataDir() / DEFAULT_STATSFILE;
-    fsbridge::ifstream file(statsPath);
+    std::ifstream file(statsPath);
     if (!file.is_open()) return;
 
     std::string line;

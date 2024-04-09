@@ -355,6 +355,12 @@ pub mod ffi {
             tx_hash: [u8; 32],
             result_ptr: usize,
         );
+        fn evm_try_unsafe_rename_dst20(
+            result: &mut CrossBoundaryResult,
+            block_template: &mut BlockTemplateWrapper,
+            native_hash: [u8; 32],
+            token: DST20TokenInfo,
+        );
     }
 
     // =========  Debug ==========

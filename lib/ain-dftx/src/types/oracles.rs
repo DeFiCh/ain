@@ -1,5 +1,5 @@
 use ain_macros::ConsensusEncoding;
-use bitcoin::{hash_types::Txid, impl_consensus_encoding, io, ScriptBuf};
+use bitcoin::{hash_types::Txid, io, ScriptBuf};
 
 use super::{
     common::CompactVec,
