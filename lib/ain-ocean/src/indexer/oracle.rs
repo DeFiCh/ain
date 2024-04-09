@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
 use bitcoin::Txid;
@@ -146,7 +146,7 @@ impl Index for RemoveOracle {
                                 // Successfully deleted
                             }
                             Err(err) => {
-                                let error_message = format!("Error: remove oracle: {:?}", err);
+                                let error_message = format!("Error: remove_oracle: {:?}", err);
                                 eprintln!("{}", error_message);
                                 return Err(Error::NotFound(NotFoundKind::Oracle));
                             }
@@ -155,7 +155,7 @@ impl Index for RemoveOracle {
                 }
             }
             Err(err) => {
-                let error_message = format!("Error: remove oracle: {:?}", err);
+                let error_message = format!("Error: remove_oracle: {:?}", err);
                 eprintln!("{}", error_message);
                 return Err(Error::NotFound(NotFoundKind::Oracle));
             }
@@ -205,7 +205,7 @@ impl Index for RemoveOracle {
                 }
             }
             Err(err) => {
-                eprintln!("Error getting previous oracle: {:?}", err);
+                eprintln!("Error remove_oracle invalidate : {:?}", err);
                 return Err(Error::from(err));
             }
         }
@@ -421,7 +421,7 @@ impl Index for SetOracleData {
                     context.block.height,
                 ))?;
                 for interval in intervals.clone() {
-                    index_interval_mapper(
+                    let err = index_interval_mapper(
                         services,
                         &context.block,
                         token,
@@ -459,7 +459,7 @@ impl Index for SetOracleData {
             let aggregated_price = services.oracle_price_aggregated.by_id.get(&aggreated_id)?;
             if let Some(aggregated) = aggregated_price {
                 for interval in &intervals {
-                    invalidate_oracle_interval(
+                    let err = invalidate_oracle_interval(
                         services,
                         &context.block,
                         token,
@@ -495,7 +495,7 @@ pub fn map_price_aggregated(
                 .oracle_token_currency
                 .by_id
                 .get(&id)?
-                .ok_or("Missing block index")?;
+                .ok_or("Error mapping price aggregated index")?;
 
             Ok(b)
         })
@@ -627,43 +627,60 @@ pub fn index_interval_mapper(
     currency: &str,
     aggregated: &OraclePriceAggregated,
     interval: &OracleIntervalSeconds,
-) {
-    if let Some(previous_iter) = services
+) -> Result<()> {
+    let previous_aggrigated_interval = services
         .oracle_price_aggregated_interval
         .by_key
         .list(
             Some((token.to_owned(), currency.to_owned(), interval.clone())),
             SortOrder::Descending,
-        )
-        .ok()
-    {
-        for result in previous_iter {
-            match result {
-                Ok((_, oracle_id)) => {
-                    if let Some(inner_values) = services
-                        .oracle_price_aggregated_interval
-                        .by_id
-                        .get(&oracle_id)
-                        .ok()
-                    {
-                        process_inner_values(
-                            &services,
-                            inner_values,
-                            block.clone(),
-                            token,
-                            currency,
-                            aggregated,
-                            interval.clone(),
-                        );
-                    }
-                }
-                Err(err) => {
-                    let error_message = format!("Error: index_interval_mapper oracle: {:?}", err);
-                    eprintln!("{}", error_message);
-                }
-            }
+        )?
+        .take(1)
+        .map(|item| {
+            let (_, id) = item?;
+            let price_agrregated_interval = services
+                .oracle_price_aggregated_interval
+                .by_id
+                .get(&id)?
+                .ok_or("Missing oracle price aggregated interval index")?;
+            Ok(price_agrregated_interval)
+        })
+        .collect::<Result<Vec<_>>>();
+
+    for previous_oracle_price_aggreated in previous_aggrigated_interval {
+        let clone_interval = interval.clone();
+        if previous_oracle_price_aggreated.len() != 0
+            || (block.median_time - previous_oracle_price_aggreated[0].block.median_time.clone())
+                > clone_interval as i64
+        {
+            let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
+                id: ((
+                    token.to_owned(),
+                    currency.to_owned(),
+                    interval.clone(),
+                    block.height,
+                )),
+                key: ((token.to_owned(), currency.to_owned(), interval.clone())),
+                sort: aggregated.sort.to_owned(),
+                token: token.to_owned(),
+                currency: currency.to_owned(),
+                aggregated: previous_oracle_price_aggreated[0].aggregated.clone(),
+                block: block.clone(),
+            };
+            let err = services.oracle_price_aggregated_interval.by_id.put(
+                &oracle_price_aggregated_interval.id,
+                &oracle_price_aggregated_interval,
+            );
+            let err = services.oracle_price_aggregated_interval.by_key.put(
+                &oracle_price_aggregated_interval.key,
+                &oracle_price_aggregated_interval.id,
+            );
+        } else {
+            process_inner_values(&services, &previous_oracle_price_aggreated[0], aggregated);
         }
     }
+
+    Ok(())
 }
 
 pub fn invalidate_oracle_interval(
@@ -673,170 +690,132 @@ pub fn invalidate_oracle_interval(
     currency: &str,
     aggregated: &OraclePriceAggregated,
     interval: &OracleIntervalSeconds,
-) {
-    if let Some(previous_iter) = services
+) -> Result<()> {
+    let previous_aggrigated_interval = services
         .oracle_price_aggregated_interval
         .by_key
         .list(
             Some((token.to_owned(), currency.to_owned(), interval.clone())),
             SortOrder::Descending,
-        )
-        .ok()
-    {
-        for result in previous_iter {
-            match result {
-                Ok((_, oracle_id)) => {
-                    if let Some(inner_values) = services
-                        .oracle_price_aggregated_interval
-                        .by_id
-                        .list(Some(oracle_id), SortOrder::Descending)
-                        .ok()
-                    {
-                        // Process inner_values when it is Some
-                        for result in inner_values {
-                            match result {
-                                Ok(((_, _, _, _), oracle_price_aggreated)) => {
-                                    if oracle_price_aggreated.aggregated.count != 1 {
-                                        let err = services
-                                            .oracle_price_aggregated_interval
-                                            .by_id
-                                            .delete(&oracle_price_aggreated.id);
-                                    } else {
-                                        let lastprice = oracle_price_aggreated.aggregated.clone();
-                                        let count = lastprice.count - 1;
-                                        let aggregatedInterval = OraclePriceAggregatedInterval {
-                                            id: oracle_price_aggreated.id.clone(),
-                                            key: oracle_price_aggreated.key.clone(),
-                                            sort: oracle_price_aggreated.sort.clone(),
-                                            token: oracle_price_aggreated.token.clone(),
-                                            currency: oracle_price_aggreated.currency.clone(),
-                                            aggregated: OraclePriceAggregatedIntervalAggregated {
-                                                amount: backward_aggregate_value(
-                                                    lastprice.amount.as_str(),
-                                                    &aggregated.aggregated.amount.to_string(),
-                                                    count as u32,
-                                                )
-                                                .to_string(),
-                                                weightage: backward_aggregate_number(
-                                                    lastprice.weightage,
-                                                    aggregated.aggregated.weightage,
-                                                    count as u32,
-                                                ),
-                                                count: count,
-                                                oracles:
-                                                    OraclePriceAggregatedIntervalAggregatedOracles {
-                                                        active: backward_aggregate_number(
-                                                            lastprice.oracles.active,
-                                                            aggregated.aggregated.oracles.active,
-                                                            lastprice.count as u32,
-                                                        )
-                                                            as i32,
-                                                        total: backward_aggregate_number(
-                                                            lastprice.oracles.total,
-                                                            aggregated.aggregated.oracles.total,
-                                                            lastprice.count as u32,
-                                                        ),
-                                                    },
-                                            },
-                                            block: oracle_price_aggreated.block.clone(),
-                                        };
-                                    }
-                                }
-                                Err(db_error) => {}
-                            }
-                        }
-                    }
-                }
-                Err(db_error) => {
-                    println!("Error in invalidate_oracle_interval : {:?}", db_error);
-                }
-            }
+        )?
+        .take(1)
+        .map(|item| {
+            let (_, id) = item?;
+            let price_agrregated_interval = services
+                .oracle_price_aggregated_interval
+                .by_id
+                .get(&id)?
+                .ok_or("Missing oracle price aggregated interval index")?;
+            Ok(price_agrregated_interval)
+        })
+        .collect::<Result<Vec<_>>>();
+
+    for oracle_price_aggreated in previous_aggrigated_interval {
+        if oracle_price_aggreated[0].aggregated.count != 1 {
+            let err = services
+                .oracle_price_aggregated_interval
+                .by_id
+                .delete(&oracle_price_aggreated[0].id);
+        } else {
+            let lastprice = oracle_price_aggreated[0].aggregated.clone();
+            let count = lastprice.count - 1;
+            let previous_aggregated_interval = OraclePriceAggregatedInterval {
+                id: oracle_price_aggreated[0].id.clone(),
+                key: oracle_price_aggreated[0].key.clone(),
+                sort: oracle_price_aggreated[0].sort.clone(),
+                token: oracle_price_aggreated[0].token.clone(),
+                currency: oracle_price_aggreated[0].currency.clone(),
+                aggregated: OraclePriceAggregatedIntervalAggregated {
+                    amount: backward_aggregate_value(
+                        lastprice.amount.as_str(),
+                        &aggregated.aggregated.amount.to_string(),
+                        count as u32,
+                    )
+                    .to_string(),
+                    weightage: backward_aggregate_number(
+                        lastprice.weightage,
+                        aggregated.aggregated.weightage,
+                        count as u32,
+                    ),
+                    count: count,
+                    oracles: OraclePriceAggregatedIntervalAggregatedOracles {
+                        active: backward_aggregate_number(
+                            lastprice.oracles.active,
+                            aggregated.aggregated.oracles.active,
+                            lastprice.count as u32,
+                        ) as i32,
+                        total: backward_aggregate_number(
+                            lastprice.oracles.total,
+                            aggregated.aggregated.oracles.total,
+                            lastprice.count as u32,
+                        ),
+                    },
+                },
+                block: oracle_price_aggreated[0].block.clone(),
+            };
+            let err = services.oracle_price_aggregated_interval.by_id.put(
+                &previous_aggregated_interval.id,
+                &previous_aggregated_interval,
+            );
+            let err = services.oracle_price_aggregated_interval.by_key.put(
+                &previous_aggregated_interval.key,
+                &previous_aggregated_interval.id,
+            );
         }
     }
+    Ok(())
 }
 
 fn process_inner_values(
     services: &Arc<Services>,
-    previous_data: Option<OraclePriceAggregatedInterval>,
-    block: BlockContext,
-    token: &str,
-    currency: &str,
+    previous_data: &OraclePriceAggregatedInterval,
     aggregated: &OraclePriceAggregated,
-    interval: OracleIntervalSeconds,
 ) {
-    let cloned_interval = interval.clone();
-    if previous_data.clone().is_some()
-        || (block.median_time - previous_data.clone().unwrap().block.median_time.clone())
-            > cloned_interval as i64
-    {
-        let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
-            id: ((
-                token.to_owned(),
-                currency.to_owned(),
-                interval.clone(),
-                block.height,
-            )),
-            key: ((token.to_owned(), currency.to_owned(), interval)),
-            sort: aggregated.sort.to_owned(),
-            token: token.to_owned(),
-            currency: currency.to_owned(),
-            aggregated: previous_data.as_ref().unwrap().aggregated.clone(),
-            block: block,
-        };
-        let err = services.oracle_price_aggregated_interval.by_id.put(
-            &oracle_price_aggregated_interval.id,
-            &oracle_price_aggregated_interval,
-        );
-        let err = services.oracle_price_aggregated_interval.by_key.put(
-            &oracle_price_aggregated_interval.key,
-            &oracle_price_aggregated_interval.id,
-        );
-    } else {
-        let lastprice = previous_data.as_ref().unwrap().aggregated.clone();
-        let count = lastprice.count + 1;
-        let aggregated_interval = OraclePriceAggregatedInterval {
-            id: previous_data.as_ref().unwrap().id.clone(),
-            key: previous_data.as_ref().unwrap().key.clone(),
-            sort: previous_data.as_ref().unwrap().sort.clone(),
-            token: previous_data.as_ref().unwrap().token.clone(),
-            currency: previous_data.as_ref().unwrap().currency.clone(),
-            aggregated: OraclePriceAggregatedIntervalAggregated {
-                amount: forward_aggregate_value(
-                    lastprice.amount.as_str(),
-                    aggregated.aggregated.amount.as_str(),
-                    count,
-                )
-                .to_string(),
-                weightage: forward_aggregate_number(
-                    lastprice.weightage,
-                    aggregated.aggregated.weightage,
-                    count,
+    let lastprice = previous_data.aggregated.clone();
+    let count = lastprice.count + 1;
+
+    let aggregated_interval = OraclePriceAggregatedInterval {
+        id: previous_data.id.clone(),
+        key: previous_data.key.clone(),
+        sort: previous_data.sort.clone(),
+        token: previous_data.token.clone(),
+        currency: previous_data.currency.clone(),
+        aggregated: OraclePriceAggregatedIntervalAggregated {
+            amount: forward_aggregate_value(
+                lastprice.amount.as_str(),
+                aggregated.aggregated.amount.as_str(),
+                count,
+            )
+            .to_string(),
+            weightage: forward_aggregate_number(
+                lastprice.weightage,
+                aggregated.aggregated.weightage,
+                count,
+            ),
+            count: count,
+            oracles: OraclePriceAggregatedIntervalAggregatedOracles {
+                active: forward_aggregate_number(
+                    lastprice.oracles.active,
+                    aggregated.aggregated.oracles.active,
+                    lastprice.count,
+                ) as i32,
+                total: forward_aggregate_number(
+                    lastprice.oracles.total,
+                    aggregated.aggregated.oracles.total,
+                    lastprice.count,
                 ),
-                count: count,
-                oracles: OraclePriceAggregatedIntervalAggregatedOracles {
-                    active: forward_aggregate_number(
-                        lastprice.oracles.active,
-                        aggregated.aggregated.oracles.active,
-                        lastprice.count,
-                    ) as i32,
-                    total: forward_aggregate_number(
-                        lastprice.oracles.total,
-                        aggregated.aggregated.oracles.total,
-                        lastprice.count,
-                    ),
-                },
             },
-            block: previous_data.as_ref().unwrap().block.clone(),
-        };
-        let err = services
-            .oracle_price_aggregated_interval
-            .by_id
-            .put(&aggregated_interval.id, &aggregated_interval);
-        let err = services
-            .oracle_price_aggregated_interval
-            .by_key
-            .put(&aggregated_interval.key, &aggregated_interval.id);
-    }
+        },
+        block: previous_data.block.clone(),
+    };
+    let err = services
+        .oracle_price_aggregated_interval
+        .by_id
+        .put(&aggregated_interval.id, &aggregated_interval);
+    let err = services
+        .oracle_price_aggregated_interval
+        .by_key
+        .put(&aggregated_interval.key, &aggregated_interval.id);
 }
 
 fn forward_aggregate_number(last_value: i32, new_value: i32, count: i32) -> i32 {
