@@ -221,6 +221,30 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Move to fork height
         self.nodes[0].generate(150 - self.nodes[0].getblockcount())
 
+        # Try and set block period below default sample size
+        assert_raises_rpc_error(
+            -32600,
+            "Block period must be more than sampling period",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2211f/block_period": "20",
+                }
+            },
+        )
+
+        # Try and set sample size of zero
+        assert_raises_rpc_error(
+            -5,
+            "Value must more than zero",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2211f/liquidity_calc_sampling_period": "0",
+                }
+            },
+        )
+
         # Set future swap limitaiton
         self.nodes[0].setgov(
             {
@@ -233,6 +257,18 @@ class FutureSwapLimitationTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(1)
+
+        # Try and set block period below defined sample size
+        assert_raises_rpc_error(
+            -32600,
+            "Block period must be more than sampling period",
+            self.nodes[0].setgov,
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2211f/block_period": "1",
+                }
+            },
+        )
 
         # Verify Gov vars
         result = self.nodes[0].getgov("ATTRIBUTES")["ATTRIBUTES"]
