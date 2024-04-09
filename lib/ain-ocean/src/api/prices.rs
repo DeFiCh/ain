@@ -129,7 +129,7 @@ async fn get_feed_active(
         .list(next, SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
-            let (key, id) = item?;
+            let (_, id) = item?;
             let b = ctx
                 .services
                 .oracle_price_active
@@ -190,7 +190,7 @@ async fn get_feed_with_interval(
     let mapped: Vec<OraclePriceAggregatedInterval> = items
         .into_iter()
         .map(|item| {
-            let start =
+            let _start =
                 item.block.median_time - (item.block.median_time % next.clone().unwrap().2 as i64);
             OraclePriceAggregatedInterval {
                 id: item.id,

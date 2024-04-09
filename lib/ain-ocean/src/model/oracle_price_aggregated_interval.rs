@@ -1,5 +1,3 @@
-use ain_dftx::{common::CompactVec, price::TokenPrice, ConsensusEncoding};
-use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use super::BlockContext;

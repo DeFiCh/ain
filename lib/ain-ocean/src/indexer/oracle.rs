@@ -78,7 +78,7 @@ impl Index for AppointOracle {
                 ),
                 token: token_currency.token.to_owned(),
                 currency: token_currency.currency.to_owned(),
-                oracle_id: oracle_id,
+                oracle_id,
                 weightage: self.weightage,
                 block: ctx.block.clone(),
             };
@@ -192,7 +192,7 @@ impl Index for RemoveOracle {
                             ),
                             token: prev_token_currency.token,
                             currency: prev_token_currency.currency.to_owned(),
-                            oracle_id: oracle_id,
+                            oracle_id,
                             weightage: oracle.weightage,
                             block: oracle.block.clone(),
                         };
@@ -334,7 +334,7 @@ impl Index for UpdateOracle {
         ))?;
 
         let prices_feeds = self.price_feeds.as_ref();
-        for (pair) in prices_feeds {
+        for pair in prices_feeds {
             services.oracle_token_currency.by_id.delete(&(
                 pair.token.to_string(),
                 pair.token.to_string(),
@@ -421,14 +421,14 @@ impl Index for SetOracleData {
                     context.block.height,
                 ))?;
                 for interval in intervals.clone() {
-                    let err = index_interval_mapper(
+                    index_interval_mapper(
                         services,
                         &context.block,
                         token,
                         currency,
                         aggregated.as_ref().unwrap(),
                         &interval,
-                    );
+                    )?;
                 }
             }
         }
@@ -654,13 +654,13 @@ pub fn index_interval_mapper(
                 > clone_interval as i64
         {
             let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
-                id: ((
+                id: (
                     token.to_owned(),
                     currency.to_owned(),
                     interval.clone(),
                     block.height,
-                )),
-                key: ((token.to_owned(), currency.to_owned(), interval.clone())),
+                ),
+                key: (token.to_owned(), currency.to_owned(), interval.clone()),
                 sort: aggregated.sort.to_owned(),
                 token: token.to_owned(),
                 currency: currency.to_owned(),
@@ -737,7 +737,7 @@ pub fn invalidate_oracle_interval(
                         aggregated.aggregated.weightage,
                         count as u32,
                     ),
-                    count: count,
+                    count,
                     oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                         active: backward_aggregate_number(
                             lastprice.oracles.active,
@@ -792,7 +792,7 @@ fn process_inner_values(
                 aggregated.aggregated.weightage,
                 count,
             ),
-            count: count,
+            count,
             oracles: OraclePriceAggregatedIntervalAggregatedOracles {
                 active: forward_aggregate_number(
                     lastprice.oracles.active,
@@ -873,7 +873,7 @@ fn get_previous_oracle_history_list(
     let history = services
         .oracle_history
         .by_key
-        .list(Some((oracle_id)), SortOrder::Descending)?
+        .list(Some(oracle_id), SortOrder::Descending)?
         .map(|item| {
             let (_, id) = item?;
             let b = services
