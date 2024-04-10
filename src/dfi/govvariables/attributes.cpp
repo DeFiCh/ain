@@ -764,8 +764,8 @@ static inline std::string GetDecimalStringNormalized(const CAmount amount) {
     return decimalStr;
 }
 
-const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
-    &ATTRIBUTES::parseValue() {
+const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>> &
+ATTRIBUTES::parseValue() {
     static const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(const std::string &)>>>
         parsers{
             {AttributeTypes::Token,
