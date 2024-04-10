@@ -637,7 +637,6 @@ pub fn index_interval_mapper(
         })
         .collect::<Result<Vec<_>>>();
     let clone_interval = interval.clone();
-    println!("the value {:?}", previous_aggrigated_interval);
     if let Ok(previous_oracle_price_aggreated) = previous_aggrigated_interval {
         if previous_oracle_price_aggreated.is_empty() {
             let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
