@@ -11,17 +11,18 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
 class TokensBasicTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 2
+        self.num_nodes = 3
         # node0: main
         # node1: revert of destroy
         # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [
+            ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
         ]
@@ -32,9 +33,35 @@ class TokensBasicTest(DefiTestFramework):
         self.nodes[0].generate(100)
         self.sync_blocks()
 
+        # Stop node #2 for future revert
+        self.stop_node(2)
+
         # CREATION:
         # ========================
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
+
+        # Try and create token without a name
+        assert_raises_rpc_error(
+            -8,
+            "Token name should not be empty",
+            self.nodes[0].createtoken,
+            {
+                "symbol": "GOLD",
+                "collateralAddress": collateral0,
+            },
+        )
+
+        # Try and create token with an empty name
+        assert_raises_rpc_error(
+            -8,
+            "Token name should not be empty",
+            self.nodes[0].createtoken,
+            {
+                "symbol": "GOLD",
+                "name": "",
+                "collateralAddress": collateral0,
+            },
+        )
 
         # Fail to create: Insufficient funds (not matured coins)
         try:
@@ -49,7 +76,6 @@ class TokensBasicTest(DefiTestFramework):
             errorString = e.error["message"]
         assert "Insufficient funds" in errorString
 
-        # Mint block to mature coins for collateral
         self.nodes[0].generate(1)
 
         # Fail to create: use # in symbol
@@ -84,7 +110,7 @@ class TokensBasicTest(DefiTestFramework):
         assert "collateral-locked-in-mempool," in errorString
 
         self.nodes[0].generate(1)
-        self.sync_blocks()
+        self.sync_blocks([self.nodes[0], self.nodes[1]])
 
         # At this point, token was created
         tokens = self.nodes[0].listtokens()
@@ -165,35 +191,6 @@ class TokensBasicTest(DefiTestFramework):
         assert_equal(t130["130"]["symbol"], "WK")
         assert_equal(t130["130"]["mintable"], False)
         assert_equal(t130["130"]["tradeable"], False)
-
-        # Try and create token without a name
-        self.nodes[0].createtoken(
-            {
-                "symbol": "TIN",
-                "isDAT": True,
-                "collateralAddress": collateral0,
-            }
-        )
-        self.nodes[0].generate(1)
-
-        # Check name set to symbol
-        token = self.nodes[0].gettoken("TIN")["1"]
-        assert_equal(token["name"], "TIN")
-
-        # Try and create token with an empty name
-        self.nodes[0].createtoken(
-            {
-                "symbol": "IRON",
-                "name": "",
-                "isDAT": True,
-                "collateralAddress": collateral0,
-            }
-        )
-        self.nodes[0].generate(1)
-
-        # Check name set to symbol
-        token = self.nodes[0].gettoken("IRON")["2"]
-        assert_equal(token["name"], "IRON")
 
 
 if __name__ == "__main__":
