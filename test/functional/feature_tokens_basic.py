@@ -16,13 +16,12 @@ from test_framework.util import assert_equal, assert_raises_rpc_error
 
 class TokensBasicTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 3
+        self.num_nodes = 2
         # node0: main
         # node1: revert of destroy
         # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [
-            ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
         ]
@@ -32,9 +31,6 @@ class TokensBasicTest(DefiTestFramework):
 
         self.nodes[0].generate(100)
         self.sync_blocks()
-
-        # Stop node #2 for future revert
-        self.stop_node(2)
 
         # CREATION:
         # ========================
@@ -76,6 +72,7 @@ class TokensBasicTest(DefiTestFramework):
             errorString = e.error["message"]
         assert "Insufficient funds" in errorString
 
+        # Mine a block to mature some coins
         self.nodes[0].generate(1)
 
         # Fail to create: use # in symbol
@@ -191,6 +188,24 @@ class TokensBasicTest(DefiTestFramework):
         assert_equal(t130["130"]["symbol"], "WK")
         assert_equal(t130["130"]["mintable"], False)
         assert_equal(t130["130"]["tradeable"], False)
+
+        # Try and update an empty token name
+        assert_raises_rpc_error(
+            -8,
+            "Token name cannot be empty",
+            self.nodes[0].updatetoken,
+            "",
+            {"isDAT": True},
+        )
+
+        # Try and update an empty token name
+        assert_raises_rpc_error(
+            -8,
+            "Token NONEXISTANT does not exist!",
+            self.nodes[0].updatetoken,
+            "NONEXISTANT",
+            {"isDAT": True},
+        )
 
 
 if __name__ == "__main__":
