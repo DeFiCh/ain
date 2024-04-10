@@ -1,3 +1,4 @@
+use std::fmt;
 #[derive(Debug, Clone)]
 pub enum Network {
     Mainnet,
@@ -21,14 +22,14 @@ impl std::str::FromStr for Network {
     }
 }
 
-impl ToString for Network {
-    fn to_string(&self) -> String {
+impl fmt::Display for Network {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Network::Mainnet => String::from("mainnet"),
-            Network::Testnet => String::from("testnet"),
-            Network::Regtest => String::from("regtest"),
-            Network::Devnet => String::from("devnet"),
-            Network::Changi => String::from("changi"),
+            Network::Mainnet => write!(f, "mainnet"),
+            Network::Testnet => write!(f, "testnet"),
+            Network::Regtest => write!(f, "regtest"),
+            Network::Devnet => write!(f, "devnet"),
+            Network::Changi => write!(f, "changi"),
         }
     }
 }

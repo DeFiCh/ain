@@ -164,8 +164,7 @@ impl Index for RemoveOracle {
     }
     fn invalidate(&self, services: &Arc<Services>, context: &Context) -> Result<()> {
         let oracle_id = context.tx.txid;
-        let previous_oracle_history_result =
-            get_previous_oracle_history_list(services, oracle_id.clone());
+        let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
 
         match previous_oracle_history_result {
             Ok(previous_oracle_history) => {
@@ -236,8 +235,7 @@ impl Index for UpdateOracle {
 
         //save oracle
         services.oracle.by_id.put(&oracle.id, &oracle)?;
-        let previous_oracle_history_result =
-            get_previous_oracle_history_list(services, oracle_id.clone());
+        let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
         match previous_oracle_history_result {
             Ok(previous_oracle) => {
                 for oracle in previous_oracle {
@@ -246,7 +244,7 @@ impl Index for UpdateOracle {
                         let deletion_key = (
                             price_feed_item.token.clone(),
                             price_feed_item.currency.clone(),
-                            oracle_id.clone(),
+                            oracle_id,
                         );
                         match services.oracle_token_currency.by_id.delete(&deletion_key) {
                             Ok(_) => {
@@ -283,7 +281,7 @@ impl Index for UpdateOracle {
                 ),
                 token: token_currency.token.clone(),
                 currency: token_currency.currency.clone(),
-                oracle_id: oracle_id.clone(),
+                oracle_id,
                 weightage: self.weightage,
                 block: ctx.block.clone(),
             };
@@ -341,8 +339,7 @@ impl Index for UpdateOracle {
                 self.oracle_id,
             ))?;
         }
-        let previous_oracle_history_result =
-            get_previous_oracle_history_list(services, oracle_id.clone());
+        let previous_oracle_history_result = get_previous_oracle_history_list(services, oracle_id);
         match previous_oracle_history_result {
             Ok(previous_oracle_result) => {
                 for previous_oracle in previous_oracle_result {
@@ -350,7 +347,7 @@ impl Index for UpdateOracle {
                         let deletion_key = (
                             price_feed_item.token.clone(),
                             price_feed_item.currency.clone(),
-                            previous_oracle.oracle_id.clone(),
+                            previous_oracle.oracle_id,
                         );
 
                         match services.oracle_token_currency.by_id.delete(&deletion_key) {
@@ -402,7 +399,7 @@ impl Index for SetOracleData {
                 let aggreated_id = (
                     value.token.clone(),
                     value.currency.clone(),
-                    value.block.height.clone(),
+                    value.block.height,
                 );
                 let aggreated_key = (value.token.clone(), value.currency.clone());
                 services
@@ -639,10 +636,9 @@ pub fn index_interval_mapper(
             Ok(price_agrregated_interval)
         })
         .collect::<Result<Vec<_>>>();
-
-    for previous_oracle_price_aggreated in previous_aggrigated_interval {
-        let clone_interval = interval.clone();
-        if previous_oracle_price_aggreated.len() != 0
+    let clone_interval = interval.clone();
+    if let Ok(previous_oracle_price_aggreated) = previous_aggrigated_interval {
+        if !previous_oracle_price_aggreated.is_empty()
             || (block.median_time - previous_oracle_price_aggreated[0].block.median_time)
                 > clone_interval as i64
         {
@@ -670,6 +666,19 @@ pub fn index_interval_mapper(
             );
         } else {
             process_inner_values(services, &previous_oracle_price_aggreated[0], aggregated);
+        }
+    } else {
+        let err = previous_aggrigated_interval.err();
+        match err {
+            Some(e) => {
+                let error_message = format!("Error updating oracle index interval mapper: {:?}", e);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
+            }
+            None => {
+                eprintln!("Unknown index interval mapper error ");
+                return Err(Error::NotFound(NotFoundKind::Oracle));
+            }
         }
     }
 
@@ -703,7 +712,7 @@ pub fn invalidate_oracle_interval(
         })
         .collect::<Result<Vec<_>>>();
 
-    for oracle_price_aggreated in previous_aggrigated_interval {
+    if let Ok(oracle_price_aggreated) = previous_aggrigated_interval {
         if oracle_price_aggreated[0].aggregated.count != 1 {
             let _err = services
                 .oracle_price_aggregated_interval
@@ -754,6 +763,19 @@ pub fn invalidate_oracle_interval(
                 &previous_aggregated_interval.key,
                 &previous_aggregated_interval.id,
             );
+        }
+    } else {
+        let err = previous_aggrigated_interval.err();
+        match err {
+            Some(e) => {
+                let error_message = format!("Error updating oracle  interval: {:?}", e);
+                eprintln!("{}", error_message);
+                return Err(Error::NotFound(NotFoundKind::Oracle));
+            }
+            None => {
+                eprintln!("Unknown previous_aggrigated_interval error ");
+                return Err(Error::NotFound(NotFoundKind::Oracle));
+            }
         }
     }
     Ok(())
