@@ -10,6 +10,7 @@ pub type TransactionByBlockHashKey = (BlockHash, usize);
 #[serde(rename_all = "camelCase")]
 pub struct Transaction {
     pub id: Txid,
+    pub txid: Txid,
     pub order: usize, // tx order
     pub block: BlockContext,
     pub hash: String,
