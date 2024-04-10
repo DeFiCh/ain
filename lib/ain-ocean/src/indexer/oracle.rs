@@ -637,11 +637,9 @@ pub fn index_interval_mapper(
         })
         .collect::<Result<Vec<_>>>();
     let clone_interval = interval.clone();
+    println!("the value {:?}", previous_aggrigated_interval);
     if let Ok(previous_oracle_price_aggreated) = previous_aggrigated_interval {
-        if !previous_oracle_price_aggreated.is_empty()
-            || (block.median_time - previous_oracle_price_aggreated[0].block.median_time)
-                > clone_interval as i64
-        {
+        if previous_oracle_price_aggreated.is_empty() {
             let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
                 id: (
                     token.to_owned(),
@@ -653,7 +651,15 @@ pub fn index_interval_mapper(
                 sort: aggregated.sort.to_owned(),
                 token: token.to_owned(),
                 currency: currency.to_owned(),
-                aggregated: previous_oracle_price_aggreated[0].aggregated.clone(),
+                aggregated: OraclePriceAggregatedIntervalAggregated {
+                    amount: aggregated.aggregated.amount.clone(),
+                    weightage: aggregated.aggregated.weightage,
+                    count: 1,
+                    oracles: OraclePriceAggregatedIntervalAggregatedOracles {
+                        active: aggregated.aggregated.oracles.active,
+                        total: aggregated.aggregated.oracles.total,
+                    },
+                },
                 block: block.clone(),
             };
             let _err = services.oracle_price_aggregated_interval.by_id.put(
