@@ -52,7 +52,6 @@ mod tests {
 
         let result = oracle_db.get(oracle.id.clone()).await.unwrap();
         assert!(result.is_some());
-        println!("the oracle result {:?}", result);
         assert_eq!(result.unwrap(), oracle);
     }
 
