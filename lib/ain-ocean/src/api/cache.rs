@@ -4,7 +4,8 @@ use anyhow::format_err;
 use cached::proc_macro::cached;
 use defichain_rpc::{
     defichain_rpc_json::{
-        poolpair::PoolPairsResult, token::TokenInfo
+        poolpair::{PoolPairInfo, PoolPairsResult},
+        token::TokenInfo
     }, json::poolpair::PoolPairPagination, PoolPairRPC, TokenRPC};
 
 use super::AppContext;
@@ -25,6 +26,24 @@ pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<(St
         .next()
         .ok_or(format_err!("Error getting token info"))?;
     Ok(token)
+}
+
+#[cached(
+    result = true,
+    key = "String",
+    convert = r#"{ format!("getpoolpair") }"#
+)]
+pub async fn get_pool_pair_info_cached(ctx: &Arc<AppContext>, id: String) -> Result<PoolPairInfo> {
+    let pool_pair = ctx
+        .client
+        .get_pool_pair(id, None)
+        .await?
+        .0
+        .into_iter()
+        .next()
+        .ok_or(format_err!("Error getting pool pair info"));
+
+    Ok(pool_pair)
 }
 
 #[cached(
