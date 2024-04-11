@@ -33,7 +33,7 @@ pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<(St
     key = "String",
     convert = r#"{ format!("getpoolpair") }"#
 )]
-pub async fn get_pool_pair_info_cached(ctx: &Arc<AppContext>, id: String) -> Result<PoolPairInfo> {
+pub async fn get_pool_pair_info_cached(ctx: &Arc<AppContext>, id: String) -> Result<(String, PoolPairInfo)> {
     let pool_pair = ctx
         .client
         .get_pool_pair(id, None)
@@ -41,7 +41,7 @@ pub async fn get_pool_pair_info_cached(ctx: &Arc<AppContext>, id: String) -> Res
         .0
         .into_iter()
         .next()
-        .ok_or(format_err!("Error getting pool pair info"));
+        .ok_or(format_err!("Error getting pool pair info"))?;
 
     Ok(pool_pair)
 }
