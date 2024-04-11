@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{
-    cache::{get_token_cached, list_pool_pairs_cached},
     common::parse_dat_symbol,
     path::Path,
+    poolpairs_path::{compute_paths_between_tokens, get_token_identifier},
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -475,21 +475,6 @@ pub struct SwapPathsResponse {
     paths: Vec<Vec<SwapPathPoolPairResponse>>,
 }
 
-async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: String, to_token_id: String) -> Result<bool> {
-    Ok(true)
-}
-
-async fn get_token_identifier(ctx: &Arc<AppContext>, id: String) -> Result<TokenIdentifier> {
-    let (id, token) = get_token_cached(ctx, &id).await?;
-    Ok(TokenIdentifier{
-        id,
-        name: token.name,
-        symbol: token.symbol.clone(),
-        display_symbol: parse_dat_symbol(&token.symbol),
-    })
-
-}
-
 async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: String, to_token_id: String) -> Result<SwapPathsResponse> {
     assert!(from_token_id != to_token_id);
 
@@ -504,7 +489,7 @@ async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: String, to_tok
             return Ok(res)
         }
 
-    // res.paths = compute_paths_between_tokens(from_token_id, to_token_id).await?;
+    res.paths = compute_paths_between_tokens(&ctx, from_token_id, to_token_id).await?;
 
     return Ok(res)
 }
