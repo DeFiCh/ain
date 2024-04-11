@@ -78,7 +78,7 @@ pub struct Services {
     pub result: TxResultRepository,
     pub pool: PoolService,
     pub transaction: TransactionService,
-    pub token_graph: Mutex<UnGraphMap<u32, ()>>,
+    pub token_graph: Mutex<UnGraphMap<u32, String>>,
     pub tokens_to_swappable_tokens: Mutex<HashMap<String, Vec<TokenIdentifier>>>,
 }
 

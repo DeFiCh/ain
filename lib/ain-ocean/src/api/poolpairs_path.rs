@@ -1,5 +1,5 @@
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{collections::HashSet, ops::Deref, sync::Arc, time::Duration};
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
@@ -33,18 +33,20 @@ use crate::{
     Result, TokenIdentifier,
 };
 
-// #[derive(Debug, Clone)]
+// #[derive(Debug, Serialize)]
+// #[serde(rename_all = "camelCase")]
 // struct PriceRatio {
 //     ab: BigDecimal,
 //     ba: BigDecimal,
 // }
 
-#[derive(Debug, Clone)]
-struct SwapPathPoolPair {
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapPathPoolPair {
     id: String,
     symbol: String,
-    token_a: String,
-    token_b: String,
+    token_a: TokenIdentifier,
+    token_b: TokenIdentifier,
     // price_ratio: PriceRatio,
     // commission_fee_in_pct: BigDecimal,
     // estimated_dex_fees_in_pct: Option<BigDecimal>,
@@ -52,8 +54,8 @@ struct SwapPathPoolPair {
 
 #[derive(Debug)]
 struct StackSet {
-    set: HashSet<String>,
-    stack: Vec<String>,
+    set: HashSet<u32>,
+    stack: Vec<u32>,
     size: usize,
 }
 
@@ -66,11 +68,11 @@ impl StackSet {
         }
     }
 
-    fn has(&self, value: &String) -> bool {
+    fn has(&self, value: &u32) -> bool {
         self.set.contains(value)
     }
 
-    fn push(&mut self, value: String) {
+    fn push(&mut self, value: u32) {
         self.stack.push(value);
         self.set.insert(value);
         self.size += 1;
@@ -83,15 +85,19 @@ impl StackSet {
         }
     }
 
-    fn path(&self, value: String) -> Vec<String> {
+    fn path(&self, value: u32) -> Vec<u32> {
         let mut path = self.stack.clone();
         path.push(value);
         path
     }
 
-    fn of(value: String) -> Self {
+    fn of(value: u32, is_cycle: bool) -> Self {
         let mut set = StackSet::new();
-        set.push(value);
+        if !is_cycle {
+            set.push(value);
+        } else {
+           set.stack.push(value);
+        }
         set
     }
 }
@@ -107,52 +113,40 @@ pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: String) -> Result<T
 
 }
 
-fn all_simple_paths(ctx: &Arc<AppContext>, mut from_token_id: String, mut to_token_id: String) -> Result<Vec<Vec<String>>> {
-    let graph = ctx.services.token_graph;
-    let from_token_id_u32 = from_token_id.parse::<u32>()?;
-    let to_token_id_u32 = to_token_id.parse::<u32>()?;
-    if !graph.lock().contains_node(from_token_id_u32) {
-        return Err(format_err!("from_token_id not found: {:?}", from_token_id_u32).into())
+fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<Vec<Vec<u32>>> {
+    let graph = &ctx.services.token_graph;
+    if !graph.lock().contains_node(from_token_id) {
+        return Err(format_err!("from_token_id not found: {:?}", from_token_id).into())
     }
-    if !graph.lock().contains_node(to_token_id_u32) {
-        return Err(format_err!("to_token_id not found: {:?}", to_token_id_u32).into())
+    if !graph.lock().contains_node(to_token_id) {
+        return Err(format_err!("to_token_id not found: {:?}", to_token_id).into())
     }
-
-    from_token_id = "" + from_token_id.to_string();
-    to_token_id = "" + to_token_id.to_string();
 
     let is_cycle = from_token_id == to_token_id;
 
-    let mut stack = vec![graph.lock().neighbors_directed(&from_token_id, petgraph::Direction::Outgoing)];
-    let mut visited;
+    let mut stack = vec![graph.lock().neighbors_directed(from_token_id, petgraph::Direction::Outgoing).collect::<Vec<_>>()];
+    let mut visited = StackSet::of(from_token_id, is_cycle);
 
-    if cycle {
-        visited = StackSet::of("§SOURCE§".to_string());
-    } else {
-        visited = StackSet::of(from_token_id.clone());
-    }
-
-    let mut paths: Vec<Vec<String>> = Vec::new();
-    let mut children: Vec<String>;
-    let mut child: Option<String>;
-    while stack.len() != 0 {
-        children = stack.last_mut().unwrap();
+    let mut paths: Vec<Vec<u32>> = Vec::new();
+    let mut children;
+    let mut child: Option<u32>;
+    while !stack.is_empty() {
+        children = stack.last().unwrap().clone();
         child = children.pop();
         if let Some(child) = child {
-            if visited.contains(&child) {
+            if visited.has(&child) {
                 continue;
             }
             if child == to_token_id {
                 let mut p = visited.path(child);
-                if cycle {
-                    p[0] = from_token_id.clone();
+                if is_cycle {
+                    p[0] = from_token_id;
                 }
                 paths.push(p);
             }
-            visited.push(child.clone());
-            let child_u32 = child.clone().parse::<u32>()?;
+            visited.push(child);
             if !visited.has(&from_token_id) {
-                stack.push(graph.lock().neighbors_directed(&child_u32, petgraph::Direction::Outgoing))
+                stack.push(graph.lock().neighbors_directed(child, petgraph::Direction::Outgoing).collect::<Vec<_>>())
             } else {
                 visited.pop();
             }
@@ -165,12 +159,14 @@ fn all_simple_paths(ctx: &Arc<AppContext>, mut from_token_id: String, mut to_tok
     Ok(paths)
 }
 
-pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: String, to_token_id: String) -> Result<Vec<Vec<SwapPathPoolPair>>> {
+pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<Vec<Vec<SwapPathPoolPair>>> {
     let mut pool_pair_paths = Vec::new();
 
-    let graph = ctx.services.token_graph;
+    let graph = &ctx.services.token_graph;
 
-    for path in all_simple_paths(ctx, from_token_id, to_token_id) {
+    let paths = all_simple_paths(ctx, from_token_id, to_token_id).unwrap();
+
+    for path in  paths {
         if path.len() > 4 {
             continue;
         }
@@ -178,25 +174,26 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
         let mut pool_pairs = Vec::new();
 
         for i in 1..path.len() {
-            let token_a = &path[i - 1];
-            let token_b = &path[i];
+            let token_a = path[i - 1];
+            let token_b = path[i];
 
-            let pool_pair_id = graph.lock().add_edge(token_a, token_b, ()).ok_or_else(|| {
-                format_err!(
-                    "Unexpected error encountered during path finding - could not find edge between {} and {}",
-                    token_a,
-                    token_b
-                )
-            })?;
+            let pool_pair_id = graph.lock().edge_weight(token_a, token_b).unwrap().to_owned();
+            // .ok_or_else(|| {
+            //     format_err!(
+            //         "Unexpected error encountered during path finding - could not find edge between {} and {}",
+            //         token_a,
+            //         token_b
+            //     )
+            // })?;
 
-            let pool_pair = get_pool_pair_info_cached(&ctx, id).await?;
+            let (_, pool_pair_info) = get_pool_pair_info_cached(&ctx, pool_pair_id.clone()).await?;
             // let estimated_dex_fees_in_pct
 
             let swap_path_pool_pair = SwapPathPoolPair {
                 id: pool_pair_id,
-                symbol: pool_pair.symbol,
-                token_a: get_token_identifier(&ctx, pool_pair.id_token_a).await?,
-                token_b: get_token_identifier(&ctx, pool_pair.id_token_b).await?,
+                symbol: pool_pair_info.symbol,
+                token_a: get_token_identifier(&ctx, pool_pair_info.id_token_a).await?,
+                token_b: get_token_identifier(&ctx, pool_pair_info.id_token_b).await?,
                 // commission_fee_in_pct: todo!(),
                 // estimated_dex_fees_in_pct: todo!(),
             };
@@ -247,7 +244,7 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) {
               graph.lock().add_node(id_token_b);
           }
           if !graph.lock().contains_edge(id_token_a, id_token_b) {
-              graph.lock().add_edge(id_token_a, id_token_b, ());
+              graph.lock().add_edge(id_token_a, id_token_b, k);
           }
       }
 

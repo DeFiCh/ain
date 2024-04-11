@@ -15,7 +15,7 @@ use serde_json::json;
 use super::{
     common::parse_dat_symbol,
     path::Path,
-    poolpairs_path::{compute_paths_between_tokens, get_token_identifier},
+    poolpairs_path::{compute_paths_between_tokens, get_token_identifier, SwapPathPoolPair},
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -443,6 +443,8 @@ async fn get_best_path(
     Path(to_token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<BestSwapPathResponse> {
+    let from_token_id = from_token_id.parse::<u32>()?;
+    let to_token_id = to_token_id.parse::<u32>()?;
     let res = get_all_swap_paths(&ctx, from_token_id, to_token_id);
 
     // dummy first
@@ -455,16 +457,18 @@ async fn get_best_path(
     })
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SwapPathPoolPairResponse {
-    pool_pair_id: String,
-    symbol: String,
-    token_a: TokenIdentifier,
-    token_b: TokenIdentifier,
-    price_ratio: PoolPairPriceRatioResponse,
-    commission_fee_in_pct: String,
-    estimated_dex_fees_in_pct: Option<PoolPairPriceRatioResponse>,
+#[ocean_endpoint]
+async fn list_paths(
+    Path(from_token_id): Path<String>,
+    Path(to_token_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<bool> {
+    let from_token_id = from_token_id.parse::<u32>()?;
+    let to_token_id = to_token_id.parse::<u32>()?;
+    let paths = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
+    println!("paths: {:?}", paths);
+
+    Ok(true)
 }
 
 #[derive(Debug, Serialize)]
@@ -472,20 +476,20 @@ pub struct SwapPathPoolPairResponse {
 pub struct SwapPathsResponse {
     from_token: TokenIdentifier,
     to_token: TokenIdentifier,
-    paths: Vec<Vec<SwapPathPoolPairResponse>>,
+    paths: Vec<Vec<SwapPathPoolPair>>,
 }
 
-async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: String, to_token_id: String) -> Result<SwapPathsResponse> {
+async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<SwapPathsResponse> {
     assert!(from_token_id != to_token_id);
 
     let mut res = SwapPathsResponse {
-        from_token: get_token_identifier(ctx, from_token_id.clone()).await?,
-        to_token: get_token_identifier(ctx, to_token_id.clone()).await?,
+        from_token: get_token_identifier(ctx, from_token_id.clone().to_string()).await?,
+        to_token: get_token_identifier(ctx, to_token_id.clone().to_string()).await?,
         paths: vec![],
     };
 
-    if !ctx.services.token_graph.lock().contains_node(from_token_id.parse::<u32>()?)
-        || !ctx.services.token_graph.lock().contains_node(to_token_id.parse::<u32>()?) {
+    if !ctx.services.token_graph.lock().contains_node(from_token_id)
+        || !ctx.services.token_graph.lock().contains_node(to_token_id) {
             return Ok(res)
         }
 
@@ -518,6 +522,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:id", get(get_poolpair))
         .route("/:id/swaps", get(list_pool_swaps))
         .route("/:id/swaps/verbose", get(list_pool_swaps_verbose))
+        .route("/paths/from/:fromTokenId/to/:toTokenId", get(list_paths))
         // .route(
         //     "/:id/swaps/aggregate/:interval",
         //     get(list_pool_swap_aggregates),
