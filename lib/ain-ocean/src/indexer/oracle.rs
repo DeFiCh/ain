@@ -636,7 +636,7 @@ pub fn index_interval_mapper(
             Ok(price_agrregated_interval)
         })
         .collect::<Result<Vec<_>>>();
-    let clone_interval = interval.clone();
+
     if let Ok(previous_oracle_price_aggreated) = previous_aggrigated_interval {
         if previous_oracle_price_aggreated.is_empty() {
             let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
@@ -661,14 +661,14 @@ pub fn index_interval_mapper(
                 },
                 block: block.clone(),
             };
-            let _err = services.oracle_price_aggregated_interval.by_id.put(
+            services.oracle_price_aggregated_interval.by_id.put(
                 &oracle_price_aggregated_interval.id,
                 &oracle_price_aggregated_interval,
-            );
-            let _err = services.oracle_price_aggregated_interval.by_key.put(
+            )?;
+            services.oracle_price_aggregated_interval.by_key.put(
                 &oracle_price_aggregated_interval.key,
                 &oracle_price_aggregated_interval.id,
-            );
+            )?;
         } else {
             process_inner_values(services, &previous_oracle_price_aggreated[0], aggregated);
         }
