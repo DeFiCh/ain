@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+mod state;
+
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{
@@ -9,6 +11,8 @@ use axum::{
 };
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
+
+use self::state::{MasternodeService, MasternodeState};
 
 use super::{
     query::PaginationQuery,
@@ -23,19 +27,6 @@ use crate::{
     storage::SortOrder,
     Result,
 };
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum MasternodeState {
-    PreEnabled,
-    Enabled,
-    PreResigned,
-    Resigned,
-    PreBanned,
-    Banned,
-    #[default]
-    Unknown,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MasternodeOwner {
@@ -72,12 +63,12 @@ pub struct MasternodeData {
     pub timelock: u16,
 }
 
-impl From<Masternode> for MasternodeData {
-    fn from(v: Masternode) -> Self {
+impl MasternodeData {
+    fn from_with_state(v: Masternode, state: MasternodeState) -> Self {
         MasternodeData {
             id: v.id.to_string(),
             sort: format!("{:08x}{}", v.block.height, v.id),
-            state: MasternodeState::default(), // TODO Handle mn state
+            state,
             minted_blocks: v.minted_blocks,
             owner: MasternodeOwner {
                 address: v.owner_address,
@@ -121,11 +112,22 @@ async fn list_masternodes(
         })
         .transpose()?;
 
+    let height = ctx
+        .services
+        .block
+        .by_height
+        .get_highest()?
+        .map_or(0, |b| b.height);
+
     let masternodes = repository
         .list(next, SortOrder::Descending)?
         .paginate(&query)
         .map(|el| repository.retrieve_primary_value(el))
-        .map(|v| v.map(MasternodeData::from))
+        .map(|v| {
+            let mn = v.unwrap();
+            let state = MasternodeService::new(ctx.network).get_masternode_state(&mn, height);
+            Ok(MasternodeData::from_with_state(mn, state))
+        })
         .collect::<Result<Vec<_>>>()?;
 
     Ok(ApiPagedResponse::of(
@@ -140,12 +142,22 @@ async fn get_masternode(
     Path(masternode_id): Path<Txid>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<MasternodeData>> {
+    let height = ctx
+        .services
+        .block
+        .by_height
+        .get_highest()?
+        .map_or(0, |b| b.height);
+
     let mn = ctx
         .services
         .masternode
         .by_id
         .get(&masternode_id)?
-        .map(Into::into)
+        .map(|mn| {
+            let state = MasternodeService::new(ctx.network).get_masternode_state(&mn, height);
+            MasternodeData::from_with_state(mn, state)
+        })
         .ok_or(Error::NotFound(NotFoundKind::Masternode))?;
 
     Ok(Response::new(mn))
