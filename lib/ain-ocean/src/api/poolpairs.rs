@@ -459,16 +459,13 @@ async fn get_best_path(
 
 #[ocean_endpoint]
 async fn list_paths(
-    Path(from_token_id): Path<String>,
-    Path(to_token_id): Path<String>,
+    Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<bool> {
+) -> Result<SwapPathsResponse> {
     let from_token_id = from_token_id.parse::<u32>()?;
     let to_token_id = to_token_id.parse::<u32>()?;
     let paths = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
-    println!("paths: {:?}", paths);
-
-    Ok(true)
+    Ok(paths)
 }
 
 #[derive(Debug, Serialize)]
