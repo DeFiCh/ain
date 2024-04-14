@@ -1043,9 +1043,6 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
             return true;
         }
 
-        LogPrintf(
-            "XXX SET LIQUIDITY HEIGHT %d POOL %d-%d\n", pindex->nHeight, poolPair.idTokenA.v, poolPair.idTokenB.v);
-
         cache.SetLoanTokenLiquidityPerBlock(
             {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
         cache.SetLoanTokenLiquidityPerBlock(
