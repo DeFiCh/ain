@@ -1057,10 +1057,9 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
             if (key.height <= pindex->nHeight - blockPeriod) {
                 keysToDelete.push_back(key);
-            } else {
-                return false;
+                return true;
             }
-            return true;
+            return false;
         });
 
     // Delete old entries
@@ -1078,8 +1077,7 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
             liquidityPerBlockByToken[{key.sourceID, key.destID}].push_back(liquidityPerBlock);
             return true;
-        },
-        {static_cast<uint32_t>(pindex->nHeight - blockPeriod)});
+        });
 
     // Calculate average liquidity for each token
     const auto expectedEntries = blockPeriod / samplingPeriod;
