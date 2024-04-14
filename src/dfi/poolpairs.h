@@ -254,7 +254,7 @@ struct LoanTokenLiquidityPerBlockKey {
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream &s, Operation ser_action) {
-        READWRITE(height);
+        READWRITE(WrapBigEndian(height));
         READWRITE(sourceID);
         READWRITE(destID);
     }
