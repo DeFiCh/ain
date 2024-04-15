@@ -992,7 +992,10 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
                                      const Consensus::Params &consensus,
                                      const LoanTokenCollection &loanTokens,
                                      const bool futureSwapBlock) {
-    if (pindex->nHeight < consensus.DF23Height) {
+    // Skip on testnet until later height to avoid a TX that hit the limit and was not rejected
+    // due to a bug in the initital FutureSwap implementation.
+    if ((pindex->nHeight < consensus.DF23Height) || (Params().NetworkIDString() == CBaseChainParams::TESTNET &&
+                                                     pindex->nHeight < std::numeric_limits<int>::max())) {
         return;
     }
 
