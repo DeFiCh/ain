@@ -10,8 +10,12 @@ use ain_evm::{
 };
 use ethereum::BlockAny;
 use ethereum_types::{H256, U256};
-use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use jsonrpsee::{
+    core::{JsonValue, RpcResult},
+    proc_macros::rpc,
+};
 use log::debug;
+use serde_json::json;
 
 use crate::{
     block::BlockNumber,
@@ -42,14 +46,14 @@ pub trait MetachainDebugRPC {
         &self,
         block_number: BlockNumber,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<Vec<TransactionTrace>>;
+    ) -> RpcResult<Vec<JsonValue>>;
 
     #[method(name = "traceBlockByHash")]
     fn trace_block_by_hash(
         &self,
         hash: H256,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<Vec<TransactionTrace>>;
+    ) -> RpcResult<Vec<JsonValue>>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -157,7 +161,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         &self,
         block_number: BlockNumber,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<Vec<TransactionTrace>> {
+    ) -> RpcResult<Vec<JsonValue>> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         // Handle trace params
@@ -168,19 +172,22 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
 
         // Get block
         let trace_block = self.get_block(Some(block_number))?;
-
-        Ok(self
+        let res = self
             .handler
             .tracer
             .trace_block(trace_block, params, raw_max_memory_usage)
-            .map_err(RPCError::EvmError)?)
+            .map_err(RPCError::EvmError)?
+            .into_iter()
+            .map(|(tx_hash, trace)| json!({ "txHash": tx_hash.to_string(), "result": trace }))
+            .collect();
+        Ok(res)
     }
 
     fn trace_block_by_hash(
         &self,
         hash: H256,
         trace_params: Option<TraceParams>,
-    ) -> RpcResult<Vec<TransactionTrace>> {
+    ) -> RpcResult<Vec<JsonValue>> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         // Handle trace params
@@ -196,12 +203,15 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .get_block_by_hash(&hash)
             .map_err(to_custom_err)?
             .ok_or(RPCError::BlockNotFound)?;
-
-        Ok(self
+        let res = self
             .handler
             .tracer
             .trace_block(trace_block, params, raw_max_memory_usage)
-            .map_err(RPCError::EvmError)?)
+            .map_err(RPCError::EvmError)?
+            .into_iter()
+            .map(|(tx_hash, trace)| json!({ "txHash": tx_hash.to_string(), "result": trace }))
+            .collect();
+        Ok(res)
     }
 
     fn fee_estimate(&self, call: CallRequest) -> RpcResult<FeeEstimate> {

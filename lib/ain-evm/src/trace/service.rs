@@ -36,7 +36,7 @@ const TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE: usize = 1_000;
 
 pub struct TraceCache {
     tx_cache: LruCache<(H256, TracerInput), TransactionTrace>,
-    block_cache: LruCache<(H256, TracerInput), Vec<TransactionTrace>>,
+    block_cache: LruCache<(H256, TracerInput), Vec<(H256, TransactionTrace)>>,
 }
 
 pub struct TracerService {
@@ -121,7 +121,7 @@ impl TracerService {
         trace_block: BlockAny,
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
-    ) -> Result<Vec<TransactionTrace>> {
+    ) -> Result<Vec<(H256, TransactionTrace)>> {
         let block_hash = trace_block.header.hash();
         if let Some(res) = self.get_block_trace((block_hash, tracer_params.0)) {
             return Ok(res);
@@ -165,7 +165,7 @@ impl TracerService {
                 self.cache_tx_trace((replay_tx.hash(), tracer_params.0), trace.clone());
                 trace
             };
-            res.push(trace);
+            res.push((replay_tx.hash(), trace));
         }
         self.cache_block_trace((block_hash, tracer_params.0), res.clone());
         Ok(res)
@@ -320,7 +320,7 @@ impl TracerService {
         cache.tx_cache.get(&key).cloned()
     }
 
-    fn get_block_trace(&self, key: (H256, TracerInput)) -> Option<Vec<TransactionTrace>> {
+    fn get_block_trace(&self, key: (H256, TracerInput)) -> Option<Vec<(H256, TransactionTrace)>> {
         let mut cache = self.tracer_cache.lock();
         cache.block_cache.get(&key).cloned()
     }
@@ -330,7 +330,11 @@ impl TracerService {
         cache.tx_cache.put(key, trace_tx);
     }
 
-    fn cache_block_trace(&self, key: (H256, TracerInput), block_trace: Vec<TransactionTrace>) {
+    fn cache_block_trace(
+        &self,
+        key: (H256, TracerInput),
+        block_trace: Vec<(H256, TransactionTrace)>,
+    ) {
         let mut cache = self.tracer_cache.lock();
         cache.block_cache.put(key, block_trace);
     }
