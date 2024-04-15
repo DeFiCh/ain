@@ -45,13 +45,17 @@ fn parse_dat_symbol(symbol: &str) -> String {
 /// # Examples
 ///
 /// ```
+/// use rust_decimal::Decimal;
+/// use rust_decimal_macros::dec;
+/// use ain_ocean::api::{common::find_token_balance};
+///
 /// let tokens = vec![
 ///     "557.35080849@DFI".to_string(),
 ///     "9.98000000@BTC".to_string(),
 ///     "421.46947098@DUSD".to_string()
 /// ];
 /// let balance = find_token_balance(tokens, "DFI");
-/// assert_eq!(balance, 557.35080849);
+/// assert_eq!(balance, dec!(557.35080849));
 /// ```
 ///
 /// # Returns
@@ -88,10 +92,12 @@ pub fn find_token_balance(tokens: Vec<String>, symbol: &str) -> Decimal {
 ///
 /// # Example
 ///
-/// ```rust
-/// use crate::Paginate;
+/// This example is illustrative only and should not be executed directly as it involves API calls.
 ///
-/// let query = {
+/// ```rust,ignore
+/// use ain_ocean::api::common::Paginate;
+///
+/// let query = PaginationQuery {
 ///     next: Some(1)
 ///     limit: 3
 /// };
