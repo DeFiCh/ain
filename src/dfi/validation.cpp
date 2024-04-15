@@ -994,8 +994,8 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
                                      const bool futureSwapBlock) {
     // Skip on testnet until later height to avoid a TX that hit the limit and was not rejected
     // due to a bug in the initital FutureSwap implementation.
-    if ((pindex->nHeight < consensus.DF23Height) || (Params().NetworkIDString() == CBaseChainParams::TESTNET &&
-                                                     pindex->nHeight < std::numeric_limits<int>::max())) {
+    if ((pindex->nHeight < consensus.DF23Height) ||
+        (Params().NetworkIDString() == CBaseChainParams::TESTNET && pindex->nHeight < 1520000)) {
         return;
     }
 
