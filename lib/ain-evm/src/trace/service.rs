@@ -31,7 +31,8 @@ use crate::{
 };
 
 // The default LRU cache size
-const TRACER_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
+const TRACER_TX_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
+const TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE: usize = 1_000;
 
 pub struct AccessListInfo {
     pub access_list: AccessList,
@@ -55,9 +56,11 @@ impl TracerService {
             trie_store,
             storage,
             tracer_cache: Mutex::new(TraceCache {
-                tx_cache: LruCache::new(NonZeroUsize::new(TRACER_LRU_CACHE_DEFAULT_SIZE).unwrap()),
+                tx_cache: LruCache::new(
+                    NonZeroUsize::new(TRACER_TX_LRU_CACHE_DEFAULT_SIZE).unwrap(),
+                ),
                 block_cache: LruCache::new(
-                    NonZeroUsize::new(TRACER_LRU_CACHE_DEFAULT_SIZE).unwrap(),
+                    NonZeroUsize::new(TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE).unwrap(),
                 ),
             }),
         }
