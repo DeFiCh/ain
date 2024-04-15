@@ -15,7 +15,7 @@ pub struct OraclePriceAggregated {
     pub block: BlockContext,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregated {
     pub amount: String,
@@ -23,7 +23,7 @@ pub struct OraclePriceAggregatedAggregated {
     pub oracles: OraclePriceAggregatedAggregatedOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceAggregatedAggregatedOracles {
     pub active: i32,

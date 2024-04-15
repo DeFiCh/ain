@@ -1,3 +1,4 @@
+pub mod active_price;
 mod auction;
 mod masternode;
 pub mod oracle;
