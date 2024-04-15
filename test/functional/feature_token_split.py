@@ -632,7 +632,7 @@ class TokenSplitTest(DefiTestFramework):
             -32600,
             "Invalid token symbol",
             self.nodes[0].createtoken,
-            {"symbol": "bad/v1", "collateralAddress": self.address},
+            {"symbol": "bad/v1", "name": "bad", "collateralAddress": self.address},
         )
 
         # Set expected minted amount
