@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use axum::{extract::Request, http::StatusCode, response::IntoResponse, Json, Router};
 
@@ -24,7 +24,7 @@ mod transactions;
 use defichain_rpc::Client;
 use serde::{Deserialize, Serialize};
 
-use crate::{Result, Services};
+use crate::{network::Network, Result, Services};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -52,7 +52,7 @@ async fn not_found(req: Request<axum::body::Body>) -> impl IntoResponse {
 pub struct AppContext {
     services: Arc<Services>,
     client: Arc<Client>,
-    network: String, // TODO Proper handling of network
+    network: Network,
 }
 
 pub async fn ocean_router(
@@ -63,7 +63,7 @@ pub async fn ocean_router(
     let context = Arc::new(AppContext {
         client,
         services: services.clone(),
-        network,
+        network: Network::from_str(&network)?,
     });
     println!("{:?}", context.network);
     Ok(Router::new().nest(

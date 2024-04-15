@@ -1,6 +1,8 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
 
-use ain_ocean::{consts::Network, index_block, storage::ocean_store::OceanStore, Result, Services};
+use ain_ocean::{
+    index_block, network::Network, storage::ocean_store::OceanStore, Result, Services,
+};
 use clap::Parser;
 use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client};
 
