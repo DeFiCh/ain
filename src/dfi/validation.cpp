@@ -992,7 +992,10 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
                                      const Consensus::Params &consensus,
                                      const LoanTokenCollection &loanTokens,
                                      const bool futureSwapBlock) {
-    if (pindex->nHeight < consensus.DF23Height) {
+    // Skip on testnet until later height to avoid a TX that hit the limit and was not rejected
+    // due to a bug in the initital FutureSwap implementation.
+    if ((pindex->nHeight < consensus.DF23Height) ||
+        (Params().NetworkIDString() == CBaseChainParams::TESTNET && pindex->nHeight < 1520000)) {
         return;
     }
 
@@ -1057,10 +1060,9 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
             if (key.height <= pindex->nHeight - blockPeriod) {
                 keysToDelete.push_back(key);
-            } else {
-                return false;
+                return true;
             }
-            return true;
+            return false;
         });
 
     // Delete old entries
@@ -1078,8 +1080,7 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
             liquidityPerBlockByToken[{key.sourceID, key.destID}].push_back(liquidityPerBlock);
             return true;
-        },
-        {static_cast<uint32_t>(pindex->nHeight - blockPeriod)});
+        });
 
     // Calculate average liquidity for each token
     const auto expectedEntries = blockPeriod / samplingPeriod;

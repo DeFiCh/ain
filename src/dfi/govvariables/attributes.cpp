@@ -10,6 +10,7 @@
 #include <dfi/historywriter.h>    /// CHiistoryWriter
 #include <dfi/masternodes.h>      /// CCustomCSView
 #include <dfi/mn_checks.h>        /// GetAggregatePrice / CustomTxType
+#include <dfi/validation.h>       /// DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD
 #include <validation.h>           /// GetNextAccPosition
 
 #include <amount.h>   /// GetDecimaleString
@@ -508,6 +509,14 @@ static ResVal<CAttributeValue> VerifyInt64(const std::string &str) {
     return {int64, Res::Ok()};
 }
 
+static ResVal<CAttributeValue> VerifyMoreThenZeroInt64(const std::string &str) {
+    CAmount int64;
+    if (!ParseInt64(str, &int64) || int64 < 1) {
+        return DeFiErrors::GovVarVerifyMoreThanZero();
+    }
+    return {int64, Res::Ok()};
+}
+
 static ResVal<CAttributeValue> VerifyFloat(const std::string &str) {
     CAmount amount = 0;
     if (!ParseFixedPoint(str, 8, &amount)) {
@@ -804,7 +813,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::EmissionUnusedFund, VerifyBool},
                  {DFIPKeys::MintTokens, VerifyBool},
                  {DFIPKeys::TransferDomain, VerifyBool},
-                 {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyInt64},
+                 {DFIPKeys::LiquidityCalcSamplingPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::AverageLiquidityPercentage, VerifyPctInt64},
              }},
             {AttributeTypes::Locks,
@@ -2053,6 +2062,18 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                 } else if (attrV0->typeId == ParamIDs::DFIP2211F) {
                     if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
                         return DeFiErrors::GovVarValidateDF23Height();
+                    }
+                    if (attrV0->key == DFIPKeys::BlockPeriod) {
+                        CDataStructureV0 samplingKey{
+                            AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::LiquidityCalcSamplingPeriod};
+                        const auto samplingPeriod = GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
+                        const auto blockPeriod = std::get_if<CAmount>(&value);
+                        if (!blockPeriod) {
+                            return DeFiErrors::GovVarUnsupportedValue();
+                        }
+                        if (*blockPeriod < samplingPeriod) {
+                            return DeFiErrors::GovVarValidateBlockPeriod();
+                        }
                     }
                 } else if (attrV0->typeId != ParamIDs::DFIP2201) {
                     return Res::Err("Unrecognised param id");
