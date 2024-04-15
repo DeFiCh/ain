@@ -43,8 +43,8 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Test future swap limitation
         self.test_future_swap_limitation()
 
-        # Test wiping of data on disable
-        self.test_wiping_data()
+        # Test longer future swap limitation period
+        self.test_longer_fs_limit_period()
 
     def setup(self):
         # Define address
@@ -64,6 +64,9 @@ class FutureSwapLimitationTest(DefiTestFramework):
 
         # Setup Pool
         self.setup_pool()
+
+        # Setup Future Swap Limitation Gov vars
+        self.test_and_set_fs_limit_vars()
 
     def setup_oracles(self):
         # Price feeds
@@ -131,7 +134,8 @@ class FutureSwapLimitationTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
     def setup_govvars(self):
-        # Activate EVM and transfer domain
+
+        # Set Future Swap Gov vars
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
@@ -175,7 +179,11 @@ class FutureSwapLimitationTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-    def test_future_swap_limitation(self):
+        # Store start block height
+        self.start_block = self.nodes[0].getblockcount()
+
+    def test_and_set_fs_limit_vars(self):
+
         # Try and set future swap limitaiton before fork height
         assert_raises_rpc_error(
             -32600,
@@ -277,6 +285,27 @@ class FutureSwapLimitationTest(DefiTestFramework):
         assert_equal(result["v0/params/dfip2211f/average_liquidity_percentage"], "0.1")
         assert_equal(result["v0/params/dfip2211f/block_period"], "20")
 
+    def test_future_swap_limitation(self):
+
+        # Roll back to fork height
+        self.rollback_to(self.start_block)
+
+        # Move to fork height
+        self.nodes[0].generate(150 - self.nodes[0].getblockcount())
+
+        # Set future swap limitaiton
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2211f/active": "true",
+                    "v0/params/dfip2211f/liquidity_calc_sampling_period": "2",
+                    "v0/params/dfip2211f/average_liquidity_percentage": "0.1",
+                    "v0/params/dfip2211f/block_period": "20",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
         # Move to future swap event
         self.nodes[0].generate(190 - self.nodes[0].getblockcount())
 
@@ -375,7 +404,6 @@ class FutureSwapLimitationTest(DefiTestFramework):
             "META",
         )
 
-    def test_wiping_data(self):
         # Disable future swap limitaiton
         self.nodes[0].setgov(
             {
@@ -388,6 +416,56 @@ class FutureSwapLimitationTest(DefiTestFramework):
 
         # Check liquidity data empty
         assert_equal(self.nodes[0].listloantokenliquidity(), {})
+
+    def test_longer_fs_limit_period(self):
+
+        # Roll back
+        self.rollback_to(self.start_block)
+
+        # Disable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/dfip2203/active": "false"}})
+        self.nodes[0].generate(1)
+
+        # Set Future Swap Gov vars
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2203/start_block": "150",
+                    "v0/params/dfip2203/reward_pct": "0.05",
+                    "v0/params/dfip2203/block_period": "720",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Enable DFIP2203
+        self.nodes[0].setgov({"ATTRIBUTES": {"v0/params/dfip2203/active": "true"}})
+        self.nodes[0].generate(1)
+
+        # Move to fork height
+        self.nodes[0].generate(150 - self.nodes[0].getblockcount())
+
+        # Set future swap limitaiton
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/dfip2211f/active": "true",
+                    "v0/params/dfip2211f/liquidity_calc_sampling_period": "30",
+                    "v0/params/dfip2211f/average_liquidity_percentage": "0.1",
+                    "v0/params/dfip2211f/block_period": "2880",
+                }
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Move forward the block period
+        self.nodes[0].generate(2880)
+
+        # Check minimum liquidity
+        assert_equal(
+            self.nodes[0].listloantokenliquidity(),
+            {"META-DUSD": "100.00000000", "DUSD-META": "100.00000000"},
+        )
 
 
 if __name__ == "__main__":
