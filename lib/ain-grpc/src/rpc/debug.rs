@@ -237,7 +237,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .trace_block(trace_block, params, raw_max_memory_usage)
             .map_err(RPCError::EvmError)?
             .into_iter()
-            .map(|(tx_hash, trace)| json!({ "txHash": tx_hash.to_string(), "result": trace }))
+            .map(|(tx_hash, trace)| json!({ "txHash": format!("{:?}", tx_hash), "result": trace }))
             .collect();
         Ok(res)
     }
@@ -268,7 +268,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .trace_block(trace_block, params, raw_max_memory_usage)
             .map_err(RPCError::EvmError)?
             .into_iter()
-            .map(|(tx_hash, trace)| json!({ "txHash": tx_hash.to_string(), "result": trace }))
+            .map(|(tx_hash, trace)| json!({ "txHash": format!("{:?}", tx_hash), "result": trace }))
             .collect();
         Ok(res)
     }
