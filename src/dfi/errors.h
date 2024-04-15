@@ -156,6 +156,8 @@ public:
 
     static Res GovVarVerifyPositiveNumber() { return Res::Err("Value must be a positive integer"); }
 
+    static Res GovVarVerifyMoreThanZero() { return Res::Err("Value must more than zero"); }
+
     static Res GovVarInvalidNumber() { return Res::Err("Amount must be a valid number"); }
 
     static Res GovVarVerifySplitValues() { return Res::Err("Two int values expected for split in id/mutliplier"); }
@@ -287,6 +289,8 @@ public:
     }
 
     static Res GovVarUnsupportedValue() { return Res::Err("Unsupported value"); }
+
+    static Res GovVarValidateBlockPeriod() { return Res::Err("Block period must be more than sampling period"); }
 
     static Res GovVarValidateUnsupportedKey() { return Res::Err("Unsupported key"); }
 
