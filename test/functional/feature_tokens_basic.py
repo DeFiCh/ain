@@ -11,18 +11,17 @@
 from test_framework.test_framework import DefiTestFramework
 
 from test_framework.authproxy import JSONRPCException
-from test_framework.util import assert_equal
+from test_framework.util import assert_equal, assert_raises_rpc_error
 
 
 class TokensBasicTest(DefiTestFramework):
     def set_test_params(self):
-        self.num_nodes = 3
+        self.num_nodes = 2
         # node0: main
         # node1: revert of destroy
         # node2: revert create (all)
         self.setup_clean_chain = True
         self.extra_args = [
-            ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
             ["-txnotokens=0", "-amkheight=50"],
         ]
@@ -33,27 +32,47 @@ class TokensBasicTest(DefiTestFramework):
         self.nodes[0].generate(100)
         self.sync_blocks()
 
-        # Stop node #2 for future revert
-        self.stop_node(2)
-
         # CREATION:
         # ========================
         collateral0 = self.nodes[0].getnewaddress("", "legacy")
 
+        # Try and create token without a name
+        assert_raises_rpc_error(
+            -8,
+            "Token name should not be empty",
+            self.nodes[0].createtoken,
+            {
+                "symbol": "GOLD",
+                "collateralAddress": collateral0,
+            },
+        )
+
+        # Try and create token with an empty name
+        assert_raises_rpc_error(
+            -8,
+            "Token name should not be empty",
+            self.nodes[0].createtoken,
+            {
+                "symbol": "GOLD",
+                "name": "",
+                "collateralAddress": collateral0,
+            },
+        )
+
         # Fail to create: Insufficient funds (not matured coins)
         try:
-            createTokenTx = self.nodes[0].createtoken(
+            self.nodes[0].createtoken(
                 {
                     "symbol": "GOLD",
                     "name": "shiny gold",
                     "collateralAddress": collateral0,
-                },
-                [],
+                }
             )
         except JSONRPCException as e:
             errorString = e.error["message"]
         assert "Insufficient funds" in errorString
 
+        # Mine a block to mature some coins
         self.nodes[0].generate(1)
 
         # Fail to create: use # in symbol
@@ -63,17 +82,14 @@ class TokensBasicTest(DefiTestFramework):
                     "symbol": "GOLD#1",
                     "name": "shiny gold",
                     "collateralAddress": collateral0,
-                },
-                [],
+                }
             )
         except JSONRPCException as e:
             errorString = e.error["message"]
         assert "Invalid token symbol" in errorString
 
-        print("Create token 'GOLD' (128)...")
         createTokenTx = self.nodes[0].createtoken(
-            {"symbol": "GOLD", "name": "shiny gold", "collateralAddress": collateral0},
-            [],
+            {"symbol": "GOLD", "name": "shiny gold", "collateralAddress": collateral0}
         )
 
         # Create and sign (only) collateral spending tx
@@ -172,6 +188,24 @@ class TokensBasicTest(DefiTestFramework):
         assert_equal(t130["130"]["symbol"], "WK")
         assert_equal(t130["130"]["mintable"], False)
         assert_equal(t130["130"]["tradeable"], False)
+
+        # Try and update an empty token name
+        assert_raises_rpc_error(
+            -8,
+            "Token name cannot be empty",
+            self.nodes[0].updatetoken,
+            "",
+            {"isDAT": True},
+        )
+
+        # Try and update an empty token name
+        assert_raises_rpc_error(
+            -8,
+            "Token NONEXISTANT does not exist!",
+            self.nodes[0].updatetoken,
+            "NONEXISTANT",
+            {"isDAT": True},
+        )
 
 
 if __name__ == "__main__":
