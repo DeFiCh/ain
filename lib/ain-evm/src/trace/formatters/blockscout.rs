@@ -34,12 +34,18 @@ impl super::ResponseFormatter for Formatter {
     type Listener = Listener;
     type Response = TransactionTrace;
 
-    fn format(listener: Rc<RefCell<Listener>>, _system_tx: bool) -> Option<TransactionTrace> {
+    fn format(listener: Rc<RefCell<Listener>>, system_tx: bool) -> Option<TransactionTrace> {
         if let Some(entry) = listener.borrow().entries.last() {
             return Some(TransactionTrace::CallList(
                 entry
                     .iter()
-                    .map(|(_, value)| Call::Blockscout(Box::new(value.clone())))
+                    .map(|(_, it)| {
+                        let mut value = it.clone();
+                        if system_tx {
+                            value.gas_used = U256::zero();
+                        }
+                        Call::Blockscout(Box::new(value))
+                    })
                     .collect(),
             ));
         }
