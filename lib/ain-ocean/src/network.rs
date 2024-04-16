@@ -26,7 +26,7 @@ impl std::str::FromStr for Network {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mainnet" => Ok(Network::Mainnet),
+            "mainnet" | "main" => Ok(Network::Mainnet),
             "mocknet" => Ok(Network::Mocknet),
             "testnet" => Ok(Network::Testnet),
             "regtest" => Ok(Network::Regtest),
