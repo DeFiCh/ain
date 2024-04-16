@@ -2,6 +2,7 @@ use std::fmt;
 #[derive(Debug, Clone, Copy)]
 pub enum Network {
     Mainnet,
+    Mocknet,
     Testnet,
     Regtest,
     Devnet,
@@ -12,6 +13,7 @@ impl Network {
     pub fn as_str(&self) -> &'static str {
         match self {
             Network::Mainnet => "mainnet",
+            Network::Mocknet => "mocknet",
             Network::Testnet => "testnet",
             Network::Regtest => "regtest",
             Network::Devnet => "devnet",
@@ -25,6 +27,7 @@ impl std::str::FromStr for Network {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "mainnet" => Ok(Network::Mainnet),
+            "mocknet" => Ok(Network::Mocknet),
             "testnet" => Ok(Network::Testnet),
             "regtest" => Ok(Network::Regtest),
             "devnet" => Ok(Network::Devnet),
@@ -38,6 +41,7 @@ impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Network::Mainnet => write!(f, "mainnet"),
+            Network::Mocknet => write!(f, "mocknet"),
             Network::Testnet => write!(f, "testnet"),
             Network::Regtest => write!(f, "regtest"),
             Network::Devnet => write!(f, "devnet"),
@@ -57,14 +61,16 @@ pub struct NetworkParams {
 impl Network {
     pub fn params(&self) -> NetworkParams {
         match self {
-            Network::Mainnet | Network::Testnet | Network::Devnet | Network::Changi => {
-                NetworkParams {
-                    activation_delay: 10,
-                    new_activation_delay: 1008,
-                    resign_delay: 60,
-                    new_resign_delay: 2016,
-                }
-            }
+            Network::Mainnet
+            | Network::Testnet
+            | Network::Devnet
+            | Network::Changi
+            | Network::Mocknet => NetworkParams {
+                activation_delay: 10,
+                new_activation_delay: 1008,
+                resign_delay: 60,
+                new_resign_delay: 2016,
+            },
             Network::Regtest => NetworkParams {
                 activation_delay: 10,
                 new_activation_delay: 20,
@@ -106,7 +112,7 @@ pub struct ForkHeight {
 impl Network {
     pub fn fork_heights(&self) -> ForkHeight {
         match self {
-            Network::Mainnet => ForkHeight {
+            Network::Mainnet | Network::Mocknet => ForkHeight {
                 df1_amk_height: 356500,                        // Oct 12th, 2020.,
                 df2_bayfront_height: 405000,                   // Nov 2nd, 2020.,
                 df3_bayfront_marina_height: 465150,            // Nov 28th, 2020.,
