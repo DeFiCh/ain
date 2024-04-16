@@ -130,7 +130,7 @@ impl Listener {
         // if there is a left over there have been an early exit.
         // we generate an entry from it and discord any inner context.
         if let Some(context) = context_stack.into_iter().next() {
-            let mut gas_used = context.start_gas.unwrap_or(0) - context.gas;
+            let mut gas_used = context.start_gas.unwrap_or(0).saturating_sub(context.gas);
             if context.entries_index == 0 {
                 gas_used += self.transaction_cost;
             }
@@ -517,7 +517,7 @@ impl Listener {
         return_value: Vec<u8>,
     ) -> Option<(u32, Call)> {
         if let Some(context) = self.context_stack.pop() {
-            let mut gas_used = context.start_gas.unwrap_or(0) - context.gas;
+            let mut gas_used = context.start_gas.unwrap_or(0).saturating_sub(context.gas);
             if context.entries_index == 0 {
                 gas_used += self.transaction_cost;
             }
