@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ain_dftx::loans::SetLoanToken;
+use ain_dftx::{loans::SetLoanToken, oracles::ActivePrice};
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
     Decimal,
@@ -16,7 +16,7 @@ use crate::{
     storage::SortOrder,
     Services,
 };
-impl Index for SetLoanToken {
+impl Index for ActivePrice {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let ticker_id = (self.currency_pair.token, self.currency_pair.currency);
         let aggregated_price = services
