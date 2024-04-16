@@ -15,7 +15,7 @@ use crate::{
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
         OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
-        PriceFeedsItem,
+        PriceFeedsItem, PriceTicker,
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -410,6 +410,22 @@ impl Index for SetOracleData {
                     .oracle_price_aggregated
                     .by_key
                     .put(&aggreated_key, &aggreated_id)?;
+
+                let price_ticker = PriceTicker {
+                    id: aggreated_key,
+                    sort: format!(
+                        "{}{}{}{}",
+                        hex::encode(value.aggregated.oracles.total.to_be_bytes()),
+                        hex::encode(value.block.height.to_be_bytes()),
+                        value.token.clone(),
+                        value.currency.clone(),
+                    ),
+                    price: value,
+                };
+                services
+                    .price_ticker
+                    .by_id
+                    .put(&price_ticker.id, &price_ticker)?;
 
                 //SetOracleInterval
                 let aggregated = services.oracle_price_aggregated.by_id.get(&(

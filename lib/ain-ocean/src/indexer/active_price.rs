@@ -18,7 +18,7 @@ use crate::{
 };
 impl Index for SetLoanToken {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        let ticker_id = ((self.currency_pair.token, self.currency_pair.currency));
+        let ticker_id = (self.currency_pair.token, self.currency_pair.currency);
         let aggregated_price = services
             .oracle_price_aggregated
             .by_key
