@@ -24,7 +24,8 @@ pub struct Snapshot {
 
 impl Snapshot {
     pub fn gas(&self) -> u64 {
-        self.gas_limit - self.used_gas - self.memory_gas
+        let gas = self.gas_limit.saturating_sub(self.used_gas);
+        gas.saturating_sub(self.memory_gas)
     }
 }
 
