@@ -1,9 +1,9 @@
 mod auction;
+pub mod loan_token;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
 mod pool;
-pub mod loan_token;
 pub mod transaction;
 pub mod tx_result;
 

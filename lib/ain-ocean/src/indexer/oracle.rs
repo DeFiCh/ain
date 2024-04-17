@@ -240,13 +240,26 @@ impl Index for UpdateOracle {
             Ok(previous_oracle) => {
                 for oracle in previous_oracle {
                     for price_feed_item in &oracle.price_feeds {
-                        // Assuming `oracle_id` is a field in `data` that you want to use for deletion
-                        let deletion_key = (
+                        let deletion_id = (
                             price_feed_item.token.clone(),
                             price_feed_item.currency.clone(),
                             oracle_id,
                         );
-                        match services.oracle_token_currency.by_id.delete(&deletion_key) {
+                        match services.oracle_token_currency.by_id.delete(&deletion_id) {
+                            Ok(_) => {
+                                // Successfully deleted
+                            }
+                            Err(err) => {
+                                let error_message = format!("Error:update oracle: {:?}", err);
+                                eprintln!("{}", error_message);
+                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                            }
+                        }
+                        let deletion_key = (
+                            price_feed_item.token.clone(),
+                            price_feed_item.currency.clone(),
+                        );
+                        match services.oracle_token_currency.by_key.delete(&deletion_key) {
                             Ok(_) => {
                                 // Successfully deleted
                             }

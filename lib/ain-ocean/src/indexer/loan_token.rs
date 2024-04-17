@@ -56,6 +56,7 @@ impl Index for SetLoanToken {
                 ticker_id.1.clone(),
                 aggregated_price[0].block.height,
             );
+
             let oracle_price_key = (ticker_id.0, ticker_id.1);
             let next_price = match aggregated_validate(aggregated_price[0].clone(), ctx) {
                 true => OraclePriceActiveNext {
@@ -68,31 +69,44 @@ impl Index for SetLoanToken {
                 },
                 false => Default::default(),
             };
+
             let active_price: OraclePriceActiveActive;
-            if let Some(next) = previous_price.get(0).map(|price| &price.next) {
+
+            if previous_price.is_empty() {
                 active_price = OraclePriceActiveActive {
-                    amount: next.amount.clone(),
-                    weightage: next.weightage,
+                    amount: Default::default(),
+                    weightage: Default::default(),
                     oracles: OraclePriceActiveActiveOracles {
-                        active: next.oracles.active,
-                        total: next.oracles.total,
+                        active: Default::default(),
+                        total: Default::default(),
                     },
                 };
             } else {
-                let oracles = OraclePriceActiveActiveOracles {
-                    active: previous_price[0].active.oracles.active,
-                    total: previous_price[0].active.oracles.total,
-                };
-                active_price = OraclePriceActiveActive {
-                    amount: previous_price[0].active.amount.clone(),
-                    weightage: previous_price[0].active.weightage,
-                    oracles: oracles,
+                if let Some(next) = previous_price.get(0).map(|price| &price.next) {
+                    active_price = OraclePriceActiveActive {
+                        amount: next.amount.clone(),
+                        weightage: next.weightage,
+                        oracles: OraclePriceActiveActiveOracles {
+                            active: next.oracles.active,
+                            total: next.oracles.total,
+                        },
+                    };
+                } else {
+                    let oracles = OraclePriceActiveActiveOracles {
+                        active: previous_price[0].active.oracles.active,
+                        total: previous_price[0].active.oracles.total,
+                    };
+                    active_price = OraclePriceActiveActive {
+                        amount: previous_price[0].active.amount.clone(),
+                        weightage: previous_price[0].active.weightage,
+                        oracles: oracles,
+                    };
                 };
             };
             let oracle_price_active = OraclePriceActive {
                 id: price_active_id.clone(),
                 key: oracle_price_key,
-                sort: "".to_string(),
+                sort: hex::encode(ctx.block.height.to_be_bytes()),
                 active: active_price.clone(),
                 next: next_price.clone(),
                 is_live: is_live(active_price, next_price),
