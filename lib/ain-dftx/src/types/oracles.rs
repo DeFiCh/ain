@@ -32,12 +32,3 @@ pub struct UpdateOracle {
     pub weightage: u8,
     pub price_feeds: CompactVec<CurrencyPair>,
 }
-
-#[derive(ConsensusEncoding, Debug, PartialEq, Eq)]
-pub struct ActivePrice {
-    pub symbol: String,
-    pub name: String,
-    pub currency_pair: CurrencyPair,
-    pub mintable: bool,
-    pub interest: i64,
-}

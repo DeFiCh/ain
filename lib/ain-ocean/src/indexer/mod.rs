@@ -1,9 +1,9 @@
-pub mod active_price;
 mod auction;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
 mod pool;
+pub mod loan_token;
 pub mod transaction;
 pub mod tx_result;
 
@@ -167,6 +167,9 @@ pub fn index_block(
                         DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
                         DfTx::SetOracleData(data) => data.index(services, &ctx)?,
                         DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
+
+                        // DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
