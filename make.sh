@@ -818,7 +818,7 @@ pkg_local_install_py_deps() {
     python3 -m pip install black shellcheck-py codespell==2.2.4 flake8==6.0.0 vulture==2.7
 
     # test deps
-    python3 -m pip install py-solc-x web3
+    python3 -m pip install py-solc-x web3==6.17.0
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
 
     py_env_deactivate
