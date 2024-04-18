@@ -128,11 +128,8 @@ fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32)
     let mut visited = StackSet::of(from_token_id, is_cycle);
 
     let mut paths: Vec<Vec<u32>> = Vec::new();
-    let mut children;
-    let mut child: Option<u32>;
     while !stack.is_empty() {
-        children = stack.last().unwrap().clone();
-        child = children.pop();
+        let child = stack.last_mut().unwrap().pop();
         if let Some(child) = child {
             if visited.has(&child) {
                 continue;
@@ -145,7 +142,7 @@ fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32)
                 paths.push(p);
             }
             visited.push(child);
-            if !visited.has(&from_token_id) {
+            if !visited.has(&to_token_id) {
                 stack.push(graph.lock().neighbors_directed(child, petgraph::Direction::Outgoing).collect::<Vec<_>>())
             } else {
                 visited.pop();
