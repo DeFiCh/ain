@@ -45,7 +45,7 @@ class EIP1559Fees(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
         self.node.generate(1)
         return self.node.w3.eth.wait_for_transaction_receipt(hash)
 
@@ -101,7 +101,7 @@ class EIP1559Fees(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 
@@ -291,7 +291,7 @@ class EIP1559Fees(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
         # RBF should happen
@@ -310,7 +310,7 @@ class EIP1559Fees(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
         # send lower priority fee tx, RBF should not happen
@@ -333,7 +333,7 @@ class EIP1559Fees(DefiTestFramework):
             -32001,
             "evm-low-fee",
             self.node.w3.eth.send_raw_transaction,
-            signed.rawTransaction,
+            signed.raw_transaction,
         )
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
@@ -357,7 +357,7 @@ class EIP1559Fees(DefiTestFramework):
             -32001,
             "evm-low-fee",
             self.node.w3.eth.send_raw_transaction,
-            signed.rawTransaction,
+            signed.raw_transaction,
         )
 
         # send higher max fee tx but lower priority fee tx, RBF should not happen
@@ -380,7 +380,7 @@ class EIP1559Fees(DefiTestFramework):
             -32001,
             "evm-low-fee",
             self.node.w3.eth.send_raw_transaction,
-            signed.rawTransaction,
+            signed.raw_transaction,
         )
 
         # send less than 10% increase in priority fees, RBF should not happen
@@ -403,7 +403,7 @@ class EIP1559Fees(DefiTestFramework):
             -32001,
             "evm-low-fee",
             self.node.w3.eth.send_raw_transaction,
-            signed.rawTransaction,
+            signed.raw_transaction,
         )
 
         # send exactly 10% increase in priority fees, RBF should happen
@@ -422,7 +422,7 @@ class EIP1559Fees(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
         assert_equal(len(self.nodes[0].getrawmempool()), 1)
 
         self.nodes[0].generate(1)

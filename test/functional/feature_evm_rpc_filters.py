@@ -129,7 +129,7 @@ class EVMTest(DefiTestFramework):
         signed = self.nodes[0].w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         self.contract_address = receipt["contractAddress"]
@@ -151,7 +151,7 @@ class EVMTest(DefiTestFramework):
             signed = self.nodes[0].w3.eth.account.sign_transaction(
                 tx, self.evm_key_pair.privkey
             )
-            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
             hashes.append(hash)
 
         self.nodes[0].generate(1)

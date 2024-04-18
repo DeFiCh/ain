@@ -138,7 +138,7 @@ class EvmTracerTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
 
         contract_address = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)[
@@ -158,7 +158,7 @@ class EvmTracerTest(DefiTestFramework):
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         state_change_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(
-            signed.rawTransaction
+            signed.raw_transaction
         )
 
         # Run loop contract call in the same block
@@ -173,7 +173,7 @@ class EvmTracerTest(DefiTestFramework):
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
         # TODO: Disabled for now because state consistency of the debug_traceTransaction is
         # incorrect.
-        # loop_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        # loop_tx_hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
 
         # Test tracer for contract call txs

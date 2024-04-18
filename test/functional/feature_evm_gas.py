@@ -259,7 +259,7 @@ class EVMGasTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         contract = self.nodes[0].w3.eth.contract(
@@ -284,7 +284,7 @@ class EVMGasTest(DefiTestFramework):
                 }
             )
             signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+            hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
             hashes.append(hash)
         self.nodes[0].generate(1)
 
@@ -312,7 +312,7 @@ class EVMGasTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         contract = self.nodes[0].w3.eth.contract(
@@ -330,7 +330,7 @@ class EVMGasTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
 
         tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
@@ -352,7 +352,7 @@ class EVMGasTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
         receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         contract = self.nodes[0].w3.eth.contract(
@@ -372,7 +372,7 @@ class EVMGasTest(DefiTestFramework):
             }
         )
         signed = self.nodes[0].w3.eth.account.sign_transaction(tx, self.ethPrivKey)
-        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.nodes[0].w3.eth.send_raw_transaction(signed.raw_transaction)
         self.nodes[0].generate(1)
         tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(gas, tx_receipt["gasUsed"])

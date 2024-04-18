@@ -93,7 +93,7 @@ class EVMTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         implementation_contract = node.w3.eth.contract(
@@ -125,7 +125,7 @@ class EVMTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
 
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
@@ -147,7 +147,7 @@ class EVMTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 1)
@@ -167,7 +167,7 @@ class EVMTest(DefiTestFramework):
         signed = node.w3.eth.account.sign_transaction(
             transaction, self.evm_key_pair.privkey
         )
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 0)
@@ -189,7 +189,7 @@ class EVMTest(DefiTestFramework):
         signed = node.w3.eth.account.sign_transaction(
             transaction, self.evm_key_pair.privkey
         )
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 0)
@@ -212,7 +212,7 @@ class EVMTest(DefiTestFramework):
         signed = node.w3.eth.account.sign_transaction(
             transaction, self.evm_key_pair.privkey
         )
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 0)
@@ -233,7 +233,7 @@ class EVMTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         new_implementation_contract = node.w3.eth.contract(
@@ -260,7 +260,7 @@ class EVMTest(DefiTestFramework):
         signed = node.w3.eth.account.sign_transaction(
             transaction, self.evm_key_pair.privkey
         )
-        node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
 
         assert_equal(
@@ -280,7 +280,7 @@ class EVMTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, second_evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 0)
@@ -301,7 +301,7 @@ class EVMTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 1)
@@ -336,7 +336,7 @@ class EVMTest(DefiTestFramework):
             transaction, self.evm_key_pair.privkey
         )
 
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         assert_equal(receipt["status"], 1)

@@ -786,7 +786,7 @@ class EVMTokenSplitTest(DefiTestFramework):
         total_supply_before = meta_contract.functions.totalSupply().call()
 
         # Send the signed transaction
-        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.raw_transaction)
         self.nodes[0].generate(1)
 
         # Check source contract balance on sender

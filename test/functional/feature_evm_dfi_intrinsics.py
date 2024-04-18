@@ -169,7 +169,7 @@ class DFIIntrinsicsTest(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
         node.generate(1)
         receipt = node.w3.eth.wait_for_transaction_receipt(hash)
         contract = node.w3.eth.contract(address=receipt["contractAddress"], abi=abi)

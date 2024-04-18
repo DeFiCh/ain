@@ -132,7 +132,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 
@@ -158,7 +158,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 
@@ -186,7 +186,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 
@@ -212,7 +212,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
         self.node.generate(1)
         self.node.w3.eth.wait_for_transaction_receipt(hash)
 
@@ -240,7 +240,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
         self.node.generate(1)
         self.node.w3.eth.wait_for_transaction_receipt(hash)
 
@@ -275,7 +275,7 @@ class EVMTest(DefiTestFramework):
             signed = self.node.w3.eth.account.sign_transaction(
                 tx, self.evm_key_pair.privkey
             )
-            hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+            hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
             self.node.generate(1)
             receipt = self.node.w3.eth.wait_for_transaction_receipt(hash)
@@ -310,7 +310,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 
@@ -350,7 +350,7 @@ class EVMTest(DefiTestFramework):
             -32001,
             "reason: tx-size",
             self.node.w3.eth.send_raw_transaction,
-            signed.rawTransaction,
+            signed.raw_transaction,
         )
 
     def non_payable_proxied_contract(self):
@@ -374,7 +374,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 
@@ -398,7 +398,7 @@ class EVMTest(DefiTestFramework):
         signed = self.node.w3.eth.account.sign_transaction(
             tx, self.evm_key_pair.privkey
         )
-        hash = self.node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = self.node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         self.node.generate(1)
 

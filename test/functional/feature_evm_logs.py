@@ -99,7 +99,7 @@ class EVMTestLogs(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         node.generate(1)
 
@@ -120,7 +120,7 @@ class EVMTestLogs(DefiTestFramework):
             }
         )
         signed = node.w3.eth.account.sign_transaction(tx, self.evm_key_pair.privkey)
-        hash = node.w3.eth.send_raw_transaction(signed.rawTransaction)
+        hash = node.w3.eth.send_raw_transaction(signed.raw_transaction)
 
         node.generate(1)
 
