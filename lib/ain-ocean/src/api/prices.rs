@@ -8,6 +8,7 @@ use axum::{
 };
 
 use super::{
+    common::split_key,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -53,11 +54,12 @@ async fn list_prices(
 }
 #[ocean_endpoint]
 async fn get_price(
-    Path(token): Path<String>,
-    Path(curreny): Path<String>,
+    Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<PriceTicker>> {
-    let price_ticker_id = (token, curreny);
+    let (token, currency) = split_key(&key);
+    let price_ticker_id = (token, currency);
+    println!("price {:?}", price_ticker_id);
     if let Some(price_ticker) = ctx.services.price_ticker.by_id.get(&price_ticker_id)? {
         Ok(Response::new(price_ticker))
     } else {
@@ -67,26 +69,17 @@ async fn get_price(
 
 #[ocean_endpoint]
 async fn get_feed(
+    Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
-    let next = query
-        .next
-        .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
-            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
-            Ok((token, currency))
-        })
-        .transpose()?;
+    let (token, currency) = split_key(&key);
+    let price_aggregated_key = (token, currency);
     let aggregated = ctx
         .services
         .oracle_price_aggregated
         .by_key
-        .list(next, SortOrder::Descending)?
+        .list(Some(price_aggregated_key), SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -95,7 +88,7 @@ async fn get_feed(
                 .oracle_price_aggregated
                 .by_id
                 .get(&id)?
-                .ok_or("Missing price_aggregated index")?;
+                .ok_or("cannot find price_aggregated index for given token-currency")?;
 
             Ok(b)
         })
@@ -107,26 +100,17 @@ async fn get_feed(
 }
 #[ocean_endpoint]
 async fn get_feed_active(
+    Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
-    let next = query
-        .next
-        .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
-            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
-            Ok((token, currency))
-        })
-        .transpose()?;
+    let (token, currency) = split_key(&key);
+    let price_active_key = (token, currency);
     let price_active = ctx
         .services
         .oracle_price_active
         .by_key
-        .list(next, SortOrder::Descending)?
+        .list(Some(price_active_key), SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -148,32 +132,24 @@ async fn get_feed_active(
 }
 #[ocean_endpoint]
 async fn get_feed_with_interval(
+    Path((key, interval)): Path<(String, String)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
-    let next = query
-        .next
-        .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 3 {
-                return Err("Invalid query format");
-            }
-            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
-            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
-            let interval = match parts[2] {
-                "900" => OracleIntervalSeconds::FifteenMinutes,
-                "3600" => OracleIntervalSeconds::OneHour,
-                "86400" => OracleIntervalSeconds::OneDay,
-                _ => return Err("Invalid interval"),
-            };
-            Ok((token, currency, interval))
-        })
-        .transpose()?;
+    println!("the value {:?} {:?}", key, interval);
+    let (token, currency) = split_key(&key);
+    let interval = match interval.as_str() {
+        "900" => OracleIntervalSeconds::FifteenMinutes,
+        "3600" => OracleIntervalSeconds::OneHour,
+        "86400" => OracleIntervalSeconds::OneDay,
+        _ => return Err(From::from("Invalid interval")),
+    };
+    let price_aggregated_interval = (token, currency, interval.clone());
     let items = ctx
         .services
         .oracle_price_aggregated_interval
         .by_key
-        .list(next.clone(), SortOrder::Descending)?
+        .list(Some(price_aggregated_interval), SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -191,7 +167,7 @@ async fn get_feed_with_interval(
         .into_iter()
         .map(|item| {
             let _start =
-                item.block.median_time - (item.block.median_time % next.clone().unwrap().2 as i64);
+                item.block.median_time - (item.block.median_time % interval.clone() as i64);
             OraclePriceAggregatedInterval {
                 id: item.id,
                 key: item.key,
@@ -216,26 +192,17 @@ async fn get_feed_with_interval(
 
 #[ocean_endpoint]
 async fn get_oracles(
+    Path(key): Path<String>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OracleTokenCurrency>> {
-    let next = query
-        .next
-        .map(|q| {
-            let parts: Vec<&str> = q.split('-').collect();
-            if parts.len() != 2 {
-                return Err("Invalid query format");
-            }
-            let token = parts[0].parse::<String>().map_err(|_| "Invalid token")?;
-            let currency = parts[1].parse::<String>().map_err(|_| "Invalid currency")?;
-            Ok((token, currency))
-        })
-        .transpose()?;
+    let (token, currency) = split_key(&key);
+    let oracle_token_currency_key = (token, currency);
     let items = ctx
         .services
         .oracle_token_currency
         .by_key
-        .list(next, SortOrder::Descending)?
+        .list(Some(oracle_token_currency_key), SortOrder::Descending)?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -254,7 +221,7 @@ async fn get_oracles(
     }))
 }
 
-pub fn router(_ctx: Arc<AppContext>) -> Router {
+pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_prices))
         .route("/:key", get(get_price))
@@ -262,4 +229,5 @@ pub fn router(_ctx: Arc<AppContext>) -> Router {
         .route("/:key/feed", get(get_feed))
         .route("/:key/feed/interval/:interval", get(get_feed_with_interval))
         .route("/:key/oracles", get(get_oracles))
+        .layer(Extension(ctx))
 }

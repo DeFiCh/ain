@@ -160,3 +160,12 @@ where
         Box::new(self.skip(query.next.is_some() as usize).take(query.size))
     }
 }
+
+pub fn split_key(key: &str) -> (String, String) {
+    let parts: Vec<&str> = key.split('-').collect();
+    if parts.len() == 2 {
+        (parts[0].to_owned(), parts[1].to_owned())
+    } else {
+        (String::new(), String::new())
+    }
+}

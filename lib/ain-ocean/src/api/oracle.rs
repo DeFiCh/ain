@@ -9,6 +9,7 @@ use axum::{
 use bitcoin::Txid;
 
 use super::{
+    common::split_key,
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -97,15 +98,6 @@ async fn get_oracle_by_address(
         .next()
         .ok_or(Error::NotFound(NotFoundKind::Oracle))?;
     Ok(Response::new(oracle))
-}
-
-fn split_key(key: &str) -> (String, String) {
-    let parts: Vec<&str> = key.split('-').collect();
-    if parts.len() == 2 {
-        (parts[0].to_owned(), parts[1].to_owned())
-    } else {
-        (String::new(), String::new())
-    }
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {

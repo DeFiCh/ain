@@ -81,6 +81,8 @@ pub async fn ocean_router(
             .nest("/oracles", oracle::router(Arc::clone(&context)))
             .nest("/poolpairs", pool_pair::router(Arc::clone(&context)))
             // .nest("/prices", prices::router(Arc::clone(&context)))
+            // .nest("/poolpairs", poolpairs::router(Arc::clone(&context)))
+            .nest("/prices", prices::router(Arc::clone(&context)))
             // .nest("/rawtx", rawtx::router(Arc::clone(&context)))
             .nest("/stats", stats::router(Arc::clone(&context)))
             .nest("/tokens", tokens::router(Arc::clone(&context)))

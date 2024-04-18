@@ -667,7 +667,10 @@ pub fn index_interval_mapper(
         .collect::<Result<Vec<_>>>();
 
     if let Ok(previous_oracle_price_aggreated) = previous_aggrigated_interval {
-        if previous_oracle_price_aggreated.is_empty() {
+        if previous_oracle_price_aggreated.is_empty()
+            || (block.median_time - previous_oracle_price_aggreated[0].block.median_time
+                > interval.clone() as i64)
+        {
             let oracle_price_aggregated_interval = OraclePriceAggregatedInterval {
                 id: (
                     token.to_owned(),
