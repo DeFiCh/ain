@@ -36,8 +36,8 @@ use crate::{
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PriceRatio {
-    ab: f64,
-    ba: f64,
+    ab: String,
+    ba: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -186,14 +186,26 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
             let (_, pool_pair_info) = get_pool_pair_info_cached(&ctx, pool_pair_id.clone()).await?;
             // let estimated_dex_fees_in_pct
 
+            let ab = if pool_pair_info.reserve_a_reserve_b == 0f64 {
+                pool_pair_info.reserve_a_reserve_b.to_string()
+            } else {
+                format!("{:.8}", pool_pair_info.reserve_a_reserve_b)
+            };
+
+            let ba = if pool_pair_info.reserve_b_reserve_a == 0f64 {
+                pool_pair_info.reserve_b_reserve_a.to_string()
+            } else {
+                format!("{:.8}", pool_pair_info.reserve_b_reserve_a)
+            };
+
             let swap_path_pool_pair = SwapPathPoolPair {
                 pool_pair_id,
                 symbol: pool_pair_info.symbol,
                 token_a: get_token_identifier(&ctx, pool_pair_info.id_token_a).await?,
                 token_b: get_token_identifier(&ctx, pool_pair_info.id_token_b).await?,
                 price_ratio: PriceRatio {
-                    ab: pool_pair_info.reserve_a_reserve_b,
-                    ba: pool_pair_info.reserve_b_reserve_a
+                    ab,
+                    ba,
                 },
                 // commission_fee_in_pct: todo!(),
                 // estimated_dex_fees_in_pct: todo!(),
