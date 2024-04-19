@@ -461,11 +461,11 @@ async fn get_best_path(
 async fn list_paths(
     Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<SwapPathsResponse> {
+) -> Result<Response<SwapPathsResponse>> {
     let from_token_id = from_token_id.parse::<u32>()?;
     let to_token_id = to_token_id.parse::<u32>()?;
     let paths = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
-    Ok(paths)
+    Ok(Response::new(paths))
 }
 
 #[derive(Debug, Serialize)]
