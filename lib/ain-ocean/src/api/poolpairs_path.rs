@@ -33,21 +33,21 @@ use crate::{
     Result, TokenIdentifier,
 };
 
-// #[derive(Debug, Serialize)]
-// #[serde(rename_all = "camelCase")]
-// struct PriceRatio {
-//     ab: BigDecimal,
-//     ba: BigDecimal,
-// }
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PriceRatio {
+    ab: f64,
+    ba: f64,
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwapPathPoolPair {
-    id: String,
+    pool_pair_id: String,
     symbol: String,
     token_a: TokenIdentifier,
     token_b: TokenIdentifier,
-    // price_ratio: PriceRatio,
+    price_ratio: PriceRatio,
     // commission_fee_in_pct: BigDecimal,
     // estimated_dex_fees_in_pct: Option<BigDecimal>,
 }
@@ -174,7 +174,7 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
             let token_a = path[i - 1];
             let token_b = path[i];
 
-            let pool_pair_id = graph.lock().edge_weight(token_a, token_b).unwrap().to_owned();
+            let pool_pair_id = graph.lock().edge_weight(token_a, token_b).unwrap().to_string();
             // .ok_or_else(|| {
             //     format_err!(
             //         "Unexpected error encountered during path finding - could not find edge between {} and {}",
@@ -187,10 +187,14 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
             // let estimated_dex_fees_in_pct
 
             let swap_path_pool_pair = SwapPathPoolPair {
-                id: pool_pair_id,
+                pool_pair_id,
                 symbol: pool_pair_info.symbol,
                 token_a: get_token_identifier(&ctx, pool_pair_info.id_token_a).await?,
                 token_b: get_token_identifier(&ctx, pool_pair_info.id_token_b).await?,
+                price_ratio: PriceRatio {
+                    ab: pool_pair_info.reserve_a_reserve_b,
+                    ba: pool_pair_info.reserve_b_reserve_a
+                },
                 // commission_fee_in_pct: todo!(),
                 // estimated_dex_fees_in_pct: todo!(),
             };
