@@ -64,6 +64,7 @@ pub struct TransactionService {
 
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TokenIdentifier {
     pub id: String,
     pub name: String,
@@ -78,8 +79,8 @@ pub struct Services {
     pub result: TxResultRepository,
     pub pool: PoolService,
     pub transaction: TransactionService,
-    pub token_graph: Mutex<UnGraphMap<u32, String>>,
-    pub tokens_to_swappable_tokens: Mutex<HashMap<String, Vec<TokenIdentifier>>>,
+    pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
+    pub tokens_to_swappable_tokens: Arc<Mutex<HashMap<String, Vec<TokenIdentifier>>>>,
 }
 
 impl Services {
@@ -109,8 +110,8 @@ impl Services {
                 vin_by_id: TransactionVinRepository::new(Arc::clone(&store)),
                 vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
             },
-            token_graph: Mutex::new(UnGraphMap::new()),
-            tokens_to_swappable_tokens: Mutex::new(HashMap::new()),
+            token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
+            tokens_to_swappable_tokens: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
