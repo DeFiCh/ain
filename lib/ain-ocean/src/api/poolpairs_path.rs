@@ -42,14 +42,22 @@ struct PriceRatio {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct EstimatedDexFeesInPct {
+    ab: String,
+    ba: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SwapPathPoolPair {
     pool_pair_id: String,
     symbol: String,
     token_a: TokenIdentifier,
     token_b: TokenIdentifier,
     price_ratio: PriceRatio,
-    // commission_fee_in_pct: BigDecimal,
-    // estimated_dex_fees_in_pct: Option<BigDecimal>,
+    commission_fee_in_pct: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    estimated_dex_fees_in_pct: Option<EstimatedDexFeesInPct>,
 }
 
 #[derive(Debug)]
@@ -184,31 +192,79 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
             // })?;
 
             let (_, pool_pair_info) = get_pool_pair_info_cached(&ctx, pool_pair_id.clone()).await?;
-            // let estimated_dex_fees_in_pct
 
-            let ab = if pool_pair_info.reserve_a_reserve_b == 0f64 {
-                pool_pair_info.reserve_a_reserve_b.to_string()
+            let PoolPairInfo{
+                symbol,
+                id_token_a,
+                id_token_b,
+                reserve_a_reserve_b: ab,
+                reserve_b_reserve_a: ba,
+                commission,
+                dex_fee_in_pct_token_a,
+                dex_fee_out_pct_token_a,
+                dex_fee_in_pct_token_b,
+                dex_fee_out_pct_token_b,
+                ..
+            } = pool_pair_info;
+
+            let token_a_direction = if id_token_a == from_token_id.to_string() {
+                "in"
             } else {
-                format!("{:.8}", pool_pair_info.reserve_a_reserve_b)
+                "out"
             };
 
-            let ba = if pool_pair_info.reserve_b_reserve_a == 0f64 {
-                pool_pair_info.reserve_b_reserve_a.to_string()
+            let token_b_direction = if id_token_b == to_token_id.to_string() {
+                "out"
             } else {
-                format!("{:.8}", pool_pair_info.reserve_b_reserve_a)
+                "in"
+            };
+
+            let estimated_dex_fees_in_pct = if let (Some(dex_fee_in_pct_token_a), Some(dex_fee_out_pct_token_a), Some(dex_fee_in_pct_token_b), Some(dex_fee_out_pct_token_b)) = (dex_fee_in_pct_token_a, dex_fee_out_pct_token_a, dex_fee_in_pct_token_b, dex_fee_out_pct_token_b) {
+                Some(EstimatedDexFeesInPct{
+                    ab: if token_b_direction == "in" {
+                        dex_fee_in_pct_token_b.to_string()
+                    } else {
+                        dex_fee_out_pct_token_b.to_string()
+                    },
+                    ba: if token_a_direction == "in" {
+                        dex_fee_in_pct_token_a.to_string()
+                    } else {
+                        dex_fee_in_pct_token_b.to_string()
+                    }
+                })
+            } else {
+                None
+            };
+
+            let ab = if ab == 0f64 {
+                ab.to_string()
+            } else {
+                format!("{:.8}", ab)
+            };
+
+            let ba = if ba == 0f64 {
+                ba.to_string()
+            } else {
+                format!("{:.8}", ba)
+            };
+
+            let commission = if commission == 0f64 {
+                commission.to_string()
+            } else {
+                format!("{:.8}", commission)
             };
 
             let swap_path_pool_pair = SwapPathPoolPair {
                 pool_pair_id,
-                symbol: pool_pair_info.symbol,
-                token_a: get_token_identifier(&ctx, pool_pair_info.id_token_a).await?,
-                token_b: get_token_identifier(&ctx, pool_pair_info.id_token_b).await?,
+                symbol,
+                token_a: get_token_identifier(&ctx, id_token_a).await?,
+                token_b: get_token_identifier(&ctx, id_token_b).await?,
                 price_ratio: PriceRatio {
                     ab,
                     ba,
                 },
-                // commission_fee_in_pct: todo!(),
-                // estimated_dex_fees_in_pct: todo!(),
+                commission_fee_in_pct: commission,
+                estimated_dex_fees_in_pct,
             };
 
             pool_pairs.push(swap_path_pool_pair);
