@@ -31,12 +31,12 @@ pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<(St
 #[cached(
     result = true,
     key = "String",
-    convert = r#"{ format!("getpoolpair") }"#
+    convert = r#"{ format!("getpoolpair{id}") }"#
 )]
 pub async fn get_pool_pair_info_cached(ctx: &Arc<AppContext>, id: String) -> Result<(String, PoolPairInfo)> {
     let pool_pair = ctx
         .client
-        .get_pool_pair(id, None)
+        .get_pool_pair(id, Some(true))
         .await?
         .0
         .into_iter()
@@ -46,11 +46,11 @@ pub async fn get_pool_pair_info_cached(ctx: &Arc<AppContext>, id: String) -> Res
     Ok(pool_pair)
 }
 
-#[cached(
-    result = true,
-    key = "String",
-    convert = r#"{ format!("listpoolpairs") }"#
-)]
+// #[cached(
+//     result = true,
+//     key = "String",
+//     convert = r#"{ format!("listpoolpairs") }"#
+// )]
 pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsResult> {
     let pool_pairs = ctx
         .client
