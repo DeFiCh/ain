@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ain_dftx::loans::SetLoanToken;
+use anyhow::anyhow;
 use rust_decimal::{
     prelude::{FromPrimitive, Zero},
     Decimal,
@@ -14,7 +15,7 @@ use crate::{
     },
     repository::RepositoryOps,
     storage::SortOrder,
-    Services,
+    Error, Services,
 };
 impl Index for SetLoanToken {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
@@ -81,28 +82,27 @@ impl Index for SetLoanToken {
                         total: Default::default(),
                     },
                 };
-            } else {
-                if let Some(next) = previous_price.get(0).map(|price| &price.next) {
-                    active_price = OraclePriceActiveActive {
-                        amount: next.amount.clone(),
-                        weightage: next.weightage,
-                        oracles: OraclePriceActiveActiveOracles {
-                            active: next.oracles.active,
-                            total: next.oracles.total,
-                        },
-                    };
-                } else {
-                    let oracles = OraclePriceActiveActiveOracles {
-                        active: previous_price[0].active.oracles.active,
-                        total: previous_price[0].active.oracles.total,
-                    };
-                    active_price = OraclePriceActiveActive {
-                        amount: previous_price[0].active.amount.clone(),
-                        weightage: previous_price[0].active.weightage,
-                        oracles: oracles,
-                    };
+            } else if let Some(next) = previous_price.get(0).map(|price| &price.next) {
+                active_price = OraclePriceActiveActive {
+                    amount: next.amount.clone(),
+                    weightage: next.weightage,
+                    oracles: OraclePriceActiveActiveOracles {
+                        active: next.oracles.active,
+                        total: next.oracles.total,
+                    },
                 };
-            };
+            } else {
+                let oracles = OraclePriceActiveActiveOracles {
+                    active: previous_price[0].active.oracles.active,
+                    total: previous_price[0].active.oracles.total,
+                };
+                active_price = OraclePriceActiveActive {
+                    amount: previous_price[0].active.amount.clone(),
+                    weightage: previous_price[0].active.weightage,
+                    oracles: oracles,
+                };
+            }
+
             let oracle_price_active = OraclePriceActive {
                 id: price_active_id.clone(),
                 key: oracle_price_key,
@@ -139,7 +139,7 @@ impl Index for SetLoanToken {
     }
 }
 pub fn aggregated_validate(aggrigated_price: OraclePriceAggregated, context: &Context) -> bool {
-    let minimum_live_oracles: i32 = 2;
+    let minimum_live_oracles = 2;
     if (aggrigated_price.block.time - context.block.time).abs() >= 3600 {
         return false;
     }

@@ -73,7 +73,7 @@ async fn main() -> Result<()> {
             .by_height
             .get_highest()?
             .map_or(0, |b| b.height);
-        let new_height: u32 = highest_block + 1;
+        let new_height = highest_block + 1;
         let hash = if let Some(hash) = next_block_hash {
             hash
         } else {

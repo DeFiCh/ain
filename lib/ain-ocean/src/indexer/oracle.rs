@@ -148,7 +148,7 @@ impl Index for RemoveOracle {
                             Err(err) => {
                                 let error_message = format!("Error: remove_oracle: {:?}", err);
                                 eprintln!("{}", error_message);
-                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
                     }
@@ -252,7 +252,7 @@ impl Index for UpdateOracle {
                             Err(err) => {
                                 let error_message = format!("Error:update oracle: {:?}", err);
                                 eprintln!("{}", error_message);
-                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
                         let deletion_key = (
@@ -264,9 +264,9 @@ impl Index for UpdateOracle {
                                 // Successfully deleted
                             }
                             Err(err) => {
-                                let error_message = format!("Error:update oracle: {:?}", err);
+                                let error_message = format!("Error: update_oracle: {:?}", err);
                                 eprintln!("{}", error_message);
-                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
                     }
@@ -371,7 +371,7 @@ impl Index for UpdateOracle {
                                 let error_message =
                                     format!("Error updating oracle invalidate: {:?}", err);
                                 eprintln!("{}", error_message);
-                                return Err(Error::NotFound(NotFoundKind::Oracle));
+                                return Err(Error::DBError(ain_db::DBError::Custom(err.into())));
                             }
                         }
                     }
