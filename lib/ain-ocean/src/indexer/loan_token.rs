@@ -109,7 +109,7 @@ impl Index for SetLoanToken {
                 sort: hex::encode(ctx.block.height.to_be_bytes()),
                 active: active_price.clone(),
                 next: next_price.clone(),
-                is_live: is_live(active_price, next_price),
+                is_live: is_live(Some(active_price), Some(next_price)),
                 block: ctx.block.clone(),
             };
             services
@@ -154,18 +154,36 @@ pub fn aggregated_validate(aggrigated_price: OraclePriceAggregated, context: &Co
     true
 }
 
-pub fn is_live(active: OraclePriceActiveActive, next: OraclePriceActiveNext) -> bool {
-    let deviation_threshold = Decimal::from_f64(0.5).unwrap_or_default();
-    let active_price = Decimal::from_str_exact(&active.amount).unwrap_or_default();
-    let next_price = Decimal::from_str_exact(&next.amount).unwrap_or_default();
-    if active_price > Decimal::zero() && next_price > Decimal::zero() {
-        return false;
+pub fn is_live(
+    active: Option<OraclePriceActiveActive>,
+    next: Option<OraclePriceActiveNext>,
+) -> bool {
+    if let (Some(active), Some(next)) = (active, next) {
+        let active_price = match Decimal::from_str_exact(&active.amount) {
+            Ok(num) => num,
+            Err(_) => return false,
+        };
+
+        let next_price = match Decimal::from_str_exact(&next.amount) {
+            Ok(num) => num,
+            Err(_) => return false,
+        };
+
+        if active_price <= Decimal::zero() || next_price <= Decimal::zero() {
+            return false;
+        }
+
+        let deviation_threshold = Decimal::new(5, 1); // This represents 0.5
+
+        let diff = next_price - active_price;
+        let abs_diff = diff.abs();
+        let threshold = active_price * deviation_threshold;
+        if abs_diff >= threshold {
+            return false;
+        }
+
+        true
+    } else {
+        false
     }
-    let diff = next_price - active_price;
-    let abs_diff = diff.abs();
-    let threshold = active_price * deviation_threshold;
-    if !abs_diff.lt(&threshold) {
-        return false;
-    }
-    true
 }
