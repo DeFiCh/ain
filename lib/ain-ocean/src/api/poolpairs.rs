@@ -1,17 +1,13 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use bitcoin::hex::parse;
 use defichain_rpc::{
     json::poolpair::{PoolPairInfo, PoolPairsResult},
-    json::token::TokenInfo,
     RpcApi,
 };
-use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use super::{

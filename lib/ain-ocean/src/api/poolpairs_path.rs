@@ -1,17 +1,8 @@
 
-use std::{collections::HashSet, ops::Deref, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
-use ain_macros::ocean_endpoint;
-use axum::{routing::get, Extension, Router};
-use bitcoin::hex::parse;
-use defichain_rpc::{
-    json::{poolpair::{PoolPairInfo, PoolPairsResult}, token::TokenInfo}, RpcApi
-};
-use json::from;
-use log::debug;
-use petgraph::visit::{IntoNeighborsDirected, VisitMap, Visitable};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use defichain_rpc::json::{poolpair::PoolPairInfo, token::TokenInfo};
+use serde::Serialize;
 use anyhow::format_err;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -19,17 +10,10 @@ use rust_decimal_macros::dec;
 use super::{
     cache::{get_token_cached, get_pool_pair_info_cached, list_pool_pairs_cached},
     common::parse_dat_symbol,
-    path::Path,
-    query::{PaginationQuery, Query},
-    response::{ApiPagedResponse, Response},
     AppContext,
 };
 
 use crate::{
-    error::{ApiError, Error},
-    model::{BlockContext, PoolSwap},
-    repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
-    storage::SortOrder,
     Result, TokenIdentifier,
 };
 
