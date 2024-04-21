@@ -15,7 +15,7 @@ use serde_json::json;
 use super::{
     common::parse_dat_symbol,
     path::Path,
-    poolpairs_path::{compute_paths_between_tokens, get_token_identifier, SwapPathPoolPair},
+    poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, EstimatedLessDexFeeInfo, SwapPathPoolPair},
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -430,31 +430,66 @@ async fn list_pool_swaps_verbose(
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BestSwapPathResponse {
-    from_token: String,
-    to_token: String,
-    best_path: Vec<String>,
+    from_token: TokenIdentifier,
+    to_token: TokenIdentifier,
+    best_path: Vec<SwapPathPoolPair>,
     estimated_return: String,
-    estimated_return_less_dex_fees: String
+    estimated_return_less_dex_fees: String,
 }
 
 #[ocean_endpoint]
 async fn get_best_path(
-    Path(from_token_id): Path<String>,
-    Path(to_token_id): Path<String>,
+    Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<BestSwapPathResponse> {
+) -> Result<Response<BestSwapPathResponse>> {
     let from_token_id = from_token_id.parse::<u32>()?;
     let to_token_id = to_token_id.parse::<u32>()?;
-    let res = get_all_swap_paths(&ctx, from_token_id, to_token_id);
+    let SwapPathsResponse {
+        from_token,
+        to_token,
+        paths,
+    } = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
 
-    // dummy first
-    Ok(BestSwapPathResponse{
-        from_token: "1".to_string(),
-        to_token: "1".to_string(),
-        best_path: vec!["1".to_string()],
-        estimated_return: "1".to_string(),
-        estimated_return_less_dex_fees: "1".to_string(),
-    })
+    let mut best_path= Vec::<SwapPathPoolPair>::new();
+    let mut best_return: i64 = 0;
+    let mut best_return_less_dex_fees: i64 = 0;
+
+    for path in paths {
+        let path_len = path.len();
+        let EstimatedLessDexFeeInfo {
+            estimated_return,
+            estimated_return_less_dex_fees,
+        } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
+
+        let estimated_return = estimated_return.parse::<i64>()?;
+        let estimated_return_less_dex_fees = estimated_return_less_dex_fees.parse::<i64>()?;
+
+        if path_len == 1 {
+            return Ok(Response::new(BestSwapPathResponse{
+                from_token,
+                to_token,
+                best_path: path,
+                estimated_return: format!("{:.8}", estimated_return),
+                estimated_return_less_dex_fees: format!("{:.8}", estimated_return_less_dex_fees),
+            }))
+        } else {
+            if estimated_return > best_return {
+                best_return = estimated_return;
+            }
+            if estimated_return_less_dex_fees > best_return_less_dex_fees {
+                best_return_less_dex_fees = estimated_return_less_dex_fees;
+                best_path = path;
+            };
+        };
+    }
+
+    Ok(Response::new(BestSwapPathResponse{
+        from_token,
+        to_token,
+        best_path,
+        estimated_return: format!("{:.8}", best_return),
+        estimated_return_less_dex_fees: format!("{:.8}", best_return_less_dex_fees),
+    }))
 }
 
 #[ocean_endpoint]
@@ -520,15 +555,12 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:id/swaps", get(list_pool_swaps))
         .route("/:id/swaps/verbose", get(list_pool_swaps_verbose))
         .route("/paths/from/:fromTokenId/to/:toTokenId", get(list_paths))
+        .route("/paths/best/from/:fromTokenId/to/:toTokenId", get(get_best_path))
         // .route(
         //     "/:id/swaps/aggregate/:interval",
         //     get(list_pool_swap_aggregates),
         // )
         // .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
-        // .route(
-        //     "/paths/best/from/:fromTokenId/to/:toTokenId",
-        //     get(get_best_path),
-        // )
         // .route("/dexprices", get(list_dex_prices))
         .layer(Extension(ctx))
 }

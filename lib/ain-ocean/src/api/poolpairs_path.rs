@@ -61,6 +61,12 @@ pub struct SwapPathPoolPair {
 }
 
 #[derive(Debug)]
+pub struct EstimatedLessDexFeeInfo {
+    pub estimated_return: String,
+    pub estimated_return_less_dex_fees: String,
+}
+
+#[derive(Debug)]
 struct StackSet {
     set: HashSet<u32>,
     stack: Vec<u32>,
@@ -274,6 +280,71 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
     }
 
     Ok(pool_pair_paths)
+}
+
+pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPathPoolPair>, from_token_id: u32) -> Result<EstimatedLessDexFeeInfo> {
+    let mut estimated_return_less_dex_fees: i64 = 0;
+    let mut estimated_return: i64 = 0;
+
+    let mut from_token_id = from_token_id.to_string();
+    let mut price_ratio;
+    let mut from_token_fee_pct;
+    let mut to_token_fee_pct;
+
+    for pool in path {
+        if from_token_id == pool.token_a.id {
+            from_token_id = pool.token_b.id.to_owned();
+            price_ratio = pool.price_ratio.ba.parse::<i64>()?;
+            (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
+                let ba = estimated_dex_fees_in_pct.ba.parse::<i64>()?;
+                let ab = estimated_dex_fees_in_pct.ab.parse::<i64>()?;
+                (Some(ba), Some(ab))
+            } else {
+                (None, None)
+            };
+        } else {
+            from_token_id = pool.token_a.id.to_owned();
+            price_ratio = pool.price_ratio.ab.parse::<i64>()?;
+            (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
+                let ab = estimated_dex_fees_in_pct.ab.parse::<i64>()?;
+                let ba = estimated_dex_fees_in_pct.ba.parse::<i64>()?;
+                (Some(ab), Some(ba))
+            } else {
+                (None, None)
+            };
+        };
+
+        estimated_return = estimated_return.checked_mul(price_ratio).ok_or_else(|| format_err!("estimated_return overflow"))?;
+
+        // less commission fee
+        let commission_fee_in_pct = pool.commission_fee_in_pct.parse::<i64>()?;
+        let commission_fee = estimated_return_less_dex_fees.checked_mul(commission_fee_in_pct).ok_or_else(|| format_err!("commission_fee overflow"))?;
+        estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(commission_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+
+        // less dex fee from_token
+        let from_token_estimated_dex_fee = if let Some(from_token_fee_pct) = from_token_fee_pct {
+            from_token_fee_pct.checked_mul(estimated_return_less_dex_fees).ok_or_else(|| format_err!("from_token_fee_pct overflow"))?
+        } else {
+            0
+        };
+        estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(from_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+
+        // convert to to_token
+        let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees.checked_mul(price_ratio).ok_or_else(|| format_err!("from_token_estimated_return_less_dex_fee overflow"))?;
+        let to_token_estimated_dex_fee = if let Some(to_token_fee_pct) = to_token_fee_pct {
+            to_token_fee_pct.checked_mul(from_token_estimated_return_less_dex_fee).ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?
+        } else {
+            0
+        };
+
+        // less dex fee to_token
+        estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee.checked_sub(to_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+
+    }
+    Ok(EstimatedLessDexFeeInfo{
+        estimated_return: format!("{:.8}", estimated_return),
+        estimated_return_less_dex_fees: format!("{:.8}", estimated_return_less_dex_fees),
+    })
 }
 
 fn to_token_identifier(id: &String, info: &TokenInfo) -> TokenIdentifier {
