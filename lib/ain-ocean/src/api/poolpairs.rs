@@ -11,6 +11,8 @@ use defichain_rpc::{
 use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use super::{
     common::parse_dat_symbol,
@@ -451,8 +453,8 @@ async fn get_best_path(
     } = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
 
     let mut best_path= Vec::<SwapPathPoolPair>::new();
-    let mut best_return: i64 = 0;
-    let mut best_return_less_dex_fees: i64 = 0;
+    let mut best_return = dec!(0);
+    let mut best_return_less_dex_fees = dec!(0);
 
     for path in paths {
         let path_len = path.len();
@@ -461,8 +463,6 @@ async fn get_best_path(
             estimated_return_less_dex_fees,
         } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
 
-        let estimated_return = estimated_return.parse::<i64>()?;
-        let estimated_return_less_dex_fees = estimated_return_less_dex_fees.parse::<i64>()?;
 
         if path_len == 1 {
             return Ok(Response::new(BestSwapPathResponse{

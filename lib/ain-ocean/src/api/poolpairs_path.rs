@@ -1,13 +1,11 @@
 
-use std::{collections::HashSet, ops::Deref, sync::Arc, time::Duration};
+use std::{collections::HashSet, ops::Deref, str::FromStr, sync::Arc, time::Duration};
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use bitcoin::hex::parse;
 use defichain_rpc::{
-    json::poolpair::{PoolPairInfo, PoolPairsResult},
-    json::token::TokenInfo,
-    RpcApi,
+    json::{poolpair::{PoolPairInfo, PoolPairsResult}, token::TokenInfo}, RpcApi
 };
 use json::from;
 use log::debug;
@@ -15,6 +13,8 @@ use petgraph::visit::{IntoNeighborsDirected, VisitMap, Visitable};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use anyhow::format_err;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use super::{
     cache::{get_token_cached, get_pool_pair_info_cached, list_pool_pairs_cached},
@@ -26,7 +26,7 @@ use super::{
 };
 
 use crate::{
-    error::ApiError,
+    error::{ApiError, Error},
     model::{BlockContext, PoolSwap},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
@@ -62,8 +62,8 @@ pub struct SwapPathPoolPair {
 
 #[derive(Debug)]
 pub struct EstimatedLessDexFeeInfo {
-    pub estimated_return: String,
-    pub estimated_return_less_dex_fees: String,
+    pub estimated_return: Decimal,
+    pub estimated_return_less_dex_fees: Decimal,
 }
 
 #[derive(Debug)]
@@ -283,8 +283,8 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
 }
 
 pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPathPoolPair>, from_token_id: u32) -> Result<EstimatedLessDexFeeInfo> {
-    let mut estimated_return_less_dex_fees: i64 = 0;
-    let mut estimated_return: i64 = 0;
+    let mut estimated_return_less_dex_fees = dec!(0);
+    let mut estimated_return= dec!(0);
 
     let mut from_token_id = from_token_id.to_string();
     let mut price_ratio;
@@ -292,22 +292,23 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
     let mut to_token_fee_pct;
 
     for pool in path {
+        println!("pool: {:?}", pool);
         if from_token_id == pool.token_a.id {
             from_token_id = pool.token_b.id.to_owned();
-            price_ratio = pool.price_ratio.ba.parse::<i64>()?;
+            price_ratio = Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
             (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
-                let ba = estimated_dex_fees_in_pct.ba.parse::<i64>()?;
-                let ab = estimated_dex_fees_in_pct.ab.parse::<i64>()?;
+                let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str()).map_err(|e| format_err!(e))?;
+                let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str()).map_err(|e| format_err!(e))?;
                 (Some(ba), Some(ab))
             } else {
                 (None, None)
             };
         } else {
             from_token_id = pool.token_a.id.to_owned();
-            price_ratio = pool.price_ratio.ab.parse::<i64>()?;
+            price_ratio = Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
             (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
-                let ab = estimated_dex_fees_in_pct.ab.parse::<i64>()?;
-                let ba = estimated_dex_fees_in_pct.ba.parse::<i64>()?;
+                let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str()).map_err(|e| format_err!(e))?;
+                let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str()).map_err(|e| format_err!(e))?;
                 (Some(ab), Some(ba))
             } else {
                 (None, None)
@@ -317,7 +318,7 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
         estimated_return = estimated_return.checked_mul(price_ratio).ok_or_else(|| format_err!("estimated_return overflow"))?;
 
         // less commission fee
-        let commission_fee_in_pct = pool.commission_fee_in_pct.parse::<i64>()?;
+        let commission_fee_in_pct = Decimal::from_str(pool.commission_fee_in_pct.as_str()).map_err(|e| format_err!(e))?;
         let commission_fee = estimated_return_less_dex_fees.checked_mul(commission_fee_in_pct).ok_or_else(|| format_err!("commission_fee overflow"))?;
         estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(commission_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
 
@@ -325,7 +326,7 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
         let from_token_estimated_dex_fee = if let Some(from_token_fee_pct) = from_token_fee_pct {
             from_token_fee_pct.checked_mul(estimated_return_less_dex_fees).ok_or_else(|| format_err!("from_token_fee_pct overflow"))?
         } else {
-            0
+            dec!(0)
         };
         estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(from_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
 
@@ -334,7 +335,7 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
         let to_token_estimated_dex_fee = if let Some(to_token_fee_pct) = to_token_fee_pct {
             to_token_fee_pct.checked_mul(from_token_estimated_return_less_dex_fee).ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?
         } else {
-            0
+            dec!(0)
         };
 
         // less dex fee to_token
@@ -342,8 +343,8 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
 
     }
     Ok(EstimatedLessDexFeeInfo{
-        estimated_return: format!("{:.8}", estimated_return),
-        estimated_return_less_dex_fees: format!("{:.8}", estimated_return_less_dex_fees),
+        estimated_return,
+        estimated_return_less_dex_fees,
     })
 }
 
