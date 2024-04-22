@@ -11,7 +11,7 @@ use serde_json::json;
 use rust_decimal_macros::dec;
 
 use super::{
-    common::parse_dat_symbol,
+    common::{format_number, parse_dat_symbol},
     path::Path,
     poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, EstimatedLessDexFeeInfo, SwapPathPoolPair},
     query::{PaginationQuery, Query},
@@ -483,17 +483,18 @@ async fn get_best_path(
                 from_token,
                 to_token,
                 best_path: path,
-                estimated_return: format!("{:.8}", estimated_return),
-                estimated_return_less_dex_fees: format!("{:.8}", estimated_return_less_dex_fees),
+                estimated_return: format_number(estimated_return),
+                estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
             }))
-        } else {
-            if estimated_return > best_return {
-                best_return = estimated_return;
-            }
-            if estimated_return_less_dex_fees > best_return_less_dex_fees {
-                best_return_less_dex_fees = estimated_return_less_dex_fees;
-                best_path = path;
-            };
+        };
+
+        if estimated_return > best_return {
+            best_return = estimated_return;
+        }
+
+        if estimated_return_less_dex_fees > best_return_less_dex_fees {
+            best_return_less_dex_fees = estimated_return_less_dex_fees;
+            best_path = path;
         };
     }
 
@@ -501,8 +502,8 @@ async fn get_best_path(
         from_token,
         to_token,
         best_path,
-        estimated_return: format!("{:.8}", best_return),
-        estimated_return_less_dex_fees: format!("{:.8}", best_return_less_dex_fees),
+        estimated_return: format_number(best_return),
+        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
     }))
 }
 

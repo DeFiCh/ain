@@ -1,5 +1,6 @@
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use super::query::PaginationQuery;
 
@@ -29,6 +30,15 @@ pub fn parse_dat_symbol(symbol: &str) -> String {
         format!("d{}", symbol)
     }
 }
+
+pub fn format_number(v: Decimal) -> String {
+    if v == dec!(0) {
+        "0".to_string()
+    } else {
+        format!("{:.8}", v)
+    }
+}
+
 
 /// Finds the balance of a specified token symbol within a list of token strings.
 ///
