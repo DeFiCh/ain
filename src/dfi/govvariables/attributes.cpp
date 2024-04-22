@@ -797,7 +797,7 @@ const std::map<uint8_t, std::map<uint8_t, std::function<ResVal<CAttributeValue>(
                  {DFIPKeys::Premium, VerifyPctInt64},
                  {DFIPKeys::MinSwap, VerifyPositiveFloat},
                  {DFIPKeys::RewardPct, VerifyPctInt64},
-                 {DFIPKeys::BlockPeriod, VerifyInt64},
+                 {DFIPKeys::BlockPeriod, VerifyMoreThenZeroInt64},
                  {DFIPKeys::DUSDInterestBurn, VerifyBool},
                  {DFIPKeys::DUSDLoanBurn, VerifyBool},
                  {DFIPKeys::StartBlock, VerifyInt64},
