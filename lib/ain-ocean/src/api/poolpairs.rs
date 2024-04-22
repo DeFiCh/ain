@@ -502,8 +502,8 @@ async fn get_best_path(
         from_token,
         to_token,
         best_path,
-        estimated_return: format_number(best_return),
-        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
+        estimated_return: format_number(best_return.ceil()),
+        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees.ceil()),
     }))
 }
 
