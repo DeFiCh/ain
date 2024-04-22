@@ -9,6 +9,7 @@ use defichain_rpc::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use rust_decimal_macros::dec;
+use anyhow::format_err;
 
 use super::{
     common::{format_number, parse_dat_symbol},
@@ -24,7 +25,7 @@ use crate::{
     model::{BlockContext, PoolSwap},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
-    Result, TokenIdentifier,
+    Error, Result, TokenIdentifier,
 };
 
 // #[derive(Deserialize)]
@@ -504,7 +505,9 @@ async fn get_best_path(
 }
 
 async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<SwapPathsResponse> {
-    assert!(from_token_id != to_token_id);
+    if from_token_id == to_token_id {
+        return Err(Error::Other(format_err!("Invalid tokens: fromToken must be different from toToken")))
+    }
 
     let mut res = SwapPathsResponse {
         from_token: get_token_identifier(ctx, from_token_id).await?,
