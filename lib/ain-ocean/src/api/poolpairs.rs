@@ -425,6 +425,25 @@ async fn list_pool_swaps_verbose(
 //     format!("Swappable tokens for token id {}", token_id)
 // }
 
+#[ocean_endpoint]
+async fn list_paths(
+    Path((from_token_id, to_token_id)): Path<(String, String)>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<SwapPathsResponse>> {
+    let from_token_id = from_token_id.parse::<u32>()?;
+    let to_token_id = to_token_id.parse::<u32>()?;
+    let paths = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
+    Ok(Response::new(paths))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapPathsResponse {
+    from_token: TokenIdentifier,
+    to_token: TokenIdentifier,
+    paths: Vec<Vec<SwapPathPoolPair>>,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BestSwapPathResponse {
@@ -459,7 +478,6 @@ async fn get_best_path(
             estimated_return_less_dex_fees,
         } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
 
-
         if path_len == 1 {
             return Ok(Response::new(BestSwapPathResponse{
                 from_token,
@@ -488,25 +506,6 @@ async fn get_best_path(
     }))
 }
 
-#[ocean_endpoint]
-async fn list_paths(
-    Path((from_token_id, to_token_id)): Path<(String, String)>,
-    Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<SwapPathsResponse>> {
-    let from_token_id = from_token_id.parse::<u32>()?;
-    let to_token_id = to_token_id.parse::<u32>()?;
-    let paths = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
-    Ok(Response::new(paths))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SwapPathsResponse {
-    from_token: TokenIdentifier,
-    to_token: TokenIdentifier,
-    paths: Vec<Vec<SwapPathPoolPair>>,
-}
-
 async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<SwapPathsResponse> {
     assert!(from_token_id != to_token_id);
 
@@ -521,9 +520,9 @@ async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_
             return Ok(res)
         }
 
-    res.paths = compute_paths_between_tokens(&ctx, from_token_id, to_token_id).await?;
+    res.paths = compute_paths_between_tokens(ctx, from_token_id, to_token_id).await?;
 
-    return Ok(res)
+    Ok(res)
 }
 
 // #[ocean_endpoint]
