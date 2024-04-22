@@ -276,7 +276,6 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
     let mut to_token_fee_pct;
 
     for pool in path {
-        println!("pool: {:?}", pool);
         if from_token_id == pool.token_a.id {
             from_token_id = pool.token_b.id.to_owned();
             price_ratio = Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
@@ -289,7 +288,7 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
             };
         } else {
             from_token_id = pool.token_a.id.to_owned();
-            price_ratio = Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
+            price_ratio = Decimal::from_str(pool.price_ratio.ab.as_str()).map_err(|e| format_err!(e))?;
             (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
                 let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str()).map_err(|e| format_err!(e))?;
                 let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str()).map_err(|e| format_err!(e))?;
