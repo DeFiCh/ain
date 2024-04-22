@@ -430,9 +430,7 @@ async fn list_paths(
     Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<SwapPathsResponse>> {
-    let from_token_id = from_token_id.parse::<u32>()?;
-    let to_token_id = to_token_id.parse::<u32>()?;
-    let paths = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
+    let paths = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
     Ok(Response::new(paths))
 }
 
@@ -459,13 +457,11 @@ async fn get_best_path(
     Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<BestSwapPathResponse>> {
-    let from_token_id = from_token_id.parse::<u32>()?;
-    let to_token_id = to_token_id.parse::<u32>()?;
     let SwapPathsResponse {
         from_token,
         to_token,
         paths,
-    } = get_all_swap_paths(&ctx, from_token_id, to_token_id).await?;
+    } = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
 
     let mut best_path= Vec::<SwapPathPoolPair>::new();
     let mut best_return = dec!(0);
@@ -476,7 +472,7 @@ async fn get_best_path(
         let EstimatedLessDexFeeInfo {
             estimated_return,
             estimated_return_less_dex_fees,
-        } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
+        } = compute_return_less_dex_fees_in_destination_token(&path, &from_token_id).await?;
 
         if path_len == 1 {
             return Ok(Response::new(BestSwapPathResponse{
@@ -507,17 +503,17 @@ async fn get_best_path(
     }))
 }
 
-async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<SwapPathsResponse> {
+async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<SwapPathsResponse> {
     assert!(from_token_id != to_token_id);
 
     let mut res = SwapPathsResponse {
-        from_token: get_token_identifier(ctx, from_token_id.clone().to_string()).await?,
-        to_token: get_token_identifier(ctx, to_token_id.clone().to_string()).await?,
+        from_token: get_token_identifier(ctx, from_token_id).await?,
+        to_token: get_token_identifier(ctx, to_token_id).await?,
         paths: vec![],
     };
 
-    if !ctx.services.token_graph.lock().contains_node(from_token_id)
-        || !ctx.services.token_graph.lock().contains_node(to_token_id) {
+    if !ctx.services.token_graph.lock().contains_node(from_token_id.parse::<u32>()?)
+        || !ctx.services.token_graph.lock().contains_node(to_token_id.parse::<u32>()?) {
             return Ok(res)
         }
 

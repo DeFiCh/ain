@@ -8,8 +8,8 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use super::{
-    cache::{get_token_cached, get_pool_pair_info_cached, list_pool_pairs_cached},
-    common::parse_dat_symbol,
+    cache::{get_pool_pair_info_cached, get_token_cached, list_pool_pairs_cached},
+    common::{format_number, parse_dat_symbol},
     AppContext,
 };
 
@@ -100,8 +100,8 @@ impl StackSet {
     }
 }
 
-pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: String) -> Result<TokenIdentifier> {
-    let (id, token) = get_token_cached(ctx, &id).await?;
+pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
+    let (id, token) = get_token_cached(ctx, id).await?;
     Ok(TokenIdentifier{
         id,
         name: token.name,
@@ -111,7 +111,10 @@ pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: String) -> Result<T
 
 }
 
-fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<Vec<Vec<u32>>> {
+fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: &str, to_token_id: &str) -> Result<Vec<Vec<u32>>> {
+    let from_token_id = from_token_id.parse::<u32>()?;
+    let to_token_id = to_token_id.parse::<u32>()?;
+
     let graph = &ctx.services.token_graph;
     if !graph.lock().contains_node(from_token_id) {
         return Err(format_err!("from_token_id not found: {:?}", from_token_id).into())
@@ -154,7 +157,7 @@ fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32)
     Ok(paths)
 }
 
-pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: u32, to_token_id: u32) -> Result<Vec<Vec<SwapPathPoolPair>>> {
+pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<Vec<Vec<SwapPathPoolPair>>> {
     let mut pool_pair_paths = Vec::new();
 
     let graph = &ctx.services.token_graph;
@@ -172,16 +175,19 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
             let token_a = path[i - 1];
             let token_b = path[i];
 
-            let pool_pair_id = graph.lock().edge_weight(token_a, token_b).unwrap().to_string();
-            // .ok_or_else(|| {
-            //     format_err!(
-            //         "Unexpected error encountered during path finding - could not find edge between {} and {}",
-            //         token_a,
-            //         token_b
-            //     )
-            // })?;
+            let pool_pair_id = graph
+                .lock()
+                .edge_weight(token_a, token_b)
+                .ok_or_else(|| {
+                    format_err!(
+                        "Unexpected error encountered during path finding - could not find edge between {} and {}",
+                        token_a,
+                        token_b
+                    )
+                })?
+                .to_string();
 
-            let (_, pool_pair_info) = get_pool_pair_info_cached(&ctx, pool_pair_id.clone()).await?;
+            let (_, pool_pair_info) = get_pool_pair_info_cached(ctx, pool_pair_id.clone()).await?;
 
             let PoolPairInfo{
                 symbol,
@@ -197,13 +203,13 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
                 ..
             } = pool_pair_info;
 
-            let token_a_direction = if id_token_a == from_token_id.to_string() {
+            let token_a_direction = if id_token_a == *from_token_id {
                 "in"
             } else {
                 "out"
             };
 
-            let token_b_direction = if id_token_b == to_token_id.to_string() {
+            let token_b_direction = if id_token_b == *to_token_id {
                 "out"
             } else {
                 "in"
@@ -226,34 +232,16 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
                 None
             };
 
-            let ab = if ab == 0f64 {
-                ab.to_string()
-            } else {
-                format!("{:.8}", ab)
-            };
-
-            let ba = if ba == 0f64 {
-                ba.to_string()
-            } else {
-                format!("{:.8}", ba)
-            };
-
-            let commission = if commission == 0f64 {
-                commission.to_string()
-            } else {
-                format!("{:.8}", commission)
-            };
-
             let swap_path_pool_pair = SwapPathPoolPair {
                 pool_pair_id,
                 symbol,
-                token_a: get_token_identifier(&ctx, id_token_a).await?,
-                token_b: get_token_identifier(&ctx, id_token_b).await?,
+                token_a: get_token_identifier(ctx, &id_token_a).await?,
+                token_b: get_token_identifier(ctx, &id_token_b).await?,
                 price_ratio: PriceRatio {
-                    ab,
-                    ba,
+                    ab: format_number(Decimal::from_f64_retain(ab).ok_or_else(|| format_err!("Unable to convert f64 {ab} to Decimal"))?),
+                    ba: format_number(Decimal::from_f64_retain(ba).ok_or_else(|| format_err!("Unable to convert f64 {ba} to Decimal"))?),
                 },
-                commission_fee_in_pct: commission,
+                commission_fee_in_pct: format_number(Decimal::from_f64_retain(commission).ok_or_else(|| format_err!("Unable to convert f64 {commission} to Decimal"))?),
                 estimated_dex_fees_in_pct,
             };
 
@@ -266,11 +254,11 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
     Ok(pool_pair_paths)
 }
 
-pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPathPoolPair>, from_token_id: u32) -> Result<EstimatedLessDexFeeInfo> {
+pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPathPoolPair>, from_token_id: &String) -> Result<EstimatedLessDexFeeInfo> {
     let mut estimated_return_less_dex_fees = dec!(1);
     let mut estimated_return= dec!(1);
 
-    let mut from_token_id = from_token_id.to_string();
+    let mut from_token_id = from_token_id.to_owned();
     let mut price_ratio;
     let mut from_token_fee_pct;
     let mut to_token_fee_pct;
@@ -323,8 +311,8 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
 
         // less dex fee to_token
         estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee.checked_sub(to_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
-
     }
+
     Ok(EstimatedLessDexFeeInfo{
         estimated_return: estimated_return.ceil(),
         estimated_return_less_dex_fees: estimated_return_less_dex_fees.ceil(),
