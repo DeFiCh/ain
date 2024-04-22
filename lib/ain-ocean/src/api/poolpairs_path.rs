@@ -327,8 +327,8 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
 
     }
     Ok(EstimatedLessDexFeeInfo{
-        estimated_return,
-        estimated_return_less_dex_fees,
+        estimated_return: estimated_return.ceil(),
+        estimated_return_less_dex_fees: estimated_return_less_dex_fees.ceil(),
     })
 }
 
