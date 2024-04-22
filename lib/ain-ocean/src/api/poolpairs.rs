@@ -526,19 +526,6 @@ async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_to
 }
 
 // #[ocean_endpoint]
-// async fn get_all_paths(
-//     Query(BestPath {
-//         from_token_id,
-//         to_token_id,
-//     }): Query<BestPath>,
-// ) -> String {
-//     format!(
-//         "All paths from token id {} to {}",
-//         from_token_id, to_token_id
-//     )
-// }
-
-// #[ocean_endpoint]
 // async fn list_dex_prices(Query(DexPrices { denomination }): Query<DexPrices>) -> String {
 //     format!("List of DEX prices with denomination {:?}", denomination)
 // }
