@@ -148,12 +148,5 @@ fn hash(a: u64) -> H160 {
 }
 
 fn is_dst20(addr: H160) -> bool {
-    match addr.as_fixed_bytes() {
-        [prefix, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ..]
-            if prefix == &DST20_ADDR_PREFIX_BYTE =>
-        {
-            true
-        }
-        _ => false,
-    }
+    matches!(addr.as_fixed_bytes(), [prefix, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ..] if prefix == &DST20_ADDR_PREFIX_BYTE)
 }
