@@ -267,8 +267,8 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
 }
 
 pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPathPoolPair>, from_token_id: u32) -> Result<EstimatedLessDexFeeInfo> {
-    let mut estimated_return_less_dex_fees = dec!(0);
-    let mut estimated_return= dec!(0);
+    let mut estimated_return_less_dex_fees = dec!(1);
+    let mut estimated_return= dec!(1);
 
     let mut from_token_id = from_token_id.to_string();
     let mut price_ratio;
