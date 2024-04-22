@@ -218,14 +218,14 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
             let estimated_dex_fees_in_pct = if let (Some(dex_fee_in_pct_token_a), Some(dex_fee_out_pct_token_a), Some(dex_fee_in_pct_token_b), Some(dex_fee_out_pct_token_b)) = (dex_fee_in_pct_token_a, dex_fee_out_pct_token_a, dex_fee_in_pct_token_b, dex_fee_out_pct_token_b) {
                 Some(EstimatedDexFeesInPct{
                     ba: if token_a_direction == "in" {
-                        dex_fee_in_pct_token_a.to_string()
+                        format!("{:.8}", dex_fee_in_pct_token_a)
                     } else {
-                        dex_fee_out_pct_token_a.to_string()
+                        format!("{:.8}", dex_fee_out_pct_token_a)
                     },
                     ab: if token_b_direction == "in" {
-                        dex_fee_in_pct_token_b.to_string()
+                        format!("{:.8}", dex_fee_in_pct_token_b)
                     } else {
-                        dex_fee_out_pct_token_b.to_string()
+                        format!("{:.8}", dex_fee_out_pct_token_b)
                     },
                 })
             } else {
