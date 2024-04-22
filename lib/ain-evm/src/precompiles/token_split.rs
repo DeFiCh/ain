@@ -2,24 +2,22 @@ use std::collections::BTreeMap;
 
 use ain_contracts::{dst20_address_from_token_id, validate_split_tokens_input, TokenSplitParams};
 use ain_cpp_imports::{split_tokens_from_evm, TokenAmount};
+use anyhow::format_err;
 use ethereum_types::{H160, H256, U256};
 use evm::{
     backend::Apply,
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput},
     ExitError, ExitSucceed,
 };
+use log::debug;
 
+use super::DVMStatePrecompile;
 use crate::{
     contract::{get_address_storage_index, u256_to_h256},
     precompiles::PrecompileResult,
     weiamount::{try_from_satoshi, WeiAmount},
     Result,
 };
-
-use anyhow::format_err;
-use log::debug;
-
-use super::DVMStatePrecompile;
 
 pub struct TokenSplit;
 
@@ -38,6 +36,7 @@ impl DVMStatePrecompile for TokenSplit {
             sender,
             token_contract: original_contract,
             amount: input_amount,
+            ..
         } = validate_split_tokens_input(input).map_err(|e| PrecompileFailure::Error {
             exit_status: ExitError::Other(e.to_string().into()),
         })?;
@@ -68,9 +67,7 @@ impl DVMStatePrecompile for TokenSplit {
         debug!("[TokenSplit] old_amount : {:?}", old_amount);
 
         let mut new_amount = TokenAmount { id: 0, amount: 0 };
-
         let res = split_tokens_from_evm(mnview_ptr, old_amount, &mut new_amount);
-
         if !res {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Failed to split tokens".into()),
@@ -89,9 +86,12 @@ impl DVMStatePrecompile for TokenSplit {
             });
         };
 
-        let Ok(storage) =
-            get_new_contract_storage_update(handle, sender, new_contract, converted_amount.0)
-        else {
+        let Ok(storage) = get_new_contract_storage_update(
+            handle,
+            original_contract,
+            new_contract,
+            converted_amount.0,
+        ) else {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Error getting storage update".into()),
             });
@@ -121,13 +121,21 @@ impl DVMStatePrecompile for TokenSplit {
             reset_storage: false,
         };
 
+        let output = {
+            let mut bytes = [0u8; 64];
+            bytes[12..32].copy_from_slice(new_contract.as_bytes());
+            converted_amount.0.to_big_endian(&mut bytes[32..]);
+            bytes
+        }
+        .to_vec();
+
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
             state_changes: Some(vec![
                 original_contract_state_changes,
                 new_contract_state_changes,
             ]),
-            output: Vec::new(),
+            output,
         })
     }
 }

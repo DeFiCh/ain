@@ -16,9 +16,12 @@ use crate::{
     blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
-        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
-        dst20_deploy_info, dst20_name_info, rename_contract_tx, DST20BridgeInfo,
-        DeployContractInfo,
+        bridge_dfi,
+        dst20::{
+            bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
+            dst20_deploy_info, dst20_name_info, DST20BridgeInfo,
+        },
+        rename_contract_tx, DeployContractInfo,
     },
     core::EVMCoreService,
     eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
