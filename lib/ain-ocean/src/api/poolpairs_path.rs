@@ -319,15 +319,6 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
     })
 }
 
-fn to_token_identifier(id: &String, info: &TokenInfo) -> TokenIdentifier {
-    TokenIdentifier {
-        id: id.to_owned(),
-        name: info.name.to_owned(),
-        symbol: info.symbol.to_owned(),
-        display_symbol: parse_dat_symbol(info.symbol.as_str()),
-    }
-}
-
 pub async fn sync_token_graph(ctx: &Arc<AppContext>) {
   let mut interval = tokio::time::interval(Duration::from_secs(120));
 
@@ -357,32 +348,6 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) {
           }
       }
 
-      // updateTokensToSwappableTokens
-      let mut token_identifiers = vec![];
-      let token_ids = &ctx.services.token_graph.lock().nodes().collect::<Vec<_>>();
-      for id in token_ids {
-          let (id, token) = get_token_cached(ctx, id.to_string().as_str()).await.unwrap();
-          let token_identifier = to_token_identifier(&id, &token);
-          token_identifiers.push(token_identifier);
-      }
-
-      let token_identifiers_cloned = token_identifiers.clone();
-
-      // index each token to their swappable tokens
-      for token_identifier in token_identifiers {
-          ctx
-              .services
-              .tokens_to_swappable_tokens
-              .lock()
-              .insert(
-                  token_identifier.clone().id,
-                  token_identifiers_cloned
-                      .clone()
-                      .into_iter()
-                      .filter(|t| t.id != token_identifier.id) // exclude tokens from their own 'swappables' list
-                      .collect::<Vec<_>>(),
-              );
-      }
       // wait 120s
       interval.tick().await;
   } // end of loop

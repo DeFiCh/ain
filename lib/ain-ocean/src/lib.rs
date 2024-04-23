@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
 use serde::Serialize;
 
-pub use api::{ocean_router, common::parse_display_symbol};
+pub use api::ocean_router;
 use error::Error;
 pub use indexer::{index_block, invalidate_block, transaction::index_transaction, tx_result};
 use repository::{
@@ -63,7 +63,7 @@ pub struct TransactionService {
 }
 
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenIdentifier {
     pub id: String,
@@ -80,7 +80,6 @@ pub struct Services {
     pub pool: PoolService,
     pub transaction: TransactionService,
     pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
-    pub tokens_to_swappable_tokens: Arc<Mutex<HashMap<String, Vec<TokenIdentifier>>>>,
 }
 
 impl Services {
@@ -111,7 +110,6 @@ impl Services {
                 vout_by_id: TransactionVoutRepository::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
-            tokens_to_swappable_tokens: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

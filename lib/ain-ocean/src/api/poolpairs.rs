@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
@@ -37,11 +37,6 @@ use crate::{
 // struct SwapAggregate {
 //     id: String,
 //     interval: i64,
-// }
-
-// #[derive(Deserialize)]
-// struct SwappableTokens {
-//     token_id: String,
 // }
 
 // #[derive(Debug, Deserialize)]
@@ -421,10 +416,31 @@ async fn list_pool_swaps_verbose(
 //     )
 // }
 
-// #[ocean_endpoint]
-// async fn get_swappable_tokens(Path(SwappableTokens { token_id }): Path<SwappableTokens>) -> String {
-//     format!("Swappable tokens for token id {}", token_id)
-// }
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AllSwappableTokensResponse {
+    from_token: TokenIdentifier,
+    swappable_tokens: HashSet<TokenIdentifier>,
+}
+
+#[ocean_endpoint]
+async fn get_swappable_tokens(
+    Path(token_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<AllSwappableTokensResponse>> {
+    let from_token = get_token_identifier(&ctx, &token_id).await?;
+    let mut swappable_tokens: HashSet<TokenIdentifier> = HashSet::new();
+    let graph = ctx.services.token_graph.lock();
+    let edges = graph.edges(token_id.parse::<u32>()?).collect::<Vec<_>>();
+    for edge in edges {
+        // swappable_tokens.insert(get_token_identifier(&ctx, &edge.0.to_string()).await?);
+        // swappable_tokens.insert(get_token_identifier(&ctx, &edge.1.to_string()).await?);
+    }
+    Ok(Response::new(AllSwappableTokensResponse{
+        from_token,
+        swappable_tokens,
+    }))
+}
 
 #[ocean_endpoint]
 async fn list_paths(
@@ -542,7 +558,7 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         //     "/:id/swaps/aggregate/:interval",
         //     get(list_pool_swap_aggregates),
         // )
-        // .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
+        .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
         // .route("/dexprices", get(list_dex_prices))
         .layer(Extension(ctx))
 }
