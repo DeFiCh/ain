@@ -420,7 +420,7 @@ async fn list_pool_swaps_verbose(
 #[serde(rename_all = "camelCase")]
 struct AllSwappableTokensResponse {
     from_token: TokenIdentifier,
-    swappable_tokens: HashSet<TokenIdentifier>,
+    swappable_tokens: Vec<TokenIdentifier>,
 }
 
 #[ocean_endpoint]
@@ -428,26 +428,34 @@ async fn get_swappable_tokens(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<AllSwappableTokensResponse>> {
-    let from_token = get_token_identifier(&ctx, &token_id).await?;
-    let mut swappable_tokens: HashSet<TokenIdentifier> = HashSet::new();
-    let graph = ctx.services.token_graph.lock();
-    let edges = graph.edges(token_id.parse::<u32>()?).collect::<Vec<_>>();
-    for edge in edges {
-        // swappable_tokens.insert(get_token_identifier(&ctx, &edge.0.to_string()).await?);
-        // swappable_tokens.insert(get_token_identifier(&ctx, &edge.1.to_string()).await?);
+    let mut token_ids: HashSet<u32> = HashSet::new();
+    {
+        let graph = &ctx.services.token_graph.lock();
+        let edges = graph.edges(token_id.parse::<u32>()?).collect::<Vec<_>>();
+        for edge in edges {
+            token_ids.insert(edge.0);
+            token_ids.insert(edge.1);
+        }
     }
+
+    let mut swappable_tokens = Vec::new();
+    for id in token_ids.into_iter() {
+        let token = get_token_identifier(&ctx, &id.to_string()).await?;
+        swappable_tokens.push(token);
+    }
+
     Ok(Response::new(AllSwappableTokensResponse{
-        from_token,
+        from_token: get_token_identifier(&ctx, &token_id).await?,
         swappable_tokens,
     }))
 }
 
 #[ocean_endpoint]
 async fn list_paths(
-    Path((from_token_id, to_token_id)): Path<(String, String)>,
+    Path((token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<SwapPathsResponse>> {
-    let paths = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
+    let paths = get_all_swap_paths(&ctx, &token_id, &to_token_id).await?;
     Ok(Response::new(paths))
 }
 
