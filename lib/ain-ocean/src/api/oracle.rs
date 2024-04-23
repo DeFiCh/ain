@@ -16,7 +16,7 @@ use super::{
 };
 use crate::{
     error::{ApiError, Error, NotFoundKind},
-    model::{Oracle, OraclePriceFeed},
+    model::{ApiResponseOraclePriceFeed, Oracle},
     repository::RepositoryOps,
     storage::SortOrder,
     Result,
@@ -46,18 +46,21 @@ async fn list_oracles(
     }))
 }
 #[ocean_endpoint]
-async fn get_price_feed(
+async fn get_feed(
     Path((oracle_id, key)): Path<(String, String)>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<OraclePriceFeed>> {
+) -> Result<ApiPagedResponse<ApiResponseOraclePriceFeed>> {
     let txid = Txid::from_str(&oracle_id)?;
     let (token, currency) = split_key(&key);
     let oracle_price_feed = ctx
         .services
         .oracle_price_feed
         .by_key
-        .list(Some((token, currency, txid)), SortOrder::Descending)?
+        .list(
+            Some((token.clone(), currency.clone(), txid)),
+            SortOrder::Descending,
+        )?
         .take(query.size)
         .map(|item| {
             let (_, id) = item?;
@@ -68,7 +71,18 @@ async fn get_price_feed(
                 .get(&id)?
                 .ok_or("Missing price feed index")?;
 
-            Ok(b)
+            Ok(ApiResponseOraclePriceFeed {
+                id: format!("{}-{}-{}", token, currency, b.txid),
+                key: format!("{}-{}", token, currency),
+                sort: b.sort,
+                token: b.token,
+                currency: b.currency,
+                oracle_id: b.oracle_id,
+                txid: b.txid,
+                time: b.time,
+                amount: b.amount.to_string(), // Convert i64 to String
+                block: b.block,
+            })
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(ApiPagedResponse::of(oracle_price_feed, 2, |price_feed| {
@@ -103,7 +117,7 @@ async fn get_oracle_by_address(
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
         .route("/", get(list_oracles))
-        .route("/:oracleId/:key/feed", get(get_price_feed))
+        .route("/:oracleId/:key/feed", get(get_feed))
         .route("/:address", get(get_oracle_by_address))
         .layer(Extension(ctx))
 }
