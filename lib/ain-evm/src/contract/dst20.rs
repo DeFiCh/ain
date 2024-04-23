@@ -32,6 +32,7 @@ pub struct DST20BridgeInfo {
 
 pub fn dst20_deploy_info(
     backend: &EVMBackend,
+    dvm_block: u64,
     address: H160,
     name: &str,
     symbol: &str,
@@ -50,7 +51,7 @@ pub fn dst20_deploy_info(
     let Contract {
         runtime_bytecode, ..
     } = get_dst20_contract();
-    let storage = dst20_name_info(name, symbol);
+    let storage = dst20_name_info(dvm_block, name, symbol);
 
     Ok(DeployContractInfo {
         address,
@@ -243,13 +244,19 @@ pub fn get_dst20_migration_txs(mnview_ptr: usize) -> Result<Vec<ExecuteTx>> {
     Ok(txs)
 }
 
-pub fn dst20_name_info(name: &str, symbol: &str) -> Vec<(H256, H256)> {
+pub fn dst20_name_info(dvm_block: u64, name: &str, symbol: &str) -> Vec<(H256, H256)> {
+    let contract_address = if dvm_block >= ain_cpp_imports::get_df23_height() {
+        get_dst20_v2_contract().fixed_address
+    } else {
+        get_dst20_v1_contract().fixed_address
+    };
+
     vec![
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
         (
             IMPLEMENTATION_SLOT,
-            h160_to_h256(get_dst20_v2_contract().fixed_address),
+            h160_to_h256(contract_address),
         ),
     ]
 }

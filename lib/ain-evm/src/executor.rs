@@ -618,7 +618,7 @@ impl<'backend> AinExecutor<'backend> {
                     address,
                     bytecode,
                     storage,
-                } = dst20_deploy_info(self.backend, address, &name, &symbol)?;
+                } = dst20_deploy_info(self.backend, ctx.dvm_block, address, &name, &symbol)?;
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
@@ -642,7 +642,7 @@ impl<'backend> AinExecutor<'backend> {
                     address, name, symbol
                 );
 
-                let storage = dst20_name_info(&name, &symbol);
+                let storage = dst20_name_info(ctx.dvm_block, &name, &symbol);
 
                 self.update_storage(address, storage)?;
                 let (tx, receipt) = rename_contract_tx(token_id, &base_fee)?;
