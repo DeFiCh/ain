@@ -429,14 +429,24 @@ async fn get_swappable_tokens(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<AllSwappableTokensResponse>> {
     let mut token_ids: HashSet<u32> = HashSet::new();
-    {
-        let graph = &ctx.services.token_graph.lock();
-        let edges = graph.edges(token_id.parse::<u32>()?).collect::<Vec<_>>();
+
+    fn recur(ctx: &Arc<AppContext>, mut token_ids: HashSet<u32>, token_id: u32) -> HashSet<u32> {
+        if token_ids.contains(&token_id) {
+            return token_ids
+        };
+        token_ids.insert(token_id);
+        let graph = ctx.services.token_graph.lock().clone();
+        let edges = graph.edges(token_id).collect::<Vec<_>>();
+        println!("edges: {:?}", edges);
         for edge in edges {
-            token_ids.insert(edge.0);
-            token_ids.insert(edge.1);
+            token_ids = recur(ctx, token_ids.clone(), edge.0);
+            token_ids = recur(ctx, token_ids.clone(), edge.1);
         }
+        token_ids
     }
+
+    token_ids = recur(&ctx, token_ids, token_id.parse::<u32>()?);
+    token_ids.remove(&token_id.parse::<u32>()?);
 
     let mut swappable_tokens = Vec::new();
     for id in token_ids.into_iter() {
