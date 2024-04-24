@@ -104,9 +104,9 @@ pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<Tok
     let (id, token) = get_token_cached(ctx, id).await?;
     Ok(TokenIdentifier{
         id,
-        name: token.name,
-        symbol: token.symbol.clone(),
         display_symbol: parse_dat_symbol(&token.symbol),
+        name: token.name,
+        symbol: token.symbol,
     })
 
 }
@@ -307,8 +307,8 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
     }
 
     Ok(EstimatedLessDexFeeInfo{
-        estimated_return: estimated_return,
-        estimated_return_less_dex_fees: estimated_return_less_dex_fees,
+        estimated_return,
+        estimated_return_less_dex_fees,
     })
 }
 
