@@ -437,7 +437,6 @@ async fn get_swappable_tokens(
         token_ids.insert(token_id);
         let graph = ctx.services.token_graph.lock().clone();
         let edges = graph.edges(token_id).collect::<Vec<_>>();
-        println!("edges: {:?}", edges);
         for edge in edges {
             token_ids = recur(ctx, token_ids.clone(), edge.0);
             token_ids = recur(ctx, token_ids.clone(), edge.1);
