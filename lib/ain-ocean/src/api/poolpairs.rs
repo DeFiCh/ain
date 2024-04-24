@@ -14,7 +14,7 @@ use anyhow::format_err;
 use super::{
     common::{format_number, parse_dat_symbol},
     path::Path,
-    poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, EstimatedLessDexFeeInfo, SwapPathPoolPair},
+    poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair},
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -25,7 +25,7 @@ use crate::{
     model::{BlockContext, PoolSwap},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
-    Error, Result, TokenIdentifier,
+    Result, TokenIdentifier,
 };
 
 // #[derive(Deserialize)]
@@ -428,6 +428,8 @@ async fn get_swappable_tokens(
     Path(token_id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<AllSwappableTokensResponse>> {
+    sync_token_graph_if_empty(&ctx).await?;
+
     let mut token_ids: HashSet<u32> = HashSet::new();
 
     fn recur(ctx: &Arc<AppContext>, mut token_ids: HashSet<u32>, token_id: u32) -> HashSet<u32> {
@@ -539,6 +541,8 @@ async fn get_best_path(
 }
 
 async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<SwapPathsResponse> {
+    sync_token_graph_if_empty(ctx).await?;
+
     if from_token_id == to_token_id {
         return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into())
     }
