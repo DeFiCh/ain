@@ -11,7 +11,7 @@ use bitcoin::Txid;
 
 use super::{
     common::split_key,
-    query::PaginationQuery,
+    query::{self, PaginationQuery},
     response::{ApiPagedResponse, Response},
     AppContext,
 };
@@ -66,10 +66,10 @@ async fn get_feed(
         .by_key
         .list(
             Some((token.clone(), currency.clone(), txid)),
-            SortOrder::Ascending,
+            SortOrder::Descending,
         )?
         .filter_map(|result| result.ok())
-        .filter(|(_, id)| id.0 == token && id.1 == currency && id.2 == txid)
+        .filter(|(_, id)| id.0 == token && id.1 == currency)
         .take(query.size)
         .map(|(_, id)| {
             let b = ctx
@@ -95,9 +95,11 @@ async fn get_feed(
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
 
-    Ok(ApiPagedResponse::of(oracle_price_feed, 5, |price_feed| {
-        price_feed.sort.clone()
-    }))
+    Ok(ApiPagedResponse::of(
+        oracle_price_feed,
+        query.size,
+        |price_feed| price_feed.sort.clone(),
+    ))
 }
 
 #[ocean_endpoint]

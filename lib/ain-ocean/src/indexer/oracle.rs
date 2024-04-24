@@ -64,7 +64,7 @@ impl Index for AppointOracle {
             .oracle_history
             .by_key
             .put(&oracle_history.oracle_id, &oracle_history.id)?;
-        let mut indexed_tokens = HashSet::new();
+
         let prices_feeds = self.price_feeds.as_ref();
         for token_currency in prices_feeds {
             let id = (
@@ -72,9 +72,6 @@ impl Index for AppointOracle {
                 token_currency.currency.clone(),
                 oracle_id,
             );
-            if !indexed_tokens.insert(id.clone()) {
-                continue;
-            }
 
             let oracle_token_currency = OracleTokenCurrency {
                 id,
@@ -136,7 +133,6 @@ impl Index for AppointOracle {
 impl Index for RemoveOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
-        //delete for oracle data from oracle
         services.oracle.by_id.delete(&oracle_id)?;
         let previous_hsitory = get_previous_oracle_history_list(services, oracle_id);
         match previous_hsitory {
@@ -329,7 +325,6 @@ impl Index for UpdateOracle {
             price_feeds: vec![],
             block: ctx.block.clone(),
         };
-        //saving value in oracle_history
         services
             .oracle_history
             .by_key
@@ -406,12 +401,8 @@ impl Index for SetOracleData {
         for feed in feeds {
             pairs.push((feed.token.clone(), feed.currency.clone()));
 
-            if services.oracle_price_feed.by_key.get(&feed.key).is_err() {
-                services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
-            }
-            if services.oracle_price_feed.by_id.get(&feed.id).is_err() {
-                services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
-            }
+            services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
+            services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
         let intervals: Vec<OracleIntervalSeconds> = vec![
             OracleIntervalSeconds::FifteenMinutes,
@@ -610,38 +601,48 @@ pub fn map_price_aggregated(
     }))
 }
 
-pub fn map_price_feeds(
+fn map_price_feeds(
     set_oracle_data: SetOracleData,
     context: &Context,
 ) -> Result<Vec<OraclePriceFeed>> {
-    // Make sure to define or replace YourErrorType with the actual error type you are using
     let mut result: Vec<OraclePriceFeed> = Vec::new();
-    let token_prices = set_oracle_data.token_prices.as_ref(); // Assuming token_prices is accessible directly from set_oracle_data
+
+    let token_prices = set_oracle_data.token_prices.as_ref();
     for token_price in token_prices {
         for token_amount in token_price.prices.as_ref() {
+            let token = token_price.token.clone();
+            let currency = token_amount.currency.clone();
             let id = (
-                token_price.token.clone(),
-                token_amount.currency.clone(),
-                set_oracle_data.oracle_id,
-                context.tx.txid,
+                token.clone(),
+                currency.clone(),
+                set_oracle_data.oracle_id.clone(),
+                context.tx.txid.clone(),
             );
+
+            let key = (
+                token.clone(),
+                currency.clone(),
+                set_oracle_data.oracle_id.clone(),
+            );
+
             let oracle_price_feed = OraclePriceFeed {
-                id,
-                key: (
-                    token_price.token.clone(),
-                    token_amount.currency.clone(),
-                    set_oracle_data.oracle_id,
-                ),
+                id: id.clone(),
+                key,
                 sort: hex::encode(context.block.height.to_string() + &context.tx.txid.to_string()),
                 amount: token_amount.amount,
-                currency: token_amount.currency.clone(),
+                currency: currency.clone(),
                 block: context.block.clone(),
-                oracle_id: set_oracle_data.oracle_id,
+                oracle_id: set_oracle_data.oracle_id.clone(),
                 time: set_oracle_data.timestamp as i32,
-                token: token_price.token.clone(),
-                txid: context.tx.txid,
+                token: token,
+                txid: context.tx.txid.clone(),
             };
-            result.push(oracle_price_feed);
+
+            if (id.0 == oracle_price_feed.token && id.1 == oracle_price_feed.currency) {
+                result.push(oracle_price_feed);
+            } else {
+                eprintln!("Mismatch in token and currency for id: {:?}", id);
+            }
         }
     }
     Ok(result)
