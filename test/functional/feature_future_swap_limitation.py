@@ -244,7 +244,7 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Try and set sample size of zero
         assert_raises_rpc_error(
             -5,
-            "Value must more than zero",
+            "Value must be more than zero",
             self.nodes[0].setgov,
             {
                 "ATTRIBUTES": {
