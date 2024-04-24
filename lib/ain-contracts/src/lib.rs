@@ -57,30 +57,6 @@ fn get_bytecode(input: &str) -> Result<Vec<u8>> {
     hex::decode(&bytecode_raw[2..]).map_err(|e| format_err!(e.to_string()))
 }
 
-pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) -> Result<Vec<u8>> {
-    let name = ethabi::Token::String(name.to_string());
-    let symbol = ethabi::Token::String(symbol.to_string());
-
-    let constructor = ethabi::Constructor {
-        inputs: vec![
-            ethabi::Param {
-                name: String::from("name"),
-                kind: ethabi::ParamType::String,
-                internal_type: None,
-            },
-            ethabi::Param {
-                name: String::from("symbol"),
-                kind: ethabi::ParamType::String,
-                internal_type: None,
-            },
-        ],
-    };
-
-    constructor
-        .encode_input(init_bytecode, &[name, symbol])
-        .map_err(|e| format_err!(e))
-}
-
 pub fn generate_intrinsic_addr(prefix_byte: u8, suffix_num: u64) -> Result<H160> {
     let s = format!("{prefix_byte:x}{suffix_num:0>38x}");
     Ok(H160::from_str(&s)?)
