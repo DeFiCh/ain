@@ -465,8 +465,9 @@ async fn list_paths(
     Path((token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<SwapPathsResponse>> {
-    let paths = get_all_swap_paths(&ctx, &token_id, &to_token_id).await?;
-    Ok(Response::new(paths))
+    let res = get_all_swap_paths(&ctx, &token_id, &to_token_id).await?;
+
+    Ok(Response::new(res))
 }
 
 #[derive(Debug, Serialize)]
@@ -540,7 +541,7 @@ async fn get_best_path(
 
 async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<SwapPathsResponse> {
     if from_token_id == to_token_id {
-        return Err(Error::Other(format_err!("Invalid tokens: fromToken must be different from toToken")))
+        return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into())
     }
 
     let mut res = SwapPathsResponse {
