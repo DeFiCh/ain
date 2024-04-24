@@ -156,7 +156,7 @@ public:
 
     static Res GovVarVerifyPositiveNumber() { return Res::Err("Value must be a positive integer"); }
 
-    static Res GovVarVerifyMoreThanZero() { return Res::Err("Value must more than zero"); }
+    static Res GovVarVerifyMoreThanZero() { return Res::Err("Value must be more than zero"); }
 
     static Res GovVarInvalidNumber() { return Res::Err("Amount must be a valid number"); }
 
