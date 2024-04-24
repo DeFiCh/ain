@@ -1,6 +1,7 @@
 use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
+use anyhow::anyhow;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -45,6 +46,7 @@ async fn list_oracles(
         oracles.id
     }))
 }
+
 #[ocean_endpoint]
 async fn get_feed(
     Path((oracle_id, key)): Path<(String, String)>,
@@ -52,18 +54,24 @@ async fn get_feed(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<ApiResponseOraclePriceFeed>> {
     let txid = Txid::from_str(&oracle_id)?;
-    let (token, currency) = split_key(&key);
+    let (token, currency) = match split_key(&key) {
+        Ok((t, c)) => (t, c),
+        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+    };
+
+    // Retrieve and filter oracle price feeds by key and check that they match the requested token and currency
     let oracle_price_feed = ctx
         .services
         .oracle_price_feed
         .by_key
         .list(
             Some((token.clone(), currency.clone(), txid)),
-            SortOrder::Descending,
+            SortOrder::Ascending,
         )?
+        .filter_map(|result| result.ok())
+        .filter(|(_, id)| id.0 == token && id.1 == currency && id.2 == txid)
         .take(query.size)
-        .map(|item| {
-            let (_, id) = item?;
+        .map(|(_, id)| {
             let b = ctx
                 .services
                 .oracle_price_feed
@@ -72,8 +80,8 @@ async fn get_feed(
                 .ok_or("Missing price feed index")?;
 
             Ok(ApiResponseOraclePriceFeed {
-                id: format!("{}-{}-{}", token, currency, b.txid),
-                key: format!("{}-{}", token, currency),
+                id: format!("{}-{}-{}-{}", token, currency, b.oracle_id, b.txid),
+                key: format!("{}-{}-{}", token, currency, b.oracle_id),
                 sort: b.sort,
                 token: b.token,
                 currency: b.currency,
@@ -84,8 +92,10 @@ async fn get_feed(
                 block: b.block,
             })
         })
-        .collect::<Result<Vec<_>>>()?;
-    Ok(ApiPagedResponse::of(oracle_price_feed, 2, |price_feed| {
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+
+    Ok(ApiPagedResponse::of(oracle_price_feed, 5, |price_feed| {
         price_feed.sort.clone()
     }))
 }

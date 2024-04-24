@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
+use anyhow::anyhow;
 use axum::{
     extract::{Path, Query},
     routing::get,
@@ -57,7 +58,10 @@ async fn get_price(
     Path(key): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<PriceTicker>> {
-    let (token, currency) = split_key(&key);
+    let (token, currency) = match split_key(&key) {
+        Ok((t, c)) => (t, c),
+        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+    };
     let price_ticker_id = (token, currency);
     println!("price {:?}", price_ticker_id);
     if let Some(price_ticker) = ctx.services.price_ticker.by_id.get(&price_ticker_id)? {
@@ -73,7 +77,10 @@ async fn get_feed(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregated>> {
-    let (token, currency) = split_key(&key);
+    let (token, currency) = match split_key(&key) {
+        Ok((t, c)) => (t, c),
+        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+    };
     let price_aggregated_key = (token, currency);
     let aggregated = ctx
         .services
@@ -104,7 +111,10 @@ async fn get_feed_active(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceActive>> {
-    let (token, currency) = split_key(&key);
+    let (token, currency) = match split_key(&key) {
+        Ok((t, c)) => (t, c),
+        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+    };
     let price_active_key = (token, currency);
     let price_active = ctx
         .services
@@ -137,7 +147,10 @@ async fn get_feed_with_interval(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OraclePriceAggregatedInterval>> {
     println!("the value {:?} {:?}", key, interval);
-    let (token, currency) = split_key(&key);
+    let (token, currency) = match split_key(&key) {
+        Ok((t, c)) => (t, c),
+        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+    };
     let interval = match interval.as_str() {
         "900" => OracleIntervalSeconds::FifteenMinutes,
         "3600" => OracleIntervalSeconds::OneHour,
@@ -196,7 +209,10 @@ async fn get_oracles(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<OracleTokenCurrency>> {
-    let (token, currency) = split_key(&key);
+    let (token, currency) = match split_key(&key) {
+        Ok((t, c)) => (t, c),
+        Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
+    };
     let oracle_token_currency_key = (token, currency);
     let items = ctx
         .services

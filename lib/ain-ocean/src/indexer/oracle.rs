@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc, vec};
+use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
 use bitcoin::Txid;
@@ -64,18 +64,25 @@ impl Index for AppointOracle {
             .oracle_history
             .by_key
             .put(&oracle_history.oracle_id, &oracle_history.id)?;
+        let mut indexed_tokens = HashSet::new();
         let prices_feeds = self.price_feeds.as_ref();
         for token_currency in prices_feeds {
+            let id = (
+                token_currency.token.clone(),
+                token_currency.currency.clone(),
+                oracle_id,
+            );
+            if !indexed_tokens.insert(id.clone()) {
+                continue;
+            }
+
             let oracle_token_currency = OracleTokenCurrency {
-                id: (
-                    token_currency.token.to_owned(),
-                    token_currency.currency.to_owned(),
-                    oracle_id,
-                ),
+                id,
                 key: (
                     token_currency.token.to_owned(),
                     token_currency.currency.to_owned(),
                 ),
+
                 token: token_currency.token.to_owned(),
                 currency: token_currency.currency.to_owned(),
                 oracle_id,
@@ -394,12 +401,17 @@ impl Index for SetOracleData {
             timestamp: self.timestamp,
             token_prices: self.token_prices,
         };
-        let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
+        let feeds = map_price_feeds(set_oracle_data, context)?;
         let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
             pairs.push((feed.token.clone(), feed.currency.clone()));
-            services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
-            services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
+
+            if services.oracle_price_feed.by_key.get(&feed.key).is_err() {
+                services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
+            }
+            if services.oracle_price_feed.by_id.get(&feed.id).is_err() {
+                services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
+            }
         }
         let intervals: Vec<OracleIntervalSeconds> = vec![
             OracleIntervalSeconds::FifteenMinutes,
@@ -473,7 +485,7 @@ impl Index for SetOracleData {
             OracleIntervalSeconds::OneHour,
             OracleIntervalSeconds::OneDay,
         ];
-        let feeds = map_price_feeds(vec![&set_oracle_data], vec![context])?;
+        let feeds = map_price_feeds(set_oracle_data, context)?;
         let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
             pairs.push((feed.token.clone(), feed.currency.clone()));
@@ -599,41 +611,37 @@ pub fn map_price_aggregated(
 }
 
 pub fn map_price_feeds(
-    set_oracle_data: Vec<&SetOracleData>,
-    context: Vec<&Context>,
+    set_oracle_data: SetOracleData,
+    context: &Context,
 ) -> Result<Vec<OraclePriceFeed>> {
+    // Make sure to define or replace YourErrorType with the actual error type you are using
     let mut result: Vec<OraclePriceFeed> = Vec::new();
-    for (idx, ctx) in context.into_iter().enumerate() {
-        // Use indexing to access elements in set_oracle_data
-        let set_data = set_oracle_data[idx];
-        let token_prices = set_data.token_prices.as_ref();
-        for token_price in token_prices {
-            for token_amount in token_price.prices.as_ref() {
-                let oracle_price_feed = OraclePriceFeed {
-                    id: (
-                        token_price.token.clone(),
-                        token_amount.currency.clone(),
-                        set_data.oracle_id,
-                        ctx.tx.txid,
-                    ),
-
-                    key: (
-                        token_price.token.clone(),
-                        token_amount.currency.clone(),
-                        set_data.oracle_id,
-                    ),
-                    sort: hex::encode(ctx.block.height.to_string() + &ctx.tx.txid.to_string()),
-                    amount: token_amount.amount,
-                    currency: token_amount.currency.clone(),
-                    block: ctx.block.clone(),
-                    oracle_id: set_data.oracle_id,
-                    time: set_data.timestamp as i32,
-                    token: token_price.token.clone(),
-                    txid: ctx.tx.txid,
-                };
-
-                result.push(oracle_price_feed);
-            }
+    let token_prices = set_oracle_data.token_prices.as_ref(); // Assuming token_prices is accessible directly from set_oracle_data
+    for token_price in token_prices {
+        for token_amount in token_price.prices.as_ref() {
+            let id = (
+                token_price.token.clone(),
+                token_amount.currency.clone(),
+                set_oracle_data.oracle_id,
+                context.tx.txid,
+            );
+            let oracle_price_feed = OraclePriceFeed {
+                id,
+                key: (
+                    token_price.token.clone(),
+                    token_amount.currency.clone(),
+                    set_oracle_data.oracle_id,
+                ),
+                sort: hex::encode(context.block.height.to_string() + &context.tx.txid.to_string()),
+                amount: token_amount.amount,
+                currency: token_amount.currency.clone(),
+                block: context.block.clone(),
+                oracle_id: set_oracle_data.oracle_id,
+                time: set_oracle_data.timestamp as i32,
+                token: token_price.token.clone(),
+                txid: context.tx.txid,
+            };
+            result.push(oracle_price_feed);
         }
     }
     Ok(result)
