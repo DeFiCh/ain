@@ -294,20 +294,13 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
         estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(commission_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
 
         // less dex fee from_token
-        let from_token_estimated_dex_fee = if let Some(from_token_fee_pct) = from_token_fee_pct {
-            from_token_fee_pct.checked_mul(estimated_return_less_dex_fees).ok_or_else(|| format_err!("from_token_fee_pct overflow"))?
-        } else {
-            dec!(0)
-        };
+        let from_token_estimated_dex_fee = from_token_fee_pct.unwrap_or_default().checked_mul(estimated_return_less_dex_fees).ok_or_else(|| format_err!("from_token_fee_pct overflow"))?;
+
         estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(from_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
 
         // convert to to_token
         let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees.checked_mul(price_ratio).ok_or_else(|| format_err!("from_token_estimated_return_less_dex_fee overflow"))?;
-        let to_token_estimated_dex_fee = if let Some(to_token_fee_pct) = to_token_fee_pct {
-            to_token_fee_pct.checked_mul(from_token_estimated_return_less_dex_fee).ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?
-        } else {
-            dec!(0)
-        };
+        let to_token_estimated_dex_fee = to_token_fee_pct.unwrap_or_default().checked_mul(from_token_estimated_return_less_dex_fee).ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?;
 
         // less dex fee to_token
         estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee.checked_sub(to_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
