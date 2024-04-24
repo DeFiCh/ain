@@ -130,7 +130,7 @@ fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: &str, to_token_id: &st
 
     let mut paths: Vec<Vec<u32>> = Vec::new();
     while !stack.is_empty() {
-        let child = stack.last_mut().unwrap().pop();
+        let child = stack.last_mut().and_then(|s| s.pop());
         if let Some(child) = child {
             if visited.has(&child) {
                 continue;
@@ -162,7 +162,7 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
 
     let graph = &ctx.services.token_graph;
 
-    let paths = all_simple_paths(ctx, from_token_id, to_token_id).unwrap();
+    let paths = all_simple_paths(ctx, from_token_id, to_token_id)?;
 
     for path in  paths {
         if path.len() > 4 {
@@ -319,11 +319,11 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
     })
 }
 
-pub async fn sync_token_graph(ctx: &Arc<AppContext>) {
+pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
   let mut interval = tokio::time::interval(Duration::from_secs(120));
 
   loop {
-      let pools = list_pool_pairs_cached(ctx).await.unwrap();
+      let pools = list_pool_pairs_cached(ctx).await?;
 
       // addTokensAndConnectionsToGraph
       for (k, v) in pools.0 {
@@ -334,8 +334,8 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) {
           if ctx.network == "mainnet" && k == "48" {
               continue;
           }
-          let id_token_a = v.id_token_a.parse::<u32>().unwrap();
-          let id_token_b = v.id_token_b.parse::<u32>().unwrap();
+          let id_token_a = v.id_token_a.parse::<u32>()?;
+          let id_token_b = v.id_token_b.parse::<u32>()?;
           let graph = &ctx.services.token_graph;
           if !graph.lock().contains_node(id_token_a) {
               graph.lock().add_node(id_token_a);
