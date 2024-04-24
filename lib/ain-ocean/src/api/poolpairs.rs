@@ -1,4 +1,5 @@
 use std::{collections::HashSet, sync::Arc};
+use petgraph::graphmap::UnGraphMap;
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
@@ -432,21 +433,23 @@ async fn get_swappable_tokens(
 
     let mut token_ids: HashSet<u32> = HashSet::new();
 
-    fn recur(ctx: &Arc<AppContext>, mut token_ids: HashSet<u32>, token_id: u32) -> HashSet<u32> {
+    fn recur(ctx: &Arc<AppContext>, graph: &UnGraphMap<u32, String>, token_ids: &mut HashSet<u32>, token_id: u32) {
         if token_ids.contains(&token_id) {
-            return token_ids
+            return
         };
         token_ids.insert(token_id);
-        let graph = ctx.services.token_graph.lock().clone();
         let edges = graph.edges(token_id).collect::<Vec<_>>();
         for edge in edges {
-            token_ids = recur(ctx, token_ids.clone(), edge.0);
-            token_ids = recur(ctx, token_ids.clone(), edge.1);
+            recur(ctx, graph, token_ids, edge.0);
+            recur(ctx, graph, token_ids, edge.1);
         }
-        token_ids
     }
 
-    token_ids = recur(&ctx, token_ids, token_id.parse::<u32>()?);
+    {
+        let graph = ctx.services.token_graph.lock().clone();
+        recur(&ctx, &graph, &mut token_ids, token_id.parse::<u32>()?);
+    }
+
     token_ids.remove(&token_id.parse::<u32>()?);
 
     let mut swappable_tokens = Vec::new();
