@@ -1,19 +1,21 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
+use petgraph::graphmap::UnGraphMap;
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
-use bitcoin::hex::parse;
 use defichain_rpc::{
     json::poolpair::{PoolPairInfo, PoolPairsResult},
     RpcApi,
 };
-use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use rust_decimal_macros::dec;
+use anyhow::format_err;
 
 use super::{
-    common::{parse_dat_symbol, parse_display_symbol},
+    common::{format_number, parse_dat_symbol},
     path::Path,
+    poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair},
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -24,7 +26,7 @@ use crate::{
     model::{BlockContext, PoolSwap},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
-    Result,
+    Result, TokenIdentifier,
 };
 
 // #[derive(Deserialize)]
@@ -36,17 +38,6 @@ use crate::{
 // struct SwapAggregate {
 //     id: String,
 //     interval: i64,
-// }
-
-// #[derive(Deserialize)]
-// struct SwappableTokens {
-//     token_id: String,
-// }
-
-// #[derive(Deserialize)]
-// struct BestPath {
-//     from_token_id: String,
-//     to_token_id: String,
 // }
 
 // #[derive(Debug, Deserialize)]
@@ -230,9 +221,9 @@ impl PoolPairResponse {
                 reserve: p.reserve_a.to_string(),
                 block_commission: p.block_commission_a.to_string(),
                 fee: p.dex_fee_in_pct_token_a.map(|_| PoolPairFeeResponse {
-                    pct: Some(p.dex_fee_pct_token_a.unwrap().to_string()),
-                    in_pct: Some(p.dex_fee_in_pct_token_a.unwrap().to_string()),
-                    out_pct: Some(p.dex_fee_out_pct_token_a.unwrap().to_string()),
+                    pct: p.dex_fee_pct_token_a.map(|fee| fee.to_string()),
+                    in_pct: p.dex_fee_in_pct_token_a.map(|fee| fee.to_string()),
+                    out_pct: p.dex_fee_out_pct_token_a.map(|fee| fee.to_string()),
                 }),
             },
             token_b: PoolPairTokenResponse {
@@ -243,9 +234,9 @@ impl PoolPairResponse {
                 reserve: p.reserve_b.to_string(),
                 block_commission: p.block_commission_b.to_string(),
                 fee: p.dex_fee_in_pct_token_b.map(|_| PoolPairFeeResponse {
-                    pct: Some(p.dex_fee_pct_token_b.unwrap().to_string()),
-                    in_pct: Some(p.dex_fee_in_pct_token_b.unwrap().to_string()),
-                    out_pct: Some(p.dex_fee_out_pct_token_b.unwrap().to_string()),
+                    pct: p.dex_fee_pct_token_b.map(|fee| fee.to_string()),
+                    in_pct: p.dex_fee_in_pct_token_b.map(|fee| fee.to_string()),
+                    out_pct: p.dex_fee_out_pct_token_b.map(|fee| fee.to_string()),
                 }),
             },
             price_ratio: PoolPairPriceRatioResponse {
@@ -426,36 +417,154 @@ async fn list_pool_swaps_verbose(
 //     )
 // }
 
-// #[ocean_endpoint]
-// async fn get_swappable_tokens(Path(SwappableTokens { token_id }): Path<SwappableTokens>) -> String {
-//     format!("Swappable tokens for token id {}", token_id)
-// }
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AllSwappableTokensResponse {
+    from_token: TokenIdentifier,
+    swappable_tokens: Vec<TokenIdentifier>,
+}
 
-// #[ocean_endpoint]
-// async fn get_best_path(
-//     Query(BestPath {
-//         from_token_id,
-//         to_token_id,
-//     }): Query<BestPath>,
-// ) -> String {
-//     format!(
-//         "Best path from token id {} to {}",
-//         from_token_id, to_token_id
-//     )
-// }
+#[ocean_endpoint]
+async fn get_swappable_tokens(
+    Path(token_id): Path<String>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<AllSwappableTokensResponse>> {
+    sync_token_graph_if_empty(&ctx).await?;
 
-// #[ocean_endpoint]
-// async fn get_all_paths(
-//     Query(BestPath {
-//         from_token_id,
-//         to_token_id,
-//     }): Query<BestPath>,
-// ) -> String {
-//     format!(
-//         "All paths from token id {} to {}",
-//         from_token_id, to_token_id
-//     )
-// }
+    let mut token_ids: HashSet<u32> = HashSet::new();
+
+    fn recur(ctx: &Arc<AppContext>, graph: &UnGraphMap<u32, String>, token_ids: &mut HashSet<u32>, token_id: u32) {
+        if token_ids.contains(&token_id) {
+            return
+        };
+        token_ids.insert(token_id);
+        let edges = graph.edges(token_id).collect::<Vec<_>>();
+        for edge in edges {
+            recur(ctx, graph, token_ids, edge.0);
+            recur(ctx, graph, token_ids, edge.1);
+        }
+    }
+
+    {
+        let graph = ctx.services.token_graph.lock().clone();
+        recur(&ctx, &graph, &mut token_ids, token_id.parse::<u32>()?);
+    }
+
+    token_ids.remove(&token_id.parse::<u32>()?);
+
+    let mut swappable_tokens = Vec::new();
+    for id in token_ids.into_iter() {
+        let token = get_token_identifier(&ctx, &id.to_string()).await?;
+        swappable_tokens.push(token);
+    }
+
+    Ok(Response::new(AllSwappableTokensResponse{
+        from_token: get_token_identifier(&ctx, &token_id).await?,
+        swappable_tokens,
+    }))
+}
+
+#[ocean_endpoint]
+async fn list_paths(
+    Path((token_id, to_token_id)): Path<(String, String)>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<SwapPathsResponse>> {
+    let res = get_all_swap_paths(&ctx, &token_id, &to_token_id).await?;
+
+    Ok(Response::new(res))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapPathsResponse {
+    from_token: TokenIdentifier,
+    to_token: TokenIdentifier,
+    paths: Vec<Vec<SwapPathPoolPair>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BestSwapPathResponse {
+    from_token: TokenIdentifier,
+    to_token: TokenIdentifier,
+    best_path: Vec<SwapPathPoolPair>,
+    estimated_return: String,
+    estimated_return_less_dex_fees: String,
+}
+
+#[ocean_endpoint]
+async fn get_best_path(
+    Path((from_token_id, to_token_id)): Path<(String, String)>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<BestSwapPathResponse>> {
+    let SwapPathsResponse {
+        from_token,
+        to_token,
+        paths,
+    } = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
+
+    let mut best_path= Vec::<SwapPathPoolPair>::new();
+    let mut best_return = dec!(0);
+    let mut best_return_less_dex_fees = dec!(0);
+
+    for path in paths {
+        let path_len = path.len();
+        let EstimatedLessDexFeeInfo {
+            estimated_return,
+            estimated_return_less_dex_fees,
+        } = compute_return_less_dex_fees_in_destination_token(&path, &from_token_id).await?;
+
+        if path_len == 1 {
+            return Ok(Response::new(BestSwapPathResponse{
+                from_token,
+                to_token,
+                best_path: path,
+                estimated_return: format_number(estimated_return),
+                estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
+            }))
+        };
+
+        if estimated_return > best_return {
+            best_return = estimated_return;
+        }
+
+        if estimated_return_less_dex_fees > best_return_less_dex_fees {
+            best_return_less_dex_fees = estimated_return_less_dex_fees;
+            best_path = path;
+        };
+    }
+
+    Ok(Response::new(BestSwapPathResponse{
+        from_token,
+        to_token,
+        best_path,
+        estimated_return: format_number(best_return),
+        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
+    }))
+}
+
+async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<SwapPathsResponse> {
+    sync_token_graph_if_empty(ctx).await?;
+
+    if from_token_id == to_token_id {
+        return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into())
+    }
+
+    let mut res = SwapPathsResponse {
+        from_token: get_token_identifier(ctx, from_token_id).await?,
+        to_token: get_token_identifier(ctx, to_token_id).await?,
+        paths: vec![],
+    };
+
+    if !ctx.services.token_graph.lock().contains_node(from_token_id.parse::<u32>()?)
+        || !ctx.services.token_graph.lock().contains_node(to_token_id.parse::<u32>()?) {
+            return Ok(res)
+        }
+
+    res.paths = compute_paths_between_tokens(ctx, from_token_id, to_token_id).await?;
+
+    Ok(res)
+}
 
 // #[ocean_endpoint]
 // async fn list_dex_prices(Query(DexPrices { denomination }): Query<DexPrices>) -> String {
@@ -468,16 +577,13 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:id", get(get_poolpair))
         .route("/:id/swaps", get(list_pool_swaps))
         .route("/:id/swaps/verbose", get(list_pool_swaps_verbose))
+        .route("/paths/from/:fromTokenId/to/:toTokenId", get(list_paths))
+        .route("/paths/best/from/:fromTokenId/to/:toTokenId", get(get_best_path))
         // .route(
         //     "/:id/swaps/aggregate/:interval",
         //     get(list_pool_swap_aggregates),
         // )
-        // .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
-        // .route(
-        //     "/paths/best/from/:fromTokenId/to/:toTokenId",
-        //     get(get_best_path),
-        // )
-        // .route("/paths/from/:fromTokenId/to/:toTokenId", get(get_all_paths))
+        .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
         // .route("/dexprices", get(list_dex_prices))
         .layer(Extension(ctx))
 }

@@ -11,6 +11,8 @@ mod masternode;
 mod oracle;
 pub mod prices;
 mod poolpairs;
+pub mod poolpairs_path;
+// mod prices;
 // mod rawtx;
 mod cache;
 pub mod common;
@@ -66,6 +68,12 @@ pub async fn ocean_router(
         network: Network::from_str(&network)?,
     });
     println!("{:?}", context.network);
+
+    let context_cloned = context.clone();
+    tokio::spawn(async move {
+        poolpairs_path::sync_token_graph(&context_cloned).await
+    });
+
     Ok(Router::new().nest(
         format!("/v0/{}", context.network).as_str(),
         Router::new()
