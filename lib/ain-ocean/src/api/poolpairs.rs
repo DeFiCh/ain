@@ -266,11 +266,11 @@ impl PoolPairResponse {
 }
 
 #[ocean_endpoint]
-async fn list_poolpairs(
+async fn list_pool_pairs(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PoolPairResponse>> {
-    let poolpairs: PoolPairsResult = ctx.client.call(
+    let pools: PoolPairsResult = ctx.client.call(
         "listpoolpairs",
         &[
             json!({
@@ -282,7 +282,7 @@ async fn list_poolpairs(
         ],
     ).await?;
 
-    let fut = poolpairs
+    let fut = pools
         .0
         .into_iter()
         .filter(|(_, p)| !p.symbol.starts_with("BURN-"))
@@ -295,22 +295,22 @@ async fn list_poolpairs(
 
     let res = try_join_all(fut).await?;
 
-    Ok(ApiPagedResponse::of(res, query.size, |poolpair| {
-        poolpair.id.clone()
+    Ok(ApiPagedResponse::of(res, query.size, |pool| {
+        pool.id.clone()
     }))
 }
 
 #[ocean_endpoint]
-async fn get_poolpair(
+async fn get_pool_pair(
     Path(id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<PoolPairResponse>>> {
-    let mut poolpair: PoolPairsResult = ctx
+    let mut pool: PoolPairsResult = ctx
         .client
         .call("getpoolpair", &[id.as_str().into()])
         .await?;
 
-    let fut = poolpair
+    let fut = pool
         .0
         .remove(&id)
         .map(|p| async {
@@ -586,8 +586,8 @@ async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_to
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
-        .route("/", get(list_poolpairs))
-        .route("/:id", get(get_poolpair))
+        .route("/", get(list_pool_pairs))
+        .route("/:id", get(get_pool_pair))
         .route("/:id/swaps", get(list_pool_swaps))
         .route("/:id/swaps/verbose", get(list_pool_swaps_verbose))
         .route("/paths/from/:fromTokenId/to/:toTokenId", get(list_paths))
