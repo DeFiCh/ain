@@ -254,9 +254,6 @@ pub fn dst20_name_info(dvm_block: u64, name: &str, symbol: &str) -> Vec<(H256, H
     vec![
         (H256::from_low_u64_be(3), get_abi_encoded_string(name)),
         (H256::from_low_u64_be(4), get_abi_encoded_string(symbol)),
-        (
-            IMPLEMENTATION_SLOT,
-            h160_to_h256(contract_address),
-        ),
+        (IMPLEMENTATION_SLOT, h160_to_h256(contract_address)),
     ]
 }
