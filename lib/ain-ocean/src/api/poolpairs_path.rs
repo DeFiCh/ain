@@ -14,7 +14,7 @@ use super::{
 };
 
 use crate::{
-    Result, TokenIdentifier,
+    network::Network, Result, TokenIdentifier,
 };
 
 #[derive(Debug, Serialize)]
@@ -324,7 +324,8 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
           if !v.status {
               continue;
           }
-          if ctx.network == "mainnet" && k == "48" {
+          // skip mainnet BURN-DFI pool
+          if ctx.network == Network::Mainnet && k == "48" {
               continue;
           }
           let id_token_a = v.id_token_a.parse::<u32>()?;
