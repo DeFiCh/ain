@@ -1,7 +1,7 @@
 
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
-use defichain_rpc::json::{poolpair::PoolPairInfo, token::TokenInfo};
+use defichain_rpc::json::poolpair::PoolPairInfo;
 use serde::Serialize;
 use anyhow::format_err;
 use rust_decimal::Decimal;

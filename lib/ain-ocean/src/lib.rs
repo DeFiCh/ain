@@ -2,7 +2,7 @@ pub mod error;
 mod indexer;
 pub mod network;
 
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
 use serde::Serialize;
