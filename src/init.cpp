@@ -671,6 +671,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethmaxresponsesize=<size>", strprintf("Set the maximum response size in MB by the ETH-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchive", strprintf("Enable ocean archive and REST server (default: %b)", DEFAULT_OCEAN_ARCHIVE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-oceanarchiveport=<port>", strprintf("Listen for ocean archive connections on <port> (default: %u)", DEFAULT_OCEAN_ARCHIVE_PORT), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
 
