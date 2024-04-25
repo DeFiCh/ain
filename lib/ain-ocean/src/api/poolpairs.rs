@@ -4,16 +4,18 @@ use petgraph::graphmap::UnGraphMap;
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
-    json::poolpair::{PoolPairInfo, PoolPairsResult},
+    json::{poolpair::{PoolPairInfo, PoolPairsResult}, token::TokenInfo},
     RpcApi,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use rust_decimal_macros::dec;
 use anyhow::format_err;
+use futures::future::try_join_all;
 
 use super::{
     common::{format_number, parse_dat_symbol},
+    cache::get_token_cached,
     path::Path,
     poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair},
     query::{PaginationQuery, Query},
@@ -22,7 +24,7 @@ use super::{
 };
 
 use crate::{
-    error::ApiError,
+    error::{ApiError, Error},
     model::{BlockContext, PoolSwap},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
     storage::SortOrder,
@@ -201,7 +203,7 @@ pub struct PoolPairResponse {
 }
 
 impl PoolPairResponse {
-    pub fn from_with_id(id: String, p: PoolPairInfo) -> Self {
+    pub fn from_with_id(id: String, p: PoolPairInfo, a_token_name: String, b_token_name: String) -> Self {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
         let a_parsed = parse_dat_symbol(a);
@@ -217,7 +219,7 @@ impl PoolPairResponse {
                 symbol: a.to_string(),
                 display_symbol: a_parsed,
                 id: p.id_token_a,
-                name: "".to_string(), // todo: (await this.deFiDCache.getTokenInfo(info.idTokenA) as TokenInfo).name
+                name: a_token_name,
                 reserve: p.reserve_a.to_string(),
                 block_commission: p.block_commission_a.to_string(),
                 fee: p.dex_fee_in_pct_token_a.map(|_| PoolPairFeeResponse {
@@ -230,7 +232,7 @@ impl PoolPairResponse {
                 symbol: b.to_string(),
                 display_symbol: b_parsed,
                 id: p.id_token_b,
-                name: "".to_string(), // todo: (await this.deFiDCache.getTokenInfo(info.idTokenB) as TokenInfo).name
+                name: b_token_name,
                 reserve: p.reserve_b.to_string(),
                 block_commission: p.block_commission_b.to_string(),
                 fee: p.dex_fee_in_pct_token_b.map(|_| PoolPairFeeResponse {
@@ -280,17 +282,18 @@ async fn list_poolpairs(
         ],
     ).await?;
 
-    let res = poolpairs
+    let fut = poolpairs
         .0
         .into_iter()
-        .filter_map(|(k, v)| {
-            if v.symbol.starts_with("BURN-") {
-                None
-            } else {
-                Some(PoolPairResponse::from_with_id(k, v))
-            }
+        .filter(|(_, p)| !p.symbol.starts_with("BURN-"))
+        .map(|(id, p)| async {
+            let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &p.id_token_a).await?;
+            let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &p.id_token_b).await?;
+            Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(id, p, a_token_name, b_token_name))
         })
         .collect::<Vec<_>>();
+
+    let res = try_join_all(fut).await?;
 
     Ok(ApiPagedResponse::of(res, query.size, |poolpair| {
         poolpair.id.clone()
@@ -307,10 +310,20 @@ async fn get_poolpair(
         .call("getpoolpair", &[id.as_str().into()])
         .await?;
 
-    let res = poolpair
+    let fut = poolpair
         .0
         .remove(&id)
-        .map(|poolpair| PoolPairResponse::from_with_id(id, poolpair));
+        .map(|p| async {
+            let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &p.id_token_a).await?;
+            let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &p.id_token_b).await?;
+            Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(id, p, a_token_name, b_token_name))
+        });
+
+    let res = if let Some(fut) = fut {
+        fut.await.ok()
+    } else {
+        None
+    };
 
     Ok(Response::new(res))
 }
