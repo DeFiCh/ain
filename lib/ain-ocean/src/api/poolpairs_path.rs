@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use super::{
-    cache::{get_pool_pair_info_cached, get_token_cached, list_pool_pairs_cached},
+    cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
     common::{format_number, parse_dat_symbol},
     AppContext,
 };
@@ -187,7 +187,7 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
                 })?
                 .to_string();
 
-            let (_, pool_pair_info) = get_pool_pair_info_cached(ctx, pool_pair_id.clone()).await?;
+            let (_, pool_pair_info) = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?;
 
             let PoolPairInfo{
                 symbol,
