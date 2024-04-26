@@ -2,10 +2,10 @@ pub mod error;
 mod indexer;
 pub mod network;
 
-use std::{path::PathBuf, sync::Arc};
 use parking_lot::Mutex;
 use petgraph::graphmap::UnGraphMap;
 use serde::Serialize;
+use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
 use error::Error;

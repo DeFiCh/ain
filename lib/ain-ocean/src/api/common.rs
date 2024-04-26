@@ -39,7 +39,6 @@ pub fn format_number(v: Decimal) -> String {
     }
 }
 
-
 /// Finds the balance of a specified token symbol within a list of token strings.
 ///
 /// This function iterates through a vector of token strings, where each string

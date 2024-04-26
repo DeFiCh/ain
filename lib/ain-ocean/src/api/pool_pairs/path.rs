@@ -1,11 +1,10 @@
-
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
-use defichain_rpc::json::poolpair::PoolPairInfo;
-use serde::Serialize;
 use anyhow::format_err;
+use defichain_rpc::json::poolpair::PoolPairInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use serde::Serialize;
 
 use super::AppContext;
 
@@ -14,7 +13,8 @@ use crate::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
         common::{format_number, parse_dat_symbol},
     },
-    network::Network, Result, TokenIdentifier,
+    network::Network,
+    Result, TokenIdentifier,
 };
 
 #[derive(Debug, Serialize)]
@@ -94,7 +94,7 @@ impl StackSet {
         if !is_cycle {
             set.push(value);
         } else {
-           set.stack.push(value);
+            set.stack.push(value);
         }
         set
     }
@@ -102,30 +102,36 @@ impl StackSet {
 
 pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
     let (id, token) = get_token_cached(ctx, id).await?;
-    Ok(TokenIdentifier{
+    Ok(TokenIdentifier {
         id,
         display_symbol: parse_dat_symbol(&token.symbol),
         name: token.name,
         symbol: token.symbol,
     })
-
 }
 
-fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: &str, to_token_id: &str) -> Result<Vec<Vec<u32>>> {
+fn all_simple_paths(
+    ctx: &Arc<AppContext>,
+    from_token_id: &str,
+    to_token_id: &str,
+) -> Result<Vec<Vec<u32>>> {
     let from_token_id = from_token_id.parse::<u32>()?;
     let to_token_id = to_token_id.parse::<u32>()?;
 
     let graph = &ctx.services.token_graph;
     if !graph.lock().contains_node(from_token_id) {
-        return Err(format_err!("from_token_id not found: {:?}", from_token_id).into())
+        return Err(format_err!("from_token_id not found: {:?}", from_token_id).into());
     }
     if !graph.lock().contains_node(to_token_id) {
-        return Err(format_err!("to_token_id not found: {:?}", to_token_id).into())
+        return Err(format_err!("to_token_id not found: {:?}", to_token_id).into());
     }
 
     let is_cycle = from_token_id == to_token_id;
 
-    let mut stack = vec![graph.lock().neighbors_directed(from_token_id, petgraph::Direction::Outgoing).collect::<Vec<_>>()];
+    let mut stack = vec![graph
+        .lock()
+        .neighbors_directed(from_token_id, petgraph::Direction::Outgoing)
+        .collect::<Vec<_>>()];
     let mut visited = StackSet::of(from_token_id, is_cycle);
 
     let mut paths: Vec<Vec<u32>> = Vec::new();
@@ -144,7 +150,12 @@ fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: &str, to_token_id: &st
             }
             visited.push(child);
             if !visited.has(&to_token_id) {
-                stack.push(graph.lock().neighbors_directed(child, petgraph::Direction::Outgoing).collect::<Vec<_>>())
+                stack.push(
+                    graph
+                        .lock()
+                        .neighbors_directed(child, petgraph::Direction::Outgoing)
+                        .collect::<Vec<_>>(),
+                )
             } else {
                 visited.pop();
             }
@@ -157,14 +168,18 @@ fn all_simple_paths(ctx: &Arc<AppContext>, from_token_id: &str, to_token_id: &st
     Ok(paths)
 }
 
-pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<Vec<Vec<SwapPathPoolPair>>> {
+pub async fn compute_paths_between_tokens(
+    ctx: &Arc<AppContext>,
+    from_token_id: &String,
+    to_token_id: &String,
+) -> Result<Vec<Vec<SwapPathPoolPair>>> {
     let mut pool_pair_paths = Vec::new();
 
     let graph = &ctx.services.token_graph;
 
     let paths = all_simple_paths(ctx, from_token_id, to_token_id)?;
 
-    for path in  paths {
+    for path in paths {
         if path.len() > 4 {
             continue;
         }
@@ -189,7 +204,7 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
 
             let (_, pool_pair_info) = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?;
 
-            let PoolPairInfo{
+            let PoolPairInfo {
                 symbol,
                 id_token_a,
                 id_token_b,
@@ -215,8 +230,18 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
                 "in"
             };
 
-            let estimated_dex_fees_in_pct = if let (Some(dex_fee_in_pct_token_a), Some(dex_fee_out_pct_token_a), Some(dex_fee_in_pct_token_b), Some(dex_fee_out_pct_token_b)) = (dex_fee_in_pct_token_a, dex_fee_out_pct_token_a, dex_fee_in_pct_token_b, dex_fee_out_pct_token_b) {
-                Some(EstimatedDexFeesInPct{
+            let estimated_dex_fees_in_pct = if let (
+                Some(dex_fee_in_pct_token_a),
+                Some(dex_fee_out_pct_token_a),
+                Some(dex_fee_in_pct_token_b),
+                Some(dex_fee_out_pct_token_b),
+            ) = (
+                dex_fee_in_pct_token_a,
+                dex_fee_out_pct_token_a,
+                dex_fee_in_pct_token_b,
+                dex_fee_out_pct_token_b,
+            ) {
+                Some(EstimatedDexFeesInPct {
                     ba: if token_a_direction == "in" {
                         format!("{:.8}", dex_fee_in_pct_token_a)
                     } else {
@@ -238,10 +263,20 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
                 token_a: get_token_identifier(ctx, &id_token_a).await?,
                 token_b: get_token_identifier(ctx, &id_token_b).await?,
                 price_ratio: PriceRatio {
-                    ab: format_number(Decimal::from_f64_retain(ab).ok_or_else(|| format_err!("Unable to convert f64 {ab} to Decimal"))?),
-                    ba: format_number(Decimal::from_f64_retain(ba).ok_or_else(|| format_err!("Unable to convert f64 {ba} to Decimal"))?),
+                    ab: format_number(
+                        Decimal::from_f64_retain(ab)
+                            .ok_or_else(|| format_err!("Unable to convert f64 {ab} to Decimal"))?,
+                    ),
+                    ba: format_number(
+                        Decimal::from_f64_retain(ba)
+                            .ok_or_else(|| format_err!("Unable to convert f64 {ba} to Decimal"))?,
+                    ),
                 },
-                commission_fee_in_pct: format_number(Decimal::from_f64_retain(commission).ok_or_else(|| format_err!("Unable to convert f64 {commission} to Decimal"))?),
+                commission_fee_in_pct: format_number(
+                    Decimal::from_f64_retain(commission).ok_or_else(|| {
+                        format_err!("Unable to convert f64 {commission} to Decimal")
+                    })?,
+                ),
                 estimated_dex_fees_in_pct,
             };
 
@@ -254,9 +289,12 @@ pub async fn compute_paths_between_tokens(ctx: &Arc<AppContext>, from_token_id: 
     Ok(pool_pair_paths)
 }
 
-pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPathPoolPair>, from_token_id: &String) -> Result<EstimatedLessDexFeeInfo> {
+pub async fn compute_return_less_dex_fees_in_destination_token(
+    path: &Vec<SwapPathPoolPair>,
+    from_token_id: &String,
+) -> Result<EstimatedLessDexFeeInfo> {
     let mut estimated_return_less_dex_fees = dec!(1);
-    let mut estimated_return= dec!(1);
+    let mut estimated_return = dec!(1);
 
     let mut from_token_id = from_token_id.to_owned();
     let mut price_ratio;
@@ -266,90 +304,117 @@ pub async fn compute_return_less_dex_fees_in_destination_token(path: &Vec<SwapPa
     for pool in path {
         if from_token_id == pool.token_a.id {
             from_token_id = pool.token_b.id.to_owned();
-            price_ratio = Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
-            (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
-                let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str()).map_err(|e| format_err!(e))?;
-                let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str()).map_err(|e| format_err!(e))?;
-                (Some(ba), Some(ab))
-            } else {
-                (None, None)
-            };
+            price_ratio =
+                Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
+            (from_token_fee_pct, to_token_fee_pct) =
+                if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
+                    let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())
+                        .map_err(|e| format_err!(e))?;
+                    let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str())
+                        .map_err(|e| format_err!(e))?;
+                    (Some(ba), Some(ab))
+                } else {
+                    (None, None)
+                };
         } else {
             from_token_id = pool.token_a.id.to_owned();
-            price_ratio = Decimal::from_str(pool.price_ratio.ab.as_str()).map_err(|e| format_err!(e))?;
-            (from_token_fee_pct, to_token_fee_pct) = if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
-                let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str()).map_err(|e| format_err!(e))?;
-                let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str()).map_err(|e| format_err!(e))?;
-                (Some(ab), Some(ba))
-            } else {
-                (None, None)
-            };
+            price_ratio =
+                Decimal::from_str(pool.price_ratio.ab.as_str()).map_err(|e| format_err!(e))?;
+            (from_token_fee_pct, to_token_fee_pct) =
+                if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
+                    let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str())
+                        .map_err(|e| format_err!(e))?;
+                    let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())
+                        .map_err(|e| format_err!(e))?;
+                    (Some(ab), Some(ba))
+                } else {
+                    (None, None)
+                };
         };
 
-        estimated_return = estimated_return.checked_mul(price_ratio).ok_or_else(|| format_err!("estimated_return overflow"))?;
+        estimated_return = estimated_return
+            .checked_mul(price_ratio)
+            .ok_or_else(|| format_err!("estimated_return overflow"))?;
 
         // less commission fee
-        let commission_fee_in_pct = Decimal::from_str(pool.commission_fee_in_pct.as_str()).map_err(|e| format_err!(e))?;
-        let commission_fee = estimated_return_less_dex_fees.checked_mul(commission_fee_in_pct).ok_or_else(|| format_err!("commission_fee overflow"))?;
-        estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(commission_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+        let commission_fee_in_pct =
+            Decimal::from_str(pool.commission_fee_in_pct.as_str()).map_err(|e| format_err!(e))?;
+        let commission_fee = estimated_return_less_dex_fees
+            .checked_mul(commission_fee_in_pct)
+            .ok_or_else(|| format_err!("commission_fee overflow"))?;
+        estimated_return_less_dex_fees = estimated_return_less_dex_fees
+            .checked_sub(commission_fee)
+            .ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
 
         // less dex fee from_token
-        let from_token_estimated_dex_fee = from_token_fee_pct.unwrap_or_default().checked_mul(estimated_return_less_dex_fees).ok_or_else(|| format_err!("from_token_fee_pct overflow"))?;
+        let from_token_estimated_dex_fee = from_token_fee_pct
+            .unwrap_or_default()
+            .checked_mul(estimated_return_less_dex_fees)
+            .ok_or_else(|| format_err!("from_token_fee_pct overflow"))?;
 
-        estimated_return_less_dex_fees = estimated_return_less_dex_fees.checked_sub(from_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+        estimated_return_less_dex_fees = estimated_return_less_dex_fees
+            .checked_sub(from_token_estimated_dex_fee)
+            .ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
 
         // convert to to_token
-        let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees.checked_mul(price_ratio).ok_or_else(|| format_err!("from_token_estimated_return_less_dex_fee overflow"))?;
-        let to_token_estimated_dex_fee = to_token_fee_pct.unwrap_or_default().checked_mul(from_token_estimated_return_less_dex_fee).ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?;
+        let from_token_estimated_return_less_dex_fee = estimated_return_less_dex_fees
+            .checked_mul(price_ratio)
+            .ok_or_else(|| format_err!("from_token_estimated_return_less_dex_fee overflow"))?;
+        let to_token_estimated_dex_fee = to_token_fee_pct
+            .unwrap_or_default()
+            .checked_mul(from_token_estimated_return_less_dex_fee)
+            .ok_or_else(|| format_err!("to_token_estimated_dex_fee overflow"))?;
 
         // less dex fee to_token
-        estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee.checked_sub(to_token_estimated_dex_fee).ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
+        estimated_return_less_dex_fees = from_token_estimated_return_less_dex_fee
+            .checked_sub(to_token_estimated_dex_fee)
+            .ok_or_else(|| format_err!("estimated_return_less_dex_fees underflow"))?;
     }
 
-    Ok(EstimatedLessDexFeeInfo{
+    Ok(EstimatedLessDexFeeInfo {
         estimated_return,
         estimated_return_less_dex_fees,
     })
 }
 
 pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
-  let mut interval = tokio::time::interval(Duration::from_secs(120));
+    let mut interval = tokio::time::interval(Duration::from_secs(120));
 
-  loop {
-      let pools = list_pool_pairs_cached(ctx).await?;
+    loop {
+        let pools = list_pool_pairs_cached(ctx).await?;
 
-      // addTokensAndConnectionsToGraph
-      for (k, v) in pools.0 {
-          // isPoolPairIgnored
-          if !v.status {
-              continue;
-          }
-          // skip mainnet BURN-DFI pool
-          if ctx.network == Network::Mainnet && k == "48" {
-              continue;
-          }
-          let id_token_a = v.id_token_a.parse::<u32>()?;
-          let id_token_b = v.id_token_b.parse::<u32>()?;
-          let graph = &ctx.services.token_graph;
-          if !graph.lock().contains_node(id_token_a) {
-              graph.lock().add_node(id_token_a);
-          }
-          if !graph.lock().contains_node(id_token_b) {
-              graph.lock().add_node(id_token_b);
-          }
-          if !graph.lock().contains_edge(id_token_a, id_token_b) {
-              graph.lock().add_edge(id_token_a, id_token_b, k);
-          }
-      }
+        // addTokensAndConnectionsToGraph
+        for (k, v) in pools.0 {
+            // isPoolPairIgnored
+            if !v.status {
+                continue;
+            }
+            // skip mainnet BURN-DFI pool
+            if ctx.network == Network::Mainnet && k == "48" {
+                continue;
+            }
+            let id_token_a = v.id_token_a.parse::<u32>()?;
+            let id_token_b = v.id_token_b.parse::<u32>()?;
+            let graph = &ctx.services.token_graph;
+            if !graph.lock().contains_node(id_token_a) {
+                graph.lock().add_node(id_token_a);
+            }
+            if !graph.lock().contains_node(id_token_b) {
+                graph.lock().add_node(id_token_b);
+            }
+            if !graph.lock().contains_edge(id_token_a, id_token_b) {
+                graph.lock().add_edge(id_token_a, id_token_b, k);
+            }
+        }
 
-      // wait 120s
-      interval.tick().await;
-  } // end of loop
+        // wait 120s
+        interval.tick().await;
+    } // end of loop
 }
 
 pub async fn sync_token_graph_if_empty(ctx: &Arc<AppContext>) -> Result<()> {
     if ctx.services.token_graph.lock().edge_count() == 0 {
-        return sync_token_graph(ctx).await
+        return sync_token_graph(ctx).await;
     }
     Ok(())
 }

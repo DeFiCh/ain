@@ -1,21 +1,24 @@
-use std::{collections::HashSet, sync::Arc};
 use petgraph::graphmap::UnGraphMap;
+use std::{collections::HashSet, sync::Arc};
 
 use ain_macros::ocean_endpoint;
+use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
-    json::{poolpair::{PoolPairInfo, PoolPairsResult}, token::TokenInfo},
+    json::{
+        poolpair::{PoolPairInfo, PoolPairsResult},
+        token::TokenInfo,
+    },
     RpcApi,
 };
+use futures::future::try_join_all;
+use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use rust_decimal_macros::dec;
-use anyhow::format_err;
-use futures::future::try_join_all;
 
 use super::{
-    common::{format_number, parse_dat_symbol},
     cache::get_token_cached,
+    common::{format_number, parse_dat_symbol},
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -30,10 +33,12 @@ use crate::{
     Result, TokenIdentifier,
 };
 
-pub use path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair};
+pub use path::{
+    compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token,
+    get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair,
+};
 
 pub mod path;
-
 
 // #[derive(Deserialize)]
 // struct PoolPair {
@@ -207,7 +212,12 @@ pub struct PoolPairResponse {
 }
 
 impl PoolPairResponse {
-    pub fn from_with_id(id: String, p: PoolPairInfo, a_token_name: String, b_token_name: String) -> Self {
+    pub fn from_with_id(
+        id: String,
+        p: PoolPairInfo,
+        a_token_name: String,
+        b_token_name: String,
+    ) -> Self {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
         let a_parsed = parse_dat_symbol(a);
@@ -291,9 +301,24 @@ async fn list_pool_pairs(
         .into_iter()
         .filter(|(_, p)| !p.symbol.starts_with("BURN-"))
         .map(|(id, p)| async {
-            let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &p.id_token_a).await?;
-            let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &p.id_token_b).await?;
-            Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(id, p, a_token_name, b_token_name))
+            let (
+                _,
+                TokenInfo {
+                    name: a_token_name, ..
+                },
+            ) = get_token_cached(&ctx, &p.id_token_a).await?;
+            let (
+                _,
+                TokenInfo {
+                    name: b_token_name, ..
+                },
+            ) = get_token_cached(&ctx, &p.id_token_b).await?;
+            Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(
+                id,
+                p,
+                a_token_name,
+                b_token_name,
+            ))
         })
         .collect::<Vec<_>>();
 
@@ -314,14 +339,26 @@ async fn get_pool_pair(
         .call("getpoolpair", &[id.as_str().into()])
         .await?;
 
-    let fut = pool
-        .0
-        .remove(&id)
-        .map(|p| async {
-            let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &p.id_token_a).await?;
-            let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &p.id_token_b).await?;
-            Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(id, p, a_token_name, b_token_name))
-        });
+    let fut = pool.0.remove(&id).map(|p| async {
+        let (
+            _,
+            TokenInfo {
+                name: a_token_name, ..
+            },
+        ) = get_token_cached(&ctx, &p.id_token_a).await?;
+        let (
+            _,
+            TokenInfo {
+                name: b_token_name, ..
+            },
+        ) = get_token_cached(&ctx, &p.id_token_b).await?;
+        Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(
+            id,
+            p,
+            a_token_name,
+            b_token_name,
+        ))
+    });
 
     let res = if let Some(fut) = fut {
         fut.await.ok()
@@ -452,7 +489,7 @@ async fn get_swappable_tokens(
 
     fn recur(graph: &UnGraphMap<u32, String>, token_ids: &mut HashSet<u32>, token_id: u32) {
         if token_ids.contains(&token_id) {
-            return
+            return;
         };
         token_ids.insert(token_id);
         let edges = graph.edges(token_id).collect::<Vec<_>>();
@@ -475,7 +512,7 @@ async fn get_swappable_tokens(
         swappable_tokens.push(token);
     }
 
-    Ok(Response::new(AllSwappableTokensResponse{
+    Ok(Response::new(AllSwappableTokensResponse {
         from_token: get_token_identifier(&ctx, &token_id).await?,
         swappable_tokens,
     }))
@@ -520,7 +557,7 @@ async fn get_best_path(
         paths,
     } = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
 
-    let mut best_path= Vec::<SwapPathPoolPair>::new();
+    let mut best_path = Vec::<SwapPathPoolPair>::new();
     let mut best_return = dec!(0);
     let mut best_return_less_dex_fees = dec!(0);
 
@@ -532,13 +569,13 @@ async fn get_best_path(
         } = compute_return_less_dex_fees_in_destination_token(&path, &from_token_id).await?;
 
         if path_len == 1 {
-            return Ok(Response::new(BestSwapPathResponse{
+            return Ok(Response::new(BestSwapPathResponse {
                 from_token,
                 to_token,
                 best_path: path,
                 estimated_return: format_number(estimated_return),
                 estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
-            }))
+            }));
         };
 
         if estimated_return > best_return {
@@ -551,7 +588,7 @@ async fn get_best_path(
         };
     }
 
-    Ok(Response::new(BestSwapPathResponse{
+    Ok(Response::new(BestSwapPathResponse {
         from_token,
         to_token,
         best_path,
@@ -560,11 +597,15 @@ async fn get_best_path(
     }))
 }
 
-async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<SwapPathsResponse> {
+async fn get_all_swap_paths(
+    ctx: &Arc<AppContext>,
+    from_token_id: &String,
+    to_token_id: &String,
+) -> Result<SwapPathsResponse> {
     sync_token_graph_if_empty(ctx).await?;
 
     if from_token_id == to_token_id {
-        return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into())
+        return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into());
     }
 
     let mut res = SwapPathsResponse {
@@ -573,10 +614,19 @@ async fn get_all_swap_paths(ctx: &Arc<AppContext>, from_token_id: &String, to_to
         paths: vec![],
     };
 
-    if !ctx.services.token_graph.lock().contains_node(from_token_id.parse::<u32>()?)
-        || !ctx.services.token_graph.lock().contains_node(to_token_id.parse::<u32>()?) {
-            return Ok(res)
-        }
+    if !ctx
+        .services
+        .token_graph
+        .lock()
+        .contains_node(from_token_id.parse::<u32>()?)
+        || !ctx
+            .services
+            .token_graph
+            .lock()
+            .contains_node(to_token_id.parse::<u32>()?)
+    {
+        return Ok(res);
+    }
 
     res.paths = compute_paths_between_tokens(ctx, from_token_id, to_token_id).await?;
 
@@ -595,7 +645,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
         .route("/:id/swaps", get(list_pool_swaps))
         .route("/:id/swaps/verbose", get(list_pool_swaps_verbose))
         .route("/paths/from/:fromTokenId/to/:toTokenId", get(list_paths))
-        .route("/paths/best/from/:fromTokenId/to/:toTokenId", get(get_best_path))
+        .route(
+            "/paths/best/from/:fromTokenId/to/:toTokenId",
+            get(get_best_path),
+        )
         // .route(
         //     "/:id/swaps/aggregate/:interval",
         //     get(list_pool_swap_aggregates),

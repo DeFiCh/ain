@@ -5,8 +5,11 @@ use cached::proc_macro::cached;
 use defichain_rpc::{
     defichain_rpc_json::{
         poolpair::{PoolPairInfo, PoolPairsResult},
-        token::TokenInfo
-    }, json::poolpair::PoolPairPagination, PoolPairRPC, TokenRPC};
+        token::TokenInfo,
+    },
+    json::poolpair::PoolPairPagination,
+    PoolPairRPC, TokenRPC,
+};
 
 use super::AppContext;
 use crate::Result;
@@ -33,7 +36,10 @@ pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<(St
     key = "String",
     convert = r#"{ format!("getpoolpair{id}") }"#
 )]
-pub async fn get_pool_pair_cached(ctx: &Arc<AppContext>, id: String) -> Result<(String, PoolPairInfo)> {
+pub async fn get_pool_pair_cached(
+    ctx: &Arc<AppContext>,
+    id: String,
+) -> Result<(String, PoolPairInfo)> {
     let pool_pair = ctx
         .client
         .get_pool_pair(id, Some(true))
@@ -54,7 +60,14 @@ pub async fn get_pool_pair_cached(ctx: &Arc<AppContext>, id: String) -> Result<(
 pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsResult> {
     let pool_pairs = ctx
         .client
-        .list_pool_pairs(Some(PoolPairPagination {start: 0, including_start: true, limit: 1000}), Some(true))
+        .list_pool_pairs(
+            Some(PoolPairPagination {
+                start: 0,
+                including_start: true,
+                limit: 1000,
+            }),
+            Some(true),
+        )
         .await?;
     Ok(pool_pairs)
 }
