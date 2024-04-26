@@ -17,7 +17,6 @@ use super::{
     common::{format_number, parse_dat_symbol},
     cache::get_token_cached,
     path::Path,
-    poolpairs_path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair},
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
     AppContext,
@@ -30,6 +29,11 @@ use crate::{
     storage::SortOrder,
     Result, TokenIdentifier,
 };
+
+pub use path::{compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token, get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair};
+
+pub mod path;
+
 
 // #[derive(Deserialize)]
 // struct PoolPair {

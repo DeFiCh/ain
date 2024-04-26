@@ -10,8 +10,7 @@ mod loan;
 mod masternode;
 mod oracle;
 pub mod prices;
-mod poolpairs;
-pub mod poolpairs_path;
+mod pool_pairs;
 // mod prices;
 // mod rawtx;
 mod cache;
@@ -71,7 +70,7 @@ pub async fn ocean_router(
 
     let context_cloned = context.clone();
     tokio::spawn(async move {
-        poolpairs_path::sync_token_graph(&context_cloned).await
+        pool_pairs::path::sync_token_graph(&context_cloned).await
     });
 
     Ok(Router::new().nest(
@@ -83,7 +82,7 @@ pub async fn ocean_router(
             .nest("/fee", fee::router(Arc::clone(&context)))
             .nest("/masternodes", masternode::router(Arc::clone(&context)))
             .nest("/oracles", oracle::router(Arc::clone(&context)))
-            .nest("/poolpairs", poolpairs::router(Arc::clone(&context)))
+            .nest("/poolpairs", pool_pairs::router(Arc::clone(&context)))
             // .nest("/prices", prices::router(Arc::clone(&context)))
             // .nest("/rawtx", rawtx::router(Arc::clone(&context)))
             .nest("/stats", stats::router(Arc::clone(&context)))
