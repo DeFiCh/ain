@@ -722,7 +722,9 @@ class EVMTokenSplitTest(DefiTestFramework):
         balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
 
         # Call migrateTokens
-        deposit_txn = meta_contract.functions.split(amount_to_send).build_transaction(
+        deposit_txn = meta_contract.functions.upgradeToken(
+            amount_to_send
+        ).build_transaction(
             {
                 "from": self.evm_address,
                 "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
@@ -738,11 +740,11 @@ class EVMTokenSplitTest(DefiTestFramework):
 
         tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
 
-        events = meta_contract.events.SplitResult().process_log(
+        events = meta_contract.events.UpgradeResult().process_log(
             list(tx_receipt["logs"])[0]
         )
 
-        assert_equal(events["event"], "SplitResult")
+        assert_equal(events["event"], "UpgradeResult")
         assert_equal(events["args"]["newTokenContractAddress"], destination_contract)
         assert_equal(events["args"]["newAmount"], amount_to_receive)
 

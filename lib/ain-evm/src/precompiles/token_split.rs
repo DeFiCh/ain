@@ -58,10 +58,10 @@ impl DVMStatePrecompile for TokenSplit {
             });
         };
 
-        let dvm_id = (contract_value - contract_base).low_u64() as u32;
+        let old_token_id = (contract_value - contract_base).low_u64() as u32;
 
         let old_amount = TokenAmount {
-            id: dvm_id,
+            id: old_token_id,
             amount: amount.low_u64(),
         };
         debug!("[TokenSplit] old_amount : {:?}", old_amount);
@@ -74,6 +74,7 @@ impl DVMStatePrecompile for TokenSplit {
             });
         }
 
+
         let Ok(converted_amount) = try_from_satoshi(U256::from(new_amount.amount)) else {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Failed to convert new Sats amount into Wei".into()),
@@ -85,6 +86,22 @@ impl DVMStatePrecompile for TokenSplit {
                 exit_status: ExitError::Other("Error getting DST20 from new_amount.id".into()),
             });
         };
+
+        let output = {
+            let mut bytes = [0u8; 64];
+            bytes[12..32].copy_from_slice(new_contract.as_bytes());
+            converted_amount.0.to_big_endian(&mut bytes[32..]);
+            bytes.to_vec()
+        };
+
+        // No split took place
+        if new_amount.id == old_token_id {
+            return Ok(PrecompileOutput {
+                exit_status: ExitSucceed::Returned,
+                state_changes: None,
+                output
+            })
+        }
 
         let Ok(storage) = get_new_contract_storage_update(
             handle,
@@ -120,14 +137,6 @@ impl DVMStatePrecompile for TokenSplit {
             storage,
             reset_storage: false,
         };
-
-        let output = {
-            let mut bytes = [0u8; 64];
-            bytes[12..32].copy_from_slice(new_contract.as_bytes());
-            converted_amount.0.to_big_endian(&mut bytes[32..]);
-            bytes
-        }
-        .to_vec();
 
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,

@@ -148,7 +148,7 @@ interface IERC20Metadata is IERC20 {
 
 // OpenZeppelin Contracts (last updated v4.9.0) (token/ERC20/ERC20.sol)
 
-import "./ITokenSplit.sol";
+import "./IDST20Upgradeable.sol";
 pragma solidity ^0.8.0;
 
 /**
@@ -180,7 +180,7 @@ pragma solidity ^0.8.0;
  * allowances. See {IERC20-approve}.
  */
 
-contract ERC20 is Context, IERC20, IERC20Metadata, ITokenSplit {
+contract ERC20 is Context, IERC20, IERC20Metadata, IDST20Upgradeable {
     mapping(address => uint256) private _balances;
 
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -558,7 +558,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata, ITokenSplit {
         uint256 amount
     ) internal virtual {}
 
-    function split(
+    function upgradeToken(
         uint256 amount
     ) public virtual override returns (address, uint256) {
         address precompileAddress = address(0x0a);
@@ -584,9 +584,12 @@ contract ERC20 is Context, IERC20, IERC20Metadata, ITokenSplit {
             (address, uint256)
         );
 
-        emit SplitResult(newTokenContractAddress, newAmount);
+        emit UpgradeResult(newTokenContractAddress, newAmount);
 
-        IERC20(newTokenContractAddress).transfer(msg.sender, newAmount);
+        // Upgrade available
+        if (newAmount != amount) {
+            IERC20(newTokenContractAddress).transfer(msg.sender, newAmount);
+        }
 
         return (newTokenContractAddress, newAmount);
     }
