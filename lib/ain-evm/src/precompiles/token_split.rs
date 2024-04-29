@@ -74,7 +74,6 @@ impl DVMStatePrecompile for TokenSplit {
             });
         }
 
-
         let Ok(converted_amount) = try_from_satoshi(U256::from(new_amount.amount)) else {
             return Err(PrecompileFailure::Error {
                 exit_status: ExitError::Other("Failed to convert new Sats amount into Wei".into()),
@@ -99,8 +98,8 @@ impl DVMStatePrecompile for TokenSplit {
             return Ok(PrecompileOutput {
                 exit_status: ExitSucceed::Returned,
                 state_changes: None,
-                output
-            })
+                output,
+            });
         }
 
         let Ok(storage) = get_new_contract_storage_update(
