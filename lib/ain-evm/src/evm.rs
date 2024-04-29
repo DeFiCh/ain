@@ -1,9 +1,9 @@
 use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
-    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract,
-    get_dfi_intrinsics_v2_contract, get_dst20_v1_contract, get_transfer_domain_contract,
-    get_transfer_domain_v1_contract,
+    get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
+    get_dst20_v2_contract, get_transfer_domain_contract, get_transfer_domain_v1_contract,
+    IMPLEMENTATION_SLOT,
 };
 use ain_cpp_imports::{get_df23_height, Attributes};
 use anyhow::format_err;
@@ -17,8 +17,11 @@ use crate::{
     blocktemplate::{BlockData, BlockTemplate, ReceiptAndOptionalContractAddress, TemplateTxItem},
     contract::{
         deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
-        dfi_intrinsics_v2_deploy_info, dst20_v1_deploy_info, get_dst20_migration_txs,
-        reserve_dst20_namespace, reserve_intrinsics_namespace, transfer_domain_deploy_info,
+        dst20::{
+            dst20_v1_deploy_info, dst20_v2_deploy_info, get_dst20_migration_txs,
+            reserve_dst20_namespace,
+        },
+        h160_to_h256, reserve_intrinsics_namespace, transfer_domain_deploy_info,
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
@@ -450,38 +453,31 @@ impl EVMServices {
         }
 
         if is_df23_fork {
-            // Deploy DFIIntrinsicsRegistry contract
-            let DeployContractInfo {
-                address, storage, ..
-            } = dfi_intrinsics_registry_deploy_info(vec![
-                get_dfi_intrinsics_v1_contract().fixed_address,
-                get_dfi_intrinsics_v2_contract().fixed_address,
-            ]);
-
-            executor.update_storage(address, storage)?;
-
-            // Deploy DFIIntrinsicsV2 contract
+            // Deploy token split contract
             let DeployContractInfo {
                 address,
                 storage,
                 bytecode,
-            } = dfi_intrinsics_v2_deploy_info(
-                get_dfi_instrinics_registry_contract().fixed_address,
-            )?;
+            } = dst20_v2_deploy_info();
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
 
-            // DFIIntrinsicsV2 contract deployment TX
-            let (tx, receipt) = deploy_contract_tx(
-                get_dfi_intrinsics_v2_contract().contract.init_bytecode,
-                &base_fee,
-            )?;
+            let (tx, receipt) =
+                deploy_contract_tx(get_dst20_v2_contract().contract.init_bytecode, &base_fee)?;
             template.transactions.push(TemplateTxItem::new_system_tx(
                 Box::new(tx),
                 (receipt, Some(address)),
                 logs_bloom,
             ));
+
+            // Point proxy to DST20_v2
+            let storage = vec![(
+                IMPLEMENTATION_SLOT,
+                h160_to_h256(get_dst20_v2_contract().fixed_address),
+            )];
+
+            executor.update_storage(address, storage)?;
         }
 
         template.backend.increase_tx_count();

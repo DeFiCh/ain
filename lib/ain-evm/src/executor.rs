@@ -16,9 +16,12 @@ use crate::{
     blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
-        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
-        dst20_deploy_info, dst20_name_info, rename_contract_tx, DST20BridgeInfo,
-        DeployContractInfo,
+        bridge_dfi,
+        dst20::{
+            bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
+            dst20_deploy_info, dst20_name_info, DST20BridgeInfo,
+        },
+        rename_contract_tx, DeployContractInfo,
     },
     core::EVMCoreService,
     eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
@@ -615,7 +618,7 @@ impl<'backend> AinExecutor<'backend> {
                     address,
                     bytecode,
                     storage,
-                } = dst20_deploy_info(self.backend, address, &name, &symbol)?;
+                } = dst20_deploy_info(self.backend, ctx.dvm_block, address, &name, &symbol)?;
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
@@ -639,7 +642,7 @@ impl<'backend> AinExecutor<'backend> {
                     address, name, symbol
                 );
 
-                let storage = dst20_name_info(&name, &symbol);
+                let storage = dst20_name_info(ctx.dvm_block, &name, &symbol);
 
                 self.update_storage(address, storage)?;
                 let (tx, receipt) = rename_contract_tx(token_id, &base_fee)?;
