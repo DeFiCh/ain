@@ -533,6 +533,10 @@ class EVMTokenSplitTest(DefiTestFramework):
             + (amount * decimal_multiplier),
         )
 
+        self.execute_split_transaction_at_highest_level(
+            self.contract_address_metav2, amount
+        )
+
     def intrinsic_token_merge(self, amount, split_multiplier):
 
         # Rollback
@@ -721,7 +725,7 @@ class EVMTokenSplitTest(DefiTestFramework):
         totalSupplyBefore = meta_contract.functions.totalSupply().call()
         balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
 
-        # Call migrateTokens
+        # Call upgradeToken
         deposit_txn = meta_contract.functions.upgradeToken(
             amount_to_send
         ).build_transaction(
@@ -780,6 +784,40 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
 
         return amount_to_receive
+
+    def execute_split_transaction_at_highest_level(self, source_contract, amount=20):
+        meta_contract = self.nodes[0].w3.eth.contract(
+            address=source_contract, abi=self.dst20_v2_abi
+        )
+
+        amount_to_send = Web3.to_wei(amount, "ether")
+
+        # Check that new contract split does not work
+        deposit_txn = meta_contract.functions.upgradeToken(
+            amount_to_send
+        ).build_transaction(
+            {
+                "from": self.evm_address,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
+            }
+        )
+
+        # Sign the transaction
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            deposit_txn, self.evm_privkey
+        )
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
+
+        events = meta_contract.events.UpgradeResult().process_log(
+            list(tx_receipt["logs"])[0]
+        )
+
+        assert_equal(events["event"], "UpgradeResult")
+        assert_equal(events["args"]["newTokenContractAddress"], source_contract)
+        assert_equal(events["args"]["newAmount"], amount_to_send)
 
 
 if __name__ == "__main__":
