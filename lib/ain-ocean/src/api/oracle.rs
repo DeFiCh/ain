@@ -69,7 +69,7 @@ async fn get_feed(
             SortOrder::Descending,
         )?
         .filter_map(|result| result.ok())
-        .filter(|(_, id)| id.0 == token && id.1 == currency)
+        .filter(|feed| feed.0 .0 == token && feed.0 .1 == currency)
         .take(query.size)
         .map(|(_, id)| {
             let b = ctx

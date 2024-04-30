@@ -396,11 +396,11 @@ impl Index for SetOracleData {
             timestamp: self.timestamp,
             token_prices: self.token_prices,
         };
-        let feeds = map_price_feeds(set_oracle_data, context)?;
-        let mut pairs: Vec<(String, String)> = Vec::new();
-        for feed in feeds {
-            pairs.push((feed.token.clone(), feed.currency.clone()));
 
+        let feeds = map_price_feeds(&set_oracle_data, context)?;
+        let mut pairs: Vec<(String, String)> = Vec::new();
+        for feed in &feeds {
+            pairs.push((feed.token.clone(), feed.currency.clone()));
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
             services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
@@ -476,7 +476,7 @@ impl Index for SetOracleData {
             OracleIntervalSeconds::OneHour,
             OracleIntervalSeconds::OneDay,
         ];
-        let feeds = map_price_feeds(set_oracle_data, context)?;
+        let feeds = map_price_feeds(&set_oracle_data, context)?;
         let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
             pairs.push((feed.token.clone(), feed.currency.clone()));
@@ -513,8 +513,8 @@ pub fn map_price_aggregated(
     token: &str,
     currency: &str,
 ) -> Result<Option<OraclePriceAggregated>> {
-    let key = (token.to_string(), currency.to_string());
-    let oracle_token_currency = services
+    let key: (String, String) = (token.to_string(), currency.to_string());
+    let oracle_entries = services
         .oracle_token_currency
         .by_key
         .list(Some(key), SortOrder::Descending)?
@@ -530,7 +530,10 @@ pub fn map_price_aggregated(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let result = oracle_token_currency;
+    if oracle_entries.is_empty() {
+        return Ok(None);
+    }
+
     let mut aggregated = OraclePriceAggregatedAggregated {
         amount: "0".to_string(),
         weightage: 0,
@@ -540,28 +543,18 @@ pub fn map_price_aggregated(
         },
     };
 
-    for oracle in result {
-        if oracle.weightage == 0 {
+    for oracle in oracle_entries {
+        if oracle.weightage == 0 || (ctx.block.time as i64 - oracle.block.time as i64) > 3600 {
             continue;
         }
 
         let key = (token.to_string(), currency.to_string(), oracle.oracle_id);
-        let feed_id = services.oracle_price_feed.by_key.get(&key);
-
-        let feeds = match feed_id {
-            Ok(feed_ids) => {
-                feed_ids.map_or_else(|| Ok(None), |id| services.oracle_price_feed.by_id.get(&id))
-            }
-            Err(err) => {
-                println!("the err {:?}", err);
-                Err(err)
-            }
+        let feed_id = match services.oracle_price_feed.by_key.get(&key)? {
+            Some(id) => id,
+            None => return Ok(None), // Early return if no ID is found
         };
 
-        let oracle_price_feed: Option<OraclePriceFeed> = match feeds {
-            Ok(Some(feed)) => Some(feed),
-            _ => None,
-        };
+        let oracle_price_feed = services.oracle_price_feed.by_id.get(&feed_id)?;
 
         if oracle_price_feed.is_none() {
             continue;
@@ -602,7 +595,7 @@ pub fn map_price_aggregated(
 }
 
 fn map_price_feeds(
-    set_oracle_data: SetOracleData,
+    set_oracle_data: &SetOracleData,
     context: &Context,
 ) -> Result<Vec<OraclePriceFeed>> {
     let mut result: Vec<OraclePriceFeed> = Vec::new();
@@ -637,12 +630,7 @@ fn map_price_feeds(
                 token: token,
                 txid: context.tx.txid.clone(),
             };
-
-            if (id.0 == oracle_price_feed.token && id.1 == oracle_price_feed.currency) {
-                result.push(oracle_price_feed);
-            } else {
-                eprintln!("Mismatch in token and currency for id: {:?}", id);
-            }
+            result.push(oracle_price_feed);
         }
     }
     Ok(result)
