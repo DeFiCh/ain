@@ -2,7 +2,6 @@ use petgraph::graphmap::UnGraphMap;
 use std::{collections::HashSet, sync::Arc};
 
 use ain_macros::ocean_endpoint;
-use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
 use defichain_rpc::{
     json::{
@@ -12,12 +11,13 @@ use defichain_rpc::{
     RpcApi,
 };
 use futures::future::try_join_all;
+use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{
-    cache::get_token_cached,
+    cache::{get_token_cached, get_pool_pair_cached},
     common::{format_number, parse_dat_symbol},
     path::Path,
     query::{PaginationQuery, Query},
@@ -33,12 +33,15 @@ use crate::{
     Result, TokenIdentifier,
 };
 
-pub use path::{
-    compute_paths_between_tokens, compute_return_less_dex_fees_in_destination_token,
-    get_token_identifier, sync_token_graph_if_empty, EstimatedLessDexFeeInfo, SwapPathPoolPair,
+use path::{
+    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths,
+    get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair, SwapPathsResponse,
 };
 
+use service::get_total_liquidity_usd;
+
 pub mod path;
+pub mod service;
 
 // #[derive(Deserialize)]
 // struct PoolPair {
@@ -166,7 +169,7 @@ struct PoolPairPriceRatioResponse {
 #[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairTotalLiquidityResponse {
     token: Option<String>,
-    usd: Option<String>,
+    usd: Option<Decimal>,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -217,6 +220,7 @@ impl PoolPairResponse {
         p: PoolPairInfo,
         a_token_name: String,
         b_token_name: String,
+        total_liquidity_usd: Decimal,
     ) -> Self {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
@@ -262,7 +266,7 @@ impl PoolPairResponse {
             commission: p.commission.to_string(),
             total_liquidity: PoolPairTotalLiquidityResponse {
                 token: Some(p.total_liquidity.to_string()),
-                usd: None, // todo: await this.poolPairService.getTotalLiquidityUsd(info)
+                usd: Some(total_liquidity_usd),
             },
             trade_enabled: p.trade_enabled,
             owner_address: p.owner_address,
@@ -306,18 +310,22 @@ async fn list_pool_pairs(
                 TokenInfo {
                     name: a_token_name, ..
                 },
-            ) = get_token_cached(&ctx, &p.id_token_a).await?;
+            ) = get_token_cached(&ctx, &p.id_token_a).await?.unwrap();
             let (
                 _,
                 TokenInfo {
                     name: b_token_name, ..
                 },
-            ) = get_token_cached(&ctx, &p.id_token_b).await?;
+            ) = get_token_cached(&ctx, &p.id_token_b).await?.unwrap();
+
+            let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
+
             Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(
                 id,
                 p,
                 a_token_name,
                 b_token_name,
+                total_liquidity_usd,
             ))
         })
         .collect::<Vec<_>>();
@@ -334,39 +342,15 @@ async fn get_pool_pair(
     Path(id): Path<String>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<Option<PoolPairResponse>>> {
-    let mut pool: PoolPairsResult = ctx
-        .client
-        .call("getpoolpair", &[id.as_str().into()])
-        .await?;
-
-    let fut = pool.0.remove(&id).map(|p| async {
-        let (
-            _,
-            TokenInfo {
-                name: a_token_name, ..
-            },
-        ) = get_token_cached(&ctx, &p.id_token_a).await?;
-        let (
-            _,
-            TokenInfo {
-                name: b_token_name, ..
-            },
-        ) = get_token_cached(&ctx, &p.id_token_b).await?;
-        Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(
-            id,
-            p,
-            a_token_name,
-            b_token_name,
-        ))
-    });
-
-    let res = if let Some(fut) = fut {
-        fut.await.ok()
-    } else {
-        None
+    if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
+        let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
+        let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &pool.id_token_a).await?.unwrap();
+        let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &pool.id_token_b).await?.unwrap();
+        let res = PoolPairResponse::from_with_id(id, pool, a_token_name, b_token_name, total_liquidity_usd);
+        return Ok(Response::new(Some(res)))
     };
 
-    Ok(Response::new(res))
+    Ok(Response::new(None))
 }
 
 #[ocean_endpoint]
@@ -528,24 +512,6 @@ async fn list_paths(
     Ok(Response::new(res))
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SwapPathsResponse {
-    from_token: TokenIdentifier,
-    to_token: TokenIdentifier,
-    paths: Vec<Vec<SwapPathPoolPair>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BestSwapPathResponse {
-    from_token: TokenIdentifier,
-    to_token: TokenIdentifier,
-    best_path: Vec<SwapPathPoolPair>,
-    estimated_return: String,
-    estimated_return_less_dex_fees: String,
-}
-
 #[ocean_endpoint]
 async fn get_best_path(
     Path((from_token_id, to_token_id)): Path<(String, String)>,
@@ -595,42 +561,6 @@ async fn get_best_path(
         estimated_return: format_number(best_return),
         estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
     }))
-}
-
-async fn get_all_swap_paths(
-    ctx: &Arc<AppContext>,
-    from_token_id: &String,
-    to_token_id: &String,
-) -> Result<SwapPathsResponse> {
-    sync_token_graph_if_empty(ctx).await?;
-
-    if from_token_id == to_token_id {
-        return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into());
-    }
-
-    let mut res = SwapPathsResponse {
-        from_token: get_token_identifier(ctx, from_token_id).await?,
-        to_token: get_token_identifier(ctx, to_token_id).await?,
-        paths: vec![],
-    };
-
-    if !ctx
-        .services
-        .token_graph
-        .lock()
-        .contains_node(from_token_id.parse::<u32>()?)
-        || !ctx
-            .services
-            .token_graph
-            .lock()
-            .contains_node(to_token_id.parse::<u32>()?)
-    {
-        return Ok(res);
-    }
-
-    res.paths = compute_paths_between_tokens(ctx, from_token_id, to_token_id).await?;
-
-    Ok(res)
 }
 
 // #[ocean_endpoint]

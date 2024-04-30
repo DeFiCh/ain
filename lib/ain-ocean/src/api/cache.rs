@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::format_err;
 use cached::proc_macro::cached;
 use defichain_rpc::{
     defichain_rpc_json::{
@@ -8,7 +7,8 @@ use defichain_rpc::{
         token::TokenInfo,
     },
     json::poolpair::PoolPairPagination,
-    PoolPairRPC, TokenRPC,
+    jsonrpc_async::error::{Error as JsonRpcError, RpcError},
+    Error, PoolPairRPC, TokenRPC,
 };
 
 use super::AppContext;
@@ -19,15 +19,31 @@ use crate::Result;
     key = "String",
     convert = r#"{ format!("gettoken{symbol}") }"#
 )]
-pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<(String, TokenInfo)> {
-    let token = ctx
-        .client
-        .get_token(symbol)
-        .await?
-        .0
-        .into_iter()
-        .next()
-        .ok_or(format_err!("Error getting token info"))?;
+pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<Option<(String, TokenInfo)>> {
+    let res = ctx.client.get_token(symbol).await;
+
+    let is_err = res.as_ref().is_err_and(|err| {
+        // allow `Token not found` err
+        err.to_string()
+            != Error::JsonRpc(JsonRpcError::Rpc(RpcError {
+                code: -5,
+                message: "Token not found".to_string(),
+                data: None,
+            }))
+            .to_string()
+    });
+    if is_err {
+        return Err(res.unwrap_err().into());
+    };
+
+    let res = res.ok();
+
+    let token = if let Some(res) = res {
+        res.0.into_iter().next()
+    } else {
+        None
+    };
+
     Ok(token)
 }
 
@@ -39,15 +55,30 @@ pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<(St
 pub async fn get_pool_pair_cached(
     ctx: &Arc<AppContext>,
     id: String,
-) -> Result<(String, PoolPairInfo)> {
-    let pool_pair = ctx
-        .client
-        .get_pool_pair(id, Some(true))
-        .await?
-        .0
-        .into_iter()
-        .next()
-        .ok_or(format_err!("Error getting pool pair info"))?;
+) -> Result<Option<(String, PoolPairInfo)>> {
+    let res = ctx.client.get_pool_pair(id, Some(true)).await;
+
+    let is_err = res.as_ref().is_err_and(|err| {
+        // allow `Pool not found` err
+        err.to_string()
+            != Error::JsonRpc(JsonRpcError::Rpc(RpcError {
+                code: -5,
+                message: "Pool not found".to_string(),
+                data: None,
+            }))
+            .to_string()
+    });
+    if is_err {
+        return Err(res.unwrap_err().into());
+    };
+
+    let res = res.ok();
+
+    let pool_pair = if let Some(res) = res {
+        res.0.into_iter().next()
+    } else {
+        None
+    };
 
     Ok(pool_pair)
 }

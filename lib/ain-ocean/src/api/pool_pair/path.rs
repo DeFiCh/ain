@@ -2,7 +2,7 @@ use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::format_err;
 use defichain_rpc::json::poolpair::PoolPairInfo;
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::Serialize;
 
@@ -12,9 +12,7 @@ use crate::{
     api::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
         common::{format_number, parse_dat_symbol},
-    },
-    network::Network,
-    Result, TokenIdentifier,
+    }, network::Network, Result, TokenIdentifier
 };
 
 #[derive(Debug, Serialize)]
@@ -101,13 +99,114 @@ impl StackSet {
 }
 
 pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
-    let (id, token) = get_token_cached(ctx, id).await?;
+    let (id, token) = get_token_cached(ctx, id).await?.unwrap();
     Ok(TokenIdentifier {
         id,
         display_symbol: parse_dat_symbol(&token.symbol),
         name: token.name,
         symbol: token.symbol,
     })
+}
+
+pub async fn get_all_swap_paths(
+    ctx: &Arc<AppContext>,
+    from_token_id: &String,
+    to_token_id: &String,
+) -> Result<SwapPathsResponse> {
+    sync_token_graph_if_empty(ctx).await?;
+
+    if from_token_id == to_token_id {
+        return Err(format_err!("Invalid tokens: fromToken must be different from toToken").into());
+    }
+
+    let mut res = SwapPathsResponse {
+        from_token: get_token_identifier(ctx, from_token_id).await?,
+        to_token: get_token_identifier(ctx, to_token_id).await?,
+        paths: vec![],
+    };
+
+    if !ctx
+        .services
+        .token_graph
+        .lock()
+        .contains_node(from_token_id.parse::<u32>()?)
+        || !ctx
+            .services
+            .token_graph
+            .lock()
+            .contains_node(to_token_id.parse::<u32>()?)
+    {
+        return Ok(res);
+    }
+
+    res.paths = compute_paths_between_tokens(ctx, from_token_id, to_token_id).await?;
+
+    Ok(res)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapPathsResponse {
+    pub from_token: TokenIdentifier,
+    pub to_token: TokenIdentifier,
+    pub paths: Vec<Vec<SwapPathPoolPair>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BestSwapPathResponse {
+    pub from_token: TokenIdentifier,
+    pub to_token: TokenIdentifier,
+    pub best_path: Vec<SwapPathPoolPair>,
+    pub estimated_return: String,
+    pub estimated_return_less_dex_fees: String,
+}
+
+pub async fn get_best_path(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<BestSwapPathResponse> {
+  let SwapPathsResponse {
+      from_token,
+      to_token,
+      paths,
+  } = get_all_swap_paths(ctx, from_token_id, to_token_id).await?;
+
+  let mut best_path= Vec::<SwapPathPoolPair>::new();
+  let mut best_return = dec!(0);
+  let mut best_return_less_dex_fees = dec!(0);
+
+  for path in paths {
+      let path_len = path.len();
+      let EstimatedLessDexFeeInfo {
+          estimated_return,
+          estimated_return_less_dex_fees,
+      } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
+
+      if path_len == 1 {
+          return Ok(BestSwapPathResponse{
+              from_token,
+              to_token,
+              best_path: path,
+              estimated_return: format_number(estimated_return),
+              estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
+          })
+      };
+
+      if estimated_return > best_return {
+          best_return = estimated_return;
+      }
+
+      if estimated_return_less_dex_fees > best_return_less_dex_fees {
+          best_return_less_dex_fees = estimated_return_less_dex_fees;
+          best_path = path;
+      };
+  }
+
+  Ok(BestSwapPathResponse{
+      from_token,
+      to_token,
+      best_path,
+      estimated_return: format_number(best_return),
+      estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
+  })
 }
 
 fn all_simple_paths(
@@ -202,7 +301,12 @@ pub async fn compute_paths_between_tokens(
                 })?
                 .to_string();
 
-            let (_, pool_pair_info) = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?;
+            let pool = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?;
+            if pool.is_none() {
+                return Err(format_err!("Pool pair by id {pool_pair_id} not found").into())
+            }
+
+            let (_, pool_pair_info) = pool.unwrap();
 
             let PoolPairInfo {
                 symbol,
@@ -263,19 +367,11 @@ pub async fn compute_paths_between_tokens(
                 token_a: get_token_identifier(ctx, &id_token_a).await?,
                 token_b: get_token_identifier(ctx, &id_token_b).await?,
                 price_ratio: PriceRatio {
-                    ab: format_number(
-                        Decimal::from_f64_retain(ab)
-                            .ok_or_else(|| format_err!("Unable to convert f64 {ab} to Decimal"))?,
-                    ),
-                    ba: format_number(
-                        Decimal::from_f64_retain(ba)
-                            .ok_or_else(|| format_err!("Unable to convert f64 {ba} to Decimal"))?,
-                    ),
+                    ab: format_number(Decimal::from_f64(ab).unwrap_or_default()),
+                    ba: format_number(Decimal::from_f64(ba).unwrap_or_default()),
                 },
                 commission_fee_in_pct: format_number(
-                    Decimal::from_f64_retain(commission).ok_or_else(|| {
-                        format_err!("Unable to convert f64 {commission} to Decimal")
-                    })?,
+                    Decimal::from_f64(commission).unwrap_or_default(),
                 ),
                 estimated_dex_fees_in_pct,
             };
