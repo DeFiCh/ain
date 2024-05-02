@@ -38,7 +38,7 @@ use path::{
     get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair, SwapPathsResponse,
 };
 
-use service::get_total_liquidity_usd;
+use service::{get_apr, get_total_liquidity_usd};
 
 pub mod path;
 pub mod service;
@@ -179,10 +179,10 @@ struct PoolPairCreationResponse {
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct PoolPairAprResponse {
-    total: f64,
-    reward: f64,
-    commission: f64,
+pub struct PoolPairAprResponse {
+    pub total: Decimal,
+    pub reward: Decimal,
+    pub commission: Decimal,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -319,6 +319,7 @@ async fn list_pool_pairs(
             ) = get_token_cached(&ctx, &p.id_token_b).await?.unwrap();
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
+            let _apr = get_apr(&ctx, &id, &p).await?;
 
             Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(
                 id,
@@ -344,6 +345,7 @@ async fn get_pool_pair(
 ) -> Result<Response<Option<PoolPairResponse>>> {
     if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
         let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
+        let _apr = get_apr(&ctx, &id, &pool).await?;
         let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &pool.id_token_a).await?.unwrap();
         let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &pool.id_token_b).await?.unwrap();
         let res = PoolPairResponse::from_with_id(id, pool, a_token_name, b_token_name, total_liquidity_usd);
