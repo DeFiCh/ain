@@ -47,7 +47,7 @@ pub fn index_transaction(services: &Arc<Services>, ctx: Context) -> Result<()> {
             .vout_by_id
             .put(&(txid, vout_idx), &tx_vout)?;
 
-        total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalError)?;
+        total_vout_value += Decimal::from_f64(vout.value).ok_or(Error::DecimalConversionError)?;
         vouts.push(tx_vout);
     }
 

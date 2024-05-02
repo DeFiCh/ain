@@ -126,7 +126,7 @@ async fn get_reward_distribution(
         .unwrap_or_default(); // Default to genesis block
 
     let subsidy =
-        Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height)).ok_or(Error::DecimalError)?;
+        Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height)).ok_or(Error::DecimalConversionError)?;
     let distribution = get_block_reward_distribution(subsidy);
 
     let distribution = RewardDistributionData {
@@ -162,7 +162,7 @@ async fn get_supply(Extension(ctx): Extension<Arc<AppContext>>) -> Result<Respon
         .unwrap_or_default(); // Default to genesis block
 
     let total =
-        Decimal::from_u64(BLOCK_SUBSIDY.get_supply(height)).ok_or(Error::DecimalError)? / COIN;
+        Decimal::from_u64(BLOCK_SUBSIDY.get_supply(height)).ok_or(Error::DecimalConversionError)? / COIN;
 
     let burned = get_burned_total(&ctx).await?;
     let circulating = total - burned;
