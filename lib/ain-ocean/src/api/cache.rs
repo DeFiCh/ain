@@ -1,14 +1,14 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use cached::proc_macro::cached;
 use defichain_rpc::{
-    defichain_rpc_json::{
+    json::{
         poolpair::{PoolPairInfo, PoolPairsResult},
         token::TokenInfo,
     },
     json::poolpair::PoolPairPagination,
     jsonrpc_async::error::{Error as JsonRpcError, RpcError},
-    Error, PoolPairRPC, TokenRPC,
+    Error, MasternodeRPC, PoolPairRPC, TokenRPC,
 };
 
 use super::AppContext;
@@ -101,4 +101,14 @@ pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsRe
         )
         .await?;
     Ok(pool_pairs)
+}
+
+#[cached(
+    result = true,
+    key = "String",
+    convert = r#"{ format!("gov{id}") }"#
+)]
+pub async fn get_gov_cached(ctx: &Arc<AppContext>, id: String) -> Result<HashMap<String, serde_json::Value>> {
+    let gov = ctx.client.get_gov(id).await?;
+    Ok(gov)
 }
