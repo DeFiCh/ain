@@ -12,7 +12,9 @@ use crate::{
     api::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
         common::{format_number, parse_dat_symbol},
-    }, network::Network, Result, TokenIdentifier
+    },
+    network::Network,
+    Result, TokenIdentifier,
 };
 
 #[derive(Debug, Serialize)]
@@ -162,51 +164,55 @@ pub struct BestSwapPathResponse {
     pub estimated_return_less_dex_fees: String,
 }
 
-pub async fn get_best_path(ctx: &Arc<AppContext>, from_token_id: &String, to_token_id: &String) -> Result<BestSwapPathResponse> {
-  let SwapPathsResponse {
-      from_token,
-      to_token,
-      paths,
-  } = get_all_swap_paths(ctx, from_token_id, to_token_id).await?;
+pub async fn get_best_path(
+    ctx: &Arc<AppContext>,
+    from_token_id: &String,
+    to_token_id: &String,
+) -> Result<BestSwapPathResponse> {
+    let SwapPathsResponse {
+        from_token,
+        to_token,
+        paths,
+    } = get_all_swap_paths(ctx, from_token_id, to_token_id).await?;
 
-  let mut best_path= Vec::<SwapPathPoolPair>::new();
-  let mut best_return = dec!(0);
-  let mut best_return_less_dex_fees = dec!(0);
+    let mut best_path = Vec::<SwapPathPoolPair>::new();
+    let mut best_return = dec!(0);
+    let mut best_return_less_dex_fees = dec!(0);
 
-  for path in paths {
-      let path_len = path.len();
-      let EstimatedLessDexFeeInfo {
-          estimated_return,
-          estimated_return_less_dex_fees,
-      } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
+    for path in paths {
+        let path_len = path.len();
+        let EstimatedLessDexFeeInfo {
+            estimated_return,
+            estimated_return_less_dex_fees,
+        } = compute_return_less_dex_fees_in_destination_token(&path, from_token_id).await?;
 
-      if path_len == 1 {
-          return Ok(BestSwapPathResponse{
-              from_token,
-              to_token,
-              best_path: path,
-              estimated_return: format_number(estimated_return),
-              estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
-          })
-      };
+        if path_len == 1 {
+            return Ok(BestSwapPathResponse {
+                from_token,
+                to_token,
+                best_path: path,
+                estimated_return: format_number(estimated_return),
+                estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
+            });
+        };
 
-      if estimated_return > best_return {
-          best_return = estimated_return;
-      }
+        if estimated_return > best_return {
+            best_return = estimated_return;
+        }
 
-      if estimated_return_less_dex_fees > best_return_less_dex_fees {
-          best_return_less_dex_fees = estimated_return_less_dex_fees;
-          best_path = path;
-      };
-  }
+        if estimated_return_less_dex_fees > best_return_less_dex_fees {
+            best_return_less_dex_fees = estimated_return_less_dex_fees;
+            best_path = path;
+        };
+    }
 
-  Ok(BestSwapPathResponse{
-      from_token,
-      to_token,
-      best_path,
-      estimated_return: format_number(best_return),
-      estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
-  })
+    Ok(BestSwapPathResponse {
+        from_token,
+        to_token,
+        best_path,
+        estimated_return: format_number(best_return),
+        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
+    })
 }
 
 fn all_simple_paths(
@@ -303,7 +309,7 @@ pub async fn compute_paths_between_tokens(
 
             let pool = get_pool_pair_cached(ctx, pool_pair_id.clone()).await?;
             if pool.is_none() {
-                return Err(format_err!("Pool pair by id {pool_pair_id} not found").into())
+                return Err(format_err!("Pool pair by id {pool_pair_id} not found").into());
             }
 
             let (_, pool_pair_info) = pool.unwrap();
@@ -400,8 +406,7 @@ pub async fn compute_return_less_dex_fees_in_destination_token(
     for pool in path {
         if from_token_id == pool.token_a.id {
             from_token_id = pool.token_b.id.to_owned();
-            price_ratio =
-                Decimal::from_str(pool.price_ratio.ba.as_str())?;
+            price_ratio = Decimal::from_str(pool.price_ratio.ba.as_str())?;
             (from_token_fee_pct, to_token_fee_pct) =
                 if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
                     let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())?;

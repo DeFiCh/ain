@@ -38,7 +38,8 @@ pub async fn get_burned(client: &Client) -> Result<Burned> {
     let burn_info = client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalConversionError)?;
-    let emission = Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
+    let emission =
+        Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
     let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
     let auction = Decimal::from_f64(burn_info.auctionburn).ok_or(Error::DecimalConversionError)?;
 
@@ -125,7 +126,8 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
     let burn_info = ctx.client.get_burn_info().await?;
 
     let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalConversionError)?;
-    let emission = Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
+    let emission =
+        Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
     let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
     let account_balance = tokens
         .0
@@ -152,8 +154,8 @@ pub struct Emission {
     convert = r#"{ format!("emission") }"#
 )]
 pub fn get_emission(height: u32) -> Result<Emission> {
-    let subsidy =
-        Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height)).ok_or(Error::DecimalConversionError)?;
+    let subsidy = Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height))
+        .ok_or(Error::DecimalConversionError)?;
     let distribution = get_block_reward_distribution(subsidy);
 
     let masternode = distribution.masternode;

@@ -2,11 +2,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use cached::proc_macro::cached;
 use defichain_rpc::{
+    json::poolpair::PoolPairPagination,
     json::{
         poolpair::{PoolPairInfo, PoolPairsResult},
         token::TokenInfo,
     },
-    json::poolpair::PoolPairPagination,
     jsonrpc_async::error::{Error as JsonRpcError, RpcError},
     Error, MasternodeRPC, PoolPairRPC, TokenRPC,
 };
@@ -19,7 +19,10 @@ use crate::Result;
     key = "String",
     convert = r#"{ format!("gettoken{symbol}") }"#
 )]
-pub async fn get_token_cached(ctx: &Arc<AppContext>, symbol: &str) -> Result<Option<(String, TokenInfo)>> {
+pub async fn get_token_cached(
+    ctx: &Arc<AppContext>,
+    symbol: &str,
+) -> Result<Option<(String, TokenInfo)>> {
     let res = ctx.client.get_token(symbol).await;
 
     let is_err = res.as_ref().is_err_and(|err| {
@@ -103,12 +106,11 @@ pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsRe
     Ok(pool_pairs)
 }
 
-#[cached(
-    result = true,
-    key = "String",
-    convert = r#"{ format!("gov{id}") }"#
-)]
-pub async fn get_gov_cached(ctx: &Arc<AppContext>, id: String) -> Result<HashMap<String, serde_json::Value>> {
+#[cached(result = true, key = "String", convert = r#"{ format!("gov{id}") }"#)]
+pub async fn get_gov_cached(
+    ctx: &Arc<AppContext>,
+    id: String,
+) -> Result<HashMap<String, serde_json::Value>> {
     let gov = ctx.client.get_gov(id).await?;
     Ok(gov)
 }

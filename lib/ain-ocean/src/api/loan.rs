@@ -140,7 +140,9 @@ async fn get_collateral_token(
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<CollateralToken>> {
     let collateral_token = ctx.client.get_collateral_token(token_id).await?;
-    let (id, info) = get_token_cached(&ctx, &collateral_token.token_id).await?.unwrap();
+    let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
+        .await?
+        .unwrap();
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,

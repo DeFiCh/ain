@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use super::{
-    cache::{get_token_cached, get_pool_pair_cached},
+    cache::{get_pool_pair_cached, get_token_cached},
     common::{format_number, parse_dat_symbol},
     path::Path,
     query::{PaginationQuery, Query},
@@ -34,8 +34,9 @@ use crate::{
 };
 
 use path::{
-    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths,
-    get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair, SwapPathsResponse,
+    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths, get_token_identifier,
+    sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair,
+    SwapPathsResponse,
 };
 
 use service::{get_apr, get_total_liquidity_usd};
@@ -346,10 +347,26 @@ async fn get_pool_pair(
     if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
         let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
         let _apr = get_apr(&ctx, &id, &pool).await?;
-        let (_, TokenInfo{name: a_token_name,..}) = get_token_cached(&ctx, &pool.id_token_a).await?.unwrap();
-        let (_, TokenInfo{name: b_token_name,..}) = get_token_cached(&ctx, &pool.id_token_b).await?.unwrap();
-        let res = PoolPairResponse::from_with_id(id, pool, a_token_name, b_token_name, total_liquidity_usd);
-        return Ok(Response::new(Some(res)))
+        let (
+            _,
+            TokenInfo {
+                name: a_token_name, ..
+            },
+        ) = get_token_cached(&ctx, &pool.id_token_a).await?.unwrap();
+        let (
+            _,
+            TokenInfo {
+                name: b_token_name, ..
+            },
+        ) = get_token_cached(&ctx, &pool.id_token_b).await?.unwrap();
+        let res = PoolPairResponse::from_with_id(
+            id,
+            pool,
+            a_token_name,
+            b_token_name,
+            total_liquidity_usd,
+        );
+        return Ok(Response::new(Some(res)));
     };
 
     Ok(Response::new(None))
