@@ -401,13 +401,11 @@ pub async fn compute_return_less_dex_fees_in_destination_token(
         if from_token_id == pool.token_a.id {
             from_token_id = pool.token_b.id.to_owned();
             price_ratio =
-                Decimal::from_str(pool.price_ratio.ba.as_str()).map_err(|e| format_err!(e))?;
+                Decimal::from_str(pool.price_ratio.ba.as_str())?;
             (from_token_fee_pct, to_token_fee_pct) =
                 if let Some(estimated_dex_fees_in_pct) = &pool.estimated_dex_fees_in_pct {
-                    let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())
-                        .map_err(|e| format_err!(e))?;
-                    let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str())
-                        .map_err(|e| format_err!(e))?;
+                    let ba = Decimal::from_str(estimated_dex_fees_in_pct.ba.as_str())?;
+                    let ab = Decimal::from_str(estimated_dex_fees_in_pct.ab.as_str())?;
                     (Some(ba), Some(ab))
                 } else {
                     (None, None)

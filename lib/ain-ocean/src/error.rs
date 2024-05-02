@@ -45,8 +45,14 @@ pub enum Error {
     RpcError(#[from] defichain_rpc::Error),
     #[error("Unable to find {0:}")]
     NotFound(NotFoundKind),
+    #[error("Ocean: Decimal error: {0:?}")]
+    DecimalError(#[from] rust_decimal::Error),
     #[error("Decimal conversion error")]
     DecimalConversionError,
+    #[error("Ocean: Overflow error")]
+    OverflowError,
+    #[error("Ocean: Underflow error")]
+    UnderflowError,
     #[error("Error fetching primary value")]
     SecondaryIndex,
     #[error(transparent)]
