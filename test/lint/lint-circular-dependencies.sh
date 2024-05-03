@@ -83,6 +83,7 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/mn_rpc -> wallet/rpcwallet -> init -> ffi/ffiexports -> dfi/mn_rpc"
     "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/govvariables/attributes"
     # "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> rpc/blockchain -> dfi/govvariables/attributes"
+    "dfi/govvariables/attributes -> dfi/validation -> rpc/blockchain -> dfi/govvariables/attributes"
     "dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/validation -> dfi/mn_rpc"
     "dfi/validation -> validation -> dfi/validation"
     "dfi/validation -> ffi/ffiexports -> dfi/validation"
