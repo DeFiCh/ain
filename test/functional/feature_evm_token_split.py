@@ -44,9 +44,6 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Run setup
         self.setup()
 
-        # Check intrinsics contract backwards compatibility
-        self.check_backwards_compatibility()
-
         # Store block height for rollback
         self.block_height = self.nodes[0].getblockcount()
 
@@ -157,20 +154,6 @@ class EVMTokenSplitTest(DefiTestFramework):
             "0xff00000000000000000000000000000000000003"
         )
 
-        # Registry ABI
-        registry_abi = open(
-            get_solc_artifact_path("dfi_intrinsics_registry", "abi.json"),
-            "r",
-            encoding="utf8",
-        ).read()
-
-        # DFI intrinsics V2 ABI
-        self.intinsics_abi = open(
-            get_solc_artifact_path("dfi_intrinsics_v2", "abi.json"),
-            "r",
-            encoding="utf8",
-        ).read()
-
         # DST20 ABI
         self.dst20_abi = open(
             get_solc_artifact_path("dst20_v1", "abi.json"),
@@ -178,28 +161,18 @@ class EVMTokenSplitTest(DefiTestFramework):
             encoding="utf8",
         ).read()
 
-        # Get registry contract
-        registry = self.nodes[0].w3.eth.contract(
-            address=self.nodes[0].w3.to_checksum_address(
-                "0xdf00000000000000000000000000000000000000"
-            ),
-            abi=registry_abi,
-        )
-
-        # Get DFI Intrinsics V2 address
-        self.v2_address = registry.functions.get(1).call()
-
-        self.intrinsics_contract = self.nodes[0].w3.eth.contract(
-            address=self.v2_address,
-            abi=self.intinsics_abi,
-        )
+        self.dst20_v2_abi = open(
+            get_solc_artifact_path("dst20_v2", "abi.json"),
+            "r",
+            encoding="utf8",
+        ).read()
 
         # Check META variables
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav1, abi=self.dst20_abi
+        self.meta_contract = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_metav1, abi=self.dst20_v2_abi
         )
-        assert_equal(meta_contract.functions.name().call(), "Meta")
-        assert_equal(meta_contract.functions.symbol().call(), "META")
+        assert_equal(self.meta_contract.functions.name().call(), "Meta")
+        assert_equal(self.meta_contract.functions.symbol().call(), "META")
 
         # Activate fractional split
         self.nodes[0].setgov(
@@ -280,26 +253,6 @@ class EVMTokenSplitTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-    def check_backwards_compatibility(self):
-
-        # Check version variable
-        assert_equal(self.intrinsics_contract.functions.version().call(), 2)
-
-        for _ in range(5):
-            self.nodes[0].generate(1)
-
-            # check evmBlockCount variable
-            assert_equal(
-                self.intrinsics_contract.functions.evmBlockCount().call(),
-                self.nodes[0].w3.eth.get_block_number(),
-            )
-
-            # check dvmBlockCount variable
-            assert_equal(
-                self.intrinsics_contract.functions.dvmBlockCount().call(),
-                self.nodes[0].getblockcount(),
-            )
-
     def fund_address(self, source, destination, amount=20):
 
         # Fund address with META
@@ -335,9 +288,7 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check META balance
-        meta_contract = self.nodes[0].w3.eth.contract(
-            address=self.contract_address_metav1, abi=self.dst20_abi
-        )
+        meta_contract = self.meta_contract
         assert_equal(
             meta_contract.functions.balanceOf(destination).call()
             / math.pow(10, meta_contract.functions.decimals().call()),
@@ -582,6 +533,10 @@ class EVMTokenSplitTest(DefiTestFramework):
             + (amount * decimal_multiplier),
         )
 
+        self.execute_split_transaction_at_highest_level(
+            self.contract_address_metav2, amount
+        )
+
     def intrinsic_token_merge(self, amount, split_multiplier):
 
         # Rollback
@@ -764,12 +719,15 @@ class EVMTokenSplitTest(DefiTestFramework):
 
         # Get old contract
         meta_contract = self.nodes[0].w3.eth.contract(
-            address=source_contract, abi=self.dst20_abi
+            address=source_contract, abi=self.dst20_v2_abi
         )
 
-        # Call migrateTokens
-        deposit_txn = self.intrinsics_contract.functions.migrateTokens(
-            source_contract, amount_to_send
+        totalSupplyBefore = meta_contract.functions.totalSupply().call()
+        balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
+
+        # Call upgradeToken
+        deposit_txn = meta_contract.functions.upgradeToken(
+            amount_to_send
         ).build_transaction(
             {
                 "from": self.evm_address,
@@ -781,13 +739,18 @@ class EVMTokenSplitTest(DefiTestFramework):
         signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
             deposit_txn, self.evm_privkey
         )
-
-        balance_before = meta_contract.functions.balanceOf(self.evm_address).call()
-        total_supply_before = meta_contract.functions.totalSupply().call()
-
-        # Send the signed transaction
         self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
         self.nodes[0].generate(1)
+
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
+
+        events = meta_contract.events.UpgradeResult().process_log(
+            list(tx_receipt["logs"])[0]
+        )
+
+        assert_equal(events["event"], "UpgradeResult")
+        assert_equal(events["args"]["newTokenContractAddress"], destination_contract)
+        assert_equal(events["args"]["newAmount"], amount_to_receive)
 
         # Check source contract balance on sender
         # Source contract balance of sender should be reduced by the approved amount
@@ -799,12 +762,20 @@ class EVMTokenSplitTest(DefiTestFramework):
         # Check source contract totalSupply.
         # Funds should be reduced by the amount splitted
         totalSupplyAfter = meta_contract.functions.totalSupply().call()
-        assert_equal(totalSupplyAfter, total_supply_before - amount_to_send)
+        assert_equal(totalSupplyAfter, totalSupplyBefore - amount_to_send)
 
         # Get new contract
         meta_contract_new = self.nodes[0].w3.eth.contract(
-            address=destination_contract, abi=self.dst20_abi
+            address=destination_contract, abi=self.dst20_v2_abi
         )
+
+        # Check transfer token logs on new contract
+        events = meta_contract_new.events.Transfer().process_log(
+            list(tx_receipt["logs"])[1]
+        )
+        assert_equal(events["event"], "Transfer")
+        assert_equal(events["args"]["to"], self.evm_address)
+        assert_equal(events["args"]["value"], amount_to_receive)
 
         # Check META balance on sender
         assert_equal(
@@ -812,13 +783,41 @@ class EVMTokenSplitTest(DefiTestFramework):
             amount_to_receive,
         )
 
-        # Check META balance on sender
-        assert_equal(
-            meta_contract_new.functions.balanceOf(self.v2_address).call(),
-            Decimal(0),
+        return amount_to_receive
+
+    def execute_split_transaction_at_highest_level(self, source_contract, amount=20):
+        meta_contract = self.nodes[0].w3.eth.contract(
+            address=source_contract, abi=self.dst20_v2_abi
         )
 
-        return amount_to_receive
+        amount_to_send = Web3.to_wei(amount, "ether")
+
+        # Check that new contract split does not work
+        deposit_txn = meta_contract.functions.upgradeToken(
+            amount_to_send
+        ).build_transaction(
+            {
+                "from": self.evm_address,
+                "nonce": self.nodes[0].eth_getTransactionCount(self.evm_address),
+            }
+        )
+
+        # Sign the transaction
+        signed_txn = self.nodes[0].w3.eth.account.sign_transaction(
+            deposit_txn, self.evm_privkey
+        )
+        self.nodes[0].w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+        self.nodes[0].generate(1)
+
+        tx_receipt = self.nodes[0].w3.eth.wait_for_transaction_receipt(signed_txn.hash)
+
+        events = meta_contract.events.UpgradeResult().process_log(
+            list(tx_receipt["logs"])[0]
+        )
+
+        assert_equal(events["event"], "UpgradeResult")
+        assert_equal(events["args"]["newTokenContractAddress"], source_contract)
+        assert_equal(events["args"]["newAmount"], amount_to_send)
 
 
 if __name__ == "__main__":

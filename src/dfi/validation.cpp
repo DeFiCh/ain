@@ -3230,7 +3230,8 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
 
     const auto idMultiplierPair = cache->GetTokenSplitMultiplier(oldAmount.id);
     if (!idMultiplierPair) {
-        return false;
+        newAmount = oldAmount;
+        return true;
     }
 
     auto &[id, multiplierVariant] = *idMultiplierPair;
