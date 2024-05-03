@@ -195,7 +195,8 @@ async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
         .and_then(|v| v.as_f64()) // eg: { "LP_DAILY_DFI_REWARD": 3664.80000000 }
         .unwrap_or_default();
 
-    let daily_dfi_reward = Decimal::from_f64(reward).ok_or_else(|| Error::DecimalConversionError)?;
+    let daily_dfi_reward =
+        Decimal::from_f64(reward).ok_or_else(|| Error::DecimalConversionError)?;
     Ok(daily_dfi_reward)
 }
 

@@ -515,7 +515,7 @@ pub async fn sync_token_graph_if_empty(ctx: &Arc<AppContext>) -> Result<()> {
     if ctx.services.token_graph.lock().edge_count() == 0 {
         let ctx_cloned = ctx.clone();
         tokio::spawn(async move { sync_token_graph(&ctx_cloned).await });
-        return Ok(())
+        return Ok(());
     };
     Ok(())
 }
