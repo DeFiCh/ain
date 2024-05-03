@@ -170,7 +170,7 @@ struct PoolPairPriceRatioResponse {
 #[derive(Serialize, Debug, Clone, Default)]
 struct PoolPairTotalLiquidityResponse {
     token: Option<String>,
-    usd: Option<Decimal>,
+    usd: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
@@ -267,7 +267,7 @@ impl PoolPairResponse {
             commission: p.commission.to_string(),
             total_liquidity: PoolPairTotalLiquidityResponse {
                 token: Some(p.total_liquidity.to_string()),
-                usd: Some(total_liquidity_usd),
+                usd: Some(total_liquidity_usd.to_string()),
             },
             trade_enabled: p.trade_enabled,
             owner_address: p.owner_address,
