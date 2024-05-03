@@ -142,7 +142,7 @@ public:
         consensus.DF20GrandCentralHeight = 2479000; // Dec 8th, 2022.
         consensus.DF21GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
         consensus.DF22MetachainHeight = 3462000; // Nov 15th, 2023.
-        consensus.DF23Height = std::numeric_limits<int>::max();
+        consensus.DF23Height = 3997000; // May 20th, 2024. Tentative date, might change on stable release.
         consensus.DF24Height = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
