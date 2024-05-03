@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -191,10 +192,10 @@ async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
 
     let reward = gov
         .get("LP_DAILY_DFI_REWARD")
-        .and_then(|v| v.as_str())
+        .and_then(|v| v.as_f64()) // eg: { "LP_DAILY_DFI_REWARD": 3664.80000000 }
         .unwrap_or_default();
 
-    let daily_dfi_reward = Decimal::from_str(reward)?;
+    let daily_dfi_reward = Decimal::from_f64(reward).ok_or_else(|| Error::DecimalConversionError)?;
     Ok(daily_dfi_reward)
 }
 
@@ -264,8 +265,9 @@ async fn get_loan_emission(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let eunos_height = info
         .softforks
         .get("eunos")
-        .map(|eunos| eunos.height)
-        .unwrap_or_default();
+        .and_then(|eunos| eunos.height)
+        .ok_or_else(|| format_err!("BlockchainInfo eunos height field is missing"))?;
+
     get_block_subsidy(eunos_height, info.blocks).await
 }
 
@@ -275,9 +277,9 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
     let split = value
         .as_object()
         .and_then(|obj| obj.get(id))
-        .and_then(|v| v.as_str())
+        .and_then(|v| v.as_f64())
         .unwrap_or_default();
-    let split = Decimal::from_str(split)?;
+    let split = Decimal::from_f64(split).ok_or_else(|| Error::DecimalConversionError)?;
 
     let dfi_price_usd = get_usd_per_dfi(ctx).await?;
 
