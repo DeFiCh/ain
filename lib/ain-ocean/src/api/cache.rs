@@ -85,11 +85,11 @@ pub async fn get_pool_pair_cached(
     Ok(pool_pair)
 }
 
-#[cached(
-    result = true,
-    key = "String",
-    convert = r#"{ format!("listpoolpairs") }"#
-)]
+// #[cached(
+//     result = true,
+//     key = "String",
+//     convert = r#"{ format!("listpoolpairs") }"#
+// )]
 pub async fn list_pool_pairs_cached(ctx: &Arc<AppContext>) -> Result<PoolPairsResult> {
     let pool_pairs = ctx
         .client
