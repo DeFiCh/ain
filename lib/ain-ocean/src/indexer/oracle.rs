@@ -25,7 +25,7 @@ use crate::{
 impl Index for AppointOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
-
+        println!("oracle_id {:?}", oracle_id);
         let price_feeds_items: Vec<PriceFeedsItem> = self
             .price_feeds
             .iter()
@@ -34,7 +34,7 @@ impl Index for AppointOracle {
                 currency: pair.currency.clone(),
             })
             .collect();
-
+        println!("price_feeds_items {:?}", price_feeds_items);
         let oracle = Oracle {
             id: oracle_id,
             owner_address: self.script.to_hex_string(),
@@ -42,6 +42,7 @@ impl Index for AppointOracle {
             price_feeds: price_feeds_items.clone(),
             block: ctx.block.clone(),
         };
+        println!("oracle {:?}", oracle);
         services.oracle.by_id.put(&oracle.id, &oracle)?;
         let oracle_history = OracleHistory {
             id: (ctx.tx.txid, ctx.block.height, oracle_id),
@@ -56,6 +57,7 @@ impl Index for AppointOracle {
             price_feeds: price_feeds_items,
             block: ctx.block.clone(),
         };
+        println!("oracle_history {:?}", oracle_history);
         services
             .oracle_history
             .by_id
@@ -86,6 +88,7 @@ impl Index for AppointOracle {
                 weightage: self.weightage,
                 block: ctx.block.clone(),
             };
+            println!("oracle_token_currency {:?}", oracle_token_currency);
             services
                 .oracle_token_currency
                 .by_key
@@ -396,11 +399,12 @@ impl Index for SetOracleData {
             timestamp: self.timestamp,
             token_prices: self.token_prices,
         };
-
         let feeds = map_price_feeds(&set_oracle_data, context)?;
         let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in &feeds {
             pairs.push((feed.token.clone(), feed.currency.clone()));
+            println!("Feeds start saving");
+            println!("feed {:?}", feed);
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
             services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
@@ -418,6 +422,7 @@ impl Index for SetOracleData {
                     value.block.height,
                 );
                 let aggreated_key = (value.token.clone(), value.currency.clone());
+                println!("aggregated_value {:?}", &value);
                 services
                     .oracle_price_aggregated
                     .by_id
@@ -438,6 +443,7 @@ impl Index for SetOracleData {
                     ),
                     price: value,
                 };
+                println!("price_ticker {:?}", price_ticker);
                 services
                     .price_ticker
                     .by_id
@@ -544,27 +550,27 @@ pub fn map_price_aggregated(
     };
 
     for oracle in oracle_entries {
-        if oracle.weightage == 0 || (ctx.block.time as i64 - oracle.block.time as i64) > 3600 {
+        if oracle.weightage == 0 {
             continue;
         }
 
         let key = (token.to_string(), currency.to_string(), oracle.oracle_id);
-        let feed_id = match services.oracle_price_feed.by_key.get(&key)? {
-            Some(id) => id,
-            None => return Ok(None), // Early return if no ID is found
-        };
+        let feed_id: (String, String, Txid, Txid) =
+            match services.oracle_price_feed.by_key.get(&key)? {
+                Some(id) => id,
+                None => return Ok(None), // Early return if no ID is found
+            };
 
         let oracle_price_feed = services.oracle_price_feed.by_id.get(&feed_id)?;
-
         if oracle_price_feed.is_none() {
             continue;
         }
 
-        if let Some(oracle_price_feed) = oracle_price_feed {
-            if (oracle_price_feed.time - ctx.block.time as i32) < 3600 {
+        if let Some(oracle_price) = oracle_price_feed {
+            if (oracle_price.time - ctx.block.time as i32) < 3600 {
                 aggregated.oracles.active += 1;
                 aggregated.weightage += oracle.weightage as i32;
-                let amount = oracle_price_feed.amount;
+                let amount = oracle_price.amount;
                 let weighted_amount = amount * oracle.weightage as i64;
                 if let Ok(current_amount) = aggregated.amount.parse::<i64>() {
                     aggregated.amount = (current_amount + weighted_amount).to_string();
@@ -599,7 +605,6 @@ fn map_price_feeds(
     context: &Context,
 ) -> Result<Vec<OraclePriceFeed>> {
     let mut result: Vec<OraclePriceFeed> = Vec::new();
-
     let token_prices = set_oracle_data.token_prices.as_ref();
     for token_price in token_prices {
         for token_amount in token_price.prices.as_ref() {

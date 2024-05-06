@@ -13,7 +13,6 @@ use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use self::state::{MasternodeService, MasternodeState};
-
 use super::{
     query::PaginationQuery,
     response::{ApiPagedResponse, Response},

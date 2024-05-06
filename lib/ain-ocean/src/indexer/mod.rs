@@ -122,7 +122,6 @@ pub fn index_block(
 ) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
-
     let block_hash = block.hash;
     let transaction_count = block.tx.len();
     let block_ctx = BlockContext {
@@ -169,7 +168,7 @@ pub fn index_block(
                         DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
 
-                        // DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),

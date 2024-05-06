@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc, thread::current};
 
 use ain_macros::ocean_endpoint;
 use anyhow::anyhow;
@@ -16,7 +16,9 @@ use super::{
     AppContext,
 };
 use crate::{
+    api::common::Paginate,
     error::{ApiError, Error, NotFoundKind},
+    indexer::oracle,
     model::{ApiResponseOraclePriceFeed, Oracle},
     repository::RepositoryOps,
     storage::SortOrder,
@@ -58,48 +60,48 @@ async fn get_feed(
         Ok((t, c)) => (t, c),
         Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
     };
-
-    // Retrieve and filter oracle price feeds by key and check that they match the requested token and currency
+    println!("Token: {}, Currency: {}", token, currency);
+    println!("txid: {:?}", txid.clone());
+    let key =
+        ctx.services
+            .oracle_price_feed
+            .by_key
+            .get(&(token.clone(), currency.clone(), txid))?;
+    println!("price_key: {:?}", key);
     let oracle_price_feed = ctx
         .services
         .oracle_price_feed
-        .by_key
-        .list(
-            Some((token.clone(), currency.clone(), txid)),
-            SortOrder::Descending,
-        )?
-        .filter_map(|result| result.ok())
-        .filter(|feed| feed.0 .0 == token && feed.0 .1 == currency)
-        .take(query.size)
-        .map(|(_, id)| {
-            let b = ctx
-                .services
-                .oracle_price_feed
-                .by_id
-                .get(&id)?
-                .ok_or("Missing price feed index")?;
-
-            Ok(ApiResponseOraclePriceFeed {
-                id: format!("{}-{}-{}-{}", token, currency, b.oracle_id, b.txid),
-                key: format!("{}-{}-{}", token, currency, b.oracle_id),
-                sort: b.sort,
-                token: b.token,
-                currency: b.currency,
-                oracle_id: b.oracle_id,
-                txid: b.txid,
-                time: b.time,
-                amount: b.amount.to_string(), // Convert i64 to String
-                block: b.block,
-            })
+        .by_id
+        .list(key, SortOrder::Descending)?
+        .take(5)
+        .map(|item| {
+            let (_, oracle) = item?;
+            println!("price_fedd_LIST: {:?}", oracle);
+            if oracle.token.eq(&token) && oracle.currency.eq(&currency) {
+                Ok(ApiResponseOraclePriceFeed {
+                    id: format!(
+                        "{}-{}-{}-{}",
+                        token, currency, oracle.oracle_id, oracle.txid
+                    ),
+                    key: format!("{}-{}-{}", token, currency, oracle.oracle_id),
+                    sort: oracle.sort,
+                    token: oracle.token,
+                    currency: oracle.currency,
+                    oracle_id: oracle.oracle_id,
+                    txid: oracle.txid,
+                    time: oracle.time,
+                    amount: oracle.amount.to_string(), // Convert i64 to String
+                    block: oracle.block,
+                })
+            } else {
+                return Err(Error::Other(anyhow!("Token or currency mismatch")));
+            }
         })
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
-
-    Ok(ApiPagedResponse::of(
-        oracle_price_feed,
-        query.size,
-        |price_feed| price_feed.sort.clone(),
-    ))
+    Ok(ApiPagedResponse::of(oracle_price_feed, 5, |price_feed| {
+        price_feed.sort.clone()
+    }))
 }
 
 #[ocean_endpoint]
