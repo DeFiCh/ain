@@ -18,7 +18,6 @@ use super::{
 use crate::{
     api::common::Paginate,
     error::{ApiError, Error, NotFoundKind},
-    indexer::oracle,
     model::{ApiResponseOraclePriceFeed, Oracle},
     repository::RepositoryOps,
     storage::SortOrder,
@@ -60,48 +59,57 @@ async fn get_feed(
         Ok((t, c)) => (t, c),
         Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
     };
-    println!("Token: {}, Currency: {}", token, currency);
-    println!("txid: {:?}", txid.clone());
     let key =
         ctx.services
             .oracle_price_feed
             .by_key
             .get(&(token.clone(), currency.clone(), txid))?;
-    println!("price_key: {:?}", key);
-    let oracle_price_feed = ctx
+
+    let results = ctx
         .services
         .oracle_price_feed
         .by_id
         .list(key, SortOrder::Descending)?
-        .take(5)
-        .map(|item| {
-            let (_, oracle) = item?;
-            println!("price_fedd_LIST: {:?}", oracle);
-            if oracle.token.eq(&token) && oracle.currency.eq(&currency) {
-                Ok(ApiResponseOraclePriceFeed {
-                    id: format!(
-                        "{}-{}-{}-{}",
-                        token, currency, oracle.oracle_id, oracle.txid
-                    ),
-                    key: format!("{}-{}-{}", token, currency, oracle.oracle_id),
-                    sort: oracle.sort,
-                    token: oracle.token,
-                    currency: oracle.currency,
-                    oracle_id: oracle.oracle_id,
-                    txid: oracle.txid,
-                    time: oracle.time,
-                    amount: oracle.amount.to_string(), // Convert i64 to String
-                    block: oracle.block,
-                })
-            } else {
-                return Err(Error::Other(anyhow!("Token or currency mismatch")));
+        .paginate(&query);
+
+    let mut oracle_price_feeds = Vec::new();
+    for result in results {
+        match result {
+            Ok((id, feed)) => {
+                if feed
+                    .key
+                    .eq(&(token.to_string(), currency.to_string(), txid))
+                {
+                    let converted_amount = (feed.amount as f64) / 100_000_000.0;
+                    let amount_string = format!("{:.2}", converted_amount);
+                    oracle_price_feeds.push(ApiResponseOraclePriceFeed {
+                        id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
+                        key: format!("{}-{}-{}", token, currency, feed.oracle_id),
+                        sort: feed.sort,
+                        token: feed.token,
+                        currency: feed.currency,
+                        oracle_id: feed.oracle_id,
+                        txid: feed.txid,
+                        time: feed.time,
+                        amount: amount_string,
+                        block: feed.block,
+                    });
+                }
             }
-        })
-        .filter_map(Result::ok)
-        .collect::<Vec<_>>();
-    Ok(ApiPagedResponse::of(oracle_price_feed, 5, |price_feed| {
-        price_feed.sort.clone()
-    }))
+            Err(e) => {
+                return Err(Error::Other(anyhow!(
+                    "Failed to process price feeds: {}",
+                    e
+                )))
+            }
+        }
+    }
+
+    Ok(ApiPagedResponse::of(
+        oracle_price_feeds,
+        query.size,
+        |price_feed| price_feed.sort.clone(),
+    ))
 }
 
 #[ocean_endpoint]

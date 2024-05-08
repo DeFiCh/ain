@@ -1,6 +1,7 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
+use anyhow::anyhow;
 use bitcoin::Txid;
 use rust_decimal::{
     prelude::{ToPrimitive, Zero},
@@ -25,7 +26,6 @@ use crate::{
 impl Index for AppointOracle {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         let oracle_id = ctx.tx.txid;
-        println!("oracle_id {:?}", oracle_id);
         let price_feeds_items: Vec<PriceFeedsItem> = self
             .price_feeds
             .iter()
@@ -34,7 +34,6 @@ impl Index for AppointOracle {
                 currency: pair.currency.clone(),
             })
             .collect();
-        println!("price_feeds_items {:?}", price_feeds_items);
         let oracle = Oracle {
             id: oracle_id,
             owner_address: self.script.to_hex_string(),
@@ -57,7 +56,6 @@ impl Index for AppointOracle {
             price_feeds: price_feeds_items,
             block: ctx.block.clone(),
         };
-        println!("oracle_history {:?}", oracle_history);
         services
             .oracle_history
             .by_id
@@ -88,7 +86,6 @@ impl Index for AppointOracle {
                 weightage: self.weightage,
                 block: ctx.block.clone(),
             };
-            println!("oracle_token_currency {:?}", oracle_token_currency);
             services
                 .oracle_token_currency
                 .by_key
@@ -400,11 +397,9 @@ impl Index for SetOracleData {
             token_prices: self.token_prices,
         };
         let feeds = map_price_feeds(&set_oracle_data, context)?;
-        let mut pairs: Vec<(String, String)> = Vec::new();
+        let mut pairs: Vec<(String, String, Txid)> = Vec::new();
         for feed in &feeds {
-            pairs.push((feed.token.clone(), feed.currency.clone()));
-            println!("Feeds start saving");
-            println!("feed {:?}", feed);
+            pairs.push((feed.token.clone(), feed.currency.clone(), feed.oracle_id));
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
             services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
         }
@@ -413,8 +408,9 @@ impl Index for SetOracleData {
             OracleIntervalSeconds::OneHour,
             OracleIntervalSeconds::OneDay,
         ];
-        for (token, currency) in pairs.iter() {
-            let aggregated_value = map_price_aggregated(services, context, token, currency);
+        for (token, currency, oracle) in pairs.iter() {
+            let aggregated_value =
+                map_price_aggregated(services, context, token, currency, oracle.clone());
             if let Ok(Some(value)) = aggregated_value {
                 let aggreated_id = (
                     value.token.clone(),
@@ -422,7 +418,6 @@ impl Index for SetOracleData {
                     value.block.height,
                 );
                 let aggreated_key = (value.token.clone(), value.currency.clone());
-                println!("aggregated_value {:?}", &value);
                 services
                     .oracle_price_aggregated
                     .by_id
@@ -443,7 +438,6 @@ impl Index for SetOracleData {
                     ),
                     price: value,
                 };
-                println!("price_ticker {:?}", price_ticker);
                 services
                     .price_ticker
                     .by_id
@@ -518,21 +512,17 @@ pub fn map_price_aggregated(
     ctx: &Context,
     token: &str,
     currency: &str,
+    oracle_id: Txid,
 ) -> Result<Option<OraclePriceAggregated>> {
-    let key: (String, String) = (token.to_string(), currency.to_string());
+    let oracle_token_id: (String, String, Txid) =
+        (token.to_string(), currency.to_string(), oracle_id);
     let oracle_entries = services
         .oracle_token_currency
-        .by_key
-        .list(Some(key), SortOrder::Descending)?
+        .by_id
+        .list(Some(oracle_token_id), SortOrder::Descending)?
         .map(|item| {
-            let (_, id) = item?;
-            let b = services
-                .oracle_token_currency
-                .by_id
-                .get(&id)?
-                .ok_or("Error mapping price aggregated index")?;
-
-            Ok(b)
+            let (_, oracleToken) = item?;
+            Ok(oracleToken)
         })
         .collect::<Result<Vec<_>>>()?;
 
