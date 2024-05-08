@@ -89,6 +89,7 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self> {
+        log::info!("Init evm services");
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {

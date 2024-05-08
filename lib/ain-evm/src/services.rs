@@ -55,11 +55,12 @@ impl Services {
         let r = Builder::new_multi_thread().enable_all().build().unwrap();
         let (tx, mut rx) = mpsc::channel(1);
 
+        log::info!("Init rs services");
         Services {
             tokio_runtime_channel_tx: tx,
             tokio_runtime: r.handle().clone(),
             tokio_worker: Mutex::new(Some(thread::spawn(move || {
-                log::info!("Starting tokio waiter");
+                log::info!("Init tokio waiter thread");
                 r.block_on(async move {
                     rx.recv().await;
                 });

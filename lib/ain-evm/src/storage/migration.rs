@@ -27,23 +27,27 @@ impl Migration<BlockStore> for MigrationV1 {
 impl MigrationV1 {
     /// Migrates transactions to be associated with their respective block hashes and indexes.
     fn migrate_transactions(&self, store: &BlockStore) -> Result<()> {
+        log::info!("Migration V1 start");
         let transactions_cf = store.column::<columns::Transactions>();
         let blocks_cf = store.column::<columns::Blocks>();
 
         blocks_cf
             .iter(None, rocksdb::Direction::Forward)?
-            .par_bridge()
+            // .par_bridge()
             .try_for_each(|el| {
                 let (_, block) = el?;
                 let block_hash = block.header.hash();
                 block
                     .transactions
-                    .par_iter()
+                    .iter()
+                    // .par_iter()
                     .enumerate()
                     .try_for_each(|(index, transaction)| {
                         transactions_cf.put(&transaction.hash(), &(block_hash, index))
                     })
             })?;
+
+        log::info!("Migration V1 complete");
 
         Ok(())
     }

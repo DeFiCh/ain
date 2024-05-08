@@ -75,9 +75,13 @@ impl DBVersionControl for BlockStore {
     }
 
     fn migrate(&self) -> DBResult<()> {
+        log::info!("Init db migrations");
+
         let current_version = self.get_version().unwrap_or(0);
-        let mut migrations: [Box<dyn Migration<Self>>; Self::CURRENT_VERSION as usize] =
-            [Box::new(MigrationV1)];
+        let mut migrations = [
+            Box::new(MigrationV1) as Box<dyn Migration<Self>>
+            ];
+
         migrations.sort_by_key(|a| a.version());
 
         for migration in migrations {
@@ -94,7 +98,8 @@ impl DBVersionControl for BlockStore {
             }
         }
 
-        self.set_version(Self::CURRENT_VERSION)
+        log::info!("Completed db migrations");
+        Ok(())
     }
 
     fn startup(&self) -> DBResult<()> {
