@@ -225,6 +225,19 @@ struct PoolShareKey {
     }
 };
 
+struct TotalRewardPerShareKey {
+    uint32_t height;
+    uint32_t poolID;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(WrapBigEndian(height));
+        READWRITE(WrapBigEndian(poolID));
+    }
+};
+
 struct LoanTokenAverageLiquidityKey {
     uint32_t sourceID;
     uint32_t destID;
@@ -320,6 +333,12 @@ public:
                               uint32_t end,
                               std::function<void(RewardType, CTokenAmount, uint32_t)> onReward);
 
+    void CalculateStaticPoolRewards(std::function<CAmount()> onLiquidity,
+                                    std::function<void(RewardType, CTokenAmount, uint32_t)> onReward,
+                                    const uint32_t poolID,
+                                    const uint32_t beginHeight,
+                                    const uint32_t endHeight);
+
     Res SetLoanDailyReward(const uint32_t height, const CAmount reward);
     Res SetDailyReward(uint32_t height, CAmount reward);
     Res SetRewardPct(DCT_ID const &poolId, uint32_t height, CAmount rewardPct);
@@ -348,6 +367,9 @@ public:
     void ForEachTokenAverageLiquidity(
         std::function<bool(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity)> callback,
         const LoanTokenAverageLiquidityKey start = LoanTokenAverageLiquidityKey{});
+
+    bool SetTotalRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward);
+    arith_uint256 GetTotalRewardPerShare(const TotalRewardPerShareKey &totalReward);
 
     // tags
     struct ByID {
@@ -400,6 +422,9 @@ public:
     };
     struct ByLoanTokenLiquidityAverage {
         static constexpr uint8_t prefix() { return '+'; }
+    };
+    struct ByTotalRewardPerShare {
+        static constexpr uint8_t prefix() { return '-'; }
     };
 };
 

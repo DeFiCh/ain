@@ -241,6 +241,33 @@ auto InitPoolVars(CPoolPairView &view, PoolHeightKey poolKey, uint32_t end) {
     return std::make_tuple(std::move(value), std::move(it), height);
 }
 
+void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquidity,
+                                               std::function<void(RewardType, CTokenAmount, uint32_t)> onReward,
+                                               const uint32_t poolID,
+                                               const uint32_t beginHeight,
+                                               const uint32_t endHeight) {
+    if (beginHeight >= endHeight) {
+        return;
+    }
+
+    // Get start and end reward per share
+    TotalRewardPerShareKey key{beginHeight, poolID};
+    const auto startSharePerReward = GetTotalRewardPerShare(key);
+    key.height = endHeight - 1;
+    const auto endSharePerReward = GetTotalRewardPerShare(key);
+
+    // Get owner's liquidity
+    const auto liquidity = onLiquidity();
+
+    if (const auto rewardPerShareRange = endSharePerReward - startSharePerReward; rewardPerShareRange > 0) {
+        // Calculate reward for the range
+        const auto reward = (liquidity * rewardPerShareRange / COIN).GetLow64();
+
+        // Pay reward to the owner
+        onReward(RewardType::Coinbase, {DCT_ID{}, static_cast<CAmount>(reward)}, endHeight);
+    }
+}
+
 void CPoolPairView::CalculatePoolRewards(DCT_ID const &poolId,
                                          std::function<CAmount()> onLiquidity,
                                          uint32_t begin,
@@ -529,9 +556,10 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
     std::function<CTokenAmount(const CScript &, DCT_ID)> onGetBalance,
     std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
     int nHeight) {
-    bool newRewardCalc = nHeight >= Params().GetConsensus().DF4BayfrontGardensHeight;
-    bool newRewardLogic = nHeight >= Params().GetConsensus().DF8EunosHeight;
-    bool newCustomRewards = nHeight >= Params().GetConsensus().DF5ClarkeQuayHeight;
+    const bool newRewardCalc = nHeight >= Params().GetConsensus().DF4BayfrontGardensHeight;
+    const bool newRewardLogic = nHeight >= Params().GetConsensus().DF8EunosHeight;
+    const bool newCustomRewards = nHeight >= Params().GetConsensus().DF5ClarkeQuayHeight;
+    const bool newRewardCalculations = nHeight >= Params().GetConsensus().DF24Height;
 
     constexpr const uint32_t PRECISION = 10000;  // (== 100%) just searching the way to avoid arith256 inflating
     CAmount totalDistributed = 0;
@@ -594,6 +622,16 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
             for (const auto &reward : rewards.balances) {
                 // subtract pool's owner account by custom block reward
                 onTransfer(*ownerAddress, {}, {reward.first, reward.second});
+            }
+
+            if (newRewardCalculations) {
+                // Calculate the reward for each LP and add it to the total
+                const auto sharePerLP = (arith_uint256(poolReward) * COIN) / arith_uint256(totalLiquidity);
+                TotalRewardPerShareKey key{static_cast<uint32_t>(nHeight - 1), poolId.v};
+                auto totalRewardPerShare = GetTotalRewardPerShare(key);
+                totalRewardPerShare += sharePerLP;
+                key.height = nHeight;
+                SetTotalRewardPerShare(key, totalRewardPerShare);
             }
 
         } else {
@@ -711,6 +749,17 @@ void CPoolPairView::ForEachTokenAverageLiquidity(
             return callback(key, liquidity);
         },
         start);
+}
+
+bool CPoolPairView::SetTotalRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward) {
+    return WriteBy<ByTotalRewardPerShare>(key, totalReward);
+}
+
+arith_uint256 CPoolPairView::GetTotalRewardPerShare(const TotalRewardPerShareKey &key) {
+    if (const auto value = ReadBy<ByTotalRewardPerShare, arith_uint256>(key); value) {
+        return *value;
+    }
+    return {};
 }
 
 Res CPoolPairView::DelShare(DCT_ID const &poolId, const CScript &provider) {

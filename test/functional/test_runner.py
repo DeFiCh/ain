@@ -298,6 +298,7 @@ BASE_SCRIPTS = [
     "feature_loan_estimateloan.py",
     "feature_loan_priceupdate.py",
     "feature_loan_vaultstate.py",
+    "feature_static_pool_rewards.py",
     "feature_loan.py",
     "feature_evm_miner.py",
     "feature_evm.py",
