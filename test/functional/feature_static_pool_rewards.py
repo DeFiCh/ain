@@ -6,13 +6,9 @@
 """Test static pool rewards"""
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import (
-    assert_equal,
-    assert_raises_rpc_error,
-)
+from test_framework.util import assert_equal
 
-from decimal import Decimal, ROUND_DOWN
-import time
+from decimal import Decimal
 
 
 class TokenFractionalSplitTest(DefiTestFramework):
@@ -25,6 +21,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "-txnotokens=0",
                 "-amkheight=1",
                 "-bayfrontheight=1",
+                "-bayfrontgardensheight=1",
                 "-eunosheight=1",
                 "-fortcanningheight=1",
                 "-fortcanningmuseumheight=1",
