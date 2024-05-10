@@ -8,6 +8,8 @@ use axum::{
     Extension, Router,
 };
 use bitcoin::Txid;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use super::{
     common::split_key,
@@ -76,12 +78,13 @@ async fn get_feed(
     for result in results {
         match result {
             Ok((id, feed)) => {
+                println!("feeds in api {:?}", feed);
                 if feed
                     .key
                     .eq(&(token.to_string(), currency.to_string(), txid))
                 {
-                    let converted_amount = (feed.amount as f64) / 100_000_000.0;
-                    let amount_string = format!("{:.2}", converted_amount);
+                    let decimal_amount = Decimal::from(feed.amount);
+                    let amount = decimal_amount / dec!(100000000);
                     oracle_price_feeds.push(ApiResponseOraclePriceFeed {
                         id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                         key: format!("{}-{}-{}", token, currency, feed.oracle_id),
@@ -91,7 +94,7 @@ async fn get_feed(
                         oracle_id: feed.oracle_id,
                         txid: feed.txid,
                         time: feed.time,
-                        amount: amount_string,
+                        amount: amount.to_string(),
                         block: feed.block,
                     });
                 }

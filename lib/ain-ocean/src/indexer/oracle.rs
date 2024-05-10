@@ -53,7 +53,7 @@ impl Index for AppointOracle {
             ),
             owner_address: self.script.to_hex_string(),
             weightage: self.weightage,
-            price_feeds: price_feeds_items,
+            price_feeds: price_feeds_items.clone(),
             block: ctx.block.clone(),
         };
         services
@@ -65,7 +65,7 @@ impl Index for AppointOracle {
             .by_key
             .put(&oracle_history.oracle_id, &oracle_history.id)?;
 
-        let prices_feeds = self.price_feeds.as_ref();
+        let prices_feeds = price_feeds_items;
         for token_currency in prices_feeds {
             let id = (
                 token_currency.token.clone(),
@@ -521,15 +521,14 @@ pub fn map_price_aggregated(
         .by_id
         .list(Some(oracle_token_id), SortOrder::Descending)?
         .map(|item| {
-            let (_, oracleToken) = item?;
-            Ok(oracleToken)
+            let (_, oracle_token) = item?;
+            Ok(oracle_token)
         })
         .collect::<Result<Vec<_>>>()?;
 
     if oracle_entries.is_empty() {
         return Ok(None);
-    }
-
+    }   
     let mut aggregated = OraclePriceAggregatedAggregated {
         amount: "0".to_string(),
         weightage: 0,
@@ -610,7 +609,7 @@ fn map_price_feeds(
             let key = (
                 token.clone(),
                 currency.clone(),
-                set_oracle_data.oracle_id.clone(),
+               set_oracle_data.oracle_id.clone(),
             );
 
             let oracle_price_feed = OraclePriceFeed {
