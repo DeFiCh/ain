@@ -253,8 +253,10 @@ void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquid
     // Get start and end reward per share
     TotalRewardPerShareKey key{beginHeight, poolID};
     const auto startSharePerReward = GetTotalRewardPerShare(key);
+    const auto startSharePerLoanReward = GetTotalLoanRewardPerShare(key);
     key.height = endHeight - 1;
     const auto endSharePerReward = GetTotalRewardPerShare(key);
+    const auto endSharePerLoanReward = GetTotalLoanRewardPerShare(key);
 
     // Get owner's liquidity
     const auto liquidity = onLiquidity();
@@ -265,6 +267,14 @@ void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquid
 
         // Pay reward to the owner
         onReward(RewardType::Coinbase, {DCT_ID{}, static_cast<CAmount>(reward)}, endHeight);
+    }
+
+    if (const auto rewardPerShareRange = endSharePerLoanReward - startSharePerLoanReward; rewardPerShareRange > 0) {
+        // Calculate reward for the range
+        const auto reward = (liquidity * rewardPerShareRange / COIN).GetLow64();
+
+        // Pay reward to the owner
+        onReward(RewardType::LoanTokenDEXReward, {DCT_ID{}, static_cast<CAmount>(reward)}, endHeight);
     }
 }
 
@@ -603,7 +613,7 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
 
         auto swapValue = ReadBy<ByPoolSwap, PoolSwapValue>(poolKey);
         const auto swapEvent = swapValue && swapValue->swapEvent;
-        auto poolReward = ReadValueAt<ByPoolReward, CAmount>(this, poolKey);
+        const auto poolReward = ReadValueAt<ByPoolReward, CAmount>(this, poolKey);
 
         if (newRewardLogic) {
             if (swapEvent) {
@@ -613,7 +623,7 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
             }
 
             // Get LP loan rewards
-            auto poolLoanReward = ReadValueAt<ByPoolLoanReward, CAmount>(this, poolKey);
+            const auto poolLoanReward = ReadValueAt<ByPoolLoanReward, CAmount>(this, poolKey);
 
             // increase by pool block reward
             totalDistributed += poolReward;
@@ -625,13 +635,23 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
             }
 
             if (newRewardCalculations) {
-                // Calculate the reward for each LP and add it to the total
+                // Calculate the reward for each LP
                 const auto sharePerLP = (arith_uint256(poolReward) * COIN) / arith_uint256(totalLiquidity);
+                const auto sharePerLoanLP = (arith_uint256(poolLoanReward) * COIN) / arith_uint256(totalLiquidity);
+
+                // Get total from last block
                 TotalRewardPerShareKey key{static_cast<uint32_t>(nHeight - 1), poolId.v};
                 auto totalRewardPerShare = GetTotalRewardPerShare(key);
+                auto totalLoanRewardPerShare = GetTotalLoanRewardPerShare(key);
+
+                // Add the reward to the total
                 totalRewardPerShare += sharePerLP;
+                totalLoanRewardPerShare += sharePerLoanLP;
+
+                // Store new total at current height
                 key.height = nHeight;
                 SetTotalRewardPerShare(key, totalRewardPerShare);
+                SetTotalLoanRewardPerShare(key, totalLoanRewardPerShare);
             }
 
         } else {
@@ -757,6 +777,17 @@ bool CPoolPairView::SetTotalRewardPerShare(const TotalRewardPerShareKey &key, co
 
 arith_uint256 CPoolPairView::GetTotalRewardPerShare(const TotalRewardPerShareKey &key) {
     if (const auto value = ReadBy<ByTotalRewardPerShare, arith_uint256>(key); value) {
+        return *value;
+    }
+    return {};
+}
+
+bool CPoolPairView::SetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward) {
+    return WriteBy<ByTotalLoanRewardPerShare>(key, totalReward);
+}
+
+arith_uint256 CPoolPairView::GetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key) {
+    if (const auto value = ReadBy<ByTotalLoanRewardPerShare, arith_uint256>(key); value) {
         return *value;
     }
     return {};

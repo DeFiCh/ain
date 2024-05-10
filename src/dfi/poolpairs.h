@@ -370,6 +370,8 @@ public:
 
     bool SetTotalRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward);
     arith_uint256 GetTotalRewardPerShare(const TotalRewardPerShareKey &totalReward);
+    bool SetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward);
+    arith_uint256 GetTotalLoanRewardPerShare(const TotalRewardPerShareKey &totalReward);
 
     // tags
     struct ByID {
@@ -425,6 +427,10 @@ public:
     };
     struct ByTotalRewardPerShare {
         static constexpr uint8_t prefix() { return '-'; }
+    };
+
+    struct ByTotalLoanRewardPerShare {
+        static constexpr uint8_t prefix() { return '='; }
     };
 };
 
