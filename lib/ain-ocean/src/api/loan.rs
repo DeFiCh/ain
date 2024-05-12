@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ain_macros::ocean_endpoint;
+use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
 use bitcoin::Txid;
 use defichain_rpc::{
@@ -122,7 +123,9 @@ async fn list_collateral_token(
         .into_iter()
         .fake_paginate(&query, skip_while)
         .map(|v| async {
-            let (id, info) = get_token_cached(&ctx, &v.token_id).await?.unwrap();
+            let (id, info) = get_token_cached(&ctx, &v.token_id)
+                .await?
+                .ok_or(format_err!("None is not valid"))?;
             Ok::<CollateralToken, Error>(CollateralToken::from_with_id(id, v, info))
         })
         .collect::<Vec<_>>();
@@ -142,7 +145,7 @@ async fn get_collateral_token(
     let collateral_token = ctx.client.get_collateral_token(token_id).await?;
     let (id, info) = get_token_cached(&ctx, &collateral_token.token_id)
         .await?
-        .unwrap();
+        .ok_or(format_err!("None is not valid"))?;
 
     Ok(Response::new(CollateralToken::from_with_id(
         id,

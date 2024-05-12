@@ -3,6 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use axum::{routing::get, Extension, Router};
+use anyhow::format_err;
 use defichain_rpc::{
     json::{
         poolpair::{PoolPairInfo, PoolPairsResult},
@@ -311,13 +312,17 @@ async fn list_pool_pairs(
                 TokenInfo {
                     name: a_token_name, ..
                 },
-            ) = get_token_cached(&ctx, &p.id_token_a).await?.unwrap();
+            ) = get_token_cached(&ctx, &p.id_token_a)
+                .await?
+                .ok_or(format_err!("None is not valid"))?;
             let (
                 _,
                 TokenInfo {
                     name: b_token_name, ..
                 },
-            ) = get_token_cached(&ctx, &p.id_token_b).await?.unwrap();
+            ) = get_token_cached(&ctx, &p.id_token_b)
+                .await?
+                .ok_or(format_err!("None is not valid"))?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
             let _apr = get_apr(&ctx, &id, &p).await?;
@@ -352,13 +357,17 @@ async fn get_pool_pair(
             TokenInfo {
                 name: a_token_name, ..
             },
-        ) = get_token_cached(&ctx, &pool.id_token_a).await?.unwrap();
+        ) = get_token_cached(&ctx, &pool.id_token_a)
+            .await?
+            .ok_or(format_err!("None is not valid"))?;
         let (
             _,
             TokenInfo {
                 name: b_token_name, ..
             },
-        ) = get_token_cached(&ctx, &pool.id_token_b).await?.unwrap();
+        ) = get_token_cached(&ctx, &pool.id_token_b)
+            .await?
+            .ok_or(format_err!("None is not valid"))?;
         let res = PoolPairResponse::from_with_id(
             id,
             pool,
