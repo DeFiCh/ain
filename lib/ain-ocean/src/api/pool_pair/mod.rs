@@ -225,7 +225,7 @@ impl PoolPairResponse {
         total_liquidity_usd: Decimal,
     ) -> Self {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
-        let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
+        let [a, b] = <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
         let a_parsed = parse_dat_symbol(a);
         let b_parsed = parse_dat_symbol(b);
 

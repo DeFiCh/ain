@@ -105,7 +105,7 @@ async fn get_total_liquidity_usd_by_best_path(
 
 pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
     let parts = p.symbol.split('-').collect::<Vec<&str>>();
-    let [a, b] = <[&str; 2]>::try_from(parts).ok().unwrap();
+    let [a, b] = <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
 
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
@@ -162,7 +162,7 @@ async fn get_yearly_custom_reward_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -
             .iter()
             .fold(dec!(0), |accumulate: Decimal, account: &String| {
                 let parts = account.split('-').collect::<Vec<&str>>();
-                let [amount, token] = <[&str; 2]>::try_from(parts).ok().unwrap();
+                let [amount, token] = <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
                 if token != "0" && token != "DFI" {
                     return accumulate;
                 };
