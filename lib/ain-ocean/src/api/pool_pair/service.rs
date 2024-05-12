@@ -162,21 +162,22 @@ async fn get_yearly_custom_reward_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -
             .iter()
             .fold(dec!(0), |accumulate: Decimal, account: &String| {
                 let parts = account.split('-').collect::<Vec<&str>>();
-                let [amount, token] = <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
+                let [amount, token] =
+                    <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
                 if token != "0" && token != "DFI" {
                     return accumulate;
                 };
 
                 let yearly = Decimal::from_str(amount)
-                    .unwrap()
+                    .expect("convert numeric string to number error")
                     .checked_mul(dec!(2880))
-                    .unwrap() // 60 * 60 * 24 / 30, 30 seconds = 1 block
-                    .checked_mul(dec!(365))
-                    .unwrap() // 1 year
-                    .checked_mul(dfi_price_usdt)
-                    .unwrap();
+                    .and_then(|v| v.checked_mul(dec!(365)))
+                    .and_then(|v| v.checked_mul(dfi_price_usdt))
+                    .expect("yearly reward overflow err");
 
-                accumulate.checked_add(yearly).unwrap()
+                accumulate
+                    .checked_add(yearly)
+                    .expect("accumlate reward overflow err")
             });
 
         total
