@@ -12,7 +12,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 env:
+  TARGET: x86_64-pc-linux-gnu
   MAKE_DEBUG: 0
+  GIT_VERSION: 1
 
 jobs:
   build:
@@ -23,8 +25,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: 'feature/ocean-archive'
     - run: git config --global --add safe.directory '*'
 
     - name: Populate environment
@@ -36,10 +36,21 @@ jobs:
     - name: Setup user dependencies
       run: ./make.sh ci-setup-user-deps
 
+    - name: Restore cpp build cache
+      id: cpp-cache-restore
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ./build/depends
+          ./build/src
+          ~/.ccache
+        key: cpp-${{ env.TARGET }}-${{ env.BUILD_TYPE }}
+
     - uses: Swatinem/rust-cache@v2
       with:
         workspaces: lib -> ../build/lib/target
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: ${{ env.TARGET }}
 
     - name: Build binaries
       run: ./make.sh build

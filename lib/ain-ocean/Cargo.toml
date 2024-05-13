@@ -44,6 +44,8 @@ rust_decimal = { version = "1.34", features = ["serde", "serde-float", "serde-wi
 rust_decimal_macros = "1.34"
 clap = { version = "4.5.0", features = ["derive"] }
 num_cpus.workspace = true
+petgraph = { version = "0.6.4", features = ["serde-1"] }
+parking_lot.workspace = true
 
 [dev-dependencies]
 tempdir.workspace = true

@@ -1,5 +1,6 @@
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use super::query::PaginationQuery;
 
@@ -20,13 +21,21 @@ pub fn parse_display_symbol(token_info: &TokenInfo) -> String {
     token_info.symbol.clone()
 }
 
-fn parse_dat_symbol(symbol: &str) -> String {
+pub fn parse_dat_symbol(symbol: &str) -> String {
     let special_symbols = ["DUSD", "DFI", "csETH"];
 
     if special_symbols.contains(&symbol) {
         symbol.to_string()
     } else {
         format!("d{}", symbol)
+    }
+}
+
+pub fn format_number(v: Decimal) -> String {
+    if v == dec!(0) {
+        "0".to_string()
+    } else {
+        format!("{:.8}", v)
     }
 }
 

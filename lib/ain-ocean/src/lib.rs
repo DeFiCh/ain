@@ -1,6 +1,10 @@
 pub mod error;
 mod indexer;
 pub mod network;
+
+use parking_lot::Mutex;
+use petgraph::graphmap::UnGraphMap;
+use serde::Serialize;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
@@ -102,6 +106,15 @@ pub struct PriceTickerService {
     by_id: PriceTickerRepository,
 }
 
+#[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenIdentifier {
+    pub id: String,
+    pub name: String,
+    pub symbol: String,
+    pub display_symbol: String,
+}
+
 pub struct Services {
     pub masternode: MasternodeService,
     pub block: BlockService,
@@ -117,6 +130,7 @@ pub struct Services {
     pub oracle_token_currency: OracleTokenCurrencyService,
     pub oracle_history: OracleHistoryService,
     pub price_ticker: PriceTickerService,
+    pub token_graph: Arc<Mutex<UnGraphMap<u32, String>>>,
 }
 
 impl Services {
@@ -176,6 +190,7 @@ impl Services {
             price_ticker: PriceTickerService {
                 by_id: PriceTickerRepository::new(Arc::clone(&store)),
             },
+            token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }
     }
 }

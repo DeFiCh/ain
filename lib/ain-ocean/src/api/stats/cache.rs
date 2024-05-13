@@ -37,10 +37,11 @@ pub struct Burned {
 pub async fn get_burned(client: &Client) -> Result<Burned> {
     let burn_info = client.get_burn_info().await?;
 
-    let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalError)?;
-    let emission = Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalError)?;
-    let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalError)?;
-    let auction = Decimal::from_f64(burn_info.auctionburn).ok_or(Error::DecimalError)?;
+    let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalConversionError)?;
+    let emission =
+        Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
+    let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
+    let auction = Decimal::from_f64(burn_info.auctionburn).ok_or(Error::DecimalConversionError)?;
 
     let account = find_token_balance(burn_info.tokens, "DFI");
     let address = utxo + account;
@@ -124,9 +125,10 @@ pub async fn get_burned_total(ctx: &AppContext) -> Result<Decimal> {
         .await?;
     let burn_info = ctx.client.get_burn_info().await?;
 
-    let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalError)?;
-    let emission = Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalError)?;
-    let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalError)?;
+    let utxo = Decimal::from_f64(burn_info.amount).ok_or(Error::DecimalConversionError)?;
+    let emission =
+        Decimal::from_f64(burn_info.emissionburn).ok_or(Error::DecimalConversionError)?;
+    let fee = Decimal::from_f64(burn_info.feeburn).ok_or(Error::DecimalConversionError)?;
     let account_balance = tokens
         .0
         .remove("0")
@@ -152,8 +154,8 @@ pub struct Emission {
     convert = r#"{ format!("emission") }"#
 )]
 pub fn get_emission(height: u32) -> Result<Emission> {
-    let subsidy =
-        Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height)).ok_or(Error::DecimalError)?;
+    let subsidy = Decimal::from_u64(BLOCK_SUBSIDY.get_block_subsidy(height))
+        .ok_or(Error::DecimalConversionError)?;
     let distribution = get_block_reward_distribution(subsidy);
 
     let masternode = distribution.masternode;

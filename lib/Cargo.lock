@@ -261,6 +261,8 @@ dependencies = [
  "lazy_static",
  "log",
  "num_cpus",
+ "parking_lot",
+ "petgraph",
  "rocksdb",
  "rust_decimal",
  "rust_decimal_macros",
@@ -1516,7 +1518,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc"
 version = "0.18.0"
-source = "git+https://github.com/defich/rust-defichain-rpc.git#fab7f5f9d38fe225b072087d621e8f0bf11706de"
+source = "git+https://github.com/defich/rust-defichain-rpc.git#41f606433c7f3447cb5baa7e89b867ba8ae1ec88"
 dependencies = [
  "async-trait",
  "defichain-rpc-json",
@@ -1529,7 +1531,7 @@ dependencies = [
 [[package]]
 name = "defichain-rpc-json"
 version = "0.18.0"
-source = "git+https://github.com/defich/rust-defichain-rpc.git#fab7f5f9d38fe225b072087d621e8f0bf11706de"
+source = "git+https://github.com/defich/rust-defichain-rpc.git#41f606433c7f3447cb5baa7e89b867ba8ae1ec88"
 dependencies = [
  "bitcoin",
  "serde",
@@ -3833,6 +3835,8 @@ checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
  "indexmap 2.2.6",
+ "serde",
+ "serde_derive",
 ]
 
 [[package]]
