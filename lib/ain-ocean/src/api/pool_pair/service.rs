@@ -1,10 +1,10 @@
+use super::{AppContext, PoolPairAprResponse};
 use anyhow::format_err;
+use anyhow::Context;
 use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use std::{str::FromStr, sync::Arc};
-
-use super::{AppContext, PoolPairAprResponse};
 
 use crate::{
     api::cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
@@ -105,7 +105,8 @@ async fn get_total_liquidity_usd_by_best_path(
 
 pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
     let parts = p.symbol.split('-').collect::<Vec<&str>>();
-    let [a, b] = <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
+    let [a, b] = <[&str; 2]>::try_from(parts)
+        .map_err(|_| format_err!("Invalid pool pair symbol structure"))?;
 
     let reserve_a = Decimal::from_f64(p.reserve_a).unwrap_or_default();
     let reserve_b = Decimal::from_f64(p.reserve_b).unwrap_or_default();
@@ -147,6 +148,31 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
     Ok(res)
 }
 
+fn calculate_rewards(accounts: &Vec<String>, dfi_price_usdt: Decimal) -> Result<Decimal> {
+    let rewards = accounts.iter().try_fold(dec!(0), |accumulate, account| {
+        let parts = account.split('-').collect::<Vec<&str>>();
+        let [amount, token] = parts
+            .as_slice()
+            .try_into()
+            .context("Invalid pool pair symbol structure")?;
+
+        if token != "0" && token != "DFI" {
+            return Ok(accumulate);
+        }
+
+        let yearly = Decimal::from_str(amount)
+            .context("convert numeric string to number")?
+            .checked_mul(dec!(2880))
+            .and_then(|v| v.checked_mul(dec!(365)))
+            .and_then(|v| v.checked_mul(dfi_price_usdt))
+            .context("yearly reward overflow")?;
+        accumulate
+            .checked_add(yearly)
+            .context("accumlate reward overflow")
+    })?;
+    Ok(rewards)
+}
+
 async fn get_yearly_custom_reward_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -> Result<Decimal> {
     if p.custom_rewards.is_none() {
         return Ok(dec!(0));
@@ -157,35 +183,9 @@ async fn get_yearly_custom_reward_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) -
         return Ok(dfi_price_usdt);
     };
 
-    let rewards = if let Some(custom_rewards) = &p.custom_rewards {
-        let total = custom_rewards
-            .iter()
-            .fold(dec!(0), |accumulate: Decimal, account: &String| {
-                let parts = account.split('-').collect::<Vec<&str>>();
-                let [amount, token] =
-                    <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
-                if token != "0" && token != "DFI" {
-                    return accumulate;
-                };
-
-                let yearly = Decimal::from_str(amount)
-                    .expect("convert numeric string to number error")
-                    .checked_mul(dec!(2880))
-                    .and_then(|v| v.checked_mul(dec!(365)))
-                    .and_then(|v| v.checked_mul(dfi_price_usdt))
-                    .expect("yearly reward overflow err");
-
-                accumulate
-                    .checked_add(yearly)
-                    .expect("accumlate reward overflow err")
-            });
-
-        total
-    } else {
-        dec!(0)
-    };
-
-    Ok(rewards)
+    p.custom_rewards.as_ref().map_or(Ok(dec!(0)), |rewards| {
+        calculate_rewards(rewards, dfi_price_usdt)
+    })
 }
 
 async fn get_daily_dfi_reward(ctx: &Arc<AppContext>) -> Result<Decimal> {
