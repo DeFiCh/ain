@@ -223,13 +223,14 @@ impl PoolPairResponse {
         a_token_name: String,
         b_token_name: String,
         total_liquidity_usd: Decimal,
-    ) -> Self {
+    ) -> Result<Self> {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
-        let [a, b] = <[&str; 2]>::try_from(parts).expect("Invalid pool pair symbol structure");
+        let [a, b] = <[&str; 2]>::try_from(parts)
+            .map_err(|_| format_err!("Invalid pool pair symbol structure"))?;
         let a_parsed = parse_dat_symbol(a);
         let b_parsed = parse_dat_symbol(b);
 
-        Self {
+        Ok(Self {
             id,
             symbol: p.symbol.clone(),
             display_symbol: format!("{a_parsed}-{b_parsed}"),
@@ -281,7 +282,7 @@ impl PoolPairResponse {
             },
             apr: None,    // todo: await this.poolPairService.getAPR(id, info)
             volume: None, // todo: await this.poolPairService.getUSDVolume(id)
-        }
+        })
     }
 }
 
@@ -326,14 +327,14 @@ async fn list_pool_pairs(
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
             let _apr = get_apr(&ctx, &id, &p).await?;
-
-            Ok::<PoolPairResponse, Error>(PoolPairResponse::from_with_id(
+            let res = PoolPairResponse::from_with_id(
                 id,
                 p,
                 a_token_name,
                 b_token_name,
                 total_liquidity_usd,
-            ))
+            )?;
+            Ok::<PoolPairResponse, Error>(res)
         })
         .collect::<Vec<_>>();
 
@@ -374,7 +375,7 @@ async fn get_pool_pair(
             a_token_name,
             b_token_name,
             total_liquidity_usd,
-        );
+        )?;
         return Ok(Response::new(Some(res)));
     };
 
