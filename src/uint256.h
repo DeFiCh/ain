@@ -66,7 +66,7 @@ public:
                ((uint64_t)ptr[7]) << 56;
     }
 
-    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayRev() const
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArray() const
     {
         // We store bytes in little endian. So any expectations of
         // an array of bytes should be in same order as the hex string.
@@ -76,7 +76,7 @@ public:
         return reversedArray;
     }
 
-    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArray() const
+    [[nodiscard]] std::array<uint8_t, WIDTH> GetByteArrayBE() const
     {
         std::array<uint8_t, WIDTH> byteArray;
         std::copy(data, data + WIDTH, byteArray.begin());
