@@ -61,50 +61,36 @@ async fn get_feed(
         Ok((t, c)) => (t, c),
         Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
     };
-    let key =
-        ctx.services
-            .oracle_price_feed
-            .by_key
-            .get(&(token.clone(), currency.clone(), txid))?;
+    let key = (token.clone(), currency.clone(), txid.clone());
 
-    let results = ctx
+    let price_feed_list = ctx
         .services
         .oracle_price_feed
         .by_id
-        .list(key, SortOrder::Descending)?
-        .paginate(&query);
+        .list(None, SortOrder::Descending)?
+        .paginate(&query)
+        .map(|res| res.expect("Error retrieving key"))
+        .collect::<Vec<_>>();
 
     let mut oracle_price_feeds = Vec::new();
-    for result in results {
-        match result {
-            Ok((id, feed)) => {
-                println!("feeds in api {:?}", feed);
-                if feed
-                    .key
-                    .eq(&(token.to_string(), currency.to_string(), txid))
-                {
-                    let decimal_amount = Decimal::from(feed.amount);
-                    let amount = decimal_amount / dec!(100000000);
-                    oracle_price_feeds.push(ApiResponseOraclePriceFeed {
-                        id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
-                        key: format!("{}-{}-{}", token, currency, feed.oracle_id),
-                        sort: feed.sort,
-                        token: feed.token,
-                        currency: feed.currency,
-                        oracle_id: feed.oracle_id,
-                        txid: feed.txid,
-                        time: feed.time,
-                        amount: amount.to_string(),
-                        block: feed.block,
-                    });
-                }
-            }
-            Err(e) => {
-                return Err(Error::Other(anyhow!(
-                    "Failed to process price feeds: {}",
-                    e
-                )))
-            }
+
+    for (_, feed) in &price_feed_list {
+        let (token, currency, oracle_id, _) = &feed.id;
+        if key.0.eq(token) && key.1.eq(currency) && key.2.eq(&oracle_id) {
+            let decimal_amount = Decimal::from(feed.amount);
+            let amount = decimal_amount / dec!(100000000);
+            oracle_price_feeds.push(ApiResponseOraclePriceFeed {
+                id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
+                key: format!("{}-{}-{}", token, currency, feed.oracle_id),
+                sort: feed.sort.clone(),
+                token: feed.token.clone(),
+                currency: feed.currency.clone(),
+                oracle_id: feed.oracle_id,
+                txid: feed.txid,
+                time: feed.time,
+                amount: amount.to_string(),
+                block: feed.block.clone(),
+            });
         }
     }
 

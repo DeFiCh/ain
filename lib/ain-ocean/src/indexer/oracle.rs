@@ -528,7 +528,7 @@ pub fn map_price_aggregated(
 
     if oracle_entries.is_empty() {
         return Ok(None);
-    }   
+    }
     let mut aggregated = OraclePriceAggregatedAggregated {
         amount: "0".to_string(),
         weightage: 0,
@@ -609,7 +609,7 @@ fn map_price_feeds(
             let key = (
                 token.clone(),
                 currency.clone(),
-               set_oracle_data.oracle_id.clone(),
+                set_oracle_data.oracle_id.clone(),
             );
 
             let oracle_price_feed = OraclePriceFeed {
