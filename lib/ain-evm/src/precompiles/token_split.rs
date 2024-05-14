@@ -121,28 +121,9 @@ impl DVMStatePrecompile for TokenSplit {
             reset_storage: false,
         };
 
-        let Ok(storage) =
-            get_original_contract_storage_update(handle, sender, original_contract, input_amount)
-        else {
-            return Err(PrecompileFailure::Error {
-                exit_status: ExitError::Other("Error getting storage update".into()),
-            });
-        };
-
-        let original_contract_state_changes = Apply::Modify {
-            address: original_contract,
-            basic: handle.basic(original_contract),
-            code: None,
-            storage,
-            reset_storage: false,
-        };
-
         Ok(PrecompileOutput {
             exit_status: ExitSucceed::Returned,
-            state_changes: Some(vec![
-                original_contract_state_changes,
-                new_contract_state_changes,
-            ]),
+            state_changes: Some(vec![new_contract_state_changes]),
             output,
         })
     }
@@ -192,44 +173,6 @@ fn get_new_contract_storage_update(
         (
             contract_allowance_storage_index,
             u256_to_h256(new_sender_allowance),
-        ),
-        (total_supply_index, u256_to_h256(new_total_supply)),
-    ]))
-}
-
-fn get_original_contract_storage_update(
-    handle: &mut impl PrecompileHandle,
-    sender: H160,
-    contract: H160,
-    amount: U256,
-) -> Result<BTreeMap<H256, H256>> {
-    let contract_balance_storage_index = get_address_storage_index(H256::zero(), sender);
-    let sender_balance = U256::from(
-        handle
-            .storage(contract, contract_balance_storage_index)
-            .as_bytes(),
-    );
-
-    debug!("sender_balance : {}", sender_balance);
-
-    let new_sender_balance = sender_balance
-        .checked_sub(amount)
-        .ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
-    debug!("new_sender_balance : {:x}", new_sender_balance);
-
-    let total_supply_index = H256::from_low_u64_be(2);
-    let total_supply = U256::from(handle.storage(contract, total_supply_index).as_bytes());
-
-    let new_total_supply = total_supply
-        .checked_sub(amount)
-        .ok_or_else(|| format_err!("Total supply overflow/underflow"))?;
-
-    debug!("new_total_supply : {:x}", new_total_supply);
-
-    Ok(BTreeMap::from([
-        (
-            contract_balance_storage_index,
-            u256_to_h256(new_sender_balance),
         ),
         (total_supply_index, u256_to_h256(new_total_supply)),
     ]))
