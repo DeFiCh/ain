@@ -617,7 +617,7 @@ impl fmt::Display for BackendError {
             }
             BackendError::TrieError(e) => write!(f, "BackendError: Trie error {e}"),
             BackendError::NoSuchAccount(address) => {
-                write!(f, "BackendError: No such acccount for address {address}")
+                write!(f, "BackendError: No such account for address {address}")
             }
             BackendError::InsufficientBalance(InsufficientBalance {
                 address,
