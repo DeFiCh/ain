@@ -181,6 +181,16 @@ public:
     NODISCARD bool ReadConfigFiles(std::string& error, bool ignore_invalid_keys = false);
 
     /**
+     * Get a normalized path from a specified pathlike argument
+     *
+     * It is guaranteed that the returned path has no trailing slashes.
+     *
+     * @param pathlike_arg Pathlike argument to get a path from (e.g., "-datadir", "-blocksdir" or "-walletdir")
+     * @return Normalized path which is get from a specified pathlike argument
+     */
+    fs::path GetPathArg(std::string pathlike_arg) const;
+
+    /**
      * Log warnings for options in m_section_only_args when
      * they are specified in the default section but not overridden
      * on the command line or in a network-specific section in the

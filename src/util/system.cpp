@@ -322,22 +322,16 @@ NODISCARD static bool InterpretOption(std::string key, std::string val, unsigned
     return true;
 }
 
-namespace {
-    fs::path StripRedundantLastElementsOfPath(const fs::path& path)
-    {
-        auto result = path;
-        while (result.filename().empty() || fs::PathToString(result.filename()) == ".") {
-            result = result.parent_path();
-        }
-
-        assert(fs::equivalent(result, path));
-        return result;
-    }
-} // namespace
-
 ArgsManager::ArgsManager()
 {
     // nothing to do
+}
+
+fs::path ArgsManager::GetPathArg(std::string pathlike_arg) const
+{
+    auto result = fs::PathFromString(GetArg(pathlike_arg, "")).lexically_normal();
+    // Remove trailing slash, if present.
+    return result.has_filename() ? result : result.parent_path();
 }
 
 const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
@@ -785,9 +779,9 @@ const fs::path &GetDataDir(bool fNetSpecific)
     // this function
     if (!path.empty()) return path;
 
-    std::string datadir = gArgs.GetArg("-datadir", "");
+    const fs::path datadir{gArgs.GetPathArg("-datadir")};
     if (!datadir.empty()) {
-        path = fs::absolute(StripRedundantLastElementsOfPath(fs::PathFromString(datadir)));
+        path = fs::absolute(datadir);
         if (!fs::is_directory(path)) {
             path = "";
             return path;
@@ -803,14 +797,13 @@ const fs::path &GetDataDir(bool fNetSpecific)
         fs::create_directories(path / "wallets");
     }
 
-    path = StripRedundantLastElementsOfPath(path);
     return path;
 }
 
 bool CheckDataDirOption()
 {
-    std::string datadir = gArgs.GetArg("-datadir", "");
-    return datadir.empty() || fs::is_directory(fs::absolute(fs::PathFromString(datadir)));
+    const fs::path datadir{gArgs.GetPathArg("-datadir")};
+    return datadir.empty() || fs::is_directory(fs::absolute(datadir));
 }
 
 void ClearDatadirCache()
