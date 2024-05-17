@@ -275,7 +275,7 @@ pub fn index_block(
                         DfTx::RemoveOracle(data) => data.index(services, &ctx)?,
                         DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
                         DfTx::SetOracleData(data) => data.index(services, &ctx)?,
-                        // DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
