@@ -59,7 +59,6 @@ fn create_new_bucket(
     pool_pair_id: &u32,
     interval: PoolSwapAggregatedInterval,
 ) -> Result<()> {
-    debug!("[create_new_bucket] pool_pair_id: {:?}", pool_pair_id);
     let interval_u32 = interval.clone() as u32;
     let hash = block.hash;
     let aggregate = PoolSwapAggregated {
@@ -86,7 +85,6 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_day_by_key
                 .get(&pool_swap_aggregated_key)?;
-            debug!("encoded_ids: {:?}", encoded_ids);
             // .list(Some(key), SortOrder::Descending)?
             // .map(|item| {
             //     let ((_, _), ids) = item?;
@@ -97,15 +95,11 @@ fn create_new_bucket(
 
             if let Some(encoded_ids) = encoded_ids {
                 let decoded_ids = hex::decode(encoded_ids)?;
-                debug!("decoded_ids: {:?}", decoded_ids);
                 let mut deserialized_ids =
                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
                 deserialized_ids.push(pool_swap_aggregated_id);
-                debug!("deserialized_ids: {:?}", deserialized_ids);
                 let serialized = bincode::serialize(&deserialized_ids).unwrap();
-                debug!("serialized: {:?}", serialized);
                 let encoded_ids = hex::encode(serialized);
-                debug!("encoded_ids: {:?}", encoded_ids);
                 services
                     .pool_swap_aggregated
                     .one_day_by_key
@@ -136,15 +130,11 @@ fn create_new_bucket(
 
             if let Some(encoded_ids) = encoded_ids {
                 let decoded_ids = hex::decode(encoded_ids)?;
-                debug!("decoded_ids: {:?}", decoded_ids);
                 let mut deserialized_ids =
                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
                 deserialized_ids.push(pool_swap_aggregated_id);
-                debug!("deserialized_ids: {:?}", deserialized_ids);
                 let serialized = bincode::serialize(&deserialized_ids).unwrap();
-                debug!("serialized: {:?}", serialized);
                 let encoded_ids = hex::encode(serialized);
-                debug!("encoded_ids: {:?}", encoded_ids);
                 services
                     .pool_swap_aggregated
                     .one_day_by_key
@@ -183,7 +173,6 @@ fn index_block_start(
     debug!("[index_block_start] pool_pairs: {:?}", pool_pairs);
 
     for pool_pair in pool_pairs {
-        debug!("[index_block_start] OneDay pool_pair: {:?}", pool_pair);
         let mut prevs = Vec::<PoolSwapAggregated>::new();
 
         let ids = services
@@ -191,42 +180,26 @@ fn index_block_start(
             .one_day_by_key
             .get(&(pool_pair.id, PoolSwapAggregatedInterval::OneDay as u32))?
             .map(|encoded_ids| {
-                debug!(
-                    "[index_block_start] map encoded_ids: {:?}",
-                    encoded_ids.clone()
-                );
                 let decoded_ids = hex::decode(encoded_ids)?;
-                debug!(
-                    "[index_block_start] map decoded_ids: {:?}",
-                    decoded_ids.clone()
-                );
                 let deserialized_ids =
                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
-                debug!(
-                    "[index_block_start] map deserialzied_ids: {:?}",
-                    deserialized_ids.clone()
-                );
                 Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
             })
             .transpose()?;
-        debug!("[index_block_start] OneDay ids: {:?}", ids);
 
         if let Some(ids) = ids {
             for id in ids {
                 let aggregated = services.pool_swap_aggregated.one_day_by_id.get(&id)?;
 
                 if let Some(aggregated) = aggregated {
-                    debug!("[index_block_start] OneDay aggregated: {:?}", aggregated);
                     prevs.push(aggregated);
                 }
             }
         }
 
         let bucket = get_bucket(block, PoolSwapAggregatedInterval::OneDay);
-        debug!("bucket OneDay: {:?}", bucket);
 
         if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
-            debug!("[index_block_start] OneDay break");
             break;
         }
 
@@ -241,7 +214,6 @@ fn index_block_start(
     {
         for pool_pair in pool_pairs {
             let mut prevs = Vec::<PoolSwapAggregated>::new();
-            debug!("[index_block_start] OneHour pool_pair: {:?}", pool_pair);
 
             let ids = services
                 .pool_swap_aggregated
@@ -268,7 +240,6 @@ fn index_block_start(
             let bucket = get_bucket(block, PoolSwapAggregatedInterval::OneHour);
 
             if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
-                debug!("[index_block_start] OneHour break");
                 break;
             }
 
