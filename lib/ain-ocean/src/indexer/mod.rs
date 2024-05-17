@@ -134,11 +134,14 @@ fn create_new_bucket(
 fn index_block_start(
     services: &Arc<Services>,
     block: &Block<Transaction>,
-    pool_pairs: &Vec<PoolCreationHeight>,
+    pool_pairs: Vec<PoolCreationHeight>,
 ) -> Result<()> {
     debug!("[index_block_start] pool_pairs: {:?}", pool_pairs);
 
-    for pool_pair in pool_pairs {
+    let mut pool_pairs = pool_pairs;
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+
+    for pool_pair in &pool_pairs {
         let mut prevs = Vec::<PoolSwapAggregated>::new();
 
         let ids = services
@@ -238,7 +241,7 @@ pub fn index_block(
         median_time: block.mediantime,
     };
 
-    let _ = index_block_start(services, &block, &pools);
+    let _ = index_block_start(services, &block, pools);
 
     for (tx_idx, tx) in block.tx.into_iter().enumerate() {
         let start = Instant::now();
