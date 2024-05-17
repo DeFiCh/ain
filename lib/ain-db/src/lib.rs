@@ -221,6 +221,7 @@ pub enum DBError {
     ParseKey,
     WrongKeyLength,
     Custom(anyhow::Error),
+    UnsupportedVersion,
 }
 
 impl fmt::Display for DBError {
@@ -231,6 +232,7 @@ impl fmt::Display for DBError {
             DBError::ParseKey => write!(f, "Error parsing key"),
             DBError::WrongKeyLength => write!(f, "Wrong key length"),
             DBError::Custom(e) => write!(f, "Custom Error: {e}"),
+            DBError::UnsupportedVersion => write!(f, "DB version higher than expected. Node should be updated to support new DB version."),
         }
     }
 }
