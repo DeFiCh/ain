@@ -3,7 +3,7 @@ use ain_ocean::{PoolCreationHeight, Result};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 
 use crate::{
-    ffi::{self},
+    ffi,
     prelude::{cross_boundary_error_return, cross_boundary_success_return},
 };
 

@@ -5,9 +5,7 @@ use ain_ocean::{
     Services,
 };
 use clap::Parser;
-use defichain_rpc::{
-    json::blockchain::*, json::poolpair::*, Auth, BlockchainRPC, Client, PoolPairRPC,
-};
+use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client, PoolPairRPC};
 
 #[derive(Parser, Debug)]
 #[command(

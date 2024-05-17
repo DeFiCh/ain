@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ain_dftx::pool::*;
-// use anyhow::format_err;
+use anyhow::format_err;
 // use bitcoin::Address;
 use log::debug;
 use rust_decimal::Decimal;
@@ -9,16 +9,16 @@ use rust_decimal::Decimal;
 use super::Context;
 use crate::{
     indexer::{tx_result, Index, Result},
-    model::{self, PoolSwapAggregatedId, PoolSwapResult, TxResult},
+    model::{self, PoolSwapAggregatedId, PoolSwapAggregatedKey, PoolSwapResult, TxResult},
     repository::RepositoryOps,
     Error, Services,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum PoolSwapAggregatedInterval {
     OneDay = 86400, // 60 * 60 * 24,
     OneHour = 120,  // 60 * 60,
-    Unavailable,
+    Unknown,
 }
 
 impl From<u32> for PoolSwapAggregatedInterval {
@@ -26,7 +26,7 @@ impl From<u32> for PoolSwapAggregatedInterval {
         match value {
             86400 => Self::OneDay,
             120 => Self::OneHour,
-            _ => Self::Unavailable,
+            _ => Self::Unknown,
         }
     }
 }
@@ -73,95 +73,94 @@ impl Index for PoolSwap {
 
         // one day
         {
-            let inverval = PoolSwapAggregatedInterval::OneDay as u32;
-            let pool_swap_aggregated_key = (pool_id, inverval);
-            let encoded_ids = services
-                .pool_swap_aggregated
-                .one_day_by_key
-                .get(&pool_swap_aggregated_key)?
-                .unwrap();
+            let interval_one_day = PoolSwapAggregatedInterval::OneDay as u32;
+            let key: PoolSwapAggregatedKey = (pool_id, interval_one_day);
+            let encoded_ids = services.pool_swap_aggregated.one_day_by_key.get(&key)?;
 
-            let decoded_ids = hex::decode(encoded_ids)?;
-            if decoded_ids.is_empty() {
-                log::error!(
-                    "index swap {txid}: Unable to find {pool_id}-{inverval} for Aggregate Indexing"
-                );
-            } else {
+            if let Some(encoded_ids) = encoded_ids {
+                let decoded_ids = hex::decode(encoded_ids)?;
+                if decoded_ids.is_empty() {
+                    log::error!(
+                        "index swap {txid}: Unable to find {pool_id}-{interval_one_day} for Aggregate Indexing"
+                    );
+                };
+
                 let deserialized_ids =
-                    bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
-                let latest_id = deserialized_ids.last().unwrap();
-                let mut aggregate = services
-                    .pool_swap_aggregated
-                    .one_day_by_id
-                    .get(latest_id)?
-                    .unwrap();
+                    bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+                let latest_id = deserialized_ids
+                    .last()
+                    .ok_or(format_err!("Empty pool swap aggregated ids one day"))?;
+                let aggregate = services.pool_swap_aggregated.one_day_by_id.get(latest_id)?;
 
-                let amount = aggregate
-                    .aggregated
-                    .amounts
-                    .get(&self.from_token_id.0.to_string())
-                    .unwrap();
+                if let Some(mut aggregate) = aggregate {
+                    let amount = aggregate
+                        .aggregated
+                        .amounts
+                        .get(&self.from_token_id.0.to_string())
+                        .ok_or(format_err!("Invalid amount token id"))?;
 
-                let aggregate_amount = amount
-                    .checked_add(Decimal::from(self.from_amount))
-                    .ok_or(Error::OverflowError)?;
+                    let aggregate_amount = amount
+                        .checked_add(Decimal::from(self.from_amount))
+                        .ok_or(Error::OverflowError)?;
 
-                aggregate
-                    .aggregated
-                    .amounts
-                    .insert(self.from_token_id.0.to_string(), aggregate_amount);
+                    aggregate
+                        .aggregated
+                        .amounts
+                        .insert(self.from_token_id.0.to_string(), aggregate_amount);
 
-                services
-                    .pool_swap_aggregated
-                    .one_day_by_id
-                    .put(latest_id, &aggregate)?;
+                    services
+                        .pool_swap_aggregated
+                        .one_day_by_id
+                        .put(latest_id, &aggregate)?;
+                }
             }
         }
 
         // one hour
         {
-            let inverval = PoolSwapAggregatedInterval::OneHour as u32;
-            let pool_swap_aggregated_key = (pool_id, inverval);
-            let encoded_ids = services
-                .pool_swap_aggregated
-                .one_hour_by_key
-                .get(&pool_swap_aggregated_key)?
-                .unwrap();
+            let interval_one_hour = PoolSwapAggregatedInterval::OneHour as u32;
+            let key: PoolSwapAggregatedKey = (pool_id, interval_one_hour);
+            let encoded_ids = services.pool_swap_aggregated.one_hour_by_key.get(&key)?;
 
-            let decoded_ids = hex::decode(encoded_ids)?;
-            if decoded_ids.is_empty() {
-                log::error!(
-                    "index swap {txid}: Unable to find {pool_id}-{inverval} for Aggregate Indexing"
-                );
-            } else {
+            if let Some(encoded_ids) = encoded_ids {
+                let decoded_ids = hex::decode(encoded_ids)?;
+                if decoded_ids.is_empty() {
+                    log::error!(
+                        "index swap {txid}: Unable to find {pool_id}-{interval_one_hour} for Aggregate Indexing"
+                    );
+                };
+
                 let deserialized_ids =
-                    bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
-                let latest_id = deserialized_ids.last().unwrap();
-                let mut aggregate = services
+                    bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+                let latest_id = deserialized_ids
+                    .last()
+                    .ok_or(format_err!("Empty pool swap aggregated ids one hour"))?;
+                let aggregate = services
                     .pool_swap_aggregated
                     .one_hour_by_id
-                    .get(latest_id)?
-                    .unwrap();
+                    .get(latest_id)?;
 
-                let amount = aggregate
-                    .aggregated
-                    .amounts
-                    .get(&self.from_token_id.0.to_string())
-                    .unwrap();
+                if let Some(mut aggregate) = aggregate {
+                    let amount = aggregate
+                        .aggregated
+                        .amounts
+                        .get(&self.from_token_id.0.to_string())
+                        .ok_or(format_err!("Invalid amount token id"))?;
 
-                let aggregate_amount = amount
-                    .checked_add(Decimal::from(self.from_amount))
-                    .ok_or(Error::OverflowError)?;
+                    let aggregate_amount = amount
+                        .checked_add(Decimal::from(self.from_amount))
+                        .ok_or(Error::OverflowError)?;
 
-                aggregate
-                    .aggregated
-                    .amounts
-                    .insert(self.from_token_id.0.to_string(), aggregate_amount);
+                    aggregate
+                        .aggregated
+                        .amounts
+                        .insert(self.from_token_id.0.to_string(), aggregate_amount);
 
-                services
-                    .pool_swap_aggregated
-                    .one_hour_by_id
-                    .put(latest_id, &aggregate)?;
+                    services
+                        .pool_swap_aggregated
+                        .one_hour_by_id
+                        .put(latest_id, &aggregate)?;
+                }
             }
         }
 

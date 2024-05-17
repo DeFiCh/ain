@@ -117,7 +117,7 @@ impl Index for UpdateMasternode {
                 match update.r#type {
                     0x1 => {
                         if let Some(ref addresses) = ctx.tx.vout[1].script_pub_key.addresses {
-                            mn.owner_address = addresses[0].clone()
+                            mn.owner_address.clone_from(&addresses[0])
                         }
                     }
                     0x2 => {
