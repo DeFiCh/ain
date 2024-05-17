@@ -384,7 +384,7 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         return Ok(dec!(1));
     };
 
-    let dusd_pool = get_pool_pair(ctx, "DUSD", &info.symbol).await?;
+    let dusd_pool = get_pool_pair(ctx, &info.symbol, "DUSD").await?;
     if let Some(p) = dusd_pool {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, _] = <[&str; 2]>::try_from(parts)
@@ -401,7 +401,7 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
             .ok_or(Error::UnderflowError);
     }
 
-    let dfi_pool = get_pool_pair(ctx, "DFI", &info.symbol).await?;
+    let dfi_pool = get_pool_pair(ctx, &info.symbol, "DFI").await?;
     if let Some(p) = dfi_pool {
         let usd_per_dfi = get_usd_per_dfi(ctx).await?;
         let reserve_a = Decimal::from_f64(p.reserve_a).ok_or(Error::DecimalConversionError)?;
