@@ -1,5 +1,8 @@
 use petgraph::graphmap::UnGraphMap;
-use std::{collections::{HashMap, HashSet}, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
@@ -41,7 +44,7 @@ use path::{
     SwapPathsResponse,
 };
 
-use service::{get_apr, get_total_liquidity_usd, get_aggregated_in_usd};
+use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 
 pub mod path;
 pub mod service;
@@ -482,12 +485,6 @@ async fn list_pool_swaps_verbose(
 
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct PoolSwapAggregatedBlock {
-    median_time: u64,
-}
-
-#[derive(Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
 struct PoolSwapAggregatedAggregatedResponse {
     amounts: HashMap<String, Decimal>,
     usd: Decimal,
@@ -535,7 +532,8 @@ async fn list_pool_swap_aggregates(
                 .unwrap();
 
             let decoded_ids = hex::decode(encoded_ids)?;
-            let deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
+            let deserialized_ids =
+                bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
             let mut aggregates = Vec::new();
             for id in deserialized_ids {
                 let aggregate = ctx
@@ -549,7 +547,7 @@ async fn list_pool_swap_aggregates(
                 aggregates.push(aggregate_with_usd)
             }
             aggregates
-        },
+        }
         PoolSwapAggregatedInterval::OneHour => {
             let encoded_ids = ctx
                 .services
@@ -559,7 +557,8 @@ async fn list_pool_swap_aggregates(
                 .unwrap();
 
             let decoded_ids = hex::decode(encoded_ids)?;
-            let deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
+            let deserialized_ids =
+                bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
             let mut aggregates = Vec::new();
             for id in deserialized_ids {
                 let aggregate = ctx
@@ -573,12 +572,12 @@ async fn list_pool_swap_aggregates(
                 aggregates.push(aggregate_with_usd)
             }
             aggregates
-        },
-        PoolSwapAggregatedInterval::Unavailable => Err(format_err!("Unavailable interval"))?
+        }
+        PoolSwapAggregatedInterval::Unavailable => Err(format_err!("Unavailable interval"))?,
     };
 
     Ok(ApiPagedResponse::of(aggregated, query.size, |aggregated| {
-        aggregated.bucket.clone()
+        aggregated.bucket
     }))
 }
 

@@ -351,7 +351,11 @@ pub mod ffi {
 
         fn evm_try_flush_db(result: &mut CrossBoundaryResult);
 
-        fn ocean_index_block(result: &mut CrossBoundaryResult, block_str: String, pools: Vec<PoolCreationHeight>);
+        fn ocean_index_block(
+            result: &mut CrossBoundaryResult,
+            block_str: String,
+            pools: Vec<PoolCreationHeight>,
+        );
         fn ocean_invalidate_block(result: &mut CrossBoundaryResult, block: String);
 
         fn ocean_try_set_tx_result(

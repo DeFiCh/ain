@@ -16,7 +16,7 @@ pub fn ocean_index_block(block_str: String, pools: Vec<ffi::PoolCreationHeight>)
         .into_iter()
         .map(|p| PoolCreationHeight {
             id: p.id,
-            creation_height: p.creation_height
+            creation_height: p.creation_height,
         })
         .collect::<Vec<_>>();
     ain_ocean::index_block(&ain_ocean::SERVICES, block, pools)

@@ -1,10 +1,13 @@
 use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
 
 use ain_ocean::{
-    index_block, network::Network, storage::ocean_store::OceanStore, Result, Services, PoolCreationHeight,
+    index_block, network::Network, storage::ocean_store::OceanStore, PoolCreationHeight, Result,
+    Services,
 };
 use clap::Parser;
-use defichain_rpc::{json::blockchain::*, json::poolpair::*, Auth, BlockchainRPC, PoolPairRPC, Client};
+use defichain_rpc::{
+    json::blockchain::*, json::poolpair::*, Auth, BlockchainRPC, Client, PoolPairRPC,
+};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -47,7 +50,13 @@ async fn main() -> Result<()> {
 
     let store = Arc::new(OceanStore::new(&cli.datadir)?);
 
-    let client = Arc::new(Client::new(&cli.rpcaddress, Auth::UserPass(cli.user.clone(), cli.pass.clone())).await?);
+    let client = Arc::new(
+        Client::new(
+            &cli.rpcaddress,
+            Auth::UserPass(cli.user.clone(), cli.pass.clone()),
+        )
+        .await?,
+    );
 
     let services = Arc::new(Services::new(store));
 
@@ -91,14 +100,14 @@ async fn main() -> Result<()> {
             Ok(_) => return Err("Error deserializing block".into()),
         };
 
-        let pools = client.list_pool_pairs(None, Some(true)).await?
+        let pools = client
+            .list_pool_pairs(None, Some(true))
+            .await?
             .0
             .into_iter()
-            .map(|(id, info)| {
-                PoolCreationHeight {
-                    id: id.parse::<u32>().unwrap(),
-                    creation_height: info.creation_height as u32,
-                }
+            .map(|(id, info)| PoolCreationHeight {
+                id: id.parse::<u32>().unwrap(),
+                creation_height: info.creation_height as u32,
             })
             .collect::<Vec<_>>();
 

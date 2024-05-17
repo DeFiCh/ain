@@ -21,7 +21,9 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolSwapRepository, PoolSwapAggregatedOneDayRepository, PoolSwapAggregatedOneDayKeyRepository, PoolSwapAggregatedOneHourRepository, PoolSwapAggregatedOneHourKeyRepository, PriceTickerRepository, RawBlockRepository,
+    PoolSwapAggregatedOneDayKeyRepository, PoolSwapAggregatedOneDayRepository,
+    PoolSwapAggregatedOneHourKeyRepository, PoolSwapAggregatedOneHourRepository,
+    PoolSwapRepository, PriceTickerRepository, RawBlockRepository,
     TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
     TransactionVoutRepository, TxResultRepository,
 };

@@ -381,7 +381,7 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         .ok_or(Error::NotFound(NotFoundKind::Token))?;
 
     if ["DUSD", "USDT", "USDC"].contains(&info.symbol.as_str()) {
-        return Ok(dec!(1))
+        return Ok(dec!(1));
     };
 
     let dusd_pool = get_pool_pair(ctx, "DUSD", &info.symbol).await?;
@@ -392,9 +392,13 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         let reserve_a = Decimal::from_f64(p.reserve_a).ok_or(Error::DecimalConversionError)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).ok_or(Error::DecimalConversionError)?;
         if a == "DUSD" {
-            return Ok(reserve_a.checked_div(reserve_b).ok_or(Error::UnderflowError)?)
+            return reserve_a
+                .checked_div(reserve_b)
+                .ok_or(Error::UnderflowError);
         };
-        return Ok(reserve_b.checked_div(reserve_a).ok_or(Error::UnderflowError)?)
+        return reserve_b
+            .checked_div(reserve_a)
+            .ok_or(Error::UnderflowError);
     }
 
     let dfi_pool = get_pool_pair(ctx, "DFI", &info.symbol).await?;
@@ -402,26 +406,27 @@ async fn get_token_usd_value(ctx: &Arc<AppContext>, token_id: &str) -> Result<De
         let usd_per_dfi = get_usd_per_dfi(ctx).await?;
         let reserve_a = Decimal::from_f64(p.reserve_a).ok_or(Error::DecimalConversionError)?;
         let reserve_b = Decimal::from_f64(p.reserve_b).ok_or(Error::DecimalConversionError)?;
-        if p.id_token_a == "0".to_string() {
-            return Ok(reserve_a
+        if p.id_token_a == *"0" {
+            return reserve_a
                 .checked_div(reserve_b)
                 .ok_or(Error::UnderflowError)?
                 .checked_mul(usd_per_dfi)
-                .ok_or(Error::OverflowError)?
-            )
+                .ok_or(Error::OverflowError);
         }
-        return Ok(reserve_b
+        return reserve_b
             .checked_div(reserve_a)
             .ok_or(Error::UnderflowError)?
             .checked_mul(usd_per_dfi)
-            .ok_or(Error::OverflowError)?
-        )
+            .ok_or(Error::OverflowError);
     }
 
     Ok(dec!(0))
 }
 
-pub async fn get_aggregated_in_usd(ctx: &Arc<AppContext>, aggregated: &PoolSwapAggregatedAggregated) -> Result<Decimal> {
+pub async fn get_aggregated_in_usd(
+    ctx: &Arc<AppContext>,
+    aggregated: &PoolSwapAggregatedAggregated,
+) -> Result<Decimal> {
     let mut value = dec!(0);
 
     for (token_id, amount) in &aggregated.amounts {
