@@ -21,10 +21,14 @@ pub enum NotFoundKind {
     Scheme,
     #[error("oracle")]
     Oracle,
+    #[error("token")]
+    Token,
 }
 
 #[derive(Error, Debug)]
 pub enum Error {
+    #[error("Ocean: Bincode error: {0:?}")]
+    BincodeError(#[from] bincode::Error),
     #[error("Ocean: HexToArrayError error: {0:?}")]
     HexToArrayError(#[from] HexToArrayError),
     #[error("Ocean: ParseIntError error: {0:?}")]

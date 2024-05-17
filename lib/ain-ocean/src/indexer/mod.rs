@@ -9,20 +9,38 @@ pub mod tx_result;
 use std::{sync::Arc, time::Instant};
 
 use ain_dftx::{deserialize, DfTx, Stack};
-use defichain_rpc::json::blockchain::{Block, Transaction};
+use anyhow::format_err;
+use defichain_rpc::{
+    json::{
+        blockchain::{Block, Transaction},
+        poolpair::{PoolPairInfo, PoolPairPagination},
+    },
+    Auth, Client, PoolPairRPC,
+};
 use log::debug;
+
+pub use pool::PoolSwapAggregatedInterval;
 
 use crate::{
     index_transaction,
-    model::{Block as BlockMapper, BlockContext},
+    model::{
+        Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
+        PoolSwapAggregatedId,
+    },
     repository::RepositoryOps,
-    Result, Services,
+    Error, Result, Services,
 };
 
 pub(crate) trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
+}
+
+#[derive(Debug, Clone)]
+pub struct PoolCreationHeight {
+    pub id: u32,
+    pub creation_height: u32,
 }
 
 #[derive(Debug)]
@@ -37,9 +55,209 @@ fn log_elapsed(previous: Instant, msg: &str) {
     debug!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }
 
-pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+fn get_bucket(block: &Block<Transaction>, interval: PoolSwapAggregatedInterval) -> i64 {
+    block.mediantime - (block.mediantime % interval as i64)
+}
+
+fn create_new_bucket(
+    services: &Arc<Services>,
+    block: &Block<Transaction>,
+    pool_pair_id: &u32,
+    interval: PoolSwapAggregatedInterval,
+) -> Result<()> {
+    debug!("[create_new_bucket] pool_pair_id: {:?}", pool_pair_id);
+    let interval_u32 = interval.clone() as u32;
+    let hash = block.hash;
+    let aggregate = PoolSwapAggregated {
+        id: format!("{pool_pair_id}-{interval_u32}-{hash}"),
+        key: format!("{pool_pair_id}-{interval_u32}"),
+        bucket: get_bucket(block, interval.clone()),
+        aggregated: PoolSwapAggregatedAggregated {
+            amounts: Default::default(),
+        },
+        block: BlockContext {
+           hash: block.hash,
+           height: block.height,
+           time: block.time,
+           median_time: block.mediantime,
+        }
+    };
+
+    let pool_swap_aggregated_key = (*pool_pair_id, interval_u32);
+    let pool_swap_aggregated_id = (*pool_pair_id, interval_u32, block.hash);
+
+    match interval {
+        PoolSwapAggregatedInterval::OneDay => {
+            let encoded_ids = services.pool_swap_aggregated.one_day_by_key
+                .get(&pool_swap_aggregated_key)?;
+            debug!("encoded_ids: {:?}", encoded_ids);
+                // .list(Some(key), SortOrder::Descending)?
+                // .map(|item| {
+                //     let ((_, _), ids) = item?;
+                //     Ok(ids)
+                // })
+                // // .map(|el| repo.retrieve_primary_value(el))
+                // .collect::<Result<Vec<_>>>()?;
+
+            if let Some(encoded_ids) = encoded_ids {
+                let decoded_ids = hex::decode(encoded_ids)?;
+                debug!("decoded_ids: {:?}", decoded_ids);
+                let mut deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
+                deserialized_ids.push(pool_swap_aggregated_id);
+                debug!("deserialized_ids: {:?}", deserialized_ids);
+                let serialized = bincode::serialize(&deserialized_ids).unwrap();
+                debug!("serialized: {:?}", serialized);
+                let encoded_ids = hex::encode(serialized);
+                debug!("encoded_ids: {:?}", encoded_ids);
+                services.pool_swap_aggregated.one_day_by_key.put(&pool_swap_aggregated_key,  &encoded_ids)?;
+                services.pool_swap_aggregated.one_day_by_id.put(&pool_swap_aggregated_id, &aggregate)?;
+            } else {
+                let deserialized_ids = vec![pool_swap_aggregated_id];
+                let serialized = bincode::serialize(&deserialized_ids).unwrap();
+                let encoded_ids = hex::encode(serialized);
+                services.pool_swap_aggregated.one_day_by_key.put(&pool_swap_aggregated_key,  &encoded_ids)?;
+                services.pool_swap_aggregated.one_day_by_id.put(&pool_swap_aggregated_id, &aggregate)?;
+            }
+        },
+        PoolSwapAggregatedInterval::OneHour => {
+            let encoded_ids = services.pool_swap_aggregated.one_hour_by_key
+                .get(&pool_swap_aggregated_key)?;
+
+            if let Some(encoded_ids) = encoded_ids {
+                let decoded_ids = hex::decode(encoded_ids)?;
+                debug!("decoded_ids: {:?}", decoded_ids);
+                let mut deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids).unwrap();
+                deserialized_ids.push(pool_swap_aggregated_id);
+                debug!("deserialized_ids: {:?}", deserialized_ids);
+                let serialized = bincode::serialize(&deserialized_ids).unwrap();
+                debug!("serialized: {:?}", serialized);
+                let encoded_ids = hex::encode(serialized);
+                debug!("encoded_ids: {:?}", encoded_ids);
+                services.pool_swap_aggregated.one_day_by_key.put(&pool_swap_aggregated_key,  &encoded_ids)?;
+                services.pool_swap_aggregated.one_day_by_id.put(&pool_swap_aggregated_id, &aggregate)?;
+            } else {
+                let deserialized_ids = vec![pool_swap_aggregated_id];
+                let serialized = bincode::serialize(&deserialized_ids).unwrap();
+                let encoded_ids = hex::encode(serialized);
+                services.pool_swap_aggregated.one_day_by_key.put(&pool_swap_aggregated_key,  &encoded_ids)?;
+                services.pool_swap_aggregated.one_day_by_id.put(&pool_swap_aggregated_id, &aggregate)?;
+            }
+        },
+        PoolSwapAggregatedInterval::Unavailable => Err(format_err!("Unavailable interval {interval_u32}"))?
+    }
+
+    Ok(())
+}
+
+fn index_block_start(
+    services: &Arc<Services>,
+    block: &Block<Transaction>,
+    pool_pairs: &Vec<PoolCreationHeight>,
+) -> Result<()> {
+    debug!("[index_block_start] pool_pairs: {:?}", pool_pairs);
+
+    for pool_pair in pool_pairs {
+        debug!("[index_block_start] OneDay pool_pair: {:?}", pool_pair);
+        let mut prevs = Vec::<PoolSwapAggregated>::new();
+
+        let ids = services
+            .pool_swap_aggregated
+            .one_day_by_key
+            .get(&(pool_pair.id, PoolSwapAggregatedInterval::OneDay as u32))?
+            .map(|encoded_ids| {
+                debug!("[index_block_start] map encoded_ids: {:?}", encoded_ids.clone());
+                let decoded_ids = hex::decode(encoded_ids)?;
+                debug!("[index_block_start] map decoded_ids: {:?}", decoded_ids.clone());
+                let deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+                debug!("[index_block_start] map deserialzied_ids: {:?}", deserialized_ids.clone());
+                Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
+            })
+            .transpose()?;
+        debug!("[index_block_start] OneDay ids: {:?}", ids);
+
+        if let Some(ids) = ids {
+            for id in ids {
+                let aggregated = services
+                    .pool_swap_aggregated
+                    .one_day_by_id
+                    .get(&id)?;
+
+                if let Some(aggregated) = aggregated {
+                    debug!("[index_block_start] OneDay aggregated: {:?}", aggregated);
+                    prevs.push(aggregated);
+                }
+            }
+        }
+
+        let bucket = get_bucket(block, PoolSwapAggregatedInterval::OneDay);
+        debug!("bucket OneDay: {:?}", bucket);
+
+        if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
+            debug!("[index_block_start] OneDay break");
+            break;
+        }
+
+        create_new_bucket(
+            services,
+            block,
+            &pool_pair.id,
+            PoolSwapAggregatedInterval::OneDay,
+        )?;
+    }
+
+    {
+        for pool_pair    in pool_pairs {
+            let mut prevs = Vec::<PoolSwapAggregated>::new();
+            debug!("[index_block_start] OneHour pool_pair: {:?}", pool_pair);
+
+            let ids = services
+                .pool_swap_aggregated
+                .one_hour_by_key
+                .get(&(pool_pair.id, PoolSwapAggregatedInterval::OneHour as u32))?
+                .map(|encoded_ids| {
+                    let decoded_ids = hex::decode(encoded_ids)?;
+                    let deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+                    Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
+                })
+                .transpose()?;
+
+            if let Some(ids) = ids {
+                for id in ids {
+                    let aggregated = services
+                        .pool_swap_aggregated
+                        .one_hour_by_id
+                        .get(&id)?;
+
+                    if let Some(aggregated) = aggregated {
+                        prevs.push(aggregated);
+                    }
+                }
+            }
+
+            let bucket = get_bucket(block, PoolSwapAggregatedInterval::OneHour);
+
+            if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
+                debug!("[index_block_start] OneHour break");
+                break;
+            }
+
+            create_new_bucket(services, block, &pool_pair.id, PoolSwapAggregatedInterval::OneHour)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn index_block(
+    services: &Arc<Services>,
+    block: Block<Transaction>,
+    pools: Vec<PoolCreationHeight>,
+) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
+
+    // let url = format!("http://${rpc_user}:${rpc_pass}@127.0.0.1:${rpc_port}/");
+    // let client = Arc::new(Client::new(&url, Auth::UserPass(rpc_user, rpc_pass)).await?);
 
     let block_hash = block.hash;
     let transaction_count = block.tx.len();
@@ -49,6 +267,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         time: block.time,
         median_time: block.mediantime,
     };
+
+    let _ = index_block_start(services, &block, &pools);
 
     for (tx_idx, tx) in block.tx.into_iter().enumerate() {
         let start = Instant::now();
