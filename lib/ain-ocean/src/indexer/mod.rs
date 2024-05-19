@@ -54,34 +54,6 @@ fn get_bucket(block: &Block<Transaction>, interval: PoolSwapAggregatedInterval) 
     block.mediantime - (block.mediantime % interval as i64)
 }
 
-fn put_pool_swap_aggregate(
-    services: &Arc<Services>,
-    id: PoolSwapAggregatedId,
-    key: PoolSwapAggregatedKey,
-    aggregate: PoolSwapAggregated,
-    encoded_ids: Option<String>,
-) -> Result<()> {
-    let deserialized_ids = if let Some(encoded_ids) = encoded_ids {
-        let decoded_ids = hex::decode(encoded_ids)?;
-        let mut deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
-        deserialized_ids.push(id);
-        deserialized_ids
-    } else {
-        vec![id]
-    };
-    let serialized = bincode::serialize(&deserialized_ids)?;
-    let encoded_ids = hex::encode(serialized);
-    services
-        .pool_swap_aggregated
-        .one_day_by_key
-        .put(&key, &encoded_ids)?;
-    services
-        .pool_swap_aggregated
-        .one_day_by_id
-        .put(&id, &aggregate)?;
-    Ok(())
-}
-
 fn create_new_bucket(
     services: &Arc<Services>,
     block: &Block<Transaction>,
@@ -120,13 +92,43 @@ fn create_new_bucket(
         PoolSwapAggregatedInterval::Unknown => None,
     };
 
-    put_pool_swap_aggregate(
-        services,
-        pool_swap_aggregated_id,
-        pool_swap_aggregated_key,
-        aggregate,
-        encoded_ids,
-    )?;
+    let deserialized_ids = if let Some(encoded_ids) = encoded_ids {
+        let decoded_ids = hex::decode(encoded_ids)?;
+        let mut deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+        deserialized_ids.push(pool_swap_aggregated_id);
+        deserialized_ids
+    } else {
+        vec![pool_swap_aggregated_id]
+    };
+
+    let serialized = bincode::serialize(&deserialized_ids)?;
+    let encoded_ids = hex::encode(serialized);
+
+    match interval {
+        PoolSwapAggregatedInterval::OneDay => {
+            services
+                .pool_swap_aggregated
+                .one_day_by_key
+                .put(&pool_swap_aggregated_key, &encoded_ids)?;
+
+            services
+                .pool_swap_aggregated
+                .one_day_by_id
+                .put(&pool_swap_aggregated_id, &aggregate)?;
+        },
+        PoolSwapAggregatedInterval::OneHour => {
+            services
+                .pool_swap_aggregated
+                .one_hour_by_key
+                .put(&pool_swap_aggregated_key, &encoded_ids)?;
+
+            services
+                .pool_swap_aggregated
+                .one_hour_by_id
+                .put(&pool_swap_aggregated_id, &aggregate)?;
+        },
+        PoolSwapAggregatedInterval::Unknown => (),
+    };
 
     Ok(())
 }
