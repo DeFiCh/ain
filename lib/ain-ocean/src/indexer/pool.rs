@@ -5,6 +5,7 @@ use anyhow::format_err;
 // use bitcoin::Address;
 use log::debug;
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 use super::Context;
 use crate::{
@@ -48,6 +49,8 @@ impl Index for PoolSwap {
 
         let from = self.from_script;
         let to = self.to_script;
+        let from_token_id = self.from_token_id.0;
+        let from_amount = self.from_amount;
 
         let swap = model::PoolSwap {
             id: format!("{}-{}", pool_id, txid),
@@ -55,8 +58,8 @@ impl Index for PoolSwap {
             sort: format!("{}-{}", ctx.block.height, idx),
             txid,
             txno: idx,
-            from_amount: self.from_amount,
-            from_token_id: self.from_token_id.0,
+            from_amount,
+            from_token_id,
             to_token_id: self.to_token_id.0,
             to_amount,
             pool_id,
@@ -96,17 +99,18 @@ impl Index for PoolSwap {
                     let amount = aggregate
                         .aggregated
                         .amounts
-                        .get(&self.from_token_id.0.to_string())
-                        .ok_or(format_err!("Invalid amount token id"))?;
+                        .get(&from_token_id.to_string())
+                        .copied()
+                        .unwrap_or(dec!(0));
 
                     let aggregate_amount = amount
-                        .checked_add(Decimal::from(self.from_amount))
+                        .checked_add(Decimal::from(from_amount))
                         .ok_or(Error::OverflowError)?;
 
                     aggregate
                         .aggregated
                         .amounts
-                        .insert(self.from_token_id.0.to_string(), aggregate_amount);
+                        .insert(from_token_id.to_string(), aggregate_amount);
 
                     services
                         .pool_swap_aggregated
