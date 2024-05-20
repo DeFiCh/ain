@@ -115,7 +115,7 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_day_by_id
                 .put(&pool_swap_aggregated_id, &aggregate)?;
-        }
+        },
         PoolSwapAggregatedInterval::OneHour => {
             services
                 .pool_swap_aggregated
@@ -126,7 +126,7 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_hour_by_id
                 .put(&pool_swap_aggregated_id, &aggregate)?;
-        }
+        },
         PoolSwapAggregatedInterval::Unknown => (),
     };
 
@@ -154,7 +154,11 @@ fn index_block_start(
                 .map(|encoded_ids| {
                     let decoded_ids = hex::decode(encoded_ids)?;
                     let deserialized_ids =
-                        bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+                        bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
+                            .into_iter()
+                            .rev()
+                            .take(1)
+                            .collect::<Vec<_>>();
                     Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
                 })
                 .transpose()?;
@@ -195,7 +199,11 @@ fn index_block_start(
                 .map(|encoded_ids| {
                     let decoded_ids = hex::decode(encoded_ids)?;
                     let deserialized_ids =
-                        bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
+                        bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
+                            .into_iter()
+                            .rev()
+                            .take(1)
+                            .collect::<Vec<_>>();
                     Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
                 })
                 .transpose()?;
