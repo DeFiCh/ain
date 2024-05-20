@@ -3144,7 +3144,8 @@ Res ProcessDeFiEventFallible(const CBlock &block,
                     pools.push_back({id.v, pool.creationHeight});
                 };
                 return true;
-            }, {0});
+            },
+            {0});
         ocean_index_block(result, b.write(), pools);
         if (!result.ok) {
             return Res::Err(result.reason.c_str());
