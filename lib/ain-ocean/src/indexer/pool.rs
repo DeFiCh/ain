@@ -18,7 +18,7 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub enum PoolSwapAggregatedInterval {
     OneDay = 86400, // 60 * 60 * 24,
-    OneHour = 3600,  // 60 * 60,
+    OneHour = 3600, // 60 * 60,
     Unknown,
 }
 
@@ -108,10 +108,10 @@ impl Index for PoolSwap {
                         .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
                         .ok_or(Error::OverflowError)?;
 
-                    aggregate
-                        .aggregated
-                        .amounts
-                        .insert(from_token_id.to_string(), format!("{:.8}", aggregate_amount));
+                    aggregate.aggregated.amounts.insert(
+                        from_token_id.to_string(),
+                        format!("{:.8}", aggregate_amount),
+                    );
 
                     services
                         .pool_swap_aggregated
@@ -158,10 +158,10 @@ impl Index for PoolSwap {
                         .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
                         .ok_or(Error::OverflowError)?;
 
-                    aggregate
-                        .aggregated
-                        .amounts
-                        .insert(from_token_id.to_string(), format!("{:.8}", aggregate_amount));
+                    aggregate.aggregated.amounts.insert(
+                        from_token_id.to_string(),
+                        format!("{:.8}", aggregate_amount),
+                    );
 
                     services
                         .pool_swap_aggregated

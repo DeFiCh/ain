@@ -115,7 +115,7 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_day_by_id
                 .put(&pool_swap_aggregated_id, &aggregate)?;
-        },
+        }
         PoolSwapAggregatedInterval::OneHour => {
             services
                 .pool_swap_aggregated
@@ -126,7 +126,7 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_hour_by_id
                 .put(&pool_swap_aggregated_id, &aggregate)?;
-        },
+        }
         PoolSwapAggregatedInterval::Unknown => (),
     };
 
