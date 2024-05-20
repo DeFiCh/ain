@@ -7,8 +7,6 @@ use crate::{
     prelude::{cross_boundary_error_return, cross_boundary_success_return},
 };
 
-// Error: Syn(Error("async function is not directly supported yet, but see https://cxx.rs/async.html for a working approach,
-// and https://github.com/pcwalton/cxx-async for some helpers; eventually what you wrote will work but it isn't integrated into the cxx::bridge macro yet"))
 #[ffi_fallible]
 pub fn ocean_index_block(block_str: String, pools: Vec<ffi::PoolCreationHeight>) -> Result<()> {
     let block: Block<Transaction> = serde_json::from_str(&block_str)?;
