@@ -42,19 +42,6 @@ impl PoolSwapAggregatedOneDayKeyRepository {
     }
 }
 
-// impl SecondaryIndex<PoolSwapAggregatedKey, String> for PoolSwapAggregatedOneDayKeyRepository {
-//   type Value = PoolSwapAggregated;
-
-//   fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
-//       let ((pool_id, interval), _) = el?;
-//       let col = self.store.column::<columns::PoolSwapAggregatedOneDay>();
-//       let values = col
-//         .iter(Some((pool_id, interval)), SortOrder::Descending)?
-//         .ok_or(Error::SecondaryIndex)?;
-//       Ok(values)
-//   }
-// }
-
 #[derive(Repository)]
 #[repository(K = "PoolSwapAggregatedId", V = "PoolSwapAggregated")]
 pub struct PoolSwapAggregatedOneHourRepository {
