@@ -431,10 +431,11 @@ pub async fn get_aggregated_in_usd(
 
     for (token_id, amount) in &aggregated.amounts {
         let token_price = get_token_usd_value(ctx, token_id).await?;
+        let amount = Decimal::from_str(amount)?;
         value = value
             .checked_add(token_price)
             .ok_or(Error::OverflowError)?
-            .checked_mul(*amount)
+            .checked_mul(amount)
             .ok_or(Error::OverflowError)?
     }
 

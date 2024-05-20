@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use ain_dftx::pool::*;
 use anyhow::format_err;
@@ -100,7 +100,8 @@ impl Index for PoolSwap {
                         .aggregated
                         .amounts
                         .get(&from_token_id.to_string())
-                        .copied()
+                        .map(|amt| Decimal::from_str(amt))
+                        .transpose()?
                         .unwrap_or(dec!(0));
 
                     let aggregate_amount = amount
@@ -110,7 +111,7 @@ impl Index for PoolSwap {
                     aggregate
                         .aggregated
                         .amounts
-                        .insert(from_token_id.to_string(), aggregate_amount);
+                        .insert(from_token_id.to_string(), aggregate_amount.to_string());
 
                     services
                         .pool_swap_aggregated
@@ -149,7 +150,9 @@ impl Index for PoolSwap {
                         .aggregated
                         .amounts
                         .get(&from_token_id.to_string())
-                        .ok_or(format_err!("Invalid amount token id"))?;
+                        .map(|amt| Decimal::from_str(amt))
+                        .transpose()?
+                        .unwrap_or(dec!(0));
 
                     let aggregate_amount = amount
                         .checked_add(Decimal::from(from_amount))
@@ -158,7 +161,7 @@ impl Index for PoolSwap {
                     aggregate
                         .aggregated
                         .amounts
-                        .insert(from_token_id.to_string(), aggregate_amount);
+                        .insert(from_token_id.to_string(), aggregate_amount.to_string());
 
                     services
                         .pool_swap_aggregated
