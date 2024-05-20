@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 use super::BlockContext;
 use bitcoin::BlockHash;
-use rust_decimal::Decimal;
 
 pub type PoolSwapAggregatedId = (u32, u32, BlockHash); // (pool_id, interval, block_hash)
 pub type PoolSwapAggregatedKey = (u32, u32); // (pool_id, interval)

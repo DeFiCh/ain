@@ -18,7 +18,7 @@ use crate::{
     index_transaction,
     model::{
         Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
-        PoolSwapAggregatedId, PoolSwapAggregatedKey,
+        PoolSwapAggregatedId,
     },
     repository::RepositoryOps,
     Error, Result, Services,
@@ -115,7 +115,7 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_day_by_id
                 .put(&pool_swap_aggregated_id, &aggregate)?;
-        },
+        }
         PoolSwapAggregatedInterval::OneHour => {
             services
                 .pool_swap_aggregated
@@ -126,7 +126,7 @@ fn create_new_bucket(
                 .pool_swap_aggregated
                 .one_hour_by_id
                 .put(&pool_swap_aggregated_id, &aggregate)?;
-        },
+        }
         PoolSwapAggregatedInterval::Unknown => (),
     };
 
@@ -144,7 +144,6 @@ fn index_block_start(
     pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
     {
-
         for pool_pair in &pool_pairs {
             let mut prevs = Vec::<PoolSwapAggregated>::new();
 

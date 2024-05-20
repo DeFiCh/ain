@@ -530,10 +530,10 @@ async fn list_pool_swap_aggregates(
                     let decoded_ids = hex::decode(encoded_ids)?;
                     let deserialized_ids =
                         bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
-                        .into_iter()
-                        .rev()
-                        .take(query.size)
-                        .collect::<Vec<_>>();
+                            .into_iter()
+                            .rev()
+                            .take(query.size)
+                            .collect::<Vec<_>>();
                     Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
                 })
                 .transpose()?;
@@ -562,10 +562,10 @@ async fn list_pool_swap_aggregates(
                     let decoded_ids = hex::decode(encoded_ids)?;
                     let deserialized_ids =
                         bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
-                        .into_iter()
-                        .rev()
-                        .take(query.size)
-                        .collect::<Vec<_>>();
+                            .into_iter()
+                            .rev()
+                            .take(query.size)
+                            .collect::<Vec<_>>();
                     Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
                 })
                 .transpose()?;
