@@ -18,7 +18,7 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 pub enum PoolSwapAggregatedInterval {
     OneDay = 86400, // 60 * 60 * 24,
-    OneHour = 120,  // 60 * 60,
+    OneHour = 3600,  // 60 * 60,
     Unknown,
 }
 
@@ -26,7 +26,7 @@ impl From<u32> for PoolSwapAggregatedInterval {
     fn from(value: u32) -> Self {
         match value {
             86400 => Self::OneDay,
-            120 => Self::OneHour,
+            3600 => Self::OneHour,
             _ => Self::Unknown,
         }
     }
@@ -161,7 +161,7 @@ impl Index for PoolSwap {
                     aggregate
                         .aggregated
                         .amounts
-                        .insert(from_token_id.to_string(), aggregate_amount.to_string());
+                        .insert(from_token_id.to_string(), format!("{:.8}", aggregate_amount));
 
                     services
                         .pool_swap_aggregated
