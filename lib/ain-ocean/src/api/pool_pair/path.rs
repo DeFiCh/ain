@@ -13,8 +13,9 @@ use crate::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},
         common::{format_number, parse_dat_symbol},
     },
+    error::NotFoundKind,
     network::Network,
-    Result, TokenIdentifier,
+    Error, Result, TokenIdentifier,
 };
 
 #[derive(Debug, Serialize)]
@@ -101,7 +102,7 @@ impl StackSet {
 }
 
 pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
-    let (id, token) = get_token_cached(ctx, id).await?.unwrap();
+    let (id, token) = get_token_cached(ctx, id).await?.ok_or(Error::NotFound(NotFoundKind::Token))?;
     Ok(TokenIdentifier {
         id,
         display_symbol: parse_dat_symbol(&token.symbol),
