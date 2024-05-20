@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{ops::Div, str::FromStr, sync::Arc};
 
 use ain_dftx::pool::*;
 use anyhow::format_err;
@@ -105,13 +105,13 @@ impl Index for PoolSwap {
                         .unwrap_or(dec!(0));
 
                     let aggregate_amount = amount
-                        .checked_add(Decimal::from(from_amount))
+                        .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
                         .ok_or(Error::OverflowError)?;
 
                     aggregate
                         .aggregated
                         .amounts
-                        .insert(from_token_id.to_string(), aggregate_amount.to_string());
+                        .insert(from_token_id.to_string(), format!("{:.8}", aggregate_amount));
 
                     services
                         .pool_swap_aggregated
@@ -155,7 +155,7 @@ impl Index for PoolSwap {
                         .unwrap_or(dec!(0));
 
                     let aggregate_amount = amount
-                        .checked_add(Decimal::from(from_amount))
+                        .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
                         .ok_or(Error::OverflowError)?;
 
                     aggregate
