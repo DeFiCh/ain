@@ -148,17 +148,17 @@ impl Index for PoolSwap {
                     let amount = aggregate
                         .aggregated
                         .amounts
-                        .get(&self.from_token_id.0.to_string())
+                        .get(&from_token_id.to_string())
                         .ok_or(format_err!("Invalid amount token id"))?;
 
                     let aggregate_amount = amount
-                        .checked_add(Decimal::from(self.from_amount))
+                        .checked_add(Decimal::from(from_amount))
                         .ok_or(Error::OverflowError)?;
 
                     aggregate
                         .aggregated
                         .amounts
-                        .insert(self.from_token_id.0.to_string(), aggregate_amount);
+                        .insert(from_token_id.to_string(), aggregate_amount);
 
                     services
                         .pool_swap_aggregated
