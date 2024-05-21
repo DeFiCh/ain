@@ -59,6 +59,8 @@ pub enum Error {
     UnderflowError,
     #[error("Error fetching primary value")]
     SecondaryIndex,
+    #[error("Token {0:?} is invalid as it is not tradeable")]
+    UntradeableTokenError(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
