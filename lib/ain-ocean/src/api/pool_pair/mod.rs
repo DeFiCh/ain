@@ -61,9 +61,9 @@ struct SwapAggregate {
     interval: u32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 struct DexPrices {
-    denomination_symbol: String,
+    denomination: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -665,10 +665,10 @@ async fn get_best_path(
 
 #[ocean_endpoint]
 async fn list_dex_prices(
-    Query(DexPrices { denomination_symbol }): Query<DexPrices>,
+    Query(DexPrices { denomination }): Query<DexPrices>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<DexPriceResponse>> {
-    let prices = price::list_dex_prices(&ctx, denomination_symbol).await?;
+    let prices = price::list_dex_prices(&ctx, denomination).await?;
 
     Ok(Response::new(prices))
 }
