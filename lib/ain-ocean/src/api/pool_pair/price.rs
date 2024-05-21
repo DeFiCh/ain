@@ -26,7 +26,7 @@ pub struct DexPriceResponse {
 }
 
 fn is_untradable_token(token: &TokenInfo) -> bool {
-  token.is_lps || !token.is_dat || token.symbol == "BURN".to_string() || !token.tradeable
+  token.is_lps || !token.is_dat || token.symbol == *"BURN" || !token.tradeable
 }
 
 pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<DexPriceResponse> {
@@ -40,6 +40,7 @@ pub async fn list_dex_prices(ctx: &Arc<AppContext>, symbol: String) -> Result<De
     .await?
     .0
     .into_iter()
+    .filter(|(_, info)| !is_untradable_token(info))
     .collect::<Vec<_>>();
 
   let mut dex_prices = HashMap::<String, DexPrice>::new();
