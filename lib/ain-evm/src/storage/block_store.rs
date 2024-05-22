@@ -1,3 +1,7 @@
+use anyhow::format_err;
+use ethereum::{BlockAny, TransactionV2};
+use ethereum_types::{H160, H256, U256};
+use log::debug;
 use std::{
     collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
     time::Instant,
@@ -5,12 +9,8 @@ use std::{
 
 use ain_db::{
     version::{DBVersionControl, Migration},
-    Column, ColumnName, LedgerColumn, Result as DBResult, Rocks, TypedColumn,
+    Column, ColumnName, DBError, LedgerColumn, Result as DBResult, Rocks, TypedColumn,
 };
-use anyhow::format_err;
-use ethereum::{BlockAny, TransactionV2};
-use ethereum_types::{H160, H256, U256};
-use log::debug;
 
 use super::{
     migration::MigrationV1,
@@ -77,13 +77,17 @@ impl DBVersionControl for BlockStore {
     }
 
     fn migrate(&self) -> DBResult<()> {
-        let current_version = self.get_version().unwrap_or(0);
+        let version = self.get_version().unwrap_or(0);
+        if version > Self::CURRENT_VERSION {
+            return Err(DBError::UnsupportedVersion);
+        }
+
         let mut migrations: [Box<dyn Migration<Self>>; Self::CURRENT_VERSION as usize] =
             [Box::new(MigrationV1)];
         migrations.sort_by_key(|a| a.version());
 
         for migration in migrations {
-            if current_version < migration.version() {
+            if version < migration.version() {
                 debug!("Migrating to version {}...", migration.version());
                 let start = Instant::now();
                 migration.migrate(self)?;
