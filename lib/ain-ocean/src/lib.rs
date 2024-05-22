@@ -21,6 +21,7 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
+    PoolSwapAggregatedRepository, PoolSwapAggregatedKeyRepository,
     PoolSwapAggregatedOneDayKeyRepository, PoolSwapAggregatedOneDayRepository,
     PoolSwapAggregatedOneHourKeyRepository, PoolSwapAggregatedOneHourRepository,
     PoolSwapRepository, PriceTickerRepository, RawBlockRepository,
@@ -68,6 +69,8 @@ pub struct PoolService {
 }
 
 pub struct PoolSwapAggregatedService {
+    by_id: PoolSwapAggregatedRepository,
+    by_key: PoolSwapAggregatedKeyRepository,
     one_day_by_id: PoolSwapAggregatedOneDayRepository,
     one_day_by_key: PoolSwapAggregatedOneDayKeyRepository,
     one_hour_by_id: PoolSwapAggregatedOneHourRepository,
@@ -165,6 +168,8 @@ impl Services {
                 by_id: PoolSwapRepository::new(Arc::clone(&store)),
             },
             pool_swap_aggregated: PoolSwapAggregatedService {
+                by_id: PoolSwapAggregatedRepository::new(Arc::clone(&store)),
+                by_key: PoolSwapAggregatedKeyRepository::new(Arc::clone(&store)),
                 one_day_by_id: PoolSwapAggregatedOneDayRepository::new(Arc::clone(&store)),
                 one_day_by_key: PoolSwapAggregatedOneDayKeyRepository::new(Arc::clone(&store)),
                 one_hour_by_id: PoolSwapAggregatedOneHourRepository::new(Arc::clone(&store)),
