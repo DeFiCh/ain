@@ -11,7 +11,7 @@ use rust_decimal_macros::dec;
 use super::Context;
 use crate::{
     indexer::{tx_result, Index, Result},
-    model::{self, PoolSwapAggregatedId, PoolSwapAggregatedKey, PoolSwapResult, TxResult},
+    model::{self, PoolSwapResult, TxResult},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Error, Services,
@@ -129,103 +129,6 @@ impl Index for PoolSwap {
                     .put(&(pool_id, interval, hash), aggregated)?;
             }
         }
-
-        // // one day
-        // {
-        //     let interval_one_day = PoolSwapAggregatedInterval::OneDay as u32;
-        //     let key: PoolSwapAggregatedKey = (pool_id, interval_one_day);
-        //     let encoded_ids = services.pool_swap_aggregated.one_day_by_key.get(&key)?;
-
-        //     if let Some(encoded_ids) = encoded_ids {
-        //         let decoded_ids = hex::decode(encoded_ids)?;
-        //         if decoded_ids.is_empty() {
-        //             log::error!(
-        //                 "index swap {txid}: Unable to find {pool_id}-{interval_one_day} for Aggregate Indexing"
-        //             );
-        //         };
-
-        //         let deserialized_ids =
-        //             bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
-        //         let latest_id = deserialized_ids
-        //             .last()
-        //             .ok_or(format_err!("Empty pool swap aggregated ids one day"))?;
-        //         let aggregate = services.pool_swap_aggregated.one_day_by_id.get(latest_id)?;
-
-        //         if let Some(mut aggregate) = aggregate {
-        //             let amount = aggregate
-        //                 .aggregated
-        //                 .amounts
-        //                 .get(&from_token_id.to_string())
-        //                 .map(|amt| Decimal::from_str(amt))
-        //                 .transpose()?
-        //                 .unwrap_or(dec!(0));
-
-        //             let aggregate_amount = amount
-        //                 .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
-        //                 .ok_or(Error::OverflowError)?;
-
-        //             aggregate.aggregated.amounts.insert(
-        //                 from_token_id.to_string(),
-        //                 format!("{:.8}", aggregate_amount),
-        //             );
-
-        //             services
-        //                 .pool_swap_aggregated
-        //                 .one_day_by_id
-        //                 .put(latest_id, &aggregate)?;
-        //         }
-        //     }
-        // }
-
-        // // one hour
-        // {
-        //     let interval_one_hour = PoolSwapAggregatedInterval::OneHour as u32;
-        //     let key: PoolSwapAggregatedKey = (pool_id, interval_one_hour);
-        //     let encoded_ids = services.pool_swap_aggregated.one_hour_by_key.get(&key)?;
-
-        //     if let Some(encoded_ids) = encoded_ids {
-        //         let decoded_ids = hex::decode(encoded_ids)?;
-        //         if decoded_ids.is_empty() {
-        //             log::error!(
-        //                 "index swap {txid}: Unable to find {pool_id}-{interval_one_hour} for Aggregate Indexing"
-        //             );
-        //         };
-
-        //         let deserialized_ids =
-        //             bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
-        //         let latest_id = deserialized_ids
-        //             .last()
-        //             .ok_or(format_err!("Empty pool swap aggregated ids one hour"))?;
-        //         let aggregate = services
-        //             .pool_swap_aggregated
-        //             .one_hour_by_id
-        //             .get(latest_id)?;
-
-        //         if let Some(mut aggregate) = aggregate {
-        //             let amount = aggregate
-        //                 .aggregated
-        //                 .amounts
-        //                 .get(&from_token_id.to_string())
-        //                 .map(|amt| Decimal::from_str(amt))
-        //                 .transpose()?
-        //                 .unwrap_or(dec!(0));
-
-        //             let aggregate_amount = amount
-        //                 .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
-        //                 .ok_or(Error::OverflowError)?;
-
-        //             aggregate.aggregated.amounts.insert(
-        //                 from_token_id.to_string(),
-        //                 format!("{:.8}", aggregate_amount),
-        //             );
-
-        //             services
-        //                 .pool_swap_aggregated
-        //                 .one_hour_by_id
-        //                 .put(latest_id, &aggregate)?;
-        //         }
-        //     }
-        // }
 
         Ok(())
     }

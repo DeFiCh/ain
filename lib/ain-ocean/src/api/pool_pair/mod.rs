@@ -31,8 +31,7 @@ use super::{
 
 use crate::{
     error::{ApiError, Error},
-    indexer::PoolSwapAggregatedInterval,
-    model::{BlockContext, PoolSwap, PoolSwapAggregated, PoolSwapAggregatedId},
+    model::{BlockContext, PoolSwap, PoolSwapAggregated},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result, TokenIdentifier,
@@ -540,80 +539,6 @@ async fn list_pool_swap_aggregates(
     Ok(ApiPagedResponse::of(aggregated_usd, query.size, |aggregated| {
         aggregated.bucket
     }))
-
-    // let mut aggregates = Vec::<PoolSwapAggregatedResponse>::new();
-
-    // match PoolSwapAggregatedInterval::from(interval) {
-    //     PoolSwapAggregatedInterval::OneDay => {
-    //         let deserialized_ids = ctx
-    //             .services
-    //             .pool_swap_aggregated
-    //             .one_day_by_key
-    //             .get(&(pool_id, interval))?
-    //             .map(|encoded_ids| {
-    //                 let decoded_ids = hex::decode(encoded_ids)?;
-    //                 let deserialized_ids =
-    //                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
-    //                         .into_iter()
-    //                         .rev()
-    //                         .take(query.size)
-    //                         .collect::<Vec<_>>();
-    //                 Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
-    //             })
-    //             .transpose()?;
-
-    //         if let Some(ids) = deserialized_ids {
-    //             for id in ids {
-    //                 let aggregate = ctx
-    //                     .services
-    //                     .pool_swap_aggregated
-    //                     .one_day_by_id
-    //                     .get(&id)?
-    //                     .ok_or(format_err!("Missing aggregate from id: {:?}", id))?;
-    //                 let usd = get_aggregated_in_usd(&ctx, &aggregate.aggregated).await?;
-    //                 let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregate, usd);
-    //                 aggregates.push(aggregate_with_usd)
-    //             }
-    //         }
-    //     }
-    //     PoolSwapAggregatedInterval::OneHour => {
-    //         let deserialized_ids = ctx
-    //             .services
-    //             .pool_swap_aggregated
-    //             .one_hour_by_key
-    //             .get(&(pool_id, interval))?
-    //             .map(|encoded_ids| {
-    //                 let decoded_ids = hex::decode(encoded_ids)?;
-    //                 let deserialized_ids =
-    //                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
-    //                         .into_iter()
-    //                         .rev()
-    //                         .take(query.size)
-    //                         .collect::<Vec<_>>();
-    //                 Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
-    //             })
-    //             .transpose()?;
-
-    //         if let Some(ids) = deserialized_ids {
-    //             for id in ids {
-    //                 let aggregate = ctx
-    //                     .services
-    //                     .pool_swap_aggregated
-    //                     .one_hour_by_id
-    //                     .get(&id)?
-    //                     .ok_or(format_err!("Missing aggregate from id: {:?}", id))?;
-    //                 let usd = get_aggregated_in_usd(&ctx, &aggregate.aggregated).await?;
-    //                 let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregate, usd);
-    //                 aggregates.push(aggregate_with_usd)
-    //             }
-    //         }
-    //     }
-    //     _ => return Err(format_err!("Invalid PoolSwapAggregatedInterval").into()),
-    // };
-
-    // Ok(ApiPagedResponse::of(aggregates, query.size, |aggregated| {
-    //     aggregated.bucket
-    // }))
 }
 
 #[derive(Debug, Serialize)]

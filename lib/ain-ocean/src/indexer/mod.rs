@@ -18,11 +18,10 @@ use crate::{
     index_transaction,
     model::{
         Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
-        PoolSwapAggregatedId,
     },
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
-    Error, Result, Services,
+    Result, Services,
 };
 
 pub(crate) trait Index {
@@ -54,85 +53,6 @@ fn log_elapsed(previous: Instant, msg: &str) {
 fn get_bucket(block: &Block<Transaction>, interval: u32) -> i64 {
     block.mediantime - (block.mediantime % interval as i64)
 }
-
-// fn create_new_bucket(
-//     services: &Arc<Services>,
-//     block: &Block<Transaction>,
-//     pool_pair_id: &u32,
-//     interval: PoolSwapAggregatedInterval,
-// ) -> Result<()> {
-//     let interval_u32 = interval as u32;
-//     let hash = block.hash;
-//     let aggregate = PoolSwapAggregated {
-//         id: format!("{pool_pair_id}-{interval_u32}-{hash}"),
-//         key: format!("{pool_pair_id}-{interval_u32}"),
-//         bucket: get_bucket(block, interval),
-//         aggregated: PoolSwapAggregatedAggregated {
-//             amounts: Default::default(),
-//         },
-//         block: BlockContext {
-//             hash: block.hash,
-//             height: block.height,
-//             time: block.time,
-//             median_time: block.mediantime,
-//         },
-//     };
-
-//     let pool_swap_aggregated_key = (*pool_pair_id, interval_u32);
-//     let pool_swap_aggregated_id = (*pool_pair_id, interval_u32, block.hash);
-
-//     let encoded_ids = match interval {
-//         PoolSwapAggregatedInterval::OneDay => services
-//             .pool_swap_aggregated
-//             .one_day_by_key
-//             .get(&pool_swap_aggregated_key)?,
-//         PoolSwapAggregatedInterval::OneHour => services
-//             .pool_swap_aggregated
-//             .one_hour_by_key
-//             .get(&pool_swap_aggregated_key)?,
-//         PoolSwapAggregatedInterval::Unknown => None,
-//     };
-
-//     let deserialized_ids = if let Some(encoded_ids) = encoded_ids {
-//         let decoded_ids = hex::decode(encoded_ids)?;
-//         let mut deserialized_ids = bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?;
-//         deserialized_ids.push(pool_swap_aggregated_id);
-//         deserialized_ids
-//     } else {
-//         vec![pool_swap_aggregated_id]
-//     };
-
-//     let serialized = bincode::serialize(&deserialized_ids)?;
-//     let encoded_ids = hex::encode(serialized);
-
-//     match interval {
-//         PoolSwapAggregatedInterval::OneDay => {
-//             services
-//                 .pool_swap_aggregated
-//                 .one_day_by_key
-//                 .put(&pool_swap_aggregated_key, &encoded_ids)?;
-
-//             services
-//                 .pool_swap_aggregated
-//                 .one_day_by_id
-//                 .put(&pool_swap_aggregated_id, &aggregate)?;
-//         }
-//         PoolSwapAggregatedInterval::OneHour => {
-//             services
-//                 .pool_swap_aggregated
-//                 .one_hour_by_key
-//                 .put(&pool_swap_aggregated_key, &encoded_ids)?;
-
-//             services
-//                 .pool_swap_aggregated
-//                 .one_hour_by_id
-//                 .put(&pool_swap_aggregated_id, &aggregate)?;
-//         }
-//         PoolSwapAggregatedInterval::Unknown => (),
-//     };
-
-//     Ok(())
-// }
 
 fn index_block_start(
     services: &Arc<Services>,
@@ -186,96 +106,6 @@ fn index_block_start(
             repository.by_id.put(&pool_swap_aggregated_id, &aggregated)?;
         }
     }
-
-    // {
-    //     for pool_pair in &pool_pairs {
-    //         let mut prevs = Vec::<PoolSwapAggregated>::new();
-
-    //         let ids = services
-    //             .pool_swap_aggregated
-    //             .one_day_by_key
-    //             .get(&(pool_pair.id, PoolSwapAggregatedInterval::OneDay as u32))?
-    //             .map(|encoded_ids| {
-    //                 let decoded_ids = hex::decode(encoded_ids)?;
-    //                 let deserialized_ids =
-    //                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
-    //                         .into_iter()
-    //                         .rev()
-    //                         .take(1)
-    //                         .collect::<Vec<_>>();
-    //                 Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
-    //             })
-    //             .transpose()?;
-
-    //         if let Some(ids) = ids {
-    //             for id in ids {
-    //                 let aggregated = services.pool_swap_aggregated.one_day_by_id.get(&id)?;
-
-    //                 if let Some(aggregated) = aggregated {
-    //                     prevs.push(aggregated);
-    //                 }
-    //             }
-    //         }
-
-    //         let bucket = get_bucket(block, PoolSwapAggregatedInterval::OneDay);
-
-    //         if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
-    //             break;
-    //         }
-
-    //         create_new_bucket(
-    //             services,
-    //             block,
-    //             &pool_pair.id,
-    //             PoolSwapAggregatedInterval::OneDay,
-    //         )?;
-    //     }
-    // }
-
-    // {
-    //     for pool_pair in pool_pairs {
-    //         let mut prevs = Vec::<PoolSwapAggregated>::new();
-
-    //         let ids = services
-    //             .pool_swap_aggregated
-    //             .one_hour_by_key
-    //             .get(&(pool_pair.id, PoolSwapAggregatedInterval::OneHour as u32))?
-    //             .map(|encoded_ids| {
-    //                 let decoded_ids = hex::decode(encoded_ids)?;
-    //                 let deserialized_ids =
-    //                     bincode::deserialize::<Vec<PoolSwapAggregatedId>>(&decoded_ids)?
-    //                         .into_iter()
-    //                         .rev()
-    //                         .take(1)
-    //                         .collect::<Vec<_>>();
-    //                 Ok::<Vec<PoolSwapAggregatedId>, Error>(deserialized_ids)
-    //             })
-    //             .transpose()?;
-
-    //         if let Some(ids) = ids {
-    //             for id in ids {
-    //                 let aggregated = services.pool_swap_aggregated.one_hour_by_id.get(&id)?;
-
-    //                 if let Some(aggregated) = aggregated {
-    //                     prevs.push(aggregated);
-    //                 }
-    //             }
-    //         }
-
-    //         let bucket = get_bucket(block, PoolSwapAggregatedInterval::OneHour);
-
-    //         if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
-    //             break;
-    //         }
-
-    //         create_new_bucket(
-    //             services,
-    //             block,
-    //             &pool_pair.id,
-    //             PoolSwapAggregatedInterval::OneHour,
-    //         )?;
-    //     }
-    // }
 
     Ok(())
 }
