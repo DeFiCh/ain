@@ -26,17 +26,6 @@ pub const AGGREGATED_INTERVALS: [u32; 2] = [
 pub enum PoolSwapAggregatedInterval {
     OneDay = 86400, // 60 * 60 * 24,
     OneHour = 3600, // 60 * 60,
-    Unknown,
-}
-
-impl From<u32> for PoolSwapAggregatedInterval {
-    fn from(value: u32) -> Self {
-        match value {
-            86400 => Self::OneDay,
-            3600 => Self::OneHour,
-            _ => Self::Unknown,
-        }
-    }
 }
 
 impl Index for PoolSwap {

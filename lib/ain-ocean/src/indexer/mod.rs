@@ -12,7 +12,7 @@ use ain_dftx::{deserialize, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
 
-pub use pool::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+pub use pool::AGGREGATED_INTERVALS;
 
 use crate::{
     index_transaction,
