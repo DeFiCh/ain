@@ -122,7 +122,7 @@ impl Index for PoolSwap {
                 };
                 let pool_id = parts[0].parse::<u32>()?;
                 let interval = parts[1].parse::<u32>()?;
-                let hash = parts[3].parse::<BlockHash>()?;
+                let hash = parts[2].parse::<BlockHash>()?;
 
                 repository
                     .by_id
