@@ -11,7 +11,7 @@ mod masternode;
 mod oracle;
 mod pool_pair;
 pub mod prices;
-// mod rawtx;
+mod rawtx;
 mod cache;
 pub mod common;
 mod path;
