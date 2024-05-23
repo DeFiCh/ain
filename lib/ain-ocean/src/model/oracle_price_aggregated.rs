@@ -29,3 +29,15 @@ pub struct OraclePriceAggregatedAggregatedOracles {
     pub active: i32,
     pub total: i32,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OraclePriceAggregatedApi {
+    pub id: String,
+    pub key: String,
+    pub sort: String,
+    pub token: String,
+    pub currency: String,
+    pub aggregated: OraclePriceAggregatedAggregated,
+    pub block: BlockContext,
+}
