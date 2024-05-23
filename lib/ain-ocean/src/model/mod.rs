@@ -12,6 +12,7 @@ mod poolswap;
 mod poolswap_aggregated;
 mod price_ticker;
 mod raw_block;
+mod raw_tx;
 mod script_activity;
 mod script_aggregation;
 mod script_unspent;
