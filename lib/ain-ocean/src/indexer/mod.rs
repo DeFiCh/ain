@@ -50,8 +50,8 @@ fn log_elapsed(previous: Instant, msg: &str) {
     debug!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }
 
-fn get_bucket(block: &Block<Transaction>, interval: u32) -> i64 {
-    block.mediantime - (block.mediantime % interval as i64)
+fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
+    block.mediantime - (block.mediantime % interval)
 }
 
 fn index_block_start(
@@ -79,18 +79,15 @@ fn index_block_start(
                 .map(|e| repository.by_key.retrieve_primary_value(e))
                 .collect::<Result<Vec<_>>>()?;
 
-            let bucket = get_bucket(block, interval);
+            let bucket = get_bucket(block, interval as i64);
 
-            if prevs.len() == 1 && prevs[0].bucket.ge(&bucket) {
+            if prevs.len() == 1 && prevs[0].bucket >= bucket {
                 break;
             }
 
-            let pool_pair_id = pool_pair.id;
-            let hash = block.hash;
-
             let aggregated = PoolSwapAggregated {
-                id: format!("{pool_pair_id}-{interval}-{hash}"),
-                key: format!("{pool_pair_id}-{interval}"),
+                id: format!("{}-{}-{}", pool_pair.id, interval, block.hash),
+                key: format!("{}-{}", pool_pair.id, interval),
                 bucket,
                 aggregated: PoolSwapAggregatedAggregated {
                     amounts: Default::default(),
@@ -103,8 +100,8 @@ fn index_block_start(
                 },
             };
 
-            let pool_swap_aggregated_key = (pool_pair_id, interval, bucket);
-            let pool_swap_aggregated_id = (pool_pair_id, interval, block.hash);
+            let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
+            let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
 
             repository.by_key.put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
             repository.by_id.put(&pool_swap_aggregated_id, &aggregated)?;

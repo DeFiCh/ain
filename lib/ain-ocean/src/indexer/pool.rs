@@ -24,8 +24,8 @@ pub const AGGREGATED_INTERVALS: [u32; 2] = [
 
 #[derive(Debug, Clone, Copy)]
 pub enum PoolSwapAggregatedInterval {
-    OneDay = 86400, // 60 * 60 * 24,
-    OneHour = 3600, // 60 * 60,
+    OneDay = 60 * 60 * 24,
+    OneHour = 60 * 60,
 }
 
 impl Index for PoolSwap {
