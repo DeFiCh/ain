@@ -74,8 +74,12 @@ impl Index for PoolSwap {
             let repository = &services.pool_swap_aggregated;
             let mut prevs = repository
                 .by_key
-                .list(Some((pool_id, interval)), SortOrder::Descending)?
+                .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
                 .take(1)
+                .take_while(|item| match item {
+                    Ok((k, _)) => k.0 == pool_id && k.1 == interval,
+                    _ => true,
+                })
                 .map(|e| repository.by_key.retrieve_primary_value(e))
                 .collect::<Result<Vec<_>>>()?;
 

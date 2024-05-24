@@ -517,10 +517,20 @@ async fn list_pool_swap_aggregates(
 ) -> Result<ApiPagedResponse<PoolSwapAggregatedResponse>> {
     let pool_id = id.parse::<u32>()?;
 
+    // bucket
+    let next = query
+        .next
+        .map(|bucket| {
+            let bucket = bucket.parse::<i64>()?;
+            Ok::<i64, Error>(bucket)
+        })
+        .transpose()?
+        .unwrap_or(i64::MAX);
+
     let repository = &ctx.services.pool_swap_aggregated;
     let aggregates = repository
         .by_key
-        .list(Some((pool_id, interval)), SortOrder::Descending)?
+        .list(Some((pool_id, interval, next)), SortOrder::Descending)?
         .take(query.size)
         .take_while(|item| match item {
             Ok((k, _)) => k.0 == pool_id && k.1 == interval,

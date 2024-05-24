@@ -5,7 +5,7 @@ use super::BlockContext;
 use bitcoin::BlockHash;
 
 pub type PoolSwapAggregatedId = (u32, u32, BlockHash); // (pool_id, interval, block_hash)
-pub type PoolSwapAggregatedKey = (u32, u32); // (pool_id, interval)
+pub type PoolSwapAggregatedKey = (u32, u32, i64); // (pool_id, interval, bucket)
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

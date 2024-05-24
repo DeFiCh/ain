@@ -70,8 +70,12 @@ fn index_block_start(
 
             let prevs = repository
                 .by_key
-                .list(Some((pool_pair.id, interval)), SortOrder::Descending)?
+                .list(Some((pool_pair.id, interval, i64::MAX)), SortOrder::Descending)?
                 .take(1)
+                .take_while(|item| match item {
+                    Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
+                    _ => true,
+                })
                 .map(|e| repository.by_key.retrieve_primary_value(e))
                 .collect::<Result<Vec<_>>>()?;
 
@@ -87,7 +91,7 @@ fn index_block_start(
             let aggregated = PoolSwapAggregated {
                 id: format!("{pool_pair_id}-{interval}-{hash}"),
                 key: format!("{pool_pair_id}-{interval}"),
-                bucket: get_bucket(block, interval),
+                bucket,
                 aggregated: PoolSwapAggregatedAggregated {
                     amounts: Default::default(),
                 },
@@ -99,7 +103,7 @@ fn index_block_start(
                 },
             };
 
-            let pool_swap_aggregated_key = (pool_pair_id, interval);
+            let pool_swap_aggregated_key = (pool_pair_id, interval, bucket);
             let pool_swap_aggregated_id = (pool_pair_id, interval, block.hash);
 
             repository.by_key.put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
