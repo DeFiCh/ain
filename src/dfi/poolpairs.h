@@ -238,6 +238,23 @@ struct TotalRewardPerShareKey {
     }
 };
 
+struct TotalCommissionPerShareValue {
+    uint32_t tokenA;
+    uint32_t tokenB;
+    arith_uint256 commissionA;
+    arith_uint256 commissionB;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(tokenA);
+        READWRITE(tokenB);
+        READWRITE(commissionA);
+        READWRITE(commissionB);
+    }
+};
+
 struct LoanTokenAverageLiquidityKey {
     uint32_t sourceID;
     uint32_t destID;
@@ -369,9 +386,15 @@ public:
         const LoanTokenAverageLiquidityKey start = LoanTokenAverageLiquidityKey{});
 
     bool SetTotalRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward);
-    arith_uint256 GetTotalRewardPerShare(const TotalRewardPerShareKey &totalReward);
+    arith_uint256 GetTotalRewardPerShare(const TotalRewardPerShareKey &totalReward) const;
     bool SetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key, const arith_uint256 &totalReward);
-    arith_uint256 GetTotalLoanRewardPerShare(const TotalRewardPerShareKey &totalReward);
+    arith_uint256 GetTotalLoanRewardPerShare(const TotalRewardPerShareKey &totalReward) const;
+    bool SetTotalCustomRewardPerShare(const TotalRewardPerShareKey &key,
+                                      const std::map<uint32_t, arith_uint256> &customRewards);
+    std::map<uint32_t, arith_uint256> GetTotalCustomRewardPerShare(const TotalRewardPerShareKey &key) const;
+    bool SetTotalCommissionPerShare(const TotalRewardPerShareKey &key,
+                                    const TotalCommissionPerShareValue &totalCommission);
+    TotalCommissionPerShareValue GetTotalCommissionPerShare(const TotalRewardPerShareKey &key) const;
 
     // tags
     struct ByID {
@@ -431,6 +454,14 @@ public:
 
     struct ByTotalLoanRewardPerShare {
         static constexpr uint8_t prefix() { return '='; }
+    };
+
+    struct ByTotalCustomRewardPerShare {
+        static constexpr uint8_t prefix() { return '_'; }
+    };
+
+    struct ByTotalCommissionPerShare {
+        static constexpr uint8_t prefix() { return '/'; }
     };
 };
 

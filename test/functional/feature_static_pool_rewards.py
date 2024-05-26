@@ -25,6 +25,7 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "-amkheight=1",
                 "-bayfrontheight=1",
                 "-bayfrontgardensheight=1",
+                "-clarkequayheight=1",
                 "-eunosheight=1",
                 "-fortcanningheight=1",
                 "-fortcanningmuseumheight=1",
@@ -58,8 +59,14 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Add liquidity after LP_SPLITS
         self.liquidity_after_setting_splits()
 
-        # Check loan token reward
-        self.static_loan_reward_calculation()
+        # Test loan token reward
+        self.static_loan_reward()
+
+        # Test custom token reward
+        self.static_custom_reward()
+
+        # Test commission
+        self.static_commission()
 
     def setup_tests(self):
 
@@ -81,11 +88,11 @@ class TokenFractionalSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Fund address for pool
-        self.nodes[0].utxostoaccount({self.address: f"1000@{self.symbolDFI}"})
-        self.nodes[0].utxostoaccount({self.alt_address: f"1000@{self.symbolDFI}"})
-        self.nodes[0].minttokens([f"1000@{self.idBTC}"])
-        self.nodes[0].minttokens([f"1000@{self.idLTC}"])
-        self.nodes[0].minttokens([f"1000@{self.idTSLA}"], [], self.alt_address)
+        self.nodes[0].utxostoaccount({self.owner_address: f"2000@{self.symbolDFI}"})
+        self.nodes[0].minttokens([f"2000@{self.idBTC}"])
+        self.nodes[0].minttokens([f"2000@{self.idLTC}"])
+        self.nodes[0].minttokens([f"2000@{self.idTSLA}"])
+        self.nodes[0].minttokens([f"2000@{self.idETH}"])
         self.nodes[0].generate(1)
 
         # Create pool symbol
@@ -99,53 +106,43 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "tokenA": self.symbolBTC,
                 "tokenB": self.symbolDFI,
                 "status": True,
-                "ownerAddress": self.address,
+                "ownerAddress": self.owner_address,
+                "commission": 0,
                 "symbol": btc_pool_symbol,
             }
         )
-        self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair(
             {
                 "tokenA": self.symbolLTC,
                 "tokenB": self.symbolDFI,
                 "status": True,
-                "ownerAddress": self.address,
+                "ownerAddress": self.owner_address,
+                "commission": 0.01,
                 "symbol": ltc_pool_symbol,
             }
         )
-        self.nodes[0].generate(1)
 
         self.nodes[0].createpoolpair(
             {
                 "tokenA": self.symbolTSLA,
                 "tokenB": self.symbolDFI,
                 "status": True,
-                "ownerAddress": self.address,
+                "ownerAddress": self.owner_address,
+                "commission": 0,
                 "symbol": self.symbolTSLA + "-" + self.symbolDFI,
             }
         )
         self.nodes[0].generate(1)
 
         # Get pool pair IDs
-        btc_pool_id = list(self.nodes[0].getpoolpair(btc_pool_symbol).keys())[0]
+        self.btc_pool_id = list(self.nodes[0].getpoolpair(btc_pool_symbol).keys())[0]
         self.ltc_pool_id = list(self.nodes[0].getpoolpair(ltc_pool_symbol).keys())[0]
         tsla_pool_id = list(self.nodes[0].getpoolpair(tsla_pool_symbol).keys())[0]
 
         # Set pool pair splits
-        self.nodes[0].setgov({"LP_SPLITS": {btc_pool_id: 1}})
+        self.nodes[0].setgov({"LP_SPLITS": {self.btc_pool_id: 1}})
         self.nodes[0].setgov({"LP_LOAN_TOKEN_SPLITS": {tsla_pool_id: 1}})
-        self.nodes[0].generate(1)
-
-        # Fund pools
-        self.nodes[0].addpoolliquidity(
-            {self.address: [f"1000@{self.symbolBTC}", f"1000@{self.symbolDFI}"]},
-            self.address,
-        )
-        self.nodes[0].addpoolliquidity(
-            {self.alt_address: [f"1000@{self.symbolTSLA}", f"1000@{self.symbolDFI}"]},
-            self.address,
-        )
         self.nodes[0].generate(1)
 
     def setup_test_tokens(self):
@@ -156,10 +153,11 @@ class TokenFractionalSplitTest(DefiTestFramework):
         self.symbolLTC = "LTC"
         self.symbolDFI = "DFI"
         self.symbolTSLA = "TSLA"
+        self.symbolETH = "ETH"
 
         # Store addresses
-        self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.alt_address = self.nodes[0].getnewaddress("", "legacy")
+        self.owner_address = self.nodes[0].get_genesis_keys().ownerAuthAddress
+        self.address = self.nodes[0].getnewaddress("", "legacy")
 
         # Create tokens
         self.nodes[0].createtoken(
@@ -167,17 +165,25 @@ class TokenFractionalSplitTest(DefiTestFramework):
                 "symbol": self.symbolBTC,
                 "name": self.symbolBTC,
                 "isDAT": True,
-                "collateralAddress": self.address,
+                "collateralAddress": self.owner_address,
             }
         )
-        self.nodes[0].generate(1)
 
         self.nodes[0].createtoken(
             {
                 "symbol": self.symbolLTC,
                 "name": self.symbolLTC,
                 "isDAT": True,
-                "collateralAddress": self.address,
+                "collateralAddress": self.owner_address,
+            }
+        )
+
+        self.nodes[0].createtoken(
+            {
+                "symbol": self.symbolETH,
+                "name": self.symbolETH,
+                "isDAT": True,
+                "collateralAddress": self.owner_address,
             }
         )
         self.nodes[0].generate(1)
@@ -217,11 +223,19 @@ class TokenFractionalSplitTest(DefiTestFramework):
         self.idBTC = list(self.nodes[0].gettoken(self.symbolBTC).keys())[0]
         self.idLTC = list(self.nodes[0].gettoken(self.symbolLTC).keys())[0]
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
+        self.idETH = list(self.nodes[0].gettoken(self.symbolETH).keys())[0]
 
     def static_reward_calculation(self):
 
         # Rollback block
         self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolBTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].generate(1)
 
         # Get initial balance
         start_balance = Decimal(self.nodes[0].getaccount(self.address)[0].split("@")[0])
@@ -254,6 +268,13 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Rollback block
         self.rollback_to(self.start_block)
 
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolBTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].generate(1)
+
         # Move to fork height
         self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
 
@@ -281,16 +302,13 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
         # Fund pool
         self.nodes[0].addpoolliquidity(
-            {self.address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
+            {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
             self.address,
         )
         self.nodes[0].generate(1)
 
         # Set pool pair splits to different pool and calculate owner rewards
         self.nodes[0].setgov({"LP_SPLITS": {self.ltc_pool_id: 1}})
-        self.nodes[0].accounttoaccount(
-            self.address, {self.alt_address: f"1@{self.symbolDFI}"}
-        )
         self.nodes[0].generate(1)
 
         # Get initial balance
@@ -303,8 +321,11 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Calculate new pool reward
         new_pool_reward = end_balance - start_balance
 
-        # Check rewards matches previous pre-fork reward. Different pool but same liquidty and reward share
-        assert_equal(self.pre_fork_reward, new_pool_reward)
+        # Add 1 Sat to start balance as new reward is higher precsision over multiple blocks
+        old_reward = self.pre_fork_reward + Decimal("0.00000001")
+
+        # Check rewards matches
+        assert_equal(old_reward, new_pool_reward)
 
     def liquidity_after_setting_splits(self):
 
@@ -320,13 +341,38 @@ class TokenFractionalSplitTest(DefiTestFramework):
 
         # Fund pool and calculate owner rewards
         self.nodes[0].addpoolliquidity(
-            {self.address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
+            {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
             self.address,
         )
-        self.nodes[0].accounttoaccount(
-            self.address, {self.alt_address: f"1@{self.symbolDFI}"}
+        self.nodes[0].generate(2)
+
+        # Balance started at zero, new balance is the reward
+        new_pool_reward = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+
+        # Check rewards matches
+        assert_equal(self.pre_fork_reward, new_pool_reward)
+
+    def static_loan_reward(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolTSLA}", f"1000@{self.symbolDFI}"]},
+            self.address,
         )
         self.nodes[0].generate(1)
+
+        # Get reward after a block
+        pre_fork_reward = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
 
         # Get initial balance
         start_balance = Decimal(self.nodes[0].getaccount(self.address)[0].split("@")[0])
@@ -335,50 +381,144 @@ class TokenFractionalSplitTest(DefiTestFramework):
         # Get balance after a block
         end_balance = Decimal(self.nodes[0].getaccount(self.address)[0].split("@")[0])
 
-        # Calculate new pool reward
-        new_pool_reward = end_balance - start_balance
-
-        # Check rewards matches previous pre-fork reward. Different pool but same liquidty and reward share
-        assert_equal(self.pre_fork_reward, new_pool_reward)
-
-    def static_loan_reward_calculation(self):
-
-        # Rollback block
-        self.rollback_to(self.start_block)
-
-        # Get initial balance
-        start_balance = Decimal(
-            self.nodes[0].getaccount(self.alt_address)[0].split("@")[0]
-        )
-        self.nodes[0].generate(1)
-
-        # Get balance after a block
-        end_balance = Decimal(
-            self.nodes[0].getaccount(self.alt_address)[0].split("@")[0]
-        )
-
-        # Calculate pre-fork reward
-        pre_fork_reward = end_balance - start_balance
-
-        # Move to fork height
-        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
-
-        # Get initial balance
-        start_balance = Decimal(
-            self.nodes[0].getaccount(self.alt_address)[0].split("@")[0]
-        )
-        self.nodes[0].generate(1)
-
-        # Get balance after a block
-        end_balance = Decimal(
-            self.nodes[0].getaccount(self.alt_address)[0].split("@")[0]
-        )
-
         # Calculate post-fork reward
         post_fork_reward = end_balance - start_balance
 
         # Check rewards are the same
         assert_equal(pre_fork_reward, post_fork_reward)
+
+    def static_custom_reward(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolBTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].generate(1)
+
+        # Add custom reward
+        self.nodes[0].updatepoolpair(
+            {"pool": self.btc_pool_id, "customRewards": [f"1@{self.symbolETH}"]}
+        )
+        self.nodes[0].generate(1)
+
+        # Get initial balance
+        start_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
+        self.nodes[0].generate(1)
+
+        # Get balance after a block
+        end_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
+
+        # Calculate pre-fork reward
+        self.pre_fork_reward = end_balance - start_balance
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+
+        # Get initial balance
+        start_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
+        self.nodes[0].generate(1)
+
+        # Get balance after a block
+        end_balance = Decimal(self.nodes[0].getaccount(self.address)[1].split("@")[0])
+
+        # Calculate post-fork reward
+        post_fork_reward = end_balance - start_balance
+
+        # Check rewards are the same
+        assert_equal(self.pre_fork_reward, post_fork_reward)
+
+    def static_commission(self):
+
+        # Rollback block
+        self.rollback_to(self.start_block)
+
+        # Fund pool
+        self.nodes[0].addpoolliquidity(
+            {self.owner_address: [f"1000@{self.symbolLTC}", f"1000@{self.symbolDFI}"]},
+            self.address,
+        )
+        self.nodes[0].generate(1)
+
+        # Store rollback block
+        rollback_block = self.nodes[0].getblockcount()
+
+        # Swap LTC to DFI
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Swap DFI to LTC
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Get commission balances
+        pre_dfi_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+        pre_ltc_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[1].split("@")[0]
+        )
+
+        # Rollback swaps
+        self.rollback_to(rollback_block)
+
+        # Move to fork height
+        self.nodes[0].generate(self.df24height - self.nodes[0].getblockcount())
+
+        # Swap LTC to DFI
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolLTC,
+                "amountFrom": 1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolDFI,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Swap DFI to LTC
+        self.nodes[0].poolswap(
+            {
+                "from": self.owner_address,
+                "tokenFrom": self.symbolDFI,
+                "amountFrom": 1,
+                "to": self.owner_address,
+                "tokenTo": self.symbolLTC,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        # Get commission balances
+        post_dfi_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[0].split("@")[0]
+        )
+        post_ltc_balance = Decimal(
+            self.nodes[0].getaccount(self.address)[1].split("@")[0]
+        )
+
+        # Check commission is the same pre and post fork
+        assert_equal(pre_dfi_balance, post_dfi_balance)
+        assert_equal(pre_ltc_balance, post_ltc_balance)
 
 
 if __name__ == "__main__":

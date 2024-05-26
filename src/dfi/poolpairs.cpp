@@ -187,8 +187,8 @@ std::optional<CPoolPair> CPoolPairView::GetPoolPair(const DCT_ID &poolId) const 
     return pool;
 }
 
-std::optional<std::pair<DCT_ID, CPoolPair> > CPoolPairView::GetPoolPair(const DCT_ID &tokenA,
-                                                                        const DCT_ID &tokenB) const {
+std::optional<std::pair<DCT_ID, CPoolPair>> CPoolPairView::GetPoolPair(const DCT_ID &tokenA,
+                                                                       const DCT_ID &tokenB) const {
     DCT_ID poolId;
     ByPairKey key{tokenA, tokenB};
     if (ReadBy<ByPair, ByPairKey>(key, poolId)) {
@@ -241,6 +241,13 @@ auto InitPoolVars(CPoolPairView &view, PoolHeightKey poolKey, uint32_t end) {
     return std::make_tuple(std::move(value), std::move(it), height);
 }
 
+static auto GetRewardPerShares(const CPoolPairView &view, const TotalRewardPerShareKey &key) {
+    return std::make_tuple(view.GetTotalRewardPerShare(key),
+                           view.GetTotalLoanRewardPerShare(key),
+                           view.GetTotalCommissionPerShare(key),
+                           view.GetTotalCustomRewardPerShare(key));
+}
+
 void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquidity,
                                                std::function<void(RewardType, CTokenAmount, uint32_t)> onReward,
                                                const uint32_t poolID,
@@ -252,29 +259,29 @@ void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquid
 
     // Get start and end reward per share
     TotalRewardPerShareKey key{beginHeight, poolID};
-    const auto startSharePerReward = GetTotalRewardPerShare(key);
-    const auto startSharePerLoanReward = GetTotalLoanRewardPerShare(key);
+    auto [startCoinbase, startLoan, startCommission, startCustom] = GetRewardPerShares(*this, key);
     key.height = endHeight - 1;
-    const auto endSharePerReward = GetTotalRewardPerShare(key);
-    const auto endSharePerLoanReward = GetTotalLoanRewardPerShare(key);
+    auto [endCoinbase, endLoan, endCommission, endCustom] = GetRewardPerShares(*this, key);
 
     // Get owner's liquidity
     const auto liquidity = onLiquidity();
 
-    if (const auto rewardPerShareRange = endSharePerReward - startSharePerReward; rewardPerShareRange > 0) {
-        // Calculate reward for the range
-        const auto reward = (liquidity * rewardPerShareRange / COIN).GetLow64();
+    auto calcReward = [&](RewardType type, const arith_uint256 &start, const arith_uint256 &end, const uint32_t id) {
+        if (const auto rewardPerShare = end - start; rewardPerShare > 0) {
+            // Calculate reward
+            const auto reward = (liquidity * rewardPerShare / HIGH_PRECISION_SCALER).GetLow64();
+            // Pay reward to the owner
+            onReward(type, {DCT_ID{id}, static_cast<CAmount>(reward)}, endHeight);
+        }
+    };
 
-        // Pay reward to the owner
-        onReward(RewardType::Coinbase, {DCT_ID{}, static_cast<CAmount>(reward)}, endHeight);
-    }
+    calcReward(RewardType::Coinbase, startCoinbase, endCoinbase, {});
+    calcReward(RewardType::LoanTokenDEXReward, startLoan, endLoan, {});
+    calcReward(RewardType::Commission, startCommission.commissionA, endCommission.commissionA, endCommission.tokenA);
+    calcReward(RewardType::Commission, startCommission.commissionB, endCommission.commissionB, endCommission.tokenB);
 
-    if (const auto rewardPerShareRange = endSharePerLoanReward - startSharePerLoanReward; rewardPerShareRange > 0) {
-        // Calculate reward for the range
-        const auto reward = (liquidity * rewardPerShareRange / COIN).GetLow64();
-
-        // Pay reward to the owner
-        onReward(RewardType::LoanTokenDEXReward, {DCT_ID{}, static_cast<CAmount>(reward)}, endHeight);
+    for (const auto &[id, endCustom] : endCustom) {
+        calcReward(RewardType::Pool, startCustom[id], endCustom, id);
     }
 }
 
@@ -354,14 +361,22 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const &poolId,
         }
         // commissions
         if (poolSwapHeight == height && poolSwap.swapEvent) {
-            CAmount feeA, feeB;
+            CAmount feeA{}, feeB{};
             if (height < newCalcHeight) {
                 uint32_t liqWeight = liquidity * PRECISION / totalLiquidity;
-                feeA = poolSwap.blockCommissionA * liqWeight / PRECISION;
-                feeB = poolSwap.blockCommissionB * liqWeight / PRECISION;
+                if (poolSwap.blockCommissionA) {
+                    feeA = poolSwap.blockCommissionA * liqWeight / PRECISION;
+                }
+                if (poolSwap.blockCommissionB) {
+                    feeB = poolSwap.blockCommissionB * liqWeight / PRECISION;
+                }
             } else {
-                feeA = liquidityReward(poolSwap.blockCommissionA, liquidity, totalLiquidity);
-                feeB = liquidityReward(poolSwap.blockCommissionB, liquidity, totalLiquidity);
+                if (poolSwap.blockCommissionA) {
+                    feeA = liquidityReward(poolSwap.blockCommissionA, liquidity, totalLiquidity);
+                }
+                if (poolSwap.blockCommissionB) {
+                    feeB = liquidityReward(poolSwap.blockCommissionB, liquidity, totalLiquidity);
+                }
             }
             if (feeA) {
                 onReward(RewardType::Commission, {tokenIds->idTokenA, feeA}, height);
@@ -372,9 +387,9 @@ void CPoolPairView::CalculatePoolRewards(DCT_ID const &poolId,
         }
         // custom rewards
         if (height >= startCustomRewards) {
-            for (const auto &reward : customRewards.balances) {
-                if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                    onReward(RewardType::Pool, {reward.first, providerReward}, height);
+            for (const auto &[id, poolCustomReward] : customRewards.balances) {
+                if (auto providerReward = liquidityReward(poolCustomReward, liquidity, totalLiquidity)) {
+                    onReward(RewardType::Pool, {id, providerReward}, height);
                 }
             }
         }
@@ -571,42 +586,42 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
     const bool newCustomRewards = nHeight >= Params().GetConsensus().DF5ClarkeQuayHeight;
     const bool newRewardCalculations = nHeight >= Params().GetConsensus().DF24Height;
 
-    constexpr const uint32_t PRECISION = 10000;  // (== 100%) just searching the way to avoid arith256 inflating
-    CAmount totalDistributed = 0;
-    CAmount totalLoanDistributed = 0;
+    CAmount totalDistributed{};
+    CAmount totalLoanDistributed{};
 
     ForEachPoolId([&](DCT_ID const &poolId) {
-        CAmount distributedFeeA = 0;
-        CAmount distributedFeeB = 0;
-        std::optional<CScript> ownerAddress;
+        CAmount distributedFeeA{};
+        CAmount distributedFeeB{};
+        CBalances poolCustomRewards;
+        CScript ownerAddress;
+        std::optional<CPoolPair> pool;
 
         PoolHeightKey poolKey = {poolId, uint32_t(nHeight)};
 
-        CBalances rewards;
         if (newCustomRewards) {
-            if (auto pool = ReadBy<ByID, CPoolPair>(poolId)) {
-                rewards = std::move(pool->rewards);
-                ownerAddress = std::move(pool->ownerAddress);
-            }
+            pool = ReadBy<ByID, CPoolPair>(poolId);
+            assert(pool);
+            poolCustomRewards = std::move(pool->rewards);
+            ownerAddress = std::move(pool->ownerAddress);
 
-            for (auto it = rewards.balances.begin(), next_it = it; it != rewards.balances.end(); it = next_it) {
-                ++next_it;
-
+            for (auto it = poolCustomRewards.balances.begin(); it != poolCustomRewards.balances.end();) {
                 // Get token balance
-                const auto balance = onGetBalance(*ownerAddress, it->first).nValue;
+                const auto balance = onGetBalance(ownerAddress, it->first).nValue;
 
                 // Make there's enough to pay reward otherwise remove it
                 if (balance < it->second) {
-                    rewards.balances.erase(it);
+                    it = poolCustomRewards.balances.erase(it);
+                } else {
+                    ++it;
                 }
             }
 
-            if (rewards != ReadValueAt<ByCustomReward, CBalances>(this, poolKey)) {
-                WriteBy<ByCustomReward>(poolKey, rewards);
+            if (poolCustomRewards != ReadValueAt<ByCustomReward, CBalances>(this, poolKey)) {
+                WriteBy<ByCustomReward>(poolKey, poolCustomRewards);
             }
         }
 
-        auto totalLiquidity = ReadValueAt<ByTotalLiquidity, CAmount>(this, poolKey);
+        const auto totalLiquidity = ReadValueAt<ByTotalLiquidity, CAmount>(this, poolKey);
         if (!totalLiquidity) {
             return true;
         }
@@ -629,35 +644,66 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
             totalDistributed += poolReward;
             totalLoanDistributed += poolLoanReward;
 
-            for (const auto &reward : rewards.balances) {
+            for (const auto &[id, poolCustomReward] : poolCustomRewards.balances) {
                 // subtract pool's owner account by custom block reward
-                onTransfer(*ownerAddress, {}, {reward.first, reward.second});
+                onTransfer(ownerAddress, {}, {id, poolCustomReward});
             }
 
             if (newRewardCalculations) {
+                auto calculateReward = [&](const CAmount reward) {
+                    return (arith_uint256(reward) * HIGH_PRECISION_SCALER) / arith_uint256(totalLiquidity);
+                };
+
                 // Calculate the reward for each LP
-                const auto sharePerLP = (arith_uint256(poolReward) * COIN) / arith_uint256(totalLiquidity);
-                const auto sharePerLoanLP = (arith_uint256(poolLoanReward) * COIN) / arith_uint256(totalLiquidity);
+                const auto sharePerLP = calculateReward(poolReward);
+                const auto sharePerLoanLP = calculateReward(poolLoanReward);
 
                 // Get total from last block
                 TotalRewardPerShareKey key{static_cast<uint32_t>(nHeight - 1), poolId.v};
-                auto totalRewardPerShare = GetTotalRewardPerShare(key);
-                auto totalLoanRewardPerShare = GetTotalLoanRewardPerShare(key);
+                auto [totalCoinbase, totalLoan, totalCommission, totalCustom] = GetRewardPerShares(*this, key);
 
                 // Add the reward to the total
-                totalRewardPerShare += sharePerLP;
-                totalLoanRewardPerShare += sharePerLoanLP;
+                totalCoinbase += sharePerLP;
+                totalLoan += sharePerLoanLP;
+
+                if (swapEvent) {
+                    // Calculate commission per LP
+                    arith_uint256 commissionA{}, commissionB{};
+                    if (distributedFeeA) {
+                        commissionA = calculateReward(distributedFeeA);
+                    }
+                    if (distributedFeeB) {
+                        commissionB = calculateReward(distributedFeeB);
+                    }
+                    totalCommission.tokenA = pool->idTokenA.v;
+                    totalCommission.tokenB = pool->idTokenB.v;
+                    totalCommission.commissionA += commissionA;
+                    totalCommission.commissionB += commissionB;
+                }
+
+                // Calculate custom rewards
+                for (const auto &[id, poolCustomReward] : poolCustomRewards.balances) {
+                    // Calculate the reward for each custom LP
+                    const auto sharePerCustomLP =
+                        (arith_uint256(poolCustomReward) * HIGH_PRECISION_SCALER) / arith_uint256(totalLiquidity);
+                    // Add the reward to the total
+                    totalCustom[id.v] += sharePerCustomLP;
+                }
 
                 // Store new total at current height
                 key.height = nHeight;
-                SetTotalRewardPerShare(key, totalRewardPerShare);
-                SetTotalLoanRewardPerShare(key, totalLoanRewardPerShare);
+                SetTotalRewardPerShare(key, totalCoinbase);
+                SetTotalLoanRewardPerShare(key, totalLoan);
+                SetTotalCustomRewardPerShare(key, totalCustom);
+                SetTotalCommissionPerShare(key, totalCommission);
             }
 
         } else {
-            if (!swapEvent && poolReward == 0 && rewards.balances.empty()) {
+            if (!swapEvent && poolReward == 0 && poolCustomRewards.balances.empty()) {
                 return true;  // no events, skip to the next pool
             }
+
+            constexpr const uint32_t PRECISION = 10000;  // (== 100%) just searching the way to avoid arith256 inflating
 
             ForEachPoolShare(
                 [&](DCT_ID const &currentId, CScript const &provider, uint32_t) {
@@ -671,21 +717,33 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
 
                     // distribute trading fees
                     if (swapEvent) {
-                        CAmount feeA, feeB;
+                        CAmount feeA{}, feeB{};
                         if (newRewardCalc) {
-                            feeA = liquidityReward(swapValue->blockCommissionA, liquidity, totalLiquidity);
-                            feeB = liquidityReward(swapValue->blockCommissionB, liquidity, totalLiquidity);
+                            if (swapValue->blockCommissionA) {
+                                feeA = liquidityReward(swapValue->blockCommissionA, liquidity, totalLiquidity);
+                            }
+                            if (swapValue->blockCommissionB) {
+                                feeB = liquidityReward(swapValue->blockCommissionB, liquidity, totalLiquidity);
+                            }
                         } else {
-                            feeA = swapValue->blockCommissionA * liqWeight / PRECISION;
-                            feeB = swapValue->blockCommissionB * liqWeight / PRECISION;
+                            if (swapValue->blockCommissionA) {
+                                feeA = swapValue->blockCommissionA * liqWeight / PRECISION;
+                            }
+                            if (swapValue->blockCommissionB) {
+                                feeB = swapValue->blockCommissionB * liqWeight / PRECISION;
+                            }
                         }
                         auto tokenIds = ReadBy<ByIDPair, ByPairKey>(poolId);
                         assert(tokenIds);
-                        if (onTransfer({}, provider, {tokenIds->idTokenA, feeA})) {
-                            distributedFeeA += feeA;
+                        if (feeA) {
+                            if (onTransfer({}, provider, {tokenIds->idTokenA, feeA})) {
+                                distributedFeeA += feeA;
+                            }
                         }
-                        if (onTransfer({}, provider, {tokenIds->idTokenB, feeB})) {
-                            distributedFeeB += feeB;
+                        if (feeB) {
+                            if (onTransfer({}, provider, {tokenIds->idTokenB, feeB})) {
+                                distributedFeeB += feeB;
+                            }
                         }
                     }
 
@@ -702,9 +760,9 @@ std::pair<CAmount, CAmount> CPoolPairView::UpdatePoolRewards(
                         }
                     }
 
-                    for (const auto &reward : rewards.balances) {
-                        if (auto providerReward = liquidityReward(reward.second, liquidity, totalLiquidity)) {
-                            onTransfer(*ownerAddress, provider, {reward.first, providerReward});
+                    for (const auto &[id, poolCustomReward] : poolCustomRewards.balances) {
+                        if (auto providerReward = liquidityReward(poolCustomReward, liquidity, totalLiquidity)) {
+                            onTransfer(ownerAddress, provider, {id, providerReward});
                         }
                     }
 
@@ -775,7 +833,7 @@ bool CPoolPairView::SetTotalRewardPerShare(const TotalRewardPerShareKey &key, co
     return WriteBy<ByTotalRewardPerShare>(key, totalReward);
 }
 
-arith_uint256 CPoolPairView::GetTotalRewardPerShare(const TotalRewardPerShareKey &key) {
+arith_uint256 CPoolPairView::GetTotalRewardPerShare(const TotalRewardPerShareKey &key) const {
     if (const auto value = ReadBy<ByTotalRewardPerShare, arith_uint256>(key); value) {
         return *value;
     }
@@ -786,8 +844,32 @@ bool CPoolPairView::SetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key
     return WriteBy<ByTotalLoanRewardPerShare>(key, totalReward);
 }
 
-arith_uint256 CPoolPairView::GetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key) {
+arith_uint256 CPoolPairView::GetTotalLoanRewardPerShare(const TotalRewardPerShareKey &key) const {
     if (const auto value = ReadBy<ByTotalLoanRewardPerShare, arith_uint256>(key); value) {
+        return *value;
+    }
+    return {};
+}
+
+bool CPoolPairView::SetTotalCustomRewardPerShare(const TotalRewardPerShareKey &key,
+                                                 const std::map<uint32_t, arith_uint256> &customRewards) {
+    return WriteBy<ByTotalCustomRewardPerShare>(key, customRewards);
+}
+
+std::map<uint32_t, arith_uint256> CPoolPairView::GetTotalCustomRewardPerShare(const TotalRewardPerShareKey &key) const {
+    if (const auto value = ReadBy<ByTotalCustomRewardPerShare, std::map<uint32_t, arith_uint256>>(key); value) {
+        return *value;
+    }
+    return {};
+}
+
+bool CPoolPairView::SetTotalCommissionPerShare(const TotalRewardPerShareKey &key,
+                                               const TotalCommissionPerShareValue &totalCommission) {
+    return WriteBy<ByTotalCommissionPerShare>(key, totalCommission);
+}
+
+TotalCommissionPerShareValue CPoolPairView::GetTotalCommissionPerShare(const TotalRewardPerShareKey &key) const {
+    if (const auto value = ReadBy<ByTotalCommissionPerShare, TotalCommissionPerShareValue>(key); value) {
         return *value;
     }
     return {};
