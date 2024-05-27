@@ -57,8 +57,6 @@ fn index_block_start(
     block: &Block<Transaction>,
     pool_pairs: Vec<PoolCreationHeight>,
 ) -> Result<()> {
-    debug!("[index_block_start] pool_pairs: {:?}", pool_pairs);
-
     let mut pool_pairs = pool_pairs;
     pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
 
@@ -82,8 +80,6 @@ fn index_block_start(
 
             let bucket = get_bucket(block, interval as i64);
 
-            debug!("index_block_start prevs: {:?}", prevs);
-            debug!("index_block_start bucket: {:?}", bucket);
             if prevs.len() == 1 && prevs[0].bucket >= bucket {
                 break;
             }
@@ -105,7 +101,6 @@ fn index_block_start(
 
             let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
             let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
-            debug!("index_block_start pool_swap_aggregated_key: {:?}, pool_swap_aggregated_id: {:?}, interval: {:?}", pool_swap_aggregated_key, pool_swap_aggregated_id, interval);
 
             repository
                 .by_key

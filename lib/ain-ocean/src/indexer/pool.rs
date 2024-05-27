@@ -91,10 +91,6 @@ impl Index for PoolSwap {
             }
 
             let aggregated = prevs.first_mut();
-            debug!(
-                "poolswap aggregated: {:?}, interval: {:?}",
-                aggregated, interval
-            );
             if let Some(aggregated) = aggregated {
                 let amount = aggregated
                     .aggregated
@@ -104,22 +100,9 @@ impl Index for PoolSwap {
                     .transpose()?
                     .unwrap_or(dec!(0));
 
-                debug!("poolswap amount: {:?}, interval: {:?}", amount, interval);
-                debug!(
-                    "poolswap from_token_id: {:?}, interval: {:?}",
-                    from_token_id, interval
-                );
-                debug!(
-                    "poolswap base from_amount: {:?}, interval: {:?}",
-                    from_amount, interval
-                );
                 let aggregated_amount = amount
                     .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
                     .ok_or(Error::OverflowError)?;
-                debug!(
-                    "poolswap aggregated_amount: {:?}, interval: {:?}",
-                    aggregated_amount, interval
-                );
 
                 aggregated.aggregated.amounts.insert(
                     from_token_id.to_string(),
