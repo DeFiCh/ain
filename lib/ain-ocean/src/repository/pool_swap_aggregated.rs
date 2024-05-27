@@ -42,15 +42,17 @@ impl PoolSwapAggregatedKeyRepository {
     }
 }
 
-impl SecondaryIndex<PoolSwapAggregatedKey, PoolSwapAggregatedId> for PoolSwapAggregatedKeyRepository {
-	type Value = PoolSwapAggregated;
+impl SecondaryIndex<PoolSwapAggregatedKey, PoolSwapAggregatedId>
+    for PoolSwapAggregatedKeyRepository
+{
+    type Value = PoolSwapAggregated;
 
-	fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
-		let (_, id) = el?;
+    fn retrieve_primary_value(&self, el: Self::ListItem) -> Result<Self::Value> {
+        let (_, id) = el?;
 
-		let col = self.store.column::<columns::PoolSwapAggregated>();
-		let res = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
+        let col = self.store.column::<columns::PoolSwapAggregated>();
+        let res = col.get(&id)?.ok_or(Error::SecondaryIndex)?;
 
-		Ok(res)
-	}
+        Ok(res)
+    }
 }
