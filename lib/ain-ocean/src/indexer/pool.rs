@@ -138,7 +138,65 @@ impl Index for PoolSwap {
             .pool
             .by_id
             .delete(&(pool_id, ctx.block.height, ctx.tx_idx))?;
-        tx_result::invalidate(services, &txid)
+        tx_result::invalidate(services, &txid)?;
+
+        for interval in AGGREGATED_INTERVALS {
+            let repository = &services.pool_swap_aggregated;
+            let mut prevs = repository
+                .by_key
+                .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
+                .take(1)
+                .take_while(|item| match item {
+                    Ok((k, _)) => k.0 == pool_id && k.1 == interval,
+                    _ => true,
+                })
+                .map(|e| repository.by_key.retrieve_primary_value(e))
+                .collect::<Result<Vec<_>>>()?;
+
+            if prevs.is_empty() {
+                log::error!(
+                    "invalidate swap {txid}: Unable to find {pool_id}-{interval} for Aggregate Indexing"
+                );
+                continue;
+            }
+
+            let from_token_id = self.from_token_id.0;
+            let from_amount = self.from_amount;
+
+            let aggregated = prevs.first_mut();
+            if let Some(aggregated) = aggregated {
+                let amount = aggregated
+                    .aggregated
+                    .amounts
+                    .get(&from_token_id.to_string())
+                    .map(|amt| Decimal::from_str(amt))
+                    .transpose()?
+                    .unwrap_or(dec!(0));
+
+                let aggregated_amount = amount
+                    .checked_sub(Decimal::from(from_amount).div(dec!(100_000_000)))
+                    .ok_or(Error::UnderflowError)?;
+
+                aggregated.aggregated.amounts.insert(
+                    from_token_id.to_string(),
+                    format!("{:.8}", aggregated_amount),
+                );
+
+                let parts = aggregated.id.split('-').collect::<Vec<&str>>();
+                if parts.len() != 3 {
+                    return Err(format_err!("Invalid poolswap aggregated id format").into());
+                };
+                let pool_id = parts[0].parse::<u32>()?;
+                let interval = parts[1].parse::<u32>()?;
+                let hash = parts[2].parse::<BlockHash>()?;
+
+                repository
+                    .by_id
+                    .put(&(pool_id, interval, hash), aggregated)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
