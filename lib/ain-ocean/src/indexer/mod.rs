@@ -3,7 +3,6 @@ mod masternode;
 pub mod oracle;
 pub mod oracle_test;
 mod pool;
-mod pool_test;
 pub mod transaction;
 pub mod tx_result;
 
