@@ -278,12 +278,12 @@ async fn get_oracles(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let mut oracleprice = None;
     for item in token_currency {
         let (token, currency, trx) = &item.id;
         if oracle_token_currency_key.clone().0.eq(token)
             && oracle_token_currency_key.clone().1.eq(currency)
         {
+            let mut oracleprice = None;
             for pricefeed in &price_feed {
                 let (token, currency, oracle_id, _) = &pricefeed.id;
                 if oracle_token_currency_key.clone().0.eq(token)
@@ -318,7 +318,7 @@ async fn get_oracles(
                 token: item.token,
                 currency: item.currency,
                 oracle_id: item.oracle_id.to_string(),
-                feed: oracleprice.clone(),
+                feed: oracleprice,
                 block: item.block,
                 weightage: item.weightage,
             });

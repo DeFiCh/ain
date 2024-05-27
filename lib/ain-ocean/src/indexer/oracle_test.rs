@@ -8,7 +8,7 @@ mod tests {
         price::{CurrencyPair, TokenAmount, TokenPrice},
         types::oracles::AppointOracle,
     };
-    use bitcoin::{BlockHash, ScriptBuf, Txid};
+    use bitcoin::{hashes::Hash, BlockHash, ScriptBuf, Txid};
     use defichain_rpc::json::blockchain::Transaction;
     use tempfile::tempdir;
 
@@ -819,7 +819,11 @@ mod tests {
         for feed in feeds {
             let oracle_token_currency = OracleTokenCurrency {
                 id: feed.key,
-                key: (feed.token.to_owned(), feed.currency.to_owned()),
+                key: (
+                    feed.token.to_owned(),
+                    feed.currency.to_owned(),
+                    Txid::all_zeros(),
+                ),
 
                 token: feed.token.to_owned(),
                 currency: feed.currency.to_owned(),
