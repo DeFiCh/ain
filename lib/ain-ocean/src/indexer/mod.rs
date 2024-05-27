@@ -3,6 +3,7 @@ mod masternode;
 pub mod oracle;
 pub mod oracle_test;
 mod pool;
+mod pool_test;
 pub mod transaction;
 pub mod tx_result;
 
@@ -68,30 +69,32 @@ fn index_block_start(
         for pool_pair in &pool_pairs {
             let repository = &services.pool_swap_aggregated;
 
-            let prevs = repository
-                .by_key
-                .list(Some((pool_pair.id, interval, i64::MAX)), SortOrder::Descending)?
-                .take(1)
-                .take_while(|item| match item {
-                    Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
-                    _ => true,
-                })
-                .map(|e| repository.by_key.retrieve_primary_value(e))
-                .collect::<Result<Vec<_>>>()?;
+            // let prevs = repository
+            //     .by_key
+            //     .list(Some((pool_pair.id, interval, i64::MAX)), SortOrder::Descending)?
+            //     .take(1)
+            //     .take_while(|item| match item {
+            //         Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
+            //         _ => true,
+            //     })
+            //     .map(|e| repository.by_key.retrieve_primary_value(e))
+            //     .collect::<Result<Vec<_>>>()?;
 
             let bucket = get_bucket(block, interval as i64);
 
-            if prevs.len() == 1 && prevs[0].bucket >= bucket {
-                break;
-            }
+            // debug!("index_block_start prevs: {:?}", prevs);
+            // debug!("index_block_start bucket: {:?}", bucket);
+            // if prevs.len() == 1 && prevs[0].bucket >= bucket {
+            //     break;
+            // }
 
             let aggregated = PoolSwapAggregated {
                 id: format!("{}-{}-{}", pool_pair.id, interval, block.hash),
                 key: format!("{}-{}", pool_pair.id, interval),
                 bucket,
-                aggregated: PoolSwapAggregatedAggregated {
-                    amounts: Default::default(),
-                },
+                // aggregated: PoolSwapAggregatedAggregated {
+                //     amounts: Default::default(),
+                // },
                 block: BlockContext {
                     hash: block.hash,
                     height: block.height,
@@ -102,6 +105,7 @@ fn index_block_start(
 
             let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
             let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
+            debug!("index_block_start pool_swap_aggregated_key: {:?}, pool_swap_aggregated_id: {:?}, interval: {:?}", pool_swap_aggregated_key, pool_swap_aggregated_id, interval);
 
             repository.by_key.put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
             repository.by_id.put(&pool_swap_aggregated_id, &aggregated)?;

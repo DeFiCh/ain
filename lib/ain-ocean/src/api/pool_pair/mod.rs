@@ -494,27 +494,28 @@ struct PoolSwapAggregatedResponse {
     block: BlockContext,
 }
 
-impl PoolSwapAggregatedResponse {
-    fn with_usd(p: PoolSwapAggregated, usd: Decimal) -> Self {
-        Self {
-            id: p.id,
-            key: p.key,
-            bucket: p.bucket,
-            aggregated: PoolSwapAggregatedAggregatedResponse {
-                amounts: p.aggregated.amounts,
-                usd,
-            },
-            block: p.block,
-        }
-    }
-}
+// impl PoolSwapAggregatedResponse {
+//     fn with_usd(p: PoolSwapAggregated, usd: Decimal) -> Self {
+//         Self {
+//             id: p.id,
+//             key: p.key,
+//             bucket: p.bucket,
+//             aggregated: PoolSwapAggregatedAggregatedResponse {
+//                 amounts: p.aggregated.amounts,
+//                 usd,
+//             },
+//             block: p.block,
+//         }
+//     }
+// }
 
 #[ocean_endpoint]
 async fn list_pool_swap_aggregates(
     Path(SwapAggregate { id, interval }): Path<SwapAggregate>,
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<ApiPagedResponse<PoolSwapAggregatedResponse>> {
+) -> Result<ApiPagedResponse<PoolSwapAggregated>> {
+// ) -> Result<ApiPagedResponse<PoolSwapAggregatedResponse>> {
     let pool_id = id.parse::<u32>()?;
 
     // bucket
@@ -539,14 +540,28 @@ async fn list_pool_swap_aggregates(
         .map(|e| repository.by_key.retrieve_primary_value(e))
         .collect::<Result<Vec<_>>>()?;
 
-    let mut aggregated_usd = Vec::<PoolSwapAggregatedResponse>::new();
-    for aggregated in aggregates {
-        let usd = get_aggregated_in_usd(&ctx, &aggregated.aggregated).await?;
-        let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregated, usd);
-        aggregated_usd.push(aggregate_with_usd)
-    }
+    // let mut aggregated_usd = Vec::<PoolSwapAggregatedResponse>::new();
+    // for aggregated in aggregates {
+    //     let usd = get_aggregated_in_usd(&ctx, &aggregated.aggregated).await?;
+    //     let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregated, usd);
+    //     aggregated_usd.push(aggregate_with_usd)
+    // }
 
-    Ok(ApiPagedResponse::of(aggregated_usd, query.size, |aggregated| {
+    let keys = repository
+        .by_key
+        .list(Some((pool_id, interval, next)), SortOrder::Descending)?
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
+            _ => true,
+        })
+        .collect::<Vec<_>>();
+
+    log::debug!("list_pool_swap_aggregates_api keys: {:?}", keys);
+
+    // Ok(ApiPagedResponse::of(aggregated_usd, query.size, |aggregated| {
+    //     aggregated.bucket
+    // }))
+    Ok(ApiPagedResponse::of(aggregates, query.size, |aggregated| {
         aggregated.bucket
     }))
 }

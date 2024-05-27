@@ -13,7 +13,7 @@ pub struct PoolSwapAggregated {
     pub id: String,
     pub key: String,
     pub bucket: i64,
-    pub aggregated: PoolSwapAggregatedAggregated,
+    // pub aggregated: PoolSwapAggregatedAggregated,
     pub block: BlockContext,
 }
 
