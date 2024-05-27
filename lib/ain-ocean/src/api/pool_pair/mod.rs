@@ -1,5 +1,8 @@
 use petgraph::graphmap::UnGraphMap;
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
@@ -28,8 +31,8 @@ use super::{
 
 use crate::{
     error::{ApiError, Error},
-    model::{BlockContext, PoolSwap},
-    repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps},
+    model::{BlockContext, PoolSwap, PoolSwapAggregated},
+    repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result, TokenIdentifier,
 };
@@ -40,7 +43,7 @@ use path::{
     SwapPathsResponse,
 };
 
-use service::{get_apr, get_total_liquidity_usd};
+use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 
 pub mod path;
 pub mod service;
@@ -50,11 +53,11 @@ pub mod service;
 //     id: String,
 // }
 
-// #[derive(Deserialize)]
-// struct SwapAggregate {
-//     id: String,
-//     interval: i64,
-// }
+#[derive(Deserialize)]
+struct SwapAggregate {
+    id: String,
+    interval: u32,
+}
 
 // #[derive(Debug, Deserialize)]
 // struct DexPrices {
@@ -474,15 +477,81 @@ async fn list_pool_swaps_verbose(
     }))
 }
 
-// #[ocean_endpoint]
-// async fn list_pool_swap_aggregates(
-//     Path(SwapAggregate { id, interval }): Path<SwapAggregate>,
-// ) -> String {
-//     format!(
-//         "Aggregate swaps for poolpair {} over interval {}",
-//         id, interval
-//     )
-// }
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PoolSwapAggregatedAggregatedResponse {
+    amounts: HashMap<String, String>,
+    usd: Decimal,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PoolSwapAggregatedResponse {
+    id: String,
+    key: String,
+    bucket: i64,
+    aggregated: PoolSwapAggregatedAggregatedResponse,
+    block: BlockContext,
+}
+
+impl PoolSwapAggregatedResponse {
+    fn with_usd(p: PoolSwapAggregated, usd: Decimal) -> Self {
+        Self {
+            id: p.id,
+            key: p.key,
+            bucket: p.bucket,
+            aggregated: PoolSwapAggregatedAggregatedResponse {
+                amounts: p.aggregated.amounts,
+                usd,
+            },
+            block: p.block,
+        }
+    }
+}
+
+#[ocean_endpoint]
+async fn list_pool_swap_aggregates(
+    Path(SwapAggregate { id, interval }): Path<SwapAggregate>,
+    Query(query): Query<PaginationQuery>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<ApiPagedResponse<PoolSwapAggregatedResponse>> {
+    let pool_id = id.parse::<u32>()?;
+
+    // bucket
+    let next = query
+        .next
+        .map(|bucket| {
+            let bucket = bucket.parse::<i64>()?;
+            Ok::<i64, Error>(bucket)
+        })
+        .transpose()?
+        .unwrap_or(i64::MAX);
+
+    let repository = &ctx.services.pool_swap_aggregated;
+    let aggregates = repository
+        .by_key
+        .list(Some((pool_id, interval, next)), SortOrder::Descending)?
+        .take(query.size)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
+            _ => true,
+        })
+        .map(|e| repository.by_key.retrieve_primary_value(e))
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut aggregated_usd = Vec::<PoolSwapAggregatedResponse>::new();
+    for aggregated in aggregates {
+        let usd = get_aggregated_in_usd(&ctx, &aggregated.aggregated).await?;
+        let aggregate_with_usd = PoolSwapAggregatedResponse::with_usd(aggregated, usd);
+        aggregated_usd.push(aggregate_with_usd)
+    }
+
+    Ok(ApiPagedResponse::of(
+        aggregated_usd,
+        query.size,
+        |aggregated| aggregated.bucket,
+    ))
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -608,10 +677,10 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
             "/paths/best/from/:fromTokenId/to/:toTokenId",
             get(get_best_path),
         )
-        // .route(
-        //     "/:id/swaps/aggregate/:interval",
-        //     get(list_pool_swap_aggregates),
-        // )
+        .route(
+            "/:id/swaps/aggregate/:interval",
+            get(list_pool_swap_aggregates),
+        )
         .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
         // .route("/dexprices", get(list_dex_prices))
         .layer(Extension(ctx))

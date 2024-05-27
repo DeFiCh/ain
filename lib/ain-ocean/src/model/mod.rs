@@ -32,7 +32,7 @@ pub use oracle_price_aggregated_interval::*;
 pub use oracle_price_feed::*;
 pub use oracle_token_currency::*;
 pub use poolswap::*;
-// pub use poolswap_aggregated::*;
+pub use poolswap_aggregated::*;
 pub use price_ticker::*;
 // pub use prices::*;
 // pub use raw_block::*;

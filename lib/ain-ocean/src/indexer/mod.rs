@@ -12,17 +12,28 @@ use ain_dftx::{deserialize, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
 
+pub use pool::AGGREGATED_INTERVALS;
+
 use crate::{
     index_transaction,
-    model::{Block as BlockMapper, BlockContext},
-    repository::RepositoryOps,
+    model::{Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated},
+    repository::{RepositoryOps, SecondaryIndex},
+    storage::SortOrder,
     Result, Services,
 };
 
 pub(crate) trait Index {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 
+    // TODO: allow dead_code at the moment
+    #[allow(dead_code)]
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
+}
+
+#[derive(Debug, Clone)]
+pub struct PoolCreationHeight {
+    pub id: u32,
+    pub creation_height: u32,
 }
 
 #[derive(Debug)]
@@ -37,7 +48,77 @@ fn log_elapsed(previous: Instant, msg: &str) {
     debug!("{} in {} ms", msg, now.duration_since(previous).as_millis());
 }
 
-pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
+fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
+    block.mediantime - (block.mediantime % interval)
+}
+
+fn index_block_start(
+    services: &Arc<Services>,
+    block: &Block<Transaction>,
+    pool_pairs: Vec<PoolCreationHeight>,
+) -> Result<()> {
+    let mut pool_pairs = pool_pairs;
+    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+
+    for interval in AGGREGATED_INTERVALS {
+        for pool_pair in &pool_pairs {
+            let repository = &services.pool_swap_aggregated;
+
+            let prevs = repository
+                .by_key
+                .list(
+                    Some((pool_pair.id, interval, i64::MAX)),
+                    SortOrder::Descending,
+                )?
+                .take(1)
+                .take_while(|item| match item {
+                    Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
+                    _ => true,
+                })
+                .map(|e| repository.by_key.retrieve_primary_value(e))
+                .collect::<Result<Vec<_>>>()?;
+
+            let bucket = get_bucket(block, interval as i64);
+
+            if prevs.len() == 1 && prevs[0].bucket >= bucket {
+                break;
+            }
+
+            let aggregated = PoolSwapAggregated {
+                id: format!("{}-{}-{}", pool_pair.id, interval, block.hash),
+                key: format!("{}-{}", pool_pair.id, interval),
+                bucket,
+                aggregated: PoolSwapAggregatedAggregated {
+                    amounts: Default::default(),
+                },
+                block: BlockContext {
+                    hash: block.hash,
+                    height: block.height,
+                    time: block.time,
+                    median_time: block.mediantime,
+                },
+            };
+
+            let pool_swap_aggregated_key = (pool_pair.id, interval, bucket);
+            let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
+
+            repository
+                .by_key
+                .put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
+            repository
+                .by_id
+                .put(&pool_swap_aggregated_id, &aggregated)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn index_block(
+    services: &Arc<Services>,
+    block: Block<Transaction>,
+    pools: Vec<PoolCreationHeight>,
+) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
 
@@ -49,6 +130,8 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
         time: block.time,
         median_time: block.mediantime,
     };
+
+    index_block_start(services, &block, pools)?;
 
     for (tx_idx, tx) in block.tx.into_iter().enumerate() {
         let start = Instant::now();
@@ -82,7 +165,7 @@ pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Resul
                         DfTx::RemoveOracle(data) => data.index(services, &ctx)?,
                         DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
                         DfTx::SetOracleData(data) => data.index(services, &ctx)?,
-                        // DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),

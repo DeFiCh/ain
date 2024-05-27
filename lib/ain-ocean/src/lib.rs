@@ -11,7 +11,7 @@ pub use api::ocean_router;
 use error::Error;
 pub use indexer::{
     index_block, invalidate_block, oracle::invalidate_oracle_interval,
-    transaction::index_transaction, tx_result,
+    transaction::index_transaction, tx_result, PoolCreationHeight,
 };
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
@@ -21,9 +21,9 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolSwapRepository, PriceTickerRepository, RawBlockRepository,
-    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
-    TransactionVoutRepository, TxResultRepository,
+    PoolSwapAggregatedKeyRepository, PoolSwapAggregatedRepository, PoolSwapRepository,
+    PriceTickerRepository, RawBlockRepository, TransactionByBlockHashRepository,
+    TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 pub mod api;
 mod model;
@@ -63,6 +63,11 @@ pub struct AuctionService {
 
 pub struct PoolService {
     by_id: PoolSwapRepository,
+}
+
+pub struct PoolSwapAggregatedService {
+    by_id: PoolSwapAggregatedRepository,
+    by_key: PoolSwapAggregatedKeyRepository,
 }
 
 pub struct TransactionService {
@@ -121,6 +126,7 @@ pub struct Services {
     pub auction: AuctionService,
     pub result: TxResultRepository,
     pub pool: PoolService,
+    pub pool_swap_aggregated: PoolSwapAggregatedService,
     pub transaction: TransactionService,
     pub oracle: OracleService,
     pub oracle_price_feed: OraclePriceFeedService,
@@ -153,6 +159,10 @@ impl Services {
             result: TxResultRepository::new(Arc::clone(&store)),
             pool: PoolService {
                 by_id: PoolSwapRepository::new(Arc::clone(&store)),
+            },
+            pool_swap_aggregated: PoolSwapAggregatedService {
+                by_id: PoolSwapAggregatedRepository::new(Arc::clone(&store)),
+                by_key: PoolSwapAggregatedKeyRepository::new(Arc::clone(&store)),
             },
             transaction: TransactionService {
                 by_id: TransactionRepository::new(Arc::clone(&store)),
