@@ -68,7 +68,7 @@ impl Services {
             json_rpc_handles: Mutex::new(vec![]),
             websocket_handles: Mutex::new(vec![]),
             ocean_handle: Mutex::new(None),
-            evm: Arc::new(EVMServices::new().expect("Error initializating handlers")),
+            evm: Arc::new(EVMServices::new().expect("Error initializing handlers")),
         }
     }
 

@@ -142,6 +142,10 @@ class EVMTokenSplitTest(DefiTestFramework):
         self.evm_address = self.nodes[0].getnewaddress("", "erc55")
         self.evm_privkey = self.nodes[0].dumpprivkey(self.evm_address)
 
+        self.burn_address = self.nodes[0].w3.to_checksum_address(
+            "0x0000000000000000000000000000000000000000"
+        )
+
         self.contract_address_metav1 = self.nodes[0].w3.to_checksum_address(
             "0xff00000000000000000000000000000000000001"
         )
@@ -769,9 +773,18 @@ class EVMTokenSplitTest(DefiTestFramework):
             address=destination_contract, abi=self.dst20_v2_abi
         )
 
-        # Check transfer token logs on new contract
+        # Check transfer from sender to burn address
         events = meta_contract_new.events.Transfer().process_log(
             list(tx_receipt["logs"])[1]
+        )
+
+        assert_equal(events["event"], "Transfer")
+        assert_equal(events["args"]["to"], self.burn_address)
+        assert_equal(events["args"]["value"], amount_to_send)
+
+        # Check transfer token logs on new contract
+        events = meta_contract_new.events.Transfer().process_log(
+            list(tx_receipt["logs"])[2]
         )
         assert_equal(events["event"], "Transfer")
         assert_equal(events["args"]["to"], self.evm_address)
