@@ -546,9 +546,11 @@ async fn list_pool_swap_aggregates(
         aggregated_usd.push(aggregate_with_usd)
     }
 
-    Ok(ApiPagedResponse::of(aggregated_usd, query.size, |aggregated| {
-        aggregated.bucket
-    }))
+    Ok(ApiPagedResponse::of(
+        aggregated_usd,
+        query.size,
+        |aggregated| aggregated.bucket,
+    ))
 }
 
 #[derive(Debug, Serialize)]

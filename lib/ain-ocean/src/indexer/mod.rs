@@ -16,9 +16,7 @@ pub use pool::AGGREGATED_INTERVALS;
 
 use crate::{
     index_transaction,
-    model::{
-        Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated,
-    },
+    model::{Block as BlockMapper, BlockContext, PoolSwapAggregated, PoolSwapAggregatedAggregated},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result, Services,
@@ -70,7 +68,10 @@ fn index_block_start(
 
             let prevs = repository
                 .by_key
-                .list(Some((pool_pair.id, interval, i64::MAX)), SortOrder::Descending)?
+                .list(
+                    Some((pool_pair.id, interval, i64::MAX)),
+                    SortOrder::Descending,
+                )?
                 .take(1)
                 .take_while(|item| match item {
                     Ok((k, _)) => k.0 == pool_pair.id && k.1 == interval,
@@ -106,8 +107,12 @@ fn index_block_start(
             let pool_swap_aggregated_id = (pool_pair.id, interval, block.hash);
             debug!("index_block_start pool_swap_aggregated_key: {:?}, pool_swap_aggregated_id: {:?}, interval: {:?}", pool_swap_aggregated_key, pool_swap_aggregated_id, interval);
 
-            repository.by_key.put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
-            repository.by_id.put(&pool_swap_aggregated_id, &aggregated)?;
+            repository
+                .by_key
+                .put(&pool_swap_aggregated_key, &pool_swap_aggregated_id)?;
+            repository
+                .by_id
+                .put(&pool_swap_aggregated_id, &aggregated)?;
         }
     }
 

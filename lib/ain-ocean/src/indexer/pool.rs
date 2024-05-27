@@ -19,7 +19,7 @@ use crate::{
 
 pub const AGGREGATED_INTERVALS: [u32; 2] = [
     PoolSwapAggregatedInterval::OneDay as u32,
-    PoolSwapAggregatedInterval::OneHour as u32
+    PoolSwapAggregatedInterval::OneHour as u32,
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -87,11 +87,14 @@ impl Index for PoolSwap {
                 log::error!(
                     "index swap {txid}: Unable to find {pool_id}-{interval} for Aggregate Indexing"
                 );
-                continue
+                continue;
             }
 
             let aggregated = prevs.first_mut();
-            debug!("poolswap aggregated: {:?}, interval: {:?}", aggregated, interval);
+            debug!(
+                "poolswap aggregated: {:?}, interval: {:?}",
+                aggregated, interval
+            );
             if let Some(aggregated) = aggregated {
                 let amount = aggregated
                     .aggregated
@@ -102,12 +105,21 @@ impl Index for PoolSwap {
                     .unwrap_or(dec!(0));
 
                 debug!("poolswap amount: {:?}, interval: {:?}", amount, interval);
-                debug!("poolswap from_token_id: {:?}, interval: {:?}", from_token_id, interval);
-                debug!("poolswap base from_amount: {:?}, interval: {:?}", from_amount, interval);
+                debug!(
+                    "poolswap from_token_id: {:?}, interval: {:?}",
+                    from_token_id, interval
+                );
+                debug!(
+                    "poolswap base from_amount: {:?}, interval: {:?}",
+                    from_amount, interval
+                );
                 let aggregated_amount = amount
                     .checked_add(Decimal::from(from_amount).div(dec!(100_000_000)))
                     .ok_or(Error::OverflowError)?;
-                debug!("poolswap aggregated_amount: {:?}, interval: {:?}", aggregated_amount, interval);
+                debug!(
+                    "poolswap aggregated_amount: {:?}, interval: {:?}",
+                    aggregated_amount, interval
+                );
 
                 aggregated.aggregated.amounts.insert(
                     from_token_id.to_string(),
@@ -116,7 +128,7 @@ impl Index for PoolSwap {
 
                 let parts = aggregated.id.split('-').collect::<Vec<&str>>();
                 if parts.len() != 3 {
-                    return Err(format_err!("Invalid poolswap aggregated id format").into())
+                    return Err(format_err!("Invalid poolswap aggregated id format").into());
                 };
                 let pool_id = parts[0].parse::<u32>()?;
                 let interval = parts[1].parse::<u32>()?;
