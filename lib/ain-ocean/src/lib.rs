@@ -109,6 +109,7 @@ pub struct OracleHistoryService {
 
 pub struct PriceTickerService {
     by_id: PriceTickerRepository,
+    by_key: PriceTickerKeyRepository,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
@@ -199,6 +200,7 @@ impl Services {
             },
             price_ticker: PriceTickerService {
                 by_id: PriceTickerRepository::new(Arc::clone(&store)),
+                by_key: PriceTickerKeyRepository::new(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }

@@ -10,6 +10,7 @@ use axum::{
 };
 use bitcoin::Txid;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
+use indexmap::IndexSet;
 
 use super::{
     common::split_key,
@@ -35,37 +36,56 @@ async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceTickerApi>> {
-    "List of prices".to_string();
-    let prices = ctx
+    let mut sorted_ids = ctx
         .services
         .price_ticker
-        .by_id
+        .by_key
         .list(None, SortOrder::Descending)?
-        .take(query.size)
         .map(|item| {
-            let (id, priceticker) = item?;
-            let original_amount = priceticker.price.aggregated.amount;
+            let (_, id) = item?;
+            Ok(id)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    // use IndexSet to rm dup without changing order
+    let mut sorted_ids_set = IndexSet::new();
+    for id in sorted_ids {
+        sorted_ids_set.insert(id);
+    }
+
+    let prices = sorted_ids_set
+        .into_iter()
+        .take(query.size)
+        .map(|id| {
+            let price_ticker = ctx
+                .services
+                .price_ticker
+                .by_id
+                .get(&id)?
+                .ok_or("Missing price ticker index")?;
+
+            let original_amount = price_ticker.price.aggregated.amount;
             let amount_decimal = Decimal::from_str(&original_amount).unwrap_or_default();
             let conversion_factor = Decimal::from_i32(100000000).unwrap_or_default();
             let amount = amount_decimal / conversion_factor;
             Ok(PriceTickerApi {
-                id: format!("{}-{}", priceticker.id.0, priceticker.id.1),
-                sort: priceticker.sort,
+                id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
+                sort: price_ticker.sort,
                 price: OraclePriceAggregatedApi {
                     id: format!(
                         "{}-{}-{}",
-                        priceticker.price.id.0, priceticker.price.id.1, priceticker.price.id.2
+                        price_ticker.price.id.0, price_ticker.price.id.1, price_ticker.price.id.2
                     ),
-                    key: format!("{}-{}", priceticker.price.key.0, priceticker.price.key.1),
-                    sort: priceticker.price.sort,
-                    token: priceticker.price.token,
-                    currency: priceticker.price.currency,
+                    key: format!("{}-{}", price_ticker.price.key.0, price_ticker.price.key.1),
+                    sort: price_ticker.price.sort,
+                    token: price_ticker.price.token,
+                    currency: price_ticker.price.currency,
                     aggregated: OraclePriceAggregatedAggregated {
                         amount: amount.to_string(),
-                        weightage: priceticker.price.aggregated.weightage,
-                        oracles: priceticker.price.aggregated.oracles,
+                        weightage: price_ticker.price.aggregated.weightage,
+                        oracles: price_ticker.price.aggregated.oracles,
                     },
-                    block: priceticker.price.block,
+                    block: price_ticker.price.block,
                 },
             })
         })

@@ -254,6 +254,7 @@ dependencies = [
  "futures",
  "hex",
  "hyper 0.14.28",
+ "indexmap 2.2.6",
  "json",
  "jsonrpc-async",
  "jsonrpsee 0.16.3",

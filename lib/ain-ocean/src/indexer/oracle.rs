@@ -518,14 +518,16 @@ impl Index for SetOracleData {
                     value.currency.clone(),
                     value.block.height,
                 );
-                let aggreated_key = (value.token.clone(), value.currency.clone());
+                let price_ticker_id = (value.token.clone(), value.currency.clone());
+                let price_ticker_key = (value.aggregated.oracles.total, value.block.height, value.token.clone(), value.currency.clone());
+
                 services
                     .oracle_price_aggregated
                     .by_id
                     .put(&aggreated_id, &value)?;
 
                 let price_ticker = PriceTicker {
-                    id: aggreated_key,
+                    id: price_ticker_id,
                     sort: format!(
                         "{}{}{}-{}",
                         hex::encode(value.aggregated.oracles.total.to_be_bytes()),
@@ -535,6 +537,13 @@ impl Index for SetOracleData {
                     ),
                     price: value,
                 };
+
+                services
+                    .price_ticker
+                    .by_key
+                    .put(
+                        &price_ticker_key,
+                        &price_ticker.id)?;
                 services
                     .price_ticker
                     .by_id

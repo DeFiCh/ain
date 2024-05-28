@@ -46,6 +46,7 @@ clap = { version = "4.5.0", features = ["derive"] }
 num_cpus.workspace = true
 petgraph = { version = "0.6.4", features = ["serde-1"] }
 parking_lot.workspace = true
+indexmap.workspace = true
 
 [dev-dependencies]
 tempdir.workspace = true
