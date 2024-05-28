@@ -8,7 +8,7 @@ use axum::{
     Extension, Router,
 };
 use bitcoin::Txid;
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 
 use super::{
@@ -77,8 +77,9 @@ async fn get_feed(
     for (_, feed) in &price_feed_list {
         let (token, currency, oracle_id, _) = &feed.id;
         if key.0.eq(token) && key.1.eq(currency) && key.2.eq(&oracle_id) {
-            let decimal_amount = Decimal::from(feed.amount);
-            let amount = decimal_amount / dec!(100000000);
+            let amount_decimal = Decimal::from_i64(feed.amount).unwrap_or_default();
+            let conversion_factor = Decimal::from_i32(100000000).unwrap_or_default();
+            let amount = amount_decimal / conversion_factor;
             oracle_price_feeds.push(ApiResponseOraclePriceFeed {
                 id: format!("{}-{}-{}-{}", token, currency, feed.oracle_id, feed.txid),
                 key: format!("{}-{}-{}", token, currency, feed.oracle_id),

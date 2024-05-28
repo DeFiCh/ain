@@ -9,6 +9,7 @@ use axum::{
     Extension, Router,
 };
 use bitcoin::Txid;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 
 use super::{
     common::split_key,
@@ -43,6 +44,10 @@ async fn list_prices(
         .take(query.size)
         .map(|item| {
             let (id, priceticker) = item?;
+            let original_amount = priceticker.price.aggregated.amount;
+            let amount_decimal = Decimal::from_str(&original_amount).unwrap_or_default();
+            let conversion_factor = Decimal::from_i32(100000000).unwrap_or_default();
+            let amount = amount_decimal / conversion_factor;
             Ok(PriceTickerApi {
                 id: format!("{}-{}", priceticker.id.0, priceticker.id.1),
                 sort: priceticker.sort,
@@ -56,7 +61,7 @@ async fn list_prices(
                     token: priceticker.price.token,
                     currency: priceticker.price.currency,
                     aggregated: OraclePriceAggregatedAggregated {
-                        amount: priceticker.price.aggregated.amount,
+                        amount: amount.to_string(),
                         weightage: priceticker.price.aggregated.weightage,
                         oracles: priceticker.price.aggregated.oracles,
                     },
@@ -84,6 +89,10 @@ async fn get_price(
         if price_ticker.price.token.eq(&price_ticker_id.0)
             && price_ticker.price.currency.eq(&price_ticker_id.1)
         {
+            let original_amount = price_ticker.price.aggregated.amount;
+            let amount_decimal = Decimal::from_str(&original_amount).unwrap_or_default();
+            let conversion_factor = Decimal::from_i32(100000000).unwrap_or_default();
+            let amount = amount_decimal / conversion_factor;
             let ticker = PriceTickerApi {
                 id: format!("{}-{}", price_ticker.id.0, price_ticker.id.1),
                 sort: price_ticker.sort,
@@ -97,14 +106,13 @@ async fn get_price(
                     token: price_ticker.price.token,
                     currency: price_ticker.price.currency,
                     aggregated: OraclePriceAggregatedAggregated {
-                        amount: price_ticker.price.aggregated.amount,
+                        amount: amount.to_string(),
                         weightage: price_ticker.price.aggregated.weightage,
                         oracles: price_ticker.price.aggregated.oracles,
                     },
                     block: price_ticker.price.block,
                 },
             };
-            println!("{:?}", ticker);
             Ok(Response::new(ticker))
         } else {
             Err(Error::NotFound(NotFoundKind::Oracle))

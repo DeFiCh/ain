@@ -819,11 +819,7 @@ mod tests {
         for feed in feeds {
             let oracle_token_currency = OracleTokenCurrency {
                 id: feed.key,
-                key: (
-                    feed.token.to_owned(),
-                    feed.currency.to_owned(),
-                    Txid::all_zeros(),
-                ),
+                key: (feed.token.to_owned(), feed.currency.to_owned(), 0),
 
                 token: feed.token.to_owned(),
                 currency: feed.currency.to_owned(),

@@ -429,8 +429,10 @@ impl Index for SetOracleData {
                             if id.0 == oracle_token_id.0.clone()
                                 && id.1 == oracle_token_id.1.clone()
                             {
-                                let b = services.oracle_token_currency.by_id.get(&id);
-                                Some(Ok(b.unwrap().unwrap()))
+                                match services.oracle_token_currency.by_id.get(&id) {
+                                    Ok(b) => Some(Ok(b?)),
+                                    Err(e) => Some(Err(e.into())),
+                                }
                             } else {
                                 None
                             }
@@ -656,7 +658,7 @@ pub fn index_interval_mapper(
         .by_key
         .list(
             Some((token.to_owned(), currency.to_owned(), interval.clone())),
-            SortOrder::Descending,
+            SortOrder::Ascending,
         )?
         .take(1)
         .map(|item| {
