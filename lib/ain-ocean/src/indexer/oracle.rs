@@ -550,21 +550,21 @@ impl Index for SetOracleData {
                     .put(&price_ticker.id, &price_ticker)?;
 
                 //SetOracleInterval
-                // let aggregated = services.oracle_price_aggregated.by_id.get(&(
-                //     token.to_owned(),
-                //     currency.to_owned(),
-                //     context.block.height,
-                // ))?;
-                // for interval in intervals.clone() {
-                //     index_interval_mapper(
-                //         services,
-                //         &context.block,
-                //         token,
-                //         currency,
-                //         aggregated.as_ref().unwrap(),
-                //         &interval,
-                //     )?;
-                // }
+                let aggregated = services.oracle_price_aggregated.by_id.get(&(
+                    token.to_owned(),
+                    currency.to_owned(),
+                    context.block.height,
+                ))?;
+                for interval in intervals.clone() {
+                    index_interval_mapper(
+                        services,
+                        &context.block,
+                        token,
+                        currency,
+                        aggregated.as_ref().unwrap(),
+                        &interval,
+                    )?;
+                }
             }
         }
 
@@ -585,8 +585,9 @@ impl Index for SetOracleData {
         let feeds = map_price_feeds(&set_oracle_data, context)?;
         let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
-            pairs.push((feed.token.clone(), feed.currency.clone()));
+            pairs.push((feed.token.clone(), feed.currency.clone()));    
             services.oracle_price_feed.by_id.delete(&feed.id)?;
+            services.oracle_price_feed.by_key.delete(&feed.key)?;
         }
 
         for (token, currency) in pairs.iter() {
