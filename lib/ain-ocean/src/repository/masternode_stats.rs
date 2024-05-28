@@ -18,15 +18,6 @@ pub struct MasternodeStatsRepository {
 }
 
 impl MasternodeStatsRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
-impl MasternodeStatsRepository {
     pub fn get_latest(&self) -> Result<Option<MasternodeStats>> {
         match self.col.iter(None, SortOrder::Descending.into())?.next() {
             None => Ok(None),

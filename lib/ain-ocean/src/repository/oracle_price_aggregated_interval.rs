@@ -23,15 +23,6 @@ pub struct OraclePriceAggregatedIntervalRepository {
     col: LedgerColumn<columns::OraclePriceAggregatedInterval>,
 }
 
-impl OraclePriceAggregatedIntervalRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(
     K = "OraclePriceAggregatedIntervalKey",
@@ -40,13 +31,4 @@ impl OraclePriceAggregatedIntervalRepository {
 pub struct OraclePriceAggregatedIntervalKeyRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OraclePriceAggregatedIntervalKey>,
-}
-
-impl OraclePriceAggregatedIntervalKeyRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }

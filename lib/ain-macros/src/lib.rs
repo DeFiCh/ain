@@ -102,6 +102,15 @@ pub fn repository_derive(input: TokenStream) -> TokenStream {
 
     // Generate the implementation
     let expanded = quote! {
+        impl #name {
+            pub fn new(store: Arc<OceanStore>) -> Self {
+                Self {
+                    col: store.column(),
+                    store,
+                }
+            }
+        }
+
         impl RepositoryOps<#key_type_ident, #value_type_ident> for #name {
             type ListItem = std::result::Result<(#key_type_ident, #value_type_ident), ain_db::DBError>;
 

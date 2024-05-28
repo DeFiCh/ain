@@ -17,15 +17,6 @@ pub struct PoolSwapRepository {
     col: LedgerColumn<columns::PoolSwap>,
 }
 
-impl PoolSwapRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 impl InitialKeyProvider<PoolSwapKey, PoolSwap> for PoolSwapRepository {
     type PartialKey = u32;
     fn initial_key(pk: Self::PartialKey) -> PoolSwapKey {

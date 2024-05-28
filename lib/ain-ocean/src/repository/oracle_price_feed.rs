@@ -17,27 +17,9 @@ pub struct OraclePriceFeedRepository {
     col: LedgerColumn<columns::OraclePriceFeed>,
 }
 
-impl OraclePriceFeedRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(K = "OraclePriceFeedkey", V = "OraclePriceFeedId")]
 pub struct OraclePriceFeedKeyRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OraclePriceFeedKey>,
-}
-
-impl OraclePriceFeedKeyRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }

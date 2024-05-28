@@ -17,27 +17,9 @@ pub struct OraclePriceAggregatedRepository {
     col: LedgerColumn<columns::OraclePriceAggregated>,
 }
 
-impl OraclePriceAggregatedRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(K = "OraclePriceAggregatedKey", V = "OraclePriceAggregatedId")]
 pub struct OraclePriceAggregatedRepositorykey {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OraclePriceAggregatedKey>,
-}
-
-impl OraclePriceAggregatedRepositorykey {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }

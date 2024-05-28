@@ -18,26 +18,9 @@ pub struct OracleHistoryRepository {
     col: LedgerColumn<columns::OracleHistory>,
 }
 
-impl OracleHistoryRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
 #[derive(Repository)]
 #[repository(K = "Txid", V = "OracleHistoryId")]
 pub struct OracleHistoryRepositoryKey {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OracleHistoryOracleIdSort>,
-}
-
-impl OracleHistoryRepositoryKey {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }

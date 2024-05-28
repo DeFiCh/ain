@@ -17,29 +17,11 @@ pub struct PoolSwapAggregatedRepository {
     col: LedgerColumn<columns::PoolSwapAggregated>,
 }
 
-impl PoolSwapAggregatedRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(K = "PoolSwapAggregatedKey", V = "PoolSwapAggregatedId")]
 pub struct PoolSwapAggregatedKeyRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::PoolSwapAggregatedKey>,
-}
-
-impl PoolSwapAggregatedKeyRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }
 
 impl SecondaryIndex<PoolSwapAggregatedKey, PoolSwapAggregatedId>

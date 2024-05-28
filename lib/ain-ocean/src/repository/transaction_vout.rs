@@ -16,12 +16,3 @@ pub struct TransactionVoutRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::TransactionVout>,
 }
-
-impl TransactionVoutRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}

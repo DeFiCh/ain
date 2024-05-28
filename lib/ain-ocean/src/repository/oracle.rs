@@ -17,12 +17,3 @@ pub struct OracleRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::Oracle>,
 }
-
-impl OracleRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}

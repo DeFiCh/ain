@@ -17,27 +17,9 @@ pub struct OracleTokenCurrencyRepository {
     col: LedgerColumn<columns::OracleTokenCurrency>,
 }
 
-impl OracleTokenCurrencyRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(K = "OracleTokenCurrencyKey", V = "OracleTokenCurrencyId")]
 pub struct OracleTokenCurrencyKeyRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::OracleTokenCurrencyKey>,
-}
-
-impl OracleTokenCurrencyKeyRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }

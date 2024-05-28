@@ -21,15 +21,6 @@ pub struct TransactionVinRepository {
     col: LedgerColumn<columns::TransactionVin>,
 }
 
-impl TransactionVinRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 impl InitialKeyProvider<String, TransactionVin> for TransactionVinRepository {
     type PartialKey = Txid;
 

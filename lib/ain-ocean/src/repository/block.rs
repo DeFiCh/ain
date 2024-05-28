@@ -18,29 +18,11 @@ pub struct BlockRepository {
     col: LedgerColumn<columns::Block>,
 }
 
-impl BlockRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(K = "u32", V = "BlockHash")]
 pub struct BlockByHeightRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::BlockByHeight>,
-}
-
-impl BlockByHeightRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }
 
 impl BlockByHeightRepository {

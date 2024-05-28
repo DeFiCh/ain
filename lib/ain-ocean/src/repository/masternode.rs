@@ -18,15 +18,6 @@ pub struct MasternodeRepository {
     col: LedgerColumn<columns::Masternode>,
 }
 
-impl MasternodeRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 type MasternodeByHeightKey = (u32, Txid);
 
 #[derive(Repository)]
@@ -34,15 +25,6 @@ type MasternodeByHeightKey = (u32, Txid);
 pub struct MasternodeByHeightRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::MasternodeByHeight>,
-}
-
-impl MasternodeByHeightRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }
 
 impl SecondaryIndex<MasternodeByHeightKey, u8> for MasternodeByHeightRepository {

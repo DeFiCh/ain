@@ -16,12 +16,3 @@ pub struct RawBlockRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::RawBlock>,
 }
-
-impl RawBlockRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}

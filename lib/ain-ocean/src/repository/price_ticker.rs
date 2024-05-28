@@ -16,12 +16,3 @@ pub struct PriceTickerRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::PriceTicker>,
 }
-
-impl PriceTickerRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}

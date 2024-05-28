@@ -18,29 +18,11 @@ pub struct TransactionRepository {
     col: LedgerColumn<columns::Transaction>,
 }
 
-impl TransactionRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
-}
-
 #[derive(Repository)]
 #[repository(K = "TransactionByBlockHashKey", V = "Txid")]
 pub struct TransactionByBlockHashRepository {
     pub store: Arc<OceanStore>,
     col: LedgerColumn<columns::TransactionByBlockHash>,
-}
-
-impl TransactionByBlockHashRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
-        Self {
-            col: store.column(),
-            store,
-        }
-    }
 }
 
 impl InitialKeyProvider<TransactionByBlockHashKey, Txid> for TransactionByBlockHashRepository {
