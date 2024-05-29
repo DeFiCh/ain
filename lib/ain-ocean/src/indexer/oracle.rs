@@ -14,8 +14,8 @@ use crate::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
         OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
-        OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OraclePriceFeedId,
-        OraclePriceFeedkey, OracleTokenCurrency, PriceFeedsItem, PriceTicker,
+        OraclePriceAggregatedIntervalAggregatedOracles, OraclePriceFeed, OracleTokenCurrency,
+        PriceFeedsItem, PriceTicker,
     },
     repository::RepositoryOps,
     storage::SortOrder,
@@ -404,7 +404,7 @@ impl Index for SetOracleData {
         for feed in &feeds {
             pairs.push((feed.token.clone(), feed.currency.clone(), feed.oracle_id));
             services.oracle_price_feed.by_key.put(&feed.key, &feed.id)?;
-            services.oracle_price_feed.by_id.put(&feed.id, &feed)?;
+            services.oracle_price_feed.by_id.put(&feed.id, feed)?;
         }
         let intervals: Vec<OracleIntervalSeconds> = vec![
             OracleIntervalSeconds::FifteenMinutes,
@@ -413,7 +413,7 @@ impl Index for SetOracleData {
         ];
         for (token, currency, oracle) in pairs.iter() {
             let oracle_token_id: (String, String, Txid) =
-                (token.to_string(), currency.to_string(), oracle.clone());
+                (token.to_string(), currency.to_string(), *oracle);
             let oracle_entries = services
                 .oracle_token_currency
                 .by_key
@@ -429,7 +429,7 @@ impl Index for SetOracleData {
                             {
                                 match services.oracle_token_currency.by_id.get(&id) {
                                     Ok(b) => Some(Ok(b?)),
-                                    Err(e) => Some(Err(e.into())),
+                                    Err(e) => Some(Err(e)),
                                 }
                             } else {
                                 None
@@ -500,8 +500,8 @@ impl Index for SetOracleData {
                 token: token.to_string(),
                 currency: currency.to_string(),
                 aggregated: OraclePriceAggregatedAggregated {
-                    amount: amount,
-                    weightage: weightage,
+                    amount,
+                    weightage,
                     oracles: OraclePriceAggregatedAggregatedOracles {
                         active: count,
                         total: total_count as i32,
@@ -628,15 +628,11 @@ fn map_price_feeds(
             let id = (
                 token.clone(),
                 currency.clone(),
-                set_oracle_data.oracle_id.clone(),
-                context.tx.txid.clone(),
+                set_oracle_data.oracle_id,
+                context.tx.txid,
             );
 
-            let key = (
-                token.clone(),
-                currency.clone(),
-                set_oracle_data.oracle_id.clone(),
-            );
+            let key = (token.clone(), currency.clone(), set_oracle_data.oracle_id);
 
             let oracle_price_feed = OraclePriceFeed {
                 id: id.clone(),
@@ -645,10 +641,10 @@ fn map_price_feeds(
                 amount: token_amount.amount,
                 currency: currency.clone(),
                 block: context.block.clone(),
-                oracle_id: set_oracle_data.oracle_id.clone(),
+                oracle_id: set_oracle_data.oracle_id,
                 time: set_oracle_data.timestamp as i32,
-                token: token,
-                txid: context.tx.txid.clone(),
+                token,
+                txid: context.tx.txid,
             };
             result.push(oracle_price_feed);
         }

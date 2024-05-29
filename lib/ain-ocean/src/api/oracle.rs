@@ -12,7 +12,7 @@ use rust_decimal::{prelude::FromPrimitive, Decimal};
 
 use super::{
     common::split_key,
-    query::{self, PaginationQuery},
+    query::PaginationQuery,
     response::{ApiPagedResponse, Response},
     AppContext,
 };
@@ -60,7 +60,7 @@ async fn get_feed(
         Ok((t, c)) => (t, c),
         Err(e) => return Err(Error::Other(anyhow!("Failed to split key: {}", e))),
     };
-    let key = (token.clone(), currency.clone(), txid.clone());
+    let key = (token.clone(), currency.clone(), txid);
 
     let price_feed_list = ctx
         .services
@@ -75,7 +75,7 @@ async fn get_feed(
 
     for (_, feed) in &price_feed_list {
         let (token, currency, oracle_id, _) = &feed.id;
-        if key.0.eq(token) && key.1.eq(currency) && key.2.eq(&oracle_id) {
+        if key.0.eq(token) && key.1.eq(currency) && key.2.eq(oracle_id) {
             let amount_decimal = Decimal::from_i64(feed.amount).unwrap_or_default();
             let conversion_factor = Decimal::from_i32(100000000).unwrap_or_default();
             let amount = amount_decimal / conversion_factor;

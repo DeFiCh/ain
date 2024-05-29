@@ -1,6 +1,5 @@
 use std::{str::FromStr, sync::Arc};
 
-
 use ain_macros::ocean_endpoint;
 use anyhow::anyhow;
 use axum::{
@@ -35,7 +34,7 @@ async fn list_prices(
     Query(query): Query<PaginationQuery>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<ApiPagedResponse<PriceTickerApi>> {
-    let mut sorted_ids = ctx
+    let sorted_ids = ctx
         .services
         .price_ticker
         .by_key
@@ -166,7 +165,7 @@ async fn get_feed(
         .collect::<Result<Vec<_>>>()?;
 
     for aggre in aggregated {
-        let (token, currency, height) = &aggre.id;
+        let (token, currency, _) = &aggre.id;
         if aggregated_key.0.eq(token) && aggregated_key.1.eq(currency) {
             oracle_aggrigated.push(aggre);
         }
@@ -201,7 +200,7 @@ async fn get_feed_active(
         })
         .collect::<Result<Vec<_>>>()?;
     for active in price_active {
-        let (token, currency, height) = &active.id;
+        let (token, currency, _) = &active.id;
         if price_active_key.0.eq(token) && price_active_key.1.eq(currency) {
             price_list.push(active);
         }
@@ -245,7 +244,7 @@ async fn get_feed_with_interval(
         .collect::<Result<Vec<_>>>()?;
 
     for oracle_intervals in items {
-        let (token, currency, interval) = &oracle_intervals.key;
+        let (token, currency, _) = &oracle_intervals.key;
         if price_aggregated_interval.0.eq(token) && price_aggregated_interval.1.eq(currency) {
             feed_intervals.push(OraclePriceAggregatedInterval {
                 id: oracle_intervals.id,
@@ -306,13 +305,13 @@ async fn get_oracles(
         .collect::<Result<Vec<_>>>()?;
 
     for item in token_currency {
-        let (token, currency, trx) = &item.id;
+        let (token, currency, _) = &item.id;
         if oracle_token_currency_key.clone().0.eq(token)
             && oracle_token_currency_key.clone().1.eq(currency)
         {
             let mut oracleprice = None;
             for pricefeed in &price_feed {
-                let (token, currency, oracle_id, _) = &pricefeed.id;
+                let (token, currency, _, _) = &pricefeed.id;
                 if oracle_token_currency_key.clone().0.eq(token)
                     && oracle_token_currency_key.clone().1.eq(currency)
                 {

@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use ain_dftx::loans::SetLoanToken;
-use rust_decimal::{
-    prelude::{Zero},
-    Decimal,
-};
+use rust_decimal::{prelude::Zero, Decimal};
 
 use crate::{
     indexer::{Context, Index, Result},
@@ -81,7 +78,7 @@ impl Index for SetLoanToken {
                         total: Default::default(),
                     },
                 };
-            } else if let Some(next) = previous_price.get(0).map(|price| &price.next) {
+            } else if let Some(next) = previous_price.first().map(|price| &price.next) {
                 active_price = OraclePriceActiveActive {
                     amount: next.amount.clone(),
                     weightage: next.weightage,
@@ -98,7 +95,7 @@ impl Index for SetLoanToken {
                 active_price = OraclePriceActiveActive {
                     amount: previous_price[0].active.amount.clone(),
                     weightage: previous_price[0].active.weightage,
-                    oracles: oracles,
+                    oracles,
                 };
             }
 
