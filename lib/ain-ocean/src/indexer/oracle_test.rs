@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::{ptr::eq, str::FromStr, sync::Arc};
+    use std::{str::FromStr, sync::Arc};
 
     use ain_dftx::{
         common::CompactVec,
@@ -8,7 +8,7 @@ mod tests {
         price::{CurrencyPair, TokenAmount, TokenPrice},
         types::oracles::AppointOracle,
     };
-    use bitcoin::{hashes::Hash, BlockHash, ScriptBuf, Txid};
+    use bitcoin::{BlockHash, ScriptBuf, Txid};
     use defichain_rpc::json::blockchain::Transaction;
     use tempfile::tempdir;
 
@@ -190,7 +190,7 @@ mod tests {
             let (token, currency, oracle_id, _) = &feed.id;
             if token.eq(&feeds[0].token)
                 && currency.eq(&feeds[0].currency)
-                && oracle_id.eq(&&feeds[0].oracle_id)
+                && oracle_id.eq(&feeds[0].oracle_id)
             {
                 println!("Found matching feed: {:?}", feed);
             }
@@ -410,7 +410,7 @@ mod tests {
             let (token, currency, oracle_id, _) = &feed.id;
             if token.eq(&feeds[1].token)
                 && currency.eq(&feeds[1].currency)
-                && oracle_id.eq(&&feeds[1].oracle_id)
+                && oracle_id.eq(&feeds[1].oracle_id)
             {
                 println!("Found matching feed: {:?}", feed);
             }
@@ -630,7 +630,7 @@ mod tests {
             let (token, currency, oracle_id, _) = &feed.id;
             if token.eq(&feeds[1].token)
                 && currency.eq(&feeds[1].currency)
-                && oracle_id.eq(&&feeds[1].oracle_id)
+                && oracle_id.eq(&feeds[1].oracle_id)
             {
                 println!("Found matching feed: {:?}", feed);
             }
@@ -724,7 +724,7 @@ mod tests {
             },
 		];
 
-        let feeds_1 = vec![
+        let _feeds_1 = vec![
             OraclePriceFeed {
                 id: ("TA".to_string(), "USD".to_string(), Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(), Txid::from_str("94e0883205b425de5b5dd52a208f4cd1f3d7e09d066b0fd091b9bc7513b33a34").unwrap()),
                 key: ("TA".to_string(), "USD".to_string(), Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap()),
@@ -778,7 +778,7 @@ mod tests {
             },
 		];
 
-        let feeds_2 = vec![
+        let _feeds_2 = vec![
             OraclePriceFeed {
                 id: ("TA".to_string(), "USD".to_string(), Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap(), Txid::from_str("574b3c7ef4cc572618a639c568b6b4dee0f6c99da9057e7756e9b3b338feae7c").unwrap()),
                 key: ("TA".to_string(), "USD".to_string(), Txid::from_str("33f23658be827bd0f23a48c8db205fcf275dcf666d63cbd3e06089decea217d5").unwrap()),
@@ -872,7 +872,7 @@ mod tests {
                 tx: transaction,
                 tx_idx: 2,
             };
-            let result = set_oracle.index(&services, ctx);
+            let _result = set_oracle.index(&services, ctx);
         }
 
         // for feed_1 in feeds_1 {
@@ -1047,7 +1047,7 @@ mod tests {
                 median_time: 1714980074,
             },
         };
-        services.oracle.by_id.put(&oracle.id, &oracle);
+        services.oracle.by_id.put(&oracle.id, &oracle).unwrap();
 
         let block_context = BlockContext {
             hash: BlockHash::from_str(
