@@ -176,6 +176,11 @@ private:
     [[nodiscard]] bool IsChanged() const { return !changed.empty(); }
     void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
 
+    Res ValidateOracleSplits(const CCustomCSView &view, const OracleSplits &splitMap) const;
+    Res ValidateOracleSplits64(const CCustomCSView &view,
+                               const bool checkFractional,
+                               const OracleSplits64 &splitMap) const;
+
     template <typename T>
     Res SetOracleSplit(const CAttributeType &key, const T &splitValue) {
         if (splitValue->size() != 1) {

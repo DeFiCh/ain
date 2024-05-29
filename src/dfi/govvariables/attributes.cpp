@@ -1773,16 +1773,42 @@ UniValue ATTRIBUTES::Export() const {
     return ExportFiltered(GovVarsFilter::All, "");
 }
 
-template <typename T>
-static Res ValidateOracleSplits(CCustomCSView &view, const bool checkFractional, const T &splitMap) {
-    CDataStructureV0 fractionalKey{AttributeTypes::Oracles, OracleIDs::Splits, OracleKeys::FractionalSplits};
-    const auto fractionalEnabled = view.GetValue(fractionalKey, bool{});
-
-    for (const auto &[tokenId, multiplier] : *splitMap) {
+Res ATTRIBUTES::ValidateOracleSplits(const CCustomCSView &view, const OracleSplits &splitMap) const {
+    for (const auto &[tokenId, multiplier] : splitMap) {
         if (tokenId == 0) {
             return DeFiErrors::GovVarValidateSplitDFI();
         }
-        if (view.HasPoolPair({tokenId})) {
+        const auto id = DCT_ID{tokenId};
+        if (view.HasPoolPair(id)) {
+            return DeFiErrors::GovVarValidateSplitPool();
+        }
+        const auto token = view.GetToken(id);
+        if (!token) {
+            return DeFiErrors::GovVarValidateTokenExist(tokenId);
+        }
+        if (!token->IsDAT()) {
+            return DeFiErrors::GovVarValidateSplitDAT();
+        }
+        if (!view.GetLoanTokenByIDFromStore(id) && !GetLoanTokenByID(view, id)) {
+            return DeFiErrors::GovVarValidateLoanTokenID(tokenId);
+        }
+    }
+
+    return Res::Ok();
+}
+
+Res ATTRIBUTES::ValidateOracleSplits64(const CCustomCSView &view,
+                                       const bool checkFractional,
+                                       const OracleSplits64 &splitMap) const {
+    CDataStructureV0 fractionalKey{AttributeTypes::Oracles, OracleIDs::Splits, OracleKeys::FractionalSplits};
+    const auto fractionalEnabled = GetValue(fractionalKey, bool{});
+
+    for (const auto &[tokenId, multiplier] : splitMap) {
+        if (tokenId == 0) {
+            return DeFiErrors::GovVarValidateSplitDFI();
+        }
+        const auto id = DCT_ID{tokenId};
+        if (view.HasPoolPair(id)) {
             return DeFiErrors::GovVarValidateSplitPool();
         }
         const auto token = view.GetToken(DCT_ID{tokenId});
@@ -1792,7 +1818,7 @@ static Res ValidateOracleSplits(CCustomCSView &view, const bool checkFractional,
         if (!token->IsDAT()) {
             return DeFiErrors::GovVarValidateSplitDAT();
         }
-        if (!view.GetLoanTokenByID({tokenId})) {
+        if (!view.GetLoanTokenByIDFromStore(id) && !GetLoanTokenByID(view, id)) {
             return DeFiErrors::GovVarValidateLoanTokenID(tokenId);
         }
         if (checkFractional) {
@@ -1955,6 +1981,21 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     if (attrV0->key == OracleKeys::FractionalSplits) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
                             return Res::Err("Cannot be set before DF23Height");
+                        }
+                    } else {
+                        const auto splitMap = std::get_if<OracleSplits>(&value);
+                        if (splitMap) {
+                            if (auto res = ValidateOracleSplits(view, *splitMap); !res) {
+                                return res;
+                            }
+                        } else {
+                            const auto splitMap64 = std::get_if<OracleSplits64>(&value);
+                            if (!splitMap64) {
+                                return DeFiErrors::GovVarUnsupportedValue();
+                            }
+                            if (auto res = ValidateOracleSplits64(view, true, *splitMap64); !res) {
+                                return res;
+                            }
                         }
                     }
                 } else {
@@ -2350,16 +2391,6 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
             const auto value64 = std::get_if<OracleSplits64>(&attribute.second);
             if (!value && !value64) {
                 return DeFiErrors::GovVarUnsupportedValue();
-            }
-
-            if (value) {
-                if (auto res = ValidateOracleSplits(mnview, false, value); !res) {
-                    return res;
-                }
-            } else {
-                if (auto res = ValidateOracleSplits(mnview, true, value64); !res) {
-                    return res;
-                }
             }
 
             for (const auto split : tokenSplits) {
