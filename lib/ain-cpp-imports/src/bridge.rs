@@ -24,6 +24,23 @@ pub mod ffi {
     }
 
     #[derive(Debug, Clone)]
+    pub enum SystemTxType {
+        EVMTx,
+        TransferDomainIn,
+        TransferDomainOut,
+        DST20BridgeIn,
+        DST20BridgeOut,
+        DeployContract,
+        UpdateContractName,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct SystemTxData {
+        pub tx_type: SystemTxType,
+        pub token: DST20Token,
+    }
+
+    #[derive(Debug, Clone)]
     pub struct TokenAmount {
         pub id: u32,
         pub amount: u64,
@@ -34,6 +51,8 @@ pub mod ffi {
         type Attributes;
         type DST20Token;
         type TransactionData;
+        type SystemTxType;
+        type SystemTxData;
         type TokenAmount;
 
         fn getChainId() -> u64;
@@ -67,6 +86,7 @@ pub mod ffi {
         fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
+        fn getEVMSystemTxsFromBlock(block_hash: [u8; 32]) -> Vec<SystemTxData>;
         fn getDF23Height() -> u64;
         fn migrateTokensFromEVM(
             mnview_ptr: usize,

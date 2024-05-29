@@ -74,6 +74,21 @@ enum class TransactionDataDirection : uint8_t {
     EVMToDVM,
 };
 
+enum class SystemTxType : uint8_t {
+    EVMTx = 0,
+    TransferDomainIn = 1,
+    TransferDomainOut = 2,
+    DST20BridgeIn = 3,
+    DST20BridgeOut = 4,
+    DeployContract = 5,
+    UpdateContractName = 6,
+};
+
+struct SystemTxData {
+    SystemTxType txType;
+    DST20Token token;
+};
+
 uint64_t getChainId();
 bool isMining();
 rust::string publishEthTransaction(rust::Vec<uint8_t> rawTransaction);
@@ -104,7 +119,8 @@ size_t getEvmValidationLruCacheCount();
 size_t getEvmNotificationChannelBufferSize();
 bool isEthDebugRPCEnabled();
 bool isEthDebugTraceRPCEnabled();
-bool isEthSubscriptionEnabled();
+// Gets all EVM system txs and their respective types from DVM block.
+rust::vec<SystemTxData> getEVMSystemTxsFromBlock(std::array<uint8_t, 32> evmBlockHash);
 uint64_t getDF23Height();
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount);
 

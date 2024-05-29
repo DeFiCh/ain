@@ -14,6 +14,7 @@ mod receipt;
 pub mod rpc;
 mod subscription;
 mod sync;
+mod trace;
 mod transaction;
 mod transaction_request;
 mod utils;

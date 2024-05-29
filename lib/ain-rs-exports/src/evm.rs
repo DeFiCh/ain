@@ -5,7 +5,6 @@ use ain_contracts::{
 use ain_evm::{
     core::{TransferDomainTxInfo, XAddress, XHash},
     evm::FinalizedBlockInfo,
-    executor::ExecuteTx,
     fee::{calculate_max_tip_gas_fee, calculate_min_rbf_tip_gas_fee},
     services::SERVICES,
     storage::traits::{BlockStorage, Rollback, TransactionStorage},
@@ -13,8 +12,8 @@ use ain_evm::{
     transaction::{
         self,
         system::{
-            DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData,
-            UpdateContractNameData,
+            DST20Data, DeployContractData, ExecuteTx, SystemTx, TransferDirection,
+            TransferDomainData, UpdateContractNameData,
         },
         SignedTx,
     },
