@@ -43,9 +43,11 @@ use path::{
     SwapPathsResponse,
 };
 
+use price::DexPriceResponse;
 use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 
 pub mod path;
+pub mod price;
 pub mod service;
 
 // #[derive(Deserialize)]
@@ -59,10 +61,10 @@ struct SwapAggregate {
     interval: u32,
 }
 
-// #[derive(Debug, Deserialize)]
-// struct DexPrices {
-//     denomination: Option<String>,
-// }
+#[derive(Debug, Deserialize, Default)]
+struct DexPrices {
+    denomination: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -661,10 +663,15 @@ async fn get_best_path(
     }))
 }
 
-// #[ocean_endpoint]
-// async fn list_dex_prices(Query(DexPrices { denomination }): Query<DexPrices>) -> String {
-//     format!("List of DEX prices with denomination {:?}", denomination)
-// }
+#[ocean_endpoint]
+async fn list_dex_prices(
+    Query(DexPrices { denomination }): Query<DexPrices>,
+    Extension(ctx): Extension<Arc<AppContext>>,
+) -> Result<Response<DexPriceResponse>> {
+    let prices = price::list_dex_prices(&ctx, denomination).await?;
+
+    Ok(Response::new(prices))
+}
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
     Router::new()
@@ -682,6 +689,6 @@ pub fn router(ctx: Arc<AppContext>) -> Router {
             get(list_pool_swap_aggregates),
         )
         .route("/paths/swappable/:tokenId", get(get_swappable_tokens))
-        // .route("/dexprices", get(list_dex_prices))
+        .route("/dexprices", get(list_dex_prices))
         .layer(Extension(ctx))
 }

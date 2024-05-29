@@ -4,7 +4,7 @@ use cached::proc_macro::cached;
 use defichain_rpc::{
     json::{
         poolpair::{PoolPairInfo, PoolPairPagination, PoolPairsResult},
-        token::TokenInfo,
+        token::{TokenInfo, TokenPagination, TokenResult},
     },
     jsonrpc_async::error::{Error as JsonRpcError, RpcError},
     Error, MasternodeRPC, PoolPairRPC, TokenRPC,
@@ -47,6 +47,22 @@ pub async fn get_token_cached(
     };
 
     Ok(token)
+}
+
+pub async fn list_token_cached(ctx: &Arc<AppContext>) -> Result<TokenResult> {
+    let tokens = ctx
+        .client
+        .list_tokens(
+            Some(TokenPagination {
+                start: 0,
+                including_start: true,
+                limit: 1000,
+            }),
+            Some(true),
+        )
+        .await?;
+
+    Ok(tokens)
 }
 
 #[cached(

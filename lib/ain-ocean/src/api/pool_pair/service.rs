@@ -69,7 +69,12 @@ async fn get_total_liquidity_usd_by_best_path(
     ctx: &Arc<AppContext>,
     p: &PoolPairInfo,
 ) -> Result<Decimal> {
-    let (usdt_id, _) = get_token_cached(ctx, "USDT").await?.unwrap();
+    let usdt = get_token_cached(ctx, "USDT").await?;
+    if usdt.is_none() {
+        return Ok(dec!(0));
+    };
+
+    let (usdt_id, _) = usdt.unwrap();
 
     let mut a_token_rate = dec!(1);
     let mut b_token_rate = dec!(1);
