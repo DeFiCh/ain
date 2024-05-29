@@ -406,7 +406,7 @@ check_py() {
     py_ensure_env_active
     _exec_black 1
     # TODO Add flake as well
-    py_env_deactivate 
+    py_env_deactivate
 }
 
 check_rs() {
@@ -455,7 +455,7 @@ check_cpp() {
 
 check_enter_build_rs_dir() {
     local build_dir="${BUILD_DIR}"
-    _ensure_enter_dir "$build_dir/lib" || { 
+    _ensure_enter_dir "$build_dir/lib" || {
         echo "Please configure first";
         exit 1; }
 }
@@ -494,19 +494,19 @@ _run_clang_format() {
     local fmt_args=""
 
     for ((idx=0; idx<${#clang_formatters[@]}; ++idx)); do
-        if "${clang_formatters[$idx]}" --version &> /dev/null; then 
+        if "${clang_formatters[$idx]}" --version &> /dev/null; then
             index="$idx"
             break
         fi
     done
     if [[ "$index" == -1 ]]; then
-        echo "clang-format(-${clang_ver}) required" 
+        echo "clang-format(-${clang_ver}) required"
         exit 1
     fi
 
     if [[ "$check_only" == 1 ]]; then
         fmt_args="--dry-run --Werror"
-    fi 
+    fi
 
     # shellcheck disable=SC2086
     find src/dfi src/ffi \( -iname "*.cpp" -o -iname "*.h" \) -print0 | \
@@ -690,8 +690,8 @@ pkg_install_deps() {
     # python3-venv for settings up all python deps
     apt-get install -y \
         software-properties-common build-essential git libtool autotools-dev automake \
-        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev libboost-system-dev \
-        libboost-filesystem-dev libboost-chrono-dev libboost-test-dev libboost-thread-dev \
+        pkg-config bsdmainutils python3 python3-pip python3-venv libssl-dev libevent-dev \
+        libboost-chrono-dev libboost-test-dev libboost-thread-dev \
         libminiupnpc-dev libzmq3-dev libqrencode-dev wget ccache \
         libdb-dev libdb++-dev libdb5.3 libdb5.3-dev libdb5.3++ libdb5.3++-dev \
         curl cmake zip unzip libc6-dev gcc-multilib locales locales-all
@@ -818,7 +818,7 @@ pkg_local_install_py_deps() {
     python3 -m pip install black shellcheck-py codespell==2.2.4 flake8==6.0.0 vulture==2.7
 
     # test deps
-    python3 -m pip install py-solc-x web3
+    python3 -m pip install py-solc-x eth_typing==4.0.0 eth_account==0.11.2 web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
 
     py_env_deactivate
@@ -1076,9 +1076,9 @@ _bash_version_check() {
         echo "Bash version 5+ required."; exit 1;
     }
     [ -z "$BASH_VERSION" ] && _bash_ver_err_exit
-    case $BASH_VERSION in 
+    case $BASH_VERSION in
         5.*) return 0;;
-        *) _bash_ver_err_exit;; 
+        *) _bash_ver_err_exit;;
     esac
 }
 
@@ -1176,6 +1176,12 @@ ci_export_vars() {
         else
             echo "PKG_TYPE=tar.gz" >> "$GITHUB_ENV"
         fi
+
+        if [[ "${TARGET}" =~ .*darwin.* ]]; then
+            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}" >> "$GITHUB_ENV"
+        fi
+
+        echo "RUST_DEFAULT_VERSION=1.76" >> "$GITHUB_ENV"
     fi
 }
 
@@ -1220,11 +1226,11 @@ lib() {
     local cmd="${1-}"
     local exit_on_err="${2:-0}"
     local jobs="$MAKE_JOBS"
-    
+
     check_enter_build_rs_dir
     # shellcheck disable=SC2086
-    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then  
-        echo "Error: Please resolve all checks"; 
+    make JOBS=${jobs} ${cmd} || { if [[ "${exit_on_err}" == "1" ]]; then
+        echo "Error: Please resolve all checks";
         exit 1;
         fi; }
     _exit_dir

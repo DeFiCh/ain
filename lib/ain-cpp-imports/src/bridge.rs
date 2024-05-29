@@ -23,11 +23,18 @@ pub mod ffi {
         pub entry_time: i64,
     }
 
+    #[derive(Debug, Clone)]
+    pub struct TokenAmount {
+        pub id: u32,
+        pub amount: u64,
+    }
+
     unsafe extern "C++" {
         include!("ffi/ffiexports.h");
         type Attributes;
         type DST20Token;
         type TransactionData;
+        type TokenAmount;
 
         fn getChainId() -> u64;
         fn isMining() -> bool;
@@ -38,6 +45,7 @@ pub mod ffi {
         fn getEthMaxConnections() -> u32;
         fn getEthMaxResponseByteSize() -> u32;
         fn getSuggestedPriorityFeePercentile() -> i64;
+        fn getEstimateGasErrorRatio() -> u64;
         fn getDifficulty(block_hash: [u8; 32]) -> u32;
         fn getChainWork(block_hash: [u8; 32]) -> [u8; 32];
         fn getPoolTransactions() -> Vec<TransactionData>;
@@ -56,7 +64,14 @@ pub mod ffi {
         fn getNumConnections() -> i32;
         fn getEccLruCacheCount() -> usize;
         fn getEvmValidationLruCacheCount() -> usize;
+        fn getEvmNotificationChannelBufferSize() -> usize;
         fn isEthDebugRPCEnabled() -> bool;
         fn isEthDebugTraceRPCEnabled() -> bool;
+        fn getDF23Height() -> u64;
+        fn migrateTokensFromEVM(
+            mnview_ptr: usize,
+            old_amount: TokenAmount,
+            new_amount: &mut TokenAmount,
+        ) -> bool;
     }
 }

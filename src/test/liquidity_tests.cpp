@@ -2,6 +2,8 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <dfi/poolpairs.h>
+#include <validation.h>
 
 #include <test/setup_common.h>
 

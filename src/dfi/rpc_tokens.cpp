@@ -114,6 +114,10 @@ UniValue createtoken(const JSONRPCRequest &request) {
     token.flags =
         metaObj["isDAT"].getBool() ? token.flags | (uint8_t)CToken::TokenFlags::DAT : token.flags;  // setting isDAT
 
+    if (token.name.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Token name should not be empty");
+    }
+
     if (!metaObj["tradeable"].isNull()) {
         token.flags = metaObj["tradeable"].getBool() ? token.flags | uint8_t(CToken::TokenFlags::Tradeable)
                                                      : token.flags & ~uint8_t(CToken::TokenFlags::Tradeable);
@@ -208,15 +212,6 @@ UniValue updatetoken(const JSONRPCRequest &request) {
                      RPCArg::Type::BOOL,
                      RPCArg::Optional::OMITTED,
                      "Lock token properties forever (bool, optional)"},
-                    // it is possible to transfer token's owner. but later
-                    //                           {"collateralAddress", RPCArg::Type::STR, RPCArg::Optional::NO,
-                    //                            "Any valid destination for keeping collateral amount - used as token's
-                    //                            owner auth"},
-                    // omitted for now, need to research/discuss
-                    //                           {"decimal", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                    //                            "Token's decimal places (optional, fixed to 8 for now, unchecked)"},
-                    //                           {"limit", RPCArg::Type::NUM, RPCArg::Optional::OMITTED,
-                    //                            "Token's total supply limit (optional, zero for now, unchecked)"},
                 },
             }, {
                 "inputs",
@@ -253,9 +248,11 @@ UniValue updatetoken(const JSONRPCRequest &request) {
 
     RPCTypeCheck(request.params, {UniValueType(), UniValue::VOBJ, UniValue::VARR}, true);  // first means "any"
 
-    /// @todo RPCTypeCheckObj or smth to help with option's names and old/new tx type
-
     const std::string tokenStr = trim_ws(request.params[0].getValStr());
+    if (tokenStr.empty()) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token name cannot be empty"));
+    }
+
     UniValue metaObj = request.params[1].get_obj();
     const UniValue &txInputs = request.params[2];
 
@@ -267,15 +264,11 @@ UniValue updatetoken(const JSONRPCRequest &request) {
         LOCK(cs_main);
         DCT_ID id;
         auto token = pcustomcsview->GetTokenGuessId(tokenStr, id);
-        if (id == DCT_ID{0}) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
-        }
         if (!token) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Token %s does not exist!", tokenStr));
         }
-        // Note: This is expected to be removed after DF23
-        if (Params().NetworkIDString() != CBaseChainParams::REGTEST && token->IsDAT()) {
-            throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot update DAT token");
+        if (id == DCT_ID{0}) {
+            throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't alter DFI token!"));
         }
         tokenImpl = static_cast<const CTokenImplementation &>(*token);
         if (tokenImpl.IsPoolShare()) {

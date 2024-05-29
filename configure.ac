@@ -1,8 +1,8 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
 define(_CLIENT_VERSION_MAJOR, 4)
-define(_CLIENT_VERSION_MINOR, 0)
-define(_CLIENT_VERSION_REVISION, 8)
+define(_CLIENT_VERSION_MINOR, 1)
+define(_CLIENT_VERSION_REVISION, 0)
 define(_CLIENT_VERSION_BUILD, 0)
 define(_CLIENT_VERSION_RC, 0)
 define(_CLIENT_VERSION_IS_RELEASE, true)
@@ -1012,8 +1012,6 @@ AX_BOOST_BASE([MINIMUM_REQUIRED_BOOST])
 if test x$want_boost = xno; then
     AC_MSG_ERROR([[cannot be built without boost]])
 fi
-AX_BOOST_SYSTEM
-AX_BOOST_FILESYSTEM
 
 dnl Boost 1.56 through 1.62 allow using std::atomic instead of its own atomic
 dnl counter implementations. In 1.63 and later the std::atomic approach is default.
@@ -1068,7 +1066,7 @@ if test x$use_boost = xyes; then
   AX_CHECK_PREPROC_FLAG([-DBOOST_NO_CXX98_FUNCTION_BASE], [BOOST_CPPFLAGS="$BOOST_CPPFLAGS -DBOOST_NO_CXX98_FUNCTION_BASE"], [], [$CXXFLAG_WERROR],
                         [AC_LANG_PROGRAM([[#include <boost/config.hpp>]])])
 
-  BOOST_LIBS="$BOOST_LDFLAGS $BOOST_SYSTEM_LIB $BOOST_FILESYSTEM_LIB"
+  BOOST_LIBS="$BOOST_LDFLAGS"
   LIBS="$BOOST_LIBS $LIBS"
   CPPFLAGS="$CPPFLAGS $BOOST_CPPFLAGS"
 

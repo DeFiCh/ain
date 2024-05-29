@@ -84,7 +84,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let (logs, succeeded, return_data, gas_used) = self
             .handler
             .core
-            .trace_transaction(&signed_tx, receipt.block_number)
+            .call_with_tracer(&signed_tx, receipt.block_number)
             .map_err(RPCError::EvmError)?;
         let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();
 
@@ -125,7 +125,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
             .block
             .calculate_base_fee(block_hash, block_gas_target_factor)
             .map_err(to_custom_err)?;
-        let gas_price = call.get_effective_gas_price(block_base_fee)?;
+        let gas_price = call.get_effective_gas_price()?.unwrap_or(block_base_fee);
 
         let TxResponse { used_gas, .. } = self
             .handler

@@ -39,11 +39,6 @@ pub struct LogIndex {
     pub transaction_index: U256,
 }
 
-pub enum Notification {
-    Block(H256),
-    Transaction(H256),
-}
-
 pub struct LogService {
     storage: Arc<Storage>,
 }

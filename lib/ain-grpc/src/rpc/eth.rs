@@ -22,7 +22,7 @@ use log::{debug, trace};
 
 use crate::{
     block::{BlockNumber, RpcBlock, RpcFeeHistory},
-    call_request::{override_to_overlay, CallRequest, CallStateOverride},
+    call_request::{override_to_overlay, AccessListResult, CallRequest, CallStateOverride},
     codegen::types::EthTransactionInfo,
     errors::{to_custom_err, RPCError},
     filters::{GetFilterChangesResult, NewFilterRequest},
@@ -152,6 +152,14 @@ pub trait MetachainRPC {
     /// Retrieves the receipt of a specific transaction, identified by its hash.
     #[method(name = "getTransactionReceipt")]
     fn get_receipt(&self, hash: H256) -> RpcResult<Option<ReceiptResult>>;
+
+    /// Create access list from a specified transaction call context.
+    #[method(name = "createAccessList")]
+    fn create_access_list(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<AccessListResult>;
 
     // ----------------------------------------
     // Account state
@@ -337,7 +345,7 @@ impl MetachainRPCServer for MetachainRPCModule {
 
         let block = self.get_block(block_number)?;
         let block_base_fee = block.header.base_fee;
-        let gas_price = call.get_effective_gas_price(block_base_fee)?;
+        let gas_price = call.get_effective_gas_price()?.unwrap_or(block_base_fee);
 
         let TxResponse {
             data, exit_reason, ..
@@ -636,7 +644,7 @@ impl MetachainRPCServer for MetachainRPCModule {
             None => {
                 let accounts = self.accounts()?;
 
-                match accounts.get(0) {
+                match accounts.first() {
                     Some(account) => H160::from_str(account.as_str())
                         .map_err(|_| to_custom_err("Wrong from address"))?,
                     None => return Err(to_custom_err("from is not available")),
@@ -774,9 +782,14 @@ impl MetachainRPCServer for MetachainRPCModule {
         Ok(nonce)
     }
 
-    /// EstimateGas executes the requested code against the current pending block/state and
-    /// returns the used amount of gas.
-    /// Ref: https://github.com/ethereum/go-ethereum/blob/master/accounts/abi/bind/backends/simulated.go#L537-L639
+    /// Estimate returns the lowest possible gas limit that allows the transaction to
+    /// run successfully with the provided context options. It returns an error if the
+    /// transaction would always revert, or if there are unexpected failures.
+    ///
+    /// To configure the gas estimation error ratio, set-evmestimategaserrorratio=n on
+    /// startup. Otherwise, the default parameter is set at 15% error ratio.
+    ///
+    /// Ref: https://github.com/ethereum/go-ethereum/blob/e2778cd59f04f7587c9aa5983282074026ff6684/eth/gasestimator/gasestimator.go
     fn estimate_gas(
         &self,
         call: CallRequest,
@@ -788,18 +801,16 @@ impl MetachainRPCServer for MetachainRPCModule {
         let caller = call.from.unwrap_or_default();
         let byte_data = call.get_data()?;
         let data = byte_data.0.as_slice();
+        let overlay = state_overrides.map(override_to_overlay);
 
         let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
-
         let call_gas = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
             .map_err(to_custom_err)?;
 
-        let overlay = state_overrides.map(override_to_overlay);
-        // Determine the lowest and highest possible gas limits to binary search in between
-        let mut lo = Self::CONFIG.gas_transaction_call - 1;
-        let mut hi = call_gas;
-        if call_gas < Self::CONFIG.gas_transaction_call {
-            hi = block_gas_limit;
+        // Determine the highest gas limit can be used during the estimation.
+        let mut hi = block_gas_limit;
+        if call_gas >= Self::CONFIG.gas_transaction_call {
+            hi = call_gas;
         }
 
         // Get block base fee
@@ -807,40 +818,84 @@ impl MetachainRPCServer for MetachainRPCModule {
         let block_base_fee = block.header.base_fee;
 
         // Normalize the max fee per gas the call is willing to spend.
-        let fee_cap = call.get_effective_gas_price(block_base_fee)?;
+        let fee_cap = call.get_effective_gas_price()?;
 
-        // Recap the highest gas allowance with account's balance
-        if call.from.is_some() {
-            let balance = self
-                .handler
-                .core
-                .get_balance(caller, block.header.state_root)
-                .map_err(to_custom_err)?;
-            let mut available = balance;
-            if let Some(value) = call.value {
-                if balance < value {
-                    return Err(RPCError::InsufficientFunds.into());
+        // Recap the highest gas allowance with account's balance if gas price
+        if let Some(cap) = fee_cap {
+            if call.from.is_some() {
+                let balance = if let Some(balance) = overlay
+                    .as_ref()
+                    .and_then(|o| o.get_account(&caller).map(|acc| acc.balance))
+                {
+                    balance
+                } else {
+                    self.handler
+                        .core
+                        .get_balance(caller, block.header.state_root)
+                        .map_err(to_custom_err)?
+                };
+                let mut available = balance;
+                if let Some(value) = call.value {
+                    if balance < value {
+                        return Err(RPCError::InsufficientFunds.into());
+                    }
+                    available = balance.checked_sub(value).ok_or(RPCError::ValueUnderflow)?;
                 }
-                available = balance.checked_sub(value).ok_or(RPCError::ValueUnderflow)?;
+
+                let allowance = available.checked_div(cap).ok_or(RPCError::DivideError)?;
+                debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
+
+                if let Ok(allowance) = u64::try_from(allowance) {
+                    if hi > allowance {
+                        debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
+                        hi = allowance;
+                    }
+                }
             }
+        }
+        let fee_cap = fee_cap.unwrap_or(block_base_fee);
 
-            let allowance = available
-                .checked_div(fee_cap)
-                .ok_or(RPCError::DivideError)?;
-            debug!(target:"rpc",  "[estimate_gas] allowance: {:#?}", allowance);
-
-            if let Ok(allowance) = u64::try_from(allowance) {
-                if hi > allowance {
-                    debug!("[estimate_gas] gas estimation capped by limited funds. original: {:#?}, balance: {:#?}, feecap: {:#?}, fundable: {:#?}", hi, balance, fee_cap, allowance);
-                    hi = allowance;
+        // If the transaction is plain value transfer, short circuit estimation and directly
+        // try 21_000. Returning 21_000 without any execution is dangerous as some tx field
+        // combos might bump the price up even for plain transfers (e.g. unused access list
+        // items). Ever so slightly wasteful, but safer overall.
+        if data.is_empty() {
+            if let Some(to) = call.to {
+                if overlay.as_ref().and_then(|o| o.get_code(&to)).is_none()
+                    && self
+                        .handler
+                        .core
+                        .get_code(to, block.header.state_root)
+                        .map_err(to_custom_err)?
+                        .is_none()
+                {
+                    let tx_response = self
+                        .handler
+                        .core
+                        .call(
+                            EthCallArgs {
+                                caller,
+                                to: Some(to),
+                                value: call.value.unwrap_or_default(),
+                                data,
+                                gas_limit: call_gas,
+                                gas_price: fee_cap,
+                                access_list: call.access_list.clone().unwrap_or_default(),
+                                block_number: block.header.number,
+                            },
+                            overlay.clone(),
+                        )
+                        .map_err(RPCError::EvmError)?;
+                    if let ExitReason::Succeed(_) = tx_response.exit_reason {
+                        return Ok(U256::from(tx_response.used_gas));
+                    }
                 }
             }
         }
 
-        let cap = hi;
-
         // Create a helper to check if a gas allowance results in an executable transaction
-        let executable = |gas_limit: u64| -> Result<(bool, bool), Error> {
+        // Returns: (tx execution failure flag, out of gas failure flag, used gas)
+        let executable = |gas_limit: u64| -> Result<(bool, bool, u64), Error> {
             // Consensus error, this means the provided message call or transaction will
             // never be accepted no matter how much gas it is assigned. Return the error
             // directly, don't struggle any more
@@ -863,15 +918,45 @@ impl MetachainRPCServer for MetachainRPCModule {
                 .map_err(RPCError::EvmError)?;
 
             match tx_response.exit_reason {
-                ExitReason::Error(ExitError::OutOfGas) => Ok((true, true)),
-                ExitReason::Succeed(_) => Ok((false, false)),
-                _ => Ok((true, false)),
+                ExitReason::Error(ExitError::OutOfGas) => Ok((true, true, tx_response.used_gas)),
+                ExitReason::Succeed(_) => Ok((false, false, tx_response.used_gas)),
+                _ => Ok((true, false, tx_response.used_gas)),
             }
         };
 
+        // We first execute the transaction at the highest allowable gas limit, since
+        // if this fails we can return error immediately.
+        let (failed, out_of_gas, used_gas) = executable(hi)?;
+        if failed {
+            if !out_of_gas {
+                return Err(RPCError::TxExecutionFailed.into());
+            } else {
+                return Err(RPCError::GasCapTooLow(hi).into());
+            }
+        }
+
+        // For almost any transaction, the gas consumed by the unconstrained execution
+        // above lower-bounds the gas limit required for it to succeed. One exception
+        // is those that explicitly check gas remaining in order to execute within a
+        // given limit, but we probably don't want to return the lowest possible gas
+        // limit for these cases anyway.
+        let mut lo = used_gas.saturating_sub(1u64);
         while lo + 1 < hi {
+            // Safe, since highest gas limit possible is set at BLOCK_GAS_LIMIT
+            let diff_percentage = ((hi.saturating_sub(lo) as f64) / (hi as f64) * 100f64) as u64;
+            if diff_percentage < ain_cpp_imports::get_estimate_gas_error_ratio() {
+                break;
+            }
+
             let sum = hi.checked_add(lo).ok_or(RPCError::ValueOverflow)?;
-            let mid = sum.checked_div(2u64).ok_or(RPCError::DivideError)?;
+            let mut mid = sum.checked_div(2u64).ok_or(RPCError::DivideError)?;
+
+            // Most txs don't need much higher gas limit than their gas used, and most txs don't
+            // require near the full block limit of gas, so the selection of where to bisect the
+            // range here is skewed to favor the low side.
+            if mid > lo.saturating_mul(2u64) {
+                mid = lo * 2;
+            }
 
             let (failed, ..) = executable(mid)?;
             if failed {
@@ -880,20 +965,6 @@ impl MetachainRPCServer for MetachainRPCModule {
                 hi = mid;
             }
         }
-
-        // Reject the transaction as invalid if it still fails at the highest allowance
-        if hi == cap {
-            let (failed, out_of_gas) = executable(hi)?;
-            if failed {
-                if !out_of_gas {
-                    return Err(RPCError::TxExecutionFailed.into());
-                } else {
-                    return Err(RPCError::GasCapTooLow(cap).into());
-                }
-            }
-        }
-
-        debug!(target:"rpc",  "[estimate_gas] estimated gas: {:#?} at block {:#x}", hi, block.header.number);
         Ok(U256::from(hi))
     }
 
@@ -918,6 +989,42 @@ impl MetachainRPCServer for MetachainRPCModule {
             "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             "0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
         ])
+    }
+
+    fn create_access_list(
+        &self,
+        call: CallRequest,
+        block_number: Option<BlockNumber>,
+    ) -> RpcResult<AccessListResult> {
+        let caller = call.from.unwrap_or_default();
+        let byte_data = call.get_data()?;
+        let data = byte_data.0.as_slice();
+
+        // Get gas
+        let block_gas_limit = ain_cpp_imports::get_attribute_values(None).block_gas_limit;
+        let gas_limit = u64::try_from(call.gas.unwrap_or(U256::from(block_gas_limit)))
+            .map_err(to_custom_err)?;
+
+        let block = self.get_block(block_number)?;
+        let block_base_fee = block.header.base_fee;
+        let gas_price = call.get_effective_gas_price()?.unwrap_or(block_base_fee);
+
+        let res = self
+            .handler
+            .core
+            .create_access_list(EthCallArgs {
+                caller,
+                to: call.to,
+                value: call.value.unwrap_or_default(),
+                data,
+                gas_limit,
+                gas_price,
+                access_list: call.access_list.unwrap_or_default(),
+                block_number: block.header.number,
+            })
+            .map_err(RPCError::EvmError)?
+            .into();
+        Ok(res)
     }
 
     fn submit_work(&self, _nonce: String, _hash: String, _digest: String) -> RpcResult<bool> {
@@ -1029,9 +1136,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
         let topics = input.topics.map(|topics| match topics {
             LogRequestTopics::VecOfHashes(inputs) => {
-                inputs.into_iter().map(|input| vec![input]).collect()
+                inputs.iter().flatten().map(|input| vec![*input]).collect()
             }
-            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs
+                .iter()
+                .map(|hashes| hashes.iter().flatten().copied().collect())
+                .collect(),
         });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {
@@ -1075,9 +1185,12 @@ impl MetachainRPCServer for MetachainRPCModule {
         };
         let topics = input.topics.map(|topics| match topics {
             LogRequestTopics::VecOfHashes(inputs) => {
-                inputs.into_iter().map(|input| vec![input]).collect()
+                inputs.iter().flatten().map(|input| vec![*input]).collect()
             }
-            LogRequestTopics::VecOfHashVecs(inputs) => inputs,
+            LogRequestTopics::VecOfHashVecs(inputs) => inputs
+                .iter()
+                .map(|hashes| hashes.iter().flatten().copied().collect())
+                .collect(),
         });
         let curr_block = self.get_block(Some(BlockNumber::Latest))?.header.number;
         let mut criteria = FilterCriteria {

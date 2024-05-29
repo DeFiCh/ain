@@ -379,6 +379,7 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
     const auto &consensus = txCtx.GetConsensus();
     const auto height = txCtx.GetHeight();
     const auto time = txCtx.GetTime();
+    const auto hash = txCtx.GetTransaction().GetHash();
     auto &mnview = blockCtx.GetView();
 
     if (height < static_cast<uint32_t>(consensus.DF18FortCanningGreatWorldHeight)) {
@@ -421,7 +422,9 @@ Res CLoansConsensus::operator()(const CLoanUpdateLoanTokenMessage &obj) const {
         pair->second.flags ^= (uint8_t)CToken::TokenFlags::Mintable;
     }
 
-    if (auto res = mnview.UpdateToken(pair->second); !res) {
+    const auto checkSymbol = height >= static_cast<uint32_t>(consensus.DF23Height);
+    UpdateTokenContext ctx{pair->second, blockCtx, true, false, checkSymbol, hash};
+    if (auto res = mnview.UpdateToken(ctx); !res) {
         return res;
     }
 

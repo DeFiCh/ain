@@ -181,6 +181,7 @@ BOOST_AUTO_TEST_CASE(tokens)
         BOOST_REQUIRE(pair->second->symbol == "DFI");
     }
 
+
     BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, Params().GetConsensus()};
 
     // token creation

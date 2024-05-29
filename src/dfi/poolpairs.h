@@ -123,6 +123,8 @@ struct CUpdatePoolPairMessage {
     CAmount commission;
     CScript ownerAddress;
     CBalances rewards;
+    std::string pairSymbol;
+    std::string pairName;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>
@@ -133,6 +135,10 @@ struct CUpdatePoolPairMessage {
         READWRITE(ownerAddress);
         if (!s.empty()) {
             READWRITE(rewards);
+        }
+        if (!s.empty()) {
+            READWRITE(pairSymbol);
+            READWRITE(pairName);
         }
     }
 };
@@ -219,6 +225,41 @@ struct PoolShareKey {
     }
 };
 
+struct LoanTokenAverageLiquidityKey {
+    uint32_t sourceID;
+    uint32_t destID;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(sourceID);
+        READWRITE(destID);
+    }
+
+    bool operator<(const LoanTokenAverageLiquidityKey &other) const {
+        if (sourceID == other.sourceID) {
+            return destID < other.destID;
+        }
+        return sourceID < other.sourceID;
+    }
+};
+
+struct LoanTokenLiquidityPerBlockKey {
+    uint32_t height;
+    uint32_t sourceID;
+    uint32_t destID;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        READWRITE(WrapBigEndian(height));
+        READWRITE(sourceID);
+        READWRITE(destID);
+    }
+};
+
 struct PoolHeightKey {
     DCT_ID poolID;
     uint32_t height;
@@ -295,6 +336,19 @@ public:
         std::function<Res(const CScript &, const CScript &, CTokenAmount)> onTransfer,
         int nHeight = 0);
 
+    bool SetLoanTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key, const CAmount liquidityPerBlock);
+    bool EraseTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key);
+    void ForEachTokenLiquidityPerBlock(
+        std::function<bool(const LoanTokenLiquidityPerBlockKey &key, const CAmount liquidityPerBlock)> callback,
+        const LoanTokenLiquidityPerBlockKey &start = LoanTokenLiquidityPerBlockKey{});
+
+    bool SetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity);
+    std::optional<uint64_t> GetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key);
+    bool EraseTokenAverageLiquidity(const LoanTokenAverageLiquidityKey key);
+    void ForEachTokenAverageLiquidity(
+        std::function<bool(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity)> callback,
+        const LoanTokenAverageLiquidityKey start = LoanTokenAverageLiquidityKey{});
+
     // tags
     struct ByID {
         static constexpr uint8_t prefix() { return 'i'; }
@@ -340,6 +394,12 @@ public:
     };
     struct ByTokenDexFeePct {
         static constexpr uint8_t prefix() { return 'l'; }
+    };
+    struct ByLoanTokenLiquidityPerBlock {
+        static constexpr uint8_t prefix() { return 'p'; }
+    };
+    struct ByLoanTokenLiquidityAverage {
+        static constexpr uint8_t prefix() { return '+'; }
     };
 };
 

@@ -606,27 +606,6 @@ UniValue setgov(const JSONRPCRequest &request) {
             if (!res) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
             }
-
-            if (name == "ATTRIBUTES") {
-                const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
-                if (!attributes) {
-                    throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
-                }
-
-                LOCK(cs_main);
-                attributes->ForEach(
-                    [](const CDataStructureV0 &attr, const CAttributeValue &) {
-                        if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                            attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
-                            // Note: This is expected to be removed after DF23
-                            throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
-                        }
-
-                        return true;
-                    },
-                    CDataStructureV0{});
-            }
-
             varStream << name << *gv;
         }
     }
@@ -835,25 +814,6 @@ UniValue setgovheight(const JSONRPCRequest &request) {
             throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, res.msg);
         }
         varStream << name << *gv;
-
-        if (name == "ATTRIBUTES") {
-            const auto attributes = std::dynamic_pointer_cast<ATTRIBUTES>(gv);
-            if (!attributes) {
-                throw JSONRPCError(RPC_INVALID_REQUEST, "Failed to convert Gov var to attributes");
-            }
-
-            LOCK(cs_main);
-            attributes->ForEach(
-                [](const CDataStructureV0 &attr, const CAttributeValue &) {
-                    if (Params().NetworkIDString() != CBaseChainParams::REGTEST &&
-                        attr.type == AttributeTypes::Oracles && attr.typeId == OracleIDs::Splits) {
-                        throw JSONRPCError(RPC_INVALID_REQUEST, "Token splits disabled");
-                    }
-
-                    return true;
-                },
-                CDataStructureV0{});
-        }
     } else {
         throw JSONRPCError(RPC_INVALID_REQUEST, "No Governance variable provided.");
     }

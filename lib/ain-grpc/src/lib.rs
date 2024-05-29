@@ -12,12 +12,11 @@ pub mod logging;
 mod logs;
 mod receipt;
 pub mod rpc;
+mod subscription;
 mod sync;
 mod transaction;
 mod transaction_request;
 mod utils;
-
-mod subscription;
 
 #[cfg(test)]
 mod tests;
@@ -139,7 +138,10 @@ pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
             .build(addr),
     )?;
     let mut methods: Methods = Methods::new();
-    methods.merge(MetachainPubSubModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
+    methods.merge(
+        MetachainPubSubModule::new(Arc::clone(&runtime.evm), runtime.tokio_runtime.clone())
+            .into_rpc(),
+    )?;
 
     runtime
         .websocket_handles

@@ -67,8 +67,11 @@
 #include <ffi/ffihelpers.h>
 #include <ffi/ffiexports.h>
 
-#include <stdint.h>
-#include <stdio.h>
+#include <condition_variable>
+#include <cstdint>
+#include <cstdio>
+#include <fstream>
+#include <string>
 
 #ifndef WIN32
 #include <attributes.h>
@@ -116,12 +119,12 @@ static const char* DEFI_PID_FILENAME = "defid.pid";
 
 static fs::path GetPidFile()
 {
-    return AbsPathForConfigVal(fs::path(gArgs.GetArg("-pid", DEFI_PID_FILENAME)));
+    return AbsPathForConfigVal(fs::PathFromString(gArgs.GetArg("-pid", DEFI_PID_FILENAME)));
 }
 
 NODISCARD static bool CreatePidFile()
 {
-    fsbridge::ofstream file{GetPidFile()};
+    std::ofstream file{GetPidFile()};
     if (file) {
 #ifdef WIN32
         tfm::format(file, "%d\n", GetCurrentProcessId());
@@ -130,7 +133,7 @@ NODISCARD static bool CreatePidFile()
 #endif
         return true;
     } else {
-        return InitError(strprintf(_("Unable to create the PID file '%s': %s").translated, GetPidFile().string(), std::strerror(errno)));
+        return InitError(strprintf(_("Unable to create the PID file '%s': %s").translated, fs::PathToString(GetPidFile()), std::strerror(errno)));
     }
 }
 
@@ -266,7 +269,7 @@ void Shutdown(InitInterfaces& interfaces)
         if (!est_fileout.IsNull())
             ::feeEstimator.Write(est_fileout);
         else
-            LogPrintf("%s: Failed to write fee estimates to %s\n", __func__, est_path.string());
+            LogPrintf("%s: Failed to write fee estimates to %s\n", __func__, fs::PathToString(est_path));
         fFeeEstimatesInitialized = false;
     }
 
@@ -404,7 +407,7 @@ void SetupServerArgs()
     // Hidden Options
     std::vector<std::string> hidden_args = {
         "-dbcrashratio", "-forcecompactdb",
-        "-interrupt-block=<hash|height>", "-stop-block=<hash|height>",
+        "-interrupt-block=<hash|height>",
         "-mocknet", "-mocknet-blocktime=<secs>", "-mocknet-key=<pubkey>",
         "-checkpoints-file",
         // GUI args. These will be overwritten by SetupUIArgs for the GUI
@@ -430,6 +433,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ecclrucache=<n>", strprintf("Maximum ECC LRU cache size <n> items (default: %d).", DEFAULT_ECC_LRU_CACHE_COUNT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-evmvlrucache=<n>", strprintf("Maximum EVM TX Validator LRU cache size <n> items (default: %d).", DEFAULT_EVMV_LRU_CACHE_COUNT), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-eccprecache=<n>", strprintf("ECC pre-cache concurrency control (default: %d, (-1: auto, 0: disable, <n>: workers).", DEFAULT_ECC_PRECACHE_WORKERS), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
+    gArgs.AddArg("-evmnotificationchannel=<n>", strprintf("Maximum EVM notification channel's buffer size (default: %d).", DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-debuglogfile=<file>", strprintf("Specify location of debug log file. Relative paths will be prefixed by a net-specific datadir location. (-nodebuglogfile to disable; default: %s)", DEFAULT_DEBUGLOGFILE), ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-feefilter", strprintf("Tell other nodes to filter invs to us by our mempool min fee (default: %u)", DEFAULT_FEEFILTER), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::OPTIONS);
     gArgs.AddArg("-includeconf=<file>", "Specify additional configuration file, relative to the -datadir path (only useable from configuration file, not command line)", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -613,6 +617,7 @@ void SetupServerArgs()
     gArgs.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     gArgs.AddArg("-tdsinglekeycheck", "Set the single key check flag for transferdomain RPC. If enabled, transfers between domain are only allowed if the addresses specified corresponds to the same key (default: true)", ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-evmtxpriorityfeepercentile", strprintf("Set the suggested priority fee for EVM transactions (default: %u)", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-evmestimategaserrorratio", strprintf("Set the gas estimation error ratio for eth_estimateGas RPC (default: %u)", DEFAULT_ESTIMATE_GAS_ERROR_RATIO), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
     SetupChainParamsBaseOptions();
@@ -666,6 +671,7 @@ void SetupServerArgs()
     gArgs.AddArg("-ethmaxresponsesize=<size>", strprintf("Set the maximum response size in MB by the ETH-RPC server (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB, DEFAULT_ETH_MAX_RESPONSE_SIZE_MB), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebug", strprintf("Enable debug_* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
     gArgs.AddArg("-ethdebugtrace", strprintf("Enable debug_trace* ETH RPCs (default: %b)", DEFAULT_ETH_DEBUG_TRACE_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
+    gArgs.AddArg("-ethsubscription", strprintf("Enable subscription notifications ETH RPCs (default: %b)", DEFAULT_ETH_SUBSCRIPTION_ENABLED), ArgsManager::ALLOW_ANY, OptionsCategory::RPC);
 
 #if HAVE_DECL_DAEMON
     gArgs.AddArg("-daemon", "Run in the background as a daemon and accept commands", ArgsManager::ALLOW_ANY, OptionsCategory::OPTIONS);
@@ -758,13 +764,14 @@ static void CleanupBlockRevFiles()
     LogPrintf("Removing unusable blk?????.dat and rev?????.dat files for -reindex with -prune\n");
     fs::path blocksdir = GetBlocksDir();
     for (fs::directory_iterator it(blocksdir); it != fs::directory_iterator(); it++) {
+        const std::string path = fs::PathToString(it->path().filename());
         if (fs::is_regular_file(*it) &&
-            it->path().filename().string().length() == 12 &&
-            it->path().filename().string().substr(8,4) == ".dat")
+            path.length() == 12 &&
+            path.substr(8,4) == ".dat")
         {
-            if (it->path().filename().string().substr(0,3) == "blk")
-                mapBlockFiles[it->path().filename().string().substr(3,5)] = it->path();
-            else if (it->path().filename().string().substr(0,3) == "rev")
+            if (path.substr(0,3) == "blk")
+                mapBlockFiles[path.substr(3,5)] = it->path();
+            else if (path.substr(0,3) == "rev")
                 remove(it->path());
         }
     }
@@ -831,7 +838,7 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
             }
             RenameOver(pathBootstrap, pathBootstrapOld);
         } else {
-            LogPrintf("Warning: Could not open bootstrap file %s\n", pathBootstrap.string());
+            LogPrintf("Warning: Could not open bootstrap file %s\n", fs::PathToString(pathBootstrap));
         }
     }
 
@@ -839,14 +846,14 @@ static void ThreadImport(std::vector<fs::path> vImportFiles)
     for (const fs::path& path : vImportFiles) {
         FILE *file = fsbridge::fopen(path, "rb");
         if (file) {
-            LogPrintf("Importing blocks file %s...\n", path.string());
+            LogPrintf("Importing blocks file %s...\n", fs::PathToString(path));
             LoadExternalBlockFile(chainparams, file);
             if (ShutdownRequested()) {
                 LogPrintf("Shutdown requested. Exit %s\n", __func__);
                 return;
             }
         } else {
-            LogPrintf("Warning: Could not open blocks file %s\n", path.string());
+            LogPrintf("Warning: Could not open blocks file %s\n", fs::PathToString(path));
         }
     }
 
@@ -1016,7 +1023,7 @@ void InitParameterInteraction()
 void InitLogging()
 {
     LogInstance().m_print_to_file = !gArgs.IsArgNegated("-debuglogfile");
-    LogInstance().m_file_path = AbsPathForConfigVal(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE));
+    LogInstance().m_file_path = AbsPathForConfigVal(fs::PathFromString(gArgs.GetArg("-debuglogfile", DEFAULT_DEBUGLOGFILE)));
     LogInstance().m_print_to_console = gArgs.GetBoolArg("-printtoconsole", !gArgs.GetBoolArg("-daemon", false));
     LogInstance().m_log_timestamps = gArgs.GetBoolArg("-logtimestamps", DEFAULT_LOGTIMESTAMPS);
     LogInstance().m_log_time_micros = gArgs.GetBoolArg("-logtimemicros", DEFAULT_LOGTIMEMICROS);
@@ -1359,13 +1366,14 @@ static bool LockDataDirectory(bool probeOnly)
 {
     // Make sure only a single DeFi Blockchain process is using the data directory.
     fs::path datadir = GetDataDir();
-    if (!DirIsWritable(datadir)) {
-        return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, datadir.string()));
-    }
-    if (!LockDirectory(datadir, ".lock", probeOnly)) {
-        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running.").translated, datadir.string(), PACKAGE_NAME));
-    }
-    return true;
+    switch (util::LockDirectory(datadir, ".lock", probeOnly)) {
+    case util::LockResult::ErrorWrite:
+        return InitError(strprintf(_("Cannot write to data directory '%s'; check permissions.").translated, fs::PathToString(datadir)));
+    case util::LockResult::ErrorLock:
+        return InitError(strprintf(_("Cannot obtain a lock on data directory %s. %s is probably already running.").translated, fs::PathToString(datadir), PACKAGE_NAME));
+    case util::LockResult::Success: return true;
+    } // no default case, so the compiler can warn about missing cases
+    assert(false);
 }
 
 bool AppInitSanityChecks()
@@ -1411,13 +1419,13 @@ bool SetupLogging() {
     }
     if (!LogInstance().StartLogging()) {
             return InitError(strprintf("Could not open debug log file %s",
-                LogInstance().m_file_path.string()));
+                                       fs::PathToString(LogInstance().m_file_path)));
     }
 
     if (!LogInstance().m_log_timestamps)
         LogPrintf("Startup time: %s\n", FormatISO8601DateTime(GetTime()));
-    LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
-    LogPrintf("Using data directory %s\n", GetDataDir().string());
+    LogPrintf("Default data directory %s\n", fs::PathToString(GetDefaultDataDir()));
+    LogPrintf("Using data directory %s\n", fs::PathToString(GetDataDir()));
 
     return true;
 }
@@ -1709,10 +1717,7 @@ bool SetupInterruptArg(const std::string &argName, std::string &hashStore, int &
 }
 
 void SetupInterrupts() {
-    auto isSet = false;
-    isSet = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight) || isSet;
-    isSet = SetupInterruptArg("-stop-block", fStopBlockHash, fStopBlockHeight) || isSet;
-    fStopOrInterrupt = isSet;
+    fInterrupt = SetupInterruptArg("-interrupt-block", fInterruptBlockHash, fInterruptBlockHeight);
 }
 
 bool AppInitMain(InitInterfaces& interfaces)
@@ -1730,24 +1735,24 @@ bool AppInitMain(InitInterfaces& interfaces)
     // Only log conf file usage message if conf file actually exists.
     fs::path config_file_path = GetConfigFile(gArgs.GetArg("-conf", DEFI_CONF_FILENAME));
     if (fs::exists(config_file_path)) {
-        LogPrintf("Config file: %s\n", config_file_path.string());
+        LogPrintf("Config file: %s\n", fs::PathToString(config_file_path));
     } else if (gArgs.IsArgSet("-conf")) {
         // Warn if no conf file exists at path provided by user
-        InitWarning(strprintf(_("The specified config file %s does not exist\n").translated, config_file_path.string()));
+        InitWarning(strprintf(_("The specified config file %s does not exist\n").translated, fs::PathToString(config_file_path)));
     } else {
         // Not categorizing as "Warning" because it's the default behavior
-        LogPrintf("Config file: %s (not found, skipping)\n", config_file_path.string());
+        LogPrintf("Config file: %s (not found, skipping)\n", fs::PathToString(config_file_path));
     }
 
     LogPrintf("Using at most %i automatic connections (%i file descriptors available)\n", nMaxConnections, nFD);
 
     // Warn about relative -datadir path.
-    if (gArgs.IsArgSet("-datadir") && !fs::path(gArgs.GetArg("-datadir", "")).is_absolute()) {
+    if (gArgs.IsArgSet("-datadir") && !gArgs.GetPathArg("-datadir").is_absolute()) {
         LogPrintf("Warning: relative datadir option '%s' specified, which will be interpreted relative to the " /* Continued */
                   "current working directory '%s'. This is fragile, because if defid is started in the future "
                   "from a different location, it will be unable to locate the current data files. There could "
                   "also be data loss if defi is started while in a temporary directory.\n",
-            gArgs.GetArg("-datadir", ""), fs::current_path().string());
+            gArgs.GetArg("-datadir", ""), fs::PathToString(fs::current_path()));
     }
 
     InitSignatureCache();
@@ -2222,11 +2227,11 @@ bool AppInitMain(InitInterfaces& interfaces)
     // ********************************************************* Step 12: import blocks
 
     if (!CheckDiskSpace(GetDataDir())) {
-        InitError(strprintf(_("Error: Disk space is low for %s").translated, GetDataDir()));
+        InitError(strprintf(_("Error: Disk space is low for %s").translated, fs::quoted(fs::PathToString(GetDataDir()))));
         return false;
     }
     if (!CheckDiskSpace(GetBlocksDir())) {
-        InitError(strprintf(_("Error: Disk space is low for %s").translated, GetBlocksDir()));
+        InitError(strprintf(_("Error: Disk space is low for %s").translated, fs::quoted(fs::PathToString(GetBlocksDir()))));
         return false;
     }
 
@@ -2246,7 +2251,7 @@ bool AppInitMain(InitInterfaces& interfaces)
 
     std::vector<fs::path> vImportFiles;
     for (const std::string& strFile : gArgs.GetArgs("-loadblock")) {
-        vImportFiles.push_back(strFile);
+        vImportFiles.push_back(fs::PathFromString(strFile));
     }
 
     threadGroup.emplace_back(ThreadImport, vImportFiles);
@@ -2383,18 +2388,20 @@ bool AppInitMain(InitInterfaces& interfaces)
             }
         }
 
-        // bind websocket addresses
-        for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
-            LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
-            const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
-            if (!result.ok) {
-                LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid\n");
-                return false;
-            }
-            auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
-            if (!res) {
-                LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
-                return false;
+        if (gArgs.GetBoolArg("-ethsubscription", DEFAULT_ETH_SUBSCRIPTION_ENABLED)) {
+            // bind websocket addresses
+            for (auto it = ws_endpoints.begin(); it != ws_endpoints.end(); ++it) {
+                LogPrint(BCLog::HTTP, "Binding websocket server on endpoint %s\n", *it);
+                const auto addr = rs_try_from_utf8(result, ffi_from_string_to_slice(*it));
+                if (!result.ok) {
+                    LogPrint(BCLog::HTTP, "Invalid websocket address, not UTF-8 valid\n");
+                    return false;
+                }
+                auto res =  XResultStatusLogged(ain_rs_init_network_subscriptions_service(result, addr))
+                if (!res) {
+                    LogPrintf("Binding websocket server on endpoint %s failed.\n", *it);
+                    return false;
+                }
             }
         }
     }

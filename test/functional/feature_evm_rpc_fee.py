@@ -44,7 +44,6 @@ class EVMTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=105",
-                "-df23height=105",
                 "-subsidytest=1",
             ],
         ]
@@ -94,7 +93,7 @@ class EVMTest(DefiTestFramework):
                 }
             ]
         )
-        self.nodes[0].generate(2)
+        self.nodes[0].generate(1)
 
         balance = self.nodes[0].eth_getBalance(self.ethAddress, "latest")
         assert_equal(balance, int_to_eth_u256(50))

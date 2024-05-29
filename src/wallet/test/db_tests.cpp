@@ -2,14 +2,15 @@
 // Distributed under the MIT software license, see the accompanying
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
-#include <memory>
-
 #include <boost/test/unit_test.hpp>
 
 #include <fs.h>
 #include <test/setup_common.h>
 #include <wallet/db.h>
 
+#include <fstream>
+#include <memory>
+#include <string>
 
 BOOST_FIXTURE_TEST_SUITE(db_tests, BasicTestingSetup)
 
@@ -18,13 +19,13 @@ BOOST_AUTO_TEST_CASE(getwalletenv_file)
     std::string test_name = "test_name.dat";
     const fs::path datadir = GetDataDir();
     fs::path file_path = datadir / test_name;
-    fs::ofstream f(file_path);
+    std::ofstream f(file_path);
     f.close();
 
     std::string filename;
     std::shared_ptr<BerkeleyEnvironment> env = GetWalletEnv(file_path, filename);
-    BOOST_CHECK(filename == test_name);
-    BOOST_CHECK(env->Directory() == datadir);
+    BOOST_CHECK_EQUAL(filename, test_name);
+    BOOST_CHECK_EQUAL(env->Directory(), datadir.parent_path());
 }
 
 BOOST_AUTO_TEST_CASE(getwalletenv_directory)

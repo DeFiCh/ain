@@ -14,7 +14,7 @@ RUN apk add --update alpine-sdk
 RUN apk add --no-cache bash gcc git libffi musl-dev libffi-dev autoconf automake
 RUN apk add --no-cache openssh-client make db-dev openssl openssl-dev
 RUN apk add --no-cache libtool libevent libevent-dev
-RUN apk add --no-cache boost boost-dev boost-system boost-filesystem
+RUN apk add --no-cache boost boost-dev
 
 COPY . .
 

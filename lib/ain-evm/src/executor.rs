@@ -1,12 +1,14 @@
 use ain_contracts::{get_transfer_domain_contract, FixedContract};
 use anyhow::format_err;
-use ethereum::{AccessList, EIP658ReceiptData, Log, ReceiptV3};
+use ethereum::{AccessList, AccessListItem, EIP658ReceiptData, Log, ReceiptV3};
 use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
+    gasometer::tracing::using as gas_using,
     Config, CreateScheme, ExitReason,
 };
+use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
 
 use crate::{
@@ -14,17 +16,26 @@ use crate::{
     blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
-        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
-        dst20_deploy_info, DST20BridgeInfo, DeployContractInfo,
+        bridge_dfi,
+        dst20::{
+            bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
+            dst20_deploy_info, dst20_name_info, DST20BridgeInfo,
+        },
+        rename_contract_tx, DeployContractInfo,
     },
     core::EVMCoreService,
+    eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
+    evm::BlockContext,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
     transaction::{
-        system::{DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData},
+        system::{
+            DST20Data, DeployContractData, SystemTx, TransferDirection, TransferDomainData,
+            UpdateContractNameData,
+        },
         SignedTx,
     },
-    Result,
+    EVMError, Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +48,11 @@ impl From<SignedTx> for ExecuteTx {
     fn from(tx: SignedTx) -> Self {
         Self::SignedTx(Box::new(tx))
     }
+}
+
+pub struct AccessListInfo {
+    pub access_list: AccessList,
+    pub gas_used: U256,
 }
 
 #[derive(Debug)]
@@ -53,6 +69,7 @@ pub struct AinExecutor<'backend> {
     pub backend: &'backend mut EVMBackend,
 }
 
+// State update methods
 impl<'backend> AinExecutor<'backend> {
     pub fn new(backend: &'backend mut EVMBackend) -> Self {
         Self { backend }
@@ -92,6 +109,7 @@ impl<'backend> AinExecutor<'backend> {
     }
 }
 
+// EVM executor methods
 impl<'backend> AinExecutor<'backend> {
     const CONFIG: Config = Config::shanghai();
 
@@ -99,7 +117,7 @@ impl<'backend> AinExecutor<'backend> {
     pub fn call(&mut self, ctx: ExecutorContext) -> TxResponse {
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = MetachainPrecompiles;
+        let precompiles = MetachainPrecompiles::default();
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -146,6 +164,7 @@ impl<'backend> AinExecutor<'backend> {
         gas_limit: U256,
         base_fee: U256,
         system_tx: bool,
+        block_ctx: &BlockContext,
     ) -> Result<(TxResponse, ReceiptV3)> {
         self.backend.update_vicinity_from_tx(signed_tx)?;
         trace!(
@@ -174,7 +193,7 @@ impl<'backend> AinExecutor<'backend> {
 
         let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
         let state = MemoryStackState::new(metadata, self.backend);
-        let precompiles = MetachainPrecompiles;
+        let precompiles = MetachainPrecompiles::new(block_ctx.mnview_ptr);
         let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
         let access_list = ctx
             .access_list
@@ -246,7 +265,156 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
-    pub fn execute_tx(&mut self, tx: ExecuteTx, base_fee: U256) -> Result<ApplyTxResult> {
+    /// Execute tx with tracer
+    pub fn exec_with_tracer(
+        &self,
+        signed_tx: &SignedTx,
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        trace!(
+            "[Executor] Executing trace EVM TX with vicinity : {:?}",
+            self.backend.vicinity
+        );
+        let to = signed_tx.to().ok_or(format_err!(
+            "debug_traceTransaction does not support contract creation transactions",
+        ))?;
+        let ctx = ExecutorContext {
+            caller: signed_tx.sender,
+            to: Some(to),
+            value: signed_tx.value(),
+            data: signed_tx.data(),
+            gas_limit: u64::try_from(signed_tx.gas_limit())?,
+            access_list: signed_tx.access_list(),
+        };
+        let access_list = ctx
+            .access_list
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+        let al = access_list.clone();
+
+        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
+        let gas_state = MemoryStackState::new(metadata.clone(), self.backend);
+        let precompiles = MetachainPrecompiles::default();
+        let mut gas_executor =
+            StackExecutor::new_with_precompiles(gas_state, &Self::CONFIG, &precompiles);
+        let mut gas_listener = GasListener::new();
+        gas_using(&mut gas_listener, move || {
+            gas_executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                al,
+            );
+        });
+
+        let state = MemoryStackState::new(metadata, self.backend);
+        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
+        let mut listener = ExecListener::new(gas_listener.gas, gas_listener.gas_cost);
+        let (exec_flag, data, used_gas) = runtime_using(&mut listener, move || {
+            let (exit_reason, data) = executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            );
+            Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
+        })?;
+        Ok((listener.trace, exec_flag, data, used_gas))
+    }
+
+    /// Execute tx with storage access listener
+    pub fn exec_access_list(&self, ctx: ExecutorContext) -> Result<AccessListInfo> {
+        let access_list = ctx
+            .access_list
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+
+        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
+        let state = MemoryStackState::new(metadata.clone(), self.backend);
+        let al_state = MemoryStackState::new(metadata, self.backend);
+        let precompiles = MetachainPrecompiles::default();
+        let mut al_executor =
+            StackExecutor::new_with_precompiles(al_state, &Self::CONFIG, &precompiles);
+        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
+        let mut listener = StorageAccessListener::default();
+
+        let (exit_reason, _) = runtime_using(&mut listener, move || match ctx.to {
+            Some(to) => executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+            None => executor.transact_create(
+                ctx.caller,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+        });
+        if !exit_reason.is_succeed() {
+            return Err(format_err!("[exec_access_list] tx execution failed").into());
+        }
+
+        // Get access list from listener
+        let al: AccessList = listener
+            .access_list
+            .into_iter()
+            .map(|(address, storage_keys)| AccessListItem {
+                address,
+                storage_keys: Vec::from_iter(storage_keys),
+            })
+            .collect();
+        let access_list = al
+            .clone()
+            .into_iter()
+            .map(|x| (x.address, x.storage_keys))
+            .collect::<Vec<_>>();
+
+        // Get gas usage with accumulated access list
+        let (exit_reason, _) = match ctx.to {
+            Some(to) => al_executor.transact_call(
+                ctx.caller,
+                to,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+            None => al_executor.transact_create(
+                ctx.caller,
+                ctx.value,
+                ctx.data.to_vec(),
+                ctx.gas_limit,
+                access_list,
+            ),
+        };
+        if !exit_reason.is_succeed() {
+            return Err(format_err!("[exec_access_list] tx execution failed").into());
+        }
+        Ok(AccessListInfo {
+            access_list: al,
+            gas_used: U256::from(al_executor.used_gas()),
+        })
+    }
+}
+
+impl<'backend> AinExecutor<'backend> {
+    /// System tx execution
+    pub fn execute_tx(
+        &mut self,
+        tx: ExecuteTx,
+        base_fee: U256,
+        ctx: &BlockContext,
+    ) -> Result<ApplyTxResult> {
         match tx {
             ExecuteTx::SignedTx(signed_tx) => {
                 // Validate nonce
@@ -261,7 +429,7 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let (tx_response, receipt) =
-                    self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false)?;
+                    self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false, ctx)?;
 
                 debug!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
@@ -333,7 +501,7 @@ impl<'backend> AinExecutor<'backend> {
                 }
 
                 let (tx_response, receipt) =
-                    self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
+                    self.exec(&signed_tx, U256::MAX, U256::zero(), true, ctx)?;
                 if !tx_response.exit_reason.is_succeed() {
                     return Err(format_err!(
                         "[execute_tx] Transfer domain failed VM execution {:?}",
@@ -398,7 +566,7 @@ impl<'backend> AinExecutor<'backend> {
                 self.update_storage(contract_address, allowance)?;
 
                 let (tx_response, receipt) =
-                    self.exec(&signed_tx, U256::MAX, U256::zero(), true)?;
+                    self.exec(&signed_tx, U256::MAX, U256::zero(), true, ctx)?;
                 if !tx_response.exit_reason.is_succeed() {
                     debug!(
                         "[execute_tx] DST20 bridge failed VM execution {:?}, data {}",
@@ -450,10 +618,34 @@ impl<'backend> AinExecutor<'backend> {
                     address,
                     bytecode,
                     storage,
-                } = dst20_deploy_info(self.backend, address, &name, &symbol)?;
+                } = dst20_deploy_info(self.backend, ctx.dvm_block, address, &name, &symbol)?;
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
+
+                Ok(ApplyTxResult {
+                    tx,
+                    used_gas: U256::zero(),
+                    logs: Vec::new(),
+                    gas_fee: U256::zero(),
+                    receipt: (receipt, Some(address)),
+                })
+            }
+            ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
+                name,
+                symbol,
+                address,
+                token_id,
+            })) => {
+                debug!(
+                    "[execute_tx] Rename contract for address {:x?}, name {}, symbol {}",
+                    address, name, symbol
+                );
+
+                let storage = dst20_name_info(ctx.dvm_block, &name, &symbol);
+
+                self.update_storage(address, storage)?;
+                let (tx, receipt) = rename_contract_tx(token_id, &base_fee)?;
 
                 Ok(ApplyTxResult {
                     tx,

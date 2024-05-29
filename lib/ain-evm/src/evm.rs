@@ -2,17 +2,14 @@ use std::{path::PathBuf, sync::Arc};
 
 use ain_contracts::{
     get_dfi_instrinics_registry_contract, get_dfi_intrinsics_v1_contract, get_dst20_v1_contract,
-    get_transfer_domain_contract, get_transfer_domain_v1_contract,
+    get_dst20_v2_contract, get_transfer_domain_contract, get_transfer_domain_v1_contract,
+    IMPLEMENTATION_SLOT,
 };
-use ain_cpp_imports::Attributes;
+use ain_cpp_imports::{get_df23_height, Attributes};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
 use log::{debug, trace};
-use tokio::sync::{
-    mpsc::{self, UnboundedReceiver, UnboundedSender},
-    RwLock,
-};
 
 use crate::{
     backend::{EVMBackend, Vicinity},
@@ -20,28 +17,27 @@ use crate::{
     blocktemplate::{BlockData, BlockTemplate, ReceiptAndOptionalContractAddress, TemplateTxItem},
     contract::{
         deploy_contract_tx, dfi_intrinsics_registry_deploy_info, dfi_intrinsics_v1_deploy_info,
-        dst20_v1_deploy_info, get_dst20_migration_txs, reserve_dst20_namespace,
-        reserve_intrinsics_namespace, transfer_domain_deploy_info,
+        dst20::{
+            dst20_v1_deploy_info, dst20_v2_deploy_info, get_dst20_migration_txs,
+            reserve_dst20_namespace,
+        },
+        h160_to_h256, reserve_intrinsics_namespace, transfer_domain_deploy_info,
         transfer_domain_v1_contract_deploy_info, DeployContractInfo,
     },
     core::{EVMCoreService, XHash},
     executor::{AinExecutor, ExecuteTx},
     filters::FilterService,
-    log::{LogService, Notification},
+    log::LogService,
     receipt::ReceiptService,
     storage::{
         traits::{BlockStorage, FlushableStorage},
         Storage,
     },
+    subscription::{Notification, SubscriptionService},
     transaction::{cache::TransactionCache, SignedTx},
     trie::GENESIS_STATE_ROOT,
     Result,
 };
-
-pub struct NotificationChannel<T> {
-    pub sender: UnboundedSender<T>,
-    pub receiver: RwLock<UnboundedReceiver<T>>,
-}
 
 pub struct EVMServices {
     pub core: EVMCoreService,
@@ -49,9 +45,9 @@ pub struct EVMServices {
     pub receipt: ReceiptService,
     pub logs: LogService,
     pub filters: FilterService,
+    pub subscriptions: SubscriptionService,
     pub storage: Arc<Storage>,
     pub tx_cache: Arc<TransactionCache>,
-    pub channel: NotificationChannel<Notification>,
 }
 
 pub struct ExecTxState {
@@ -72,7 +68,7 @@ pub struct FinalizedBlockInfo {
 pub struct BlockContext {
     parent_hash: H256,
     pub dvm_block: u64,
-    mnview_ptr: usize,
+    pub mnview_ptr: usize,
     pub attrs: Attributes,
 }
 
@@ -93,7 +89,6 @@ impl EVMServices {
     ///
     /// Returns an instance of the struct, either restored from storage or created from a JSON file.
     pub fn new() -> Result<Self> {
-        let (sender, receiver) = mpsc::unbounded_channel();
         let datadir = ain_cpp_imports::get_datadir();
         let path = PathBuf::from(datadir).join("evm");
         if !path.exists() {
@@ -120,12 +115,9 @@ impl EVMServices {
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
+                subscriptions: SubscriptionService::new(),
                 storage,
                 tx_cache,
-                channel: NotificationChannel {
-                    sender,
-                    receiver: RwLock::new(receiver),
-                },
             })
         } else {
             let storage = Arc::new(Storage::restore(&path)?);
@@ -136,12 +128,9 @@ impl EVMServices {
                 receipt: ReceiptService::new(Arc::clone(&storage)),
                 logs: LogService::new(Arc::clone(&storage)),
                 filters: FilterService::new(Arc::clone(&storage), Arc::clone(&tx_cache)),
+                subscriptions: SubscriptionService::new(),
                 storage,
                 tx_cache,
-                channel: NotificationChannel {
-                    sender,
-                    receiver: RwLock::new(receiver),
-                },
             })
         }
     }
@@ -268,10 +257,8 @@ impl EVMServices {
         self.logs
             .generate_logs_from_receipts(&receipts, block.header.number)?;
         self.receipt.put_receipts(receipts)?;
-        self.channel
-            .sender
-            .send(Notification::Block(block.header.hash()))
-            .map_err(|e| format_err!(e.to_string()))?;
+        self.subscriptions
+            .send(Notification::Block(block.header.hash()))?;
         self.core.clear_account_nonce();
         Ok(())
     }
@@ -287,7 +274,7 @@ impl EVMServices {
         let mut executor = AinExecutor::new(&mut template.backend);
 
         executor.update_total_gas_used(template.total_gas_used);
-        match executor.execute_tx(tx, base_fee) {
+        match executor.execute_tx(tx, base_fee, &template.ctx) {
             Ok(apply_tx) => {
                 EVMCoreService::logs_bloom(apply_tx.logs, &mut logs_bloom);
                 template.backend.increase_tx_count();
@@ -319,6 +306,7 @@ impl EVMServices {
     ) -> Result<()> {
         // reserve DST20 namespace;
         let is_evm_genesis_block = template.get_block_number() == U256::zero();
+        let is_df23_fork = template.ctx.dvm_block == get_df23_height();
         let mut logs_bloom = template.get_latest_logs_bloom();
 
         let mut executor = AinExecutor::new(&mut template.backend);
@@ -337,7 +325,9 @@ impl EVMServices {
                 address,
                 storage,
                 bytecode,
-            } = dfi_intrinsics_registry_deploy_info(get_dfi_intrinsics_v1_contract().fixed_address);
+            } = dfi_intrinsics_registry_deploy_info(vec![
+                get_dfi_intrinsics_v1_contract().fixed_address,
+            ]);
 
             trace!("deploying {:x?} bytecode {:?}", address, bytecode);
             executor.deploy_contract(address, bytecode, storage)?;
@@ -443,7 +433,7 @@ impl EVMServices {
             // Deploy DST20 migration TX
             let migration_txs = get_dst20_migration_txs(template.ctx.mnview_ptr)?;
             for exec_tx in migration_txs.clone() {
-                let apply_result = executor.execute_tx(exec_tx, base_fee)?;
+                let apply_result = executor.execute_tx(exec_tx, base_fee, &template.ctx)?;
                 EVMCoreService::logs_bloom(apply_result.logs, &mut logs_bloom);
                 template.transactions.push(TemplateTxItem::new_system_tx(
                     apply_result.tx,
@@ -461,6 +451,35 @@ impl EVMServices {
 
             executor.update_storage(address, storage)?;
         }
+
+        if is_df23_fork {
+            // Deploy token split contract
+            let DeployContractInfo {
+                address,
+                storage,
+                bytecode,
+            } = dst20_v2_deploy_info();
+
+            trace!("deploying {:x?} bytecode {:?}", address, bytecode);
+            executor.deploy_contract(address, bytecode, storage)?;
+
+            let (tx, receipt) =
+                deploy_contract_tx(get_dst20_v2_contract().contract.init_bytecode, &base_fee)?;
+            template.transactions.push(TemplateTxItem::new_system_tx(
+                Box::new(tx),
+                (receipt, Some(address)),
+                logs_bloom,
+            ));
+
+            // Point proxy to DST20_v2
+            let storage = vec![(
+                IMPLEMENTATION_SLOT,
+                h160_to_h256(get_dst20_v2_contract().fixed_address),
+            )];
+
+            executor.update_storage(address, storage)?;
+        }
+
         template.backend.increase_tx_count();
         Ok(())
     }

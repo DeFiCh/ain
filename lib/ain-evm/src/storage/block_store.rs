@@ -1,22 +1,28 @@
-use std::{
-    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
-};
-
+use ain_db::version::{DBVersionControl, Migration};
+use ain_db::{Column, ColumnName, DBError, LedgerColumn, Rocks, TypedColumn};
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
 use log::debug;
+use std::{
+    collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
+    time::Instant,
+};
 
 use super::{
-    db::{Column, ColumnName, LedgerColumn, Rocks, TypedColumn},
+    migration::MigrationV1,
     traits::{BlockStorage, FlushableStorage, ReceiptStorage, Rollback, TransactionStorage},
 };
 use crate::{
     log::LogIndex,
     receipt::Receipt,
-    storage::{db::columns, traits::LogStorage},
+    storage::{
+        db::{columns, COLUMN_NAMES},
+        traits::LogStorage,
+    },
     EVMError, Result,
 };
+use ain_db::Result as DBResult;
 
 #[derive(Debug, Clone)]
 pub struct BlockStore(Arc<Rocks>);
@@ -25,9 +31,10 @@ impl BlockStore {
     pub fn new(path: &Path) -> Result<Self> {
         let path = path.join("indexes");
         fs::create_dir_all(&path)?;
-        let backend = Arc::new(Rocks::open(&path)?);
-
-        Ok(Self(backend))
+        let backend = Arc::new(Rocks::open(&path, &COLUMN_NAMES, None)?);
+        let store = Self(backend);
+        store.startup()?;
+        Ok(store)
     }
 
     pub fn column<C>(&self) -> LedgerColumn<C>
@@ -41,18 +48,79 @@ impl BlockStore {
     }
 }
 
+impl DBVersionControl for BlockStore {
+    const VERSION_KEY: &'static str = "version";
+    const CURRENT_VERSION: u32 = 1;
+
+    fn set_version(&self, version: u32) -> DBResult<()> {
+        let metadata_cf = self.column::<columns::Metadata>();
+        metadata_cf.put_bytes(&String::from(Self::VERSION_KEY), &version.to_be_bytes())?;
+        self.0.flush()?;
+        Ok(())
+    }
+
+    fn get_version(&self) -> DBResult<u32> {
+        let metadata_cf = self.column::<columns::Metadata>();
+        let version = metadata_cf
+            .get_bytes(&String::from(Self::VERSION_KEY))?
+            .ok_or(format_err!("Missing version"))
+            .and_then(|bytes| {
+                bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|e| format_err!("{e}"))
+                    .map(u32::from_be_bytes)
+            })?;
+        Ok(version)
+    }
+
+    fn migrate(&self) -> DBResult<()> {
+        let version = self.get_version().unwrap_or(0);
+        if version > Self::CURRENT_VERSION {
+            return Err(DBError::UnsupportedVersion);
+        }
+
+        let mut migrations: [Box<dyn Migration<Self>>; Self::CURRENT_VERSION as usize] =
+            [Box::new(MigrationV1)];
+        migrations.sort_by_key(|a| a.version());
+
+        for migration in migrations {
+            if version < migration.version() {
+                debug!("Migrating to version {}...", migration.version());
+                let start = Instant::now();
+                migration.migrate(self)?;
+                debug!(
+                    "Migration to version {} took {:?}",
+                    migration.version(),
+                    start.elapsed()
+                );
+                self.set_version(migration.version())?;
+            }
+        }
+
+        self.set_version(Self::CURRENT_VERSION)
+    }
+
+    fn startup(&self) -> DBResult<()> {
+        self.migrate()
+    }
+}
+
 impl TransactionStorage for BlockStore {
-    fn extend_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
+    fn put_transactions_from_block(&self, block: &BlockAny) -> Result<()> {
         let transactions_cf = self.column::<columns::Transactions>();
-        for transaction in &block.transactions {
-            transactions_cf.put(&transaction.hash(), transaction)?
+        let block_hash = block.header.hash();
+        for (index, transaction) in block.transactions.iter().enumerate() {
+            transactions_cf.put(&transaction.hash(), &(block_hash, index))?
         }
         Ok(())
     }
 
     fn get_transaction_by_hash(&self, hash: &H256) -> Result<Option<TransactionV2>> {
         let transactions_cf = self.column::<columns::Transactions>();
-        transactions_cf.get(hash)
+        transactions_cf.get(hash)?.map_or(Ok(None), |(hash, idx)| {
+            self.get_transaction_by_block_hash_and_index(&hash, idx)
+        })
     }
 
     fn get_transaction_by_block_hash_and_index(
@@ -87,35 +155,24 @@ impl TransactionStorage for BlockStore {
 
         Ok(block.transactions.get(index).cloned())
     }
-
-    fn put_transaction(&self, transaction: &TransactionV2) -> Result<()> {
-        let transactions_cf = self.column::<columns::Transactions>();
-        println!(
-            "putting transaction k {:x?} v {:#?}",
-            transaction.hash(),
-            transaction
-        );
-        transactions_cf.put(&transaction.hash(), transaction)
-    }
 }
 
 impl BlockStorage for BlockStore {
     fn get_block_by_number(&self, number: &U256) -> Result<Option<BlockAny>> {
         let blocks_cf = self.column::<columns::Blocks>();
-        blocks_cf.get(number)
+        Ok(blocks_cf.get(number)?)
     }
 
     fn get_block_by_hash(&self, block_hash: &H256) -> Result<Option<BlockAny>> {
         let blocks_map_cf = self.column::<columns::BlockMap>();
-        match blocks_map_cf.get(block_hash) {
-            Ok(Some(block_number)) => self.get_block_by_number(&block_number),
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
+        match blocks_map_cf.get(block_hash)? {
+            Some(block_number) => self.get_block_by_number(&block_number),
+            None => Ok(None),
         }
     }
 
     fn put_block(&self, block: &BlockAny) -> Result<()> {
-        self.extend_transactions_from_block(block)?;
+        self.put_transactions_from_block(block)?;
 
         let block_number = block.header.number;
         let hash = block.header.hash();
@@ -123,16 +180,15 @@ impl BlockStorage for BlockStore {
         let blocks_map_cf = self.column::<columns::BlockMap>();
 
         blocks_cf.put(&block_number, block)?;
-        blocks_map_cf.put(&hash, &block_number)
+        Ok(blocks_map_cf.put(&hash, &block_number)?)
     }
 
     fn get_latest_block(&self) -> Result<Option<BlockAny>> {
         let latest_block_cf = self.column::<columns::LatestBlockNumber>();
 
-        match latest_block_cf.get(&"") {
-            Ok(Some(block_number)) => self.get_block_by_number(&block_number),
-            Ok(None) => Ok(None),
-            Err(e) => Err(e),
+        match latest_block_cf.get(&String::new())? {
+            Some(block_number) => self.get_block_by_number(&block_number),
+            None => Ok(None),
         }
     }
 
@@ -140,7 +196,8 @@ impl BlockStorage for BlockStore {
         if let Some(block) = block {
             let latest_block_cf = self.column::<columns::LatestBlockNumber>();
             let block_number = block.header.number;
-            latest_block_cf.put(&"", &block_number)?;
+            // latest_block_cf.put(&"", &block_number)?;
+            latest_block_cf.put(&String::new(), &block_number)?;
         }
         Ok(())
     }
@@ -149,7 +206,7 @@ impl BlockStorage for BlockStore {
 impl ReceiptStorage for BlockStore {
     fn get_receipt(&self, tx: &H256) -> Result<Option<Receipt>> {
         let receipts_cf = self.column::<columns::Receipts>();
-        receipts_cf.get(tx)
+        Ok(receipts_cf.get(tx)?)
     }
 
     fn put_receipts(&self, receipts: Vec<Receipt>) -> Result<()> {
@@ -164,31 +221,31 @@ impl ReceiptStorage for BlockStore {
 impl LogStorage for BlockStore {
     fn get_logs(&self, block_number: &U256) -> Result<Option<HashMap<H160, Vec<LogIndex>>>> {
         let logs_cf = self.column::<columns::AddressLogsMap>();
-        logs_cf.get(block_number)
+        Ok(logs_cf.get(block_number)?)
     }
 
     fn put_logs(&self, address: H160, logs: Vec<LogIndex>, block_number: U256) -> Result<()> {
         let logs_cf = self.column::<columns::AddressLogsMap>();
         if let Some(mut map) = self.get_logs(&block_number)? {
             map.insert(address, logs);
-            logs_cf.put(&block_number, &map)
+            Ok(logs_cf.put(&block_number, &map)?)
         } else {
             let map = HashMap::from([(address, logs)]);
-            logs_cf.put(&block_number, &map)
+            Ok(logs_cf.put(&block_number, &map)?)
         }
     }
 }
 
 impl FlushableStorage for BlockStore {
     fn flush(&self) -> Result<()> {
-        self.0.flush()
+        Ok(self.0.flush()?)
     }
 }
 
 impl BlockStore {
     pub fn get_code_by_hash(&self, address: H160, hash: &H256) -> Result<Option<Vec<u8>>> {
         let address_codes_cf = self.column::<columns::AddressCodeMap>();
-        address_codes_cf.get_bytes(&(address, *hash))
+        Ok(address_codes_cf.get_bytes(&(address, *hash))?)
     }
 
     pub fn put_code(
@@ -202,7 +259,7 @@ impl BlockStore {
         address_codes_cf.put_bytes(&(address, *hash), code)?;
 
         let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-        block_deployed_codes_cf.put(&(block_number, address), hash)
+        Ok(block_deployed_codes_cf.put(&(block_number, address), hash)?)
     }
 }
 
@@ -228,18 +285,22 @@ impl Rollback for BlockStore {
 
             if let Some(block) = self.get_block_by_hash(&block.header.parent_hash)? {
                 let latest_block_cf = self.column::<columns::LatestBlockNumber>();
-                latest_block_cf.put(&"", &block.header.number)?;
+                // latest_block_cf.put(&"", &block.header.number)?;
+                latest_block_cf.put(&String::new(), &block.header.number)?;
             }
 
             let logs_cf = self.column::<columns::AddressLogsMap>();
             logs_cf.delete(&block.header.number)?;
 
             let block_deployed_codes_cf = self.column::<columns::BlockDeployedCodeHashes>();
-            let mut iter =
-                block_deployed_codes_cf.iter(Some((block.header.number, H160::zero())), usize::MAX);
-
             let address_codes_cf = self.column::<columns::AddressCodeMap>();
-            for ((block_number, address), hash) in &mut iter {
+
+            for item in block_deployed_codes_cf.iter(
+                Some((block.header.number, H160::zero())),
+                rocksdb::Direction::Reverse,
+            )? {
+                let ((block_number, address), hash) = item?;
+
                 if block_number == block.header.number {
                     address_codes_cf.delete(&(address, hash))?;
                     block_deployed_codes_cf.delete(&(block.header.number, address))?;
@@ -325,7 +386,13 @@ impl BlockStore {
         let response_max_size = usize::try_from(ain_cpp_imports::get_max_response_byte_size())
             .map_err(|_| format_err!("failed to convert response size limit to usize"))?;
 
-        for (k, v) in self.column::<C>().iter(from, limit) {
+        for item in self
+            .column::<C>()
+            .iter(from, rocksdb::Direction::Reverse)?
+            .take(limit)
+        {
+            let (k, v) = item?;
+
             if out.len() > response_max_size {
                 return Err(format_err!("exceed response max size limit").into());
             }

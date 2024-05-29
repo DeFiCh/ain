@@ -1,5 +1,7 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 
+use crate::opcode;
+use ethereum_types::{H160, H256};
 use evm::gasometer::tracing::{Event as GasEvent, EventListener as GasEventListener};
 use evm_runtime::{
     tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener},
@@ -7,15 +9,23 @@ use evm_runtime::{
 };
 use log::debug;
 
-use crate::{core::ExecutionStep, opcode};
+#[derive(Clone, Debug)]
+pub struct ExecutionStep {
+    pub pc: usize,
+    pub op: String,
+    pub gas: u64,
+    pub gas_cost: u64,
+    pub stack: Vec<H256>,
+    pub memory: Vec<u8>,
+}
 
-pub struct Listener {
+pub struct ExecListener {
     pub trace: Vec<ExecutionStep>,
     pub gas: VecDeque<u64>,
     pub gas_cost: VecDeque<u64>,
 }
 
-impl Listener {
+impl ExecListener {
     pub fn new(gas: VecDeque<u64>, gas_cost: VecDeque<u64>) -> Self {
         Self {
             trace: vec![],
@@ -25,67 +35,7 @@ impl Listener {
     }
 }
 
-pub struct GasListener {
-    pub gas: VecDeque<u64>,
-    pub gas_cost: VecDeque<u64>,
-    first_cost: bool,
-}
-
-impl GasListener {
-    pub fn new() -> Self {
-        Self {
-            gas: VecDeque::new(),
-            gas_cost: VecDeque::new(),
-            first_cost: true,
-        }
-    }
-}
-
-impl GasEventListener for GasListener {
-    fn event(&mut self, event: GasEvent) {
-        debug!("gas event: {event:#?}");
-        match event {
-            GasEvent::RecordCost { cost, snapshot } => {
-                if self.first_cost {
-                    self.first_cost = false;
-                    return;
-                }
-
-                self.gas_cost.push_back(cost);
-
-                if let Some(snapshot) = snapshot {
-                    self.gas.push_back(
-                        snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas
-                            + snapshot.refunded_gas as u64,
-                    );
-                } else {
-                    panic!("No snapshot found!");
-                }
-            }
-            GasEvent::RecordDynamicCost {
-                gas_cost,
-                memory_gas,
-                gas_refund,
-                snapshot,
-                ..
-            } => {
-                if let Some(snapshot) = snapshot {
-                    self.gas_cost
-                        .push_back(gas_cost + memory_gas - snapshot.memory_gas + gas_refund as u64);
-                    self.gas.push_back(
-                        snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas
-                            + snapshot.refunded_gas as u64,
-                    );
-                } else {
-                    panic!("No snapshot found!");
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-impl RuntimeEventListener for Listener {
+impl RuntimeEventListener for ExecListener {
     fn event(&mut self, event: RuntimeEvent<'_>) {
         debug!("event runtime : {:#?}", event);
         match event {
@@ -137,6 +87,92 @@ impl RuntimeEventListener for Listener {
             } => {
                 debug!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
             }
+        }
+    }
+}
+
+pub struct GasListener {
+    pub gas: VecDeque<u64>,
+    pub gas_cost: VecDeque<u64>,
+    first_cost: bool,
+}
+
+impl GasListener {
+    pub fn new() -> Self {
+        Self {
+            gas: VecDeque::new(),
+            gas_cost: VecDeque::new(),
+            first_cost: true,
+        }
+    }
+}
+
+impl Default for GasListener {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GasEventListener for GasListener {
+    fn event(&mut self, event: GasEvent) {
+        debug!("gas event: {event:#?}");
+        match event {
+            GasEvent::RecordCost { cost, snapshot } => {
+                if self.first_cost {
+                    self.first_cost = false;
+                    return;
+                }
+
+                self.gas_cost.push_back(cost);
+
+                if let Some(snapshot) = snapshot {
+                    self.gas.push_back(
+                        snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas
+                            + snapshot.refunded_gas as u64,
+                    );
+                } else {
+                    panic!("No snapshot found!");
+                }
+            }
+            GasEvent::RecordDynamicCost {
+                gas_cost,
+                memory_gas,
+                gas_refund,
+                snapshot,
+                ..
+            } => {
+                if let Some(snapshot) = snapshot {
+                    self.gas_cost
+                        .push_back(gas_cost + memory_gas - snapshot.memory_gas + gas_refund as u64);
+                    self.gas.push_back(
+                        snapshot.gas_limit - snapshot.used_gas - snapshot.memory_gas
+                            + snapshot.refunded_gas as u64,
+                    );
+                } else {
+                    panic!("No snapshot found!");
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct StorageAccessListener {
+    pub access_list: HashMap<H160, HashSet<H256>>,
+}
+
+impl RuntimeEventListener for StorageAccessListener {
+    fn event(&mut self, event: RuntimeEvent<'_>) {
+        debug!("event runtime : {:#?}", event);
+        match event {
+            RuntimeEvent::SLoad { address, index, .. } => {
+                self.access_list.entry(address).or_default().insert(index);
+            }
+            RuntimeEvent::SStore { address, index, .. } => {
+                self.access_list.entry(address).or_default().insert(index);
+            }
+            _ => {}
         }
     }
 }

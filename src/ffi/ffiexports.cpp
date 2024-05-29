@@ -1,6 +1,7 @@
 #include <clientversion.h>
 #include <dfi/govvariables/attributes.h>
 #include <dfi/mn_rpc.h>
+#include <dfi/validation.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <httprpc.h>
@@ -8,6 +9,8 @@
 #include <logging.h>
 #include <net.h>
 #include <util/system.h>
+
+#include <algorithm>
 #include <array>
 #include <cstdint>
 
@@ -313,6 +316,10 @@ int64_t getSuggestedPriorityFeePercentile() {
     return gArgs.GetArg("-evmtxpriorityfeepercentile", DEFAULT_SUGGESTED_PRIORITY_FEE_PERCENTILE);
 }
 
+uint64_t getEstimateGasErrorRatio() {
+    return gArgs.GetArg("-evmestimategaserrorratio", DEFAULT_ESTIMATE_GAS_ERROR_RATIO);
+}
+
 bool getDST20Tokens(std::size_t mnview_ptr, rust::vec<DST20Token> &tokens) {
     LOCK(cs_main);
 
@@ -369,10 +376,22 @@ size_t getEvmValidationLruCacheCount() {
     return gArgs.GetArg("-evmvlrucache", DEFAULT_EVMV_LRU_CACHE_COUNT);
 }
 
+size_t getEvmNotificationChannelBufferSize() {
+    return gArgs.GetArg("-evmnotificationchannel", DEFAULT_EVM_NOTIFICATION_CHANNEL_BUFFER_SIZE);
+}
+
 bool isEthDebugRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebug", DEFAULT_ETH_DEBUG_ENABLED);
 }
 
 bool isEthDebugTraceRPCEnabled() {
     return gArgs.GetBoolArg("-ethdebugtrace", DEFAULT_ETH_DEBUG_TRACE_ENABLED);
+}
+
+uint64_t getDF23Height() {
+    return Params().GetConsensus().DF23Height;
+}
+
+bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
+    return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
 }

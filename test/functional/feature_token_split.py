@@ -393,7 +393,7 @@ class TokenSplitTest(DefiTestFramework):
                     self.vault_loan += Decimal(loan)
 
     def check_token_split(
-        self, token_id, token_symbol, token_suffix, multiplier, minted, loan, collateral
+        self, token_id, token_symbol, token_suffix, minted, loan, collateral
     ):
         # Check old token
         result = self.nodes[0].gettoken(token_id)[token_id]
@@ -632,7 +632,7 @@ class TokenSplitTest(DefiTestFramework):
             -32600,
             "Invalid token symbol",
             self.nodes[0].createtoken,
-            {"symbol": "bad/v1", "collateralAddress": self.address},
+            {"symbol": "bad/v1", "name": "bad", "collateralAddress": self.address},
         )
 
         # Set expected minted amount
@@ -653,9 +653,7 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(2)
 
         # Check token split correctly
-        self.check_token_split(
-            self.idTSLA, self.symbolTSLA, "/v1", 2, minted, True, True
-        )
+        self.check_token_split(self.idTSLA, self.symbolTSLA, "/v1", minted, True, True)
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
@@ -717,9 +715,7 @@ class TokenSplitTest(DefiTestFramework):
             minted += new_amount
 
         # Check token split correctly
-        self.check_token_split(
-            self.idTSLA, self.symbolTSLA, "/v2", -3, minted, True, True
-        )
+        self.check_token_split(self.idTSLA, self.symbolTSLA, "/v2", minted, True, True)
 
         # Swap old for new values
         self.idTSLA = list(self.nodes[0].gettoken(self.symbolTSLA).keys())[0]
@@ -765,7 +761,6 @@ class TokenSplitTest(DefiTestFramework):
             self.idGOOGL,
             self.symbolGOOGL,
             "/v1",
-            2,
             str(self.poolGDTotal * 2),
             False,
             True,
@@ -822,7 +817,7 @@ class TokenSplitTest(DefiTestFramework):
         # Check token split correctly
         minted = truncate(str(self.poolGDTotal * 2 / 3), 8)
         self.check_token_split(
-            self.idGOOGL, self.symbolGOOGL, "/v2", -3, minted, False, True
+            self.idGOOGL, self.symbolGOOGL, "/v2", minted, False, True
         )
 
         # Check pool migrated successfully
@@ -887,9 +882,7 @@ class TokenSplitTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check token split correctly
-        self.check_token_split(
-            token_id, token_symbol, suffix, multiplier, str(minted), True, False
-        )
+        self.check_token_split(token_id, token_symbol, suffix, str(minted), True, False)
 
         # Compare pre-split vaults with post-split vaults
         for [vault_id, pre_vault] in self.vault_balances:

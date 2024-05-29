@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap};
 
-use ain_evm::{backend::Overlay, bytes::Bytes};
-use ethereum::{AccessListItem, Account};
+use ain_evm::{backend::Overlay, bytes::Bytes, executor::AccessListInfo};
+use ethereum::{AccessList, AccessListItem, Account};
 use ethereum_types::{H160, H256, U256};
 use jsonrpsee::core::Error;
 use serde::Deserialize;
@@ -64,9 +64,13 @@ fn guess_tx_type(req: &CallRequest) -> Result<TxType, Error> {
         return TxType::try_from(tx_type);
     }
 
+    // Validate call request gas fees
     if req.gas_price.is_some()
         && (req.max_fee_per_gas.is_some() || req.max_priority_fee_per_gas.is_some())
     {
+        return Err(RPCError::InvalidGasPrice.into());
+    }
+    if req.max_fee_per_gas.is_some() && req.max_priority_fee_per_gas.is_none() {
         return Err(RPCError::InvalidGasPrice.into());
     }
 
@@ -80,34 +84,24 @@ fn guess_tx_type(req: &CallRequest) -> Result<TxType, Error> {
 }
 
 impl CallRequest {
-    pub fn get_effective_gas_price(&self, block_base_fee: U256) -> Result<U256, Error> {
-        if self.gas_price.is_some()
-            && (self.max_fee_per_gas.is_some() || self.max_priority_fee_per_gas.is_some())
-        {
-            return Err(RPCError::InvalidGasPrice.into());
-        }
-
+    pub fn get_effective_gas_price(&self) -> Result<Option<U256>, Error> {
         match guess_tx_type(self)? {
-            TxType::Legacy | TxType::EIP2930 => match self.gas_price {
-                Some(gas_price) => {
-                    if gas_price == U256::zero() {
-                        Ok(block_base_fee)
-                    } else {
-                        Ok(gas_price)
+            TxType::Legacy | TxType::EIP2930 => {
+                if let Some(gas_price) = self.gas_price {
+                    if gas_price.is_zero() {
+                        return Ok(None);
                     }
                 }
-                None => Ok(block_base_fee),
-            },
-            TxType::EIP1559 => match self.max_fee_per_gas {
-                Some(max_fee_per_gas) => {
-                    if max_fee_per_gas == U256::zero() {
-                        Ok(block_base_fee)
-                    } else {
-                        Ok(max_fee_per_gas)
+                Ok(self.gas_price)
+            }
+            TxType::EIP1559 => {
+                if let Some(max_fee_per_gas) = self.max_fee_per_gas {
+                    if max_fee_per_gas.is_zero() {
+                        return Ok(None);
                     }
                 }
-                None => Ok(block_base_fee),
-            },
+                Ok(self.max_fee_per_gas)
+            }
         }
     }
 
@@ -178,4 +172,20 @@ pub fn override_to_overlay(r#override: BTreeMap<H160, CallStateOverride>) -> Ove
     }
 
     overlay
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessListResult {
+    pub access_list: AccessList,
+    pub gas_used: U256,
+}
+
+impl From<AccessListInfo> for AccessListResult {
+    fn from(value: AccessListInfo) -> Self {
+        Self {
+            access_list: value.access_list,
+            gas_used: value.gas_used,
+        }
+    }
 }

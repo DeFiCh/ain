@@ -12,12 +12,6 @@ use ain_contracts::{
 use anyhow::format_err;
 use ethereum::{AccessList, Account, Block, Log, PartialHeader, TransactionAction, TransactionV2};
 use ethereum_types::{Bloom, BloomInput, H160, H256, U256};
-use evm::{
-    executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    gasometer::tracing::using as gas_using,
-    Config,
-};
-use evm_runtime::tracing::using as runtime_using;
 use log::{debug, trace};
 use parking_lot::Mutex;
 use vsdb_core::vsdb_set_base_dir;
@@ -26,33 +20,23 @@ use crate::{
     backend::{BackendError, EVMBackend, Overlay, Vicinity},
     block::INITIAL_BASE_FEE,
     blocktemplate::BlockTemplate,
-    executor::{AinExecutor, ExecutorContext, TxResponse},
+    eventlistener::ExecutionStep,
+    executor::{AccessListInfo, AinExecutor, ExecutorContext, TxResponse},
     fee::calculate_max_prepay_gas_fee,
     gas::check_tx_intrinsic_gas,
-    precompiles::MetachainPrecompiles,
     receipt::ReceiptService,
     storage::{traits::BlockStorage, Storage},
     transaction::{
         cache::{TransactionCache, ValidateTxInfo},
         SignedTx,
     },
-    trie::TrieDBStore,
+    trie::{TrieDBStore, GENESIS_STATE_ROOT},
     weiamount::{try_from_satoshi, WeiAmount},
-    EVMError, Result,
+    Result,
 };
 
 pub type XHash = [u8; 32];
 pub type XAddress = [u8; 20];
-
-#[derive(Clone, Debug)]
-pub struct ExecutionStep {
-    pub pc: usize,
-    pub op: String,
-    pub gas: u64,
-    pub gas_cost: u64,
-    pub stack: Vec<H256>,
-    pub memory: Vec<u8>,
-}
 
 pub struct EVMCoreService {
     pub trie_store: Arc<TrieDBStore>,
@@ -150,58 +134,10 @@ impl EVMCoreService {
     pub fn flush(&self) -> Result<()> {
         self.trie_store.flush()
     }
+}
 
-    pub fn call(&self, arguments: EthCallArgs, overlay: Option<Overlay>) -> Result<TxResponse> {
-        let EthCallArgs {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            gas_price,
-            access_list,
-            block_number,
-        } = arguments;
-        debug!("[call] caller: {:?}", caller);
-
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .map(|block| block.header)
-            .ok_or(format_err!(
-                "[call] Block number {:x?} not found",
-                block_number
-            ))?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
-
-        let mut vicinity = Vicinity::from(block_header);
-        vicinity.gas_price = gas_price;
-        vicinity.origin = caller;
-        debug!("[call] vicinity: {:?}", vicinity);
-
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            overlay,
-        )
-        .map_err(|e| format_err!("------ Could not restore backend {}", e))?;
-
-        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
-            caller,
-            to,
-            value,
-            data,
-            gas_limit,
-            access_list,
-        }))
-    }
-
+// EVM Tx validation methods
+impl EVMCoreService {
     /// Validates a raw tx.
     ///
     /// The validation checks of the tx before we consider it to be valid are:
@@ -637,88 +573,6 @@ impl EVMCoreService {
         trace!("[get_next_valid_nonce_in_block_template] Account {address:x?} nonce {nonce:x?}");
         Ok(nonce)
     }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn trace_transaction(
-        &self,
-        tx: &SignedTx,
-        block_number: U256,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        let caller = tx.sender;
-        let to = tx.to().ok_or(format_err!(
-            "debug_traceTransaction does not support contract creation transactions",
-        ))?;
-        let value = tx.value();
-        let data = tx.data();
-        let gas_limit = u64::try_from(tx.gas_limit())?;
-        let access_list = tx.access_list();
-
-        let block_header = self
-            .storage
-            .get_block_by_number(&block_number)?
-            .ok_or_else(|| format_err!("Block not found"))
-            .map(|block| block.header)?;
-        let state_root = block_header.state_root;
-        debug!(
-            "Calling EVM at block number : {:#x}, state_root : {:#x}",
-            block_number, state_root
-        );
-
-        let vicinity = Vicinity::from(block_header);
-        let mut backend = EVMBackend::from_root(
-            state_root,
-            Arc::clone(&self.trie_store),
-            Arc::clone(&self.storage),
-            vicinity,
-            None,
-        )
-        .map_err(|e| format_err!("Could not restore backend {}", e))?;
-        backend.update_vicinity_from_tx(tx)?;
-
-        static CONFIG: Config = Config::shanghai();
-        let metadata = StackSubstateMetadata::new(gas_limit, &CONFIG);
-        let state = MemoryStackState::new(metadata.clone(), &backend);
-        let gas_state = MemoryStackState::new(metadata, &backend);
-        let precompiles = MetachainPrecompiles;
-        let mut executor = StackExecutor::new_with_precompiles(state, &CONFIG, &precompiles);
-        let mut gas_executor =
-            StackExecutor::new_with_precompiles(gas_state, &CONFIG, &precompiles);
-
-        let mut gas_listener = crate::eventlistener::GasListener::new();
-
-        let al = access_list.clone();
-        gas_using(&mut gas_listener, move || {
-            let access_list = al
-                .into_iter()
-                .map(|x| (x.address, x.storage_keys))
-                .collect::<Vec<_>>();
-            gas_executor.transact_call(caller, to, value, data.to_vec(), gas_limit, access_list);
-        });
-
-        let mut listener =
-            crate::eventlistener::Listener::new(gas_listener.gas, gas_listener.gas_cost);
-
-        let (execution_success, return_value, used_gas) =
-            runtime_using(&mut listener, move || {
-                let access_list = access_list
-                    .into_iter()
-                    .map(|x| (x.address, x.storage_keys))
-                    .collect::<Vec<_>>();
-
-                let (exit_reason, data) = executor.transact_call(
-                    caller,
-                    to,
-                    value,
-                    data.to_vec(),
-                    gas_limit,
-                    access_list,
-                );
-
-                Ok::<_, EVMError>((exit_reason.is_succeed(), data, executor.used_gas()))
-            })?;
-
-        Ok((listener.trace, execution_success, return_value, used_gas))
-    }
 }
 
 // State methods
@@ -831,6 +685,55 @@ impl EVMCoreService {
         )
     }
 
+    pub fn get_backend_from_block(
+        &self,
+        block_number: Option<U256>,
+        caller: Option<H160>,
+        gas_price: Option<U256>,
+        overlay: Option<Overlay>,
+    ) -> Result<EVMBackend> {
+        let (state_root, vicinity) = if let Some(block_number) = block_number {
+            let block_header = self
+                .storage
+                .get_block_by_number(&block_number)?
+                .map(|block| block.header)
+                .ok_or(format_err!("Block number {:x?} not found", block_number))?;
+            let state_root = block_header.state_root;
+            debug!(
+                "Calling EVM at block number : {:#x}, state_root : {:#x}",
+                block_number, state_root
+            );
+
+            let mut vicinity = Vicinity::from(block_header);
+            if let Some(gas_price) = gas_price {
+                vicinity.gas_price = gas_price;
+            }
+            if let Some(caller) = caller {
+                vicinity.origin = caller;
+            }
+            debug!("Vicinity: {:?}", vicinity);
+            (state_root, vicinity)
+        } else {
+            // Handle edge case of no genesis block
+            let block_gas_limit =
+                U256::from(ain_cpp_imports::get_attribute_values(None).block_gas_limit);
+            let vicinity: Vicinity = Vicinity {
+                block_number: U256::zero(),
+                block_gas_limit,
+                block_base_fee_per_gas: INITIAL_BASE_FEE,
+                ..Vicinity::default()
+            };
+            (GENESIS_STATE_ROOT, vicinity)
+        };
+        EVMBackend::from_root(
+            state_root,
+            Arc::clone(&self.trie_store),
+            Arc::clone(&self.storage),
+            vicinity,
+            overlay,
+        )
+    }
+
     pub fn get_next_account_nonce(&self, address: H160, state_root: H256) -> Result<U256> {
         let state_root_nonce = self.get_nonce(address, state_root)?;
         let mut nonce_store = self.nonce_store.lock();
@@ -878,5 +781,70 @@ impl EVMCoreService {
     pub fn clear_account_nonce(&self) {
         let mut nonce_store = self.nonce_store.lock();
         nonce_store.clear()
+    }
+}
+
+// RPC methods
+impl EVMCoreService {
+    pub fn call(&self, arguments: EthCallArgs, overlay: Option<Overlay>) -> Result<TxResponse> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            gas_price,
+            access_list,
+            block_number,
+        } = arguments;
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), overlay)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        Ok(AinExecutor::new(&mut backend).call(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        }))
+    }
+
+    pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<AccessListInfo> {
+        let EthCallArgs {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            gas_price,
+            access_list,
+            block_number,
+        } = arguments;
+        let mut backend = self
+            .get_backend_from_block(Some(block_number), Some(caller), Some(gas_price), None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        AinExecutor::new(&mut backend).exec_access_list(ExecutorContext {
+            caller,
+            to,
+            value,
+            data,
+            gas_limit,
+            access_list,
+        })
+    }
+
+    pub fn call_with_tracer(
+        &self,
+        tx: &SignedTx,
+        block_number: U256,
+    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
+        // Backend state to start the tx replay should be at the end of the previous block
+        let start_block_number = block_number.checked_sub(U256::one());
+        let mut backend = self
+            .get_backend_from_block(start_block_number, None, None, None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        backend.update_vicinity_from_tx(tx)?;
+        AinExecutor::new(&mut backend).exec_with_tracer(tx)
     }
 }

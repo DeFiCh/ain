@@ -20,6 +20,7 @@ prost.workspace = true
 rustc_version_runtime.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+parking_lot.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tonic.workspace = true
 ethereum.workspace = true

@@ -11,6 +11,7 @@
 #include <dfi/govvariables/attributes.h>
 #include <dfi/masternodes.h>
 #include <dfi/mn_checks.h>
+#include <dfi/validation.h>
 #include <ffi/cxx.h>
 
 constexpr uint32_t MAX_TRANSFERDOMAIN_EVM_DATA_LEN = 1024;
@@ -380,8 +381,18 @@ Res CXVMConsensus::operator()(const CTransferDomainMessage &obj) const {
             stats.evmOut.Add(tokenAmount);
             stats.evmCurrent.Sub(tokenAmount);
 
+            auto destAmount = dst.amount;
+
+            // Process TokenSplit
+            if (height >= consensus.DF23Height) {
+                res = ExecuteTokenMigrationTransferDomain(mnview, destAmount);
+                if (!res) {
+                    return res;
+                }
+            }
+
             // Add balance to DFI address
-            res = mnview.AddBalance(dst.address, dst.amount);
+            res = mnview.AddBalance(dst.address, destAmount);
             if (!res) {
                 evm_try_unsafe_remove_txs_above_hash_in_template(
                     result, evmTemplate->GetTemplate(), tx.GetHash().GetByteArray());
