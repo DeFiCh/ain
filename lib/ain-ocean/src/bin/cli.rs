@@ -74,6 +74,7 @@ async fn main() -> Result<()> {
             .get_highest()?
             .map_or(0, |b| b.height);
         let new_height = highest_block + 1;
+        println!("Processed height in {:?}", new_height);
         let hash = if let Some(hash) = next_block_hash {
             hash
         } else {

@@ -45,7 +45,7 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&str; 33] = [
+pub const COLUMN_NAMES: [&str; 34] = [
     block::Block::NAME,
     block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
@@ -68,6 +68,7 @@ pub const COLUMN_NAMES: [&str; 33] = [
     pool_swap_aggregated::PoolSwapAggregatedKey::NAME,
     pool_swap::PoolSwap::NAME,
     price_ticker::PriceTicker::NAME,
+    price_ticker::PriceTickerKey::NAME,
     raw_block::RawBlock::NAME,
     script_activity::ScriptActivity::NAME,
     script_aggregation::ScriptAggregation::NAME,

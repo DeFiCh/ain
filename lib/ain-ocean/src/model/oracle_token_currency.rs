@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 pub type OracleTokenCurrencyId = (String, String, Txid); //token-currency-oracleId
-pub type OracleTokenCurrencyKey = (String, String); //token-currency
+pub type OracleTokenCurrencyKey = (String, String, u32); //token-currency-height
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OracleTokenCurrency {

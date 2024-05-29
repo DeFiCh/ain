@@ -1,4 +1,3 @@
-use petgraph::graphmap::UnGraphMap;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -15,10 +14,17 @@ use defichain_rpc::{
     RpcApi,
 };
 use futures::future::try_join_all;
+use path::{
+    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths, get_token_identifier,
+    sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair,
+    SwapPathsResponse,
+};
+use petgraph::graphmap::UnGraphMap;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached},
@@ -28,7 +34,6 @@ use super::{
     response::{ApiPagedResponse, Response},
     AppContext,
 };
-
 use crate::{
     error::{ApiError, Error},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
@@ -37,14 +42,7 @@ use crate::{
     Result, TokenIdentifier,
 };
 
-use path::{
-    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths, get_token_identifier,
-    sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair,
-    SwapPathsResponse,
-};
-
 use price::DexPriceResponse;
-use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 
 pub mod path;
 pub mod price;

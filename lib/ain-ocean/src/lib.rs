@@ -2,9 +2,6 @@ pub mod error;
 mod indexer;
 pub mod network;
 
-use parking_lot::Mutex;
-use petgraph::graphmap::UnGraphMap;
-use serde::Serialize;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
@@ -13,6 +10,8 @@ pub use indexer::{
     index_block, invalidate_block, oracle::invalidate_oracle_interval,
     transaction::index_transaction, tx_result, PoolCreationHeight,
 };
+use parking_lot::Mutex;
+use petgraph::graphmap::UnGraphMap;
 use repository::{
     AuctionHistoryByHeightRepository, AuctionHistoryRepository, BlockByHeightRepository,
     BlockRepository, MasternodeByHeightRepository, MasternodeRepository, MasternodeStatsRepository,
@@ -22,9 +21,11 @@ use repository::{
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
     PoolSwapAggregatedKeyRepository, PoolSwapAggregatedRepository, PoolSwapRepository,
-    PriceTickerRepository, RawBlockRepository, TransactionByBlockHashRepository,
-    TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
+    PriceTickerKeyRepository, PriceTickerRepository, RawBlockRepository,
+    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
+    TransactionVoutRepository, TxResultRepository,
 };
+use serde::Serialize;
 pub mod api;
 mod model;
 mod repository;
@@ -109,6 +110,7 @@ pub struct OracleHistoryService {
 
 pub struct PriceTickerService {
     by_id: PriceTickerRepository,
+    by_key: PriceTickerKeyRepository,
 }
 
 #[derive(Clone, Debug, Serialize, Eq, PartialEq, Hash)]
@@ -198,7 +200,8 @@ impl Services {
                 by_key: OracleHistoryRepositoryKey::new(Arc::clone(&store)),
             },
             price_ticker: PriceTickerService {
-                by_id: PriceTickerRepository::new(Arc::clone(&store)),
+                by_id: PriceTickerRepository::new_id(Arc::clone(&store)),
+                by_key: PriceTickerKeyRepository::new_key(Arc::clone(&store)),
             },
             token_graph: Arc::new(Mutex::new(UnGraphMap::new())),
         }

@@ -16,7 +16,7 @@ pub struct OraclePriceActive {
     pub block: BlockContext,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveActive {
     pub amount: String,
@@ -24,7 +24,7 @@ pub struct OraclePriceActiveActive {
     pub oracles: OraclePriceActiveActiveOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveNext {
     pub amount: String,
@@ -32,14 +32,14 @@ pub struct OraclePriceActiveNext {
     pub oracles: OraclePriceActiveNextOracles,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveActiveOracles {
     pub active: i32,
     pub total: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct OraclePriceActiveNextOracles {
     pub active: i32,

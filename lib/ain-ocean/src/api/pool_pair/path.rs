@@ -7,7 +7,6 @@ use rust_decimal_macros::dec;
 use serde::Serialize;
 
 use super::AppContext;
-
 use crate::{
     api::{
         cache::{get_pool_pair_cached, get_token_cached, list_pool_pairs_cached},

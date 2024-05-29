@@ -1,14 +1,16 @@
-use super::{AppContext, PoolPairAprResponse};
-use anyhow::format_err;
-use anyhow::Context;
+use std::{str::FromStr, sync::Arc};
+
+use anyhow::{format_err, Context};
 use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
-use std::{str::FromStr, sync::Arc};
 
+use super::{AppContext, PoolPairAprResponse};
 use crate::{
-    api::cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
-    api::pool_pair::path::{get_best_path, BestSwapPathResponse},
+    api::{
+        cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
+        pool_pair::path::{get_best_path, BestSwapPathResponse},
+    },
     error::{Error, NotFoundKind},
     model::PoolSwapAggregatedAggregated,
     Result,

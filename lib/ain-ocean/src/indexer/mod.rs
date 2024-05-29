@@ -1,4 +1,5 @@
 mod auction;
+pub mod loan_token;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
@@ -11,7 +12,6 @@ use std::{sync::Arc, time::Instant};
 use ain_dftx::{deserialize, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
-
 pub use pool::AGGREGATED_INTERVALS;
 
 use crate::{
@@ -121,7 +121,6 @@ pub fn index_block(
 ) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
-
     let block_hash = block.hash;
     let transaction_count = block.tx.len();
     let block_ctx = BlockContext {
@@ -166,6 +165,7 @@ pub fn index_block(
                         DfTx::UpdateOracle(data) => data.index(services, &ctx)?,
                         DfTx::SetOracleData(data) => data.index(services, &ctx)?,
                         DfTx::PoolSwap(data) => data.index(services, &ctx)?,
+                        DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
                         // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
