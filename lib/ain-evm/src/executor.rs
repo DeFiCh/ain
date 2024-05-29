@@ -460,6 +460,14 @@ impl<'backend> AinExecutor<'backend> {
                     address, name, symbol
                 );
 
+                // ctx not available while replaying systemTx
+                let Some(ctx) = ctx else {
+                    return Err(format_err!(
+                        "[execute_tx] ctx not available in SystemTx while tracing TX",
+                    )
+                    .into());
+                };
+
                 let DeployContractInfo {
                     address,
                     bytecode,
@@ -488,6 +496,14 @@ impl<'backend> AinExecutor<'backend> {
                     "[execute_tx] Rename contract for address {:x?}, name {}, symbol {}",
                     address, name, symbol
                 );
+
+                // ctx not available while replaying systemTx
+                let Some(ctx) = ctx else {
+                    return Err(format_err!(
+                        "[execute_tx] ctx not available in SystemTx while tracing TX",
+                    )
+                    .into());
+                };
 
                 let storage = dst20_name_info(ctx.dvm_block, &name, &symbol);
 
