@@ -275,13 +275,13 @@ void CPoolPairView::CalculateStaticPoolRewards(std::function<CAmount()> onLiquid
         }
     };
 
-    calcReward(RewardType::Coinbase, startCoinbase, endCoinbase, {});
-    calcReward(RewardType::LoanTokenDEXReward, startLoan, endLoan, {});
+    calcReward(RewardType::Coinbase, startCoinbase, endCoinbase, 0);
+    calcReward(RewardType::LoanTokenDEXReward, startLoan, endLoan, 0);
     calcReward(RewardType::Commission, startCommission.commissionA, endCommission.commissionA, endCommission.tokenA);
     calcReward(RewardType::Commission, startCommission.commissionB, endCommission.commissionB, endCommission.tokenB);
 
-    for (const auto &[id, endCustom] : endCustom) {
-        calcReward(RewardType::Pool, startCustom[id], endCustom, id);
+    for (const auto &[id, end] : endCustom) {
+        calcReward(RewardType::Pool, startCustom[id], end, id);
     }
 }
 
