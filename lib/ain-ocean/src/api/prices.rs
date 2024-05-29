@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use ain_dftx::price;
+
 use ain_macros::ocean_endpoint;
 use anyhow::anyhow;
 use axum::{
@@ -8,9 +8,8 @@ use axum::{
     routing::get,
     Extension, Router,
 };
-use bitcoin::Txid;
-use rust_decimal::{prelude::FromPrimitive, Decimal};
 use indexmap::IndexSet;
+use rust_decimal::{prelude::FromPrimitive, Decimal};
 
 use super::{
     common::split_key,
@@ -23,8 +22,8 @@ use crate::{
     model::{
         ApiResponseOraclePriceFeed, OracleIntervalSeconds, OraclePriceActive,
         OraclePriceAggregated, OraclePriceAggregatedAggregated, OraclePriceAggregatedApi,
-        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated, OraclePriceFeed,
-        OracleTokenCurrency, PriceOracles, PriceTicker, PriceTickerApi,
+        OraclePriceAggregatedInterval, OraclePriceAggregatedIntervalAggregated,
+        OracleTokenCurrency, PriceOracles, PriceTickerApi,
     },
     repository::RepositoryOps,
     storage::SortOrder,

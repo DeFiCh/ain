@@ -41,8 +41,12 @@ impl Column for PriceTickerKey {
         let total = i32::from_be_bytes(raw_key[0..4].try_into().unwrap());
         let height = u32::from_be_bytes(raw_key[4..8].try_into().unwrap());
         let currency_n = raw_key.len() - 3; // 3 letters of currency code
-        let token = std::str::from_utf8(&raw_key[8..currency_n]).map_err(|_| DBError::ParseKey)?.to_string();
-        let currency = std::str::from_utf8(&raw_key[currency_n..]).map_err(|_| DBError::ParseKey)?.to_string();
+        let token = std::str::from_utf8(&raw_key[8..currency_n])
+            .map_err(|_| DBError::ParseKey)?
+            .to_string();
+        let currency = std::str::from_utf8(&raw_key[currency_n..])
+            .map_err(|_| DBError::ParseKey)?
+            .to_string();
         Ok((total, height, token, currency))
     }
 }
@@ -50,4 +54,3 @@ impl Column for PriceTickerKey {
 impl TypedColumn for PriceTickerKey {
     type Type = model::PriceTickerId;
 }
-

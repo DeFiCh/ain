@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use ain_dftx::loans::SetLoanToken;
-use anyhow::anyhow;
 use rust_decimal::{
-    prelude::{FromPrimitive, Zero},
+    prelude::{Zero},
     Decimal,
 };
 
@@ -15,7 +14,7 @@ use crate::{
     },
     repository::RepositoryOps,
     storage::SortOrder,
-    Error, Services,
+    Services,
 };
 impl Index for SetLoanToken {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {

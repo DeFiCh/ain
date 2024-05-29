@@ -1,7 +1,7 @@
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
-use super::{ApiResponseOraclePriceFeed, BlockContext, OraclePriceFeed};
+use super::{ApiResponseOraclePriceFeed, BlockContext};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

@@ -1,7 +1,8 @@
-use crate::model;
 use ain_db::{Column, ColumnName, DBError, TypedColumn};
 use anyhow::format_err;
 use bitcoin::{hashes::Hash, BlockHash};
+
+use crate::model;
 
 #[derive(Debug)]
 pub struct PoolSwapAggregated;

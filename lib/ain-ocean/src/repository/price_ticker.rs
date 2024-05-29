@@ -18,7 +18,7 @@ pub struct PriceTickerRepository {
 }
 
 impl PriceTickerRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
+    pub fn new_id(store: Arc<OceanStore>) -> Self {
         Self {
             col: store.column(),
             store,
@@ -34,7 +34,7 @@ pub struct PriceTickerKeyRepository {
 }
 
 impl PriceTickerKeyRepository {
-    pub fn new(store: Arc<OceanStore>) -> Self {
+    pub fn new_key(store: Arc<OceanStore>) -> Self {
         Self {
             col: store.column(),
             store,

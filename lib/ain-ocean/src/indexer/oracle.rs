@@ -1,9 +1,7 @@
-use std::{collections::HashSet, str::FromStr, sync::Arc, vec};
+use std::{str::FromStr, sync::Arc, vec};
 
 use ain_dftx::{common::CompactVec, oracles::*};
-use anyhow::anyhow;
-use bitcoin::{hashes::Hash, Txid};
-use hyper::client::service;
+use bitcoin::Txid;
 use rust_decimal::{
     prelude::{FromPrimitive, ToPrimitive, Zero},
     Decimal,
@@ -11,7 +9,7 @@ use rust_decimal::{
 
 use crate::{
     error::NotFoundKind,
-    indexer::{oracle, Context, Index, Result},
+    indexer::{Context, Index, Result},
     model::{
         BlockContext, Oracle, OracleHistory, OracleIntervalSeconds, OraclePriceAggregated,
         OraclePriceAggregatedAggregated, OraclePriceAggregatedAggregatedOracles,
@@ -519,7 +517,12 @@ impl Index for SetOracleData {
                     value.block.height,
                 );
                 let price_ticker_id = (value.token.clone(), value.currency.clone());
-                let price_ticker_key = (value.aggregated.oracles.total, value.block.height, value.token.clone(), value.currency.clone());
+                let price_ticker_key = (
+                    value.aggregated.oracles.total,
+                    value.block.height,
+                    value.token.clone(),
+                    value.currency.clone(),
+                );
 
                 services
                     .oracle_price_aggregated
@@ -541,9 +544,7 @@ impl Index for SetOracleData {
                 services
                     .price_ticker
                     .by_key
-                    .put(
-                        &price_ticker_key,
-                        &price_ticker.id)?;
+                    .put(&price_ticker_key, &price_ticker.id)?;
                 services
                     .price_ticker
                     .by_id
@@ -585,7 +586,7 @@ impl Index for SetOracleData {
         let feeds = map_price_feeds(&set_oracle_data, context)?;
         let mut pairs: Vec<(String, String)> = Vec::new();
         for feed in feeds {
-            pairs.push((feed.token.clone(), feed.currency.clone()));    
+            pairs.push((feed.token.clone(), feed.currency.clone()));
             services.oracle_price_feed.by_id.delete(&feed.id)?;
             services.oracle_price_feed.by_key.delete(&feed.key)?;
         }

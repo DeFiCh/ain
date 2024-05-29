@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc, thread::current};
+use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use anyhow::anyhow;
@@ -9,7 +9,6 @@ use axum::{
 };
 use bitcoin::Txid;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
-use rust_decimal_macros::dec;
 
 use super::{
     common::split_key,
