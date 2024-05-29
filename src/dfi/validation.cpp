@@ -999,21 +999,19 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
         return;
     }
 
-    auto attributes = cache.GetAttributes();
-
     CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
-    if (!attributes->GetValue(activeKey, false)) {
+    if (!cache.GetValue(activeKey, false)) {
         return;
     }
 
     CDataStructureV0 samplingKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::LiquidityCalcSamplingPeriod};
-    const auto samplingPeriod = attributes->GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
+    const auto samplingPeriod = cache.GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
     if ((pindex->nHeight - consensus.DF23Height) % samplingPeriod != 0) {
         return;
     }
 
     CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::BlockPeriod};
-    const auto blockPeriod = attributes->GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
+    const auto blockPeriod = cache.GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
 
     const auto dusdToken = cache.GetToken("DUSD");
     if (!dusdToken) {
@@ -1129,7 +1127,7 @@ static auto GetLoanTokensForFutures(CCustomCSView &cache) {
                 }
 
                 tokenKey.typeId = attr.typeId;
-                const auto enabled = attributes.GetValue(tokenKey, true);
+                const auto enabled = cache.GetValue(tokenKey, true);
                 if (!enabled) {
                     return true;
                 }
@@ -2192,7 +2190,7 @@ static void MigrateV1Remnants(CCustomCSView &cache,
     cache.SetValue(attrKey, balances);
 }
 
-static Res GetTokenSuffix(CCustomCSView &view, const uint32_t id, std::string &newSuffix) {
+Res GetTokenSuffix(CCustomCSView &view, const uint32_t id, std::string &newSuffix) {
     CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
     if (view.CheckKey(ascendantKey)) {
         const auto &[previousID, str] =
@@ -2225,7 +2223,7 @@ static Res GetTokenSuffix(CCustomCSView &view, const uint32_t id, std::string &n
 
 template <typename T>
 static void UpdateOracleSplitKeys(const uint32_t id, CCustomCSView &view) {
-    std::map<CDataStructureV0, OracleSplits> updateAttributesKeys;
+    std::map<CDataStructureV0, T> updateAttributesKeys;
     view.ForEachAttribute(
         [&](const CDataStructureV0 &attr, const CAttributeValue &value) {
             if (attr.type != AttributeTypes::Oracles) {
@@ -2236,9 +2234,13 @@ static void UpdateOracleSplitKeys(const uint32_t id, CCustomCSView &view) {
                 return true;
             }
 
-            if (const auto splitMap = std::get_if<OracleSplits>(&value)) {
+            if (attr.key == OracleKeys::FractionalSplits) {
+                return true;
+            }
+
+            if (const auto splitMap = std::get_if<T>(&value)) {
                 for (auto [splitMapKey, splitMapValue] : *splitMap) {
-                    if (splitMapKey == oldTokenId.v) {
+                    if (splitMapKey == id) {
                         auto copyMap{*splitMap};
                         copyMap.erase(splitMapKey);
                         updateAttributesKeys.emplace(attr, copyMap);
@@ -2458,8 +2460,6 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
         UpdateOracleSplitKeys<OracleSplits>(oldTokenId.v, view);
         UpdateOracleSplitKeys<OracleSplits64>(oldTokenId.v, view);
 
-        view.SetVariable(attributes);
-
         // Migrate stored unlock
         if (pindex->nHeight >= consensus.DF20GrandCentralHeight) {
             bool updateStoredVar{};
@@ -2518,18 +2518,15 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     if (pindex->nHeight < consensus.DF16FortCanningCrunchHeight) {
         return;
     }
-    const auto attributes = cache.GetAttributes();
 
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
 
-    if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
-        attributes->EraseKey(splitKey);
-        cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx);
-    } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
-        attributes->EraseKey(splitKey);
-        cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx);
+    if (const auto splits32 = cache.GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+        cache.EraseKey(splitKey);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, splits32, blockCtx);
+    } else if (const auto splits64 = cache.GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+        cache.EraseKey(splitKey);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, splits64, blockCtx);
     }
 }
 
@@ -2913,7 +2910,7 @@ static void ProcessGrandCentralEvents(const CBlockIndex *pindex,
     }
 
     CDataStructureV0 key{AttributeTypes::Param, ParamIDs::Foundation, DFIPKeys::Members};
-    cache.SetValue(key, chainparams.GetConsensus().foundationMembers);
+    cache.SetValue(key, consensus.foundationMembers);
 }
 
 static void ProcessNullPoolSwapRefund(const CBlockIndex *pindex,
@@ -3231,8 +3228,7 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
         }
     }
 
-    auto attributes = cache->GetAttributes();
-    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+    auto stats = cache->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
 
     // Transfer out old token
     auto outAmount = CTokenAmount{{oldAmount.id}, static_cast<CAmount>(oldAmount.amount)};
@@ -3250,10 +3246,7 @@ bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmoun
     stats.evmIn.Add(inAmount);
     stats.evmCurrent.Add(inAmount);
 
-    attributes->SetValue(CTransferDomainStatsLive::Key, stats);
-    if (const auto res = cache->SetVariable(*attributes); !res) {
-        return res;
-    }
+    cache->SetValue(CTransferDomainStatsLive::Key, stats);
 
     return true;
 }

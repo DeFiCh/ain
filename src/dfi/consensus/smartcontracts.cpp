@@ -288,7 +288,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
     } else {
         if (height >= static_cast<uint32_t>(consensus.DF23Height) && !dfiToDUSD) {
             CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
-            const auto dfip11fEnabled = attributes->GetValue(activeKey, false);
+            const auto dfip11fEnabled = mnview.GetValue(activeKey, false);
             const auto dusdToken = mnview.GetToken("DUSD");
             if (!dusdToken) {
                 return Res::Err("No DUSD token defined");
@@ -300,7 +300,7 @@ Res CSmartContractsConsensus::operator()(const CFutureSwapMessage &obj) const {
                 CDataStructureV0 averageKey{
                     AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::AverageLiquidityPercentage};
                 const auto averageLiquidityPercentage =
-                    attributes->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
+                    mnview.GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
 
                 const auto maxSwapAmount = MultiplyAmounts(*averageLiquidity, averageLiquidityPercentage);
 

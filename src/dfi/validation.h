@@ -44,7 +44,7 @@ std::vector<CAuctionBatch> CollectAuctionBatches(const CVaultAssets &vaultAssets
                                                  const TAmounts &collBalances,
                                                  const TAmounts &loanBalances);
 
-Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix);
+Res GetTokenSuffix(CCustomCSView &view, const uint32_t id, std::string &newSuffix);
 
 bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount);
 Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount);

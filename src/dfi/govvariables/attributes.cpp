@@ -1415,19 +1415,6 @@ Res ATTRIBUTES::RefundFuturesDUSD(CCustomCSView &mnview, const uint32_t height) 
     return Res::Ok();
 }
 
-template <typename T>
-static Res SetOracleSplit(ATTRIBUTES &attributes, const CAttributeType &attribute, const T &splitValue) {
-    if (splitValue->size() != 1) {
-        return Res::Err("Invalid number of token splits, allowed only one per height!");
-    }
-
-    const auto &[id, multiplier] = *(splitValue->begin());
-    attributes.AddTokenSplit(id);
-    attributes.SetValue(attribute, *splitValue);
-
-    return Res::Ok();
-}
-
 Res ATTRIBUTES::Import(const UniValue &val) {
     if (!val.isObject()) {
         return DeFiErrors::GovVarImportObjectExpected();
@@ -1452,9 +1439,9 @@ Res ATTRIBUTES::Import(const UniValue &val) {
                         if (!splitValue64) {
                             return Res::Err("Failed to get Oracle split value");
                         }
-                        return SetOracleSplit(*this, attribute, splitValue64);
+                        return SetOracleSplit(attribute, splitValue64);
                     }
-                    return SetOracleSplit(*this, attribute, splitValue);
+                    return SetOracleSplit(attribute, splitValue);
                 } else if (attrV0->type == AttributeTypes::Param && attrV0->typeId == ParamIDs::Foundation &&
                            attrV0->key == DFIPKeys::Members) {
                     const auto members = std::get_if<std::set<CScript>>(&value);
@@ -1787,12 +1774,9 @@ UniValue ATTRIBUTES::Export() const {
 }
 
 template <typename T>
-static Res ValidateOracleSplits(const ATTRIBUTES &attributes,
-                                const CCustomCSView &view,
-                                const bool checkFractional,
-                                const T &splitMap) {
+static Res ValidateOracleSplits(CCustomCSView &view, const bool checkFractional, const T &splitMap) {
     CDataStructureV0 fractionalKey{AttributeTypes::Oracles, OracleIDs::Splits, OracleKeys::FractionalSplits};
-    const auto fractionalEnabled = attributes.GetValue(fractionalKey, bool{});
+    const auto fractionalEnabled = view.GetValue(fractionalKey, bool{});
 
     for (const auto &[tokenId, multiplier] : *splitMap) {
         if (tokenId == 0) {
@@ -1971,21 +1955,6 @@ Res ATTRIBUTES::Validate(const CCustomCSView &view) const {
                     if (attrV0->key == OracleKeys::FractionalSplits) {
                         if (view.GetLastHeight() < Params().GetConsensus().DF23Height) {
                             return Res::Err("Cannot be set before DF23Height");
-                        }
-                    } else {
-                        const auto splitMap = std::get_if<OracleSplits>(&value);
-                        if (splitMap) {
-                            if (auto res = ValidateOracleSplits(*this, view, false, splitMap); !res) {
-                                return res;
-                            }
-                        } else {
-                            const auto splitMap64 = std::get_if<OracleSplits64>(&value);
-                            if (!splitMap64) {
-                                return DeFiErrors::GovVarUnsupportedValue();
-                            }
-                            if (auto res = ValidateOracleSplits(*this, view, true, splitMap64); !res) {
-                                return res;
-                            }
                         }
                     }
                 } else {
@@ -2381,6 +2350,16 @@ Res ATTRIBUTES::Apply(CCustomCSView &mnview, const uint32_t height) {
             const auto value64 = std::get_if<OracleSplits64>(&attribute.second);
             if (!value && !value64) {
                 return DeFiErrors::GovVarUnsupportedValue();
+            }
+
+            if (value) {
+                if (auto res = ValidateOracleSplits(mnview, false, value); !res) {
+                    return res;
+                }
+            } else {
+                if (auto res = ValidateOracleSplits(mnview, true, value64); !res) {
+                    return res;
+                }
             }
 
             for (const auto split : tokenSplits) {

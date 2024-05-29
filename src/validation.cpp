@@ -3326,12 +3326,12 @@ bool CChainState::ConnectBlock(const CBlock &block,
     bool isSplitsBlock{};
     CDataStructureV0 splitKey{AttributeTypes::Oracles, OracleIDs::Splits, static_cast<uint32_t>(pindex->nHeight)};
 
-    if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
+    if (const auto splits32 = accountsView.GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
         if (!GetTokenMigrationCreationTxs(accountsView, block, pindex, splits32, creationTxs, state)) {
             return false;
         }
         isSplitsBlock = true;
-    } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
+    } else if (const auto splits64 = accountsView.GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
         if (!GetTokenMigrationCreationTxs(accountsView, block, pindex, splits64, creationTxs, state)) {
             return false;
         }

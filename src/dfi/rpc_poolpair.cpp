@@ -1428,10 +1428,8 @@ UniValue listloantokenliquidity(const JSONRPCRequest &request) {
     UniValue ret(UniValue::VARR);
     const auto height = ::ChainActive().Height();
 
-    const auto attributes = pcustomcsview->GetAttributes();
-
     CDataStructureV0 averageKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::AverageLiquidityPercentage};
-    const auto averageLiquidityPercentage = attributes->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
+    const auto averageLiquidityPercentage = pcustomcsview->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
 
     const auto dusdToken = pcustomcsview->GetToken("DUSD");
     if (!dusdToken) {

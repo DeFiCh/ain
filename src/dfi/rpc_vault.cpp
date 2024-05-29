@@ -350,9 +350,8 @@ UniValue createvault(const JSONRPCRequest &request) {
     {
         LOCK(cs_main);
         targetHeight = ::ChainActive().Height() + 1;
-        const auto attributes = pcustomcsview->GetAttributes();
         const CDataStructureV0 creationFeeKey{AttributeTypes::Vaults, VaultIDs::Parameters, VaultKeys::CreationFee};
-        vaultCreationFee = attributes->GetValue(creationFeeKey, Params().GetConsensus().vaultCreationFee);
+        vaultCreationFee = pcustomcsview->GetValue(creationFeeKey, Params().GetConsensus().vaultCreationFee);
     }
 
     CDataStream metadata(DfTxMarker, SER_NETWORK, PROTOCOL_VERSION);

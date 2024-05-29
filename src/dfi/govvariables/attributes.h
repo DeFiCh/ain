@@ -5,7 +5,7 @@
 #ifndef DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
 #define DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
 
-#include <dfi/govvariables/attributetypes.h>
+#include <dfi/govvariables/attributetypes.h>  /// DeFiErrors
 #include <dfi/gv.h>
 
 class CBlockIndex;
@@ -174,6 +174,18 @@ private:
     [[nodiscard]] std::optional<CLoanView::CLoanSetLoanTokenImpl> GetLoanTokenByID(const CCustomCSView &view,
                                                                                    const DCT_ID &id) const;
     [[nodiscard]] bool IsChanged() const { return !changed.empty(); }
+    void AddTokenSplit(const uint32_t tokenID) { tokenSplits.insert(tokenID); }
+
+    template <typename T>
+    Res SetOracleSplit(const CAttributeType &key, const T &splitValue) {
+        if (splitValue->size() != 1) {
+            return Res::Err("Invalid number of token splits, allowed only one per height!");
+        }
+        const auto &[id, multiplier] = *(splitValue->begin());
+        AddTokenSplit(id);
+        SetValue(key, *splitValue);
+        return Res::Ok();
+    }
 };
 
 #endif  // DEFI_DFI_GOVVARIABLES_ATTRIBUTES_H
