@@ -5,7 +5,6 @@ use ethereum_types::{Bloom, H160, H256, U256};
 use evm::{
     backend::{ApplyBackend, Backend},
     executor::stack::{MemoryStackState, StackExecutor, StackSubstateMetadata},
-    gasometer::tracing::using as gas_using,
     Config, CreateScheme, ExitReason,
 };
 use evm_runtime::tracing::using as runtime_using;
@@ -24,7 +23,7 @@ use crate::{
         rename_contract_tx, DeployContractInfo,
     },
     core::EVMCoreService,
-    eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
+    eventlistener::StorageAccessListener,
     evm::BlockContext,
     fee::{calculate_current_prepay_gas_fee, calculate_gas_fee},
     precompiles::MetachainPrecompiles,
@@ -35,7 +34,7 @@ use crate::{
         },
         SignedTx,
     },
-    EVMError, Result,
+    Result,
 };
 
 pub struct AccessListInfo {
@@ -257,75 +256,6 @@ impl<'backend> AinExecutor<'backend> {
         ))
     }
 
-    /// Execute tx with tracer
-    pub fn exec_with_tracer(
-        &mut self,
-        signed_tx: &SignedTx,
-        gas_limit: U256,
-        system_tx: bool,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        self.backend.update_vicinity_from_tx(signed_tx)?;
-        trace!(
-            "[Executor] Executing trace EVM TX with vicinity : {:?}",
-            self.backend.vicinity
-        );
-        // TODO: Buggy, to be removed in tracer revamp fixes.
-        let to = signed_tx.to().ok_or(format_err!(
-            "debug_traceTransaction does not support contract creation transactions",
-        ))?;
-        let ctx = ExecutorContext {
-            caller: signed_tx.sender,
-            to: Some(to),
-            value: signed_tx.value(),
-            data: signed_tx.data(),
-            gas_limit: u64::try_from(gas_limit).unwrap_or(u64::MAX), // Sets to u64 if overflows
-            access_list: signed_tx.access_list(),
-        };
-        let access_list = ctx
-            .access_list
-            .into_iter()
-            .map(|x| (x.address, x.storage_keys))
-            .collect::<Vec<_>>();
-        let al = access_list.clone();
-
-        let metadata = StackSubstateMetadata::new(ctx.gas_limit, &Self::CONFIG);
-        let gas_state = MemoryStackState::new(metadata.clone(), self.backend);
-        let precompiles = MetachainPrecompiles::default();
-        let mut gas_executor =
-            StackExecutor::new_with_precompiles(gas_state, &Self::CONFIG, &precompiles);
-        let mut gas_listener = GasListener::new();
-        gas_using(&mut gas_listener, move || {
-            gas_executor.transact_call(
-                ctx.caller,
-                to,
-                ctx.value,
-                ctx.data.to_vec(),
-                ctx.gas_limit,
-                al,
-            );
-        });
-
-        let state = MemoryStackState::new(metadata, self.backend);
-        let mut executor = StackExecutor::new_with_precompiles(state, &Self::CONFIG, &precompiles);
-        let mut listener = ExecListener::new(gas_listener.gas, gas_listener.gas_cost);
-        let (exec_flag, data, used_gas) = runtime_using(&mut listener, move || {
-            let (exit_reason, data) = executor.transact_call(
-                ctx.caller,
-                to,
-                ctx.value,
-                ctx.data.to_vec(),
-                ctx.gas_limit,
-                access_list,
-            );
-            if !exit_reason.is_succeed() {
-                debug!("failed VM execution {:?}", exit_reason);
-            }
-            let used_gas = if system_tx { 0u64 } else { executor.used_gas() };
-            Ok::<_, EVMError>((exit_reason.is_succeed(), data, used_gas))
-        })?;
-        Ok((listener.trace, exec_flag, data, used_gas))
-    }
-
     /// Execute tx with storage access listener
     pub fn exec_access_list(&self, ctx: ExecutorContext) -> Result<AccessListInfo> {
         let access_list = ctx
@@ -443,6 +373,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
+                    exec_flag: tx_response.exit_reason.is_succeed(),
                     used_gas: U256::from(tx_response.used_gas),
                     logs: tx_response.logs,
                     gas_fee,
@@ -526,6 +457,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
+                    exec_flag: true,
                     used_gas: U256::zero(),
                     logs: tx_response.logs,
                     gas_fee: U256::zero(),
@@ -597,6 +529,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx: signed_tx,
+                    exec_flag: true,
                     used_gas: U256::zero(),
                     logs: tx_response.logs,
                     gas_fee: U256::zero(),
@@ -625,6 +558,7 @@ impl<'backend> AinExecutor<'backend> {
 
                 Ok(ApplyTxResult {
                     tx,
+                    exec_flag: true,
                     used_gas: U256::zero(),
                     logs: Vec::new(),
                     gas_fee: U256::zero(),
@@ -653,76 +587,8 @@ impl<'backend> AinExecutor<'backend> {
                     logs: Vec::new(),
                     gas_fee: U256::zero(),
                     receipt: (receipt, Some(address)),
+                    exec_flag: true,
                 })
-            }
-        }
-    }
-
-    /// System tx execution
-    pub fn execute_tx_with_tracer(
-        &mut self,
-        tx: ExecuteTx,
-    ) -> Result<(Vec<ExecutionStep>, bool, Vec<u8>, u64)> {
-        // Handle state dependent system txs
-        match tx {
-            ExecuteTx::SignedTx(signed_tx) => {
-                self.exec_with_tracer(&signed_tx, signed_tx.gas_limit(), false)
-            }
-            ExecuteTx::SystemTx(SystemTx::TransferDomain(TransferDomainData {
-                signed_tx,
-                direction,
-            })) => {
-                if direction == TransferDirection::EvmIn {
-                    let FixedContract {
-                        contract,
-                        fixed_address,
-                        ..
-                    } = get_transfer_domain_contract();
-                    let mismatch = match self.backend.get_account(&fixed_address) {
-                        None => false,
-                        Some(account) => account.code_hash != contract.codehash,
-                    };
-                    if mismatch {
-                        return Err(format_err!("[exec_with_trace] tx trace execution failed as transferdomain account codehash mismatch").into());
-                    }
-                    let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[68..100]);
-                    let storage = bridge_dfi(self.backend, amount, TransferDirection::EvmIn)?;
-                    self.update_storage(fixed_address, storage)?;
-                    self.add_balance(fixed_address, amount)?;
-                }
-                self.exec_with_tracer(&signed_tx, U256::MAX, true)
-            }
-            ExecuteTx::SystemTx(SystemTx::DST20Bridge(DST20Data {
-                signed_tx,
-                contract_address,
-                direction,
-            })) => {
-                if direction == TransferDirection::EvmIn {
-                    let input = signed_tx.data();
-                    let amount = U256::from_big_endian(&input[100..132]);
-                    let DST20BridgeInfo { address, storage } =
-                        bridge_dst20_in(self.backend, contract_address, amount)?;
-                    self.update_storage(address, storage)?;
-                    let allowance =
-                        dst20_allowance(TransferDirection::EvmIn, signed_tx.sender, amount);
-                    self.update_storage(contract_address, allowance)?;
-                }
-                self.exec_with_tracer(&signed_tx, U256::MAX, true)
-            }
-            ExecuteTx::SystemTx(SystemTx::DeployContract(_)) => {
-                // TODO: running trace on DST20 deployment txs will be buggy at the moment as these custom system txs
-                // are never executed on the VM. More thought has to be placed into how we can do accurate traces on
-                // the custom system txs related to DST20 tokens, since these txs are state injections on execution.
-                // For now, empty execution step with a successful execution trace is returned.
-                Ok((vec![], true, vec![], 0u64))
-            }
-            ExecuteTx::SystemTx(SystemTx::UpdateContractName(_)) => {
-                // TODO: running trace on DST20 update txs will be buggy at the moment as these custom system txs
-                // are never executed on the VM. More thought has to be placed into how we can do accurate traces on
-                // the custom system txs related to DST20 tokens, since these txs are state injections on execution.
-                // For now, empty execution step with a successful execution trace is returned.
-                Ok((vec![], true, vec![], 0u64))
             }
         }
     }
@@ -731,6 +597,7 @@ impl<'backend> AinExecutor<'backend> {
 #[derive(Debug)]
 pub struct ApplyTxResult {
     pub tx: Box<SignedTx>,
+    pub exec_flag: bool,
     pub used_gas: U256,
     pub logs: Vec<Log>,
     pub gas_fee: U256,
