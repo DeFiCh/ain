@@ -102,7 +102,9 @@ impl StackSet {
 }
 
 pub async fn get_token_identifier(ctx: &Arc<AppContext>, id: &str) -> Result<TokenIdentifier> {
-    let (id, token) = get_token_cached(ctx, id).await?.ok_or(Error::NotFound(NotFoundKind::Token))?;
+    let (id, token) = get_token_cached(ctx, id)
+        .await?
+        .ok_or(Error::NotFound(NotFoundKind::Token))?;
     Ok(TokenIdentifier {
         id,
         display_symbol: parse_dat_symbol(&token.symbol),

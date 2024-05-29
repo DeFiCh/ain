@@ -49,19 +49,18 @@ pub async fn get_token_cached(
     Ok(token)
 }
 
-pub async fn list_token_cached(
-    ctx: &Arc<AppContext>,
-) -> Result<TokenResult> {
+pub async fn list_token_cached(ctx: &Arc<AppContext>) -> Result<TokenResult> {
     let tokens = ctx
         .client
         .list_tokens(
-            Some(TokenPagination{
+            Some(TokenPagination {
                 start: 0,
                 including_start: true,
                 limit: 1000,
-                }),
-            Some(true))
-            .await?;
+            }),
+            Some(true),
+        )
+        .await?;
 
     Ok(tokens)
 }

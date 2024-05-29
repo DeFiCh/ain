@@ -71,7 +71,7 @@ async fn get_total_liquidity_usd_by_best_path(
 ) -> Result<Decimal> {
     let usdt = get_token_cached(ctx, "USDT").await?;
     if usdt.is_none() {
-        return Ok(dec!(0))
+        return Ok(dec!(0));
     };
 
     let (usdt_id, _) = usdt.unwrap();

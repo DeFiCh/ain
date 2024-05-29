@@ -43,8 +43,8 @@ use path::{
     SwapPathsResponse,
 };
 
-use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 use price::DexPriceResponse;
+use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
 
 pub mod path;
 pub mod price;
