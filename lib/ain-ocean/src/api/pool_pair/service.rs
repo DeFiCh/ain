@@ -397,7 +397,7 @@ pub async fn get_apr(
     id: &String,
     p: &PoolPairInfo,
 ) -> Result<PoolPairAprResponse> {
-    let custom_usd = get_yearly_custom_reward_usd(ctx, p).await?; // 0
+    let custom_usd = get_yearly_custom_reward_usd(ctx, p).await?;
     let pct_usd = get_yearly_reward_pct_usd(ctx, p).await?;
     let loan_usd = get_yearly_reward_loan_usd(ctx, id).await?;
     let total_liquidity_usd = get_total_liquidity_usd(ctx, p).await?;
