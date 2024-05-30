@@ -397,24 +397,20 @@ pub async fn get_apr(
     id: &String,
     p: &PoolPairInfo,
 ) -> Result<Option<PoolPairAprResponse>> {
-    let custom_usd = get_yearly_custom_reward_usd(ctx, p).await?;
+    let custom_usd = get_yearly_custom_reward_usd(ctx, p).await?; // 0
     let pct_usd = get_yearly_reward_pct_usd(ctx, p).await?;
     let loan_usd = get_yearly_reward_loan_usd(ctx, id).await?;
     let total_liquidity_usd = get_total_liquidity_usd(ctx, p).await?;
-
-    if custom_usd.is_zero()
-        || pct_usd.is_zero()
-        || loan_usd.is_zero()
-        || total_liquidity_usd.is_zero()
-    {
-        return Ok(None);
-    };
 
     let yearly_usd = custom_usd
         .checked_add(pct_usd)
         .ok_or_else(|| Error::OverflowError)?
         .checked_add(loan_usd)
         .ok_or_else(|| Error::OverflowError)?;
+
+    if yearly_usd.is_zero() {
+        return Ok(None)
+    };
 
     // 1 == 100%, 0.1 = 10%
     let reward = yearly_usd
