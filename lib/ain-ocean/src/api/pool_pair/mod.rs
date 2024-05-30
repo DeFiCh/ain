@@ -209,7 +209,7 @@ pub struct PoolPairResponse {
     reward_loan_pct: String,
     custom_rewards: Option<Vec<String>>,
     creation: PoolPairCreationResponse,
-    apr: Option<PoolPairAprResponse>,
+    apr: PoolPairAprResponse,
     volume: PoolPairVolumeResponse,
 }
 
@@ -220,7 +220,7 @@ impl PoolPairResponse {
         a_token_name: String,
         b_token_name: String,
         total_liquidity_usd: Decimal,
-        apr: Option<PoolPairAprResponse>,
+        apr: PoolPairAprResponse,
         volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();

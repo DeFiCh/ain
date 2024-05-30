@@ -396,7 +396,7 @@ pub async fn get_apr(
     ctx: &Arc<AppContext>,
     id: &String,
     p: &PoolPairInfo,
-) -> Result<Option<PoolPairAprResponse>> {
+) -> Result<PoolPairAprResponse> {
     let custom_usd = get_yearly_custom_reward_usd(ctx, p).await?; // 0
     let pct_usd = get_yearly_reward_pct_usd(ctx, p).await?;
     let loan_usd = get_yearly_reward_loan_usd(ctx, id).await?;
@@ -409,7 +409,7 @@ pub async fn get_apr(
         .ok_or_else(|| Error::OverflowError)?;
 
     if yearly_usd.is_zero() {
-        return Ok(None)
+        return Ok(PoolPairAprResponse::default())
     };
 
     // 1 == 100%, 0.1 = 10%
@@ -426,11 +426,11 @@ pub async fn get_apr(
         .checked_add(commission)
         .ok_or_else(|| Error::OverflowError)?;
 
-    Ok(Some(PoolPairAprResponse {
+    Ok(PoolPairAprResponse {
         reward,
         commission,
         total,
-    }))
+    })
 }
 
 async fn get_pool_pair(ctx: &Arc<AppContext>, a: &str, b: &str) -> Result<Option<PoolPairInfo>> {
