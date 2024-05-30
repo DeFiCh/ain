@@ -3,7 +3,7 @@ pub mod loan_token;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
-mod pool;
+pub mod pool;
 pub mod transaction;
 pub mod tx_result;
 
@@ -12,7 +12,7 @@ use std::{sync::Arc, time::Instant};
 use ain_dftx::{deserialize, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
-pub use pool::AGGREGATED_INTERVALS;
+pub use pool::{AGGREGATED_INTERVALS, PoolSwapAggregatedInterval};
 
 use crate::{
     index_transaction,

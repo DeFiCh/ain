@@ -1,9 +1,10 @@
-use std::{str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{format_err, Context};
 use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
+use serde::Serialize;
 
 use super::{AppContext, PoolPairAprResponse};
 use crate::{
@@ -12,9 +13,18 @@ use crate::{
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{Error, NotFoundKind},
+    indexer::PoolSwapAggregatedInterval,
     model::PoolSwapAggregatedAggregated,
+    repository::{RepositoryOps, SecondaryIndex},
+    storage::SortOrder,
     Result,
 };
+
+#[derive(Serialize, Debug, Clone, Default)]
+pub struct PoolPairVolumeResponse {
+    pub d30: Decimal,
+    pub h24: Decimal,
+}
 
 async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
     let usdt = get_pool_pair_cached(ctx, "USDT-DFI".to_string()).await?;
@@ -306,18 +316,77 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
         .ok_or_else(|| Error::OverflowError)
 }
 
-// TODO(): poolswap aggregate required
-async fn get_usd_volume(id: &String) -> Result<Decimal> {
-    println!("id: {:?}", id);
-    Ok(dec!(0))
+async fn gather_amount(ctx: &Arc<AppContext>, pool_id: u32, interval: u32, count: usize) -> Result<Decimal> {
+    let repository = &ctx.services.pool_swap_aggregated;
+
+    let swaps = repository
+        .by_key
+        .list(Some((pool_id, interval, i64::MAX)), SortOrder::Descending)?
+        .take(count)
+        .take_while(|item| match item {
+            Ok((k, _)) => k.0 == pool_id && k.1 == interval,
+            _ => true,
+        })
+        .map(|e| repository.by_key.retrieve_primary_value(e))
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut aggregated = HashMap::<String, Decimal>::new();
+
+    for swap in swaps {
+        let token_ids = swap.aggregated.amounts.keys();
+        for token_id in token_ids {
+            let from_amount = swap
+                .aggregated
+                .amounts
+                .get(token_id)
+                .map(|amt| Decimal::from_str(amt))
+                .transpose()?
+                .unwrap_or(dec!(0));
+
+            let amount = if let Some(amount) = aggregated.get(token_id) {
+                amount.checked_add(from_amount).ok_or(Error::OverflowError)?
+            } else {
+                from_amount
+            };
+
+            aggregated.insert(token_id.to_string(), amount);
+        }
+    }
+
+    let mut volume = dec!(0);
+
+    for token_id in aggregated.keys() {
+        let token_price = get_token_usd_value(ctx, token_id).await?;
+        let amount = aggregated
+            .get(token_id)
+            .cloned()
+            .unwrap_or(dec!(0));
+        volume = volume
+            .checked_add(
+                token_price
+                .checked_mul(amount)
+                .ok_or(Error::OverflowError)?
+            )
+            .ok_or(Error::OverflowError)?;
+    }
+
+   Ok(volume)
+}
+
+pub async fn get_usd_volume(ctx: &Arc<AppContext>, id: &str) -> Result<PoolPairVolumeResponse> {
+    let pool_id = id.parse::<u32>()?;
+    Ok(PoolPairVolumeResponse {
+        h24: gather_amount(ctx, pool_id, PoolSwapAggregatedInterval::OneHour as u32, 24).await?,
+        d30: gather_amount(ctx, pool_id, PoolSwapAggregatedInterval::OneDay as u32, 30).await?,
+    })
 }
 
 /// Estimate yearly commission rate by taking 24 hour commission x 365 days
-async fn get_yearly_commission_estimate(id: &String, p: &PoolPairInfo) -> Result<Decimal> {
-    let volume = get_usd_volume(id).await?;
+async fn get_yearly_commission_estimate(ctx: &Arc<AppContext>, id: &str, p: &PoolPairInfo) -> Result<Decimal> {
+    let volume = get_usd_volume(ctx, id).await?;
     let commission = Decimal::from_f64(p.commission).unwrap_or_default();
     commission
-        .checked_mul(volume)
+        .checked_mul(volume.h24)
         .ok_or_else(|| Error::OverflowError)?
         .checked_mul(dec!(365))
         .ok_or_else(|| Error::OverflowError)
@@ -352,7 +421,7 @@ pub async fn get_apr(
         .checked_div(total_liquidity_usd)
         .ok_or_else(|| Error::UnderflowError)?;
 
-    let yearly_commission = get_yearly_commission_estimate(id, p).await?;
+    let yearly_commission = get_yearly_commission_estimate(ctx, id, p).await?;
     let commission = yearly_commission
         .checked_div(total_liquidity_usd)
         .ok_or_else(|| Error::UnderflowError)?;

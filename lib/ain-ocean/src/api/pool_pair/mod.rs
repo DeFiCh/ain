@@ -24,7 +24,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd};
+use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse};
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached},
@@ -191,12 +191,6 @@ pub struct PoolPairAprResponse {
 }
 
 #[derive(Serialize, Debug, Clone, Default)]
-struct PoolPairVolumeResponse {
-    d30: f64,
-    h24: f64,
-}
-
-#[derive(Serialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolPairResponse {
     id: String,
@@ -216,7 +210,7 @@ pub struct PoolPairResponse {
     custom_rewards: Option<Vec<String>>,
     creation: PoolPairCreationResponse,
     apr: Option<PoolPairAprResponse>,
-    volume: Option<PoolPairVolumeResponse>,
+    volume: PoolPairVolumeResponse,
 }
 
 impl PoolPairResponse {
@@ -226,6 +220,8 @@ impl PoolPairResponse {
         a_token_name: String,
         b_token_name: String,
         total_liquidity_usd: Decimal,
+        apr: Option<PoolPairAprResponse>,
+        volume: PoolPairVolumeResponse,
     ) -> Result<Self> {
         let parts = p.symbol.split('-').collect::<Vec<&str>>();
         let [a, b] = <[&str; 2]>::try_from(parts)
@@ -283,8 +279,8 @@ impl PoolPairResponse {
                 tx: p.creation_tx,
                 height: p.creation_height,
             },
-            apr: None,    // todo: await this.poolPairService.getAPR(id, info)
-            volume: None, // todo: await this.poolPairService.getUSDVolume(id)
+            apr,
+            volume,
         })
     }
 }
@@ -329,13 +325,16 @@ async fn list_pool_pairs(
                 .ok_or(format_err!("None is not valid"))?;
 
             let total_liquidity_usd = get_total_liquidity_usd(&ctx, &p).await?;
-            let _apr = get_apr(&ctx, &id, &p).await?;
+            let apr = get_apr(&ctx, &id, &p).await?;
+            let volume = get_usd_volume(&ctx, &id).await?;
             let res = PoolPairResponse::from_with_id(
                 id,
                 p,
                 a_token_name,
                 b_token_name,
                 total_liquidity_usd,
+                apr,
+                volume,
             )?;
             Ok::<PoolPairResponse, Error>(res)
         })
@@ -355,7 +354,8 @@ async fn get_pool_pair(
 ) -> Result<Response<Option<PoolPairResponse>>> {
     if let Some((id, pool)) = get_pool_pair_cached(&ctx, id).await? {
         let total_liquidity_usd = get_total_liquidity_usd(&ctx, &pool).await?;
-        let _apr = get_apr(&ctx, &id, &pool).await?;
+        let apr = get_apr(&ctx, &id, &pool).await?;
+        let volume = get_usd_volume(&ctx, &id).await?;
         let (
             _,
             TokenInfo {
@@ -378,6 +378,8 @@ async fn get_pool_pair(
             a_token_name,
             b_token_name,
             total_liquidity_usd,
+            apr,
+            volume,
         )?;
         return Ok(Response::new(Some(res)));
     };
