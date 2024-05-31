@@ -275,7 +275,11 @@ fn all_simple_paths(
     Ok(paths)
 }
 
-fn get_dex_fees_pct(pool_pair_info: PoolPairInfo, from_token_id: &String, to_token_id: &String) -> Option<EstimatedDexFeesInPct> {
+fn get_dex_fees_pct(
+    pool_pair_info: PoolPairInfo,
+    from_token_id: &String,
+    to_token_id: &String,
+) -> Option<EstimatedDexFeesInPct> {
     let PoolPairInfo {
         id_token_a,
         id_token_b,
@@ -298,8 +302,12 @@ fn get_dex_fees_pct(pool_pair_info: PoolPairInfo, from_token_id: &String, to_tok
         "in"
     };
 
-    if dex_fee_in_pct_token_a.is_none() && dex_fee_out_pct_token_a.is_none() && dex_fee_in_pct_token_b.is_none() && dex_fee_out_pct_token_b.is_none() {
-        return None
+    if dex_fee_in_pct_token_a.is_none()
+        && dex_fee_out_pct_token_a.is_none()
+        && dex_fee_in_pct_token_b.is_none()
+        && dex_fee_out_pct_token_b.is_none()
+    {
+        return None;
     }
 
     Some(EstimatedDexFeesInPct {
@@ -357,7 +365,8 @@ pub async fn compute_paths_between_tokens(
 
             let (_, pool_pair_info) = pool.unwrap();
 
-            let estimated_dex_fees_in_pct = get_dex_fees_pct(pool_pair_info.clone(), from_token_id, to_token_id);
+            let estimated_dex_fees_in_pct =
+                get_dex_fees_pct(pool_pair_info.clone(), from_token_id, to_token_id);
 
             let PoolPairInfo {
                 symbol,

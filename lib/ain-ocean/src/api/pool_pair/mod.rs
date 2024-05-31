@@ -15,13 +15,11 @@ use defichain_rpc::{
 };
 use futures::future::try_join_all;
 use path::{
-    compute_return_less_dex_fees_in_destination_token, get_all_swap_paths, get_token_identifier,
-    sync_token_graph_if_empty, BestSwapPathResponse, EstimatedLessDexFeeInfo, SwapPathPoolPair,
+    get_all_swap_paths, get_token_identifier, sync_token_graph_if_empty, BestSwapPathResponse,
     SwapPathsResponse,
 };
 use petgraph::graphmap::UnGraphMap;
 use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use service::{
@@ -30,7 +28,7 @@ use service::{
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached},
-    common::{format_number, parse_dat_symbol},
+    common::parse_dat_symbol,
     path::Path,
     query::{PaginationQuery, Query},
     response::{ApiPagedResponse, Response},
@@ -619,50 +617,8 @@ async fn get_best_path(
     Path((from_token_id, to_token_id)): Path<(String, String)>,
     Extension(ctx): Extension<Arc<AppContext>>,
 ) -> Result<Response<BestSwapPathResponse>> {
-    let SwapPathsResponse {
-        from_token,
-        to_token,
-        paths,
-    } = get_all_swap_paths(&ctx, &from_token_id, &to_token_id).await?;
-
-    let mut best_path = Vec::<SwapPathPoolPair>::new();
-    let mut best_return = dec!(0);
-    let mut best_return_less_dex_fees = dec!(0);
-
-    for path in paths {
-        let path_len = path.len();
-        let EstimatedLessDexFeeInfo {
-            estimated_return,
-            estimated_return_less_dex_fees,
-        } = compute_return_less_dex_fees_in_destination_token(&path, &from_token_id).await?;
-
-        if path_len == 1 {
-            return Ok(Response::new(BestSwapPathResponse {
-                from_token,
-                to_token,
-                best_path: path,
-                estimated_return: format_number(estimated_return),
-                estimated_return_less_dex_fees: format_number(estimated_return_less_dex_fees),
-            }));
-        };
-
-        if estimated_return > best_return {
-            best_return = estimated_return;
-        }
-
-        if estimated_return_less_dex_fees > best_return_less_dex_fees {
-            best_return_less_dex_fees = estimated_return_less_dex_fees;
-            best_path = path;
-        };
-    }
-
-    Ok(Response::new(BestSwapPathResponse {
-        from_token,
-        to_token,
-        best_path,
-        estimated_return: format_number(best_return),
-        estimated_return_less_dex_fees: format_number(best_return_less_dex_fees),
-    }))
+    let res = path::get_best_path(&ctx, &from_token_id, &to_token_id).await?;
+    Ok(Response::new(res))
 }
 
 #[ocean_endpoint]
