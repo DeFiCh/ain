@@ -515,6 +515,7 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
             if !graph.lock().contains_edge(id_token_a, id_token_b) {
                 graph.lock().add_edge(id_token_a, id_token_b, k);
             }
+            log::debug!("sync_token_graph edges: {:?}", graph.lock().edge_count());
         }
 
         // wait 120s
