@@ -34,6 +34,7 @@ pub use oracle_token_currency::*;
 pub use poolswap::*;
 pub use poolswap_aggregated::*;
 pub use price_ticker::*;
+pub use raw_tx::*;
 // pub use raw_block::*;
 // pub use script_activity::*;
 // pub use script_aggregation::*;

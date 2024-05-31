@@ -20,6 +20,7 @@ use path::{
     SwapPathsResponse,
 };
 use petgraph::graphmap::UnGraphMap;
+use price::DexPriceResponse;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -41,8 +42,6 @@ use crate::{
     storage::SortOrder,
     Result, TokenIdentifier,
 };
-
-use price::DexPriceResponse;
 
 pub mod path;
 pub mod price;
