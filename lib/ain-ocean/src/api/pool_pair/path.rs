@@ -17,6 +17,11 @@ use crate::{
     Error, Result, TokenIdentifier,
 };
 
+enum TokenDirection {
+    In,
+    Out
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PriceRatio {
@@ -291,15 +296,15 @@ fn get_dex_fees_pct(
     } = pool_pair_info;
 
     let token_a_direction = if id_token_a == *from_token_id {
-        "in"
+        TokenDirection::In
     } else {
-        "out"
+        TokenDirection::Out
     };
 
     let token_b_direction = if id_token_b == *to_token_id {
-        "out"
+        TokenDirection::Out
     } else {
-        "in"
+        TokenDirection::In
     };
 
     if dex_fee_in_pct_token_a.is_none()
@@ -311,16 +316,14 @@ fn get_dex_fees_pct(
     }
 
     Some(EstimatedDexFeesInPct {
-        ba: if token_a_direction == "in" {
-            format!("{:.8}", dex_fee_in_pct_token_a.unwrap_or_default())
-        } else {
-            format!("{:.8}", dex_fee_out_pct_token_a.unwrap_or_default())
+        ba: match token_a_direction {
+            TokenDirection::In => format!("{:.8}", dex_fee_in_pct_token_a.unwrap_or_default()),
+            TokenDirection::Out => format!("{:.8}", dex_fee_out_pct_token_a.unwrap_or_default()),
         },
-        ab: if token_b_direction == "in" {
-            format!("{:.8}", dex_fee_in_pct_token_b.unwrap_or_default())
-        } else {
-            format!("{:.8}", dex_fee_out_pct_token_b.unwrap_or_default())
-        },
+        ab: match token_b_direction {
+            TokenDirection::In => format!("{:.8}", dex_fee_in_pct_token_b.unwrap_or_default()),
+            TokenDirection::Out => format!("{:.8}", dex_fee_out_pct_token_b.unwrap_or_default()),
+        }
     })
 }
 
