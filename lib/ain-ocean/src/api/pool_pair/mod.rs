@@ -244,7 +244,7 @@ impl PoolPairResponse {
                 name: a_token_name,
                 reserve: p.reserve_a.to_string(),
                 block_commission: p.block_commission_a.to_string(),
-                fee: p.dex_fee_in_pct_token_a.map(|_| PoolPairFeeResponse {
+                fee: p.dex_fee_pct_token_a.map(|_| PoolPairFeeResponse {
                     pct: p.dex_fee_pct_token_a.map(|fee| fee.to_string()),
                     in_pct: p.dex_fee_in_pct_token_a.map(|fee| fee.to_string()),
                     out_pct: p.dex_fee_out_pct_token_a.map(|fee| fee.to_string()),
@@ -257,7 +257,7 @@ impl PoolPairResponse {
                 name: b_token_name,
                 reserve: p.reserve_b.to_string(),
                 block_commission: p.block_commission_b.to_string(),
-                fee: p.dex_fee_in_pct_token_b.map(|_| PoolPairFeeResponse {
+                fee: p.dex_fee_pct_token_b.map(|_| PoolPairFeeResponse {
                     pct: p.dex_fee_pct_token_b.map(|fee| fee.to_string()),
                     in_pct: p.dex_fee_in_pct_token_b.map(|fee| fee.to_string()),
                     out_pct: p.dex_fee_out_pct_token_b.map(|fee| fee.to_string()),
