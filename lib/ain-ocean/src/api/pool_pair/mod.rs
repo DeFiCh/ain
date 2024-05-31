@@ -24,7 +24,9 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use service::{get_aggregated_in_usd, get_apr, get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse};
+use service::{
+    get_aggregated_in_usd, get_apr, get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse,
+};
 
 use super::{
     cache::{get_pool_pair_cached, get_token_cached},

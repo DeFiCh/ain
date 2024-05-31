@@ -316,7 +316,12 @@ async fn get_yearly_reward_loan_usd(ctx: &Arc<AppContext>, id: &String) -> Resul
         .ok_or_else(|| Error::OverflowError)
 }
 
-async fn gather_amount(ctx: &Arc<AppContext>, pool_id: u32, interval: u32, count: usize) -> Result<Decimal> {
+async fn gather_amount(
+    ctx: &Arc<AppContext>,
+    pool_id: u32,
+    interval: u32,
+    count: usize,
+) -> Result<Decimal> {
     let repository = &ctx.services.pool_swap_aggregated;
 
     let swaps = repository
@@ -344,7 +349,9 @@ async fn gather_amount(ctx: &Arc<AppContext>, pool_id: u32, interval: u32, count
                 .unwrap_or(dec!(0));
 
             let amount = if let Some(amount) = aggregated.get(token_id) {
-                amount.checked_add(from_amount).ok_or(Error::OverflowError)?
+                amount
+                    .checked_add(from_amount)
+                    .ok_or(Error::OverflowError)?
             } else {
                 from_amount
             };
@@ -357,20 +364,17 @@ async fn gather_amount(ctx: &Arc<AppContext>, pool_id: u32, interval: u32, count
 
     for token_id in aggregated.keys() {
         let token_price = get_token_usd_value(ctx, token_id).await?;
-        let amount = aggregated
-            .get(token_id)
-            .cloned()
-            .unwrap_or(dec!(0));
+        let amount = aggregated.get(token_id).cloned().unwrap_or(dec!(0));
         volume = volume
             .checked_add(
                 token_price
-                .checked_mul(amount)
-                .ok_or(Error::OverflowError)?
+                    .checked_mul(amount)
+                    .ok_or(Error::OverflowError)?,
             )
             .ok_or(Error::OverflowError)?;
     }
 
-   Ok(volume)
+    Ok(volume)
 }
 
 pub async fn get_usd_volume(ctx: &Arc<AppContext>, id: &str) -> Result<PoolPairVolumeResponse> {
@@ -382,7 +386,11 @@ pub async fn get_usd_volume(ctx: &Arc<AppContext>, id: &str) -> Result<PoolPairV
 }
 
 /// Estimate yearly commission rate by taking 24 hour commission x 365 days
-async fn get_yearly_commission_estimate(ctx: &Arc<AppContext>, id: &str, p: &PoolPairInfo) -> Result<Decimal> {
+async fn get_yearly_commission_estimate(
+    ctx: &Arc<AppContext>,
+    id: &str,
+    p: &PoolPairInfo,
+) -> Result<Decimal> {
     let volume = get_usd_volume(ctx, id).await?;
     let commission = Decimal::from_f64(p.commission).unwrap_or_default();
     commission
@@ -409,7 +417,7 @@ pub async fn get_apr(
         .ok_or_else(|| Error::OverflowError)?;
 
     if yearly_usd.is_zero() {
-        return Ok(PoolPairAprResponse::default())
+        return Ok(PoolPairAprResponse::default());
     };
 
     // 1 == 100%, 0.1 = 10%
