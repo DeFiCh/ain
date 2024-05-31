@@ -275,6 +275,47 @@ fn all_simple_paths(
     Ok(paths)
 }
 
+fn get_dex_fees_pct(pool_pair_info: PoolPairInfo, from_token_id: &String, to_token_id: &String) -> Option<EstimatedDexFeesInPct> {
+    let PoolPairInfo {
+        id_token_a,
+        id_token_b,
+        dex_fee_in_pct_token_a,
+        dex_fee_out_pct_token_a,
+        dex_fee_in_pct_token_b,
+        dex_fee_out_pct_token_b,
+        ..
+    } = pool_pair_info;
+
+    let token_a_direction = if id_token_a == *from_token_id {
+        "in"
+    } else {
+        "out"
+    };
+
+    let token_b_direction = if id_token_b == *to_token_id {
+        "out"
+    } else {
+        "in"
+    };
+
+    if dex_fee_in_pct_token_a.is_none() && dex_fee_out_pct_token_a.is_none() && dex_fee_in_pct_token_b.is_none() && dex_fee_out_pct_token_b.is_none() {
+        return None
+    }
+
+    Some(EstimatedDexFeesInPct {
+        ba: if token_a_direction == "in" {
+            format!("{:.8}", dex_fee_in_pct_token_a.unwrap_or_default())
+        } else {
+            format!("{:.8}", dex_fee_out_pct_token_a.unwrap_or_default())
+        },
+        ab: if token_b_direction == "in" {
+            format!("{:.8}", dex_fee_in_pct_token_b.unwrap_or_default())
+        } else {
+            format!("{:.8}", dex_fee_out_pct_token_b.unwrap_or_default())
+        },
+    })
+}
+
 pub async fn compute_paths_between_tokens(
     ctx: &Arc<AppContext>,
     from_token_id: &String,
@@ -316,6 +357,8 @@ pub async fn compute_paths_between_tokens(
 
             let (_, pool_pair_info) = pool.unwrap();
 
+            let estimated_dex_fees_in_pct = get_dex_fees_pct(pool_pair_info.clone(), from_token_id, to_token_id);
+
             let PoolPairInfo {
                 symbol,
                 id_token_a,
@@ -323,51 +366,8 @@ pub async fn compute_paths_between_tokens(
                 reserve_a_reserve_b: ab,
                 reserve_b_reserve_a: ba,
                 commission,
-                dex_fee_in_pct_token_a,
-                dex_fee_out_pct_token_a,
-                dex_fee_in_pct_token_b,
-                dex_fee_out_pct_token_b,
                 ..
             } = pool_pair_info;
-
-            let token_a_direction = if id_token_a == *from_token_id {
-                "in"
-            } else {
-                "out"
-            };
-
-            let token_b_direction = if id_token_b == *to_token_id {
-                "out"
-            } else {
-                "in"
-            };
-
-            let estimated_dex_fees_in_pct = if let (
-                Some(dex_fee_in_pct_token_a),
-                Some(dex_fee_out_pct_token_a),
-                Some(dex_fee_in_pct_token_b),
-                Some(dex_fee_out_pct_token_b),
-            ) = (
-                dex_fee_in_pct_token_a,
-                dex_fee_out_pct_token_a,
-                dex_fee_in_pct_token_b,
-                dex_fee_out_pct_token_b,
-            ) {
-                Some(EstimatedDexFeesInPct {
-                    ba: if token_a_direction == "in" {
-                        format!("{:.8}", dex_fee_in_pct_token_a)
-                    } else {
-                        format!("{:.8}", dex_fee_out_pct_token_a)
-                    },
-                    ab: if token_b_direction == "in" {
-                        format!("{:.8}", dex_fee_in_pct_token_b)
-                    } else {
-                        format!("{:.8}", dex_fee_out_pct_token_b)
-                    },
-                })
-            } else {
-                None
-            };
 
             let swap_path_pool_pair = SwapPathPoolPair {
                 pool_pair_id,
