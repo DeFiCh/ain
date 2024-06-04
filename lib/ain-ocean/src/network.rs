@@ -22,6 +22,30 @@ impl Network {
     }
 }
 
+// impl From<bitcoin::Network> for Network {
+//     fn from(network: bitcoin::Network) -> Self {
+//         match network {
+//             bitcoin::Network::Mainnet => Network::Mainnet,
+//             bitcoin::Network::Testnet => Network::Testnet,
+//             bitcoin::Network::Devnet => Network::Devnet,
+//             _ => Network::Regtest,
+//         }
+//     }
+// }
+
+impl Into<bitcoin::Network> for Network {
+    fn into(self) -> bitcoin::Network {
+        match self {
+            Network::Mainnet => bitcoin::Network::Mainnet,
+            Network::Testnet => bitcoin::Network::Testnet,
+            Network::Devnet => bitcoin::Network::Devnet,
+            Network::Regtest => bitcoin::Network::Regtest,
+            _ => bitcoin::Network::Regtest,
+        }
+
+    }
+}
+
 impl std::str::FromStr for Network {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

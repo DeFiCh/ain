@@ -1,29 +1,40 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{format_err, Context};
-use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
+use bitcoin::{amount, Address, ScriptBuf, Txid};
+use defichain_rpc::{json::{account::AccountHistory, poolpair::PoolPairInfo}, AccountRPC, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
+use ain_dftx::{deserialize, pool::PoolSwap, DfTx, Stack};
 use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
-        cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
-        pool_pair::path::{get_best_path, BestSwapPathResponse},
-    },
-    error::{Error, NotFoundKind},
-    indexer::PoolSwapAggregatedInterval,
-    model::PoolSwapAggregatedAggregated,
-    repository::{RepositoryOps, SecondaryIndex},
-    storage::SortOrder,
-    Result,
+        cache::{get_gov_cached, get_pool_pair_cached, get_token_cached}, common::parse_display_symbol, pool_pair::path::{get_best_path, BestSwapPathResponse}
+    }, error::{Error, NotFoundKind}, indexer::{Index, PoolSwapAggregatedInterval}, model::PoolSwapAggregatedAggregated, network::Network, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Result
 };
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct PoolPairVolumeResponse {
     pub d30: Decimal,
     pub h24: Decimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromToData {
+    pub address: String,
+    pub amount: String,
+    pub symbol: String,
+    pub display_symbol: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromTo {
+    pub from:  Option<PoolSwapFromToData>,
+    pub to:  Option<PoolSwapFromToData>,
 }
 
 async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
@@ -520,4 +531,172 @@ pub async fn get_aggregated_in_usd(
     }
 
     Ok(value)
+}
+
+fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
+    let vout = ctx
+        .services
+        .transaction
+        .vout_by_id
+        .list(Some((txid, 0)), SortOrder::Ascending)?
+        .take(1)
+        .take_while(|item| match item {
+            Ok((_, vout)) => vout.txid == txid,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, v) = item?;
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if vout.is_empty() {
+        return Ok(None)
+    }
+
+    let bytes = &vout[0].script.hex;
+    if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
+        let offset = 1 + match bytes[1] {
+            0x4c => 2,
+            0x4d => 3,
+            0x4e => 4,
+            _ => 1,
+        };
+
+        let raw_tx = &bytes[offset..];
+        let dftx = match deserialize::<Stack>(raw_tx) {
+            Ok(stack) => stack.dftx,
+            Err(e) => return Err(e.into()),
+        };
+        log::debug!("[call_dftx] dftx: {:?}", dftx);
+        return Ok(Some(dftx))
+    };
+
+    Ok(None)
+}
+
+fn find_pool_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<PoolSwap>> {
+	let dftx = call_dftx(ctx, txid)?;
+	if dftx.is_none() {
+		return Ok(None)
+	}
+	let dftx = dftx.unwrap();
+	let pool_swap_dftx = match dftx {
+		DfTx::PoolSwap(data) => Some(data),
+		DfTx::CompositeSwap(data) => Some(data.pool_swap),
+		_ => None,
+	};
+
+   Ok(pool_swap_dftx)
+}
+
+fn find_pool_swap_from_to(history: AccountHistory, from: bool, display_symbol: String) -> Result<Option<PoolSwapFromToData>> {
+    for account in history.amounts {
+        let parts = account.split('@').collect::<Vec<&str>>();
+        let [value, symbol] = parts
+            .as_slice()
+            .try_into()
+            .context("Invalid amount structure")?;
+
+        let value = Decimal::from_str(value)?;
+
+        if value.is_sign_negative() && from {
+            return Ok(Some(PoolSwapFromToData {
+                address: history.owner,
+                amount: format!("{:.8}", value.abs()),
+                symbol: symbol.to_string(),
+                display_symbol,
+            }))
+        }
+
+        if value.is_sign_positive() && !from {
+            return Ok(Some(PoolSwapFromToData {
+                address: history.owner,
+                amount: format!("{:.8}", value.abs()),
+                symbol: symbol.to_string(),
+                display_symbol,
+            }))
+        }
+    }
+
+    Ok(None)
+}
+
+pub async fn find_swap_from_to(ctx: &Arc<AppContext>, height: u32, txid: Txid, txno: u32) -> Result<Option<PoolSwapFromTo>> {
+    let dftx = find_pool_swap_dftx(ctx, txid)?;
+    log::debug!("[find_swap_from_to] dftx 0: {:?}", dftx);
+    if dftx.is_none() {
+        return Ok(None)
+    }
+    let dftx = dftx.unwrap();
+
+    let from_script = dftx.from_script.as_script();
+    log::debug!("from_script: {:?}", from_script);
+    // let is_p2wpkh = from_script.is_p2wpkh();
+    // let is_p2wsh = from_script.is_p2wsh();
+    // let is_p2pkh = from_script.is_p2pkh();
+    // let is_p2sh = from_script.is_p2sh();
+    // log::debug!("from_script is_p2wpkh: {:?}", is_p2wpkh);
+    // log::debug!("from_script is_p2wsh: {:?}", is_p2wsh);
+    // log::debug!("from_script is_p2pkh: {:?}", is_p2pkh);
+    // log::debug!("from_script is_p2sh: {:?}", is_p2sh);
+
+    let from_address = Address::from_script(from_script, ctx.network.into());
+    log::debug!("from_address: {:?}", from_address);
+    if from_address.is_err() {
+        log::debug!("find_swap_from_to from_address err: {:?}", from_address.unwrap_err());
+        return Ok(None)
+    }
+    let from_address = from_address.unwrap().to_string();
+
+    let to_script = dftx.to_script.as_script();
+    log::debug!("to_script: {:?}", to_script);
+    // let is_p2wpkh = to_script.is_p2wpkh();
+    // let is_p2wsh = to_script.is_p2wsh();
+    // let is_p2pkh = to_script.is_p2pkh();
+    // let is_p2sh = to_script.is_p2sh();
+    // log::debug!("to_script is_p2wpkh: {:?}", is_p2wpkh);
+    // log::debug!("to_script is_p2wsh: {:?}", is_p2wsh);
+    // log::debug!("to_script is_p2pkh: {:?}", is_p2pkh);
+    // log::debug!("to_script is_p2sh: {:?}", is_p2sh);
+    let to_address = Address::from_script(to_script, ctx.network.into());
+    log::debug!("to_address: {:?}", to_address);
+    if to_address.is_err() {
+        log::debug!("find_swap_from_to to_address err: {:?}", to_address.unwrap_err());
+        return Ok(None)
+    }
+    let to_address = to_address.unwrap().to_string();
+
+    let from_token = get_token_cached(ctx, &dftx.from_token_id.0.to_string()).await?;
+    log::debug!("from_token: {:?}", from_token);
+    if from_token.is_none() {
+        return Ok(None)
+    }
+    let (_ ,from_token) = from_token.unwrap();
+
+    let to_token = get_token_cached(ctx, &dftx.to_token_id.0.to_string()).await?;
+    log::debug!("to_token: {:?}", to_token);
+    if to_token.is_none() {
+        return Ok(None)
+    }
+    let (_, to_token) = to_token.unwrap();
+
+    let from = PoolSwapFromToData {
+        address: from_address,
+        amount: format!("{:.8}", dftx.from_amount),
+        display_symbol: parse_display_symbol(&from_token),
+        symbol: from_token.symbol,
+    };
+
+    let history = ctx
+        .client
+        .get_account_history(&to_address.to_string(), height, txno)
+        .await?;
+
+    let to = find_pool_swap_from_to(history, false, parse_display_symbol(&to_token))?;
+
+    Ok(Some(PoolSwapFromTo {
+        from: Some(from),
+        to,
+    }))
 }

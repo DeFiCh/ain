@@ -1,11 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
+    str::FromStr,
 };
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
+use bitcoin::Txid;
 use defichain_rpc::{
     json::{
         poolpair::{PoolPairInfo, PoolPairsResult},
@@ -22,8 +24,9 @@ use petgraph::graphmap::UnGraphMap;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use serde_with::skip_serializing_none;
 use service::{
-    get_aggregated_in_usd, get_apr, get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse,
+    find_swap_from_to, get_aggregated_in_usd, get_apr, get_total_liquidity_usd, get_usd_volume, PoolSwapFromTo, PoolSwapFromToData, PoolPairVolumeResponse,
 };
 
 use super::{
@@ -64,15 +67,7 @@ struct DexPrices {
     denomination: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct PoolSwapFromToResponse {
-    address: String,
-    amount: String,
-    // symbol: String,
-    // display_symbol: String,
-}
-
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolSwapVerboseResponse {
@@ -84,13 +79,13 @@ pub struct PoolSwapVerboseResponse {
     from_amount: String,
     from_token_id: u64,
     block: BlockContext,
-    from: PoolSwapFromToResponse,
-    to: PoolSwapFromToResponse,
+    from: Option<PoolSwapFromToData>,
+    to: Option<PoolSwapFromToData>,
     // type: todo()!
 }
 
-impl From<PoolSwap> for PoolSwapVerboseResponse {
-    fn from(v: PoolSwap) -> Self {
+impl PoolSwapVerboseResponse {
+    fn map(v: PoolSwap, from_to: Option<PoolSwapFromTo>) -> Self {
         Self {
             id: v.id,
             sort: v.sort,
@@ -99,18 +94,8 @@ impl From<PoolSwap> for PoolSwapVerboseResponse {
             pool_pair_id: v.pool_id.to_string(),
             from_amount: v.from_amount.to_string(),
             from_token_id: v.from_token_id,
-            from: PoolSwapFromToResponse {
-                address: v.from.to_hex_string(),
-                amount: v.from_amount.to_string(),
-                // symbol: todo!(),
-                // display_symbol: todo!(),
-            },
-            to: PoolSwapFromToResponse {
-                address: v.to.to_hex_string(),
-                amount: v.to_amount.to_string(),
-                // symbol: todo!(),
-                // display_symbol: todo!(),
-            },
+            from: from_to.clone().and_then(|item| item.from),
+            to: from_to.and_then(|item| item.to),
             block: v.block,
             // type: todo!(),
         }
@@ -458,7 +443,7 @@ async fn list_pool_swaps_verbose(
 
     let size = if query.size > 200 { 200 } else { query.size };
 
-    let swaps = ctx
+    let fut = ctx
         .services
         .pool
         .by_id
@@ -468,11 +453,21 @@ async fn list_pool_swaps_verbose(
             Ok((k, _)) => k.0 == id,
             _ => true,
         })
-        .map(|item| {
+        .map(|item| async {
             let (_, swap) = item?;
-            Ok(PoolSwapVerboseResponse::from(swap))
+            let from_to = find_swap_from_to(
+                &ctx,
+                swap.block.height.clone(),
+                swap.txid,
+                swap.txno.try_into()?
+            ).await?;
+
+            let res = PoolSwapVerboseResponse::map(swap, from_to);
+            Ok::<PoolSwapVerboseResponse, Error>(res)
         })
-        .collect::<Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
+
+    let swaps = try_join_all(fut).await?;
 
     Ok(ApiPagedResponse::of(swaps, query.size, |swap| {
         swap.sort.to_string()
