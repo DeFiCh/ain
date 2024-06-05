@@ -1,13 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    str::FromStr,
 };
 
 use ain_macros::ocean_endpoint;
 use anyhow::format_err;
 use axum::{routing::get, Extension, Router};
-use bitcoin::Txid;
 use defichain_rpc::{
     json::{
         poolpair::{PoolPairInfo, PoolPairsResult},
@@ -26,7 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::skip_serializing_none;
 use service::{
-    check_swap_type, find_swap_from_to, get_aggregated_in_usd, get_apr, get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromTo, PoolSwapFromToData, SwapType
+    check_swap_type, find_swap_from_to, get_aggregated_in_usd, get_apr, get_total_liquidity_usd,
+    get_usd_volume, PoolPairVolumeResponse, PoolSwapFromTo, PoolSwapFromToData, SwapType,
 };
 
 use super::{
@@ -455,12 +454,9 @@ async fn list_pool_swaps_verbose(
         })
         .map(|item| async {
             let (_, swap) = item?;
-            let from_to = find_swap_from_to(
-                &ctx,
-                swap.block.height,
-                swap.txid,
-                swap.txno.try_into()?
-            ).await?;
+            let from_to =
+                find_swap_from_to(&ctx, swap.block.height, swap.txid, swap.txno.try_into()?)
+                    .await?;
 
             let swap_type = check_swap_type(&ctx, swap.clone()).await?;
 

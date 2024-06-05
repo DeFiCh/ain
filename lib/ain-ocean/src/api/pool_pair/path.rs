@@ -1,8 +1,8 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::format_err;
-use log;
 use defichain_rpc::json::poolpair::PoolPairInfo;
+use log::debug;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::Serialize;
@@ -20,7 +20,7 @@ use crate::{
 
 enum TokenDirection {
     In,
-    Out
+    Out,
 }
 
 #[derive(Debug, Serialize)]
@@ -324,7 +324,7 @@ fn get_dex_fees_pct(
         ab: match token_b_direction {
             TokenDirection::In => format!("{:.8}", dex_fee_in_pct_token_b.unwrap_or_default()),
             TokenDirection::Out => format!("{:.8}", dex_fee_out_pct_token_b.unwrap_or_default()),
-        }
+        },
     })
 }
 

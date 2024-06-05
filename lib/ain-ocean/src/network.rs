@@ -22,17 +22,7 @@ impl Network {
     }
 }
 
-// impl From<bitcoin::Network> for Network {
-//     fn from(network: bitcoin::Network) -> Self {
-//         match network {
-//             bitcoin::Network::Mainnet => Network::Mainnet,
-//             bitcoin::Network::Testnet => Network::Testnet,
-//             bitcoin::Network::Devnet => Network::Devnet,
-//             _ => Network::Regtest,
-//         }
-//     }
-// }
-
+#[allow(clippy::from_over_into)]
 impl Into<bitcoin::Network> for Network {
     fn into(self) -> bitcoin::Network {
         match self {
@@ -42,7 +32,6 @@ impl Into<bitcoin::Network> for Network {
             Network::Regtest => bitcoin::Network::Regtest,
             _ => bitcoin::Network::Regtest,
         }
-
     }
 }
 
