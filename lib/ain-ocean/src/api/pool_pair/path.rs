@@ -1,6 +1,7 @@
 use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::format_err;
+use log;
 use defichain_rpc::json::poolpair::PoolPairInfo;
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
@@ -518,7 +519,7 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
             if !graph.lock().contains_edge(id_token_a, id_token_b) {
                 graph.lock().add_edge(id_token_a, id_token_b, k);
             }
-            log::debug!("sync_token_graph edges: {:?}", graph.lock().edge_count());
+            debug!("sync_token_graph edges: {:?}", graph.lock().edge_count());
         }
 
         // wait 120s

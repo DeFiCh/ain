@@ -574,7 +574,6 @@ fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
             Ok(stack) => stack.dftx,
             Err(e) => return Err(e.into()),
         };
-        log::debug!("[call_dftx] dftx: {:?}", dftx);
         return Ok(Some(dftx))
     };
 
@@ -583,7 +582,6 @@ fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
 
 fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<CompositeSwap>> {
     let dftx = call_dftx(ctx, txid)?;
-    log::debug!("find_composite_swap_dftx dftx: {:?}", dftx);
     if dftx.is_none() {
         return Ok(None)
     }
@@ -621,7 +619,6 @@ fn find_pool_swap_from_to(history: AccountHistory, from: bool, display_symbol: S
             .context("Invalid amount structure")?;
 
         let value = Decimal::from_str(value)?;
-        log::debug!("find_pool_swap_from_to value: {:?}", value);
 
         if value.is_sign_negative() && from {
             return Ok(Some(PoolSwapFromToData {
@@ -647,58 +644,33 @@ fn find_pool_swap_from_to(history: AccountHistory, from: bool, display_symbol: S
 
 pub async fn find_swap_from_to(ctx: &Arc<AppContext>, height: u32, txid: Txid, txno: u32) -> Result<Option<PoolSwapFromTo>> {
     let dftx = find_pool_swap_dftx(ctx, txid)?;
-    log::debug!("[find_swap_from_to] dftx 0: {:?}", dftx);
     if dftx.is_none() {
         return Ok(None)
     }
     let dftx = dftx.unwrap();
 
     let from_script = dftx.from_script.as_script();
-    log::debug!("from_script: {:?}", from_script);
-    // let is_p2wpkh = from_script.is_p2wpkh();
-    // let is_p2wsh = from_script.is_p2wsh();
-    // let is_p2pkh = from_script.is_p2pkh();
-    // let is_p2sh = from_script.is_p2sh();
-    // log::debug!("from_script is_p2wpkh: {:?}", is_p2wpkh);
-    // log::debug!("from_script is_p2wsh: {:?}", is_p2wsh);
-    // log::debug!("from_script is_p2pkh: {:?}", is_p2pkh);
-    // log::debug!("from_script is_p2sh: {:?}", is_p2sh);
 
     let from_address = Address::from_script(from_script, ctx.network.into());
-    log::debug!("from_address: {:?}", from_address);
     if from_address.is_err() {
-        log::debug!("find_swap_from_to from_address err: {:?}", from_address.unwrap_err());
         return Ok(None)
     }
     let from_address = from_address.unwrap().to_string();
 
     let to_script = dftx.to_script.as_script();
-    log::debug!("to_script: {:?}", to_script);
-    // let is_p2wpkh = to_script.is_p2wpkh();
-    // let is_p2wsh = to_script.is_p2wsh();
-    // let is_p2pkh = to_script.is_p2pkh();
-    // let is_p2sh = to_script.is_p2sh();
-    // log::debug!("to_script is_p2wpkh: {:?}", is_p2wpkh);
-    // log::debug!("to_script is_p2wsh: {:?}", is_p2wsh);
-    // log::debug!("to_script is_p2pkh: {:?}", is_p2pkh);
-    // log::debug!("to_script is_p2sh: {:?}", is_p2sh);
     let to_address = Address::from_script(to_script, ctx.network.into());
-    log::debug!("to_address: {:?}", to_address);
     if to_address.is_err() {
-        log::debug!("find_swap_from_to to_address err: {:?}", to_address.unwrap_err());
         return Ok(None)
     }
     let to_address = to_address.unwrap().to_string();
 
     let from_token = get_token_cached(ctx, &dftx.from_token_id.0.to_string()).await?;
-    log::debug!("from_token: {:?}", from_token);
     if from_token.is_none() {
         return Ok(None)
     }
     let (_ ,from_token) = from_token.unwrap();
 
     let to_token = get_token_cached(ctx, &dftx.to_token_id.0.to_string()).await?;
-    log::debug!("to_token: {:?}", to_token);
     if to_token.is_none() {
         return Ok(None)
     }
@@ -741,7 +713,6 @@ async fn get_pool_swap_type(ctx: &Arc<AppContext>, swap: crate::model::PoolSwap)
 
 pub async fn check_swap_type(ctx: &Arc<AppContext>, swap: crate::model::PoolSwap) -> Result<Option<SwapType>> {
     let dftx = find_composite_swap_dftx(ctx, swap.txid)?;
-    log::debug!("check_swap_type dftx: {:?}", dftx);
     if dftx.is_none() {
         return get_pool_swap_type(ctx, swap).await
     }
@@ -755,7 +726,6 @@ pub async fn check_swap_type(ctx: &Arc<AppContext>, swap: crate::model::PoolSwap
     for pool in dftx.pools.iter() {
         let pool_id = pool.id.0.to_string();
         let pool_pair = get_pool_pair_cached(ctx, pool_id.clone()).await?;
-        log::debug!("check_swap_type pool_pair: {:?}", pool_pair);
         if pool_pair.is_none() {
             break
         }
