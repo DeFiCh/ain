@@ -20,8 +20,8 @@ vsdbsled = { git = "https://github.com/defich/vsdbsled.git" }
 ethereum = { git = "https://github.com/defich/ethereum.git" }
 evm = { git = "https://github.com/defich/evm.git" }
 evm-runtime = { git = "https://github.com/defich/evm.git" }
-bitcoin = { git = "https://github.com/defich/rust-bitcoin.git", branch = "canonbrother/defichain-network" }
-bitcoin-io = { git = "https://github.com/defich/rust-bitcoin.git", branch = "canonbrother/defichain-network" }
+bitcoin = { git = "https://github.com/defich/rust-bitcoin.git" }
+bitcoin-io = { git = "https://github.com/defich/rust-bitcoin.git" }
 
 [workspace.dependencies]
 
