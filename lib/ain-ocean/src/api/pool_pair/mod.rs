@@ -441,7 +441,7 @@ async fn list_pool_swaps_verbose(
         .transpose()?
         .unwrap_or(PoolSwapRepository::initial_key(id));
 
-    let size = if query.size > 200 { 200 } else { query.size };
+    let size = if query.size > 20 { 20 } else { query.size };
 
     let fut = ctx
         .services
