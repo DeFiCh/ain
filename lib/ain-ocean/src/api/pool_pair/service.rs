@@ -7,13 +7,19 @@ use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
 
-use ain_dftx::{deserialize, pool::PoolSwap, DfTx, Stack};
+use ain_dftx::{deserialize, pool::{CompositeSwap, PoolSwap}, DfTx, Stack, COIN};
 use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
         cache::{get_gov_cached, get_pool_pair_cached, get_token_cached}, common::parse_display_symbol, pool_pair::path::{get_best_path, BestSwapPathResponse}
-    }, error::{Error, NotFoundKind}, indexer::{Index, PoolSwapAggregatedInterval}, model::PoolSwapAggregatedAggregated, network::Network, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Result
+    }, error::{Error, NotFoundKind}, indexer::{Index, PoolSwapAggregatedInterval}, model::{PoolSwapAggregatedAggregated}, network::Network, repository::{RepositoryOps, SecondaryIndex}, storage::SortOrder, Result
 };
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SwapType {
+    BUY,
+    SELL,
+}
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct PoolPairVolumeResponse {
@@ -575,6 +581,22 @@ fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
     Ok(None)
 }
 
+fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<CompositeSwap>> {
+    let dftx = call_dftx(ctx, txid)?;
+    log::debug!("find_composite_swap_dftx dftx: {:?}", dftx);
+    if dftx.is_none() {
+        return Ok(None)
+    }
+    let dftx = dftx.unwrap();
+
+    let composite_swap_dftx = match dftx {
+        DfTx::CompositeSwap(data) => Some(data),
+        _ => None,
+    };
+
+    Ok(composite_swap_dftx)
+}
+
 fn find_pool_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<PoolSwap>> {
 	let dftx = call_dftx(ctx, txid)?;
 	if dftx.is_none() {
@@ -599,6 +621,7 @@ fn find_pool_swap_from_to(history: AccountHistory, from: bool, display_symbol: S
             .context("Invalid amount structure")?;
 
         let value = Decimal::from_str(value)?;
+        log::debug!("find_pool_swap_from_to value: {:?}", value);
 
         if value.is_sign_negative() && from {
             return Ok(Some(PoolSwapFromToData {
@@ -683,7 +706,7 @@ pub async fn find_swap_from_to(ctx: &Arc<AppContext>, height: u32, txid: Txid, t
 
     let from = PoolSwapFromToData {
         address: from_address,
-        amount: format!("{:.8}", dftx.from_amount),
+        amount: Decimal::new(dftx.from_amount, 8).to_string(),
         display_symbol: parse_display_symbol(&from_token),
         symbol: from_token.symbol,
     };
@@ -699,4 +722,58 @@ pub async fn find_swap_from_to(ctx: &Arc<AppContext>, height: u32, txid: Txid, t
         from: Some(from),
         to,
     }))
+}
+
+pub async fn check_swap_type(ctx: &Arc<AppContext>, swap: crate::model::PoolSwap) -> Result<Option<SwapType>> {
+    let dftx = find_composite_swap_dftx(ctx, swap.txid)?;
+    log::debug!("check_swap_type dftx: {:?}", dftx);
+    if dftx.is_none() {
+        return Ok(None)
+    }
+    let dftx = dftx.unwrap();
+
+    if dftx.pools.iter().count() <= 1 {
+        let pool_pair = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?;
+        log::debug!("check_swap_type len 1 pool_pair: {:?}", pool_pair);
+        if pool_pair.is_none() {
+            return Ok(None)
+        }
+        let (_, pool_pair_info) = pool_pair.unwrap();
+        let id_token_a = pool_pair_info.id_token_a.parse::<u64>()?;
+        let swap_type = if id_token_a == swap.from_token_id {
+            SwapType::SELL
+        } else {
+            SwapType::BUY
+        };
+        return Ok(Some(swap_type))
+    }
+
+    let mut prev = swap.from_token_id.to_string();
+    for pool in dftx.pools.iter() {
+        let pool_id = pool.id.0.to_string();
+        let pool_pair = get_pool_pair_cached(ctx, pool_id.clone()).await?;
+        log::debug!("check_swap_type pool_pair: {:?}", pool_pair);
+        if pool_pair.is_none() {
+            break
+        }
+        let (_, pool_pair_info) = pool_pair.unwrap();
+
+        // if this is current pool pair, if previous token is primary token, indicator = sell
+        if pool_id == swap.pool_id.to_string() {
+            let swap_type = if pool_pair_info.id_token_a == prev {
+                SwapType::SELL
+            } else {
+                SwapType::BUY
+            };
+            return Ok(Some(swap_type))
+        }
+        // set previous token as pair swapped out token
+        prev = if prev == pool_pair_info.id_token_a {
+            pool_pair_info.id_token_b
+        } else {
+            pool_pair_info.id_token_a
+        }
+    }
+
+    Ok(None)
 }
