@@ -724,28 +724,31 @@ pub async fn find_swap_from_to(ctx: &Arc<AppContext>, height: u32, txid: Txid, t
     }))
 }
 
+async fn get_pool_swap_type(ctx: &Arc<AppContext>, swap: crate::model::PoolSwap) -> Result<Option<SwapType>> {
+    let pool_pair = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?;
+    if pool_pair.is_none() {
+        return Ok(None)
+    }
+    let (_, pool_pair_info) = pool_pair.unwrap();
+    let id_token_a = pool_pair_info.id_token_a.parse::<u64>()?;
+    let swap_type = if id_token_a == swap.from_token_id {
+        SwapType::SELL
+    } else {
+        SwapType::BUY
+    };
+    Ok(Some(swap_type))
+}
+
 pub async fn check_swap_type(ctx: &Arc<AppContext>, swap: crate::model::PoolSwap) -> Result<Option<SwapType>> {
     let dftx = find_composite_swap_dftx(ctx, swap.txid)?;
     log::debug!("check_swap_type dftx: {:?}", dftx);
     if dftx.is_none() {
-        return Ok(None)
+        return get_pool_swap_type(ctx, swap).await
     }
     let dftx = dftx.unwrap();
 
     if dftx.pools.iter().count() <= 1 {
-        let pool_pair = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?;
-        log::debug!("check_swap_type len 1 pool_pair: {:?}", pool_pair);
-        if pool_pair.is_none() {
-            return Ok(None)
-        }
-        let (_, pool_pair_info) = pool_pair.unwrap();
-        let id_token_a = pool_pair_info.id_token_a.parse::<u64>()?;
-        let swap_type = if id_token_a == swap.from_token_id {
-            SwapType::SELL
-        } else {
-            SwapType::BUY
-        };
-        return Ok(Some(swap_type))
+        return get_pool_swap_type(ctx, swap).await
     }
 
     let mut prev = swap.from_token_id.to_string();
