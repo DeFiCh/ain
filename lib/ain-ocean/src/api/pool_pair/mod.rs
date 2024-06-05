@@ -122,7 +122,7 @@ impl From<PoolSwap> for PoolSwapResponse {
             txid: v.txid.to_string(),
             txno: v.txno,
             pool_pair_id: v.pool_id.to_string(),
-            from_amount: v.from_amount.to_string(),
+            from_amount: Decimal::new(v.from_amount, 8).to_string(),
             from_token_id: v.from_token_id,
             block: v.block,
         }
