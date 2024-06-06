@@ -405,7 +405,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* tip, const CBlockIn
         result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
 
     if (v3plus) {
-        MinterInfo::From(block, blockindex, *pcustomcsview).ToUniValue();
+        auto minterInfo = MinterInfo::From(block, blockindex, *pcustomcsview);
+        result.pushKV("minter", minterInfo.ToUniValue());
         auto rewardInfo = RewardInfo::TryFrom(block, blockindex, consensus);
         if (rewardInfo) {
             result.pushKV("rewards", rewardInfo->ToUniValue());
