@@ -1155,7 +1155,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     result = swapAmountResult.nValue;
 
     // Send final swap amount Rust side for indexer
-    if (txInfo) {
+    bool isOceanEnabled = gArgs.GetBoolArg("-oceanarchive", false);
+    if (txInfo && isOceanEnabled) {
         const auto &[txType, txHash] = *txInfo;
         CrossBoundaryResult ffiResult;
         ocean_try_set_tx_result(ffiResult,
