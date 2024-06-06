@@ -2006,7 +2006,7 @@ void CConnman::ThreadMessageHandler()
 
 
 
-bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, NetPermissionFlags permissions)
+bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, NetPermissionFlags permissions, std::optional<uint16_t> &actualBoundPort)
 {
     strError = "";
     int nOne = 1;
@@ -2069,6 +2069,7 @@ bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, N
     }
     const auto actualPort = ntohs(boundAddr.sin_port);
     LogPrintf("P2P port bound to %s:%d\n", addrBind.ToStringIP(), actualPort);
+    actualBoundPort = actualPort;
 
     // Listen for incoming connections
     if (listen(hListenSocket, SOMAXCONN) == SOCKET_ERROR)
@@ -2165,11 +2166,11 @@ NodeId CConnman::GetNewNodeId()
 }
 
 
-bool CConnman::Bind(const CService &addr, unsigned int flags, NetPermissionFlags permissions) {
+bool CConnman::Bind(const CService &addr, unsigned int flags, NetPermissionFlags permissions, std::optional<uint16_t> &actualBoundPort) {
     if (!(flags & BF_EXPLICIT) && !IsReachable(addr))
         return false;
     std::string strError;
-    if (!BindListenPort(addr, strError, permissions)) {
+    if (!BindListenPort(addr, strError, permissions, actualBoundPort)) {
         if ((flags & BF_REPORT_ERROR) && clientInterface) {
             clientInterface->ThreadSafeMessageBox(strError, "", CClientUIInterface::MSG_ERROR);
         }
@@ -2181,11 +2182,13 @@ bool CConnman::Bind(const CService &addr, unsigned int flags, NetPermissionFlags
 bool CConnman::InitBinds(const std::vector<CService>& binds, const std::vector<NetWhitebindPermissions>& whiteBinds)
 {
     bool fBound = false;
+    
+    std::optional<uint16_t> actualBoundPort{};
     for (const auto& addrBind : binds) {
-        fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR), NetPermissionFlags::PF_NONE);
+        fBound |= Bind(addrBind, (BF_EXPLICIT | BF_REPORT_ERROR), NetPermissionFlags::PF_NONE, actualBoundPort);
     }
     for (const auto& addrBind : whiteBinds) {
-        fBound |= Bind(addrBind.m_service, (BF_EXPLICIT | BF_REPORT_ERROR), addrBind.m_flags);
+        fBound |= Bind(addrBind.m_service, (BF_EXPLICIT | BF_REPORT_ERROR), addrBind.m_flags, actualBoundPort);
     }
     if (binds.empty() && whiteBinds.empty()) {
         struct in_addr inaddr_any;
@@ -2195,8 +2198,11 @@ bool CConnman::InitBinds(const std::vector<CService>& binds, const std::vector<N
         if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
             bind_port = 0;
         }
-        fBound |= Bind(CService(inaddr6_any, bind_port), BF_NONE, NetPermissionFlags::PF_NONE);
-        fBound |= Bind(CService(inaddr_any, bind_port), !fBound ? BF_REPORT_ERROR : BF_NONE, NetPermissionFlags::PF_NONE);
+        fBound |= Bind(CService(inaddr6_any, bind_port), BF_NONE, NetPermissionFlags::PF_NONE, actualBoundPort);
+        if (actualBoundPort) {
+            bind_port = *actualBoundPort;
+        }
+        fBound |= Bind(CService(inaddr_any, bind_port), !fBound ? BF_REPORT_ERROR : BF_NONE, NetPermissionFlags::PF_NONE, actualBoundPort);
     }
     return fBound;
 }

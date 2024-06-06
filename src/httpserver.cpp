@@ -326,8 +326,13 @@ static bool HTTPBindAddresses(struct evhttp* http)
         }
     }
 
+    int autoHTTPPort{};
+
     // Bind addresses
-    for (std::vector<std::pair<std::string, uint16_t> >::iterator i = endpoints.begin(); i != endpoints.end(); ++i) {
+    for (auto i = endpoints.begin(); i != endpoints.end(); ++i) {
+        if (!http_port && autoHTTPPort) {
+            i->second = autoHTTPPort;
+        }
         evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, i->first.empty() ? nullptr : i->first.c_str(), i->second);
         if (bind_handle) {
             CNetAddr addr;
@@ -357,6 +362,7 @@ static bool HTTPBindAddresses(struct evhttp* http)
                 if (in_addr) {
                     evutil_inet_ntop(ss.ss_family, in_addr, addrbuf, sizeof(addrbuf));
                     LogPrintf("RPC port bound to %s:%d\n", addrbuf, port);
+                    autoHTTPPort = port;
                 }
             } else {
                 LogPrintf("Error getting RPC socket.\n");
