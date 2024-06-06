@@ -82,6 +82,7 @@ rust::string getDatadir();
 rust::string getNetwork();
 uint32_t getDifficulty(std::array<uint8_t, 32> blockHash);
 uint32_t getEthMaxConnections();
+void printEVMPortUsage(const uint8_t portType, const uint16_t portNumber);
 uint32_t getEthMaxResponseByteSize();
 int64_t getSuggestedPriorityFeePercentile();
 uint64_t getEstimateGasErrorRatio();

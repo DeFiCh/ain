@@ -4,9 +4,11 @@
 // file LICENSE or http://www.opensource.org/licenses/mit-license.php.
 
 #include <logging.h>
+#include <util/system.h>
 #include <util/threadnames.h>
 #include <util/time.h>
 
+#include <fstream>
 #include <mutex>
 
 const char * const DEFAULT_DEBUGLOGFILE = "debug.log";
@@ -321,4 +323,47 @@ void BCLog::Logger::ShrinkDebugFile()
     }
     else if (file != nullptr)
         fclose(file);
+}
+
+static std::string PrintAutoPort(const AutoPort type)
+{
+    switch (type) {
+        case RPC:
+            return "rpcport";
+        case P2P:
+            return "port";
+        case ETHRPC:
+            return "ethrpcport";
+        case WEBSOCKET:
+            return "wsport";
+        default:
+            return "Unknown";
+    }
+}
+
+void PrintPortUsage(const AutoPort portType, const uint16_t portNumber)
+{
+    // Skip if ports are not set to auto.
+    if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort != "auto") {
+        return;
+    }
+
+    const fs::path lockFilePath = GetDataDir() / "ports.lock";
+
+    std::ofstream lockFile(lockFilePath, std::ios_base::app);
+    if (!lockFile.is_open()) {
+        throw std::runtime_error("Unable to open ports.lock file for writing");
+    }
+
+    // Write the port information
+    lockFile << PrintAutoPort(portType) << "=" << portNumber << "\n";
+}
+
+void RemovePortUsage()
+{
+    const fs::path lockFilePath = GetDataDir() / "ports.lock";
+
+    // Remove the file. Ignore errors, file might not be present.
+    std::error_code ec;
+    fs::remove(lockFilePath, ec);
 }

@@ -103,6 +103,7 @@ pub fn init_network_json_rpc_service(addr: String) -> Result<()> {
 
     let local_addr = server.local_addr()?;
     info!("Starting JSON Eth RPC server at {}", local_addr);
+    ain_cpp_imports::print_port_usage(2, local_addr.port());
 
     let mut methods: Methods = Methods::new();
     methods.merge(MetachainRPCModule::new(Arc::clone(&runtime.evm)).into_rpc())?;
@@ -142,6 +143,7 @@ pub fn init_network_subscriptions_service(addr: String) -> Result<()> {
 
     let local_addr = server.local_addr()?;
     info!("Starting WebSockets server at {}", local_addr);
+    ain_cpp_imports::print_port_usage(3, local_addr.port());
 
     let mut methods: Methods = Methods::new();
     methods.merge(

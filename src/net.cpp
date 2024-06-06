@@ -2069,6 +2069,10 @@ bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, N
     }
     const auto actualPort = ntohs(boundAddr.sin_port);
     LogPrintf("P2P port bound to %s:%d\n", addrBind.ToStringIP(), actualPort);
+    // Only store the first usage of the port
+    if (!actualBoundPort) {
+        PrintPortUsage(AutoPort::P2P, actualPort);
+    }
     actualBoundPort = actualPort;
 
     // Listen for incoming connections

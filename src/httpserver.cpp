@@ -362,6 +362,10 @@ static bool HTTPBindAddresses(struct evhttp* http)
                 if (in_addr) {
                     evutil_inet_ntop(ss.ss_family, in_addr, addrbuf, sizeof(addrbuf));
                     LogPrintf("RPC port bound to %s:%d\n", addrbuf, port);
+                    // Only store the first usage of the RPC port
+                    if (!autoHTTPPort) {
+                        PrintPortUsage(AutoPort::RPC, port);
+                    }
                     autoHTTPPort = port;
                 }
             } else {

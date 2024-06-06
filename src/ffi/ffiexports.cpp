@@ -309,6 +309,10 @@ uint32_t getEthMaxConnections() {
     return gArgs.GetArg("-ethmaxconnections", DEFAULT_ETH_MAX_CONNECTIONS);
 }
 
+void printEVMPortUsage(const uint8_t portType, const uint16_t portNumber) {
+    return PrintPortUsage(static_cast<AutoPort>(portType), portNumber);
+}
+
 uint32_t getEthMaxResponseByteSize() {
     const auto max_response_size_mb = gArgs.GetArg("-ethmaxresponsesize", DEFAULT_ETH_MAX_RESPONSE_SIZE_MB);
     return max_response_size_mb * 1024 * 1024;

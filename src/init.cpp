@@ -336,6 +336,7 @@ void Shutdown(InitInterfaces& interfaces)
     GetMainSignals().UnregisterWithMempoolSignals(mempool);
     globalVerifyHandle.reset();
     ECC_Stop();
+    RemovePortUsage();
     LogPrintf("%s: done\n", __func__);
 }
 
@@ -1037,6 +1038,8 @@ void InitLogging()
     version_string += " (release build)";
 #endif
     LogPrintf(PACKAGE_NAME " version %s\n", version_string);
+    // Remove ports.lock on startup in case of an unclean shutdown.
+    RemovePortUsage();
 }
 
 namespace { // Variables internal to initialization process only
