@@ -341,6 +341,29 @@ static std::string PrintAutoPort(const AutoPort type)
     }
 }
 
+uint16_t GetPortFromLockFile(const AutoPort type)
+{
+    const fs::path lockFilePath = GetDataDir() / "ports.lock";
+    const std::string portTypeStr = PrintAutoPort(type);
+
+    std::ifstream lockFile(lockFilePath);
+    if (!lockFile.is_open()) {
+        return 0;
+    }
+
+    std::string line;
+    while (std::getline(lockFile, line)) {
+        std::istringstream iss(line);
+        std::string key;
+        uint16_t port;
+        if (std::getline(iss, key, '=') && (iss >> port) && key == portTypeStr) {
+            return port;
+        }
+    }
+
+    return 0;
+}
+
 void PrintPortUsage(const AutoPort portType, const uint16_t portNumber)
 {
     // Skip if ports are not set to auto.

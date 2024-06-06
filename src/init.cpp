@@ -1601,7 +1601,7 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     std::string default_address = "127.0.0.1";
 
     bool setAutoPort{};
-    if (const auto auto_port = gArgs.GetArg("-ports", ""); auto_port == "auto") {
+    if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
         setAutoPort = true;
     }
     

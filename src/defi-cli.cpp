@@ -314,6 +314,7 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     //     1. -rpcport
     //     2. port in -rpcconnect (ie following : in ipv4 or ]: in ipv6)
     //     3. default port for chain
+    //     4. use ports defined in the ports.lock file
     int dvmport = BaseParams().RPCPort();
     SplitHostPort(gArgs.GetArg("-rpcconnect", DEFAULT_RPCCONNECT), dvmport, host);
     dvmport = gArgs.GetArg("-rpcport", dvmport);
@@ -321,8 +322,16 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     // For EVM RPCs, in preference order, we choose the following for the evm port:
     //     1. -ethrpcport
     //     2. default evm port for chain
+    //     3. use ports defined in the ports.lock file
     int evmport = BaseParams().ETHRPCPort();
     evmport = gArgs.GetArg("-ethrpcport", evmport);
+
+    if (const auto port = GetPortFromLockFile(AutoPort::RPC); port) {
+        dvmport = port;
+    }
+    if (const auto port = GetPortFromLockFile(AutoPort::ETHRPC); port) {
+        evmport = port;
+    }
 
     // Check if DVM or EVM RPC
     int port = dvmport;
