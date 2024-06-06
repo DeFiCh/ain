@@ -9,7 +9,7 @@ use ethereum::{Account, Header, Log};
 use ethereum_types::{H160, H256, U256};
 use evm::backend::{Apply, ApplyBackend, Backend, Basic};
 use hash_db::Hasher as _;
-use log::{debug, trace};
+use log::trace;
 use rlp::{Decodable, Encodable, Rlp};
 use sp_core::{hexdisplay::AsBytesRef, Blake2Hasher};
 use vsdb_trie_db::{MptOnce, MptRo};
@@ -255,9 +255,10 @@ impl EVMBackend {
                     .map_err(|e| BackendError::TrieRestoreFailed(e.to_string()))?;
 
                 storage.into_iter().for_each(|(k, v)| {
-                    debug!(
+                    trace!(
                         "Apply::Modify storage {address:?}, key: {:x} value: {:x}",
-                        k, v
+                        k,
+                        v
                     );
                     let _ = storage_trie.insert(k.as_bytes(), v.as_bytes());
                 });
@@ -308,7 +309,7 @@ impl EVMBackend {
     }
 
     pub fn deduct_prepay_gas_fee(&mut self, sender: H160, prepay_fee: U256) -> Result<()> {
-        debug!(target: "backend", "[deduct_prepay_gas_fee] Deducting {:#x} from {:#x}", prepay_fee, sender);
+        trace!(target: "backend", "[deduct_prepay_gas_fee] Deducting {:#x} from {:#x}", prepay_fee, sender);
 
         let basic = self.basic(sender);
         let balance = basic.balance.checked_sub(prepay_fee).ok_or_else(|| {
@@ -337,7 +338,7 @@ impl EVMBackend {
         })?;
         let refund_amount = calculate_gas_fee(signed_tx, refund_gas, base_fee)?;
 
-        debug!(target: "backend", "[refund_unused_gas_fee] Refunding {:#x} to {:#x}", refund_amount, signed_tx.sender);
+        trace!(target: "backend", "[refund_unused_gas_fee] Refunding {:#x} to {:#x}", refund_amount, signed_tx.sender);
 
         let basic = self.basic(signed_tx.sender);
         let balance = basic.balance.checked_add(refund_amount).ok_or_else(|| {
@@ -521,9 +522,11 @@ impl ApplyBackend for EVMBackend {
                     storage,
                     reset_storage,
                 } => {
-                    debug!(
+                    trace!(
                         "Apply::Modify address {:x}, basic {:?}, code {:?}",
-                        address, basic, code,
+                        address,
+                        basic,
+                        code,
                     );
 
                     let new_account = self
@@ -531,12 +534,12 @@ impl ApplyBackend for EVMBackend {
                         .expect("Error applying state");
 
                     if is_empty_account(&new_account) && delete_empty {
-                        debug!("Deleting empty address {:x?}", address);
+                        trace!("Deleting empty address {:x?}", address);
                         self.overlay.mark_delete(address);
                     }
                 }
                 Apply::Delete { address } => {
-                    debug!("Deleting address {:x?}", address);
+                    trace!("Deleting address {:x?}", address);
                     self.apply(address, None, None, vec![], false)
                         .expect("Error applying state");
                     self.overlay.mark_delete(address);

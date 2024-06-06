@@ -7,7 +7,7 @@ use evm_runtime::{
     tracing::{Event as RuntimeEvent, EventListener as RuntimeEventListener},
     Opcode,
 };
-use log::debug;
+use log::{debug, trace};
 
 #[derive(Clone, Debug)]
 pub struct ExecutionStep {
@@ -70,22 +70,22 @@ impl RuntimeEventListener for ExecListener {
                 result,
                 return_value,
             } => {
-                debug!("result : {:#?}", result);
-                debug!("return_value : {:#?}", return_value);
+                trace!("result : {:#?}", result);
+                trace!("return_value : {:#?}", return_value);
             }
             RuntimeEvent::SLoad {
                 address,
                 index,
                 value,
             } => {
-                debug!("SLOAD, address: {address:#?}, index: {index:#?}, value: {value:#?}")
+                trace!("SLOAD, address: {address:#?}, index: {index:#?}, value: {value:#?}")
             }
             RuntimeEvent::SStore {
                 address,
                 index,
                 value,
             } => {
-                debug!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
+                trace!("SSTORE, address: {address:#?}, index: {index:#?}, value: {value:#?}")
             }
         }
     }

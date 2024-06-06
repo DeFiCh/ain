@@ -3,7 +3,7 @@ use ain_db::{Column, ColumnName, DBError, LedgerColumn, Rocks, TypedColumn};
 use anyhow::format_err;
 use ethereum::{BlockAny, TransactionV2};
 use ethereum_types::{H160, H256, U256};
-use log::debug;
+use log::{debug, info};
 use std::{
     collections::HashMap, fmt::Write, fs, marker::PhantomData, path::Path, str::FromStr, sync::Arc,
     time::Instant,
@@ -86,10 +86,10 @@ impl DBVersionControl for BlockStore {
 
         for migration in migrations {
             if version < migration.version() {
-                debug!("Migrating to version {}...", migration.version());
+                info!("Migrating to version {}...", migration.version());
                 let start = Instant::now();
                 migration.migrate(self)?;
-                debug!(
+                info!(
                     "Migration to version {} took {:?}",
                     migration.version(),
                     start.elapsed()
