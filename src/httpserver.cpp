@@ -324,13 +324,40 @@ static bool HTTPBindAddresses(struct evhttp* http)
 
     // Bind addresses
     for (std::vector<std::pair<std::string, uint16_t> >::iterator i = endpoints.begin(); i != endpoints.end(); ++i) {
-        LogPrint(BCLog::HTTP, "Binding RPC on address %s port %i\n", i->first, i->second);
         evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, i->first.empty() ? nullptr : i->first.c_str(), i->second);
         if (bind_handle) {
             CNetAddr addr;
             if (i->first.empty() || (LookupHost(i->first.c_str(), addr, false) && addr.IsBindAny())) {
                 LogPrintf("WARNING: the RPC server is not safe to expose to untrusted networks such as the public internet\n");
             }
+
+            // Retrieve the actual bound address and port
+            evutil_socket_t fd = evhttp_bound_socket_get_fd(bind_handle);
+            struct sockaddr_storage ss;
+            socklen_t socklen = sizeof(ss);
+            if (getsockname(fd, (struct sockaddr*)&ss, &socklen) == 0) {
+                char addrbuf[128];
+                void* in_addr{};
+                uint16_t port{};
+
+                if (ss.ss_family == AF_INET) {
+                    struct sockaddr_in* sin = (struct sockaddr_in*)&ss;
+                    in_addr = &sin->sin_addr;
+                    port = ntohs(sin->sin_port);
+                } else if (ss.ss_family == AF_INET6) {
+                    struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&ss;
+                    in_addr = &sin6->sin6_addr;
+                    port = ntohs(sin6->sin6_port);
+                }
+
+                if (in_addr) {
+                    evutil_inet_ntop(ss.ss_family, in_addr, addrbuf, sizeof(addrbuf));
+                    LogPrintf("RPC port bound to %s:%d\n", addrbuf, port);
+                }
+            } else {
+                LogPrintf("Error getting RPC socket.\n");
+            }
+
             boundSockets.push_back(bind_handle);
         } else {
             LogPrintf("Binding RPC on address %s port %i failed.\n", i->first, i->second);

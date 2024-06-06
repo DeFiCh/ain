@@ -2056,7 +2056,19 @@ bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, N
         CloseSocket(hListenSocket);
         return false;
     }
-    LogPrintf("Bound to %s\n", addrBind.ToString());
+
+    // Retrieve and log the actual port being used
+    struct sockaddr_in boundAddr;
+    socklen_t boundLen = sizeof(boundAddr);
+    if (getsockname(hListenSocket, (struct sockaddr*)&boundAddr, &boundLen) == SOCKET_ERROR) {
+        const auto nErr = WSAGetLastError();
+        strError = strprintf(_("Unable to get socket name for %s (getsockname returned error %s)").translated, addrBind.ToString(), NetworkErrorString(nErr));
+        LogPrintf("%s\n", strError);
+        CloseSocket(hListenSocket);
+        return false;
+    }
+    const auto actualPort = ntohs(boundAddr.sin_port);
+    LogPrintf("P2P port bound to %s:%d\n", addrBind.ToStringIP(), actualPort);
 
     // Listen for incoming connections
     if (listen(hListenSocket, SOMAXCONN) == SOCKET_ERROR)
