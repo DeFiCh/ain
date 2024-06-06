@@ -1,15 +1,20 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{format_err, Context};
-use defichain_rpc::{json::poolpair::PoolPairInfo, BlockchainRPC};
+use bitcoin::{Address, Txid};
+use defichain_rpc::{
+    json::{account::AccountHistory, poolpair::PoolPairInfo},
+    AccountRPC, BlockchainRPC,
+};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
         cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
+        common::parse_display_symbol,
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{Error, NotFoundKind},
@@ -19,11 +24,39 @@ use crate::{
     storage::SortOrder,
     Result,
 };
+use ain_dftx::{
+    deserialize,
+    pool::{CompositeSwap, PoolSwap},
+    DfTx, Stack,
+};
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SwapType {
+    BUY,
+    SELL,
+}
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct PoolPairVolumeResponse {
     pub d30: Decimal,
     pub h24: Decimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromToData {
+    pub address: String,
+    pub amount: String,
+    pub symbol: String,
+    pub display_symbol: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PoolSwapFromTo {
+    pub from: Option<PoolSwapFromToData>,
+    pub to: Option<PoolSwapFromToData>,
 }
 
 async fn get_usd_per_dfi(ctx: &Arc<AppContext>) -> Result<Decimal> {
@@ -520,4 +553,231 @@ pub async fn get_aggregated_in_usd(
     }
 
     Ok(value)
+}
+
+fn call_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<DfTx>> {
+    let vout = ctx
+        .services
+        .transaction
+        .vout_by_id
+        .list(Some((txid, 0)), SortOrder::Ascending)?
+        .take(1)
+        .take_while(|item| match item {
+            Ok((_, vout)) => vout.txid == txid,
+            _ => true,
+        })
+        .map(|item| {
+            let (_, v) = item?;
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if vout.is_empty() {
+        return Ok(None);
+    }
+
+    let bytes = &vout[0].script.hex;
+    if bytes.len() > 6 && bytes[0] == 0x6a && bytes[1] <= 0x4e {
+        let offset = 1 + match bytes[1] {
+            0x4c => 2,
+            0x4d => 3,
+            0x4e => 4,
+            _ => 1,
+        };
+
+        let raw_tx = &bytes[offset..];
+        let dftx = match deserialize::<Stack>(raw_tx) {
+            Ok(stack) => stack.dftx,
+            Err(e) => return Err(e.into()),
+        };
+        return Ok(Some(dftx));
+    };
+
+    Ok(None)
+}
+
+fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<CompositeSwap>> {
+    let dftx = call_dftx(ctx, txid)?;
+    if dftx.is_none() {
+        return Ok(None);
+    }
+    let dftx = dftx.unwrap();
+
+    let composite_swap_dftx = match dftx {
+        DfTx::CompositeSwap(data) => Some(data),
+        _ => None,
+    };
+
+    Ok(composite_swap_dftx)
+}
+
+fn find_pool_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<PoolSwap>> {
+    let dftx = call_dftx(ctx, txid)?;
+    if dftx.is_none() {
+        return Ok(None);
+    }
+    let dftx = dftx.unwrap();
+    let pool_swap_dftx = match dftx {
+        DfTx::PoolSwap(data) => Some(data),
+        DfTx::CompositeSwap(data) => Some(data.pool_swap),
+        _ => None,
+    };
+
+    Ok(pool_swap_dftx)
+}
+
+fn find_pool_swap_from_to(
+    history: AccountHistory,
+    from: bool,
+    display_symbol: String,
+) -> Result<Option<PoolSwapFromToData>> {
+    for account in history.amounts {
+        let parts = account.split('@').collect::<Vec<&str>>();
+        let [value, symbol] = parts
+            .as_slice()
+            .try_into()
+            .context("Invalid amount structure")?;
+
+        let value = Decimal::from_str(value)?;
+
+        if value.is_sign_negative() && from {
+            return Ok(Some(PoolSwapFromToData {
+                address: history.owner,
+                amount: format!("{:.8}", value.abs()),
+                symbol: symbol.to_string(),
+                display_symbol,
+            }));
+        }
+
+        if value.is_sign_positive() && !from {
+            return Ok(Some(PoolSwapFromToData {
+                address: history.owner,
+                amount: format!("{:.8}", value.abs()),
+                symbol: symbol.to_string(),
+                display_symbol,
+            }));
+        }
+    }
+
+    Ok(None)
+}
+
+pub async fn find_swap_from_to(
+    ctx: &Arc<AppContext>,
+    height: u32,
+    txid: Txid,
+    txno: u32,
+) -> Result<Option<PoolSwapFromTo>> {
+    let dftx = find_pool_swap_dftx(ctx, txid)?;
+    if dftx.is_none() {
+        return Ok(None);
+    }
+    let dftx = dftx.unwrap();
+
+    let from_script = dftx.from_script.as_script();
+
+    let from_address = Address::from_script(from_script, ctx.network.into());
+    if from_address.is_err() {
+        return Ok(None);
+    }
+    let from_address = from_address.unwrap().to_string();
+
+    let to_script = dftx.to_script.as_script();
+    let to_address = Address::from_script(to_script, ctx.network.into());
+    if to_address.is_err() {
+        return Ok(None);
+    }
+    let to_address = to_address.unwrap().to_string();
+
+    let from_token = get_token_cached(ctx, &dftx.from_token_id.0.to_string()).await?;
+    if from_token.is_none() {
+        return Ok(None);
+    }
+    let (_, from_token) = from_token.unwrap();
+
+    let to_token = get_token_cached(ctx, &dftx.to_token_id.0.to_string()).await?;
+    if to_token.is_none() {
+        return Ok(None);
+    }
+    let (_, to_token) = to_token.unwrap();
+
+    let from = PoolSwapFromToData {
+        address: from_address,
+        amount: Decimal::new(dftx.from_amount, 8).to_string(),
+        display_symbol: parse_display_symbol(&from_token),
+        symbol: from_token.symbol,
+    };
+
+    let history = ctx
+        .client
+        .get_account_history(&to_address.to_string(), height, txno)
+        .await?;
+
+    let to = find_pool_swap_from_to(history, false, parse_display_symbol(&to_token))?;
+
+    Ok(Some(PoolSwapFromTo {
+        from: Some(from),
+        to,
+    }))
+}
+
+async fn get_pool_swap_type(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<SwapType>> {
+    let pool_pair = get_pool_pair_cached(ctx, swap.pool_id.to_string()).await?;
+    if pool_pair.is_none() {
+        return Ok(None);
+    }
+    let (_, pool_pair_info) = pool_pair.unwrap();
+    let id_token_a = pool_pair_info.id_token_a.parse::<u64>()?;
+    let swap_type = if id_token_a == swap.from_token_id {
+        SwapType::SELL
+    } else {
+        SwapType::BUY
+    };
+    Ok(Some(swap_type))
+}
+
+pub async fn check_swap_type(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<SwapType>> {
+    let dftx = find_composite_swap_dftx(ctx, swap.txid)?;
+    if dftx.is_none() {
+        return get_pool_swap_type(ctx, swap).await;
+    }
+    let dftx = dftx.unwrap();
+
+    if dftx.pools.iter().count() <= 1 {
+        return get_pool_swap_type(ctx, swap).await;
+    }
+
+    let mut prev = swap.from_token_id.to_string();
+    for pool in dftx.pools.iter() {
+        let pool_id = pool.id.0.to_string();
+        let pool_pair = get_pool_pair_cached(ctx, pool_id.clone()).await?;
+        if pool_pair.is_none() {
+            break;
+        }
+        let (_, pool_pair_info) = pool_pair.unwrap();
+
+        // if this is current pool pair, if previous token is primary token, indicator = sell
+        if pool_id == swap.pool_id.to_string() {
+            let swap_type = if pool_pair_info.id_token_a == prev {
+                SwapType::SELL
+            } else {
+                SwapType::BUY
+            };
+            return Ok(Some(swap_type));
+        }
+        // set previous token as pair swapped out token
+        prev = if prev == pool_pair_info.id_token_a {
+            pool_pair_info.id_token_b
+        } else {
+            pool_pair_info.id_token_a
+        }
+    }
+
+    Ok(None)
 }

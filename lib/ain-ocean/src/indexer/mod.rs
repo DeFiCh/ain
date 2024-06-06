@@ -166,7 +166,7 @@ pub fn index_block(
                         DfTx::SetOracleData(data) => data.index(services, &ctx)?,
                         DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
-                        // DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                        DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
                     }

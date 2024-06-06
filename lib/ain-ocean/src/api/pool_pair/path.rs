@@ -19,7 +19,7 @@ use crate::{
 
 enum TokenDirection {
     In,
-    Out
+    Out,
 }
 
 #[derive(Debug, Serialize)]
@@ -323,7 +323,7 @@ fn get_dex_fees_pct(
         ab: match token_b_direction {
             TokenDirection::In => format!("{:.8}", dex_fee_in_pct_token_b.unwrap_or_default()),
             TokenDirection::Out => format!("{:.8}", dex_fee_out_pct_token_b.unwrap_or_default()),
-        }
+        },
     })
 }
 
@@ -518,7 +518,6 @@ pub async fn sync_token_graph(ctx: &Arc<AppContext>) -> Result<()> {
             if !graph.lock().contains_edge(id_token_a, id_token_b) {
                 graph.lock().add_edge(id_token_a, id_token_b, k);
             }
-            log::debug!("sync_token_graph edges: {:?}", graph.lock().edge_count());
         }
 
         // wait 120s

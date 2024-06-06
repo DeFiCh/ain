@@ -22,6 +22,19 @@ impl Network {
     }
 }
 
+#[allow(clippy::from_over_into)]
+impl Into<bitcoin::Network> for Network {
+    fn into(self) -> bitcoin::Network {
+        match self {
+            Network::Mainnet => bitcoin::Network::Mainnet,
+            Network::Testnet => bitcoin::Network::Testnet,
+            Network::Devnet => bitcoin::Network::Devnet,
+            Network::Regtest => bitcoin::Network::Regtest,
+            _ => bitcoin::Network::Regtest,
+        }
+    }
+}
+
 impl std::str::FromStr for Network {
     type Err = &'static str;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

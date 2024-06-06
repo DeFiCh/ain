@@ -5,7 +5,7 @@ use super::BlockContext;
 
 pub type PoolSwapKey = (u32, u32, usize);
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PoolSwap {
     pub id: String,

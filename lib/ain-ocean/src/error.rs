@@ -61,6 +61,10 @@ pub enum Error {
     SecondaryIndex,
     #[error("Token {0:?} is invalid as it is not tradeable")]
     UntradeableTokenError(String),
+    #[error("Ocean: BitcoinAddressError: {0:?}")]
+    BitcoinAddressError(#[from] bitcoin::address::Error),
+    #[error("Ocean: TryFromIntError: {0:?}")]
+    TryFromIntError(#[from] std::num::TryFromIntError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
