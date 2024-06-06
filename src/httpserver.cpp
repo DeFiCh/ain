@@ -303,6 +303,10 @@ static bool HTTPBindAddresses(struct evhttp* http)
     int http_port = gArgs.GetArg("-rpcport", BaseParams().RPCPort());
     std::vector<std::pair<std::string, uint16_t> > endpoints;
 
+    if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
+        http_port = 0;
+    }
+
     // Determine what addresses to bind to
     if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-rpcbind"))) { // Default to loopback if not allowing external IPs
         endpoints.push_back(std::make_pair("::1", http_port));

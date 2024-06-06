@@ -2190,9 +2190,13 @@ bool CConnman::InitBinds(const std::vector<CService>& binds, const std::vector<N
     if (binds.empty() && whiteBinds.empty()) {
         struct in_addr inaddr_any;
         inaddr_any.s_addr = INADDR_ANY;
-        struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;
-        fBound |= Bind(CService(inaddr6_any, GetListenPort()), BF_NONE, NetPermissionFlags::PF_NONE);
-        fBound |= Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE, NetPermissionFlags::PF_NONE);
+        struct in6_addr inaddr6_any = IN6ADDR_ANY_INIT;   
+        unsigned short bind_port = GetListenPort();
+        if (const auto autoPort = gArgs.GetArg("-ports", ""); autoPort == "auto") {
+            bind_port = 0;
+        }
+        fBound |= Bind(CService(inaddr6_any, bind_port), BF_NONE, NetPermissionFlags::PF_NONE);
+        fBound |= Bind(CService(inaddr_any, bind_port), !fBound ? BF_REPORT_ERROR : BF_NONE, NetPermissionFlags::PF_NONE);
     }
     return fBound;
 }

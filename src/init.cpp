@@ -490,6 +490,7 @@ void SetupServerArgs()
     gArgs.AddArg("-peerbloomfilters", strprintf("Support filtering of blocks and transaction with bloom filters (default: %u)", DEFAULT_PEERBLOOMFILTERS), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-permitbaremultisig", strprintf("Relay non-P2SH multisig (default: %u)", DEFAULT_PERMIT_BAREMULTISIG), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-port=<port>", strprintf("Listen for connections on <port> (default: %u, testnet: %u, changi: %u, devnet: %u, regtest: %u)", defaultChainParams->GetDefaultPort(), testnetChainParams->GetDefaultPort(), changiChainParams->GetDefaultPort(), devnetChainParams->GetDefaultPort(), regtestChainParams->GetDefaultPort()), ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::CONNECTION);
+    gArgs.AddArg("-ports=auto", "Automaticlly set P2P, RPC, WebSocket and Eth RPC ports. Overrides defaults and other manually set values.", ArgsManager::ALLOW_ANY | ArgsManager::NETWORK_ONLY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-proxy=<ip:port>", "Connect through SOCKS5 proxy, set -noproxy to disable (default: disabled)", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-proxyrandomize", strprintf("Randomize credentials for every proxy connection. This enables Tor stream isolation (default: %u)", DEFAULT_PROXYRANDOMIZE), ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
     gArgs.AddArg("-seednode=<ip>", "Connect to a node to retrieve peer addresses, and disconnect. This option can be specified multiple times to connect to multiple nodes.", ArgsManager::ALLOW_ANY, OptionsCategory::CONNECTION);
@@ -1595,12 +1596,20 @@ void SetupCacheSizes(CacheSizes& cacheSizes) {
 
 static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<std::string>& wsEndpoints) {
     std::string default_address = "127.0.0.1";
+
+    bool setAutoPort{};
+    if (const auto auto_port = gArgs.GetArg("-ports", ""); auto_port == "auto") {
+        setAutoPort = true;
+    }
     
     // Determine which addresses to bind to ETH RPC server
     int eth_rpc_port = gArgs.GetArg("-ethrpcport", BaseParams().ETHRPCPort());
     if (eth_rpc_port == -1) {
             LogPrintf("ETH RPC server disabled.\n");
     } else {
+        if (setAutoPort) {
+            eth_rpc_port = 0;
+        }
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-ethrpcbind"))) { // Default to loopback if not allowing external IPs
             auto endpoint = default_address + ":" + std::to_string(eth_rpc_port);
             ethEndpoints.push_back(endpoint);
@@ -1626,6 +1635,9 @@ static void SetupRPCPorts(std::vector<std::string>& ethEndpoints, std::vector<st
     if (ws_port == -1) {
             LogPrintf("Websocket server disabled.\n");
     } else {
+        if (setAutoPort) {
+            ws_port = 0;
+        }
         if (!(gArgs.IsArgSet("-rpcallowip") && gArgs.IsArgSet("-wsbind"))) { // Default to loopback if not allowing external IPs
             auto endpoint = default_address + ":" + std::to_string(ws_port);
             wsEndpoints.push_back(endpoint);
