@@ -2062,8 +2062,7 @@ bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, N
     socklen_t boundLen = sizeof(boundAddr);
     if (getsockname(hListenSocket, (struct sockaddr*)&boundAddr, &boundLen) == SOCKET_ERROR) {
         const auto nErr = WSAGetLastError();
-        strError = strprintf(_("Unable to get socket name for %s (getsockname returned error %s)").translated, addrBind.ToString(), NetworkErrorString(nErr));
-        LogPrintf("%s\n", strError);
+        LogPrintf("Unable to get socket name for %s (getsockname returned error %s)\n", addrBind.ToString(), NetworkErrorString(nErr));
         CloseSocket(hListenSocket);
         return false;
     }
