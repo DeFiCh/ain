@@ -311,18 +311,19 @@ static UniValue CallRPC(BaseRequestHandler *rh, const std::string& strMethod, co
     std::string host;
     // Specify a specific host IP, using -rpcconnect.
     // For DVM RPCs, in preference order, we choose the following for the port:
-    //     1. -rpcport
-    //     2. port in -rpcconnect (ie following : in ipv4 or ]: in ipv6)
-    //     3. default port for chain
-    //     4. use ports defined in the ports.lock file
+    //     1. use ports defined in the ports.lock file
+    //     2. -rpcport
+    //     3. port in -rpcconnect (ie following : in ipv4 or ]: in ipv6)
+    //     4. default port for chain
     int dvmport = BaseParams().RPCPort();
     SplitHostPort(gArgs.GetArg("-rpcconnect", DEFAULT_RPCCONNECT), dvmport, host);
     dvmport = gArgs.GetArg("-rpcport", dvmport);
 
     // For EVM RPCs, in preference order, we choose the following for the evm port:
-    //     1. -ethrpcport
-    //     2. default evm port for chain
-    //     3. use ports defined in the ports.lock file
+    //     1. use ports defined in the ports.lock file
+    //     2. -ethrpcport
+    //     3. default evm port for chain
+    
     int evmport = BaseParams().ETHRPCPort();
     evmport = gArgs.GetArg("-ethrpcport", evmport);
 
