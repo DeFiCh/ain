@@ -9,19 +9,15 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.authproxy import JSONRPCException
-from test_framework.fixture_util import CommonFixture
 from test_framework.util import (
-    connect_nodes,
-    disconnect_nodes,
     assert_equal,
-    assert_raises_rpc_error,
-    get_id_token,
     get_solc_artifact_path
 )
 
 from decimal import Decimal
+import math
 import time
+from web3 import Web3
 
 
 class RestartdTokensTest(DefiTestFramework):
@@ -44,8 +40,8 @@ class RestartdTokensTest(DefiTestFramework):
                 "-fortcanninggreatworldheight=1",
                 "-fortcanningepilogueheight=1",
                 "-grandcentralheight=1",
-                "-metachainheight=200",
-                "-df23height=205",
+                "-metachainheight=105",
+                "-df23height=150", # must have 50 diff to metachain start, no idea why
                 "-df24height=1000",
             ],
         ]
@@ -56,7 +52,7 @@ class RestartdTokensTest(DefiTestFramework):
         self.setup()
 
         # ensure expected initial state
-
+        
         assert_equal(self.nodes[0].getvault(self.loop_vault_id),
                      {
                         'vaultId': self.loop_vault_id,
@@ -91,9 +87,22 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(self.nodes[0].getaccount(self.address),
                      ['390.00000000@DFI', 
                       '1.50000000@SPY', 
-                      '140.00000000@DUSD', 
+                      '100.00000000@DUSD', 
                       '19.99999000@SPY-DUSD', 
                       '70.71066811@DUSD-DFI'])
+        
+
+        assert_equal(
+            self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10 ** 18),
+            Decimal(0.5)
+            )
+        
+
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10 ** 18),
+            Decimal(40)
+            )
+        
         
         pool= self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
         assert_equal(pool["reserveA"],Decimal('500'))
@@ -116,14 +125,14 @@ class RestartdTokensTest(DefiTestFramework):
         # 90% of balances locked
         # check old pools, check new pools with 10% of old liquidity in new tokens
 
-        
+        # TODO: currently best guess numbers, need to check with final results
         assert_equal(self.nodes[0].getvault(self.loop_vault_id),
                      {
                         'vaultId': self.loop_vault_id,
                         'loanSchemeId': 'LOAN0001',
                         'ownerAddress': 'mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU',
                         'state': 'active',
-                        'collateralAmounts': ['15.01504994@DUSD'], 
+                        'collateralAmounts': ['15.01504994@USDD'], 
                         'loanAmounts': [],
                         'interestAmounts': [],
                         'collateralValue': Decimal('15.01504994'),
@@ -147,26 +156,32 @@ class RestartdTokensTest(DefiTestFramework):
                         'informativeRatio': Decimal('-1'),
                         'collateralRatio': -1
                     })
+        
+        # check old pool pairs (should be empty)
 
-        pool= self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
+        pool= self.nodes[0].getpoolpair("USDD-DFI")[self.dusdPoolId]
         assert_equal(pool["reserveA"],Decimal('44.25564014'))
         assert_equal(pool["reserveB"],Decimal('1.12967269'))
 
-        pool= self.nodes[0].getpoolpair("SPY-DUSD")[self.spyPoolId]
-        assert_equal(pool["reserveA"],Decimal('0.14960105'))
-        assert_equal(pool["reserveB"],Decimal('26.73103695'))
+        # converting DUSD->dTokens via pools to payback loans would likely massively shift the pools. 
+        # since its all in the system: better use "Futureswap"
+        pool= self.nodes[0].getpoolpair("SPY-USDD")[self.spyPoolId]
+        assert_equal(pool["reserveA"],Decimal('2'))
+        assert_equal(pool["reserveB"],Decimal('100'))
 
 
         assert_equal(self.nodes[0].getaccount(self.address),
                      ['390.00000000@DFI',
-                      '14.0133@DUSD', 
-                      '1.999999000@SPY-DUSD', 
-                      '7.07106681@DUSD-DFI'])
+                      '10.0133@USDD', 
+                      '1.999999000@SPY-USDD', 
+                      '7.07106681@USDD-DFI'])
         
         # TODO: check in locks DUSD and SPY
         # check release ratio of lock
         # check total locked funds (gov economy?)
         # check correct behaviour on TD of old SPY
+
+        # TODO: add second address with less SPY loan than balance
 
 
         # do normal tokensplit on SPY
@@ -178,36 +193,73 @@ class RestartdTokensTest(DefiTestFramework):
 
         # check balances
         # check TD (updated releaseRatio)
-
+        #'''
 
     ######## SETUP ##########
 
     def setup(self):
+        
+        # Define address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
-        self.nodes[0].generate(201)
+
+        # Generate chain
+        self.nodes[0].generate(105)
+
+        # Setup oracles
         self.setup_oracles()
+
+        # Setup tokens
         self.setup_tokens()
 
-        self.nodes[0].setgov(
-            {
-                "ATTRIBUTES": {
-                    "v0/params/feature/evm": "true",
-                    "v0/params/feature/transferdomain": "true",
-                    "v0/transferdomain/dvm-evm/enabled": "true",
-                    "v0/transferdomain/evm-dvm/enabled": "true",
-                    "v0/transferdomain/dvm-evm/dat-enabled": "true",
-                    "v0/transferdomain/evm-dvm/dat-enabled": "true",
+        # Setup Gov vars
+        self.setup_govvars()
 
-                    f"v0/token/{self.idDUSD}/loan_minting_interest": "-10",
-                    "v0/vaults/dusd-vault/enabled": "true",
-                    f"v0/token/{self.idDUSD}/loan_payback_collateral": "true",
+        # Move to df23 height (for dst v2)
+        self.nodes[0].generate(150 - self.nodes[0].getblockcount())
 
+        # Setup variables
+        self.setup_variables()
+
+        self.prepare_evm_funds()
+
+        #to have reference height for interest in vaults
+        self.nodes[0].generate(500 - self.nodes[0].getblockcount())
+
+        self.setup_test_vaults()
+
+        self.setup_test_pools()
+
+    def prepare_evm_funds(self):
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "0.5@SPY", "domain": 2},
+                    "dst": {"address": self.evmaddress, "amount": "0.5@SPY", "domain": 3},
+                    "singlekeycheck": False,
                 }
-            }
+            ]
         )
-        self.nodes[0].generate(50)
+        self.nodes[0].generate(1)
+
+        self.nodes[0].transferdomain(
+            [
+                {
+                    "src": {"address": self.address, "amount": "40@DUSD", "domain": 2},
+                    "dst": {"address": self.evmaddress, "amount": "40@DUSD", "domain": 3},
+                    "singlekeycheck": False,
+                }
+            ]
+        )
+        self.nodes[0].generate(1)
+
+    def setup_variables(self):
 
         self.evmaddress = self.nodes[0].getnewaddress("", "erc55")
+        self.evm_privkey = self.nodes[0].dumpprivkey(self.evmaddress)
+
+        self.burn_address = self.nodes[0].w3.to_checksum_address(
+            "0x0000000000000000000000000000000000000000"
+        )
 
         self.contract_address_spyv1 = self.nodes[0].w3.to_checksum_address(
             f"0xff00000000000000000000000000000000000001"
@@ -244,21 +296,6 @@ class RestartdTokensTest(DefiTestFramework):
         assert_equal(self.spy_contract.functions.symbol().call(), "SPY")
         assert_equal(self.spy_contract.functions.name().call(), "SP500")
 
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "0.5@SPY", "domain": 2},
-                    "dst": {"address": self.evmaddress, "amount": "0.5@SPY", "domain": 3},
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        self.setup_test_vaults()
-        self.setup_test_pools()
-
-
     def setup_oracles(self):
 
         # Price feeds
@@ -272,9 +309,7 @@ class RestartdTokensTest(DefiTestFramework):
         oracle_address = self.nodes[0].getnewaddress("", "legacy")
         self.oracle = self.nodes[0].appointoracle(oracle_address, price_feed, 10)
         self.nodes[0].generate(1)
-        self.set_oracle_prices()
 
-    def set_oracle_prices(self):
         # Set Oracle prices
         oracle_prices = [
             {"currency": "USD", "tokenAmount": "5@DFI"}, # $5 per DFI
@@ -342,7 +377,27 @@ class RestartdTokensTest(DefiTestFramework):
         self.nodes[0].utxostoaccount({self.address: "500@DFI"})
         self.nodes[0].generate(1)
 
-    
+    def setup_govvars(self):
+
+        self.nodes[0].setgov(
+            {
+                "ATTRIBUTES": {
+                    "v0/params/feature/evm": "true",
+                    "v0/params/feature/transferdomain": "true",
+                    "v0/transferdomain/dvm-evm/enabled": "true",
+                    "v0/transferdomain/evm-dvm/enabled": "true",
+                    "v0/transferdomain/dvm-evm/dat-enabled": "true",
+                    "v0/transferdomain/evm-dvm/dat-enabled": "true",
+
+                    f"v0/token/{self.idDUSD}/loan_minting_interest": "-10",
+                    "v0/vaults/dusd-vault/enabled": "true",
+                    f"v0/token/{self.idDUSD}/loan_payback_collateral": "true",
+
+                }
+            }
+        )
+        self.nodes[0].generate(10)
+
     def setup_test_pools(self):
         # Create pool pair
         self.nodes[0].createpoolpair(
@@ -382,7 +437,6 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
         
-
     def setup_test_vaults(self):
         # Create loan scheme
         self.nodes[0].createloanscheme(150, 0.05, "LOAN0001")
@@ -405,11 +459,6 @@ class RestartdTokensTest(DefiTestFramework):
         # add normal loan
         self.nodes[0].takeloan({"vaultId": self.vault_id, "amounts": "2@SPY"})
         self.nodes[0].generate(1)
-
-
-    ######## TESTS ##########
-
-
     
 
 
