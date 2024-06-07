@@ -76,5 +76,6 @@ pub mod ffi {
             old_amount: TokenAmount,
             new_amount: &mut TokenAmount,
         ) -> bool;
+        fn isSkippedTx(tx_hash: [u8; 32]) -> bool;
     }
 }

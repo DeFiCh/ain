@@ -10,6 +10,7 @@ pub mod tx_result;
 use std::{sync::Arc, time::Instant};
 
 use ain_dftx::{deserialize, DfTx, Stack};
+use bitcoin::hashes::Hash;
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
 pub use pool::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
@@ -133,6 +134,10 @@ pub fn index_block(
     index_block_start(services, &block, pools)?;
 
     for (tx_idx, tx) in block.tx.into_iter().enumerate() {
+        if ain_cpp_imports::is_skipped_tx(tx.txid.to_raw_hash().to_byte_array()) {
+            continue;
+        }
+
         let start = Instant::now();
         let ctx = Context {
             block: block_ctx.clone(),
