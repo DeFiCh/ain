@@ -148,6 +148,9 @@ mod ffi {
     ) -> bool {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn isSkippedTx(_tx_hash: [u8; 32]) -> bool {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
 }
 
 pub use ffi::{Attributes, TokenAmount};
@@ -364,6 +367,10 @@ pub fn split_tokens_from_evm(
     new_amount: &mut ffi::TokenAmount,
 ) -> bool {
     ffi::migrateTokensFromEVM(mnview_ptr, old_amount, new_amount)
+}
+
+pub fn is_skipped_tx(tx_hash: [u8; 32]) -> bool {
+    ffi::isSkippedTx(tx_hash)
 }
 
 #[cfg(test)]

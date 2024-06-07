@@ -113,5 +113,6 @@ bool isOceanEnabled();
 bool isEthSubscriptionEnabled();
 uint64_t getDF23Height();
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount);
+bool isSkippedTx(std::array<uint8_t, 32> txHash);
 
 #endif  // DEFI_FFI_FFIEXPORTS_H
