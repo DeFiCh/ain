@@ -9,10 +9,7 @@
 """
 
 from test_framework.test_framework import DefiTestFramework
-from test_framework.util import (
-    assert_equal,
-    get_solc_artifact_path
-)
+from test_framework.util import assert_equal, get_solc_artifact_path
 
 from decimal import Decimal
 import math
@@ -41,84 +38,89 @@ class RestartdTokensTest(DefiTestFramework):
                 "-fortcanningepilogueheight=1",
                 "-grandcentralheight=1",
                 "-metachainheight=105",
-                "-df23height=150", # must have 50 diff to metachain start, no idea why
+                "-df23height=150",  # must have 50 diff to metachain start, no idea why
                 "-df24height=1000",
             ],
         ]
 
     def run_test(self):
 
-        #setup tokens, vaults, pools etc.
+        # setup tokens, vaults, pools etc.
         self.setup()
 
         # ensure expected initial state
-        
-        assert_equal(self.nodes[0].getvault(self.loop_vault_id),
-                     {
-                        'vaultId': self.loop_vault_id,
-                        'loanSchemeId': 'LOAN0001',
-                        'ownerAddress': 'mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU',
-                        'state': 'active',
-                        'collateralAmounts': ['250.00000000@DUSD'],
-                        'loanAmounts': ['99.99924278@DUSD'],
-                        'interestAmounts': ['-0.00075722@DUSD'],
-                        'collateralValue': Decimal('250.00000000'),
-                        'loanValue': Decimal('99.99924278'),
-                        'interestValue': Decimal('-0.00075722'),
-                        'informativeRatio': Decimal('250.00189306'),
-                        'collateralRatio': 250
-                    })
-        assert_equal(self.nodes[0].getvault(self.vault_id),
-                     {
-                        'vaultId': self.vault_id,
-                        'loanSchemeId': 'LOAN0001',
-                        'ownerAddress': 'mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU',
-                        'state': 'active',
-                        'collateralAmounts': ['100.00000000@DFI', '10.00000000@DUSD'],
-                        'loanAmounts': ['2.00000006@SPY'],
-                        'interestAmounts': ['0.00000006@SPY'],
-                        'collateralValue': Decimal('510.00000000'),
-                        'loanValue': Decimal('200.00000600'),
-                        'interestValue': Decimal('0.00000600'),
-                        'informativeRatio': Decimal('254.99999235'),
-                        'collateralRatio': 255
-                    })
-
-        assert_equal(self.nodes[0].getaccount(self.address),
-                     ['390.00000000@DFI', 
-                      '1.50000000@SPY', 
-                      '100.00000000@DUSD', 
-                      '19.99999000@SPY-DUSD', 
-                      '70.71066811@DUSD-DFI'])
-        
 
         assert_equal(
-            self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10 ** 18),
-            Decimal(0.5)
-            )
-        
+            self.nodes[0].getvault(self.loop_vault_id),
+            {
+                "vaultId": self.loop_vault_id,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+                "state": "active",
+                "collateralAmounts": ["250.00000000@DUSD"],
+                "loanAmounts": ["99.99924278@DUSD"],
+                "interestAmounts": ["-0.00075722@DUSD"],
+                "collateralValue": Decimal("250.00000000"),
+                "loanValue": Decimal("99.99924278"),
+                "interestValue": Decimal("-0.00075722"),
+                "informativeRatio": Decimal("250.00189306"),
+                "collateralRatio": 250,
+            },
+        )
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id),
+            {
+                "vaultId": self.vault_id,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+                "state": "active",
+                "collateralAmounts": ["100.00000000@DFI", "10.00000000@DUSD"],
+                "loanAmounts": ["2.00000006@SPY"],
+                "interestAmounts": ["0.00000006@SPY"],
+                "collateralValue": Decimal("510.00000000"),
+                "loanValue": Decimal("200.00000600"),
+                "interestValue": Decimal("0.00000600"),
+                "informativeRatio": Decimal("254.99999235"),
+                "collateralRatio": 255,
+            },
+        )
 
         assert_equal(
-            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10 ** 18),
-            Decimal(40)
-            )
-        
-        
-        pool= self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
-        assert_equal(pool["reserveA"],Decimal('500'))
-        assert_equal(pool["reserveB"],Decimal('10'))
+            self.nodes[0].getaccount(self.address),
+            [
+                "390.00000000@DFI",
+                "1.50000000@SPY",
+                "100.00000000@DUSD",
+                "19.99999000@SPY-DUSD",
+                "70.71066811@DUSD-DFI",
+            ],
+        )
 
-        pool= self.nodes[0].getpoolpair("SPY-DUSD")[self.spyPoolId]
-        assert_equal(pool["reserveA"],Decimal('2'))
-        assert_equal(pool["reserveB"],Decimal('200'))
+        assert_equal(
+            self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(0.5),
+        )
+
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(40),
+        )
+
+        pool = self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
+        assert_equal(pool["reserveA"], Decimal("500"))
+        assert_equal(pool["reserveB"], Decimal("10"))
+
+        pool = self.nodes[0].getpoolpair("SPY-DUSD")[self.spyPoolId]
+        assert_equal(pool["reserveA"], Decimal("2"))
+        assert_equal(pool["reserveB"], Decimal("200"))
 
         # do restart and check funds
         self.nodes[0].generate(1000 - self.nodes[0].getblockcount())
 
         # check split funds
         # looped vault must be unlooped and 90% of DUSD collateral locked
-        # SPY payed back with balance, 
-        #     swap all DUSD from collateral to pay back, 
+        # SPY payed back with balance,
+        #     swap all DUSD from collateral to pay back,
         #     swap parts of DFI to pay back
         # 90% of LM positions locked as tokens
         # 90% of DUSD-DFI position back to address
@@ -126,56 +128,63 @@ class RestartdTokensTest(DefiTestFramework):
         # check old pools, check new pools with 10% of old liquidity in new tokens
 
         # TODO: currently best guess numbers, need to check with final results
-        assert_equal(self.nodes[0].getvault(self.loop_vault_id),
-                     {
-                        'vaultId': self.loop_vault_id,
-                        'loanSchemeId': 'LOAN0001',
-                        'ownerAddress': 'mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU',
-                        'state': 'active',
-                        'collateralAmounts': ['15.01504994@USDD'], 
-                        'loanAmounts': [],
-                        'interestAmounts': [],
-                        'collateralValue': Decimal('15.01504994'),
-                        'loanValue': Decimal('0'),
-                        'interestValue': Decimal('0'),
-                        'informativeRatio': Decimal('-1'),
-                        'collateralRatio': -1
-                    })
-        assert_equal(self.nodes[0].getvault(self.vault_id),
-                     {
-                        'vaultId': self.vault_id,
-                        'loanSchemeId': 'LOAN0001',
-                        'ownerAddress': 'mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU',
-                        'state': 'active',
-                        'collateralAmounts': ['98.70000000@DFI'],
-                        'loanAmounts': [],
-                        'interestAmounts': [],
-                        'collateralValue': Decimal('493.50000000'),
-                        'loanValue': Decimal('0'),
-                        'interestValue': Decimal('0'),
-                        'informativeRatio': Decimal('-1'),
-                        'collateralRatio': -1
-                    })
-        
+        assert_equal(
+            self.nodes[0].getvault(self.loop_vault_id),
+            {
+                "vaultId": self.loop_vault_id,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+                "state": "active",
+                "collateralAmounts": ["15.01504994@USDD"],
+                "loanAmounts": [],
+                "interestAmounts": [],
+                "collateralValue": Decimal("15.01504994"),
+                "loanValue": Decimal("0"),
+                "interestValue": Decimal("0"),
+                "informativeRatio": Decimal("-1"),
+                "collateralRatio": -1,
+            },
+        )
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id),
+            {
+                "vaultId": self.vault_id,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+                "state": "active",
+                "collateralAmounts": ["98.70000000@DFI"],
+                "loanAmounts": [],
+                "interestAmounts": [],
+                "collateralValue": Decimal("493.50000000"),
+                "loanValue": Decimal("0"),
+                "interestValue": Decimal("0"),
+                "informativeRatio": Decimal("-1"),
+                "collateralRatio": -1,
+            },
+        )
+
         # check old pool pairs (should be empty)
 
-        pool= self.nodes[0].getpoolpair("USDD-DFI")[self.dusdPoolId]
-        assert_equal(pool["reserveA"],Decimal('44.25564014'))
-        assert_equal(pool["reserveB"],Decimal('1.12967269'))
+        pool = self.nodes[0].getpoolpair("USDD-DFI")[self.dusdPoolId]
+        assert_equal(pool["reserveA"], Decimal("44.25564014"))
+        assert_equal(pool["reserveB"], Decimal("1.12967269"))
 
-        # converting DUSD->dTokens via pools to payback loans would likely massively shift the pools. 
+        # converting DUSD->dTokens via pools to payback loans would likely massively shift the pools.
         # since its all in the system: better use "Futureswap"
-        pool= self.nodes[0].getpoolpair("SPY-USDD")[self.spyPoolId]
-        assert_equal(pool["reserveA"],Decimal('2'))
-        assert_equal(pool["reserveB"],Decimal('100'))
+        pool = self.nodes[0].getpoolpair("SPY-USDD")[self.spyPoolId]
+        assert_equal(pool["reserveA"], Decimal("2"))
+        assert_equal(pool["reserveB"], Decimal("100"))
 
+        assert_equal(
+            self.nodes[0].getaccount(self.address),
+            [
+                "390.00000000@DFI",
+                "10.0133@USDD",
+                "1.999999000@SPY-USDD",
+                "7.07106681@USDD-DFI",
+            ],
+        )
 
-        assert_equal(self.nodes[0].getaccount(self.address),
-                     ['390.00000000@DFI',
-                      '10.0133@USDD', 
-                      '1.999999000@SPY-USDD', 
-                      '7.07106681@USDD-DFI'])
-        
         # TODO: check in locks DUSD and SPY
         # check release ratio of lock
         # check total locked funds (gov economy?)
@@ -183,11 +192,9 @@ class RestartdTokensTest(DefiTestFramework):
 
         # TODO: add second address with less SPY loan than balance
 
-
         # do normal tokensplit on SPY
         # check correct balances in SC
         # check correct behaviour on TD of old SPY and new SPY
-
 
         # release tranche
 
@@ -198,7 +205,7 @@ class RestartdTokensTest(DefiTestFramework):
     ######## SETUP ##########
 
     def setup(self):
-        
+
         # Define address
         self.address = self.nodes[0].get_genesis_keys().ownerAuthAddress
 
@@ -222,7 +229,7 @@ class RestartdTokensTest(DefiTestFramework):
 
         self.prepare_evm_funds()
 
-        #to have reference height for interest in vaults
+        # to have reference height for interest in vaults
         self.nodes[0].generate(500 - self.nodes[0].getblockcount())
 
         self.setup_test_vaults()
@@ -234,7 +241,11 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "src": {"address": self.address, "amount": "0.5@SPY", "domain": 2},
-                    "dst": {"address": self.evmaddress, "amount": "0.5@SPY", "domain": 3},
+                    "dst": {
+                        "address": self.evmaddress,
+                        "amount": "0.5@SPY",
+                        "domain": 3,
+                    },
                     "singlekeycheck": False,
                 }
             ]
@@ -245,7 +256,11 @@ class RestartdTokensTest(DefiTestFramework):
             [
                 {
                     "src": {"address": self.address, "amount": "40@DUSD", "domain": 2},
-                    "dst": {"address": self.evmaddress, "amount": "40@DUSD", "domain": 3},
+                    "dst": {
+                        "address": self.evmaddress,
+                        "amount": "40@DUSD",
+                        "domain": 3,
+                    },
                     "singlekeycheck": False,
                 }
             ]
@@ -312,8 +327,8 @@ class RestartdTokensTest(DefiTestFramework):
 
         # Set Oracle prices
         oracle_prices = [
-            {"currency": "USD", "tokenAmount": "5@DFI"}, # $5 per DFI
-            {"currency": "USD", "tokenAmount": "100@SPY"}, # $100 per SPY
+            {"currency": "USD", "tokenAmount": "5@DFI"},  # $5 per DFI
+            {"currency": "USD", "tokenAmount": "100@SPY"},  # $100 per SPY
             {"currency": "USD", "tokenAmount": "1@DUSD"},
         ]
         self.nodes[0].setoracledata(self.oracle, int(time.time()), oracle_prices)
@@ -343,7 +358,7 @@ class RestartdTokensTest(DefiTestFramework):
                 "interest": 0,
             }
         )
-        
+
         self.nodes[0].generate(1)
         self.idDUSD = list(self.nodes[0].gettoken("DUSD").keys())[0]
 
@@ -366,12 +381,8 @@ class RestartdTokensTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Mint tokens
-        self.nodes[0].minttokens([
-            "2@SPY",
-            "1000@DUSD"
-            ])
+        self.nodes[0].minttokens(["2@SPY", "1000@DUSD"])
         self.nodes[0].generate(1)
-
 
         # Create account DFI
         self.nodes[0].utxostoaccount({self.address: "500@DFI"})
@@ -388,11 +399,9 @@ class RestartdTokensTest(DefiTestFramework):
                     "v0/transferdomain/evm-dvm/enabled": "true",
                     "v0/transferdomain/dvm-evm/dat-enabled": "true",
                     "v0/transferdomain/evm-dvm/dat-enabled": "true",
-
                     f"v0/token/{self.idDUSD}/loan_minting_interest": "-10",
                     "v0/vaults/dusd-vault/enabled": "true",
                     f"v0/token/{self.idDUSD}/loan_payback_collateral": "true",
-
                 }
             }
         )
@@ -422,13 +431,12 @@ class RestartdTokensTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-
         self.spyPoolId = list(self.nodes[0].gettoken("SPY-DUSD").keys())[0]
         self.dusdPoolId = list(self.nodes[0].gettoken("DUSD-DFI").keys())[0]
 
         # Fund pools
         self.nodes[0].addpoolliquidity(
-            {self.address: ["500@DUSD", "10@DFI"]}, # $5 per DFI -> $0.1 per DUSD
+            {self.address: ["500@DUSD", "10@DFI"]},  # $5 per DFI -> $0.1 per DUSD
             self.address,
         )
         self.nodes[0].addpoolliquidity(
@@ -436,7 +444,7 @@ class RestartdTokensTest(DefiTestFramework):
             self.address,
         )
         self.nodes[0].generate(1)
-        
+
     def setup_test_vaults(self):
         # Create loan scheme
         self.nodes[0].createloanscheme(150, 0.05, "LOAN0001")
@@ -459,7 +467,6 @@ class RestartdTokensTest(DefiTestFramework):
         # add normal loan
         self.nodes[0].takeloan({"vaultId": self.vault_id, "amounts": "2@SPY"})
         self.nodes[0].generate(1)
-    
 
 
 if __name__ == "__main__":

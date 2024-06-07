@@ -119,7 +119,7 @@ BASE_SCRIPTS = [
     "p2p_feefilter.py",
     "feature_reindex.py",
     "feature_abortnode.py",
-    #TODO: check timing and position accordingly
+    # TODO: check timing and position accordingly
     "feature_restartdtokens.py",
     # vv Tests less than 30s vv
     "wallet_keypool_topup.py",
