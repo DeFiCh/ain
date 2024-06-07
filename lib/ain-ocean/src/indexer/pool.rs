@@ -1,6 +1,7 @@
-use std::{ops::Div, str::FromStr, sync::Arc};
+use std::{collections::HashMap, ops::Div, str::FromStr, sync::Arc};
+use parking_lot::Mutex;
 
-use ain_dftx::pool::*;
+use ain_dftx::{common::{CompactVec, VarInt}, pool::*};
 use anyhow::format_err;
 use bitcoin::BlockHash;
 // use bitcoin::Address;
@@ -26,6 +27,55 @@ pub const AGGREGATED_INTERVALS: [u32; 2] = [
 pub enum PoolSwapAggregatedInterval {
     OneDay = 60 * 60 * 24,
     OneHour = 60 * 60,
+}
+
+#[derive(Debug, Clone)]
+pub struct PoolCreationHeight {
+    pub id: u32,
+    pub id_token_a: u32,
+    pub id_token_b: u32,
+    pub creation_height: u32,
+}
+
+lazy_static::lazy_static! {
+  pub static ref POOL_PAIR_PATH_MAPPING: Mutex<HashMap<String, PoolCreationHeight>> = Mutex::new(HashMap::new());
+}
+
+fn find_pair(a: u64, b: u64) -> Option<PoolCreationHeight> {
+  let mapping = POOL_PAIR_PATH_MAPPING.lock();
+  let pair_a_b = mapping.get(&format!("{a}-{b}"));
+  if pair_a_b.is_some() {
+    return pair_a_b.cloned()
+  }
+  let pair_b_a = mapping.get(&format!("{b}-{a}"));
+  if pair_b_a.is_some() {
+    return pair_b_a.cloned()
+  }
+  None
+}
+
+pub fn update_mapping(pools: &Vec<PoolCreationHeight>) {
+  let mut mapping = POOL_PAIR_PATH_MAPPING.lock();
+  for pool in pools {
+    mapping.insert(format!("{}-{}", pool.id_token_a, pool.id_token_b), pool.clone());
+    mapping.insert(format!("{}-{}", pool.id_token_b, pool.id_token_a), pool.clone());
+  }
+}
+
+fn process_pool_ids(pool_ids: CompactVec<PoolId>, a: u64, b: u64) -> CompactVec<PoolId> {
+    if pool_ids.as_ref().is_empty() {
+        let pool = find_pair(a, b);
+        if pool.is_none() {
+            log::error!("Empty pool ids. May caused by invalid pair or POOL_PAIR_PATH_MAPPING is not updated yet");
+            return CompactVec::from(Vec::new())
+        }
+        let pool = pool.unwrap();
+        let pool_id = PoolId {
+            id: VarInt(pool.id as u64)
+        };
+        return CompactVec::from(vec![pool_id])
+    }
+    pool_ids
 }
 
 impl Index for PoolSwap {
@@ -217,7 +267,8 @@ impl Index for CompositeSwap {
 
         let from = self.pool_swap.from_script;
         let to = self.pool_swap.to_script;
-        for pool in self.pools.as_ref() {
+        let pool_ids = process_pool_ids(self.pools, self.pool_swap.from_token_id.0, self.pool_swap.to_token_id.0);
+        for pool in pool_ids.as_ref() {
             let pool_id = pool.id.0 as u32;
             let swap = model::PoolSwap {
                 id: format!("{}-{}", pool_id, txid),

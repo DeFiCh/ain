@@ -13,7 +13,7 @@ use ain_dftx::{deserialize, DfTx, Stack};
 use bitcoin::hashes::Hash;
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
-pub use pool::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+pub use pool::{update_mapping, PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 
 use crate::{
     index_transaction,
@@ -31,11 +31,6 @@ pub(crate) trait Index {
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
 }
 
-#[derive(Debug, Clone)]
-pub struct PoolCreationHeight {
-    pub id: u32,
-    pub creation_height: u32,
-}
 
 #[derive(Debug)]
 pub struct Context {
@@ -130,6 +125,8 @@ pub fn index_block(
         time: block.time,
         median_time: block.mediantime,
     };
+
+    update_mapping(&pools);
 
     index_block_start(services, &block, pools)?;
 

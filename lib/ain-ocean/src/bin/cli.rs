@@ -104,11 +104,16 @@ async fn main() -> Result<()> {
             .await?
             .0
             .into_iter()
-            .map(|(id, info)| PoolCreationHeight {
-                id: id.parse::<u32>().unwrap(),
-                creation_height: info.creation_height as u32,
+            .map(|(id, info)| {
+                let pool = PoolCreationHeight {
+                    id: id.parse::<u32>()?,
+                    id_token_a: info.id_token_a.parse::<u32>()?,
+                    id_token_b: info.id_token_b.parse::<u32>()?,
+                    creation_height: info.creation_height as u32,
+                };
+                Ok(pool)
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>>>()?;
 
         next_block_hash = block.nextblockhash;
         match index_block(&services, block, pools) {

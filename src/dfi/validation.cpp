@@ -3141,7 +3141,12 @@ Res ProcessDeFiEventFallible(const CBlock &block,
             [&](DCT_ID const &id, CPoolPair pool) {
                 const auto token = pcustomcsview->GetToken(id);
                 if (token) {
-                    pools.push_back({id.v, pool.creationHeight});
+                    pools.push_back(PoolCreationHeight{
+                        id.v,
+                        pool.idTokenA.v,
+                        pool.idTokenB.v,
+                        pool.creationHeight,
+                    });
                 };
                 return true;
             },
