@@ -2507,64 +2507,41 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
     }
 }
 
-
-static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
-    const auto &consensus = blockCtx.GetConsensus();
-    if (pindex->nHeight != consensus.DF24Height) {
-        return;
-    }
-
+static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
     const auto dUsdToken = cache.GetToken("DUSD");
     if (!dUsdToken) {
-        //_FIXME: throw error? 
+        //_FIXME: throw error?
         return;
     }
-    // refund all FutureSwaps
-
-    // cancel all auctions
 
     // unloop all DUSD vaults
     cache.ForEachVault([&](const CVaultId &vaultId, CVaultData vault) {
-        const auto collAmounts= cache.GetVaultCollaterals(vaultId);
-        if(!collAmounts || !collAmounts->balances.count(dUsdToken->first)) {
+        const auto collAmounts = cache.GetVaultCollaterals(vaultId);
+        if (!collAmounts || !collAmounts->balances.count(dUsdToken->first)) {
             // no dusd in collateral
             return true;
         }
         const auto loanAmounts = cache.GetLoanTokens(vaultId);
         if (!loanAmounts || !loanAmounts->balances.count(dUsdToken->first)) {
-            //no dusd loan
+            // no dusd loan
             return true;
         }
-        auto res= PaybackWithCollateral(cache, vault,vaultId, pindex->nHeight, pindex->nTime);
-        if(!res) {
-            //FIXME: throw error
+        auto res = PaybackWithCollateral(cache, vault, vaultId, pindex->nHeight, pindex->nTime);
+        if (!res) {
+            // FIXME: throw error
             return false;
         }
         return true;
     });
 
-    // payback all loans: first balance, then DUSD collateral (burn DUSD for loan at oracleprice), 
+    // payback all loans: first balance, then DUSD collateral (burn DUSD for loan at oracleprice),
     //                  then swap other collateral to DUSD and burn for loan
     cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
         for (const auto &[tokenId, amount] : balances.balances) {
-            auto owner= cache.GetVault(vaultId)->ownerAddress;
-            auto balance= cache.GetBalance(owner,tokenId);
-            if (balance.nValue > 0) {
-                //TODO: extract logic from LoanPackbackLoanV2Message exeuction and trigger here
-            }
-        }
-        return true;
-    });
-
-    //any remaining loans? payback with DUSD. TODO: can we optimize this?
-    cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
-        for (const auto &[tokenId, amount] : balances.balances) {
-            if(tokenId == dUsdToken->first) continue; //no payback with DUSD for DUSD
             auto owner = cache.GetVault(vaultId)->ownerAddress;
-
-            auto balance = cache.GetBalance(owner, dUsdToken->first);
+            auto balance = cache.GetBalance(owner, tokenId);
             if (balance.nValue > 0) {
-                // TODO: extract logic from LoanPackbackLoanV2Message exeuction and trigger here payback with DUSD
+                // TODO: extract logic from LoanPackbackLoanV2Message exeuction and trigger here
             }
         }
         return true;
@@ -2576,13 +2553,39 @@ static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, Bl
             auto owner = cache.GetVault(vaultId)->ownerAddress;
 
             auto balance = cache.GetVaultCollaterals(vaultId);
-            //TODO: take DUSD collateral and use for paybackWithDUSD
+            // TODO: take DUSD collateral and use for paybackWithDUSD
         }
         return true;
     });
+}
+
+static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight != consensus.DF24Height) {
+        return;
+    }
+
+    // refund all FutureSwaps
+
+    // cancel all auctions
+
+
+    ForceCloseAllLoans(pindex,cache,blockCtx);
 
     // create DB entries for locked tokens and lock ratio 
     // create new tokens for all active loan tokens
+    LoanTokenCollection loanTokens;
+
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
+    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
+        if (!loanToken.mintable) {
+            return true;
+        }
+
+        loanTokens.emplace_back(id, loanToken);
+
+        return true;
+    });
     // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
     // migrate all pools containing old tokens to new pools with <lockRatio> liquidity, remaining liquidity of old tokens is locked as coins, non-lock-tokens in pools go to address
     // convert all lock-token balances to new tokens and lock (1-<lockRatio>)%
