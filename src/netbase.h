@@ -68,4 +68,7 @@ bool SetSocketNoDelay(const SOCKET& hSocket);
 struct timeval MillisToTimeval(int64_t nTimeout);
 void InterruptSocks5(bool interrupt);
 
+/** Return the port in use */
+uint16_t GetActualPort(const SOCKET hSocket);
+
 #endif // DEFI_NETBASE_H

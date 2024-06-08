@@ -931,3 +931,20 @@ void InterruptSocks5(bool interrupt)
 {
     interruptSocks5Recv = interrupt;
 }
+
+uint16_t GetActualPort(const SOCKET hSocket)
+{
+    uint16_t actualPort{};
+    struct sockaddr_storage ss;
+    socklen_t boundLen = sizeof(ss);
+    if (getsockname(hSocket, reinterpret_cast<struct sockaddr*>(&ss), &boundLen) == 0) {
+        if (ss.ss_family == AF_INET) {
+            const auto sin = reinterpret_cast<sockaddr_in*>(&ss);
+            actualPort = ntohs(sin->sin_port);
+        } else if (ss.ss_family == AF_INET6) {
+            const auto sin6 = reinterpret_cast<sockaddr_in6*>(&ss);
+            actualPort = ntohs(sin6->sin6_port);
+        }
+    }
+    return actualPort;
+}

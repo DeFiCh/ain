@@ -342,32 +342,13 @@ static bool HTTPBindAddresses(struct evhttp* http)
 
             // Retrieve the actual bound address and port
             auto fd = evhttp_bound_socket_get_fd(bind_handle);
-            struct sockaddr_storage ss;
-            socklen_t socklen = sizeof(ss);
-            if (getsockname(fd, reinterpret_cast<sockaddr*>(&ss), &socklen) == 0) {
-                char addrbuf[128];
-                void* in_addr{};
-                uint16_t port{};
-
-                if (ss.ss_family == AF_INET) {
-                    const auto sin = reinterpret_cast<sockaddr_in*>(&ss);
-                    in_addr = &sin->sin_addr;
-                    port = ntohs(sin->sin_port);
-                } else if (ss.ss_family == AF_INET6) {
-                    const auto sin6 = reinterpret_cast<sockaddr_in6*>(&ss);
-                    in_addr = &sin6->sin6_addr;
-                    port = ntohs(sin6->sin6_port);
+            if (const auto actualPort = GetActualPort(fd); actualPort) {
+                // Only store the first usage of the port
+                if (!autoHTTPPort) {
+                    PrintPortUsage(AutoPort::RPC, actualPort);
                 }
-
-                if (in_addr) {
-                    evutil_inet_ntop(ss.ss_family, in_addr, addrbuf, sizeof(addrbuf));
-                    LogPrintf("RPC port bound to %s:%d\n", addrbuf, port);
-                    // Only store the first usage of the RPC port
-                    if (!autoHTTPPort) {
-                        PrintPortUsage(AutoPort::RPC, port);
-                    }
-                    autoHTTPPort = port;
-                }
+                autoHTTPPort = actualPort;
+                LogPrintf("RPC port bound to %s:%d\n", address, actualPort);
             } else {
                 LogPrintf("Error getting RPC socket.\n");
             }
