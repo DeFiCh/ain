@@ -10,6 +10,7 @@
 #endif
 
 #include <compat.h>
+#include <logging.h>
 #include <netaddress.h>
 #include <serialize.h>
 
@@ -68,7 +69,7 @@ bool SetSocketNoDelay(const SOCKET& hSocket);
 struct timeval MillisToTimeval(int64_t nTimeout);
 void InterruptSocks5(bool interrupt);
 
-/** Return the port in use */
-uint16_t GetActualPort(const SOCKET hSocket);
+/** Return and print the port in use */
+uint16_t GetAndPrintActualPort(const SOCKET hSocket, const bool printPort, AutoPort type, const std::string &address);
 
 #endif // DEFI_NETBASE_H

@@ -2058,16 +2058,7 @@ bool CConnman::BindListenPort(const CService& addrBind, std::string& strError, N
     }
 
     // Retrieve and log the actual port being used
-    if (const auto actualPort = GetActualPort(hListenSocket); actualPort) {
-        // Only store the first usage of the port
-        if (!actualBoundPort) {
-            PrintPortUsage(AutoPort::P2P, actualPort);
-        }
-        actualBoundPort = actualPort;
-        LogPrintf("P2P port bound to %s:%d\n", addrBind.ToStringIP(), actualPort);
-    } else {
-        LogPrintf("Error getting P2P socket.\n");
-    }
+    actualBoundPort = GetAndPrintActualPort(hListenSocket, *actualBoundPort == 0, AutoPort::P2P, addrBind.ToStringIP());
 
     // Listen for incoming connections
     if (listen(hListenSocket, SOMAXCONN) == SOCKET_ERROR)

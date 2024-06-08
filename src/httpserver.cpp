@@ -342,16 +342,7 @@ static bool HTTPBindAddresses(struct evhttp* http)
 
             // Retrieve the actual bound address and port
             auto fd = evhttp_bound_socket_get_fd(bind_handle);
-            if (const auto actualPort = GetActualPort(fd); actualPort) {
-                // Only store the first usage of the port
-                if (!autoHTTPPort) {
-                    PrintPortUsage(AutoPort::RPC, actualPort);
-                }
-                autoHTTPPort = actualPort;
-                LogPrintf("RPC port bound to %s:%d\n", address, actualPort);
-            } else {
-                LogPrintf("Error getting RPC socket.\n");
-            }
+            autoHTTPPort = GetAndPrintActualPort(fd, autoHTTPPort == 0, AutoPort::RPC, address);
 
             boundSockets.push_back(bind_handle);
         } else {
