@@ -329,32 +329,32 @@ static bool HTTPBindAddresses(struct evhttp* http)
     int autoHTTPPort{};
 
     // Bind addresses
-    for (auto i = endpoints.begin(); i != endpoints.end(); ++i) {
+    for (auto &[address, port] : endpoints) {
         if (!http_port && autoHTTPPort) {
-            i->second = autoHTTPPort;
+            port = autoHTTPPort;
         }
-        evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, i->first.empty() ? nullptr : i->first.c_str(), i->second);
+        evhttp_bound_socket *bind_handle = evhttp_bind_socket_with_handle(http, address.empty() ? nullptr : address.c_str(), port);
         if (bind_handle) {
             CNetAddr addr;
-            if (i->first.empty() || (LookupHost(i->first.c_str(), addr, false) && addr.IsBindAny())) {
+            if (address.empty() || (LookupHost(address.c_str(), addr, false) && addr.IsBindAny())) {
                 LogPrintf("WARNING: the RPC server is not safe to expose to untrusted networks such as the public internet\n");
             }
 
             // Retrieve the actual bound address and port
-            evutil_socket_t fd = evhttp_bound_socket_get_fd(bind_handle);
+            auto fd = evhttp_bound_socket_get_fd(bind_handle);
             struct sockaddr_storage ss;
             socklen_t socklen = sizeof(ss);
-            if (getsockname(fd, (struct sockaddr*)&ss, &socklen) == 0) {
+            if (getsockname(fd, reinterpret_cast<sockaddr*>(&ss), &socklen) == 0) {
                 char addrbuf[128];
                 void* in_addr{};
                 uint16_t port{};
 
                 if (ss.ss_family == AF_INET) {
-                    struct sockaddr_in* sin = (struct sockaddr_in*)&ss;
+                    const auto sin = reinterpret_cast<sockaddr_in*>(&ss);
                     in_addr = &sin->sin_addr;
                     port = ntohs(sin->sin_port);
                 } else if (ss.ss_family == AF_INET6) {
-                    struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&ss;
+                    const auto sin6 = reinterpret_cast<sockaddr_in6*>(&ss);
                     in_addr = &sin6->sin6_addr;
                     port = ntohs(sin6->sin6_port);
                 }
@@ -374,7 +374,7 @@ static bool HTTPBindAddresses(struct evhttp* http)
 
             boundSockets.push_back(bind_handle);
         } else {
-            LogPrintf("Binding RPC on address %s port %i failed.\n", i->first, i->second);
+            LogPrintf("Binding RPC on address %s port %i failed.\n", address, port);
         }
     }
     return !boundSockets.empty();
