@@ -1,7 +1,10 @@
-use std::{collections::HashMap, ops::Div, str::FromStr, sync::Arc};
 use parking_lot::Mutex;
+use std::{collections::HashMap, ops::Div, str::FromStr, sync::Arc};
 
-use ain_dftx::{common::{CompactVec, VarInt}, pool::*};
+use ain_dftx::{
+    common::{CompactVec, VarInt},
+    pool::*,
+};
 use anyhow::format_err;
 use bitcoin::BlockHash;
 // use bitcoin::Address;
@@ -42,24 +45,30 @@ lazy_static::lazy_static! {
 }
 
 fn find_pair(a: u64, b: u64) -> Option<PoolCreationHeight> {
-  let mapping = POOL_PAIR_PATH_MAPPING.lock();
-  let pair_a_b = mapping.get(&format!("{a}-{b}"));
-  if pair_a_b.is_some() {
-    return pair_a_b.cloned()
-  }
-  let pair_b_a = mapping.get(&format!("{b}-{a}"));
-  if pair_b_a.is_some() {
-    return pair_b_a.cloned()
-  }
-  None
+    let mapping = POOL_PAIR_PATH_MAPPING.lock();
+    let pair_a_b = mapping.get(&format!("{a}-{b}"));
+    if pair_a_b.is_some() {
+        return pair_a_b.cloned();
+    }
+    let pair_b_a = mapping.get(&format!("{b}-{a}"));
+    if pair_b_a.is_some() {
+        return pair_b_a.cloned();
+    }
+    None
 }
 
 pub fn update_mapping(pools: &Vec<PoolCreationHeight>) {
-  let mut mapping = POOL_PAIR_PATH_MAPPING.lock();
-  for pool in pools {
-    mapping.insert(format!("{}-{}", pool.id_token_a, pool.id_token_b), pool.clone());
-    mapping.insert(format!("{}-{}", pool.id_token_b, pool.id_token_a), pool.clone());
-  }
+    let mut mapping = POOL_PAIR_PATH_MAPPING.lock();
+    for pool in pools {
+        mapping.insert(
+            format!("{}-{}", pool.id_token_a, pool.id_token_b),
+            pool.clone(),
+        );
+        mapping.insert(
+            format!("{}-{}", pool.id_token_b, pool.id_token_a),
+            pool.clone(),
+        );
+    }
 }
 
 fn process_pool_ids(pool_ids: CompactVec<PoolId>, a: u64, b: u64) -> CompactVec<PoolId> {
@@ -67,13 +76,13 @@ fn process_pool_ids(pool_ids: CompactVec<PoolId>, a: u64, b: u64) -> CompactVec<
         let pool = find_pair(a, b);
         if pool.is_none() {
             log::error!("Empty pool ids. May caused by invalid pair or POOL_PAIR_PATH_MAPPING is not updated yet");
-            return CompactVec::from(Vec::new())
+            return CompactVec::from(Vec::new());
         }
         let pool = pool.unwrap();
         let pool_id = PoolId {
-            id: VarInt(pool.id as u64)
+            id: VarInt(pool.id as u64),
         };
-        return CompactVec::from(vec![pool_id])
+        return CompactVec::from(vec![pool_id]);
     }
     pool_ids
 }
@@ -267,7 +276,11 @@ impl Index for CompositeSwap {
 
         let from = self.pool_swap.from_script;
         let to = self.pool_swap.to_script;
-        let pool_ids = process_pool_ids(self.pools, self.pool_swap.from_token_id.0, self.pool_swap.to_token_id.0);
+        let pool_ids = process_pool_ids(
+            self.pools,
+            self.pool_swap.from_token_id.0,
+            self.pool_swap.to_token_id.0,
+        );
         for pool in pool_ids.as_ref() {
             let pool_id = pool.id.0 as u32;
             let swap = model::PoolSwap {
