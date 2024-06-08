@@ -172,23 +172,23 @@ class RestartdTokensTest(DefiTestFramework):
         # converting DUSD->dTokens via pools to payback loans would likely massively shift the pools.
         # since its all in the system: better use "Futureswap"
         pool = self.nodes[0].getpoolpair("SPY-USDD")[self.spyPoolId]
-        assert_equal(pool["reserveA"], Decimal("2"))
-        assert_equal(pool["reserveB"], Decimal("100"))
+        assert_equal(pool["reserveA"], Decimal("0.2"))
+        assert_equal(pool["reserveB"], Decimal("20"))
 
         assert_equal(
             self.nodes[0].getaccount(self.address),
             [
-                "390.00000000@DFI",
-                "10.0133@USDD",
+                "399.00000000@DFI", # add comission from payback swap, added DFI from pool
+                "10.00000000@USDD",
                 "1.999999000@SPY-USDD",
                 "7.07106681@USDD-DFI",
             ],
         )
 
-        # TODO: check in locks DUSD and SPY
+        # TODO: check in locks USDD and SPY
         # check release ratio of lock
         # check total locked funds (gov economy?)
-        # check correct behaviour on TD of old SPY
+        # check correct behaviour on TD of old SPY + DUSD
 
         # TODO: add second address with less SPY loan than balance
 
