@@ -18,6 +18,7 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <dfi/consensus/loans.h>
 #include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <validation.h>
@@ -2506,6 +2507,87 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
     }
 }
 
+
+static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
+    const auto &consensus = blockCtx.GetConsensus();
+    if (pindex->nHeight != consensus.DF24Height) {
+        return;
+    }
+
+    const auto dUsdToken = cache.GetToken("DUSD");
+    if (!dUsdToken) {
+        //_FIXME: throw error? 
+        return;
+    }
+    // refund all FutureSwaps
+
+    // cancel all auctions
+
+    // unloop all DUSD vaults
+    cache.ForEachVault([&](const CVaultId &vaultId, CVaultData vault) {
+        const auto collAmounts= cache.GetVaultCollaterals(vaultId);
+        if(!collAmounts || !collAmounts->balances.count(dUsdToken->first)) {
+            // no dusd in collateral
+            return true;
+        }
+        const auto loanAmounts = cache.GetLoanTokens(vaultId);
+        if (!loanAmounts || !loanAmounts->balances.count(dUsdToken->first)) {
+            //no dusd loan
+            return true;
+        }
+        auto res= PaybackWithCollateral(cache, vault,vaultId, pindex->nHeight, pindex->nTime);
+        if(!res) {
+            //FIXME: throw error
+            return false;
+        }
+        return true;
+    });
+
+    // payback all loans: first balance, then DUSD collateral (burn DUSD for loan at oracleprice), 
+    //                  then swap other collateral to DUSD and burn for loan
+    cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        for (const auto &[tokenId, amount] : balances.balances) {
+            auto owner= cache.GetVault(vaultId)->ownerAddress;
+            auto balance= cache.GetBalance(owner,tokenId);
+            if (balance.nValue > 0) {
+                //TODO: extract logic from LoanPackbackLoanV2Message exeuction and trigger here
+            }
+        }
+        return true;
+    });
+
+    //any remaining loans? payback with DUSD. TODO: can we optimize this?
+    cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        for (const auto &[tokenId, amount] : balances.balances) {
+            if(tokenId == dUsdToken->first) continue; //no payback with DUSD for DUSD
+            auto owner = cache.GetVault(vaultId)->ownerAddress;
+
+            auto balance = cache.GetBalance(owner, dUsdToken->first);
+            if (balance.nValue > 0) {
+                // TODO: extract logic from LoanPackbackLoanV2Message exeuction and trigger here payback with DUSD
+            }
+        }
+        return true;
+    });
+
+    // any remaining loans? use collateral, first DUSD. TODO: can we optimize this?
+    cache.ForEachLoanTokenAmount([&](const CVaultId &vaultId, const CBalances &balances) {
+        for (const auto &[tokenId, amount] : balances.balances) {
+            auto owner = cache.GetVault(vaultId)->ownerAddress;
+
+            auto balance = cache.GetVaultCollaterals(vaultId);
+            //TODO: take DUSD collateral and use for paybackWithDUSD
+        }
+        return true;
+    });
+
+    // create DB entries for locked tokens and lock ratio 
+    // create new tokens for all active loan tokens
+    // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
+    // migrate all pools containing old tokens to new pools with <lockRatio> liquidity, remaining liquidity of old tokens is locked as coins, non-lock-tokens in pools go to address
+    // convert all lock-token balances to new tokens and lock (1-<lockRatio>)%
+}
+
 static void ProcessTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
                                const CreationTxs &creationTxs,
@@ -3114,6 +3196,14 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
     auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
+
+    // one time upgrade to lock away 90% of dToken supply
+    if (pindex->nHeight == chainparams.GetConsensus().DF24Height) {
+        auto time = GetTimeMillis();
+        LogPrintf("locking dToken oversupply ...\n");
+        ProcessTokenLock(pindex,cache,blockCtx);
+        LogPrint(BCLog::BENCH, "    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
+    }
 
     // Loan splits
     ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);

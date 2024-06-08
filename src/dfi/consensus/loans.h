@@ -35,4 +35,12 @@ public:
     Res operator()(const CPaybackWithCollateralMessage &obj) const;
 };
 
+
+Res PaybackWithCollateral(CCustomCSView &view,
+                                 const CVaultData &vault,
+                                 const CVaultId &vaultId,
+                                 uint32_t height,
+                                 uint64_t time);
+                                 
 #endif  // DEFI_DFI_CONSENSUS_LOANS_H
+
