@@ -15,7 +15,7 @@ pub struct PoolSwap {
     pub sort: String,
     pub from_amount: i64,
     pub from_token_id: u64,
-    pub to_amount: i64,
+    pub to_amount: Option<i64>,
     pub to_token_id: u64,
     pub from: ScriptBuf,
     pub to: ScriptBuf,

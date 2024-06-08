@@ -46,13 +46,13 @@ lazy_static::lazy_static! {
 
 fn find_pair(a: u64, b: u64) -> Option<PoolCreationHeight> {
     let mapping = POOL_PAIR_PATH_MAPPING.lock();
-    let pair_a_b = mapping.get(&format!("{a}-{b}"));
-    if pair_a_b.is_some() {
-        return pair_a_b.cloned();
+    let ab = mapping.get(&format!("{a}-{b}"));
+    if ab.is_some() {
+        return ab.cloned();
     }
-    let pair_b_a = mapping.get(&format!("{b}-{a}"));
-    if pair_b_a.is_some() {
-        return pair_b_a.cloned();
+    let ba = mapping.get(&format!("{b}-{a}"));
+    if ba.is_some() {
+        return ba.cloned();
     }
     None
 }
@@ -75,7 +75,7 @@ fn process_pool_ids(pool_ids: CompactVec<PoolId>, a: u64, b: u64) -> CompactVec<
     if pool_ids.as_ref().is_empty() {
         let pool = find_pair(a, b);
         if pool.is_none() {
-            log::error!("Empty pool ids. May caused by invalid pair or POOL_PAIR_PATH_MAPPING is not updated yet");
+            log::error!("Pool not found. May caused by invalid pair {a}-{b} or {b}-{a} or POOL_PAIR_PATH_MAPPING is not updated yet");
             return CompactVec::from(Vec::new());
         }
         let pool = pool.unwrap();
@@ -92,20 +92,22 @@ impl Index for PoolSwap {
         debug!("[Poolswap] Indexing...");
         let txid = ctx.tx.txid;
         let idx = ctx.tx_idx;
-        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
-            services.result.get(&txid)?
-        else {
-            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
-            // let address = Address::from_script(&self.to_script, bitcoin::Network::Bitcoin)
-            //     .map_err(|e| format_err!("Error getting address from script: {e}"));
-            debug!("Missing swap result for {}", ctx.tx.txid.to_string());
-            return Err("Missing swap result".into());
-        };
-
         let from = self.from_script;
         let to = self.to_script;
         let from_token_id = self.from_token_id.0;
         let from_amount = self.from_amount;
+        let to_token_id = self.to_token_id.0;
+
+        let (to_amount, pool_id) = if let Some(TxResult::PoolSwap(PoolSwapResult{to_amount, pool_id})) = services.result.get(&txid)? {
+            (Some(to_amount), pool_id)
+        } else {
+            let pair = find_pair(from_token_id, to_token_id);
+            if pair.is_none() {
+                // throw err
+            }
+            let pair = pair.unwrap();
+            (None, pair.id)
+        };
 
         let swap = model::PoolSwap {
             id: format!("{}-{}", pool_id, txid),
@@ -115,7 +117,7 @@ impl Index for PoolSwap {
             txno: idx,
             from_amount,
             from_token_id,
-            to_token_id: self.to_token_id.0,
+            to_token_id,
             to_amount,
             pool_id,
             from,
@@ -263,16 +265,14 @@ impl Index for CompositeSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
-        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
-            services.result.get(&txid)?
-        else {
-            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
-            // let address =
-            //     Address::from_script(&self.pool_swap.to_script, bitcoin::Network::Bitcoin)
-            //         .map_err(|e| format_err!("Error getting address from script: {e}"));
-            debug!("Missing swap result for {}", txid.to_string());
-            return Err("Missing swap result".into());
-        };
+
+        let to_amount = services
+            .result
+            .get(&txid)?
+            .and_then(|res| match res {
+                TxResult::PoolSwap(PoolSwapResult { to_amount, ..}) => Some(to_amount),
+                TxResult::None => None,
+            });
 
         let from = self.pool_swap.from_script;
         let to = self.pool_swap.to_script;
