@@ -167,6 +167,33 @@ struct CFuturesUserValue {
     }
 };
 
+struct CTokenLockUserKey {
+    uint32_t height;
+    CScript owner;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream &s, Operation ser_action) {
+        if (ser_action.ForRead()) {
+            READWRITE(WrapBigEndian(height));
+            height = ~height;
+            READWRITE(owner);
+        } else {
+            uint32_t height_ = ~height;
+            READWRITE(WrapBigEndian(height_));
+            READWRITE(owner);
+        }
+    }
+
+    bool operator<(const CFuturesUserKey &o) const {
+        return std::tie(height, owner) < std::tie(o.height, o.owner);
+    }
+};
+
+struct CTokenLockUserValue : CBalances {
+};
+
 class CAccountsView : public virtual CStorageView {
 public:
     void ForEachAccount(std::function<bool(const CScript &)> callback, const CScript &start = {});
@@ -197,6 +224,12 @@ public:
                                                             {},
                                                             std::numeric_limits<uint32_t>::max()});
 
+    Res StoreTokenLockUserValues(const CTokenLockUserKey &key, const CTokenLockUserValue &futures);
+    Res EraseTokenLockUserValues(const CTokenLockUserKey &key);
+    void ForEachTokenLockUserValues(
+        std::function<bool(const CTokenLockUserKey &, const CTokenLockUserValue &)> callback,
+        const CTokenLockUserKey &start = {std::numeric_limits<uint32_t>::max(), {}});
+
     // tags
     struct ByBalanceKey {
         static constexpr uint8_t prefix() { return 'a'; }
@@ -209,6 +242,9 @@ public:
     };
     struct ByFuturesDUSDKey {
         static constexpr uint8_t prefix() { return 'm'; }
+    };
+    struct ByTokenLockKey {
+        static constexpr uint8_t prefix() { return 'l'; } //FIXME: how to decide a key here?
     };
 
 private:

@@ -333,6 +333,10 @@ public:
 
     static Res AccountsFuturesErase() { return Res::Err("Failed to erase futures"); }
 
+    static Res AccountsTokenLockStore() { return Res::Err("Failed to store futures"); }
+
+    static Res AccountsTokenLockErase() { return Res::Err("Failed to erase futures"); }
+
     static Res TransferDomainNotEnoughBalance(const std::string address) {
         return Res::Err("Not enough balance in %s to cover \"EVM\" domain transfer", address);
     }

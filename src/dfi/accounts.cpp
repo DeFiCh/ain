@@ -92,6 +92,28 @@ uint32_t CAccountsView::GetBalancesHeight(const CScript &owner) {
     return ok ? height : 0;
 }
 
+Res CAccountsView::StoreTokenLockUserValues(const CTokenLockUserKey &key, const CTokenLockUserValue &lockedValue) {
+    auto res = WriteBy<ByTokenLockKey>(key, lockedValue);
+    if (!res) {
+        return DeFiErrors::AccountsTokenLockStore();
+    }
+    return Res::Ok();
+}
+
+void CAccountsView::ForEachTokenLockUserValues(
+    std::function<bool(const CTokenLockUserKey &, const CTokenLockUserValue &)> callback,
+    const CTokenLockUserKey &start) {
+    ForEach<ByTokenLockKey, CTokenLockUserKey, CTokenLockUserValue>(callback, start);
+}
+
+Res CAccountsView::EraseTokenLockUserValues(const CTokenLockUserKey &key) {
+    auto res = EraseBy<ByTokenLockKey>(key);
+    if (!res) {
+        return DeFiErrors::AccountsTokenLockErase();
+    }
+    return Res::Ok();
+}
+
 Res CAccountsView::StoreFuturesUserValues(const CFuturesUserKey &key, const CFuturesUserValue &futures) {
     auto res = WriteBy<ByFuturesSwapKey>(key, futures);
     if (!res) {
