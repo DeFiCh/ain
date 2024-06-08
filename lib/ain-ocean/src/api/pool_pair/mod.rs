@@ -24,8 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::skip_serializing_none;
 use service::{
-    find_swap_from, find_swap_to, check_swap_type, get_aggregated_in_usd, get_apr, get_total_liquidity_usd,
-    get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
+    check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
+    get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
 };
 
 use super::{
@@ -84,7 +84,12 @@ pub struct PoolSwapVerboseResponse {
 }
 
 impl PoolSwapVerboseResponse {
-    fn map(v: PoolSwap, from: Option<PoolSwapFromToData>, to: Option<PoolSwapFromToData>, swap_type: Option<SwapType>) -> Self {
+    fn map(
+        v: PoolSwap,
+        from: Option<PoolSwapFromToData>,
+        to: Option<PoolSwapFromToData>,
+        swap_type: Option<SwapType>,
+    ) -> Self {
         Self {
             id: v.id,
             sort: v.sort,

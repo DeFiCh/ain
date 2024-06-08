@@ -75,7 +75,7 @@ fn process_pool_ids(pool_ids: CompactVec<PoolId>, a: u64, b: u64) -> CompactVec<
     if pool_ids.as_ref().is_empty() {
         let pool = find_pair(a, b);
         if pool.is_none() {
-            log::error!("Pool not found. May caused by invalid pair {a}-{b} or {b}-{a} or POOL_PAIR_PATH_MAPPING is not updated yet");
+            log::error!("Pool not found by {a}-{b} or {b}-{a} from POOL_PAIR_PATH_MAPPING");
             return CompactVec::from(Vec::new());
         }
         let pool = pool.unwrap();
@@ -98,12 +98,16 @@ impl Index for PoolSwap {
         let from_amount = self.from_amount;
         let to_token_id = self.to_token_id.0;
 
-        let (to_amount, pool_id) = if let Some(TxResult::PoolSwap(PoolSwapResult{to_amount, pool_id})) = services.result.get(&txid)? {
+        let (to_amount, pool_id) = if let Some(TxResult::PoolSwap(PoolSwapResult {
+            to_amount,
+            pool_id,
+        })) = services.result.get(&txid)?
+        {
             (Some(to_amount), pool_id)
         } else {
             let pair = find_pair(from_token_id, to_token_id);
             if pair.is_none() {
-                // throw err
+                return Err(format_err!("Pool not found by {from_token_id}-{to_token_id} or {to_token_id}-{from_token_id} from POOL_PAIR_PATH_MAPPING").into());
             }
             let pair = pair.unwrap();
             (None, pair.id)
@@ -266,13 +270,10 @@ impl Index for CompositeSwap {
         debug!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
 
-        let to_amount = services
-            .result
-            .get(&txid)?
-            .and_then(|res| match res {
-                TxResult::PoolSwap(PoolSwapResult { to_amount, ..}) => Some(to_amount),
-                TxResult::None => None,
-            });
+        let to_amount = services.result.get(&txid)?.and_then(|res| match res {
+            TxResult::PoolSwap(PoolSwapResult { to_amount, .. }) => Some(to_amount),
+            TxResult::None => None,
+        });
 
         let from = self.pool_swap.from_script;
         let to = self.pool_swap.to_script;

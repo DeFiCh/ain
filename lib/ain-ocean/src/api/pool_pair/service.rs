@@ -2,10 +2,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{format_err, Context};
 use bitcoin::Txid;
-use defichain_rpc::{
-    json::poolpair::PoolPairInfo,
-    AccountRPC, BlockchainRPC,
-};
+use defichain_rpc::{json::poolpair::PoolPairInfo, AccountRPC, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -24,11 +21,7 @@ use crate::{
     storage::SortOrder,
     Result,
 };
-use ain_dftx::{
-    deserialize,
-    pool::{CompositeSwap, PoolSwap},
-    DfTx, Stack,
-};
+use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -654,7 +647,7 @@ pub async fn find_swap_to(
         txno,
         ..
     } = swap;
-    let BlockContext{ height, .. } = block;
+    let BlockContext { height, .. } = block;
     let txno = txno.try_into()?;
 
     let to_address = from_script(to, ctx.network.into())?;

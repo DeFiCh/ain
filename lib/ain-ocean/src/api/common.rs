@@ -42,8 +42,7 @@ pub fn format_number(v: Decimal) -> String {
 
 pub fn from_script(script: ScriptBuf, network: Network) -> crate::Result<String> {
     let script = script.as_script();
-    let address = Address::from_script(script, network)?
-        .to_string();
+    let address = Address::from_script(script, network)?.to_string();
     Ok(address)
 }
 
