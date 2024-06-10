@@ -125,6 +125,7 @@ dependencies = [
  "bitcoin",
  "bitflags 2.5.0",
  "hex",
+ "lazy_static",
 ]
 
 [[package]]

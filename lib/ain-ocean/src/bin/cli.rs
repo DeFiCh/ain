@@ -1,4 +1,10 @@
-use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Instant};
+use std::{
+    net::SocketAddr,
+    path::PathBuf,
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
+};
 
 use ain_ocean::{
     index_block, network::Network, storage::ocean_store::OceanStore, PoolCreationHeight, Result,
@@ -29,6 +35,7 @@ struct Cli {
     /// Sets the RPC password
     #[arg(long, value_name = "PASSWORD")]
     pass: String,
+
     /// Sets the bind address for the TCP listener
     #[arg(long, value_name = "BINDADDRESS", default_value = "0.0.0.0:3002")]
     bind_address: SocketAddr,
@@ -74,7 +81,7 @@ async fn main() -> Result<()> {
             .get_highest()?
             .map_or(0, |b| b.height);
         let new_height = highest_block + 1;
-        println!("Processed height in {:?}", new_height);
+        println!("Current indexed height {new_height}");
         let hash = if let Some(hash) = next_block_hash {
             hash
         } else {
@@ -83,7 +90,7 @@ async fn main() -> Result<()> {
                 Err(e) => {
                     println!("e : {:?}", e);
                     // Out of range, sleep for 10s
-                    std::thread::sleep(std::time::Duration::from_millis(10000));
+                    thread::sleep(Duration::from_millis(10000));
                     continue;
                 }
             }
@@ -92,7 +99,7 @@ async fn main() -> Result<()> {
             Err(e) => {
                 println!("e : {:?}", e);
                 // Error getting block, sleep for 30s
-                std::thread::sleep(std::time::Duration::from_millis(30000));
+                thread::sleep(Duration::from_millis(30000));
                 continue;
             }
             Ok(GetBlockResult::Full(block)) => block,
