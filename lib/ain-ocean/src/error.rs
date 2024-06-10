@@ -154,3 +154,9 @@ impl From<&str> for Error {
         Error::Other(format_err!("{s}"))
     }
 }
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        let error_message = format!("Internal server error: {}", self);
+        (StatusCode::INTERNAL_SERVER_ERROR, error_message).into_response()
+    }
+}

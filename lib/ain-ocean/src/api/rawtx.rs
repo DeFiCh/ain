@@ -2,55 +2,86 @@ use std::{str::FromStr, sync::Arc};
 
 use ain_macros::ocean_endpoint;
 use axum::{
-    extract::Path,
-    response::Json,
+    extract::{Json, Path},
+    http::StatusCode,
     routing::{get, post},
     Extension, Router,
 };
 use bitcoin::{consensus::encode::deserialize, Transaction, Txid};
-use defichain_rpc::{
-    json::{Bip125Replaceable, GetTransactionResult, TestMempoolAcceptResult},
-    RpcApi,
+use defichain_rpc::{json::Bip125Replaceable, RpcApi};
+use rust_decimal::{
+    prelude::{FromPrimitive, ToPrimitive},
+    Decimal,
 };
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 
-use super::{response::Response, AppContext};
+use super::{fee, response::Response, AppContext};
 use crate::{
-    api::response::ApiPagedResponse,
     error::ApiError,
-    model::{RawTransaction, RawTxDto, TransctionDetails, WalletTxInfo},
-    Result,
+    model::{
+        default_max_fee_rate, MempoolAcceptResult, RawTransaction, RawTxDto, TransctionDetails,
+        WalletTxInfo,
+    },
+    ApiResult, Error, Result,
 };
-const DEFAULT_MAX_FEE_RATE: Decimal = dec!(0.1);
 
 #[ocean_endpoint]
 async fn send_rawtx(
-    Path(tx): Path<RawTxDto>,
     Extension(ctx): Extension<Arc<AppContext>>,
+    Json(raw_tx_dto): Json<RawTxDto>,
 ) -> Result<Response<String>> {
-    let mut tx = tx.clone();
-    if tx.max_fee_rate.is_none() {
-        tx.max_fee_rate = Some(DEFAULT_MAX_FEE_RATE);
-    };
-    let trx = defichain_rpc::RawTx::raw_hex(tx.hex);
-    let tx_hash = ctx.client.send_raw_transaction(trx).await?;
-    Ok(Response::new(tx_hash.to_string()))
+    let max_fee = default_max_fee_rate();
+    if raw_tx_dto.max_fee_rate.is_some() {
+        let fees = raw_tx_dto
+            .max_fee_rate
+            .and_then(Decimal::from_u64)
+            .map(|d| d.to_u64())
+            .flatten();
+    }
+    let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
+    match ctx.client.send_raw_transaction(trx, max_fee).await {
+        Ok(tx_hash) => Ok(Response::new(tx_hash.to_string())),
+        Err(e) => {
+            eprintln!("Failed to send raw transaction: {:?}", e);
+            Err(Error::RpcError(e))
+        }
+    }
 }
-
 #[ocean_endpoint]
 async fn test_rawtx(
-    Path(tx): Path<RawTxDto>,
     Extension(ctx): Extension<Arc<AppContext>>,
-) -> Result<Response<Vec<TestMempoolAcceptResult>>> {
-    let mut tx = tx.clone();
-    if tx.max_fee_rate.is_none() {
-        tx.max_fee_rate = Some(DEFAULT_MAX_FEE_RATE);
-    };
-    let trx = defichain_rpc::RawTx::raw_hex(tx.hex);
-    let mempool_tx = ctx.client.test_mempool_accept(&[trx]).await?;
-    Ok(Response::new(mempool_tx))
+    Json(raw_tx_dto): Json<RawTxDto>,
+) -> Result<Response<Vec<MempoolAcceptResult>>> {
+    let trx = defichain_rpc::RawTx::raw_hex(raw_tx_dto.hex);
+    let max_fee = default_max_fee_rate();
+    if raw_tx_dto.max_fee_rate.is_some() {
+        let fees = raw_tx_dto
+            .max_fee_rate
+            .and_then(Decimal::from_u64)
+            .map(|d| d.to_u64())
+            .flatten();
+    }
+
+    match ctx.client.test_mempool_accept(&[trx], max_fee).await {
+        Ok(mempool_tx) => {
+            let results = mempool_tx
+                .into_iter()
+                .map(|tx_result| MempoolAcceptResult {
+                    txid: tx_result.txid,
+                    allowed: tx_result.allowed,
+                    reject_reason: tx_result.reject_reason,
+                    vsize: tx_result.vsize,
+                    fees: tx_result.fees.map(|f| f.base),
+                })
+                .collect::<Vec<MempoolAcceptResult>>();
+            Ok(Response::new(results))
+        }
+        Err(e) => {
+            eprintln!("Failed to send raw transaction: {:?}", e);
+            Err(Error::RpcError(e))
+        }
+    }
 }
+
 #[ocean_endpoint]
 async fn get_raw_tx(
     Path(txid): Path<String>,
@@ -59,30 +90,23 @@ async fn get_raw_tx(
     format!("Details of raw transaction with txid {}", txid);
     let tx_hash = Txid::from_str(&txid)?;
     let tx_result = ctx.client.get_transaction(&tx_hash, Some(true)).await?;
-
+    println!("the txid : {:?}", tx_result);
     let details: Vec<TransctionDetails> = tx_result
         .details
         .into_iter()
-        .map(|detail| {
-            let address = match detail.address {
-                Some(addr) => Some(addr),
-                None => None,
-            };
-
-            TransctionDetails {
-                address: address,
-                category: detail.category.to_owned(),
-                amount: detail.amount.to_sat(),
-                label: detail.label,
-                vout: detail.vout,
-                fee: detail.fee.map(|f| f.to_sat()),
-                abandoned: detail.abandoned,
-                hex: hex::encode(&tx_result.hex),
-                blockhash: tx_result.info.blockhash.clone(),
-                confirmations: tx_result.info.confirmations,
-                time: tx_result.info.time,
-                blocktime: tx_result.info.blocktime,
-            }
+        .map(|detail| TransctionDetails {
+            address: detail.address.map(|addr| addr),
+            category: detail.category.to_owned(),
+            amount: detail.amount.to_sat(),
+            label: detail.label,
+            vout: detail.vout,
+            fee: detail.fee.map(|f| f.to_sat()),
+            abandoned: detail.abandoned,
+            hex: hex::encode(&tx_result.hex),
+            blockhash: tx_result.info.blockhash,
+            confirmations: tx_result.info.confirmations,
+            time: tx_result.info.time,
+            blocktime: tx_result.info.blocktime,
         })
         .collect();
 
@@ -125,9 +149,10 @@ async fn validate(hex: String) {
 }
 
 pub fn router(ctx: Arc<AppContext>) -> Router {
+    println!("{:?}", ctx.network);
     Router::new()
         .route("/send", post(send_rawtx))
-        .route("/test", get(test_rawtx))
+        .route("/test", post(test_rawtx))
         .route("/:txid", get(get_raw_tx))
         .layer(Extension(ctx))
 }

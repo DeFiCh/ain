@@ -1,15 +1,21 @@
-use bitcoin::{address::NetworkUnchecked, Address, BlockHash, Txid};
+use std::str::FromStr;
+
+use bitcoin::{address::NetworkUnchecked, Address, Amount, BlockHash, Txid};
 use defichain_rpc::json::GetTransactionResultDetailCategory;
-use rust_decimal::Decimal;
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 use serde::{Deserialize, Serialize};
-
-use super::{TransactionVin, TransactionVout};
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RawTxDto {
     pub hex: String,
-    pub max_fee_rate: Option<Decimal>,
+    #[serde(default = "default_max_fee_rate")]
+    pub max_fee_rate: Option<u64>,
+}
+
+pub fn default_max_fee_rate() -> Option<u64> {
+    let default_max_fee_rate = Decimal::from_str("0.1").expect("Invalid decimal");
+    let default_fee = default_max_fee_rate.to_u64();
+    default_fee
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,4 +55,13 @@ pub struct RawTransaction {
     pub fee: Option<i64>,
     pub details: Vec<TransctionDetails>,
     pub hex: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MempoolAcceptResult {
+    pub txid: Txid,
+    pub allowed: bool,
+    pub reject_reason: Option<String>,
+    pub vsize: Option<u64>,
+    pub fees: Option<Amount>,
 }

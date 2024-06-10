@@ -5,7 +5,7 @@ pub mod network;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
-use error::Error;
+use error::{ApiError, Error};
 pub use indexer::{
     index_block, invalidate_block, oracle::invalidate_oracle_interval,
     transaction::index_transaction, tx_result, PoolCreationHeight,
@@ -34,6 +34,7 @@ pub mod storage;
 use crate::storage::ocean_store::OceanStore;
 
 pub type Result<T> = std::result::Result<T, Error>;
+pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
 lazy_static::lazy_static! {
     // Global services exposed by the library
