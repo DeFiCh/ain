@@ -9,7 +9,7 @@ use ain_cpp_imports::{get_df23_height, Attributes};
 use anyhow::format_err;
 use ethereum::{Block, PartialHeader};
 use ethereum_types::{Bloom, H160, H256, H64, U256};
-use log::{debug, trace};
+use log::{info, trace};
 
 use crate::{
     backend::{EVMBackend, Vicinity},
@@ -161,7 +161,7 @@ impl EVMServices {
         let mut receipts_v3: Vec<ReceiptAndOptionalContractAddress> = Vec::with_capacity(txs_len);
         let mut total_gas_fees = U256::zero();
 
-        debug!("[construct_block] vicinity: {:?}", template.vicinity);
+        trace!("[construct_block] vicinity: {:?}", template.vicinity);
 
         let mut executor = AinExecutor::new(&mut template.backend);
         for template_tx in template.transactions.clone() {
@@ -179,11 +179,11 @@ impl EVMServices {
         let total_priority_fees = total_gas_fees
             .checked_sub(total_burnt_fees)
             .ok_or_else(|| format_err!("total_priority_fees underflow"))?;
-        debug!(
+        trace!(
             "[construct_block] Total burnt fees : {:#?}",
             total_burnt_fees
         );
-        debug!(
+        trace!(
             "[construct_block] Total priority fees : {:#?}",
             total_priority_fees
         );
@@ -248,7 +248,7 @@ impl EVMServices {
             return Err(format_err!("no constructed EVM block exist in template id").into());
         };
 
-        debug!(
+        info!(
             "[finalize_block] Finalizing block number {:#x}, state_root {:#x}",
             block.header.number, block.header.state_root
         );
@@ -311,7 +311,7 @@ impl EVMServices {
 
         let mut executor = AinExecutor::new(&mut template.backend);
         let base_fee = template.vicinity.block_base_fee_per_gas;
-        debug!(
+        trace!(
             "[update_state_in_block_template] Block base fee: {}",
             base_fee
         );

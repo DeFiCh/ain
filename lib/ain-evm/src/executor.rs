@@ -9,7 +9,7 @@ use evm::{
     Config, CreateScheme, ExitReason,
 };
 use evm_runtime::tracing::using as runtime_using;
-use log::{debug, trace};
+use log::trace;
 
 use crate::{
     backend::EVMBackend,
@@ -431,7 +431,7 @@ impl<'backend> AinExecutor<'backend> {
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false, ctx)?;
 
-                debug!(
+                trace!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
@@ -468,7 +468,7 @@ impl<'backend> AinExecutor<'backend> {
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[68..100]);
 
-                debug!(
+                trace!(
                     "[execute_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
                     direction, signed_tx.sender, signed_tx.nonce(), to, amount,
                 );
@@ -483,7 +483,7 @@ impl<'backend> AinExecutor<'backend> {
                     Some(account) => account.code_hash != contract.codehash,
                 };
                 if mismatch {
-                    debug!(
+                    trace!(
                         "[execute_tx] {} failed with as transferdomain account codehash mismatch",
                         direction
                     );
@@ -510,7 +510,7 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                debug!(
+                trace!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
@@ -551,7 +551,7 @@ impl<'backend> AinExecutor<'backend> {
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[100..132]);
 
-                debug!(
+                trace!(
                     "[execute_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
                     signed_tx.sender, contract_address, amount, direction
                 );
@@ -568,11 +568,6 @@ impl<'backend> AinExecutor<'backend> {
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true, ctx)?;
                 if !tx_response.exit_reason.is_succeed() {
-                    debug!(
-                        "[execute_tx] DST20 bridge failed VM execution {:?}, data {}",
-                        tx_response.exit_reason,
-                        hex::encode(&tx_response.data)
-                    );
                     return Err(format_err!(
                         "[execute_tx] DST20 bridge failed VM execution {:?}, data {:?}",
                         tx_response.exit_reason,
@@ -581,7 +576,7 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                debug!(
+                trace!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
@@ -609,9 +604,11 @@ impl<'backend> AinExecutor<'backend> {
                 address,
                 token_id,
             })) => {
-                debug!(
+                trace!(
                     "[execute_tx] DeployContract for address {:x?}, name {}, symbol {}",
-                    address, name, symbol
+                    address,
+                    name,
+                    symbol
                 );
 
                 let DeployContractInfo {
@@ -637,9 +634,11 @@ impl<'backend> AinExecutor<'backend> {
                 address,
                 token_id,
             })) => {
-                debug!(
+                trace!(
                     "[execute_tx] Rename contract for address {:x?}, name {}, symbol {}",
-                    address, name, symbol
+                    address,
+                    name,
+                    symbol
                 );
 
                 let storage = dst20_name_info(ctx.dvm_block, &name, &symbol);
