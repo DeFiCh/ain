@@ -201,7 +201,7 @@ pub async fn get_total_liquidity_usd(ctx: &Arc<AppContext>, p: &PoolPairInfo) ->
 
 fn calculate_rewards(accounts: &[String], dfi_price_usdt: Decimal) -> Result<Decimal> {
     let rewards = accounts.iter().try_fold(dec!(0), |accumulate, account| {
-        let parts = account.split('-').collect::<Vec<&str>>();
+        let parts = account.split('@').collect::<Vec<&str>>();
         let [amount, token] = parts
             .as_slice()
             .try_into()
