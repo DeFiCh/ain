@@ -5051,13 +5051,22 @@ static bool ContextualCheckBlockHeader(const CBlockHeader &block,
     }
 
     // Check timestamp against prev
-    if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast()) {
-        return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
-                             false,
-                             "time-too-old",
-                             strprintf("block's timestamp is too early. Block time: %d Min time: %d",
-                                       block.GetBlockTime(),
-                                       pindexPrev->GetMedianTimePast()));
+    if (nHeight >= consensusParams.DF24Height) {
+        if (block.GetBlockTime() <= pindexPrev->GetBlockTime()) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
+                                 false,
+                                 "time-before-prev",
+                                 "block's timestamp cannot be the same or before previous block's timestamp");
+        }
+    } else {
+        if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast()) {
+            return state.Invalid(ValidationInvalidReason::BLOCK_INVALID_HEADER,
+                                 false,
+                                 "time-too-old",
+                                 strprintf("block's timestamp is too early. Block time: %d Min time: %d",
+                                           block.GetBlockTime(),
+                                           pindexPrev->GetMedianTimePast()));
+        }
     }
 
     // Check timestamp
