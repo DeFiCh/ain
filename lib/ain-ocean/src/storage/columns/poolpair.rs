@@ -4,7 +4,7 @@ use ain_db::{Column, ColumnName, TypedColumn};
 pub struct PoolPairByHeight;
 
 impl ColumnName for PoolPairByHeight {
-    const NAME: &'static str = "poolpair";
+    const NAME: &'static str = "poolpair_by_height";
 }
 
 impl Column for PoolPairByHeight {
