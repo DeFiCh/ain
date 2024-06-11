@@ -52,7 +52,6 @@ async fn main() -> Result<()> {
     env_logger::init();
     let cli = Cli::parse();
 
-    let yo = ain_cpp_imports::get_chain_id()?;
     let store = Arc::new(OceanStore::new(&cli.datadir)?);
 
     let client = Arc::new(
