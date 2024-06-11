@@ -12,10 +12,7 @@ Res OceanSetTxResult(const std::optional<std::pair<CustomTxType, uint256>> &txIn
     if (txInfo && isOceanEnabled) {
         const auto &[txType, txHash] = *txInfo;
         CrossBoundaryResult ffiResult;
-        ocean_try_set_tx_result(ffiResult,
-                                static_cast<uint8_t>(txType),
-                                txHash.GetByteArrayBE(),
-                                result_ptr);
+        ocean_try_set_tx_result(ffiResult, static_cast<uint8_t>(txType), txHash.GetByteArrayBE(), result_ptr);
     }
 
     return Res::Ok();

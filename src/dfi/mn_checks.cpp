@@ -1157,7 +1157,6 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
 
     // Send final swap amount Rust side for indexer
     return OceanSetTxResult(txInfo, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
-
 }
 
 Res SwapToDFIorDUSD(CCustomCSView &mnview,
