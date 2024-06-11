@@ -12,7 +12,9 @@ use std::{sync::Arc, time::Instant};
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
-pub use pool::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+pub use pool::{
+    update_mapping, PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS,
+};
 
 use crate::{
     index_transaction,
@@ -28,12 +30,6 @@ pub(crate) trait Index {
     // TODO: allow dead_code at the moment
     #[allow(dead_code)]
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
-}
-
-#[derive(Debug, Clone)]
-pub struct PoolCreationHeight {
-    pub id: u32,
-    pub creation_height: u32,
 }
 
 #[derive(Debug)]
@@ -129,6 +125,8 @@ pub fn index_block(
         time: block.time,
         median_time: block.mediantime,
     };
+
+    update_mapping(&pools);
 
     index_block_start(services, &block, pools)?;
 
