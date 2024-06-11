@@ -2265,7 +2265,8 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
                                const T &splits,
-                               BlockContext &blockCtx) {
+                               BlockContext &blockCtx,
+                               const std::string wantedSuffix= "/v") {
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -2291,8 +2292,7 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             LogPrintf("Token split failed. Token %d not found\n", oldTokenId.v);
             continue;
         }
-
-        std::string newTokenSuffix = "/v";
+        std::string newTokenSuffix= wantedSuffix;
         res = GetTokenSuffix(cache, attributes, oldTokenId.v, newTokenSuffix);
         if (!res) {
             LogPrintf("Token split failed on GetTokenSuffix %s\n", res.msg);
@@ -2574,22 +2574,44 @@ static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, Bl
 
     // create DB entries for locked tokens and lock ratio 
     // create new tokens for all active loan tokens
-    LoanTokenCollection loanTokens;
 
-    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
-    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
-        if (!loanToken.mintable) {
-            return true;
-        }
+    OracleSplits64 splits;
+    CreationTxs creationTxs;
+    //block hash as creation tx, no other tx there
+    std::vector<std::pair<DCT_ID, uint256>> emptyPoolPairs;
 
-        loanTokens.emplace_back(id, loanToken);
+    auto attributes = cache.GetAttributes();
+    const auto loanTokens = GetLoanTokensForFutures(cache, *attributes);
 
-        return true;
-    });
+    for (const auto &[id, loanToken] : loanTokens) {
+            if (!loanToken.mintable) {
+                continue;
+            }
+            splits.emplace(id.v, COIN);
+            //TODO: need unique creation Tx -> fake it 
+            uint256 txCreation;
+            txCreation.SetHex(tfm::format("%x",id.v));
+            creationTxs.emplace(id.v, std::make_pair(txCreation, emptyPoolPairs));
+
+            //TODO: normal token split requires token to be locked before
+            CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, id.v};
+            attributes->SetValue(lockKey,true);
+    }
+    cache.SetVariable(*attributes);
+
+    LogPrintf("got lock %d splits\n", splits.size());
+    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx,"/lock");
+    //for each in loantoken -> create new token (what to use for creation tx?)
+    // token suffix "/locked"
+
+    //refactor existing method with parameters for suffix, 
+    //update new DUSD to USDD
+    //adapt/refactor PoolSplit to allow for DUSD convert simulatnuously
+
     // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
-    // migrate all pools containing old tokens to new pools with <lockRatio> liquidity, remaining liquidity of old tokens is locked as coins, non-lock-tokens in pools go to address
-    // convert all lock-token balances to new tokens and lock (1-<lockRatio>)%
-}
+    // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools go to address
+    // lock (1-<lockRatio>)% of balances for new tokens
+    }
 
 static void ProcessTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,

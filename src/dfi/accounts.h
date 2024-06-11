@@ -244,7 +244,7 @@ public:
         static constexpr uint8_t prefix() { return 'm'; }
     };
     struct ByTokenLockKey {
-        static constexpr uint8_t prefix() { return 'l'; } //FIXME: how to decide a key here?
+        static constexpr uint8_t prefix() { return '8'; } //FIXME: how to decide a key here?
     };
 
 private:

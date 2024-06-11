@@ -48,71 +48,8 @@ class RestartdTokensTest(DefiTestFramework):
         # setup tokens, vaults, pools etc.
         self.setup()
 
+        self.check_initial_state()
         # ensure expected initial state
-
-        assert_equal(
-            self.nodes[0].getvault(self.loop_vault_id),
-            {
-                "vaultId": self.loop_vault_id,
-                "loanSchemeId": "LOAN0001",
-                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
-                "state": "active",
-                "collateralAmounts": ["250.00000000@DUSD"],
-                "loanAmounts": ["99.99924278@DUSD"],
-                "interestAmounts": ["-0.00075722@DUSD"],
-                "collateralValue": Decimal("250.00000000"),
-                "loanValue": Decimal("99.99924278"),
-                "interestValue": Decimal("-0.00075722"),
-                "informativeRatio": Decimal("250.00189306"),
-                "collateralRatio": 250,
-            },
-        )
-        assert_equal(
-            self.nodes[0].getvault(self.vault_id),
-            {
-                "vaultId": self.vault_id,
-                "loanSchemeId": "LOAN0001",
-                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
-                "state": "active",
-                "collateralAmounts": ["100.00000000@DFI", "10.00000000@DUSD"],
-                "loanAmounts": ["2.00000006@SPY"],
-                "interestAmounts": ["0.00000006@SPY"],
-                "collateralValue": Decimal("510.00000000"),
-                "loanValue": Decimal("200.00000600"),
-                "interestValue": Decimal("0.00000600"),
-                "informativeRatio": Decimal("254.99999235"),
-                "collateralRatio": 255,
-            },
-        )
-
-        assert_equal(
-            self.nodes[0].getaccount(self.address),
-            [
-                "390.00000000@DFI",
-                "1.50000000@SPY",
-                "100.00000000@DUSD",
-                "19.99999000@SPY-DUSD",
-                "70.71066811@DUSD-DFI",
-            ],
-        )
-
-        assert_equal(
-            self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
-            Decimal(0.5),
-        )
-
-        assert_equal(
-            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
-            Decimal(40),
-        )
-
-        pool = self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
-        assert_equal(pool["reserveA"], Decimal("500"))
-        assert_equal(pool["reserveB"], Decimal("10"))
-
-        pool = self.nodes[0].getpoolpair("SPY-DUSD")[self.spyPoolId]
-        assert_equal(pool["reserveA"], Decimal("2"))
-        assert_equal(pool["reserveB"], Decimal("200"))
 
         # do restart and check funds
         self.nodes[0].generate(1000 - self.nodes[0].getblockcount())
@@ -127,6 +64,29 @@ class RestartdTokensTest(DefiTestFramework):
         # 90% of balances locked
         # check old pools, check new pools with 10% of old liquidity in new tokens
 
+        #'''
+        print(self.nodes[0].getvault(self.loop_vault_id))
+        print(self.nodes[0].getvault(self.vault_id))
+        print(self.nodes[0].getaccount(self.address))
+        print(self.nodes[0].listloantokens())
+        #'''
+
+
+        assert_equal([{id:[token['symbol'],token['isLoanToken'],token['mintable']]} for (id,token) in self.nodes[0].listtokens().items()], 
+                     [{'0': ['DFI', False, False]}, 
+                      {'1': ['SPY', False, False]}, 
+                      {'2': ['DUSD', False, False]},
+                      {'3': ['SPY-DUSD', False, False]}, 
+                      {'4': ['DUSD-DFI', False, False]}, 
+                      {'5': ['SPY', True, True]}, 
+                      {'6': ['USDD', True, True]},
+                      {'7': ['SPY-USDD', False, False]}, 
+                      {'8': ['USDD-DFI', False, False]}])
+        
+        assert_equal([{id:pool['symbol']} for (id,pool) in self.nodes[0].listpoolpairs().items()],
+                     [{'3': 'SPY-DUSD'}, {'4': 'DUSD-DFI'},
+                      {'7': 'SPY-USDD'}, {'8': 'USDD-DFI'}])
+        
         # TODO: currently best guess numbers, need to check with final results
         assert_equal(
             self.nodes[0].getvault(self.loop_vault_id),
@@ -201,6 +161,84 @@ class RestartdTokensTest(DefiTestFramework):
         # check balances
         # check TD (updated releaseRatio)
         #'''
+
+    def check_initial_state(self):
+
+        print(self.nodes[0].listloantokens())
+
+        assert_equal(
+            self.nodes[0].getvault(self.loop_vault_id),
+            {
+                "vaultId": self.loop_vault_id,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+                "state": "active",
+                "collateralAmounts": ["250.00000000@DUSD"],
+                "loanAmounts": ["99.99924278@DUSD"],
+                "interestAmounts": ["-0.00075722@DUSD"],
+                "collateralValue": Decimal("250.00000000"),
+                "loanValue": Decimal("99.99924278"),
+                "interestValue": Decimal("-0.00075722"),
+                "informativeRatio": Decimal("250.00189306"),
+                "collateralRatio": 250,
+            },
+        )
+        assert_equal(
+            self.nodes[0].getvault(self.vault_id),
+            {
+                "vaultId": self.vault_id,
+                "loanSchemeId": "LOAN0001",
+                "ownerAddress": "mwsZw8nF7pKxWH8eoKL9tPxTpaFkz7QeLU",
+                "state": "active",
+                "collateralAmounts": ["100.00000000@DFI", "10.00000000@DUSD"],
+                "loanAmounts": ["2.00000006@SPY"],
+                "interestAmounts": ["0.00000006@SPY"],
+                "collateralValue": Decimal("510.00000000"),
+                "loanValue": Decimal("200.00000600"),
+                "interestValue": Decimal("0.00000600"),
+                "informativeRatio": Decimal("254.99999235"),
+                "collateralRatio": 255,
+            },
+        )
+
+        assert_equal(
+            self.nodes[0].getaccount(self.address),
+            [
+                "390.00000000@DFI",
+                "1.50000000@SPY",
+                "100.00000000@DUSD",
+                "19.99999000@SPY-DUSD",
+                "70.71066811@DUSD-DFI",
+            ],
+        )
+
+        assert_equal(
+            self.spy_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(0.5),
+        )
+
+        assert_equal(
+            self.dusd_contract.functions.balanceOf(self.evmaddress).call() / (10**18),
+            Decimal(40),
+        )
+
+        pool = self.nodes[0].getpoolpair("DUSD-DFI")[self.dusdPoolId]
+        assert_equal(pool["reserveA"], Decimal("500"))
+        assert_equal(pool["reserveB"], Decimal("10"))
+
+        pool = self.nodes[0].getpoolpair("SPY-DUSD")[self.spyPoolId]
+        assert_equal(pool["reserveA"], Decimal("2"))
+        assert_equal(pool["reserveB"], Decimal("200"))
+
+        assert_equal([{id:pool['symbol']} for (id,pool) in self.nodes[0].listpoolpairs().items()],
+                     [{'3': 'SPY-DUSD'}, {'4': 'DUSD-DFI'}])
+        assert_equal([{id:[token['symbol'],token['isLoanToken'],token['mintable']]} for (id,token) in self.nodes[0].listtokens().items()], 
+                     [{'0': ['DFI', False, False]}, 
+                      {'1': ['SPY', True, True]}, 
+                      {'2': ['DUSD', True, True]},
+                      {'3': ['SPY-DUSD', False, False]}, 
+                      {'4': ['DUSD-DFI', False, False]}])
+
 
     ######## SETUP ##########
 
