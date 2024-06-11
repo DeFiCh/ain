@@ -20,14 +20,35 @@ impl Index for CreatePoolPair {
             "[CreatePoolPair] Indexing {} {} id {}",
             ctx.block.height, ctx.tx_idx, &pool_id
         );
+        let id_a = self.token_a.0 as u32;
+        let id_b = self.token_b.0 as u32;
+
         services
             .poolpair
-            .put(&(ctx.block.height, ctx.tx_idx), &pool_id)?;
+            .by_height
+            .put(&(ctx.block.height, ctx.tx_idx), &(pool_id, id_a, id_b))?;
+
+        services.poolpair.by_id.put(&(id_a, id_b), &pool_id)?;
+        services.poolpair.by_id.put(&(id_b, id_a), &pool_id)?;
+
         Ok(())
     }
 
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
-        services.poolpair.delete(&(ctx.block.height, ctx.tx_idx))?;
+        if let Some((_, id_a, id_b)) = services
+            .poolpair
+            .by_height
+            .get(&(ctx.block.height, ctx.tx_idx))?
+        {
+            services.poolpair.by_id.delete(&(id_a, id_b))?;
+            services.poolpair.by_id.delete(&(id_b, id_a))?;
+        }
+
+        services
+            .poolpair
+            .by_height
+            .delete(&(ctx.block.height, ctx.tx_idx))?;
+
         Ok(())
     }
 }

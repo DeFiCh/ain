@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BlockContext;
 
-pub type PoolSwapKey = (u32, u32, usize);
+pub type PoolSwapKey = (u32, u32, usize); // (pool_id, height, txno)
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

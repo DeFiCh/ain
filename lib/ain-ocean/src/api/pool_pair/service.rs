@@ -1,11 +1,8 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use anyhow::{format_err, Context};
-use bitcoin::{Address, Txid};
-use defichain_rpc::{
-    json::{account::AccountHistory, poolpair::PoolPairInfo},
-    AccountRPC, BlockchainRPC,
-};
+use bitcoin::Txid;
+use defichain_rpc::{json::poolpair::PoolPairInfo, AccountRPC, BlockchainRPC};
 use rust_decimal::{prelude::FromPrimitive, Decimal};
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -14,21 +11,17 @@ use super::{AppContext, PoolPairAprResponse};
 use crate::{
     api::{
         cache::{get_gov_cached, get_pool_pair_cached, get_token_cached},
-        common::parse_display_symbol,
+        common::{from_script, parse_display_symbol},
         pool_pair::path::{get_best_path, BestSwapPathResponse},
     },
     error::{Error, NotFoundKind},
     indexer::PoolSwapAggregatedInterval,
-    model::PoolSwapAggregatedAggregated,
+    model::{BlockContext, PoolSwapAggregatedAggregated},
     repository::{RepositoryOps, SecondaryIndex},
     storage::SortOrder,
     Result,
 };
-use ain_dftx::{
-    deserialize,
-    pool::{CompositeSwap, PoolSwap},
-    DfTx, Stack,
-};
+use ain_dftx::{deserialize, pool::CompositeSwap, DfTx, Stack};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -607,30 +600,84 @@ fn find_composite_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<
         DfTx::CompositeSwap(data) => Some(data),
         _ => None,
     };
+    // let pool_swap_dftx = match dftx {
+    //     DfTx::PoolSwap(data) => Some(data),
+    //     DfTx::CompositeSwap(data) => Some(data.pool_swap),
+    //     _ => None,
+    // };;
 
     Ok(composite_swap_dftx)
 }
 
-fn find_pool_swap_dftx(ctx: &Arc<AppContext>, txid: Txid) -> Result<Option<PoolSwap>> {
-    let dftx = call_dftx(ctx, txid)?;
-    if dftx.is_none() {
+pub async fn find_swap_from(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
+) -> Result<Option<PoolSwapFromToData>> {
+    let crate::model::PoolSwap {
+        from,
+        from_amount,
+        from_token_id,
+        ..
+    } = swap;
+    let from_address = from_script(from, ctx.network.into())?;
+
+    let from_token = get_token_cached(ctx, &from_token_id.to_string()).await?;
+    if from_token.is_none() {
         return Ok(None);
     }
-    let dftx = dftx.unwrap();
-    let pool_swap_dftx = match dftx {
-        DfTx::PoolSwap(data) => Some(data),
-        DfTx::CompositeSwap(data) => Some(data.pool_swap),
-        _ => None,
-    };
+    let (_, from_token) = from_token.unwrap();
 
-    Ok(pool_swap_dftx)
+    Ok(Some(PoolSwapFromToData {
+        address: from_address,
+        amount: Decimal::new(from_amount, 8).to_string(),
+        display_symbol: parse_display_symbol(&from_token),
+        symbol: from_token.symbol,
+    }))
 }
 
-fn find_pool_swap_from_to(
-    history: AccountHistory,
-    from: bool,
-    display_symbol: String,
+pub async fn find_swap_to(
+    ctx: &Arc<AppContext>,
+    swap: crate::model::PoolSwap,
 ) -> Result<Option<PoolSwapFromToData>> {
+    let crate::model::PoolSwap {
+        to,
+        to_token_id,
+        block,
+        txno,
+        ..
+    } = swap;
+    let BlockContext { height, .. } = block;
+    let txno = txno.try_into()?;
+
+    let to_address = from_script(to, ctx.network.into())?;
+
+    let to_token = get_token_cached(ctx, &to_token_id.to_string()).await?;
+    if to_token.is_none() {
+        return Ok(None);
+    }
+    let (_, to_token) = to_token.unwrap();
+
+    let display_symbol = parse_display_symbol(&to_token);
+
+    // NOTE(canonbrother): fallback to API layer to calculate `to_amount`
+    // context: to_amount has been calculated while indexing with ocean archive
+    // `to_amount` None indicates the node is not running with ocean archive
+    // get the `to_amount` via `getaccounthistory`
+    // if to_amount.is_some() {
+    //     let amount = to_amount.unwrap().abs();
+    //     return Ok(Some(PoolSwapFromToData {
+    //         address: to_address,
+    //         amount: Decimal::new(amount, 8).to_string(),
+    //         symbol: to_token.symbol,
+    //         display_symbol,
+    //     }));
+    // }
+
+    let history = ctx
+        .client
+        .get_account_history(&to_address.to_string(), height, txno)
+        .await?;
+
     for account in history.amounts {
         let parts = account.split('@').collect::<Vec<&str>>();
         let [value, symbol] = parts
@@ -640,16 +687,7 @@ fn find_pool_swap_from_to(
 
         let value = Decimal::from_str(value)?;
 
-        if value.is_sign_negative() && from {
-            return Ok(Some(PoolSwapFromToData {
-                address: history.owner,
-                amount: format!("{:.8}", value.abs()),
-                symbol: symbol.to_string(),
-                display_symbol,
-            }));
-        }
-
-        if value.is_sign_positive() && !from {
+        if value.is_sign_positive() {
             return Ok(Some(PoolSwapFromToData {
                 address: history.owner,
                 amount: format!("{:.8}", value.abs()),
@@ -660,65 +698,6 @@ fn find_pool_swap_from_to(
     }
 
     Ok(None)
-}
-
-pub async fn find_swap_from_to(
-    ctx: &Arc<AppContext>,
-    height: u32,
-    txid: Txid,
-    txno: u32,
-) -> Result<Option<PoolSwapFromTo>> {
-    let dftx = find_pool_swap_dftx(ctx, txid)?;
-    if dftx.is_none() {
-        return Ok(None);
-    }
-    let dftx = dftx.unwrap();
-
-    let from_script = dftx.from_script.as_script();
-
-    let from_address = Address::from_script(from_script, ctx.network.into());
-    if from_address.is_err() {
-        return Ok(None);
-    }
-    let from_address = from_address.unwrap().to_string();
-
-    let to_script = dftx.to_script.as_script();
-    let to_address = Address::from_script(to_script, ctx.network.into());
-    if to_address.is_err() {
-        return Ok(None);
-    }
-    let to_address = to_address.unwrap().to_string();
-
-    let from_token = get_token_cached(ctx, &dftx.from_token_id.0.to_string()).await?;
-    if from_token.is_none() {
-        return Ok(None);
-    }
-    let (_, from_token) = from_token.unwrap();
-
-    let to_token = get_token_cached(ctx, &dftx.to_token_id.0.to_string()).await?;
-    if to_token.is_none() {
-        return Ok(None);
-    }
-    let (_, to_token) = to_token.unwrap();
-
-    let from = PoolSwapFromToData {
-        address: from_address,
-        amount: Decimal::new(dftx.from_amount, 8).to_string(),
-        display_symbol: parse_display_symbol(&from_token),
-        symbol: from_token.symbol,
-    };
-
-    let history = ctx
-        .client
-        .get_account_history(&to_address.to_string(), height, txno)
-        .await?;
-
-    let to = find_pool_swap_from_to(history, false, parse_display_symbol(&to_token))?;
-
-    Ok(Some(PoolSwapFromTo {
-        from: Some(from),
-        to,
-    }))
 }
 
 async fn get_pool_swap_type(

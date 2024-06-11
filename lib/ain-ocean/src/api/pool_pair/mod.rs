@@ -24,8 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use serde_with::skip_serializing_none;
 use service::{
-    check_swap_type, find_swap_from_to, get_aggregated_in_usd, get_apr, get_total_liquidity_usd,
-    get_usd_volume, PoolPairVolumeResponse, PoolSwapFromTo, PoolSwapFromToData, SwapType,
+    check_swap_type, find_swap_from, find_swap_to, get_aggregated_in_usd, get_apr,
+    get_total_liquidity_usd, get_usd_volume, PoolPairVolumeResponse, PoolSwapFromToData, SwapType,
 };
 
 use super::{
@@ -84,7 +84,12 @@ pub struct PoolSwapVerboseResponse {
 }
 
 impl PoolSwapVerboseResponse {
-    fn map(v: PoolSwap, from_to: Option<PoolSwapFromTo>, swap_type: Option<SwapType>) -> Self {
+    fn map(
+        v: PoolSwap,
+        from: Option<PoolSwapFromToData>,
+        to: Option<PoolSwapFromToData>,
+        swap_type: Option<SwapType>,
+    ) -> Self {
         Self {
             id: v.id,
             sort: v.sort,
@@ -93,8 +98,8 @@ impl PoolSwapVerboseResponse {
             pool_pair_id: v.pool_id.to_string(),
             from_amount: Decimal::new(v.from_amount, 8).to_string(),
             from_token_id: v.from_token_id,
-            from: from_to.clone().and_then(|item| item.from),
-            to: from_to.and_then(|item| item.to),
+            from,
+            to,
             block: v.block,
             r#type: swap_type,
         }
@@ -454,13 +459,12 @@ async fn list_pool_swaps_verbose(
         })
         .map(|item| async {
             let (_, swap) = item?;
-            let from_to =
-                find_swap_from_to(&ctx, swap.block.height, swap.txid, swap.txno.try_into()?)
-                    .await?;
+            let from = find_swap_from(&ctx, swap.clone()).await?;
+            let to = find_swap_to(&ctx, swap.clone()).await?;
 
             let swap_type = check_swap_type(&ctx, swap.clone()).await?;
 
-            let res = PoolSwapVerboseResponse::map(swap, from_to, swap_type);
+            let res = PoolSwapVerboseResponse::map(swap, from, to, swap_type);
             Ok::<PoolSwapVerboseResponse, Error>(res)
         })
         .collect::<Vec<_>>();

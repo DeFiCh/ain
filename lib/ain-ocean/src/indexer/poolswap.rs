@@ -28,25 +28,37 @@ pub enum PoolSwapAggregatedInterval {
     OneHour = 60 * 60,
 }
 
+#[derive(Debug, Clone)]
+pub struct PoolCreationHeight {
+    pub id: u32,
+    pub id_token_a: u32,
+    pub id_token_b: u32,
+    pub creation_height: u32,
+}
+
 impl Index for PoolSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[Poolswap] Indexing...");
         let txid = ctx.tx.txid;
         let idx = ctx.tx_idx;
-        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
-            services.result.get(&txid)?
-        else {
-            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
-            // let address = Address::from_script(&self.to_script, bitcoin::Network::Bitcoin)
-            //     .map_err(|e| format_err!("Error getting address from script: {e}"));
-            debug!("Missing swap result for {}", ctx.tx.txid.to_string());
-            return Err("Missing swap result".into());
-        };
-
         let from = self.from_script;
         let to = self.to_script;
         let from_token_id = self.from_token_id.0;
         let from_amount = self.from_amount;
+        let to_token_id = self.to_token_id.0;
+
+        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
+            services.result.get(&txid)?
+        else {
+            // TODO: Commenting out for now, fallback should only be introduced for supporting back CLI indexing
+            return Err("Missing swap result".into());
+            // let pair = find_pair(from_token_id, to_token_id);
+            // if pair.is_none() {
+            //     return Err(format_err!("Pool not found by {from_token_id}-{to_token_id} or {to_token_id}-{from_token_id}").into());
+            // }
+            // let pair = pair.unwrap();
+            // (None, pair.id)
+        };
 
         let swap = model::PoolSwap {
             id: format!("{}-{}", pool_id, txid),
@@ -56,7 +68,7 @@ impl Index for PoolSwap {
             txno: idx,
             from_amount,
             from_token_id,
-            to_token_id: self.to_token_id.0,
+            to_token_id,
             to_amount,
             pool_id,
             from,
@@ -204,21 +216,32 @@ impl Index for CompositeSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
+
         let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
             services.result.get(&txid)?
         else {
-            // TODO fallback through getaccounthistory when indexing against non-oceanarchive node
-            // let address =
-            //     Address::from_script(&self.pool_swap.to_script, bitcoin::Network::Bitcoin)
-            //         .map_err(|e| format_err!("Error getting address from script: {e}"));
             debug!("Missing swap result for {}", txid.to_string());
             return Err("Missing swap result".into());
         };
 
         let from = self.pool_swap.from_script;
         let to = self.pool_swap.to_script;
-        for pool in self.pools.as_ref() {
-            let pool_id = pool.id.0 as u32;
+        let pools = self.pools.as_ref();
+
+        let pool_ids = if pools.is_empty() {
+            let Some(pool_id) = services.poolpair.by_id.get(&(
+                self.pool_swap.from_token_id.0 as u32,
+                self.pool_swap.to_token_id.0 as u32,
+            ))?
+            else {
+                return Err("Missing pool_id".into());
+            };
+            Vec::from([pool_id])
+        } else {
+            pools.iter().map(|pool| pool.id.0 as u32).collect()
+        };
+
+        for pool_id in pool_ids {
             let swap = model::PoolSwap {
                 id: format!("{}-{}", pool_id, txid),
                 sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),

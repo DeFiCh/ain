@@ -13,7 +13,7 @@ use std::{sync::Arc, time::Instant};
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
-pub use poolswap::{PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
+pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 
 use crate::{
     index_transaction,
@@ -29,12 +29,6 @@ pub(crate) trait Index {
     // TODO: allow dead_code at the moment
     #[allow(dead_code)]
     fn invalidate(&self, services: &Arc<Services>, ctx: &Context) -> Result<()>;
-}
-
-#[derive(Debug, Clone)]
-pub struct PoolCreationHeight {
-    pub id: u32,
-    pub creation_height: u32,
 }
 
 #[derive(Debug)]
@@ -56,11 +50,14 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
 fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
     let pool_pairs = services
         .poolpair
+        .by_height
         .list(None, SortOrder::Ascending)?
         .map(|el| {
-            let ((k, _), v) = el?;
+            let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
             Ok(PoolCreationHeight {
-                id: v,
+                id: pool_id,
+                id_token_a,
+                id_token_b,
                 creation_height: k,
             })
         })

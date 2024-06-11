@@ -1,3 +1,4 @@
+use bitcoin::{Address, Network, ScriptBuf};
 use defichain_rpc::json::token::TokenInfo;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -37,6 +38,12 @@ pub fn format_number(v: Decimal) -> String {
     } else {
         format!("{:.8}", v)
     }
+}
+
+pub fn from_script(script: ScriptBuf, network: Network) -> crate::Result<String> {
+    let script = script.as_script();
+    let address = Address::from_script(script, network)?.to_string();
+    Ok(address)
 }
 
 /// Finds the balance of a specified token symbol within a list of token strings.
