@@ -3136,17 +3136,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
         const UniValue b = blockToJSON(block, ::ChainActive().Tip(), pindex, true, 2);
         CrossBoundaryResult result;
 
-        rust::cxxbridge1::Vec<PoolCreationHeight> pools;
-        pcustomcsview->ForEachPoolPair(
-            [&](DCT_ID const &id, CPoolPair pool) {
-                const auto token = pcustomcsview->GetToken(id);
-                if (token) {
-                    pools.push_back({id.v, pool.creationHeight});
-                };
-                return true;
-            },
-            {0});
-        ocean_index_block(result, b.write(), pools);
+        ocean_index_block(result, b.write());
         if (!result.ok) {
             return Res::Err(result.reason.c_str());
         }

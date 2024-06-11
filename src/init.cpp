@@ -2485,18 +2485,8 @@ bool AppInitMain(InitInterfaces& interfaces)
 
         const UniValue b = blockToJSON(block, tip, pblockindex, true, 2);
 
-        rust::cxxbridge1::Vec<PoolCreationHeight> pools;
-        pcustomcsview->ForEachPoolPair(
-            [&](DCT_ID const &id, CPoolPair pool) {
-                const auto token = pcustomcsview->GetToken(id);
-                if (token) {
-                    pools.push_back({id.v, pool.creationHeight});
-                };
-                return true;
-            }, {0});
-
         CrossBoundaryResult result;
-        ocean_index_block(result, b.write(), pools);
+        ocean_index_block(result, b.write());
         if (!result.ok) {
             LogPrintf("Error indexing genesis block: %s\n", result.reason);
             return false;

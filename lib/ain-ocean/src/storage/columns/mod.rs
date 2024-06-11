@@ -10,6 +10,7 @@ mod oracle_price_feed;
 mod oracle_token_currency;
 mod pool_swap;
 mod pool_swap_aggregated;
+mod poolpair;
 mod price_ticker;
 mod raw_block;
 mod script_activity;
@@ -34,6 +35,7 @@ pub use oracle_price_feed::*;
 pub use oracle_token_currency::*;
 pub use pool_swap::*;
 pub use pool_swap_aggregated::*;
+pub use poolpair::*;
 pub use price_ticker::*;
 pub use raw_block::*;
 pub use script_activity::*;
@@ -45,7 +47,7 @@ pub use transaction_vout::*;
 pub use tx_result::*;
 pub use vault_auction_history::*;
 
-pub const COLUMN_NAMES: [&str; 34] = [
+pub const COLUMN_NAMES: [&str; 35] = [
     block::Block::NAME,
     block::BlockByHeight::NAME,
     masternode_stats::MasternodeStats::NAME,
@@ -67,6 +69,7 @@ pub const COLUMN_NAMES: [&str; 34] = [
     pool_swap_aggregated::PoolSwapAggregated::NAME,
     pool_swap_aggregated::PoolSwapAggregatedKey::NAME,
     pool_swap::PoolSwap::NAME,
+    poolpair::PoolPair::NAME,
     price_ticker::PriceTicker::NAME,
     price_ticker::PriceTickerKey::NAME,
     raw_block::RawBlock::NAME,

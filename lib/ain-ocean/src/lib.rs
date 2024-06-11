@@ -5,6 +5,7 @@ pub mod network;
 use std::{path::PathBuf, sync::Arc};
 
 pub use api::ocean_router;
+use defichain_rpc::Client;
 use error::Error;
 pub use indexer::{
     index_block, invalidate_block, oracle::invalidate_oracle_interval,
@@ -20,8 +21,8 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolSwapAggregatedKeyRepository, PoolSwapAggregatedRepository, PoolSwapRepository,
-    PriceTickerKeyRepository, PriceTickerRepository, RawBlockRepository,
+    PoolPairRepository, PoolSwapAggregatedKeyRepository, PoolSwapAggregatedRepository,
+    PoolSwapRepository, PriceTickerKeyRepository, PriceTickerRepository, RawBlockRepository,
     TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
     TransactionVoutRepository, TxResultRepository,
 };
@@ -128,6 +129,7 @@ pub struct Services {
     pub auction: AuctionService,
     pub result: TxResultRepository,
     pub pool: PoolService,
+    pub poolpair: PoolPairRepository,
     pub pool_swap_aggregated: PoolSwapAggregatedService,
     pub transaction: TransactionService,
     pub oracle: OracleService,
@@ -159,6 +161,7 @@ impl Services {
                 by_height: AuctionHistoryByHeightRepository::new(Arc::clone(&store)),
             },
             result: TxResultRepository::new(Arc::clone(&store)),
+            poolpair: PoolPairRepository::new(Arc::clone(&store)),
             pool: PoolService {
                 by_id: PoolSwapRepository::new(Arc::clone(&store)),
             },

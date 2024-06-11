@@ -19,6 +19,7 @@
 #include <dfi/mn_checks.h>
 #include <dfi/vaulthistory.h>
 #include <ffi/ffihelpers.h>
+#include <ffi/ffiocean.h>
 
 #include <ain_rs_exports.h>
 #include <core_io.h>
@@ -1155,17 +1156,8 @@ Res CPoolSwap::ExecuteSwap(CCustomCSView &view,
     result = swapAmountResult.nValue;
 
     // Send final swap amount Rust side for indexer
-    bool isOceanEnabled = gArgs.GetBoolArg("-oceanarchive", false);
-    if (txInfo && isOceanEnabled) {
-        const auto &[txType, txHash] = *txInfo;
-        CrossBoundaryResult ffiResult;
-        ocean_try_set_tx_result(ffiResult,
-                                static_cast<uint8_t>(txType),
-                                txHash.GetByteArrayBE(),
-                                static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
-    }
+    return OceanSetTxResult(txInfo, static_cast<std::size_t>(reinterpret_cast<uintptr_t>(&finalSwapAmount)));
 
-    return Res::Ok();
 }
 
 Res SwapToDFIorDUSD(CCustomCSView &mnview,

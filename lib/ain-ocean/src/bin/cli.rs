@@ -53,6 +53,8 @@ async fn main() -> Result<()> {
     env_logger::init();
     let cli = Cli::parse();
 
+    let yo = ain_cpp_imports::get_chain_id()?;
+    println!("yo : {:?}", yo);
     let store = Arc::new(OceanStore::new(&cli.datadir)?);
 
     let client = Arc::new(
@@ -67,7 +69,7 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(cli.bind_address).await?;
     let ocean_router =
-        ain_ocean::ocean_router(&services, client.clone(), cli.network.to_string()).await?;
+        ain_ocean::ocean_router(&services, Arc::clone(&client), cli.network.to_string()).await?;
     tokio::spawn(async move { axum::serve(listener, ocean_router).await.unwrap() });
 
     let mut indexed_block = 0;
@@ -106,19 +108,8 @@ async fn main() -> Result<()> {
             Ok(_) => return Err("Error deserializing block".into()),
         };
 
-        let pools = client
-            .list_pool_pairs(None, Some(true))
-            .await?
-            .0
-            .into_iter()
-            .map(|(id, info)| PoolCreationHeight {
-                id: id.parse::<u32>().unwrap(),
-                creation_height: info.creation_height as u32,
-            })
-            .collect::<Vec<_>>();
-
         next_block_hash = block.nextblockhash;
-        match index_block(&services, block, pools) {
+        match index_block(&services, block) {
             Ok(_) => (),
             Err(e) => {
                 return Err(e);
