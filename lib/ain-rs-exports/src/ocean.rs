@@ -1,5 +1,5 @@
 use ain_macros::ffi_fallible;
-use ain_ocean::{PoolCreationHeight, Result};
+use ain_ocean::Result;
 use defichain_rpc::json::blockchain::{Block, Transaction};
 
 use crate::{

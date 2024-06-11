@@ -7,11 +7,10 @@ use std::{
 };
 
 use ain_ocean::{
-    index_block, network::Network, storage::ocean_store::OceanStore, PoolCreationHeight, Result,
-    Services,
+    index_block, network::Network, storage::ocean_store::OceanStore, Result, Services,
 };
 use clap::Parser;
-use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client, PoolPairRPC};
+use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -54,7 +53,6 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let yo = ain_cpp_imports::get_chain_id()?;
-    println!("yo : {:?}", yo);
     let store = Arc::new(OceanStore::new(&cli.datadir)?);
 
     let client = Arc::new(
