@@ -16,9 +16,12 @@ use crate::{
     blocktemplate::ReceiptAndOptionalContractAddress,
     bytes::Bytes,
     contract::{
-        bridge_dfi, bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
-        dst20_deploy_info, dst20_name_info, rename_contract_tx, DST20BridgeInfo,
-        DeployContractInfo,
+        bridge_dfi,
+        dst20::{
+            bridge_dst20_in, bridge_dst20_out, dst20_allowance, dst20_deploy_contract_tx,
+            dst20_deploy_info, dst20_name_info, DST20BridgeInfo,
+        },
+        rename_contract_tx, DeployContractInfo,
     },
     core::EVMCoreService,
     eventlistener::{ExecListener, ExecutionStep, GasListener, StorageAccessListener},
@@ -428,7 +431,7 @@ impl<'backend> AinExecutor<'backend> {
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, signed_tx.gas_limit(), base_fee, false, ctx)?;
 
-                debug!(
+                trace!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}",
                     receipt,
                     tx_response.exit_reason,
@@ -465,7 +468,7 @@ impl<'backend> AinExecutor<'backend> {
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[68..100]);
 
-                debug!(
+                trace!(
                     "[execute_tx] Transfer domain: {} from address {:x?}, nonce {:x?}, to address {:x?}, amount: {}",
                     direction, signed_tx.sender, signed_tx.nonce(), to, amount,
                 );
@@ -480,7 +483,7 @@ impl<'backend> AinExecutor<'backend> {
                     Some(account) => account.code_hash != contract.codehash,
                 };
                 if mismatch {
-                    debug!(
+                    trace!(
                         "[execute_tx] {} failed with as transferdomain account codehash mismatch",
                         direction
                     );
@@ -507,7 +510,7 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                debug!(
+                trace!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
@@ -548,7 +551,7 @@ impl<'backend> AinExecutor<'backend> {
                 let input = signed_tx.data();
                 let amount = U256::from_big_endian(&input[100..132]);
 
-                debug!(
+                trace!(
                     "[execute_tx] DST20Bridge from {}, contract_address {}, amount {}, direction {}",
                     signed_tx.sender, contract_address, amount, direction
                 );
@@ -565,11 +568,6 @@ impl<'backend> AinExecutor<'backend> {
                 let (tx_response, receipt) =
                     self.exec(&signed_tx, U256::MAX, U256::zero(), true, ctx)?;
                 if !tx_response.exit_reason.is_succeed() {
-                    debug!(
-                        "[execute_tx] DST20 bridge failed VM execution {:?}, data {}",
-                        tx_response.exit_reason,
-                        hex::encode(&tx_response.data)
-                    );
                     return Err(format_err!(
                         "[execute_tx] DST20 bridge failed VM execution {:?}, data {:?}",
                         tx_response.exit_reason,
@@ -578,7 +576,7 @@ impl<'backend> AinExecutor<'backend> {
                     .into());
                 }
 
-                debug!(
+                trace!(
                     "[execute_tx] receipt : {:?}, exit_reason {:#?} for signed_tx : {:#x}, logs: {:x?}",
                     receipt,
                     tx_response.exit_reason,
@@ -606,16 +604,24 @@ impl<'backend> AinExecutor<'backend> {
                 address,
                 token_id,
             })) => {
-                debug!(
+                trace!(
                     "[execute_tx] DeployContract for address {:x?}, name {}, symbol {}",
-                    address, name, symbol
+                    address,
+                    name,
+                    symbol
                 );
 
                 let DeployContractInfo {
                     address,
                     bytecode,
                     storage,
-                } = dst20_deploy_info(self.backend, address, &name, &symbol)?;
+                } = dst20_deploy_info(
+                    self.backend,
+                    ctx.map_or(0, |c| c.dvm_block),
+                    address,
+                    &name,
+                    &symbol,
+                )?;
 
                 self.deploy_contract(address, bytecode, storage)?;
                 let (tx, receipt) = dst20_deploy_contract_tx(token_id, &base_fee)?;
@@ -634,12 +640,14 @@ impl<'backend> AinExecutor<'backend> {
                 address,
                 token_id,
             })) => {
-                debug!(
+                trace!(
                     "[execute_tx] Rename contract for address {:x?}, name {}, symbol {}",
-                    address, name, symbol
+                    address,
+                    name,
+                    symbol
                 );
 
-                let storage = dst20_name_info(&name, &symbol);
+                let storage = dst20_name_info(ctx.map_or(0, |c| c.dvm_block), &name, &symbol);
 
                 self.update_storage(address, storage)?;
                 let (tx, receipt) = rename_contract_tx(token_id, &base_fee)?;

@@ -41,7 +41,7 @@ class AccessListTest(DefiTestFramework):
                 "-fortcanningepilogueheight=96",
                 "-grandcentralheight=101",
                 "-metachainheight=153",
-                "-df23height=153",
+                "-df23height=155",
                 "-subsidytest=1",
             ]
         ]
@@ -88,24 +88,6 @@ class AccessListTest(DefiTestFramework):
 
         # Generate chain
         self.nodes[0].generate(153)
-        self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
-
-        # Create token before EVM
-        self.nodes[0].createtoken(
-            {
-                "symbol": "USDT",
-                "name": "USDT token",
-                "isDAT": True,
-                "collateralAddress": self.address,
-            }
-        )
-        self.nodes[0].generate(1)
-        self.nodes[0].minttokens("10@USDT")
-        self.nodes[0].generate(2)
-
-        self.key_pair = EvmKeyPair.from_node(self.nodes[0])
-        self.key_pair2 = EvmKeyPair.from_node(self.nodes[0])
-
         self.nodes[0].setgov(
             {
                 "ATTRIBUTES": {
@@ -118,6 +100,26 @@ class AccessListTest(DefiTestFramework):
             }
         )
         self.nodes[0].generate(2)
+
+        self.nodes[0].utxostoaccount({self.address: "1000@DFI"})
+
+        # Create token before EVM
+        self.nodes[0].createtoken(
+            {
+                "symbol": "USDT",
+                "name": "USDT token",
+                "isDAT": True,
+                "collateralAddress": self.address,
+            }
+        )
+        self.nodes[0].generate(1)
+
+        self.nodes[0].minttokens("10@USDT")
+        self.nodes[0].generate(1)
+
+        self.key_pair = EvmKeyPair.from_node(self.nodes[0])
+        self.key_pair2 = EvmKeyPair.from_node(self.nodes[0])
+
         self.usdt = self.nodes[0].w3.eth.contract(
             address=self.contract_address_usdt, abi=self.abi
         )
@@ -136,6 +138,7 @@ class AccessListTest(DefiTestFramework):
             ]
         )
         self.nodes[0].generate(1)
+
         balance = self.usdt.functions.balanceOf(
             self.key_pair.address
         ).call() / math.pow(10, self.usdt.functions.decimals().call())
