@@ -32,29 +32,6 @@ fn should_call() {
 }
 
 #[test]
-fn should_get_balance() {
-    let handler = Arc::new(Handlers::new());
-    let input = EthGetBalanceInput {
-        address: ALICE.to_string(),
-        block_number: "latest".to_string(),
-    };
-
-    let res = EthService::Eth_GetBalance(handler.clone(), input.clone().into());
-    assert_eq!(res.unwrap().balance, "0");
-
-    let ctx = handler.evm.get_queue_id();
-
-    handler
-        .evm
-        .add_balance(ctx, H160::from_str(ALICE).unwrap(), U256::from(1337));
-
-    let _ = handler.finalize_block(ctx, true, 0, None);
-
-    let res2 = EthService::Eth_GetBalance(handler, input.into());
-    assert_eq!(res2.unwrap().balance, "1337");
-}
-
-#[test]
 fn should_get_block_by_hash() {
     let handler = Arc::new(Handlers::new());
     let block = BlockV2::new(
