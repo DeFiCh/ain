@@ -325,7 +325,7 @@ void BCLog::Logger::ShrinkDebugFile()
         fclose(file);
 }
 
-static std::string PrintAutoPort(const AutoPort type)
+static std::string GetAutoPortString(const AutoPort type)
 {
     switch (type) {
         case RPC:
@@ -344,7 +344,7 @@ static std::string PrintAutoPort(const AutoPort type)
 uint16_t GetPortFromLockFile(const AutoPort type)
 {
     const fs::path lockFilePath = GetDataDir() / "ports.lock";
-    const std::string portTypeStr = PrintAutoPort(type);
+    const std::string portTypeStr = GetAutoPortString(type);
 
     std::ifstream lockFile(lockFilePath);
     if (!lockFile.is_open()) {
@@ -379,7 +379,7 @@ void SetPortToLockFile(const AutoPort portType, const uint16_t portNumber)
     }
 
     // Write the port information
-    lockFile << PrintAutoPort(portType) << "=" << portNumber << "\n";
+    lockFile << GetAutoPortString(portType) << "=" << portNumber << "\n";
 }
 
 void RemovePortUsage()
