@@ -24,6 +24,8 @@ pub enum NotFoundKind {
     Oracle,
     #[error("token")]
     Token,
+    #[error("poolpair")]
+    PoolPair,
 }
 
 #[derive(Error, Debug)]
