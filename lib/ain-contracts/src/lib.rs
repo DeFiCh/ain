@@ -6,7 +6,7 @@ use sp_core::{Blake2Hasher, Hasher};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
-const DST20_ADDR_PREFIX_BYTE: u8 = 0xff;
+pub const DST20_ADDR_PREFIX_BYTE: u8 = 0xff;
 const INTRINSICS_ADDR_PREFIX_BYTE: u8 = 0xdf;
 
 // Impl slots used for proxies: 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
@@ -55,30 +55,6 @@ fn get_bytecode(input: &str) -> Result<Vec<u8>> {
         .ok_or_else(|| format_err!("Bytecode object not available".to_string()))?;
 
     hex::decode(&bytecode_raw[2..]).map_err(|e| format_err!(e.to_string()))
-}
-
-pub fn get_dst20_deploy_input(init_bytecode: Vec<u8>, name: &str, symbol: &str) -> Result<Vec<u8>> {
-    let name = ethabi::Token::String(name.to_string());
-    let symbol = ethabi::Token::String(symbol.to_string());
-
-    let constructor = ethabi::Constructor {
-        inputs: vec![
-            ethabi::Param {
-                name: String::from("name"),
-                kind: ethabi::ParamType::String,
-                internal_type: None,
-            },
-            ethabi::Param {
-                name: String::from("symbol"),
-                kind: ethabi::ParamType::String,
-                internal_type: None,
-            },
-        ],
-    };
-
-    constructor
-        .encode_input(init_bytecode, &[name, symbol])
-        .map_err(|e| format_err!(e))
 }
 
 pub fn generate_intrinsic_addr(prefix_byte: u8, suffix_num: u64) -> Result<H160> {
@@ -155,23 +131,6 @@ lazy_static::lazy_static! {
         }
     };
 
-    pub static ref DFI_INTRINSICS_V2_CONTRACT: FixedContract = {
-        let bytecode = solc_artifact_bytecode_str!("dfi_intrinsics_v2", "deployed_bytecode.json");
-        let input = solc_artifact_bytecode_str!(
-            "dfi_intrinsics_v2",
-            "bytecode.json"
-        );
-
-        FixedContract {
-            contract: Contract {
-                codehash: Blake2Hasher::hash(&bytecode),
-                runtime_bytecode: bytecode,
-                init_bytecode: input,
-            },
-            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x5)),
-        }
-    };
-
     pub static ref TRANSFERDOMAIN_CONTRACT : FixedContract = {
         let bytecode = solc_artifact_bytecode_str!("transfer_domain", "deployed_bytecode.json");
         let input = solc_artifact_bytecode_str!(
@@ -234,6 +193,24 @@ lazy_static::lazy_static! {
             init_bytecode: input,
             },
             fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x4))
+        }
+    };
+
+    pub static ref DST20_V2_CONTRACT: FixedContract = {
+        let bytecode = solc_artifact_bytecode_str!(
+            "dst20_v2", "deployed_bytecode.json"
+        );
+        let input = solc_artifact_bytecode_str!(
+            "dst20_v2", "bytecode.json"
+        );
+
+        FixedContract {
+            contract: Contract {
+            codehash: Blake2Hasher::hash(&bytecode),
+            runtime_bytecode: bytecode,
+            init_bytecode: input,
+            },
+            fixed_address: H160(slice_20b!(INTRINSICS_ADDR_PREFIX_BYTE, 0x5))
         }
     };
 }
@@ -373,10 +350,6 @@ pub fn get_dfi_intrinsics_v1_contract() -> FixedContract {
     DFI_INTRINSICS_V1_CONTRACT.clone()
 }
 
-pub fn get_dfi_intrinsics_v2_contract() -> FixedContract {
-    DFI_INTRINSICS_V2_CONTRACT.clone()
-}
-
 pub fn get_transfer_domain_contract() -> FixedContract {
     TRANSFERDOMAIN_CONTRACT.clone()
 }
@@ -391,6 +364,10 @@ pub fn get_dst20_contract() -> Contract {
 
 pub fn get_dst20_v1_contract() -> FixedContract {
     DST20_V1_CONTRACT.clone()
+}
+
+pub fn get_dst20_v2_contract() -> FixedContract {
+    DST20_V2_CONTRACT.clone()
 }
 
 #[cfg(test)]

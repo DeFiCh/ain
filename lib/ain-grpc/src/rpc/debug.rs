@@ -24,6 +24,8 @@ use crate::{
     trace::{handle_trace_params, TraceParams},
 };
 
+use super::common::get_block;
+
 #[derive(Serialize, Deserialize)]
 pub struct FeeEstimate {
     used_gas: U256,
@@ -230,7 +232,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
                 .map_err(|_| to_custom_err("failed to convert response size limit to usize"))?;
 
         // Get block
-        let trace_block = self.get_block(Some(block_number))?;
+        let trace_block = get_block(&self.handler.storage, Some(block_number))?;
         let res = self
             .handler
             .tracer

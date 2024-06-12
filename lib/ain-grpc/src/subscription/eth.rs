@@ -7,7 +7,7 @@ use ain_evm::{
 use anyhow::format_err;
 use ethereum_types::U256;
 use jsonrpsee::{proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink};
-use log::debug;
+use log::{debug, trace};
 use tokio::runtime::Handle as AsyncHandle;
 
 use crate::subscription::{
@@ -49,8 +49,8 @@ impl MetachainPubSubServer for MetachainPubSubModule {
         params: Option<SubscriptionParams>,
     ) -> Result<(), SubscriptionEmptyError> {
         sink.accept()?;
-        debug!(target: "pubsub", "subscribing to {:#?}", subscription);
-        debug!(target: "pubsub", "params {:?}", params);
+        trace!(target: "pubsub", "subscribing to {:#?}", subscription);
+        trace!(target: "pubsub", "params {:?}", params);
 
         let mut rx = self.handler.subscriptions.tx.subscribe();
         let handler = self.handler.clone();

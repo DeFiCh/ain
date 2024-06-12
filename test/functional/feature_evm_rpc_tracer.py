@@ -206,7 +206,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -302,7 +302,7 @@ class EvmTracerTest(DefiTestFramework):
                 )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -426,7 +426,7 @@ class EvmTracerTest(DefiTestFramework):
                 )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -484,7 +484,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test tracer for every transfer tx
         for tx in block_txs[2:]:
@@ -499,7 +499,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -566,7 +566,7 @@ class EvmTracerTest(DefiTestFramework):
         )
         # Accumulate tx traces
         res = self.nodes[0].debug_traceTransaction(block_txs[0]["hash"])
-        block_trace.append(res)
+        block_trace.append({"result": res, "txHash": block_txs[0]["hash"]})
 
         # Test tracer for every tx
         for tx in block_txs[1:]:
@@ -581,7 +581,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))

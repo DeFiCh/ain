@@ -1,6 +1,6 @@
 ARG TARGET=x86_64-pc-linux-gnu
 
-FROM --platform=linux/amd64 ubuntu:latest as defi
+FROM --platform=linux/amd64 ubuntu:24.04 as defi
 ARG TARGET
 ARG BINARY_DIR
 ENV PATH=/app/bin:$PATH

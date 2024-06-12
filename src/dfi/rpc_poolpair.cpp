@@ -1,6 +1,7 @@
 #include <dfi/mn_rpc.h>
 
 #include <dfi/govvariables/attributes.h>
+#include <dfi/validation.h>
 
 UniValue poolToJSON(const CCustomCSView &view,
                     DCT_ID const &id,
@@ -1430,13 +1431,48 @@ UniValue listloantokenliquidity(const JSONRPCRequest &request) {
 
     LOCK(cs_main);
 
-    UniValue ret(UniValue::VOBJ);
+    UniValue ret(UniValue::VARR);
+    const auto height = ::ChainActive().Height();
+
+    const auto attributes = pcustomcsview->GetAttributes();
+
+    CDataStructureV0 averageKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::AverageLiquidityPercentage};
+    const auto averageLiquidityPercentage = attributes->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
+
+    const auto dusdToken = pcustomcsview->GetToken("DUSD");
+    if (!dusdToken) {
+        return ret;
+    }
+
+    const auto dusdId = dusdToken->first.v;
+
     pcustomcsview->ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
         const auto sourceToken = pcustomcsview->GetToken(DCT_ID{key.sourceID});
         const auto destToken = pcustomcsview->GetToken(DCT_ID{key.destID});
+
         if (sourceToken && destToken) {
-            ret.pushKV(sourceToken->symbol + '-' + destToken->symbol, GetDecimalString(liquidity));
+            arith_uint256 totalSwapAmount{};
+            pcustomcsview->ForEachFuturesUserValues(
+                [&](const CFuturesUserKey &, const CFuturesUserValue &futuresValues) {
+                    const auto destination = futuresValues.destination ? futuresValues.destination : dusdId;
+                    if (futuresValues.source.nTokenId.v == key.sourceID && destination == key.destID) {
+                        totalSwapAmount += futuresValues.source.nValue;
+                    }
+                    return true;
+                },
+                {static_cast<uint32_t>(height), {}, std::numeric_limits<uint32_t>::max()});
+
+            const auto liquidityLimit = MultiplyAmounts(liquidity, averageLiquidityPercentage);
+
+            UniValue poolRes(UniValue::VOBJ);
+            UniValue limitRes(UniValue::VOBJ);
+            limitRes.pushKV("liquidity", GetDecimalString(liquidity));
+            limitRes.pushKV("limit", GetDecimalString(liquidityLimit));
+            limitRes.pushKV("remaining", GetDecimalString(liquidityLimit - totalSwapAmount.GetLow64()));
+            poolRes.pushKV(sourceToken->symbol + '-' + destToken->symbol, limitRes);
+            ret.push_back(poolRes);
         }
+
         return true;
     });
 

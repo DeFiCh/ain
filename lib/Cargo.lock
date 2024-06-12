@@ -1106,9 +1106,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-gen"
-version = "0.7.119"
+version = "0.7.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5797d553b95704a6a49394acfdb93e2332b8aaa146713a1e8ebe362e86d9fa68"
+checksum = "815c5db00477e66d8819915be809baab3c4ed81e064a8bd514584dc21f3f97c7"
 dependencies = [
  "codespan-reporting",
  "proc-macro2",
@@ -1944,9 +1944,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.25"
+version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fbd2820c5e49886948654ab546d0688ff24530286bdcf8fca3cefb16d4618eb"
+checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
 dependencies = [
  "bytes",
  "fnv",
@@ -4105,9 +4105,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.21.10"
+version = "0.21.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d5a6813c0759e4609cd494e8e725babae6a2ca7b62a5536a13daaec6fcb7ba"
+checksum = "7fecbfb7b1444f477b345853b1fce097a2c6fb637b2bfb87e6bc5db0f043fae4"
 dependencies = [
  "log",
  "ring",

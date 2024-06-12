@@ -170,7 +170,7 @@ bool BerkeleyEnvironment::Open(bool retry)
 
     fs::path pathIn = fs::PathFromString(strPath);
     TryCreateDirectories(pathIn);
-    if (!LockDirectory(pathIn, ".walletlock")) {
+    if (util::LockDirectory(pathIn, ".walletlock") != util::LockResult::Success) {
         LogPrintf("Cannot obtain a lock on wallet directory %s. Another instance of defi may be using it.\n", strPath);
         return false;
     }
