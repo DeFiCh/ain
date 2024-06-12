@@ -642,7 +642,6 @@ pub async fn find_swap_to(
     let crate::model::PoolSwap {
         to,
         to_token_id,
-        to_amount,
         block,
         txno,
         ..
@@ -664,15 +663,15 @@ pub async fn find_swap_to(
     // context: to_amount has been calculated while indexing with ocean archive
     // `to_amount` None indicates the node is not running with ocean archive
     // get the `to_amount` via `getaccounthistory`
-    if to_amount.is_some() {
-        let amount = to_amount.unwrap().abs();
-        return Ok(Some(PoolSwapFromToData {
-            address: to_address,
-            amount: Decimal::new(amount, 8).to_string(),
-            symbol: to_token.symbol,
-            display_symbol,
-        }));
-    }
+    // if to_amount.is_some() {
+    //     let amount = to_amount.unwrap().abs();
+    //     return Ok(Some(PoolSwapFromToData {
+    //         address: to_address,
+    //         amount: Decimal::new(amount, 8).to_string(),
+    //         symbol: to_token.symbol,
+    //         display_symbol,
+    //     }));
+    // }
 
     let history = ctx
         .client

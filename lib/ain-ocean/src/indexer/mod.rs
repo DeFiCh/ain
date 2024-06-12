@@ -3,7 +3,8 @@ pub mod loan_token;
 mod masternode;
 pub mod oracle;
 pub mod oracle_test;
-pub mod pool;
+pub mod poolpair;
+pub mod poolswap;
 pub mod transaction;
 pub mod tx_result;
 
@@ -12,9 +13,7 @@ use std::{sync::Arc, time::Instant};
 use ain_dftx::{deserialize, is_skipped_tx, DfTx, Stack};
 use defichain_rpc::json::blockchain::{Block, Transaction};
 use log::debug;
-pub use pool::{
-    update_mapping, PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS,
-};
+pub use poolswap::{PoolCreationHeight, PoolSwapAggregatedInterval, AGGREGATED_INTERVALS};
 
 use crate::{
     index_transaction,
@@ -48,13 +47,21 @@ fn get_bucket(block: &Block<Transaction>, interval: i64) -> i64 {
     block.mediantime - (block.mediantime % interval)
 }
 
-fn index_block_start(
-    services: &Arc<Services>,
-    block: &Block<Transaction>,
-    pool_pairs: Vec<PoolCreationHeight>,
-) -> Result<()> {
-    let mut pool_pairs = pool_pairs;
-    pool_pairs.sort_by(|a, b| b.creation_height.cmp(&a.creation_height));
+fn index_block_start(services: &Arc<Services>, block: &Block<Transaction>) -> Result<()> {
+    let pool_pairs = services
+        .poolpair
+        .by_height
+        .list(None, SortOrder::Ascending)?
+        .map(|el| {
+            let ((k, _), (pool_id, id_token_a, id_token_b)) = el?;
+            Ok(PoolCreationHeight {
+                id: pool_id,
+                id_token_a,
+                id_token_b,
+                creation_height: k,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     for interval in AGGREGATED_INTERVALS {
         for pool_pair in &pool_pairs {
@@ -110,11 +117,7 @@ fn index_block_start(
     Ok(())
 }
 
-pub fn index_block(
-    services: &Arc<Services>,
-    block: Block<Transaction>,
-    pools: Vec<PoolCreationHeight>,
-) -> Result<()> {
+pub fn index_block(services: &Arc<Services>, block: Block<Transaction>) -> Result<()> {
     debug!("[index_block] Indexing block...");
     let start = Instant::now();
     let block_hash = block.hash;
@@ -126,9 +129,7 @@ pub fn index_block(
         median_time: block.mediantime,
     };
 
-    update_mapping(&pools);
-
-    index_block_start(services, &block, pools)?;
+    index_block_start(services, &block)?;
 
     for (tx_idx, tx) in block.tx.into_iter().enumerate() {
         if is_skipped_tx(&tx.txid) {
@@ -169,6 +170,7 @@ pub fn index_block(
                         DfTx::PoolSwap(data) => data.index(services, &ctx)?,
                         DfTx::SetLoanToken(data) => data.index(services, &ctx)?,
                         DfTx::CompositeSwap(data) => data.index(services, &ctx)?,
+                        DfTx::CreatePoolPair(data) => data.index(services, &ctx)?,
                         // DfTx::PlaceAuctionBid(data) => data.index(services, &ctx)?,
                         _ => (),
                     }

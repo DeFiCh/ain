@@ -1,10 +1,6 @@
-use parking_lot::Mutex;
-use std::{collections::HashMap, ops::Div, str::FromStr, sync::Arc};
+use std::{ops::Div, str::FromStr, sync::Arc};
 
-use ain_dftx::{
-    common::{CompactVec, VarInt},
-    pool::*,
-};
+use ain_dftx::pool::*;
 use anyhow::format_err;
 use bitcoin::BlockHash;
 // use bitcoin::Address;
@@ -40,53 +36,6 @@ pub struct PoolCreationHeight {
     pub creation_height: u32,
 }
 
-lazy_static::lazy_static! {
-  pub static ref POOL_PAIR_PATH_MAPPING: Mutex<HashMap<String, PoolCreationHeight>> = Mutex::new(HashMap::new());
-}
-
-fn find_pair(a: u64, b: u64) -> Option<PoolCreationHeight> {
-    let mapping = POOL_PAIR_PATH_MAPPING.lock();
-    let ab = mapping.get(&format!("{a}-{b}"));
-    if ab.is_some() {
-        return ab.cloned();
-    }
-    let ba = mapping.get(&format!("{b}-{a}"));
-    if ba.is_some() {
-        return ba.cloned();
-    }
-    None
-}
-
-pub fn update_mapping(pools: &Vec<PoolCreationHeight>) {
-    let mut mapping = POOL_PAIR_PATH_MAPPING.lock();
-    for pool in pools {
-        mapping.insert(
-            format!("{}-{}", pool.id_token_a, pool.id_token_b),
-            pool.clone(),
-        );
-        mapping.insert(
-            format!("{}-{}", pool.id_token_b, pool.id_token_a),
-            pool.clone(),
-        );
-    }
-}
-
-fn process_pool_ids(pool_ids: CompactVec<PoolId>, a: u64, b: u64) -> CompactVec<PoolId> {
-    if pool_ids.as_ref().is_empty() {
-        let pool = find_pair(a, b);
-        if pool.is_none() {
-            log::error!("Pool not found by {a}-{b} or {b}-{a} from POOL_PAIR_PATH_MAPPING");
-            return CompactVec::from(Vec::new());
-        }
-        let pool = pool.unwrap();
-        let pool_id = PoolId {
-            id: VarInt(pool.id as u64),
-        };
-        return CompactVec::from(vec![pool_id]);
-    }
-    pool_ids
-}
-
 impl Index for PoolSwap {
     fn index(self, services: &Arc<Services>, ctx: &Context) -> Result<()> {
         debug!("[Poolswap] Indexing...");
@@ -98,19 +47,17 @@ impl Index for PoolSwap {
         let from_amount = self.from_amount;
         let to_token_id = self.to_token_id.0;
 
-        let (to_amount, pool_id) = if let Some(TxResult::PoolSwap(PoolSwapResult {
-            to_amount,
-            pool_id,
-        })) = services.result.get(&txid)?
-        {
-            (Some(to_amount), pool_id)
-        } else {
-            let pair = find_pair(from_token_id, to_token_id);
-            if pair.is_none() {
-                return Err(format_err!("Pool not found by {from_token_id}-{to_token_id} or {to_token_id}-{from_token_id} from POOL_PAIR_PATH_MAPPING").into());
-            }
-            let pair = pair.unwrap();
-            (None, pair.id)
+        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, pool_id })) =
+            services.result.get(&txid)?
+        else {
+            // TODO: Commenting out for now, fallback should only be introduced for supporting back CLI indexing
+            return Err("Missing swap result".into());
+            // let pair = find_pair(from_token_id, to_token_id);
+            // if pair.is_none() {
+            //     return Err(format_err!("Pool not found by {from_token_id}-{to_token_id} or {to_token_id}-{from_token_id}").into());
+            // }
+            // let pair = pair.unwrap();
+            // (None, pair.id)
         };
 
         let swap = model::PoolSwap {
@@ -270,20 +217,31 @@ impl Index for CompositeSwap {
         debug!("[CompositeSwap] Indexing...");
         let txid = ctx.tx.txid;
 
-        let to_amount = services.result.get(&txid)?.and_then(|res| match res {
-            TxResult::PoolSwap(PoolSwapResult { to_amount, .. }) => Some(to_amount),
-            TxResult::None => None,
-        });
+        let Some(TxResult::PoolSwap(PoolSwapResult { to_amount, .. })) =
+            services.result.get(&txid)?
+        else {
+            debug!("Missing swap result for {}", txid.to_string());
+            return Err("Missing swap result".into());
+        };
 
         let from = self.pool_swap.from_script;
         let to = self.pool_swap.to_script;
-        let pool_ids = process_pool_ids(
-            self.pools,
-            self.pool_swap.from_token_id.0,
-            self.pool_swap.to_token_id.0,
-        );
-        for pool in pool_ids.as_ref() {
-            let pool_id = pool.id.0 as u32;
+        let pools = self.pools.as_ref();
+
+        let pool_ids = if pools.is_empty() {
+            let Some(pool_id) = services.poolpair.by_id.get(&(
+                self.pool_swap.from_token_id.0 as u32,
+                self.pool_swap.to_token_id.0 as u32,
+            ))?
+            else {
+                return Err("Missing pool_id".into());
+            };
+            Vec::from([pool_id])
+        } else {
+            pools.iter().map(|pool| pool.id.0 as u32).collect()
+        };
+
+        for pool_id in pool_ids {
             let swap = model::PoolSwap {
                 id: format!("{}-{}", pool_id, txid),
                 sort: format!("{}-{}", ctx.block.height, ctx.tx_idx),

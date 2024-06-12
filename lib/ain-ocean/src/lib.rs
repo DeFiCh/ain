@@ -20,10 +20,10 @@ use repository::{
     OraclePriceAggregatedIntervalRepository, OraclePriceAggregatedRepository,
     OraclePriceAggregatedRepositorykey, OraclePriceFeedKeyRepository, OraclePriceFeedRepository,
     OracleRepository, OracleTokenCurrencyKeyRepository, OracleTokenCurrencyRepository,
-    PoolSwapAggregatedKeyRepository, PoolSwapAggregatedRepository, PoolSwapRepository,
-    PriceTickerKeyRepository, PriceTickerRepository, RawBlockRepository,
-    TransactionByBlockHashRepository, TransactionRepository, TransactionVinRepository,
-    TransactionVoutRepository, TxResultRepository,
+    PoolPairByHeightRepository, PoolPairRepository, PoolSwapAggregatedKeyRepository,
+    PoolSwapAggregatedRepository, PoolSwapRepository, PriceTickerKeyRepository,
+    PriceTickerRepository, RawBlockRepository, TransactionByBlockHashRepository,
+    TransactionRepository, TransactionVinRepository, TransactionVoutRepository, TxResultRepository,
 };
 use serde::Serialize;
 pub mod api;
@@ -64,6 +64,11 @@ pub struct AuctionService {
 
 pub struct PoolService {
     by_id: PoolSwapRepository,
+}
+
+pub struct PoolPairService {
+    by_height: PoolPairByHeightRepository,
+    by_id: PoolPairRepository,
 }
 
 pub struct PoolSwapAggregatedService {
@@ -128,6 +133,7 @@ pub struct Services {
     pub auction: AuctionService,
     pub result: TxResultRepository,
     pub pool: PoolService,
+    pub poolpair: PoolPairService,
     pub pool_swap_aggregated: PoolSwapAggregatedService,
     pub transaction: TransactionService,
     pub oracle: OracleService,
@@ -159,6 +165,10 @@ impl Services {
                 by_height: AuctionHistoryByHeightRepository::new(Arc::clone(&store)),
             },
             result: TxResultRepository::new(Arc::clone(&store)),
+            poolpair: PoolPairService {
+                by_height: PoolPairByHeightRepository::new(Arc::clone(&store)),
+                by_id: PoolPairRepository::new(Arc::clone(&store)),
+            },
             pool: PoolService {
                 by_id: PoolSwapRepository::new(Arc::clone(&store)),
             },

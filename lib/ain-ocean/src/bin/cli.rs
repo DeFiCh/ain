@@ -7,11 +7,10 @@ use std::{
 };
 
 use ain_ocean::{
-    index_block, network::Network, storage::ocean_store::OceanStore, PoolCreationHeight, Result,
-    Services,
+    index_block, network::Network, storage::ocean_store::OceanStore, Result, Services,
 };
 use clap::Parser;
-use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client, PoolPairRPC};
+use defichain_rpc::{json::blockchain::*, Auth, BlockchainRPC, Client};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -67,7 +66,7 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(cli.bind_address).await?;
     let ocean_router =
-        ain_ocean::ocean_router(&services, client.clone(), cli.network.to_string()).await?;
+        ain_ocean::ocean_router(&services, Arc::clone(&client), cli.network.to_string()).await?;
     tokio::spawn(async move { axum::serve(listener, ocean_router).await.unwrap() });
 
     let mut indexed_block = 0;
@@ -106,24 +105,8 @@ async fn main() -> Result<()> {
             Ok(_) => return Err("Error deserializing block".into()),
         };
 
-        let pools = client
-            .list_pool_pairs(None, Some(true))
-            .await?
-            .0
-            .into_iter()
-            .map(|(id, info)| {
-                let pool = PoolCreationHeight {
-                    id: id.parse::<u32>()?,
-                    id_token_a: info.id_token_a.parse::<u32>()?,
-                    id_token_b: info.id_token_b.parse::<u32>()?,
-                    creation_height: info.creation_height as u32,
-                };
-                Ok(pool)
-            })
-            .collect::<Result<Vec<_>>>()?;
-
         next_block_hash = block.nextblockhash;
-        match index_block(&services, block, pools) {
+        match index_block(&services, block) {
             Ok(_) => (),
             Err(e) => {
                 return Err(e);
