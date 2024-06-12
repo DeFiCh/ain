@@ -9,6 +9,7 @@ use axum::{
 };
 use bitcoin::hex::HexToArrayError;
 use serde::Serialize;
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -23,6 +24,8 @@ pub enum NotFoundKind {
     Oracle,
     #[error("token")]
     Token,
+    #[error("poolpair")]
+    PoolPair,
 }
 
 #[derive(Error, Debug)]
@@ -121,8 +124,10 @@ impl ApiError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = self.status;
-        let reason = Json(self);
-        (status, reason).into_response()
+        let body = Json(json!({
+            "error": self.error
+        }));
+        (status, body).into_response()
     }
 }
 

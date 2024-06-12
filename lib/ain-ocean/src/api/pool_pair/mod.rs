@@ -37,7 +37,7 @@ use super::{
     AppContext,
 };
 use crate::{
-    error::{ApiError, Error},
+    error::{ApiError, Error, NotFoundKind},
     model::{BlockContext, PoolSwap, PoolSwapAggregated},
     repository::{InitialKeyProvider, PoolSwapRepository, RepositoryOps, SecondaryIndex},
     storage::SortOrder,
@@ -373,7 +373,7 @@ async fn get_pool_pair(
         return Ok(Response::new(Some(res)));
     };
 
-    Ok(Response::new(None))
+    Err(Error::NotFound(NotFoundKind::PoolPair))
 }
 
 #[ocean_endpoint]
