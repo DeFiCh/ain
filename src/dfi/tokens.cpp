@@ -362,3 +362,19 @@ inline Res CTokenImplementation::IsValidSymbol() const {
     }
     return Res::Ok();
 }
+
+void CTokensView::SetTokenSplitMultiplier(const uint32_t oldId,
+                                          const uint32_t newId,
+                                          const SplitMultiplier multiplier) {
+    WriteBy<TokenSplitMultiplier>(oldId, std::make_pair(newId, multiplier));
+}
+
+std::optional<std::pair<uint32_t, CTokensView::SplitMultiplier>> CTokensView::GetTokenSplitMultiplier(
+    const uint32_t id) const {
+    std::pair<uint32_t, SplitMultiplier> idMultiplierPair;
+    if (ReadBy<TokenSplitMultiplier, uint32_t>(id, idMultiplierPair)) {
+        return idMultiplierPair;
+    }
+
+    return {};
+}

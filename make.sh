@@ -818,7 +818,7 @@ pkg_local_install_py_deps() {
     python3 -m pip install black shellcheck-py codespell==2.2.4 flake8==6.0.0 vulture==2.7
 
     # test deps
-    python3 -m pip install py-solc-x web3
+    python3 -m pip install py-solc-x eth_typing==4.0.0 eth_account==0.11.2 web3
     python3 -c 'from solcx import install_solc;install_solc("0.8.20")'
 
     py_env_deactivate
@@ -1178,7 +1178,7 @@ ci_export_vars() {
         fi
 
         if [[ "${TARGET}" =~ .*darwin.* ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.14}" >> "$GITHUB_ENV"
+            echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}" >> "$GITHUB_ENV"
         fi
 
         echo "RUST_DEFAULT_VERSION=1.76" >> "$GITHUB_ENV"

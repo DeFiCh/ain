@@ -2,10 +2,12 @@ mod blake2;
 mod bn128;
 mod modexp;
 mod simple;
+mod token_split;
 
 #[cfg(test)]
 mod test_vector_support;
 
+use ain_contracts::DST20_ADDR_PREFIX_BYTE;
 use blake2::Blake2F;
 use bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use ethereum_types::H160;
@@ -17,6 +19,8 @@ pub use evm::{
 use modexp::Modexp;
 use simple::{ECRecover, Identity, Ripemd160, Sha256};
 
+use self::token_split::TokenSplit;
+
 type PrecompileResult = Result<PrecompileOutput, PrecompileFailure>;
 
 /// One single precompile used by EVM engine.
@@ -24,6 +28,11 @@ pub trait Precompile {
     /// Try to execute the precompile with given `handle` which provides all call data
     /// and allow to register costs and logs.
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult;
+}
+
+// Precompile with access to mnview
+pub trait DVMStatePrecompile {
+    fn execute(handle: &mut impl PrecompileHandle, mnview_ptr: usize) -> PrecompileResult;
 }
 
 pub trait LinearCostPrecompile {
@@ -46,6 +55,7 @@ impl<T: LinearCostPrecompile> Precompile for T {
         Ok(PrecompileOutput {
             exit_status,
             output,
+            state_changes: None,
         })
     }
 }
@@ -78,12 +88,17 @@ fn ensure_linear_cost(
     Ok(cost)
 }
 
-pub struct MetachainPrecompiles;
+#[derive(Default)]
+pub struct MetachainPrecompiles(Option<usize>);
 
 // Ethereum precompiles available as of shangai fork :
 // Ref: Ethereum Yellow Paper (https://ethereum.github.io/yellowpaper/paper.pdf) Page 12
 impl MetachainPrecompiles {
-    pub fn used_addresses() -> [H160; 9] {
+    pub fn new(mnview_ptr: usize) -> Self {
+        Self(Some(mnview_ptr))
+    }
+
+    pub fn used_addresses() -> [H160; 10] {
         [
             hash(1),
             hash(2),
@@ -94,6 +109,7 @@ impl MetachainPrecompiles {
             hash(7),
             hash(8),
             hash(9),
+            hash(10),
         ]
     }
 }
@@ -110,6 +126,11 @@ impl PrecompileSet for MetachainPrecompiles {
             a if a == hash(7) => Some(Bn128Mul::execute(handle)),
             a if a == hash(8) => Some(Bn128Pairing::execute(handle)),
             a if a == hash(9) => Some(Blake2F::execute(handle)),
+
+            a if a == hash(10) && is_dst20(handle.context().caller) => {
+                let mnview_ptr = self.0.unwrap_or_default(); // If None, should fetch from global view
+                Some(TokenSplit::execute(handle, mnview_ptr))
+            }
             _ => None,
         }
     }
@@ -124,4 +145,8 @@ impl PrecompileSet for MetachainPrecompiles {
 
 fn hash(a: u64) -> H160 {
     H160::from_low_u64_be(a)
+}
+
+fn is_dst20(addr: H160) -> bool {
+    matches!(addr.as_fixed_bytes(), [prefix, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ..] if prefix == &DST20_ADDR_PREFIX_BYTE)
 }

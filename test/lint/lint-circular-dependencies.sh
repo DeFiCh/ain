@@ -55,9 +55,9 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/govvariables/attributes -> dfi/mn_checks -> dfi/govvariables/attributes"
     "dfi/govvariables/attributes -> dfi/mn_checks -> txmempool -> dfi/govvariables/attributes"
     "dfi/govvariables/attributes -> dfi/mn_rpc -> dfi/govvariables/attributes"
-    "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> ffi/ffiexports -> dfi/govvariables/attributes"
     "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> dfi/govvariables/attributes"
-    "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/validation -> dfi/govvariables/attributes"
+    "dfi/govvariables/attributes -> dfi/validation -> dfi/govvariables/attributes"
+    "dfi/govvariables/attributes -> dfi/validation -> ffi/ffiexports -> dfi/govvariables/attributes"
     "dfi/govvariables/attributes -> validation -> dfi/govvariables/attributes"
     "dfi/govvariables/icx_takerfee_per_btc -> dfi/gv -> dfi/govvariables/icx_takerfee_per_btc"
     "dfi/govvariables/loan_daily_reward -> dfi/gv -> dfi/govvariables/loan_daily_reward"
@@ -85,6 +85,8 @@ EXPECTED_CIRCULAR_DEPENDENCIES=(
     "dfi/govvariables/attributes -> dfi/mn_rpc -> wallet/rpcwallet -> init -> rpc/blockchain -> dfi/govvariables/attributes"
     "dfi/mn_rpc -> wallet/rpcwallet -> init -> miner -> dfi/validation -> dfi/mn_rpc"
     "dfi/validation -> validation -> dfi/validation"
+    "dfi/validation -> ffi/ffiexports -> dfi/validation"
+    "node/transaction -> validation -> rpc/resultcache -> rpc/util -> node/transaction"
     "miner -> wallet/wallet -> policy/fees -> miner"
     "net_processing -> validation -> net_processing"
     "policy/fees -> txmempool -> policy/fees"
@@ -150,3 +152,4 @@ for EXPECTED_CIRC in "${EXPECTED_CIRCULAR_DEPENDENCIES[@]}"; do
 done
 
 exit ${EXIT_CODE}
+

@@ -34,7 +34,6 @@ impl Default for TrieDBStore {
 
 impl TrieDBStore {
     pub fn new() -> Self {
-        debug!("Creating new trie store");
         let trie_store = MptStore::new();
         let mut trie = trie_store
             .trie_create(&[0], None, false)

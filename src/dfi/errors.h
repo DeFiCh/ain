@@ -156,6 +156,8 @@ public:
 
     static Res GovVarVerifyPositiveNumber() { return Res::Err("Value must be a positive integer"); }
 
+    static Res GovVarVerifyMoreThanZero() { return Res::Err("Value must be more than zero"); }
+
     static Res GovVarInvalidNumber() { return Res::Err("Amount must be a valid number"); }
 
     static Res GovVarVerifySplitValues() { return Res::Err("Two int values expected for split in id/mutliplier"); }
@@ -260,6 +262,8 @@ public:
 
     static Res GovVarValidateFortCanningSpring() { return Res::Err("Cannot be set before FortCanningSpringHeight"); }
 
+    static Res GovVarValidateDF23Height() { return Res::Err("Cannot be set before DF23Height"); }
+
     static Res GovVarValidateToken(const uint32_t token) { return Res::Err("No such token (%d)", token); }
 
     static Res GovVarValidateTokenExist(const uint32_t token) { return Res::Err("Token (%d) does not exist", token); }
@@ -285,6 +289,8 @@ public:
     }
 
     static Res GovVarUnsupportedValue() { return Res::Err("Unsupported value"); }
+
+    static Res GovVarValidateBlockPeriod() { return Res::Err("Block period must be more than sampling period"); }
 
     static Res GovVarValidateUnsupportedKey() { return Res::Err("Unsupported key"); }
 

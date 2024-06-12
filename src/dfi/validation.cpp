@@ -18,12 +18,16 @@
 #include <dfi/threadpool.h>
 #include <dfi/validation.h>
 #include <dfi/vaulthistory.h>
+#include <ffi/ffiexports.h>
 #include <ffi/ffihelpers.h>
 #include <validation.h>
 
+#include <consensus/params.h>
 #include <boost/asio.hpp>
 
 #define MILLI 0.001
+
+using LoanTokenCollection = std::vector<std::pair<DCT_ID, CLoanSetLoanTokenImplementation>>;
 
 struct NullPoolSwapData {
     uint256 txid;
@@ -983,6 +987,168 @@ static void ProcessLoanEvents(const CBlockIndex *pindex, CCustomCSView &cache, c
     view.Flush();
 }
 
+static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
+                                     CCustomCSView &cache,
+                                     const Consensus::Params &consensus,
+                                     const LoanTokenCollection &loanTokens,
+                                     const bool futureSwapBlock) {
+    // Skip on testnet until later height to avoid a TX that hit the limit and was not rejected
+    // due to a bug in the initital FutureSwap implementation.
+    if ((pindex->nHeight < consensus.DF23Height) ||
+        (Params().NetworkIDString() == CBaseChainParams::TESTNET && pindex->nHeight < 1520000)) {
+        return;
+    }
+
+    auto attributes = cache.GetAttributes();
+
+    CDataStructureV0 activeKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::Active};
+    if (!attributes->GetValue(activeKey, false)) {
+        return;
+    }
+
+    CDataStructureV0 samplingKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::LiquidityCalcSamplingPeriod};
+    const auto samplingPeriod = attributes->GetValue(samplingKey, DEFAULT_LIQUIDITY_CALC_SAMPLING_PERIOD);
+    if ((pindex->nHeight - consensus.DF23Height) % samplingPeriod != 0) {
+        return;
+    }
+
+    CDataStructureV0 blockKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::BlockPeriod};
+    const auto blockPeriod = attributes->GetValue(blockKey, DEFAULT_FS_LIQUIDITY_BLOCK_PERIOD);
+
+    const auto dusdToken = cache.GetToken("DUSD");
+    if (!dusdToken) {
+        return;
+    }
+
+    const auto &dusdID = dusdToken->first;
+
+    std::set<DCT_ID> tokens;
+    for (const auto &[id, loanToken] : loanTokens) {
+        tokens.insert(id);
+    }
+
+    // Filter out DUSD
+    tokens.erase(dusdID);
+
+    // Store liquidity for loan tokens
+    cache.ForEachPoolPair([&](const DCT_ID &, const CPoolPair &poolPair) {
+        // Check for loan token
+        const auto tokenA = tokens.count(poolPair.idTokenA);
+        const auto tokenB = tokens.count(poolPair.idTokenB);
+        if (!tokenA && !tokenB) {
+            return true;
+        }
+
+        // Make sure this is the DUSD loan token pair
+        const auto dusdA = poolPair.idTokenA == dusdID;
+        const auto dusdB = poolPair.idTokenB == dusdID;
+        if (!dusdA && !dusdB) {
+            return true;
+        }
+
+        cache.SetLoanTokenLiquidityPerBlock(
+            {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenA.v, poolPair.idTokenB.v}, poolPair.reserveA);
+        cache.SetLoanTokenLiquidityPerBlock(
+            {static_cast<uint32_t>(pindex->nHeight), poolPair.idTokenB.v, poolPair.idTokenA.v}, poolPair.reserveB);
+
+        return true;
+    });
+
+    // Collect old entries to delete
+    std::vector<LoanTokenLiquidityPerBlockKey> keysToDelete;
+    cache.ForEachTokenLiquidityPerBlock(
+        [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
+            if (key.height <= pindex->nHeight - blockPeriod) {
+                keysToDelete.push_back(key);
+                return true;
+            }
+            return false;
+        });
+
+    // Delete old entries
+    for (const auto &key : keysToDelete) {
+        cache.EraseTokenLiquidityPerBlock(key);
+    }
+
+    if (!futureSwapBlock) {
+        return;
+    }
+
+    // Get liquidity per block for each token
+    std::map<LoanTokenAverageLiquidityKey, std::vector<CAmount>> liquidityPerBlockByToken;
+    cache.ForEachTokenLiquidityPerBlock(
+        [&](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
+            liquidityPerBlockByToken[{key.sourceID, key.destID}].push_back(liquidityPerBlock);
+            return true;
+        });
+
+    // Calculate average liquidity for each token
+    const auto expectedEntries = blockPeriod / samplingPeriod;
+    for (const auto &[key, liquidityPerBlock] : liquidityPerBlockByToken) {
+        if (liquidityPerBlock.size() < expectedEntries) {
+            cache.EraseTokenAverageLiquidity(key);
+            continue;
+        }
+
+        arith_uint256 tokenTotal{};
+        for (const auto &liquidity : liquidityPerBlock) {
+            tokenTotal += liquidity;
+        }
+
+        const auto tokenAverage = tokenTotal / expectedEntries;
+        LogPrint(BCLog::FUTURESWAP,
+                 "Liquidity for future swap limit: token src id: %i, token dest id: %i, new average liquidity: %i\n",
+                 key.sourceID,
+                 key.destID,
+                 tokenAverage.GetLow64());
+        cache.SetLoanTokenAverageLiquidity(key, tokenAverage.GetLow64());
+    }
+}
+
+static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes) {
+    LoanTokenCollection loanTokens;
+
+    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
+    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
+        tokenKey.typeId = id.v;
+        const auto enabled = attributes.GetValue(tokenKey, true);
+        if (!enabled) {
+            return true;
+        }
+
+        loanTokens.emplace_back(id, loanToken);
+
+        return true;
+    });
+
+    if (loanTokens.empty()) {
+        attributes.ForEach(
+            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+                if (attr.type != AttributeTypes::Token) {
+                    return false;
+                }
+
+                tokenKey.typeId = attr.typeId;
+                const auto enabled = attributes.GetValue(tokenKey, true);
+                if (!enabled) {
+                    return true;
+                }
+
+                if (attr.key == TokenKeys::LoanMintingEnabled) {
+                    auto tokenId = DCT_ID{attr.typeId};
+                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                        loanTokens.emplace_back(tokenId, *loanToken);
+                    }
+                }
+
+                return true;
+            },
+            CDataStructureV0{AttributeTypes::Token});
+    }
+
+    return loanTokens;
+}
+
 static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, const Consensus::Params &consensus) {
     if (pindex->nHeight < consensus.DF15FortCanningRoadHeight) {
         return;
@@ -1004,8 +1170,13 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
         return;
     }
 
+    const auto loanTokens = GetLoanTokensForFutures(cache, *attributes);
     const auto blockPeriod = attributes->GetValue(blockKey, CAmount{});
-    if ((pindex->nHeight - startBlock) % blockPeriod != 0) {
+    const auto futureSwapBlock = (pindex->nHeight - startBlock) % blockPeriod == 0;
+
+    LiquidityForFuturesLimit(pindex, cache, consensus, loanTokens, futureSwapBlock);
+
+    if (!futureSwapBlock) {
         return;
     }
 
@@ -1017,46 +1188,6 @@ static void ProcessFutures(const CBlockIndex *pindex, CCustomCSView &cache, cons
     const auto premium{COIN + rewardPct};
 
     std::map<DCT_ID, CFuturesPrice> futuresPrices;
-    CDataStructureV0 tokenKey{AttributeTypes::Token, 0, TokenKeys::DFIP2203Enabled};
-
-    std::vector<std::pair<DCT_ID, CLoanView::CLoanSetLoanTokenImpl>> loanTokens;
-
-    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
-        tokenKey.typeId = id.v;
-        const auto enabled = attributes->GetValue(tokenKey, true);
-        if (!enabled) {
-            return true;
-        }
-
-        loanTokens.emplace_back(id, loanToken);
-
-        return true;
-    });
-
-    if (loanTokens.empty()) {
-        attributes->ForEach(
-            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
-                if (attr.type != AttributeTypes::Token) {
-                    return false;
-                }
-
-                tokenKey.typeId = attr.typeId;
-                const auto enabled = attributes->GetValue(tokenKey, true);
-                if (!enabled) {
-                    return true;
-                }
-
-                if (attr.key == TokenKeys::LoanMintingEnabled) {
-                    auto tokenId = DCT_ID{attr.typeId};
-                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
-                        loanTokens.emplace_back(tokenId, *loanToken);
-                    }
-                }
-
-                return true;
-            },
-            CDataStructureV0{AttributeTypes::Token});
-    }
 
     for (const auto &[id, loanToken] : loanTokens) {
         const auto useNextPrice{false}, requireLivePrice{true};
@@ -2054,10 +2185,7 @@ static void MigrateV1Remnants(const CCustomCSView &cache,
     attributes.SetValue(attrKey, balances);
 }
 
-static Res GetTokenSuffix(const CCustomCSView &view,
-                          const ATTRIBUTES &attributes,
-                          const uint32_t id,
-                          std::string &newSuffix) {
+Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, const uint32_t id, std::string &newSuffix) {
     CDataStructureV0 ascendantKey{AttributeTypes::Token, id, TokenKeys::Ascendant};
     if (attributes.CheckKey(ascendantKey)) {
         const auto &[previousID, str] =
@@ -2135,7 +2263,8 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                                const CreationTxs &creationTxs,
                                const Consensus::Params &consensus,
                                ATTRIBUTES &attributes,
-                               const T &splits) {
+                               const T &splits,
+                               BlockContext &blockCtx) {
     for (const auto &[id, multiplier] : splits) {
         auto time = GetTimeMillis();
         LogPrintf("Token split in progress.. (id: %d, mul: %d, height: %d)\n", id, multiplier, pindex->nHeight);
@@ -2188,17 +2317,14 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             continue;
         }
 
-        // TODO pass block context to update old EVM token.
-        BlockContext dummyContext{std::numeric_limits<uint32_t>::max(), {}, consensus};
-        UpdateTokenContext ctx{*token, dummyContext, true, true, false, pindex->GetBlockHash()};
+        UpdateTokenContext ctx{*token, blockCtx, true, true, false, pindex->GetBlockHash()};
         res = view.UpdateToken(ctx);
         if (!res) {
             LogPrintf("Token split failed on UpdateToken %s\n", res.msg);
             continue;
         }
 
-        // TODO pass block context on fork to create new EVM token.
-        auto resVal = view.CreateToken(newToken, dummyContext);
+        auto resVal = view.CreateToken(newToken, blockCtx);
         if (!resVal) {
             LogPrintf("Token split failed on CreateToken %s\n", resVal.msg);
             continue;
@@ -2371,6 +2497,10 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
             }
         }
 
+        if (pindex->nHeight >= consensus.DF23Height) {
+            view.SetTokenSplitMultiplier(id, newTokenId.v, multiplier);
+        }
+
         view.Flush();
         LogPrintf("Token split completed: (id: %d, mul: %d, time: %dms)\n", id, multiplier, GetTimeMillis() - time);
     }
@@ -2391,11 +2521,11 @@ static void ProcessTokenSplits(const CBlockIndex *pindex,
     if (const auto splits32 = attributes->GetValue(splitKey, OracleSplits{}); !splits32.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits32, blockCtx);
     } else if (const auto splits64 = attributes->GetValue(splitKey, OracleSplits64{}); !splits64.empty()) {
         attributes->EraseKey(splitKey);
         cache.SetVariable(*attributes);
-        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64);
+        ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits64, blockCtx);
     }
 }
 
@@ -2847,7 +2977,8 @@ static Res ProcessEVMQueue(const CBlock &block,
                            const CBlockIndex *pindex,
                            CCustomCSView &cache,
                            const CChainParams &chainparams,
-                           const std::shared_ptr<CScopedTemplate> &evmTemplate) {
+                           BlockContext &blockCtx) {
+    auto &evmTemplate = blockCtx.GetEVMTemplate();
     CKeyID minter;
     assert(block.ExtractMinterKey(minter));
     CScript minerAddress;
@@ -2977,15 +3108,19 @@ static void FlushCacheCreateUndo(const CBlockIndex *pindex,
 
 Res ProcessDeFiEventFallible(const CBlock &block,
                              const CBlockIndex *pindex,
-                             CCustomCSView &mnview,
                              const CChainParams &chainparams,
-                             const std::shared_ptr<CScopedTemplate> &evmTemplate,
-                             const bool isEvmEnabledForBlock) {
+                             const CreationTxs &creationTxs,
+                             BlockContext &blockCtx) {
+    auto isEvmEnabledForBlock = blockCtx.GetEVMEnabledForBlock();
+    auto &mnview = blockCtx.GetView();
     CCustomCSView cache(mnview);
+
+    // Loan splits
+    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
 
     if (isEvmEnabledForBlock) {
         // Process EVM block
-        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, evmTemplate);
+        auto res = ProcessEVMQueue(block, pindex, cache, chainparams, blockCtx);
         if (!res) {
             return res;
         }
@@ -3036,9 +3171,6 @@ void ProcessDeFiEvent(const CBlock &block,
     // Migrate loan and collateral tokens to Gov vars.
     ProcessTokenToGovVar(pindex, cache, consensus);
 
-    // Loan splits
-    ProcessTokenSplits(pindex, cache, creationTxs, blockCtx);
-
     // Set height for live dex data
     if (cache.GetDexStatsEnabled().value_or(false)) {
         cache.SetDexStatsLastHeight(pindex->nHeight);
@@ -3064,4 +3196,102 @@ void ProcessDeFiEvent(const CBlock &block,
 
     // construct undo
     FlushCacheCreateUndo(pindex, mnview, cache, uint256());
+}
+
+bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount) {
+    auto cache = reinterpret_cast<CCustomCSView *>(static_cast<uintptr_t>(mnview_ptr));
+    CCustomCSView copy(*pcustomcsview);
+    if (!cache) {
+        // mnview_ptr will be 0 in case of a RPC `eth_call` or a debug_traceTransaction
+        cache = &copy;
+    }
+
+    if (oldAmount.amount == 0) {
+        return false;
+    }
+
+    const auto token = cache->GetToken(DCT_ID{oldAmount.id});
+    if (!token) {
+        return false;
+    }
+
+    const auto idMultiplierPair = cache->GetTokenSplitMultiplier(oldAmount.id);
+    if (!idMultiplierPair) {
+        newAmount = oldAmount;
+        return true;
+    }
+
+    auto &[id, multiplierVariant] = *idMultiplierPair;
+
+    newAmount.id = id;
+
+    if (const auto multiplier64 = std::get_if<CAmount>(&multiplierVariant); multiplier64) {
+        newAmount.amount = CalculateNewAmount(*multiplier64, oldAmount.amount);
+    } else {
+        const auto multiplier32 = std::get<int32_t>(multiplierVariant);
+        newAmount.amount = CalculateNewAmount(multiplier32, oldAmount.amount);
+    }
+
+    // Only increment minted tokens if there is no additional split on new token.
+    if (const auto additionalSplit = cache->GetTokenSplitMultiplier(newAmount.id); !additionalSplit) {
+        if (const auto res = cache->AddMintedTokens({id}, newAmount.amount); !res) {
+            return res;
+        }
+    }
+
+    auto attributes = cache->GetAttributes();
+    auto stats = attributes->GetValue(CTransferDomainStatsLive::Key, CTransferDomainStatsLive{});
+
+    // Transfer out old token
+    auto outAmount = CTokenAmount{{oldAmount.id}, static_cast<CAmount>(oldAmount.amount)};
+    stats.evmOut.Add(outAmount);
+    stats.evmCurrent.Sub(outAmount);
+    stats.evmDvmTotal.Add(outAmount);
+    stats.dvmIn.Add(outAmount);
+    stats.dvmCurrent.Add(outAmount);
+
+    // Transfer in new token
+    auto inAmount = CTokenAmount{{newAmount.id}, static_cast<CAmount>(newAmount.amount)};
+    stats.dvmEvmTotal.Add(inAmount);
+    stats.dvmOut.Add(inAmount);
+    stats.dvmCurrent.Sub(inAmount);
+    stats.evmIn.Add(inAmount);
+    stats.evmCurrent.Add(inAmount);
+
+    attributes->SetValue(CTransferDomainStatsLive::Key, stats);
+    if (const auto res = cache->SetVariable(*attributes); !res) {
+        return res;
+    }
+
+    return true;
+}
+
+Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount) {
+    if (amount.nValue == 0) {
+        return Res::Ok();
+    }
+
+    while (true) {
+        const auto idMultiplierPair = view.GetTokenSplitMultiplier(amount.nTokenId.v);
+        if (!idMultiplierPair) {
+            return Res::Ok();
+        }
+
+        if (const auto token = view.GetToken(amount.nTokenId); !token) {
+            return Res::Err("Token not found");
+        }
+
+        auto &[id, multiplierVariant] = *idMultiplierPair;
+
+        if (const auto multiplier64 = std::get_if<CAmount>(&multiplierVariant); multiplier64) {
+            amount = {{id}, CalculateNewAmount(*multiplier64, amount.nValue)};
+        } else {
+            const auto multiplier32 = std::get<int32_t>(multiplierVariant);
+            amount = {{id}, CalculateNewAmount(multiplier32, amount.nValue)};
+        }
+
+        if (const auto res = view.AddMintedTokens(amount.nTokenId, amount.nValue); !res) {
+            return res;
+        }
+    }
 }

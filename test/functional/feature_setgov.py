@@ -1062,13 +1062,13 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Value must be a positive integer",
+            "Value must be more than zero",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/dfip2203/block_period": "not_a_number"}},
         )
         assert_raises_rpc_error(
             -5,
-            "Value must be a positive integer",
+            "Value must be more than zero",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/dfip2203/block_period": "-1"}},
         )
@@ -1982,13 +1982,13 @@ class GovsetTest(DefiTestFramework):
         )
         assert_raises_rpc_error(
             -5,
-            "Value must be a positive integer",
+            "Value must be more than zero",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/dfip2206f/block_period": "not_a_number"}},
         )
         assert_raises_rpc_error(
             -5,
-            "Value must be a positive integer",
+            "Value must be more than zero",
             self.nodes[0].setgov,
             {"ATTRIBUTES": {"v0/params/dfip2206f/block_period": "-1"}},
         )

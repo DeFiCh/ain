@@ -21,6 +21,7 @@ fn main() -> Result<()> {
         ("transfer_domain_v1", "TransferDomainV1"),
         ("dst20", "DST20"),
         ("dst20_v1", "DST20V1"),
+        ("dst20_v2", "DST20V2"),
     ];
 
     for (sol_project_name, contract_name) in contracts {

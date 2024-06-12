@@ -24,8 +24,8 @@ BOOST_AUTO_TEST_CASE(getwalletenv_file)
 
     std::string filename;
     std::shared_ptr<BerkeleyEnvironment> env = GetWalletEnv(file_path, filename);
-    BOOST_CHECK(filename == test_name);
-    BOOST_CHECK(env->Directory() == datadir);
+    BOOST_CHECK_EQUAL(filename, test_name);
+    BOOST_CHECK_EQUAL(env->Directory(), datadir.parent_path());
 }
 
 BOOST_AUTO_TEST_CASE(getwalletenv_directory)

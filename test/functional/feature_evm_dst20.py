@@ -1103,6 +1103,24 @@ class DST20(DefiTestFramework):
             },
         )
 
+        # Update again loan token
+        self.nodes[0].updateloantoken(
+            "META",
+            {
+                "symbol": "FB",
+                "name": "Facebook",
+            },
+        )
+        self.nodes[0].generate(1)
+
+        # Check contract variables
+        self.tsla = self.nodes[0].w3.eth.contract(
+            address=self.contract_address_tsla, abi=self.abi
+        )
+
+        assert_equal(self.tsla.functions.name().call(), "Facebook")
+        assert_equal(self.tsla.functions.symbol().call(), "FB")
+
     def run_test(self):
         self.node = self.nodes[0]
         self.w0 = self.node.w3

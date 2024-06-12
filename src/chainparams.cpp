@@ -142,7 +142,7 @@ public:
         consensus.DF20GrandCentralHeight = 2479000; // Dec 8th, 2022.
         consensus.DF21GrandCentralEpilogueHeight = 2574000; // Jan 10th, 2023.
         consensus.DF22MetachainHeight = 3462000; // Nov 15th, 2023.
-        consensus.DF23Height = std::numeric_limits<int>::max();
+        consensus.DF23Height = 4006000; // May 23th, 2024. Tentative date, might change on stable release.
         consensus.DF24Height = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -364,7 +364,17 @@ public:
                 {2500000,uint256S("cf1df1124af59b9928fac48947883206dd33d165022086bee9d5001d047395da")},
                 {2600000,uint256S("af065074bb15c3583abcd3e7c22035a026cfd8d3fbc72d890fcd8b435cd8b7b4")},
                 {2700000,uint256S("3cf74bcaea19d457c7d8e7896177035e3e446f41ee2ac72dbfb25ac2072f49c5")},
-                {3310000,uint256S("87584e474d74a5bdea797ef684ab8c1347bed6baad26a9d1a0e00032c8d68bfa")},
+                {2800000,uint256S("e4a4b8961e5bc591892937f95a45b41ea35b653a4f98309973b86c95a3b38036")},
+                {2900000,uint256S("58b47020bbf8db5c7b4c5a9aa187288b0de404c794d33917bcba7d311680edc6")},
+                {3000000,uint256S("3fdfc99b955b6e994425d9702d529fd7a2db89805bc40f1e8d083f691ede20d7")},
+                {3100000,uint256S("5f77e698c51b65e606518c644b9b218005962877b3476cbe5f40fe5dc7b93663")},
+                {3200000,uint256S("574cea827d87c657396cb5142066e9e8ca83ab153e5350bf9c18328c0d456910")},
+                {3300000,uint256S("399a3617dbcf8cfe6bc4ef6cac961d617120a42db95180961db549b867ded8e7")},
+                {3400000,uint256S("83b2c5860f25cf411b722e5d127c0855dc7a514a1eed28279aab2a77f1ba0028")},
+                {3500000,uint256S("bf4c732e9a55d13f9a5d4b3c3a224232079251ea983c6c6c2a5fa5d5e91f12e9")},
+                {3600000,uint256S("cd7fb7dd41b2f77a6895133d15b81a4294663963512d756c75e6974e09a1e335")},
+                {3700000,uint256S("e579ea61173bce909b2bf13f2ede98c1025cef51350209953f235209a73bad01")},
+                {3800000,uint256S("8930b8a43a6413dc8739bec47123b0bb556f6ce2dac3583acefa533b966cb719")},
 
             }
         };
@@ -421,7 +431,7 @@ public:
         consensus.DF20GrandCentralHeight = 1150020;
         consensus.DF21GrandCentralEpilogueHeight = 1150030;
         consensus.DF22MetachainHeight = 1150040;
-        consensus.DF23Height = std::numeric_limits<int>::max();
+        consensus.DF23Height = 1507200;
         consensus.DF24Height = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
@@ -641,7 +651,7 @@ public:
         consensus.DF20GrandCentralHeight = 1366000;
         consensus.DF21GrandCentralEpilogueHeight = 1438200;
         consensus.DF22MetachainHeight = 1586750;
-        consensus.DF23Height = std::numeric_limits<int>::max();
+        consensus.DF23Height = 1985600;
         consensus.DF24Height = std::numeric_limits<int>::max();
 
         consensus.pos.diffLimit = uint256S("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");

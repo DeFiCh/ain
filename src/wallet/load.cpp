@@ -18,7 +18,7 @@
 bool VerifyWallets(interfaces::Chain& chain, const std::vector<std::string>& wallet_files)
 {
     if (gArgs.IsArgSet("-walletdir")) {
-        fs::path wallet_dir = fs::PathFromString(gArgs.GetArg("-walletdir", ""));
+        const fs::path wallet_dir{gArgs.GetPathArg("-walletdir")};
         std::error_code error;
         // The canonical path cleans the path, preventing >1 Berkeley environment instances for the same directory
         fs::path canonical_wallet_dir = fs::canonical(wallet_dir, error);

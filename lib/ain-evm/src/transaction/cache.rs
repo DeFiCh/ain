@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use ethereum::{EnvelopedEncodable, TransactionV2};
 use ethereum_types::U256;
-use log::debug;
+use log::trace;
 use lru::LruCache;
 
 use crate::{transaction::SignedTx, Result};
@@ -26,9 +26,9 @@ impl TransactionCache {
 impl TransactionCache {
     pub fn try_get_or_create(&self, key: &str) -> Result<SignedTx> {
         let mut guard = self.signed_tx_cache.inner.lock();
-        debug!("[signed-tx-cache]::get: {}", key);
+        trace!("[signed-tx-cache]::get: {}", key);
         let res = guard.try_get_or_insert(key.to_string(), || {
-            debug!("[signed-tx-cache]::create {}", key);
+            trace!("[signed-tx-cache]::create {}", key);
             SignedTx::try_from(key)
         })?;
         Ok(res.clone())
@@ -36,9 +36,9 @@ impl TransactionCache {
 
     pub fn pre_populate(&self, key: &str, signed_tx: SignedTx) -> Result<()> {
         let mut guard = self.signed_tx_cache.inner.lock();
-        debug!("[signed-tx-cache]::pre_populate: {}", key);
+        trace!("[signed-tx-cache]::pre_populate: {}", key);
         let _ = guard.get_or_insert(key.to_string(), move || {
-            debug!("[signed-tx-cache]::pre_populate:: create {}", key);
+            trace!("[signed-tx-cache]::pre_populate:: create {}", key);
             signed_tx
         });
 
@@ -49,9 +49,9 @@ impl TransactionCache {
         let data = EnvelopedEncodable::encode(tx);
         let key = hex::encode(&data);
         let mut guard = self.signed_tx_cache.inner.lock();
-        debug!("[signed-tx-cache]::get from tx: {}", &key);
+        trace!("[signed-tx-cache]::get from tx: {}", &key);
         let res = guard.try_get_or_insert(key.clone(), || {
-            debug!("[signed-tx-cache]::create from tx {}", &key);
+            trace!("[signed-tx-cache]::create from tx {}", &key);
             SignedTx::try_from(key.as_str())
         })?;
         Ok(res.clone())

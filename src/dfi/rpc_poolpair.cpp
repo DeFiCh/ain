@@ -1,6 +1,7 @@
 #include <dfi/mn_rpc.h>
 
 #include <dfi/govvariables/attributes.h>
+#include <dfi/validation.h>
 
 UniValue poolToJSON(const CCustomCSView &view,
                     DCT_ID const &id,
@@ -1414,19 +1415,84 @@ UniValue listpoolshares(const JSONRPCRequest &request) {
     return GetRPCResultCache().Set(request, ret);
 }
 
+UniValue listloantokenliquidity(const JSONRPCRequest &request) {
+    RPCHelpMan{
+        "listloantokenliquidity",
+        "\nReturns information about the average liquidity for loan tokens if a sufficient sample is available.\n",
+        {{}},
+        RPCResult{"{token symbol : value }     (array) JSON object with token ID and average liquidity\n"},
+        RPCExamples{HelpExampleCli("listloantokenliquidity", "") + HelpExampleRpc("listloantokenliquidity", "")},
+    }
+        .Check(request);
+
+    if (auto res = GetRPCResultCache().TryGet(request)) {
+        return *res;
+    }
+
+    LOCK(cs_main);
+
+    UniValue ret(UniValue::VARR);
+    const auto height = ::ChainActive().Height();
+
+    const auto attributes = pcustomcsview->GetAttributes();
+
+    CDataStructureV0 averageKey{AttributeTypes::Param, ParamIDs::DFIP2211F, DFIPKeys::AverageLiquidityPercentage};
+    const auto averageLiquidityPercentage = attributes->GetValue(averageKey, DEFAULT_AVERAGE_LIQUIDITY_PERCENTAGE);
+
+    const auto dusdToken = pcustomcsview->GetToken("DUSD");
+    if (!dusdToken) {
+        return ret;
+    }
+
+    const auto dusdId = dusdToken->first.v;
+
+    pcustomcsview->ForEachTokenAverageLiquidity([&](const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
+        const auto sourceToken = pcustomcsview->GetToken(DCT_ID{key.sourceID});
+        const auto destToken = pcustomcsview->GetToken(DCT_ID{key.destID});
+
+        if (sourceToken && destToken) {
+            arith_uint256 totalSwapAmount{};
+            pcustomcsview->ForEachFuturesUserValues(
+                [&](const CFuturesUserKey &, const CFuturesUserValue &futuresValues) {
+                    const auto destination = futuresValues.destination ? futuresValues.destination : dusdId;
+                    if (futuresValues.source.nTokenId.v == key.sourceID && destination == key.destID) {
+                        totalSwapAmount += futuresValues.source.nValue;
+                    }
+                    return true;
+                },
+                {static_cast<uint32_t>(height), {}, std::numeric_limits<uint32_t>::max()});
+
+            const auto liquidityLimit = MultiplyAmounts(liquidity, averageLiquidityPercentage);
+
+            UniValue poolRes(UniValue::VOBJ);
+            UniValue limitRes(UniValue::VOBJ);
+            limitRes.pushKV("liquidity", GetDecimalString(liquidity));
+            limitRes.pushKV("limit", GetDecimalString(liquidityLimit));
+            limitRes.pushKV("remaining", GetDecimalString(liquidityLimit - totalSwapAmount.GetLow64()));
+            poolRes.pushKV(sourceToken->symbol + '-' + destToken->symbol, limitRes);
+            ret.push_back(poolRes);
+        }
+
+        return true;
+    });
+
+    return GetRPCResultCache().Set(request, ret);
+}
+
 static const CRPCCommand commands[] = {
   //  category        name                        actor (function)            params
   //  -------------   -----------------------     ---------------------       ----------
-    {"poolpair", "listpoolpairs",       &listpoolpairs,       {"pagination", "verbose"}                },
-    {"poolpair", "getpoolpair",         &getpoolpair,         {"key", "verbose"}                       },
-    {"poolpair", "addpoolliquidity",    &addpoolliquidity,    {"from", "shareAddress", "inputs"}       },
-    {"poolpair", "removepoolliquidity", &removepoolliquidity, {"from", "amount", "inputs"}             },
-    {"poolpair", "createpoolpair",      &createpoolpair,      {"metadata", "inputs"}                   },
-    {"poolpair", "updatepoolpair",      &updatepoolpair,      {"metadata", "inputs"}                   },
-    {"poolpair", "poolswap",            &poolswap,            {"metadata", "inputs"}                   },
-    {"poolpair", "compositeswap",       &compositeswap,       {"metadata", "inputs"}                   },
-    {"poolpair", "listpoolshares",      &listpoolshares,      {"pagination", "verbose", "is_mine_only"}},
-    {"poolpair", "testpoolswap",        &testpoolswap,        {"metadata", "path", "verbose"}          },
+    {"poolpair", "listpoolpairs",          &listpoolpairs,          {"pagination", "verbose"}                },
+    {"poolpair", "getpoolpair",            &getpoolpair,            {"key", "verbose"}                       },
+    {"poolpair", "addpoolliquidity",       &addpoolliquidity,       {"from", "shareAddress", "inputs"}       },
+    {"poolpair", "removepoolliquidity",    &removepoolliquidity,    {"from", "amount", "inputs"}             },
+    {"poolpair", "createpoolpair",         &createpoolpair,         {"metadata", "inputs"}                   },
+    {"poolpair", "updatepoolpair",         &updatepoolpair,         {"metadata", "inputs"}                   },
+    {"poolpair", "poolswap",               &poolswap,               {"metadata", "inputs"}                   },
+    {"poolpair", "compositeswap",          &compositeswap,          {"metadata", "inputs"}                   },
+    {"poolpair", "listpoolshares",         &listpoolshares,         {"pagination", "verbose", "is_mine_only"}},
+    {"poolpair", "testpoolswap",           &testpoolswap,           {"metadata", "path", "verbose"}          },
+    {"poolpair", "listloantokenliquidity", &listloantokenliquidity, {}                                       },
 };
 
 void RegisterPoolpairRPCCommands(CRPCTable &tableRPC) {

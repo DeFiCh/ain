@@ -578,3 +578,7 @@ std::string trim_ws(std::string const & str)
     size_t last = str.find_last_not_of(ws);
     return str.substr(first, (last - first + 1));
 }
+
+void rtrim(std::string &s, unsigned char remove) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [&remove](unsigned char ch) { return ch != remove; }).base(), s.end());
+}

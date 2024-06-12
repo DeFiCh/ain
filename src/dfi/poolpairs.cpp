@@ -672,6 +672,47 @@ Res CPoolPairView::SetShare(DCT_ID const &poolId, const CScript &provider, uint3
     return Res::Ok();
 }
 
+bool CPoolPairView::SetLoanTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key,
+                                                  const CAmount liquidityPerBlock) {
+    return WriteBy<ByLoanTokenLiquidityPerBlock>(key, liquidityPerBlock);
+}
+
+bool CPoolPairView::EraseTokenLiquidityPerBlock(const LoanTokenLiquidityPerBlockKey &key) {
+    return EraseBy<ByLoanTokenLiquidityPerBlock>(key);
+}
+
+void CPoolPairView::ForEachTokenLiquidityPerBlock(
+    std::function<bool(const LoanTokenLiquidityPerBlockKey &key, const CAmount liquidityPerBlock)> callback,
+    const LoanTokenLiquidityPerBlockKey &start) {
+    ForEach<ByLoanTokenLiquidityPerBlock, LoanTokenLiquidityPerBlockKey, CAmount>(
+        [&callback](const LoanTokenLiquidityPerBlockKey &key, const CAmount &liquidityPerBlock) {
+            return callback(key, liquidityPerBlock);
+        },
+        start);
+}
+
+bool CPoolPairView::SetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity) {
+    return WriteBy<ByLoanTokenLiquidityAverage>(key, liquidity);
+}
+
+std::optional<uint64_t> CPoolPairView::GetLoanTokenAverageLiquidity(const LoanTokenAverageLiquidityKey &key) {
+    return ReadBy<ByLoanTokenLiquidityAverage, CAmount>(key);
+}
+
+bool CPoolPairView::EraseTokenAverageLiquidity(const LoanTokenAverageLiquidityKey key) {
+    return EraseBy<ByLoanTokenLiquidityAverage>(key);
+}
+
+void CPoolPairView::ForEachTokenAverageLiquidity(
+    std::function<bool(const LoanTokenAverageLiquidityKey &key, const uint64_t liquidity)> callback,
+    const LoanTokenAverageLiquidityKey start) {
+    ForEach<ByLoanTokenLiquidityAverage, LoanTokenAverageLiquidityKey, uint64_t>(
+        [&callback](const LoanTokenAverageLiquidityKey &key, const uint64_t &liquidity) {
+            return callback(key, liquidity);
+        },
+        start);
+}
+
 Res CPoolPairView::DelShare(DCT_ID const &poolId, const CScript &provider) {
     EraseBy<ByShare>(PoolShareKey{poolId, provider});
     return Res::Ok();

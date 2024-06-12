@@ -65,7 +65,12 @@ class TokensAuthChange(DefiTestFramework):
 
         # Create foundation token
         create_tx = self.nodes[0].createtoken(
-            {"symbol": "GOLD", "isDAT": False, "collateralAddress": collateral_a}
+            {
+                "symbol": "GOLD",
+                "name": "GOLD",
+                "isDAT": False,
+                "collateralAddress": collateral_a,
+            }
         )
         self.nodes[0].generate(1, 1000000, coinbase)
 
@@ -279,6 +284,7 @@ class TokensAuthChange(DefiTestFramework):
         create_tx = self.nodes[0].createtoken(
             {
                 "symbol": "BRONZE",
+                "name": "BRONZE",
                 "isDAT": True,
                 "collateralAddress": self.nodes[0].PRIV_KEYS[0].ownerAuthAddress,
             }
