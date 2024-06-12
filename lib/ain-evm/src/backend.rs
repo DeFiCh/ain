@@ -295,6 +295,10 @@ impl EVMBackend {
         Ok(())
     }
 
+    pub fn update_vicinity_from_header(&mut self, header: Header) {
+        self.vicinity = Vicinity::from(header);
+    }
+
     pub fn update_vicinity_with_gas_used(&mut self, gas_used: U256) {
         self.vicinity = Vicinity {
             total_gas_used: gas_used,

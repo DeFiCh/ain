@@ -14,6 +14,7 @@ use log::debug;
 use crate::{
     call_request::CallRequest,
     errors::{to_custom_err, RPCError},
+    trace::TraceParams,
     transaction::{TraceLogs, TraceTransactionResult},
 };
 
@@ -28,7 +29,11 @@ pub struct FeeEstimate {
 #[rpc(server, client, namespace = "debug")]
 pub trait MetachainDebugRPC {
     #[method(name = "traceTransaction")]
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult>;
+    fn trace_transaction(
+        &self,
+        tx_hash: H256,
+        trace_params: Option<TraceParams>,
+    ) -> RpcResult<TraceTransactionResult>;
 
     // Get transaction fee estimate
     #[method(name = "feeEstimate")]
@@ -61,7 +66,11 @@ impl MetachainDebugRPCModule {
 }
 
 impl MetachainDebugRPCServer for MetachainDebugRPCModule {
-    fn trace_transaction(&self, tx_hash: H256) -> RpcResult<TraceTransactionResult> {
+    fn trace_transaction(
+        &self,
+        tx_hash: H256,
+        _trace_params: Option<TraceParams>,
+    ) -> RpcResult<TraceTransactionResult> {
         self.is_trace_enabled().or_else(|_| self.is_enabled())?;
 
         debug!(target: "rpc", "Tracing transaction {tx_hash}");
@@ -83,7 +92,7 @@ impl MetachainDebugRPCServer for MetachainDebugRPCModule {
         let signed_tx = SignedTx::try_from(tx).map_err(to_custom_err)?;
         let (logs, succeeded, return_data, gas_used) = self
             .handler
-            .core
+            .tracer
             .call_with_tracer(&signed_tx, receipt.block_number)
             .map_err(RPCError::EvmError)?;
         let trace_logs = logs.iter().map(|x| TraceLogs::from(x.clone())).collect();

@@ -231,6 +231,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ain-rs-exports"
+version = "0.1.0"
+dependencies = [
+ "ain-contracts",
+ "ain-cpp-imports",
+ "ain-evm",
+ "ain-grpc",
+ "ain-macros",
+ "anyhow",
+ "cxx",
+ "cxx-gen",
+ "ethabi",
+ "ethereum",
+ "ethereum-types",
+ "hex",
+ "log",
+ "proc-macro2",
+ "rlp",
+ "serde_json",
+]
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1077,6 +1099,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scratch",
+ "syn 2.0.53",
+]
+
+[[package]]
+name = "cxx-gen"
+version = "0.7.123"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "815c5db00477e66d8819915be809baab3c4ed81e064a8bd514584dc21f3f97c7"
+dependencies = [
+ "codespan-reporting",
+ "proc-macro2",
+ "quote",
  "syn 2.0.53",
 ]
 
@@ -2657,7 +2691,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.4",
 ]
 
 [[package]]
