@@ -281,7 +281,7 @@ class EvmTracerTest(DefiTestFramework):
                 )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -405,7 +405,7 @@ class EvmTracerTest(DefiTestFramework):
                 )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -463,7 +463,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test tracer for every transfer tx
         for tx in block_txs[2:]:
@@ -478,7 +478,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -545,7 +545,7 @@ class EvmTracerTest(DefiTestFramework):
         )
         # Accumulate tx traces
         res = self.nodes[0].debug_traceTransaction(block_txs[0]["hash"])
-        block_trace.append(res)
+        block_trace.append({"result": res, "txHash": block_txs[0]["hash"]})
 
         # Test tracer for every tx
         for tx in block_txs[1:]:
@@ -560,7 +560,7 @@ class EvmTracerTest(DefiTestFramework):
             )
             # Accumulate tx traces
             res = self.nodes[0].debug_traceTransaction(tx["hash"])
-            block_trace.append(res)
+            block_trace.append({"result": res, "txHash": tx["hash"]})
 
         # Test block tracer
         assert_equal(block_trace, self.nodes[0].debug_traceBlockByNumber("latest"))
@@ -569,321 +569,6 @@ class EvmTracerTest(DefiTestFramework):
         )
 
         # Check DST20 update tokens
-        token_info = self.nodes[0].listtokens()["1"]
-        assert_equal(token_info["symbol"], "goldy")
-        assert_equal(token_info["name"], "GOLD token")
-
-    def test_tracer_on_transfer_tx_with_transferdomain_txs(self):
-        self.rollback_to(self.start_height)
-
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        for i in range(3):
-            _ = self.nodes[0].eth_sendTransaction(
-                {
-                    "nonce": hex(start_nonce + i),
-                    "from": self.ethAddress,
-                    "to": self.toAddress,
-                    "value": "0xDE0B6B3A7640000",  # 1 DFI
-                    "gas": "0x5209",
-                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-                }
-            )
-        # Add transfer domain in inside block
-        in_hash = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "1@DFI", "domain": 2},
-                    "dst": {
-                        "address": self.ethAddress,
-                        "amount": "1@DFI",
-                        "domain": 3,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        # Add transfer domain out inside block
-        out_hash = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.ethAddress, "amount": "1@DFI", "domain": 3},
-                    "dst": {
-                        "address": self.address,
-                        "amount": "1@DFI",
-                        "domain": 2,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        for i in range(4, 7):
-            _ = self.nodes[0].eth_sendTransaction(
-                {
-                    "nonce": hex(start_nonce + i),
-                    "from": self.ethAddress,
-                    "to": self.toAddress,
-                    "value": "0xDE0B6B3A7640000",  # 1 DFI
-                    "gas": "0x5209",
-                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-                }
-            )
-        self.nodes[0].generate(1)
-        evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
-        evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
-
-        # Test tracer for every tx
-        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
-            "transactions"
-        ]
-        for tx in evm_block_txs:
-            if tx["hash"] == evm_in_hash:
-                # Test trace for transferdomain evm-in tx
-                assert_equal(
-                    self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    self.native_td_in_data,
-                )
-            elif tx["hash"] == evm_out_hash:
-                # Test trace for transferdomain evm-in tx
-                assert_equal(
-                    self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    self.native_td_out_data,
-                )
-            else:
-                assert_equal(
-                    self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    {
-                        "gas": "0x5208",
-                        "failed": False,
-                        "returnValue": "",
-                        "structLogs": [],
-                    },
-                )
-
-    def test_tracer_on_transfer_tx_with_dst20_transferdomain_txs(self):
-        self.rollback_to(self.start_height)
-
-        # Create tokens
-        symbolBTC = "BTC"
-        self.nodes[0].createtoken(
-            {
-                "symbol": symbolBTC,
-                "name": "BTC token",
-                "isDAT": True,
-                "collateralAddress": self.address,
-            }
-        )
-        self.nodes[0].generate(1)
-        self.nodes[0].minttokens("100@BTC")
-        self.nodes[0].generate(1)
-        self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "10@BTC", "domain": 2},
-                    "dst": {
-                        "address": self.ethAddress,
-                        "amount": "10@BTC",
-                        "domain": 3,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        self.nodes[0].generate(1)
-
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        for i in range(3):
-            _ = self.nodes[0].eth_sendTransaction(
-                {
-                    "nonce": hex(start_nonce + i),
-                    "from": self.ethAddress,
-                    "to": self.toAddress,
-                    "value": "0xDE0B6B3A7640000",  # 1 DFI
-                    "gas": "0x5209",
-                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-                }
-            )
-        # Add transfer domain in inside block
-        in_hash = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.address, "amount": "1@BTC", "domain": 2},
-                    "dst": {
-                        "address": self.ethAddress,
-                        "amount": "1@BTC",
-                        "domain": 3,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        # Add transfer domain out inside block
-        out_hash = self.nodes[0].transferdomain(
-            [
-                {
-                    "src": {"address": self.ethAddress, "amount": "1@BTC", "domain": 3},
-                    "dst": {
-                        "address": self.address,
-                        "amount": "1@BTC",
-                        "domain": 2,
-                    },
-                    "singlekeycheck": False,
-                }
-            ]
-        )
-        for i in range(4, 7):
-            _ = self.nodes[0].eth_sendTransaction(
-                {
-                    "nonce": hex(start_nonce + i),
-                    "from": self.ethAddress,
-                    "to": self.toAddress,
-                    "value": "0xDE0B6B3A7640000",  # 1 DFI
-                    "gas": "0x5209",
-                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-                }
-            )
-        self.nodes[0].generate(1)
-        evm_in_hash = self.nodes[0].vmmap(in_hash, 5)["output"]
-        evm_out_hash = self.nodes[0].vmmap(out_hash, 5)["output"]
-
-        # Test tracer for every tx
-        evm_block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)[
-            "transactions"
-        ]
-        for tx in evm_block_txs:
-            if tx["hash"] == evm_in_hash:
-                # Test trace for transferdomain evm-in tx
-                assert_equal(
-                    self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    self.dst20_td_in_data,
-                )
-            elif tx["hash"] == evm_out_hash:
-                # Test trace for transferdomain evm-out tx
-                assert_equal(
-                    self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    self.dst20_td_out_data,
-                )
-            else:
-                assert_equal(
-                    self.nodes[0].debug_traceTransaction(tx["hash"]),
-                    {
-                        "gas": "0x5208",
-                        "failed": False,
-                        "returnValue": "",
-                        "structLogs": [],
-                    },
-                )
-
-    def test_tracer_on_transfer_tx_with_deploy_dst20_txs(self):
-        self.rollback_to(self.start_height)
-
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        for i in range(6):
-            _ = self.nodes[0].eth_sendTransaction(
-                {
-                    "nonce": hex(start_nonce + i),
-                    "from": self.ethAddress,
-                    "to": self.toAddress,
-                    "value": "0xDE0B6B3A7640000",  # 1 DFI
-                    "gas": "0x5209",
-                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-                }
-            )
-        # Create tokens
-        self.nodes[0].createtoken(
-            {
-                "symbol": "USDT",
-                "name": "USDT token",
-                "isDAT": True,
-                "collateralAddress": self.address,
-            }
-        )
-        self.nodes[0].createtoken(
-            {
-                "symbol": "BTC",
-                "name": "BTC token",
-                "isDAT": True,
-                "collateralAddress": self.address,
-            }
-        )
-        self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
-
-        # Test tracer for every DST20 creation tx
-        for tx in block_txs[:2]:
-            assert_equal(
-                self.nodes[0].debug_traceTransaction(tx["hash"]),
-                {
-                    "gas": "0x0",
-                    "failed": False,
-                    "returnValue": "",
-                    "structLogs": [],
-                },
-            )
-
-        # Test tracer for every transfer tx
-        for tx in block_txs[2:]:
-            assert_equal(
-                self.nodes[0].debug_traceTransaction(tx["hash"]),
-                {
-                    "gas": "0x5208",
-                    "failed": False,
-                    "returnValue": "",
-                    "structLogs": [],
-                },
-            )
-
-    def test_tracer_on_transfer_tx_with_deploy_and_update_dst20_txs(self):
-        self.rollback_to(self.start_height)
-
-        # Create tokens
-        self.nodes[0].createtoken(
-            {
-                "symbol": "USDT",
-                "name": "USDT token",
-                "isDAT": True,
-                "collateralAddress": self.address,
-            }
-        )
-        self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
-        assert_equal(
-            self.nodes[0].debug_traceTransaction(block_txs[0]["hash"]),
-            {
-                "gas": "0x0",
-                "failed": False,
-                "returnValue": "",
-                "structLogs": [],
-            },
-        )
-
-        # Update tokens
-        token_info = self.nodes[0].listtokens()["1"]
-        self.nodes[0].updatetoken("1", {"symbol": "goldy", "name": "GOLD token"})
-        start_nonce = self.nodes[0].w3.eth.get_transaction_count(self.ethAddress)
-        for i in range(6):
-            _ = self.nodes[0].eth_sendTransaction(
-                {
-                    "nonce": hex(start_nonce + i),
-                    "from": self.ethAddress,
-                    "to": self.toAddress,
-                    "value": "0xDE0B6B3A7640000",  # 1 DFI
-                    "gas": "0x5209",
-                    "gasPrice": "0x5D21DBA00",  # 25_000_000_000
-                }
-            )
-        self.nodes[0].generate(1)
-        block_txs = self.nodes[0].eth_getBlockByNumber("latest", True)["transactions"]
-        # Test tracer for every tx
-        for tx in block_txs[2:]:
-            assert_equal(
-                self.nodes[0].debug_traceTransaction(tx["hash"]),
-                {
-                    "gas": "0x5208",
-                    "failed": False,
-                    "returnValue": "",
-                    "structLogs": [],
-                },
-            )
         token_info = self.nodes[0].listtokens()["1"]
         assert_equal(token_info["symbol"], "goldy")
         assert_equal(token_info["name"], "GOLD token")
