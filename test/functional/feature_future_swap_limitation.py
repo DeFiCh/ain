@@ -244,7 +244,7 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Try and set sample size of zero
         assert_raises_rpc_error(
             -5,
-            "Value must more than zero",
+            "Value must be more than zero",
             self.nodes[0].setgov,
             {
                 "ATTRIBUTES": {
@@ -312,7 +312,22 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Check liquidity data
         assert_equal(
             self.nodes[0].listloantokenliquidity(),
-            {"META-DUSD": "100.00000000", "DUSD-META": "100.00000000"},
+            [
+                {
+                    "META-DUSD": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "10.00000000",
+                    }
+                },
+                {
+                    "DUSD-META": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "10.00000000",
+                    }
+                },
+            ],
         )
 
         # Try and swap above limit
@@ -347,10 +362,80 @@ class FutureSwapLimitationTest(DefiTestFramework):
         )
         self.nodes[0].generate(1)
 
-        # Swap the max limit
-        self.nodes[0].futureswap(self.address, "5.00000000@META")
+        # Swap half the limit
         self.nodes[0].futureswap(self.address, "5.00000000@META")
         self.nodes[0].generate(1)
+
+        # Check liquidity data
+        assert_equal(
+            self.nodes[0].listloantokenliquidity(),
+            [
+                {
+                    "META-DUSD": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "5.00000000",
+                    }
+                },
+                {
+                    "DUSD-META": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "10.00000000",
+                    }
+                },
+            ],
+        )
+
+        # Swap the max limit
+        self.nodes[0].futureswap(self.address, "5.00000000@META")
+        self.nodes[0].generate(1)
+
+        # Check liquidity data
+        assert_equal(
+            self.nodes[0].listloantokenliquidity(),
+            [
+                {
+                    "META-DUSD": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "0.00000000",
+                    }
+                },
+                {
+                    "DUSD-META": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "10.00000000",
+                    }
+                },
+            ],
+        )
+
+        # Swap the max limit in the other direction
+        self.nodes[0].futureswap(self.address, "10.00000000@DUSD", "META")
+        self.nodes[0].generate(1)
+
+        # Check liquidity data
+        assert_equal(
+            self.nodes[0].listloantokenliquidity(),
+            [
+                {
+                    "META-DUSD": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "0.00000000",
+                    }
+                },
+                {
+                    "DUSD-META": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "0.00000000",
+                    }
+                },
+            ],
+        )
 
         # Try and swap above limit
         assert_raises_rpc_error(
@@ -367,7 +452,22 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Check liquidity data changed
         assert_equal(
             self.nodes[0].listloantokenliquidity(),
-            {"META-DUSD": "69.98499472", "DUSD-META": "160.00000000"},
+            [
+                {
+                    "META-DUSD": {
+                        "liquidity": "69.98499472",
+                        "limit": "6.99849947",
+                        "remaining": "6.99849947",
+                    }
+                },
+                {
+                    "DUSD-META": {
+                        "liquidity": "160.00000000",
+                        "limit": "16.00000000",
+                        "remaining": "16.00000000",
+                    }
+                },
+            ],
         )
 
         # Try and swap above new limit
@@ -415,7 +515,7 @@ class FutureSwapLimitationTest(DefiTestFramework):
         self.nodes[0].generate(1)
 
         # Check liquidity data empty
-        assert_equal(self.nodes[0].listloantokenliquidity(), {})
+        assert_equal(self.nodes[0].listloantokenliquidity(), [])
 
     def test_longer_fs_limit_period(self):
 
@@ -464,7 +564,22 @@ class FutureSwapLimitationTest(DefiTestFramework):
         # Check minimum liquidity
         assert_equal(
             self.nodes[0].listloantokenliquidity(),
-            {"META-DUSD": "100.00000000", "DUSD-META": "100.00000000"},
+            [
+                {
+                    "META-DUSD": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "10.00000000",
+                    }
+                },
+                {
+                    "DUSD-META": {
+                        "liquidity": "100.00000000",
+                        "limit": "10.00000000",
+                        "remaining": "10.00000000",
+                    }
+                },
+            ],
         )
 
 
