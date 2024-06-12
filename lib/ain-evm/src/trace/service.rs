@@ -1,8 +1,11 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
+
+use ethereum::BlockAny;
+use ethereum_types::{H160, H256, U256};
+use log::debug;
+use lru::LruCache;
 
 use anyhow::format_err;
-use ethereum_types::{H160, U256};
-use log::debug;
 use parking_lot::Mutex;
 
 use crate::{
@@ -28,14 +31,19 @@ use crate::{
     Result,
 };
 
-// TODO: Add block traces cache
-#[derive(Clone, Debug, Default)]
-pub struct TracerCache {}
+// The default LRU cache size
+const TRACER_TX_LRU_CACHE_DEFAULT_SIZE: usize = 10_000;
+const TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE: usize = 1_000;
+
+pub struct TraceCache {
+    tx_cache: LruCache<(H256, TracerInput), TransactionTrace>,
+    block_cache: LruCache<(H256, TracerInput), Vec<(H256, TransactionTrace)>>,
+}
 
 pub struct TracerService {
-    pub trie_store: Arc<TrieDBStore>,
+    trie_store: Arc<TrieDBStore>,
     storage: Arc<Storage>,
-    pub tracer_cache: Arc<Mutex<TracerCache>>,
+    tracer_cache: Mutex<TraceCache>,
 }
 
 /// Tracer service methods
@@ -44,7 +52,14 @@ impl TracerService {
         Self {
             trie_store,
             storage,
-            tracer_cache: Arc::new(Mutex::new(TracerCache::default())),
+            tracer_cache: Mutex::new(TraceCache {
+                tx_cache: LruCache::new(
+                    NonZeroUsize::new(TRACER_TX_LRU_CACHE_DEFAULT_SIZE).unwrap(),
+                ),
+                block_cache: LruCache::new(
+                    NonZeroUsize::new(TRACER_BLOCK_LRU_CACHE_DEFAULT_SIZE).unwrap(),
+                ),
+            }),
         }
     }
 
@@ -55,6 +70,10 @@ impl TracerService {
         tracer_params: (TracerInput, TraceType),
         raw_max_memory_usage: usize,
     ) -> Result<TransactionTrace> {
+        if let Some(res) = self.get_tx_trace((tx.hash(), tracer_params.0)) {
+            return Ok(res);
+        }
+
         // Backend state to start the tx replay should be at the end of the previous block
         let start_block_number = block_number.checked_sub(U256::one());
         let mut backend = self
@@ -82,17 +101,75 @@ impl TracerService {
             let tx_data = &txs_data[idx];
             let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
             if tx.hash() == replay_tx.hash() {
-                return self.execute_tx_with_tracer(
+                let res = self.execute_tx_with_tracer(
                     &mut backend,
                     exec_tx,
                     tracer_params,
                     raw_max_memory_usage,
                     base_fee,
-                );
+                )?;
+                // Add tracer to cache
+                self.cache_tx_trace((tx.hash(), tracer_params.0), res.clone());
+                return Ok(res);
             }
             AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
         }
         Err(format_err!("Cannot replay tx, does not exist in block.").into())
+    }
+
+    pub fn trace_block(
+        &self,
+        trace_block: BlockAny,
+        tracer_params: (TracerInput, TraceType),
+        raw_max_memory_usage: usize,
+    ) -> Result<Vec<(H256, TransactionTrace)>> {
+        let block_hash = trace_block.header.hash();
+        if let Some(res) = self.get_block_trace((block_hash, tracer_params.0)) {
+            return Ok(res);
+        }
+
+        // Backend state to start the tx replay should be at the end of the previous block
+        let start_block_number = trace_block.header.number.checked_sub(U256::one());
+        let mut backend = self
+            .get_backend_from_block(start_block_number, None, None, None)
+            .map_err(|e| format_err!("Could not restore backend {}", e))?;
+        backend.update_vicinity_from_header(trace_block.header.clone());
+        let base_fee = trace_block.header.base_fee;
+        let replay_txs: Vec<_> = trace_block
+            .transactions
+            .into_iter()
+            .flat_map(SignedTx::try_from)
+            .collect();
+        let txs_data = ain_cpp_imports::get_evm_system_txs_from_block(
+            trace_block.header.hash().to_fixed_bytes(),
+        );
+        if replay_txs.len() != txs_data.len() {
+            return Err(format_err!("Cannot replay tx, DVM and EVM block state mismatch.").into());
+        }
+
+        let mut res = vec![];
+        for (idx, replay_tx) in replay_txs.iter().enumerate() {
+            let tx_data = &txs_data[idx];
+            let exec_tx = ExecuteTx::from_tx_data(tx_data.clone(), replay_tx.clone())?;
+            let trace = if let Some(trace) = self.get_tx_trace((replay_tx.hash(), tracer_params.0))
+            {
+                AinExecutor::new(&mut backend).execute_tx(exec_tx, base_fee, None)?;
+                trace
+            } else {
+                let trace = self.execute_tx_with_tracer(
+                    &mut backend,
+                    exec_tx,
+                    tracer_params,
+                    raw_max_memory_usage,
+                    base_fee,
+                )?;
+                self.cache_tx_trace((replay_tx.hash(), tracer_params.0), trace.clone());
+                trace
+            };
+            res.push((replay_tx.hash(), trace));
+        }
+        self.cache_block_trace((block_hash, tracer_params.0), res.clone());
+        Ok(res)
     }
 
     pub fn create_access_list(&self, arguments: EthCallArgs) -> Result<AccessListInfo> {
@@ -237,5 +314,29 @@ impl TracerService {
             vicinity,
             overlay,
         )
+    }
+
+    fn get_tx_trace(&self, key: (H256, TracerInput)) -> Option<TransactionTrace> {
+        let mut cache = self.tracer_cache.lock();
+        cache.tx_cache.get(&key).cloned()
+    }
+
+    fn get_block_trace(&self, key: (H256, TracerInput)) -> Option<Vec<(H256, TransactionTrace)>> {
+        let mut cache = self.tracer_cache.lock();
+        cache.block_cache.get(&key).cloned()
+    }
+
+    fn cache_tx_trace(&self, key: (H256, TracerInput), trace_tx: TransactionTrace) {
+        let mut cache = self.tracer_cache.lock();
+        cache.tx_cache.put(key, trace_tx);
+    }
+
+    fn cache_block_trace(
+        &self,
+        key: (H256, TracerInput),
+        block_trace: Vec<(H256, TransactionTrace)>,
+    ) {
+        let mut cache = self.tracer_cache.lock();
+        cache.block_cache.put(key, block_trace);
     }
 }

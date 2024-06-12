@@ -280,6 +280,8 @@ class TestNode:
         "net_version",
         # debug
         "debug_traceTransaction",
+        "debug_traceBlockByNumber",
+        "debug_traceBlockByHash",
         "debug_feeEstimate",
         # web3
         "web3_clientVersion",

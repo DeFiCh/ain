@@ -34,7 +34,7 @@ pub enum Call {
     CallTracer(CallTracerCall),
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum TracerInput {
     None,
     Blockscout,
