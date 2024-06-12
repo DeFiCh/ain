@@ -24,7 +24,7 @@ use ain_macros::ffi_fallible;
 use anyhow::format_err;
 use ethereum::{EnvelopedEncodable, TransactionAction, TransactionSignature, TransactionV2};
 use ethereum_types::{H160, H256, U256};
-use log::debug;
+use log::trace;
 use transaction::{LegacyUnsignedTransaction, LOWER_H256};
 
 use crate::{
@@ -346,7 +346,7 @@ fn evm_try_unsafe_validate_raw_tx_in_template(
     template: &BlockTemplateWrapper,
     raw_tx: &str,
 ) -> Result<()> {
-    debug!("[unsafe_validate_raw_tx_in_template]");
+    trace!("[unsafe_validate_raw_tx_in_template]");
     unsafe {
         let _ = SERVICES
             .evm
@@ -384,7 +384,7 @@ fn evm_try_unsafe_validate_transferdomain_tx_in_template(
     raw_tx: &str,
     context: ffi::TransferDomainInfo,
 ) -> Result<()> {
-    debug!("[unsafe_validate_transferdomain_tx_in_template]");
+    trace!("[unsafe_validate_transferdomain_tx_in_template]");
     unsafe {
         let _ = SERVICES.evm.core.validate_raw_transferdomain_tx(
             raw_tx,
@@ -727,7 +727,7 @@ fn evm_try_unsafe_create_dst20(
     token: ffi::DST20TokenInfo,
 ) -> Result<()> {
     let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-    debug!("Deploying to address {:#?}", address);
+    trace!("Deploying to address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::DeployContract(DeployContractData {
         name: token.name,
@@ -867,7 +867,7 @@ fn evm_try_unsafe_rename_dst20(
     token: ffi::DST20TokenInfo,
 ) -> Result<()> {
     let address = ain_contracts::dst20_address_from_token_id(token.id)?;
-    debug!("Renaming token on address {:#?}", address);
+    trace!("Renaming token on address {:#?}", address);
 
     let system_tx = ExecuteTx::SystemTx(SystemTx::UpdateContractName(UpdateContractNameData {
         name: token.name,

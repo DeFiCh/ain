@@ -522,8 +522,5 @@ uint64_t getDF23Height() {
 }
 
 bool migrateTokensFromEVM(std::size_t mnview_ptr, TokenAmount old_amount, TokenAmount &new_amount) {
-    if (!ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount)) {
-        return false;
-    }
-    return true;
+    return ExecuteTokenMigrationEVM(mnview_ptr, old_amount, new_amount);
 }

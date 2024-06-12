@@ -1,10 +1,11 @@
 use std::{cell::RefCell, num::NonZeroUsize, rc::Rc, sync::Arc};
 
-use anyhow::format_err;
 use ethereum::BlockAny;
 use ethereum_types::{H160, H256, U256};
 use log::debug;
 use lru::LruCache;
+
+use anyhow::format_err;
 use parking_lot::Mutex;
 
 use crate::{

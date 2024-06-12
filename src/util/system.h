@@ -48,6 +48,15 @@ bool error(const char* fmt, const Args&... args)
     return false;
 }
 
+namespace util {
+enum LockResult {
+    Success,
+    ErrorWrite,
+    ErrorLock,
+};
+[[nodiscard]] LockResult LockDirectory(const fs::path& directory, const fs::path& lockfile_name, bool probe_only = false);
+} // namespace util
+
 // Adding some generic function pointers to keep things contained without taking
 // dependencies on HTTPServer on libs that don't need it
 typedef std::function<std::pair<bool, std::string>(const std::string&)> HTTPHeaderQueryFunc;
@@ -61,7 +70,6 @@ void AllocateFileRange(FILE *file, unsigned int offset, unsigned int length);
 bool RenameOver(fs::path src, fs::path dest);
 bool LockDirectory(const fs::path& directory, const std::string lockfile_name, bool probe_only=false);
 void UnlockDirectory(const fs::path& directory, const std::string& lockfile_name);
-bool DirIsWritable(const fs::path& directory);
 bool CheckDiskSpace(const fs::path& dir, uint64_t additional_bytes = 0);
 
 /** Release all directory locks. This is used for unit testing only, at runtime
@@ -179,6 +187,16 @@ public:
 
     NODISCARD bool ParseParameters(int argc, const char* const argv[], std::string& error);
     NODISCARD bool ReadConfigFiles(std::string& error, bool ignore_invalid_keys = false);
+
+    /**
+     * Get a normalized path from a specified pathlike argument
+     *
+     * It is guaranteed that the returned path has no trailing slashes.
+     *
+     * @param pathlike_arg Pathlike argument to get a path from (e.g., "-datadir", "-blocksdir" or "-walletdir")
+     * @return Normalized path which is get from a specified pathlike argument
+     */
+    fs::path GetPathArg(std::string pathlike_arg) const;
 
     /**
      * Log warnings for options in m_section_only_args when
