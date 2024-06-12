@@ -1106,6 +1106,40 @@ static void LiquidityForFuturesLimit(const CBlockIndex *pindex,
     }
 }
 
+static auto GetLoanTokensForLock(CCustomCSView &cache) {
+    LoanTokenCollection loanTokens;
+    const auto attributes= cache.GetAttributes();
+    cache.ForEachLoanToken([&](const DCT_ID &id, const CLoanView::CLoanSetLoanTokenImpl &loanToken) {
+        if (!loanToken.mintable) {
+            return true;
+        }
+
+        loanTokens.emplace_back(id, loanToken);
+        return true;
+    });
+
+    if (loanTokens.empty()) {
+        attributes->ForEach(
+            [&](const CDataStructureV0 &attr, const CAttributeValue &) {
+                if (attr.type != AttributeTypes::Token) {
+                    return false;
+                }
+
+                if (attr.key == TokenKeys::LoanMintingEnabled) {
+                    auto tokenId = DCT_ID{attr.typeId};
+                    if (auto loanToken = cache.GetLoanTokenFromAttributes(tokenId)) {
+                        loanTokens.emplace_back(tokenId, *loanToken);
+                    }
+                }
+
+                return true;
+            },
+            CDataStructureV0{AttributeTypes::Token});
+    }
+
+    return loanTokens;
+}
+
 static auto GetLoanTokensForFutures(CCustomCSView &cache, ATTRIBUTES attributes) {
     LoanTokenCollection loanTokens;
 
@@ -1622,19 +1656,21 @@ static Res UpdateLiquiditySplits(CCustomCSView &view,
 
 template <typename T>
 static Res PoolSplits(CCustomCSView &view,
-                      CAmount &totalBalance,
+                      std::map < uint32_t,CAmount> &totalBalancePerOldToken,
                       ATTRIBUTES &attributes,
-                      const DCT_ID oldTokenId,
-                      const DCT_ID newTokenId,
+                      const std::map<uint32_t, DCT_ID> &tokenMap,
                       const CBlockIndex *pindex,
-                      const CreationTxs &creationTxs,
+                      const std::vector<std::pair<DCT_ID, uint256>> &poolCreationTxs,
                       const T multiplier) {
-    LogPrintf(
-        "Pool migration in progress.. (token %d -> %d, height: %d)\n", oldTokenId.v, newTokenId.v, pindex->nHeight);
+    //TODO: print whole map
+    LogPrintf("Pool migration in progress.. (token %d -> %d, height: %d)\n",
+              tokenMap.begin()->first,
+              tokenMap.begin()->second.v,
+              pindex->nHeight);
 
     try {
-        assert(creationTxs.count(oldTokenId.v));
-        for (const auto &[oldPoolId, creationTx] : creationTxs.at(oldTokenId.v).second) {
+        assert(poolCreationTxs.size());
+        for (const auto &[oldPoolId, creationTx] : poolCreationTxs) {
             auto loopTime = GetTimeMillis();
             auto oldPoolToken = view.GetToken(oldPoolId);
             if (!oldPoolToken) {
@@ -1676,6 +1712,24 @@ static Res PoolSplits(CCustomCSView &view,
                 throw std::runtime_error(res.msg);
             }
 
+            auto oldPoolPair = view.GetPoolPair(oldPoolId);
+            if (!oldPoolPair) {
+                throw std::runtime_error(strprintf("Failed to get related pool: %d", oldPoolId.v));
+            }
+
+            CPoolPair newPoolPair{*oldPoolPair};
+            if (tokenMap.count(oldPoolPair->idTokenA.v)) {
+                newPoolPair.idTokenA = tokenMap.at(oldPoolPair->idTokenA.v);
+            }
+            if (tokenMap.count(oldPoolPair->idTokenB.v)) {
+                newPoolPair.idTokenB = tokenMap.at(oldPoolPair->idTokenB.v);
+            }
+
+            const auto tokenA = view.GetToken(newPoolPair.idTokenA);
+            const auto tokenB = view.GetToken(newPoolPair.idTokenB);
+            //in case the symbol of the tokens changed during the split (happens on lock split DUSD->USDD)
+            newPoolToken.symbol = tokenA->symbol+"-"+tokenB->symbol;
+            
             auto resVal = view.CreateToken(newPoolToken, dummyContext);
             if (!resVal) {
                 throw std::runtime_error(resVal.msg);
@@ -1683,10 +1737,6 @@ static Res PoolSplits(CCustomCSView &view,
 
             const DCT_ID newPoolId{resVal.val->v};
 
-            auto oldPoolPair = view.GetPoolPair(oldPoolId);
-            if (!oldPoolPair) {
-                throw std::runtime_error(strprintf("Failed to get related pool: %d", oldPoolId.v));
-            }
 
             LogPrintf("Pool migration: Old pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
                       oldPoolId.v,
@@ -1696,12 +1746,6 @@ static Res PoolSplits(CCustomCSView &view,
                       oldPoolPair->reserveB,
                       oldPoolPair->totalLiquidity);
 
-            CPoolPair newPoolPair{*oldPoolPair};
-            if (oldPoolPair->idTokenA == oldTokenId) {
-                newPoolPair.idTokenA = newTokenId;
-            } else {
-                newPoolPair.idTokenB = newTokenId;
-            }
             newPoolPair.creationTx = newPoolToken.creationTx;
             newPoolPair.creationHeight = pindex->nHeight;
             newPoolPair.reserveA = 0;
@@ -1778,14 +1822,17 @@ static Res PoolSplits(CCustomCSView &view,
                 oldPoolPair->totalLiquidity -= amount;
 
                 CAmount amountA{0}, amountB{0};
-                if (oldPoolPair->idTokenA == oldTokenId) {
+                if (tokenMap.count(oldPoolPair->idTokenA.v)) {
                     amountA = CalculateNewAmount(multiplier, resAmountA);
-                    totalBalance += amountA;
-                    amountB = resAmountB;
+                    totalBalancePerOldToken[oldPoolPair->idTokenA.v] += amountA;
                 } else {
                     amountA = resAmountA;
+                }
+                if (tokenMap.count(oldPoolPair->idTokenB.v)) {
                     amountB = CalculateNewAmount(multiplier, resAmountB);
-                    totalBalance += amountB;
+                    totalBalancePerOldToken[oldPoolPair->idTokenB.v] += amountB;
+                } else {
+                    amountB = resAmountB;
                 }
 
                 CAccountsHistoryWriter addView(view,
@@ -1859,10 +1906,11 @@ static Res PoolSplits(CCustomCSView &view,
             }
 
             DCT_ID maxToken{std::numeric_limits<uint32_t>::max()};
-            if (oldPoolPair->idTokenA == oldTokenId) {
+            if (tokenMap.count(oldPoolPair->idTokenA.v)) {
                 view.EraseDexFeePct(oldPoolPair->idTokenA, maxToken);
                 view.EraseDexFeePct(maxToken, oldPoolPair->idTokenA);
-            } else {
+            }
+            if (tokenMap.count(oldPoolPair->idTokenB.v)) {
                 view.EraseDexFeePct(oldPoolPair->idTokenB, maxToken);
                 view.EraseDexFeePct(maxToken, oldPoolPair->idTokenB);
             }
@@ -1875,13 +1923,14 @@ static Res PoolSplits(CCustomCSView &view,
                     strprintf("totalLiquidity should be zero. Remainder: %d", oldPoolPair->totalLiquidity));
             }
 
-            LogPrintf("Pool migration: New pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
-                      newPoolId.v,
-                      newPoolPair.idTokenA.v,
-                      newPoolPair.idTokenB.v,
-                      newPoolPair.reserveA,
-                      newPoolPair.reserveB,
-                      newPoolPair.totalLiquidity);
+            LogPrintf(
+                "Pool migration: New pair (id: %d, token a: %d, b: %d, reserve a: %d, b: %d, liquidity: %d)\n",
+                newPoolId.v,
+                newPoolPair.idTokenA.v,
+                newPoolPair.idTokenB.v,
+                newPoolPair.reserveA,
+                newPoolPair.reserveB,
+                newPoolPair.totalLiquidity);
 
             res = view.SetPoolPair(newPoolId, pindex->nHeight, newPoolPair);
             if (!res) {
@@ -1922,12 +1971,11 @@ static Res PoolSplits(CCustomCSView &view,
                 throw std::runtime_error(res.msg);
             }
             LogPrintf("Pool migration complete: (%d -> %d, height: %d, time: %dms)\n",
-                      oldPoolId.v,
-                      newPoolId.v,
-                      pindex->nHeight,
-                      GetTimeMillis() - loopTime);
+                        oldPoolId.v,
+                        newPoolId.v,
+                        pindex->nHeight,
+                        GetTimeMillis() - loopTime);
         }
-
     } catch (const std::runtime_error &e) {
         return Res::Err(e.what());
     }
@@ -2376,13 +2424,19 @@ static void ExecuteTokenSplits(const CBlockIndex *pindex,
                           multiplier,
                           ParamIDs::Auction);
 
-        CAmount totalBalance{0};
+        std::map<uint32_t,CAmount> totalBalanceMap;
+        totalBalanceMap[oldTokenId.v] = CAmount{0};
 
-        res = PoolSplits(view, totalBalance, attributes, oldTokenId, newTokenId, pindex, creationTxs, multiplier);
-        if (!res) {
+        std::map<uint32_t,DCT_ID> tokenMap;
+        tokenMap[oldTokenId.v]= newTokenId;
+
+        if (!creationTxs.count(oldTokenId.v) || 
+        !PoolSplits(
+                view, totalBalanceMap, attributes, tokenMap, pindex, creationTxs.at(oldTokenId.v).second, multiplier)) {
             LogPrintf("Pool splits failed %s\n", res.msg);
             continue;
         }
+        auto totalBalance= totalBalanceMap[oldTokenId.v];
 
         std::map<CScript, std::pair<CTokenAmount, CTokenAmount>> balanceUpdates;
 
@@ -2559,7 +2613,38 @@ static void ForceCloseAllLoans(const CBlockIndex *pindex, CCustomCSView &cache, 
     });
 }
 
-static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, BlockContext &blockCtx) {
+//creates the needed splits for token lock and the number of needed pools
+void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLoanTokenImplementation &)> tokenCallback,
+                             std::function<bool(const DCT_ID &, const CPoolPair &)> poolCallback,
+                             CCustomCSView &cache) {
+    const auto attributes= cache.GetAttributes();
+    const auto loanTokens= GetLoanTokensForLock(cache);
+    std::unordered_set<uint32_t> addedPools;
+    for (const auto &[id, token] : loanTokens) {
+        tokenCallback(id,token);
+        cache.ForEachPoolPair([&, id = id.v](DCT_ID const &poolId, const CPoolPair &pool) {
+            if(addedPools.count(poolId.v) > 0) return true;
+            addedPools.emplace(poolId.v);
+            if (pool.idTokenA.v == id || pool.idTokenB.v == id) {
+                const auto tokenA = cache.GetToken(pool.idTokenA);
+                const auto tokenB = cache.GetToken(pool.idTokenB);
+                assert(tokenA);
+                assert(tokenB);
+                if ((tokenA->destructionHeight == -1 && tokenA->destructionTx == uint256{}) &&
+                    (tokenB->destructionHeight == -1 && tokenB->destructionTx == uint256{})) {
+                    poolCallback(poolId, pool);
+                    
+                }
+            }
+            return true;
+        });
+    }
+}
+
+static void ProcessTokenLock(const CBlock &block,
+                             const CBlockIndex *pindex,
+                             CCustomCSView &cache,
+                             BlockContext &blockCtx) {
     const auto &consensus = blockCtx.GetConsensus();
     if (pindex->nHeight != consensus.DF24Height) {
         return;
@@ -2580,38 +2665,84 @@ static void ProcessTokenLock(const CBlockIndex *pindex, CCustomCSView &cache, Bl
     //block hash as creation tx, no other tx there
     std::vector<std::pair<DCT_ID, uint256>> emptyPoolPairs;
 
-    auto attributes = cache.GetAttributes();
-    const auto loanTokens = GetLoanTokensForFutures(cache, *attributes);
+    //get creation txs
+    bool opcodes{false};
+    std::vector<unsigned char> metadata;
+    uint32_t type;
+    uint32_t metaId;
+    int32_t metaMultiplier;
+    std::map<uint32_t,uint256> creationTxPerId;
+    for (const auto &tx : block.vtx) {
+        if (ParseScriptByMarker(tx->vout[0].scriptPubKey, DfTokenSplitMarker, metadata, opcodes)) {
+            try {
+                CDataStream ss(metadata, SER_NETWORK, PROTOCOL_VERSION);
+                ss >> type;
+                ss >> metaId;
+                ss >> metaMultiplier;
 
-    for (const auto &[id, loanToken] : loanTokens) {
-            if (!loanToken.mintable) {
-                continue;
+                if (COIN == metaMultiplier) {
+                    creationTxPerId[metaId] = tx->GetHash();
+                }
+            } catch (const std::ios_base::failure &) {
+                LogPrintf("Failed to read ID and multiplier from token split coinbase TXs. TX: %s\n",
+                          tx->GetHash().ToString());
             }
-            splits.emplace(id.v, COIN);
-            //TODO: need unique creation Tx -> fake it 
-            uint256 txCreation;
-            txCreation.SetHex(tfm::format("%x",id.v));
-            creationTxs.emplace(id.v, std::make_pair(txCreation, emptyPoolPairs));
-
-            //TODO: normal token split requires token to be locked before
-            CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, id.v};
-            attributes->SetValue(lockKey,true);
+        }
     }
+
+    auto attributes = cache.GetAttributes();
+    // get tokens with matched with creationTx
+    // get list of pools, matched with creationTx
+
+    std::vector<std::pair<DCT_ID, uint256>> creationTxPerPoolId;
+    ForEachLockTokenAndPool(
+        [&](const DCT_ID &id, const CLoanSetLoanTokenImplementation &token) {
+            splits.emplace(id.v, COIN);
+            creationTxs.emplace(id.v, std::make_pair(creationTxPerId[id.v], emptyPoolPairs));
+
+            // TODO: normal token split requires token to be locked before
+            CDataStructureV0 lockKey{AttributeTypes::Locks, ParamIDs::TokenID, id.v};
+            attributes->SetValue(lockKey, true);
+            return true;
+        },
+        [&](const DCT_ID &id, const CPoolPair &token) {
+            creationTxPerPoolId.emplace_back(std::make_pair(id,creationTxPerId[id.v]));
+            return true;
+        },
+        cache);
+
     cache.SetVariable(*attributes);
 
     LogPrintf("got lock %d splits\n", splits.size());
-    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx,"/lock");
-    //for each in loantoken -> create new token (what to use for creation tx?)
-    // token suffix "/locked"
 
-    //refactor existing method with parameters for suffix, 
-    //update new DUSD to USDD
-    //adapt/refactor PoolSplit to allow for DUSD convert simulatnuously
+    // Execute Splits on tokens (without pools)
+    ExecuteTokenSplits(pindex, cache, creationTxs, consensus, *attributes, splits, blockCtx,"/lock");
+
+    // get map oldTokenId->newTokenId
+    std::map<uint32_t, DCT_ID> oldTokenToNewToken;
+    std::map<uint32_t, CAmount> totalBalanceMap;
+
+    CDataStructureV0 descendantKey{AttributeTypes::Token, 0, TokenKeys::Descendant};
+    for (const auto &[id, multiplier] : splits) {
+        descendantKey.typeId = id;
+        const DescendantValue desc = attributes->GetValue(descendantKey,DescendantValue{});
+        oldTokenToNewToken[id] = DCT_ID{desc.first};
+        totalBalanceMap[id]= CAmount{0};
+    }
+    // update new DUSD to USDD
+
+    // convert pools, based on tokenMap (needs change in existing code)
+
+    auto res = PoolSplits(cache, totalBalanceMap, *attributes, oldTokenToNewToken, pindex, creationTxPerPoolId, COIN);
+    if (!res) {
+        LogPrintf("Pool splits failed %s\n", res.msg);
+        //TODO: handle error
+    }
 
     // lock (1-<lockRatio>) of all USDD (new DUSD) collateral
-    // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools go to address
-    // lock (1-<lockRatio>)% of balances for new tokens
-    }
+    // remove (1-<lockRatio>)% of liquidity of new pools, loantokens are locked as coins, non-lock-tokens in pools
+    // go to address lock (1-<lockRatio>)% of balances for new tokens
+}
 
 static void ProcessTokenSplits(const CBlockIndex *pindex,
                                CCustomCSView &cache,
@@ -3226,7 +3357,7 @@ Res ProcessDeFiEventFallible(const CBlock &block,
     if (pindex->nHeight == chainparams.GetConsensus().DF24Height) {
         auto time = GetTimeMillis();
         LogPrintf("locking dToken oversupply ...\n");
-        ProcessTokenLock(pindex,cache,blockCtx);
+        ProcessTokenLock(block, pindex,cache,blockCtx);
         LogPrint(BCLog::BENCH, "    - locking dToken oversupply took: %dms\n", GetTimeMillis() - time);
     }
 

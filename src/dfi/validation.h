@@ -44,4 +44,8 @@ Res GetTokenSuffix(const CCustomCSView &view, const ATTRIBUTES &attributes, cons
 bool ExecuteTokenMigrationEVM(std::size_t mnview_ptr, const TokenAmount oldAmount, TokenAmount &newAmount);
 Res ExecuteTokenMigrationTransferDomain(CCustomCSView &view, CTokenAmount &amount);
 
+void ForEachLockTokenAndPool(std::function<bool(const DCT_ID &, const CLoanSetLoanTokenImplementation &)> tokenCallback,
+                             std::function<bool(const DCT_ID &, const CPoolPair &)> poolCallback,
+                             CCustomCSView &cache);
+
 #endif  // DEFI_DFI_VALIDATION_H
