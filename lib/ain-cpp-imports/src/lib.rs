@@ -68,6 +68,9 @@ mod ffi {
     pub fn getEthMaxConnections() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
+    pub fn printEVMPortUsage(_port_type: u8, _port_number: u16) {
+        unimplemented!("{}", UNIMPL_MSG)
+    }
     pub fn getEthMaxResponseByteSize() -> u32 {
         unimplemented!("{}", UNIMPL_MSG)
     }
@@ -213,6 +216,11 @@ pub fn get_datadir() -> String {
 /// Defaults to 100
 pub fn get_max_connections() -> u32 {
     ffi::getEthMaxConnections()
+}
+
+/// Logs the auto port used by the node.
+pub fn print_port_usage(port_type: u8, port_number: u16) {
+    ffi::printEVMPortUsage(port_type, port_number);
 }
 
 /// Gets the maximum response size in bytes for Ethereum RPC calls.
